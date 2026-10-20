@@ -112,3 +112,21 @@ def test_tool_uses_suffix_rule_without_legacy_private_bypass(monkeypatch):
     monkeypatch.setattr(tools, "_resolve_host_addresses", resolve("10.56.10.20"))
     assert tools.validate_browser_url("https://portal.enterprise.example.test") is None
     assert tools.validate_browser_url("https://unrelated.example.test")
+
+
+@pytest.mark.parametrize("host", ["cnooc", "datalake.cnooc", "login.team.cnooc", "DATALAKE.CNOOC."])
+def test_explicit_enterprise_internal_namespace_suffix(host):
+    policy = [{"origin_suffix": "https://cnooc", "cidrs": ["10.56.10.0/24"]}]
+    assert suffix_check("https://" + host + "/", policy=policy) is None
+
+
+@pytest.mark.parametrize("url", ["https://evilcnooc/", "https://datalake.cnooc.evil.test/", "https://cnooc.com.cn/", "http://datalake.cnooc/", "https://datalake.cnooc:8443/"])
+def test_internal_namespace_does_not_grant_other_origins(url):
+    policy = [{"origin_suffix": "https://cnooc", "cidrs": ["10.56.10.0/24"]}]
+    assert suffix_check(url, policy=policy)
+
+
+@pytest.mark.parametrize("host", ["hnwork.w.cnooc.com.cn", "accounts.w.cnooc.com.cn", "login.w.cnooc.com.cn", "au.cnooc.com.cn", "cnoocclaw.cnooc.com.cn"])
+def test_enterprise_web_hosts_need_one_suffix_rule(host):
+    policy = [{"origin_suffix": "https://cnooc.com.cn", "cidrs": ["10.56.10.0/24"]}]
+    assert suffix_check("https://" + host + "/", policy=policy) is None

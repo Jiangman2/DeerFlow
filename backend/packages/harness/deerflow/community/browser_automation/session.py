@@ -23,6 +23,7 @@ import os
 import re
 import threading
 import time
+import uuid
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -226,6 +227,10 @@ class BrowserSessionCapacityError(RuntimeError):
     """Raised when the browser session cap has no evictable slot."""
 
 
+class BrowserSessionChangedError(RuntimeError):
+    """A reconnect must not silently create or attach to a different browser."""
+
+
 class BrowserLiveViewerError(RuntimeError):
     """Raised when a second Live viewer tries to attach to a session."""
 
@@ -317,6 +322,13 @@ class BrowserTab:
     active: bool
 
 
+class BrowserLoginRequired(RuntimeError):
+    """A user-owned login page must not enter model context."""
+
+    def __init__(self):
+        super().__init__("Browser is reserved for manual login. Ask the user to complete login in Browser Live and select Resume agent; never request passwords or verification codes in chat.")
+
+
 class BrowserSession:
     """A single Playwright browser+page bound to the private loop."""
 
@@ -330,7 +342,12 @@ class BrowserSession:
         cdp_url: str | None = None,
         url_guard: Callable[[str], str | None] | None = None,
         on_activity: Callable[[], None] | None = None,
+        manual_login_origins: tuple[str, ...] = (),
     ) -> None:
+        self.session_id = uuid.uuid4().hex
+        self._manual_login = False
+        self._manual_login_origins = frozenset(manual_login_origins)
+        self._control_lock = asyncio.Lock()
         self._loop = loop
         self._headless = headless
         self._timeout_ms = timeout_ms
@@ -571,13 +588,99 @@ class BrowserSession:
         except Exception as exc:
             logger.debug("browser live screencast rebind failed: %s", exc)
 
+    async def _login_page_present(self) -> bool:
+        # Check every tab/frame: authentication may open a popup or iframe.
+        # Never return field contents or page text to the caller.
+        if self._context is None:
+            return False
+        for page in self._context.pages:
+            if page.is_closed():
+                continue
+            for frame in page.frames:
+                parsed = urlparse(frame.url)
+                origin = f"{parsed.scheme}://{parsed.hostname}".lower()
+                if parsed.port and parsed.port != 443:
+                    origin += f":{parsed.port}"
+                if origin in self._manual_login_origins:
+                    return True
+                try:
+                    if await frame.locator('input[type="password"]:visible, input[autocomplete="one-time-code"]:visible').count():
+                        return True
+                except Exception:
+                    # A detaching login frame is an uncertain boundary.
+                    return True
+        return False
+
+    async def _require_agent_access(self) -> None:
+        if self._manual_login or await self._login_page_present():
+            self._manual_login = True
+            raise BrowserLoginRequired()
+
+    async def _agent_operation(self, operation, *args):
+        async with self._control_lock:
+            await self._require_agent_access()
+            try:
+                result = await operation(*args)
+            except Exception:
+                await self._require_agent_access()
+                raise
+            await self._require_agent_access()
+            return result
+
+    async def _login_control(self, action: str) -> dict:
+        async with self._control_lock:
+            if self._cdp_url:
+                if action == "status":
+                    return {"manual_login": None, "scope": "unavailable_external_browser"}
+                raise ValueError("Manual login requires a private owned browser")
+            if action == "begin":
+                self._manual_login = True
+            elif action == "resume":
+                if await self._login_page_present():
+                    self._manual_login = True
+                    raise BrowserLoginRequired()
+                self._manual_login = False
+            elif action == "clear":
+                # Destroy the entire owned context, including cookies, local
+                # storage, IndexedDB and open tabs. Never export storage_state.
+                self._manual_login = True
+                browser = self._browser
+                if browser is not None:
+                    await browser.close()
+                callback = self._on_frame
+                await self._close()
+                await self._ensure_page()
+                if callback is not None:
+                    await self._start_screencast(callback)
+                self._manual_login = False
+            elif action != "status":
+                raise ValueError("Unknown browser login action")
+            if await self._login_page_present():
+                self._manual_login = True
+            return {"manual_login": self._manual_login, "scope": "thread_memory_only"}
+
+    async def login_control(self, action: str) -> dict:
+        with self._activity():
+            return await self._loop.run(self._login_control(action))
+
+    async def _user_input(self, event: dict) -> None:
+        async with self._control_lock:
+            # Claim privacy before any typed input can reach a login form.
+            if await self._login_page_present():
+                self._manual_login = True
+            await self._dispatch_input(event)
+            if await self._login_page_present():
+                self._manual_login = True
+
     async def _navigate(self, url: str) -> PageSnapshot:
         page = await self._ensure_page()
         await page.goto(url, wait_until="domcontentloaded")
         return await self._snapshot_impl(page)
 
     async def _snapshot_impl(self, page: Page) -> PageSnapshot:
+        await self._require_agent_access()
         data = await page.evaluate(_SNAPSHOT_JS)
+        await self._require_agent_access()
         elements = [SnapshotElement(ref=int(e["ref"]), tag=e["tag"], role=e["role"], type=e["type"], name=e["name"]) for e in data["elements"]]
         return PageSnapshot(url=data["url"], title=data["title"], elements=elements)
 
@@ -880,27 +983,27 @@ class BrowserSession:
     # Public API — each marshals onto the private loop.
     async def navigate(self, url: str) -> PageSnapshot:
         with self._activity():
-            return await self._loop.run(self._navigate(url))
+            return await self._loop.run(self._agent_operation(self._navigate, url))
 
     async def snapshot(self) -> PageSnapshot:
         with self._activity():
-            return await self._loop.run(self._snapshot())
+            return await self._loop.run(self._agent_operation(self._snapshot))
 
     async def click(self, ref: int) -> PageSnapshot:
         with self._activity():
-            return await self._loop.run(self._click(ref))
+            return await self._loop.run(self._agent_operation(self._click, ref))
 
     async def type_text(self, ref: int, text: str, submit: bool = False) -> PageSnapshot:
         with self._activity():
-            return await self._loop.run(self._type(ref, text, submit))
+            return await self._loop.run(self._agent_operation(self._type, ref, text, submit))
 
     async def get_text(self, max_chars: int = 8000) -> str:
         with self._activity():
-            return await self._loop.run(self._get_text(max_chars))
+            return await self._loop.run(self._agent_operation(self._get_text, max_chars))
 
     async def screenshot_bytes(self, full_page: bool = False) -> bytes:
         with self._activity():
-            return await self._loop.run(self._screenshot_bytes(full_page))
+            return await self._loop.run(self._agent_operation(self._screenshot_bytes, full_page))
 
     async def live_frame(self) -> bytes:
         with self._activity():
@@ -915,7 +1018,7 @@ class BrowserSession:
 
     async def back(self) -> PageSnapshot:
         with self._activity():
-            return await self._loop.run(self._back())
+            return await self._loop.run(self._agent_operation(self._back))
 
     async def current_url(self) -> str | None:
         with self._activity():
@@ -935,7 +1038,7 @@ class BrowserSession:
 
     async def dispatch_input(self, event: dict) -> None:
         with self._activity():
-            await self._loop.run(self._dispatch_input(event))
+            await self._loop.run(self._user_input(event))
 
     async def close(self) -> None:
         await self._loop.run(self._close())
@@ -986,15 +1089,27 @@ class BrowserSessionManager:
         allow_unguarded_cdp: bool = False,
         url_guard: Callable[[str], str | None] | None = None,
         pin: bool = False,
+        owner_id: str | None = None,
+        manual_login_origins: tuple[str, ...] = (),
+        expected_session_id: str | None = None,
     ) -> BrowserSession:
         ensure_browser_worker_compatibility()
         if cdp_url and not allow_unguarded_cdp:
             raise RuntimeError("cdp_url uses a browser context where DeerFlow cannot enforce its SSRF request guard; set allow_unguarded_cdp: true only for an explicitly trusted local Chrome session")
+        from deerflow.runtime.user_context import get_effective_user_id
+
+        owner_id = owner_id or get_effective_user_id()
         key = thread_id or "default"
         now = time.monotonic()
         evicted: list[BrowserSession] = []
         with self._lock:
             session = self._sessions.get(key)
+            if session is not None and session._owner_id != owner_id:
+                raise PermissionError("Browser session owner mismatch")
+            if expected_session_id is not None and (session is None or session.session_id != expected_session_id):
+                # The identifier is continuity metadata, never authentication.
+                # Check ownership first and refuse before allocation/eviction.
+                raise BrowserSessionChangedError("Browser session is no longer on this worker")
             if session is None:
                 evicted.extend(self._collect_idle_locked(keep_key=key, now=now))
                 if self._max_sessions > 0 and len(self._sessions) >= self._max_sessions:
@@ -1010,7 +1125,9 @@ class BrowserSessionManager:
                     cdp_url=cdp_url,
                     url_guard=url_guard,
                     on_activity=lambda: self._touch_session(key),
+                    manual_login_origins=manual_login_origins,
                 )
+                session._owner_id = owner_id
                 self._sessions[key] = session
             if pin:
                 session._pin()
@@ -1092,14 +1209,24 @@ class BrowserSessionManager:
         with contextlib.suppress(Exception):
             loop.submit(session._close())
 
-    async def close_session(self, thread_id: str | None) -> bool:
+    async def close_session(self, thread_id: str | None, *, owner_id: str | None = None, agent: bool = False) -> bool:
         key = thread_id or "default"
+        from deerflow.runtime.user_context import get_effective_user_id
+
         with self._lock:
-            session = self._sessions.pop(key, None)
-            self._last_used.pop(key, None)
-        if session is None:
-            return False
-        await session.close()
+            session = self._sessions.get(key)
+            if session is None:
+                return False
+            if session._owner_id != (owner_id or get_effective_user_id()):
+                raise PermissionError("Browser session owner mismatch")
+        if agent:
+            await session._loop.run(session._agent_operation(session._close))
+        else:
+            await session.close()
+        with self._lock:
+            if self._sessions.get(key) is session:
+                self._sessions.pop(key, None)
+                self._last_used.pop(key, None)
         return True
 
     async def close_all_sessions(self) -> int:

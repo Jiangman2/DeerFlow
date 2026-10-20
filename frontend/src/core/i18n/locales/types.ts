@@ -78,6 +78,15 @@ export interface Translations {
   };
 
   browser: {
+    loginBegin: string;
+    loginResume: string;
+    loginClear: string;
+    loginPrivate: string;
+    loginScope: string;
+    loginFailure: string;
+    loginUnavailable: string;
+    loginSessionLost: string;
+    loginReconnect: string;
     title: string;
     back: string;
     forward: string;

@@ -91,6 +91,20 @@ export const enUS: Translations = {
   },
 
   browser: {
+    loginBegin: "Manual login",
+    loginResume: "Resume agent",
+    loginClear: "Clear login state",
+    loginPrivate:
+      "Manual login: agent browser access is paused. Enter credentials directly in the page below.",
+    loginScope:
+      "Login state stays in this conversation’s current browser only; recycling or restarting requires signing in again.",
+    loginFailure:
+      "Action incomplete. Finish or close the login page before resuming; reconnect before retrying a failed clear.",
+    loginUnavailable:
+      "Manual login is available after connecting; unavailable controls may require a browser service update.",
+    loginSessionLost:
+      "The previous browser session is unavailable. Automatic reconnect stopped; reconnecting may require signing in again.",
+    loginReconnect: "Reconnect browser",
     title: "Browser",
     back: "Back",
     forward: "Forward",

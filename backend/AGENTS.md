@@ -2113,7 +2113,11 @@ automatic retry, raw model output or credentials in receipts. Keep TLS enabled.
 Browser `private_origins` are operator-owned exact scheme/host/port plus audited
 private address ranges. Explicit `private_origin_suffixes` additionally permit a
 base DNS domain and its dot-boundary subdomains at the configured scheme/port;
-they still require audited CIDRs and independent network enforcement. Exact
+they still require audited CIDRs and independent network enforcement. The
+explicit enterprise internal namespace `https://cnooc` is the only supported
+single-label suffix exception; never generalize it to public TLDs or enable it
+by default. Its dot-boundary children include `datalake.cnooc`, independently
+from the separate `https://cnooc.com.cn` policy. Exact
 origins override suffix rules; the most-specific suffix wins without merging
 parent ranges. Never populate them from a model or browser request,
 guess production ranges, allow metadata/loopback targets, or disable TLS checks.
@@ -2121,6 +2125,21 @@ Application DNS checking does not prevent Chromium DNS rebinding or prove safe
 redirect/worker egress; independently validate deployment network controls and
 the actual failing URL before enabling a private exception. An empty diagnostic
 result is not proof of DNS, proxy, certificate or authorization health.
+
+Owned Browser Live sessions provide an explicit manual-login boundary. Exact
+operator `manual_login_origins` protect authentication pages (including MFA
+pages without password inputs); this setting grants no network access. Visible
+password/OTP inputs also latch privacy. Serialize human controls with Agent
+operations and suppress Agent snapshots, text, screenshots and mutation until
+the user returns control from outside the login surface. Clear destroys the
+owned context; never export Cookie/storage state or control an external CDP
+context's login. Bind the session to the trusted thread owner. Reconnects carry
+an opaque session identity and fail before allocation on a different worker;
+that identity is continuity metadata, never authorization. Revalidate platform
+authentication and thread ownership during long-lived sockets. These controls
+do not provide multi-Pod placement or cross-conversation login persistence;
+production intranet rollout still requires verified session routing and network
+enforcement. Do not substitute ClientIP affinity for per-thread browser ownership.
 
 Server acceptance packaging is allowlist-only (`deploy/enterprise/package-acceptance.py`).
 No keys, private configs or production source snapshots belong in that archive.

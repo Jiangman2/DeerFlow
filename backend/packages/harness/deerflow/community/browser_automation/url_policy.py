@@ -64,7 +64,11 @@ def _parse_suffix_policy(entries):
         else:
             raise ValueError("Suffix must be a DNS domain")
         labels = host.split(".")
-        if len(labels) < 2 or len(host) > 253 or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels):
+        # The enterprise also owns the internal single-label DNS namespace
+        # .cnooc (for example datalake.cnooc). Do not generalize this exception
+        # to public TLDs such as .com; an explicit operator rule and CIDRs are
+        # still required and the public-only default remains unchanged.
+        if (len(labels) < 2 and host != "cnooc") or len(host) > 253 or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels):
             raise ValueError("Invalid base domain")
         exact_entries.append({"origin": entry["origin_suffix"], "cidrs": entry["cidrs"]})
     return _parse_policy(exact_entries)

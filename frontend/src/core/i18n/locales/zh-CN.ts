@@ -89,6 +89,19 @@ export const zhCN: Translations = {
   },
 
   browser: {
+    loginBegin: "人工登录",
+    loginResume: "完成登录，交还助手",
+    loginClear: "清除登录状态",
+    loginPrivate:
+      "人工登录中：助手暂停读取和操作浏览器。请直接在下方网页输入账号、密码或验证码。",
+    loginScope: "登录状态仅保留在本对话当前浏览器中；回收或重启后需重新登录。",
+    loginFailure:
+      "操作未完成。请先完成或关闭登录页面，再交还助手；清除失败时请重连后重试。",
+    loginUnavailable:
+      "连接后可使用人工登录；若按钮仍不可用，需要更新浏览器服务。",
+    loginSessionLost:
+      "未连接到原来的浏览器会话，已停止自动重连。重新连接后可能需要再次登录。",
+    loginReconnect: "重新连接浏览器",
     title: "实时浏览器",
     back: "后退",
     forward: "前进",

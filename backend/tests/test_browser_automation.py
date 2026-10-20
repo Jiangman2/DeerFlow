@@ -235,7 +235,7 @@ class TestBrowserTools:
         with patch.object(tools, "get_browser_session_manager", return_value=manager):
             result = await tools.browser_close_tool.coroutine(runtime=_runtime(), tool_call_id="t1")
         assert "No active browser session" in result.update["messages"][0].content
-        manager.close_session.assert_awaited_once_with("thread-1")
+        manager.close_session.assert_awaited_once_with("thread-1", owner_id="test-user-autouse", agent=True)
 
 
 @pytest.mark.asyncio

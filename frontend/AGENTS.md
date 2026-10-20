@@ -26,6 +26,17 @@ infer runtime ownership from new message text or move an old checkpoint.
 Model choices remain server-owned `/api/models` results; shipping GLM adapter
 code alone cannot enable a model without operator configuration and credentials.
 
+Browser Live manual login is a user-only WebSocket control, never an Agent
+message or a credential form in chat. Wait for server acknowledgement before
+enabling another login control. Keep failed resume protected, bound uncertain
+control waits, and never retry clear/login automatically. Reconnect to the
+reported browser session identity without replaying a stale seed URL; a missing
+or different session stops automatic reconnect and requires an explicit user
+reconnect. Keep the retry budget separate from the connection effect key so a
+successful reconnect does not immediately close itself. In-memory login scope
+must remain visible; rendered UI tests do not prove enterprise SSO or multi-Pod
+session continuity.
+
 Haineng home footer has four counters. Fetch existing signed Haineng usage and
 authenticated `/api/home/statistics` independently every minute; one failing
 source must not erase the other, and unavailable counters show a dash, not zero.
