@@ -472,10 +472,12 @@ class BrowserSession:
                 return self._page
 
             if self._browser is None or not self._browser.is_connected():
+                from .proxy_bypass import browser_proxy_bypass_args
+
                 launch_options: dict[str, Any] = {"headless": self._headless}
-                browser_ca_args = _browser_ca_launch_args()
-                if browser_ca_args:
-                    launch_options["args"] = browser_ca_args
+                browser_launch_args = _browser_ca_launch_args() + browser_proxy_bypass_args()
+                if browser_launch_args:
+                    launch_options["args"] = browser_launch_args
                 self._browser = await self._playwright.chromium.launch(**launch_options)
                 if self._url_guard is not None:
                     from .request_guard import ChromiumRequestGuard

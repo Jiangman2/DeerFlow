@@ -2126,6 +2126,15 @@ redirect/worker egress; independently validate deployment network controls and
 the actual failing URL before enabling a private exception. An empty diagnostic
 result is not proof of DNS, proxy, certificate or authorization health.
 
+Enterprise direct routing preserves existing NO_PROXY/no_proxy entries in both
+Gateway command environments and Provisioner-created Sandbox environments.
+Owned Chromium uses the separate operator-only DEERFLOW_BROWSER_DIRECT_SUFFIXES
+setting to build explicit dot-boundary proxy bypass arguments. This grants no
+private URL permission and changes neither TLS verification nor an existing CDP
+browser. Do not assume arbitrary Sandbox Chromium launchers consume NO_PROXY;
+verify their actual launcher before declaring browser acceptance. Existing
+processes are not reconfigured by an environment patch.
+
 Owned Browser Live sessions provide an explicit manual-login boundary. Exact
 operator `manual_login_origins` protect authentication pages (including MFA
 pages without password inputs); this setting grants no network access. Visible
