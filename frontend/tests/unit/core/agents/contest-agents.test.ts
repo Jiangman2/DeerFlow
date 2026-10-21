@@ -9,7 +9,11 @@ import { SHARED_EXTERNAL_AGENTS } from "@/core/agents/shared-agents";
 // Reviewed 1008 Sheet1 entries: Q overrides F for names; P11/P21 supply current URLs.
 const EXPECTED_ENTRIES = [
   ["储小亮", "https://10.141.11.158:8443/", "oil-gas-resource-development"],
-  ["智能穿透审计助手", "http://10.77.79.194:18080/", "audit-inspection"],
+  [
+    "研究总院水驱可采储量计算专家",
+    "http://10.57.4.101:8088",
+    "oil-gas-resource-development",
+  ],
   [
     "海油发展井控全周期智能管家",
     "https://agents.cnooc.com.cn/agent/agents-share-web/#/assistant/share/871c196a1ecb434fb9e6c722b251a9fe/W4ND",
@@ -43,7 +47,7 @@ const EXPECTED_ENTRIES = [
   ],
   [
     "海油发展智能配方优选管家",
-    "http://10.77.80.56:10086/login?redirect=/chat",
+    "http://10.77.65.163:8000/",
     "science-technology-innovation",
   ],
   [
@@ -172,7 +176,6 @@ test("uses latest status-column URLs and removes superseded names without duplic
     new Set(CONTEST_EXTERNAL_AGENTS.map((agent) => agent.external_url)).size,
   ).toBe(18);
   for (const name of [
-    "研究总院水驱可采储量计算专家",
     "科研智能伙伴",
     "业财AI助手",
     "物装小灵通",

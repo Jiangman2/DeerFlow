@@ -40,26 +40,6 @@ ACTIVE_CONTENT_MIME_TYPES = {
     "text/xsl",
 }
 
-# Minimal Linux images may not ship /etc/mime.types (notably .xhtml). Known
-# active extensions must never fall through to the generic text heuristic.
-ACTIVE_CONTENT_SUFFIX_MIMES = {
-    ".html": "text/html",
-    ".htm": "text/html",
-    ".xhtml": "application/xhtml+xml",
-    ".xht": "application/xhtml+xml",
-    ".svg": "image/svg+xml",
-    ".svgz": "image/svg+xml",
-    ".xml": "application/xml",
-    ".xsl": "application/xml",
-    ".xslt": "application/xml",
-}
-
-
-def _artifact_mime_type(path: str | Path) -> str | None:
-    known_active = ACTIVE_CONTENT_SUFFIX_MIMES.get(Path(path).suffix.lower())
-    return known_active or mimetypes.guess_type(path)[0]
-
-
 TEXT_CONTENT_MIME_TYPES = {
     "application/javascript",
     "application/json",
@@ -596,7 +576,7 @@ def _load_skill_archive_member(actual_skill_path: Path, skill_file_path: str, in
     content = _extract_file_from_skill_archive(actual_skill_path, internal_path)
     if content is None:
         raise HTTPException(status_code=404, detail=f"File '{internal_path}' not found in skill archive")
-    mime_type = _artifact_mime_type(internal_path)
+    mime_type, _ = mimetypes.guess_type(internal_path)
     return content, mime_type
 
 
@@ -614,7 +594,7 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
         raise HTTPException(status_code=404, detail=f"Artifact not found: {path}")
     if not actual_path.is_file():
         raise HTTPException(status_code=400, detail=f"Path is not a file: {path}")
-    mime_type = _artifact_mime_type(actual_path)
+    mime_type, _ = mimetypes.guess_type(actual_path)
     # Active content / explicit download is streamed by FileResponse — no read here.
     normalized_virtual_path = "/" + path.replace("\\", "/").lstrip("/")
     is_user_upload = normalized_virtual_path.startswith("/mnt/user-data/uploads/")

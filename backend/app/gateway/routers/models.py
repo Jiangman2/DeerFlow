@@ -15,8 +15,6 @@ class ModelResponse(BaseModel):
     display_name: str | None = Field(None, description="Human-readable name")
     description: str | None = Field(None, description="Model description")
     supports_thinking: bool = Field(default=False, description="Whether model supports thinking mode")
-    thinking_always_on: bool = False
-    supports_vision: bool = False
     supports_reasoning_effort: bool = Field(default=False, description="Whether model supports reasoning effort")
 
 
@@ -82,8 +80,6 @@ async def list_models(config: AppConfig = Depends(get_config)) -> ModelsListResp
             display_name=model.display_name,
             description=model.description,
             supports_thinking=model.supports_thinking,
-            thinking_always_on=model.thinking_always_on,
-            supports_vision=model.supports_vision,
             supports_reasoning_effort=model.supports_reasoning_effort,
         )
         for model in config.models
@@ -132,7 +128,5 @@ async def get_model(model_name: str, config: AppConfig = Depends(get_config)) ->
         display_name=model.display_name,
         description=model.description,
         supports_thinking=model.supports_thinking,
-        thinking_always_on=model.thinking_always_on,
-        supports_vision=model.supports_vision,
         supports_reasoning_effort=model.supports_reasoning_effort,
     )

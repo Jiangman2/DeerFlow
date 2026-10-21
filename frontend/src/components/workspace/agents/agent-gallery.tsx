@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,8 +45,6 @@ import {
   useTeamAgents,
 } from "@/core/agents";
 import type { Agent, DigitalEmployeeCategory } from "@/core/agents";
-import { applyEmployeeMetadata } from "@/core/agents/employee-directory";
-import { useEmployeeDirectory } from "@/core/agents/employee-directory-hooks";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +83,6 @@ function FilterPanel({
   onCategoryChange,
   onTagToggle,
   onReset,
-  discoveryControl,
 }: {
   agents: Agent[];
   categories: DigitalEmployeeCategory[];
@@ -95,7 +91,6 @@ function FilterPanel({
   onCategoryChange: (category: string) => void;
   onTagToggle: (tag: string) => void;
   onReset: () => void;
-  discoveryControl?: React.ReactNode;
 }) {
   const { t } = useI18n();
   const [categoriesOpen, setCategoriesOpen] = useState(false);
@@ -231,7 +226,6 @@ function FilterPanel({
         <h3 className="mb-3 text-xs font-semibold tracking-wide uppercase">
           {t.agents.popularTags}
         </h3>
-        {discoveryControl}
         {tags.length > 0 ? (
           <>
             <div className="flex flex-wrap gap-1.5">
@@ -287,8 +281,6 @@ function FilterPanel({
 
 export function AgentGallery() {
   const { t } = useI18n();
-  const directory = useEmployeeDirectory();
-  const [hotOnly, setHotOnly] = useState(true);
   const router = useRouter();
   const { agents, isLoading, error } = useAgents();
   const {
@@ -316,16 +308,12 @@ export function AgentGallery() {
     ...SHARED_EXTERNAL_AGENTS,
     ...teamAgents.filter((agent) => !sharedAgentNames.has(agent.name)),
   ];
-  const currentAgents = applyEmployeeMetadata(
-    tab === "mine" ? agents : squareAgents,
-    directory.entries,
-  );
+  const currentAgents = tab === "mine" ? agents : squareAgents;
   const categoryById = new Map(
     categories.map((category) => [category.id, category.name]),
   );
   const categoryNames = Object.fromEntries(categoryById);
   const filteredAgents = filterDigitalEmployees(currentAgents, {
-    hotOnly: tab === "square" && hotOnly,
     query,
     categoryId: selectedCategory === "all" ? null : selectedCategory,
     categoryNames,
@@ -340,14 +328,11 @@ export function AgentGallery() {
   const paginationItems = getPaginationItems(currentPage, totalPages);
   const activeFilterCount =
     selectedTags.size + (selectedCategory === "all" ? 0 : 1);
-  const isLoadingCurrent =
-    tab === "mine"
-      ? isLoading
-      : isTeamLoading || (hotOnly && directory.isPending);
+  const isLoadingCurrent = tab === "mine" ? isLoading : isTeamLoading;
 
   useEffect(() => {
     setPage(1);
-  }, [query, selectedCategory, selectedTags, tab, hotOnly]);
+  }, [query, selectedCategory, selectedTags, tab]);
 
   function goToPage(nextPage: number) {
     setPage(Math.min(Math.max(nextPage, 1), totalPages));
@@ -368,37 +353,6 @@ export function AgentGallery() {
     setSelectedTags(new Set());
   }
 
-  function showAll() {
-    setHotOnly(false);
-    setQuery("");
-    resetFilters();
-    setPage(1);
-    setFiltersOpen(false);
-  }
-
-  const discoveryControl =
-    tab === "square" ? (
-      <div className="mb-3 flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant={hotOnly ? "default" : "outline"}
-          aria-pressed={hotOnly}
-          onClick={() => setHotOnly(true)}
-        >
-          {t.employeeDiscovery.hotOnly}
-        </Button>
-        <Button
-          size="sm"
-          data-testid="employees-show-all"
-          variant={hotOnly ? "outline" : "default"}
-          aria-pressed={!hotOnly}
-          onClick={showAll}
-        >
-          {t.employeeDiscovery.showAll}
-        </Button>
-      </div>
-    ) : null;
-
   const filterPanel = (
     <FilterPanel
       agents={currentAgents}
@@ -408,7 +362,6 @@ export function AgentGallery() {
       onCategoryChange={setSelectedCategory}
       onTagToggle={toggleTag}
       onReset={resetFilters}
-      discoveryControl={discoveryControl}
     />
   );
 
@@ -497,19 +450,6 @@ export function AgentGallery() {
           </aside>
 
           <section className="min-w-0">
-            {tab === "square" && directory.isError ? (
-              <div role="alert" className="mb-3 rounded-lg border p-3 text-sm">
-                <p>{t.employeeDiscovery.loadError}</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => void directory.refetch()}
-                >
-                  {t.employeeDiscovery.retry}
-                </Button>
-              </div>
-            ) : null}
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-muted-foreground text-xs">
                 {t.agents.resultCount.replace(
@@ -538,24 +478,9 @@ export function AgentGallery() {
                 title={t.agents.featureDisabledTitle}
                 description={t.agents.featureDisabledDescription}
               />
-            ) : isLoadingCurrent ? (
+            ) : isLoadingCurrent && currentAgents.length === 0 ? (
               <div className="text-muted-foreground flex h-40 items-center justify-center text-sm">
                 {t.common.loading}
-              </div>
-            ) : tab === "square" && hotOnly && visibleAgents.length === 0 ? (
-              <div data-testid="hot-empty-state">
-                {!directory.isError && (
-                  <EmptyState
-                    icon={StoreIcon}
-                    title={t.employeeDiscovery.emptyTitle}
-                    description={t.employeeDiscovery.emptyHint}
-                  />
-                )}
-                <div className="flex justify-center">
-                  <Button onClick={showAll}>
-                    {t.employeeDiscovery.showAll}
-                  </Button>
-                </div>
               </div>
             ) : visibleAgents.length === 0 ? (
               <EmptyState
@@ -581,27 +506,6 @@ export function AgentGallery() {
                   <AgentCard
                     key={`${agent.source ?? tab}:${agent.name}`}
                     agent={agent}
-                    hotPending={directory.update.isPending}
-                    onToggleHot={
-                      tab === "square" &&
-                      directory.isAdmin &&
-                      directory.isSuccess &&
-                      !!agent.hot_identity &&
-                      !directory.isError
-                        ? (selected) => {
-                            directory.update.mutate(selected, {
-                              onSuccess: () =>
-                                toast.success(t.employeeDiscovery.saved),
-                              onError: (error) =>
-                                toast.error(
-                                  error.message === "conflict"
-                                    ? t.employeeDiscovery.conflict
-                                    : t.employeeDiscovery.saveError,
-                                ),
-                            });
-                          }
-                        : undefined
-                    }
                     categoryLabel={
                       agent.category_id
                         ? categoryById.get(agent.category_id)

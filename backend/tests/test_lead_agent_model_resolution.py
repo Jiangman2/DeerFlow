@@ -46,7 +46,8 @@ def test_data_lake_tool_filter_preserves_independent_master_data_search():
 
     names = (
         "datalake_smart_qa",
-        "datalake_data_qa",
+        "datalake_metrics_qa",
+        "datalake_detail_qa",
         "datalake_md_search",
         "present_files",
     )
@@ -60,8 +61,7 @@ def test_data_lake_tool_filter_preserves_independent_master_data_search():
     ]
     assert filter_tools_by_datalake_scope(tools, enabled=True) == tools
     assert [tool.name for tool in filter_tools_by_datalake_scope(tools, enabled=None)] == [
-        "datalake_md_search",
-        "present_files",
+        "datalake_md_search", "present_files",
     ]
 
 
@@ -69,10 +69,10 @@ def test_data_lake_tool_filter_preserves_independent_master_data_search():
 def test_data_lake_tool_filter_requires_explicit_enable(enabled):
     from deerflow.tools.tools import filter_tools_by_datalake_scope
 
-    tools = [MagicMock(name=name) for name in ("datalake_smart_qa", "datalake_data_qa", "present_files")]
+    tools = [MagicMock(name=name) for name in ("datalake_smart_qa", "datalake_metrics_qa", "datalake_detail_qa", "present_files")]
     for tool_item, name in zip(
         tools,
-        ("datalake_smart_qa", "datalake_data_qa", "present_files"),
+        ("datalake_smart_qa", "datalake_metrics_qa", "datalake_detail_qa", "present_files"),
         strict=True,
     ):
         tool_item.name = name

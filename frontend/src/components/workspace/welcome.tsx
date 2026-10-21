@@ -52,7 +52,7 @@ export function Welcome({
       data-testid="welcome-panel"
     >
       <div className="cnooc-desktop-welcome-copy">
-        <h1>海能通用智能体</h1>
+        <h1>中国海油通用智能体</h1>
         <p>您好！我是您的智能助手，有什么可以帮助您？</p>
       </div>
 

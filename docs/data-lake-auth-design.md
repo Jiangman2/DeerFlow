@@ -118,10 +118,10 @@ sequenceDiagram
 子智能体的工具集合中移除，并在工具调用边界再次拒绝执行：
 
 - `datalake_smart_qa`
-- `datalake_data_qa`
+- `datalake_metrics_qa`
+- `datalake_detail_qa`
 
-The current enterprise deployment enables no master-data tool. The optional
-`datalake_md_search` implementation is not a Data Lake-toggle tool. It uses its own
+`datalake_md_search` is not a Data Lake-toggle tool. It uses its own
 Gateway-only AppForge credential to query registered exploration-and-production
 master data and ownership relations, and therefore remains available when
 `datalake_enabled=false`. It must not receive the browser platform Token or be

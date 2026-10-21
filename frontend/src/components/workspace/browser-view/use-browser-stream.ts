@@ -19,7 +19,6 @@ export interface BrowserTab {
 }
 
 export type BrowserInputEvent =
-  | { type: "login_control"; action: "begin" | "resume" | "clear" }
   | { type: "click"; nx: number; ny: number }
   | { type: "move"; nx: number; ny: number }
   | { type: "down"; nx: number; ny: number }
@@ -63,14 +62,6 @@ export function useBrowserStream(
     message: string | undefined,
   ) => void,
 ) {
-  const [manualLogin, setManualLogin] = useState<boolean | null>(null);
-  const manualLoginRef = useRef(manualLogin);
-  manualLoginRef.current = manualLogin;
-  const [loginPending, setLoginPending] = useState(false);
-  const [loginError, setLoginError] = useState(false);
-  const [sessionLost, setSessionLost] = useState(false);
-  const sessionIdRef = useRef<string | undefined>(undefined);
-  const reconnectAttemptsRef = useRef(0);
   const [status, setStatus] = useState<BrowserStreamStatus>("idle");
   const [frameBuffer] = useState(() => new LatestBrowserFrameBuffer());
   const frameUrl = useSyncExternalStore(
@@ -98,10 +89,6 @@ export function useBrowserStream(
   const sendInput = useCallback((event: BrowserInputEvent) => {
     const socket = socketRef.current;
     if (socket?.readyState === WebSocket.OPEN) {
-      if (event.type === "login_control") {
-        setLoginPending(true);
-        setLoginError(false);
-      }
       socket.send(JSON.stringify(event));
       return true;
     }
@@ -113,33 +100,8 @@ export function useBrowserStream(
     return false;
   }, []);
 
-  const reconnectNewSession = useCallback(() => {
-    sessionIdRef.current = undefined;
-    reconnectAttemptsRef.current = 0;
-    setSessionLost(false);
-    setLoginError(false);
-    setConnectionAttempt((attempt) => attempt + 1);
-  }, []);
-
-  // An uncertain control must not be retried automatically. Release the UI
-  // with an explicit error so a lost acknowledgement cannot spin forever.
-  useEffect(() => {
-    if (!loginPending) return;
-    const timer = window.setTimeout(() => {
-      setLoginPending(false);
-      setLoginError(true);
-    }, 30_000);
-    return () => window.clearTimeout(timer);
-  }, [loginPending]);
-
   useEffect(() => {
     pendingNavigateRef.current = null;
-    setManualLogin(null);
-    setLoginPending(false);
-    setLoginError(false);
-    setSessionLost(false);
-    sessionIdRef.current = undefined;
-    reconnectAttemptsRef.current = 0;
   }, [threadId]);
 
   useEffect(() => {
@@ -163,16 +125,12 @@ export function useBrowserStream(
     let closedByEffect = false;
     let reconnectTimer: number | null = null;
     setStatus("connecting");
-    setManualLogin(null);
-    setLoginPending(false);
     // browserStreamURL treats empty/undefined seed identically (no seed param),
     // so the raw ref value is fine here. Record the seed optimistically so the
     // "steer to seed" effect below does not fire a duplicate navigate right
     // after open (the server already aligns the page to the connect-time seed).
     liveUrlRef.current = seedRef.current ?? null;
-    const socket = new WebSocket(
-      browserStreamURL(threadId, seedRef.current, sessionIdRef.current),
-    );
+    const socket = new WebSocket(browserStreamURL(threadId, seedRef.current));
     socket.binaryType = "blob";
     socketRef.current = socket;
 
@@ -185,15 +143,14 @@ export function useBrowserStream(
       }
       // Exponential backoff with a ceiling + attempt cap so a server that keeps
       // rejecting the upgrade cannot pin the client in a tight reconnect loop.
-      if (reconnectAttemptsRef.current >= RECONNECT_MAX_ATTEMPTS) {
+      if (connectionAttempt >= RECONNECT_MAX_ATTEMPTS) {
         return;
       }
       const delay = Math.min(
-        RECONNECT_BASE_DELAY_MS * 2 ** reconnectAttemptsRef.current,
+        RECONNECT_BASE_DELAY_MS * 2 ** connectionAttempt,
         RECONNECT_MAX_DELAY_MS,
       );
       reconnectTimer = window.setTimeout(() => {
-        reconnectAttemptsRef.current += 1;
         setConnectionAttempt((attempt) => attempt + 1);
       }, delay);
     };
@@ -209,9 +166,7 @@ export function useBrowserStream(
       // mounted, so after RECONNECT_MAX_ATTEMPTS total reconnects — even across
       // many healthy connections — scheduleReconnect would bail forever and
       // Live would go permanently dead until the panel is toggled off/on.
-      // Reset only the retry budget, not the effect dependency. Changing the
-      // connection key here used to tear down every successful reconnect.
-      reconnectAttemptsRef.current = 0;
+      setConnectionAttempt(0);
       setStatus("open");
     };
     socket.onmessage = (message) => {
@@ -237,28 +192,8 @@ export function useBrowserStream(
           url?: string;
           message?: string;
           tabs?: BrowserTab[];
-          manual_login?: boolean;
-          session_id?: string;
         };
-        if (
-          payload.type === "login_state" &&
-          typeof payload.session_id === "string" &&
-          /^[a-f0-9]{32}$/.test(payload.session_id)
-        ) {
-          sessionIdRef.current = payload.session_id;
-        }
-        if (
-          payload.type === "login_state" &&
-          typeof payload.manual_login === "boolean"
-        ) {
-          setManualLogin(payload.manual_login);
-        } else if (payload.type === "login_ack") {
-          setLoginPending(false);
-          setLoginError(false);
-        } else if (payload.type === "login_error") {
-          setLoginPending(false);
-          setLoginError(true);
-        } else if (payload.type === "frame" && payload.data) {
+        if (payload.type === "frame" && payload.data) {
           frameBuffer.replaceWithUrl(`data:image/jpeg;base64,${payload.data}`);
         } else if (payload.type === "url" && payload.url) {
           liveUrlRef.current = payload.url;
@@ -272,20 +207,9 @@ export function useBrowserStream(
         console.warn("Ignoring malformed browser stream message", error);
       }
     };
-    socket.onclose = (event) => {
+    socket.onclose = () => {
       if (!closedByEffect) {
         setStatus("closed");
-        if (event.code === 4410) {
-          if (reconnectTimer !== null) {
-            window.clearTimeout(reconnectTimer);
-            reconnectTimer = null;
-          }
-          setSessionLost(true);
-          setManualLogin(null);
-          setLoginPending(false);
-          frameBuffer.dispose();
-          return;
-        }
         scheduleReconnect();
       }
     };
@@ -312,7 +236,7 @@ export function useBrowserStream(
   // seed target, so redirects/history moves the server already reflects do not
   // cause a redundant navigation loop.
   useEffect(() => {
-    if (!enabled || status !== "open" || manualLoginRef.current !== false) {
+    if (!enabled || status !== "open") {
       return;
     }
     const target = seedUrl?.trim();
@@ -325,16 +249,5 @@ export function useBrowserStream(
     sendInput({ type: "navigate", url: target });
   }, [enabled, seedUrl, sendInput, status]);
 
-  return {
-    status,
-    frameUrl,
-    liveUrl,
-    tabs,
-    sendInput,
-    manualLogin,
-    loginPending,
-    loginError,
-    sessionLost,
-    reconnectNewSession,
-  };
+  return { status, frameUrl, liveUrl, tabs, sendInput };
 }

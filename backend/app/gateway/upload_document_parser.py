@@ -20,13 +20,6 @@ _DEFAULT_MAX_KEEPALIVE_CONNECTIONS = 16
 _PARSER_CLIENT: httpx.AsyncClient | None = None
 _PARSER_CLIENT_LOCK = threading.Lock()
 _MAX_ERROR_DETAIL_CHARS = 300
-_DOCUMENT_MEDIA_TYPES = {
-    ".pdf": "application/pdf",
-    ".doc": "application/msword",
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".ppt": "application/vnd.ms-powerpoint",
-    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-}
 
 
 class UploadDocumentParseError(RuntimeError):
@@ -164,11 +157,6 @@ async def parse_conversation_document(
         ),
     )
     timeout = httpx.Timeout(timeout_seconds)
-    # Slim images may omit the OS MIME database. This is adapter metadata;
-    # upload validation and document-content checks remain with their owners.
-    media_type = _DOCUMENT_MEDIA_TYPES.get(Path(filename).suffix.lower())
-    if media_type is None:
-        media_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
     try:
         response = await _get_parser_client().post(
             endpoint,
@@ -177,7 +165,7 @@ async def parse_conversation_document(
                 "file": (
                     Path(filename).name,
                     content,
-                    media_type,
+                    mimetypes.guess_type(filename)[0] or "application/octet-stream",
                 )
             },
             timeout=timeout,

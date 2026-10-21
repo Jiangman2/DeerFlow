@@ -13,10 +13,8 @@ import hashlib
 import hmac
 import ipaddress
 import json
-import logging
 import os
 import socket
-import ssl
 import time
 import uuid
 from contextlib import contextmanager
@@ -30,63 +28,6 @@ _slots = asyncio.Semaphore(4)
 _budget_lock = asyncio.Lock()
 EVENT = "ppt.provider_receipt"
 RESEARCH = "ppt.research_request"
-RESEARCH_RESULT = "ppt.research_result"
-
-
-class ResearchFailure(ValueError):
-    """A locally classified failure; the category is never provider prose."""
-
-
-def research_error_category(error):
-    pending, seen, kinds = [error], set(), set()
-    while pending and len(seen) < 16:
-        item = pending.pop()
-        if not isinstance(item, BaseException) or id(item) in seen:
-            continue
-        seen.add(id(item))
-        if isinstance(item, ResearchFailure):
-            return str(item) if str(item) in {"invalid_response", "extract_failed", "invalid_arguments"} else "unknown_research_failure"
-        if isinstance(item, ssl.SSLCertVerificationError):
-            return "tls_verification"
-        if isinstance(item, TimeoutError):
-            kinds.add("network_timeout")
-        module, name = type(item).__module__, type(item).__name__
-        if module.startswith(("requests.", "urllib3.", "httpx.", "httpcore.")):
-            if name == "SSLError":
-                kinds.add("tls_error")
-            if name == "ProxyError":
-                kinds.add("proxy_connection")
-            if name in {"Timeout", "ConnectTimeout", "ReadTimeout", "ConnectTimeoutError", "ReadTimeoutError", "PoolTimeout"}:
-                kinds.add("network_timeout")
-            if name in {"ConnectionError", "ConnectError", "NewConnectionError", "RemoteProtocolError"}:
-                kinds.add("network_connection")
-            status = getattr(getattr(item, "response", None), "status_code", None)
-            if type(status) is int:
-                kinds.add({401: "provider_auth", 403: "provider_auth", 429: "provider_rate_limit", 432: "provider_quota"}.get(status, "provider_http"))
-        if module.startswith("tavily."):
-            if name == "InvalidAPIKeyError":
-                kinds.add("provider_auth")
-            elif name == "UsageLimitExceededError":
-                # This SDK type covers more than one HTTP status. No guess
-                # about credits versus rate limiting from an exception name.
-                kinds.add("provider_limit_unknown")
-        pending.extend([item.__cause__, item.__context__, getattr(item, "reason", None)])
-        pending.extend(arg for arg in item.args[:8] if isinstance(arg, BaseException))
-    for category in ("tls_error", "proxy_connection", "network_timeout", "network_connection", "provider_auth", "provider_quota", "provider_rate_limit", "provider_limit_unknown", "provider_http"):
-        if category in kinds:
-            return category
-    return "unknown_research_failure"
-
-
-async def _research_outcome(store, scope, name, attempt_id, started, category):
-    content = {"name": name, "attempt_id": attempt_id, "outcome": "failed" if category else "success", "error_category": category, "elapsed_ms": min(86400000, max(0, int((time.monotonic() - started) * 1000)))}
-    try:
-        with _receipt_owner_context(scope):
-            await asyncio.wait_for(store.put(thread_id=scope["thread"], run_id=scope["run"], event_type=RESEARCH_RESULT, category="tool", content=content, metadata={"task_id": scope["run"]}), timeout=2)
-    except Exception:
-        # Receipt availability must not repeat a provider call or turn useful
-        # research into an opaque failure. Never log the underlying exception.
-        logging.getLogger(__name__).warning("PPT research outcome persistence unavailable")
 
 
 def _key():
@@ -214,62 +155,10 @@ async def mint(request: Request):
     run_id, thread_id = _id(body["run_id"]), _id(body["thread_id"])
     # The service credential above is the authentication boundary, not a
     # browser session or a caller-selected user_id.
-    row, owner = await _service_run_owner(request, run_id, thread_id)
+    row, _ = await _service_run_owner(request, run_id, thread_id)
     if row.get("status") not in {"pending", "running"} or row.get("cancel_action"):
         raise HTTPException(403, "PPT run scope unavailable")
-    metadata = {}
-    # Availability is a deployment gate, NOT global consent. Activate only
-    # after all candidate runtimes and the additive migration are ready.
-    if os.environ.get("PPT_CONFIRMATION_TRANSPORT_ENABLED") == "true":
-        snapshot = await admit_confirmation(request, row, owner)
-        if snapshot is not None:
-            metadata["confirmation_protocol"] = "ppt-confirmation-v1"
-    return JSONResponse({"capability": encode_scope(run_id, thread_id), **metadata}, headers={"Cache-Control": "no-store"})
-
-
-async def admit_confirmation(request, row, owner):
-    from app.gateway.deps import get_run_store
-    from deerflow.persistence import get_session_factory
-    from deerflow.persistence.ppt_confirmation.sql import ConfirmationRepository, Scope
-    from deerflow.ppt_confirmation.admission import admit_initial_task
-    from deerflow.ppt_confirmation.lifecycle import ConsentConflict
-
-    factory = get_session_factory()
-    if factory is None:
-        raise HTTPException(503, "Confirmation store unavailable")
-    try:
-        return await admit_initial_task(Scope(owner, row["thread_id"], row["run_id"]), row, run_store=get_run_store(request), repository=ConfirmationRepository(factory))
-    except ConsentConflict:
-        raise HTTPException(409, "Confirmation requires an eligible new PPT task") from None
-
-
-async def refresh_confirmation_capability(request):
-    """Renew transport for an already-admitted live task, never renew consent.
-
-    Human waiting can outlive a capability. The Host service credential and
-    fresh run/thread ownership plus existing SQL admission are all required.
-    No state is created, reset or resumed by this read-only operation.
-    """
-    from deerflow.persistence import get_session_factory
-    from deerflow.persistence.ppt_confirmation.sql import ConfirmationRepository, Scope
-
-    secret = os.environ.get("SANDBOX_API_KEY", "")
-    if not secret or not hmac.compare_digest(request.headers.get("Authorization", ""), "Bearer " + secret):
-        raise HTTPException(401, "Internal authentication required")
-    body = await bounded_body(request)
-    if set(body) != {"run_id", "thread_id"}:
-        raise HTTPException(400, "Invalid PPT scope")
-    run_id, thread_id = _id(body["run_id"]), _id(body["thread_id"])
-    row, owner = await _service_run_owner(request, run_id, thread_id)
-    if row.get("status") not in {"pending", "running"} or row.get("cancel_action"):
-        raise HTTPException(409, "PPT run no longer active")
-    factory = get_session_factory()
-    if factory is None:
-        raise HTTPException(503, "Confirmation store unavailable")
-    snapshot = await ConfirmationRepository(factory).get(Scope(owner, thread_id, run_id))
-    if snapshot is None or snapshot["cancelled"]:
-        raise HTTPException(409, "Confirmation admission unavailable")
-    return JSONResponse({"capability": encode_scope(run_id, thread_id), "thread_id": thread_id, "task_id": run_id, "confirmation_protocol": "ppt-confirmation-v1"}, headers={"Cache-Control": "no-store"})
+    return JSONResponse({"capability": encode_scope(run_id, thread_id)}, headers={"Cache-Control": "no-store"})
 
 
 def numeric_usage(raw):
@@ -360,7 +249,6 @@ async def research(request: Request):
     if not isinstance(value, str) or not value.strip() or len(value) > (1000 if field == "query" else 2048) or "\x00" in value:
         raise HTTPException(400, "Invalid research arguments")
     store = get_run_event_store(request)
-    started, attempt_id = time.monotonic(), uuid.uuid4().hex
     fingerprint = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
     # Serialize admission in this Gateway process, including concurrent Workers.
     # Cross-process scale-out requires a transactional shared reservation; do
@@ -369,27 +257,21 @@ async def research(request: Request):
         async with _budget_lock:
             history = await store.list_events(scope["thread"], scope["run"], event_types=[RESEARCH], limit=65, after_seq=0)
             if len(history) >= 64 or sum((row.get("content") or {}).get("fingerprint") == fingerprint for row in history) >= 3:
-                raise HTTPException(429, {"research_error": "research_budget"})
-            await store.put(thread_id=scope["thread"], run_id=scope["run"], event_type=RESEARCH, category="tool", content={"name": name, "fingerprint": fingerprint, "attempt_id": attempt_id}, metadata={"task_id": scope["run"]})
+                raise HTTPException(429, "Research budget exhausted; report the failed source instead of looping")
+            await store.put(thread_id=scope["thread"], run_id=scope["run"], event_type=RESEARCH, category="tool", content={"name": name, "fingerprint": fingerprint}, metadata={"task_id": scope["run"]})
 
     def invoke():
         if field == "url":
-            try:
-                public_url(value)
-            except ValueError:
-                raise ResearchFailure("invalid_arguments") from None
+            public_url(value)
         result = configured_tool(name).invoke(args)
         if not isinstance(result, str) or len(result.encode()) > 32768:
-            raise ResearchFailure("invalid_response")
-        if name == "web_fetch" and result.startswith("Error:"):
-            raise ResearchFailure("extract_failed")
+            raise ValueError("research_result_too_large")
         return result
 
     try:
         await asyncio.wait_for(_slots.acquire(), timeout=2)
     except TimeoutError:
-        await _research_outcome(store, scope, name, attempt_id, started, "service_busy")
-        raise HTTPException(503, {"research_error": "service_busy"}) from None
+        raise HTTPException(503, "Research service busy") from None
     task = asyncio.create_task(asyncio.to_thread(invoke))
 
     def finished(done):
@@ -400,77 +282,9 @@ async def research(request: Request):
     task.add_done_callback(finished)
     try:
         result = await asyncio.wait_for(asyncio.shield(task), timeout=35)
-    except Exception as exc:
-        category = research_error_category(exc)
-        await _research_outcome(store, scope, name, attempt_id, started, category)
-        raise HTTPException(502, {"research_error": category}) from None
-    await _research_outcome(store, scope, name, attempt_id, started, None)
+    except Exception:
+        raise HTTPException(502, "Native research failed; do not repeat the same call indefinitely") from None
     return JSONResponse({"name": name, "content": result, "untrusted_external_content": True}, headers={"Cache-Control": "no-store"})
-
-
-async def confirmation_authority(request, *, claim=False, continuation=False):
-    """Read durable authorization for ONE active PPT task, never admit it.
-
-    The Host must also serialize a subsequent native POST with its cancellation
-    guard. This read is not an effect lock or permission to retry a lost POST.
-    Model text, body-provided owner/consent and elapsed time are not authority.
-    """
-    from deerflow.persistence import get_session_factory
-    from deerflow.persistence.ppt_confirmation.sql import ConfirmationRepository, Scope
-    from deerflow.ppt_confirmation import lifecycle as core
-
-    scope = await require_scope(request)
-    body = await bounded_body(request)
-    expected = {"gate_id"} if continuation else {"operation_id"} if claim else {"task_id"}
-    if set(body) != expected or not (claim or continuation) and body["task_id"] != scope["run"]:
-        raise HTTPException(400, "Invalid confirmation request")
-    if claim:
-        try:
-            core.identifier(body["operation_id"])
-        except core.ConsentConflict:
-            raise HTTPException(400, "Invalid confirmation request") from None
-    if continuation:
-        try:
-            core.fingerprint(body["gate_id"])
-        except core.ConsentConflict:
-            raise HTTPException(400, "Invalid confirmation request") from None
-    factory = get_session_factory()
-    if factory is None:
-        raise HTTPException(503, "Confirmation store unavailable")
-    snapshot = await ConfirmationRepository(factory).get(Scope(scope["owner"], scope["thread"], scope["run"]))
-    identity = {"owner_id": scope["owner"], "thread_id": scope["thread"], "task_id": scope["run"]}
-    if not (claim or continuation):
-        admitted = snapshot is not None and not snapshot["cancelled"]
-        return JSONResponse({**identity, "admitted": admitted, "auto_enabled": admitted and snapshot["policy"]["auto_enabled"] is True}, headers={"Cache-Control": "no-store"})
-    gate = snapshot.get("gate") if snapshot is not None else None
-    if continuation:
-        if (
-            snapshot is None
-            or snapshot["cancelled"]
-            or not isinstance(gate, dict)
-            or gate.get("state") != "continuation_pending"
-            or gate.get("gate_id") != body["gate_id"]
-            or any(gate.get(key) != value for key, value in identity.items())
-            or gate.get("continuation") != {"run_id": scope["run"], "action": "resume_same_session"}
-            or not isinstance(gate.get("receipt_digest"), str)
-        ):
-            raise HTTPException(409, "Confirmation continuation unavailable")
-        keys = ("owner_id", "thread_id", "task_id", "project_id", "stage", "gate_id", "revision", "state", "version", "owner_version", "source_digest", "payload_digest", "receipt_digest", "continuation")
-        return JSONResponse({**identity, "claim": {key: gate[key] for key in keys}}, headers={"Cache-Control": "no-store"})
-    if (
-        snapshot is None
-        or snapshot["cancelled"]
-        or snapshot["policy"]["auto_enabled"] is not True
-        or not isinstance(gate, dict)
-        or gate.get("state") != "submission_pending"
-        or any(gate.get(key) != value for key, value in identity.items())
-        or not isinstance(gate.get("submission"), dict)
-        or gate["submission"].get("mode") != "automatic"
-        or gate["submission"].get("id") != body["operation_id"]
-    ):
-        raise HTTPException(409, "Confirmation claim unavailable")
-    keys = ("owner_id", "thread_id", "task_id", "project_id", "stage", "gate_id", "revision", "state", "version", "owner_version", "source_digest", "payload_digest", "submission")
-    return JSONResponse({**identity, "claim": {key: gate[key] for key in keys}}, headers={"Cache-Control": "no-store"})
 
 
 async def dispatch_runtime(request, operation):
@@ -484,12 +298,6 @@ async def dispatch_runtime(request, operation):
         return await mint(request)
     if operation == "research":
         return await research(request)
-    if operation in {"confirmation-policy", "confirmation-claim"}:
-        return await confirmation_authority(request, claim=operation == "confirmation-claim")
-    if operation == "confirmation-continuation":
-        return await confirmation_authority(request, continuation=True)
-    if operation == "confirmation-capability-refresh":
-        return await refresh_confirmation_capability(request)
     if operation == "receipts":
         body = await bounded_body(request)
         if set(body) != {"after_seq"} or type(body["after_seq"]) is not int:

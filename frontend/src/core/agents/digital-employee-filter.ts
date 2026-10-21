@@ -1,7 +1,6 @@
 import type { Agent } from "./types";
 
 export interface DigitalEmployeeFilter {
-  hotOnly?: boolean;
   query?: string;
   categoryId?: string | null;
   categoryNames?: Record<string, string>;
@@ -39,7 +38,6 @@ export function filterDigitalEmployees(
   );
 
   return agents.filter((agent) => {
-    if (filter.hotOnly && agent.is_hot !== true) return false;
     if (filter.categoryId && agent.category_id !== filter.categoryId) {
       return false;
     }

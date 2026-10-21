@@ -1,5 +1,0 @@
-Tool files: preload_native.py, PROFILE.json, RUNBOOK.txt
-Entry: sudo python3 -I -B -u /home/cnooc/portal-ppt-native-preload-20261017-r1/preload_native.py --distribute
-Five local archives retain their original unique basenames in PROFILE.json. Host remains on datax-01 at its exact existing source_path. Root prepares the Windows uploader.
-Safe final REPORT: schema, operation, source_host, target, image_rows (role/tag/manifest/config/archive hash/content_and_unpack), postgres_cache (actual manifest/config/architecture or NOT_COLLECTED), host_runtime_inputs (safe path projection only), evidence, error_code, capacity_pass=false, ready_for_rollout=false.
-COMPLETE_PRELOAD means all six imports/reference/config/unpack checks passed, never native runtime qualification. PG/Host projection gaps can be declared separately; no raw Env/config/error text is returned.

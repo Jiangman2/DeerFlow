@@ -136,11 +136,8 @@ export function usePublishAgent() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (name: string) => publishAgent(name),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["team-agents"] }),
-        queryClient.invalidateQueries({ queryKey: ["employee-directory"] }),
-      ]);
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["team-agents"] });
     },
   });
 }
@@ -149,11 +146,8 @@ export function useUnpublishTeamAgent() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (name: string) => unpublishTeamAgent(name),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["team-agents"] }),
-        queryClient.invalidateQueries({ queryKey: ["employee-directory"] }),
-      ]);
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["team-agents"] });
     },
   });
 }

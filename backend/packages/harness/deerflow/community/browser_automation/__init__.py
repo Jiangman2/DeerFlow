@@ -2,7 +2,6 @@ from .session import (
     BrowserLiveViewerError,
     BrowserSession,
     BrowserSessionCapacityError,
-    BrowserSessionChangedError,
     BrowserSessionManager,
     BrowserTab,
     PageSnapshot,
@@ -29,7 +28,6 @@ from .tools import (
 __all__ = [
     "BrowserSession",
     "BrowserSessionCapacityError",
-    "BrowserSessionChangedError",
     "BrowserSessionManager",
     "BrowserTab",
     "BrowserLiveViewerError",

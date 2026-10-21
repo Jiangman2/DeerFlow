@@ -169,7 +169,7 @@ for (const { width, height } of [
       );
     });
     const originalIcon = page
-      .locator('[data-testid="portal-icon-pptAction"] img')
+      .locator('.cnooc-welcome-actions img[src*="action-ppt"]')
       .first();
     const originalSize = await originalIcon.evaluate(
       (element) => element.getBoundingClientRect().width,
@@ -203,12 +203,17 @@ for (const { width, height } of [
           (element) => element.getBoundingClientRect().width,
         ),
       ).toBe(originalSize);
-      await expect(link.locator("img")).toBeVisible();
-      await expect(link.locator("img")).toHaveAttribute(
-        "src",
-        /^data:image\/webp;base64,/,
-      );
-      await expect(link.locator("svg")).toHaveCount(0);
+      await expect
+        .poll(
+          () =>
+            link
+              .locator("img")
+              .evaluate(
+                (img: HTMLImageElement) => img.complete && img.naturalWidth > 0,
+              ),
+          { timeout: 30_000 },
+        )
+        .toBe(true);
     }
     const bounds = await menu.boundingBox();
     expect(bounds?.x).toBeGreaterThanOrEqual(0);
@@ -235,12 +240,15 @@ for (const { width, height } of [
     await expect(pptLink).toBeInViewport();
     await expect(pptLink).toHaveAttribute("href", PPT_ASSISTANT_TOOL.href);
     await expect(pptLink).toHaveAttribute("rel", "noopener noreferrer");
-    await expect(pptLink.locator("img")).toBeVisible();
-    await expect(pptLink.locator("img")).toHaveAttribute(
-      "src",
-      /^data:image\/webp;base64,/,
-    );
-    await expect(pptLink.locator("svg")).toHaveCount(0);
+    await expect
+      .poll(() =>
+        pptLink
+          .locator("img")
+          .evaluate(
+            (img: HTMLImageElement) => img.complete && img.naturalWidth > 0,
+          ),
+      )
+      .toBe(true);
     await page.screenshot({ path: info.outputPath(`ppt-menu-${width}.png`) });
     // Verify new-tab behavior without accessing the enterprise portal locally.
     await page

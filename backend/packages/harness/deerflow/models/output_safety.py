@@ -36,7 +36,6 @@ def has_repetitive_tail(text: str) -> bool:
 
 
 OUTPUT_STOP_MESSAGES = {
-    "incomplete_glm_stream": "GLM 的流式响应未完整结束，已停止本轮任务，未自动重试。已显示的内容可能不完整，请核对后重新发起。",
     "repetitive_output": "检测到模型持续重复输出，已停止本轮任务，未自动重试。请缩小任务范围或切换模型后继续。",
     "reasoning_budget_exceeded": "模型的推理输出已达到本次安全预算，已停止本轮任务，未自动重试。请拆分任务或调整模型的思考设置后继续。",
     "reasoning_output_limit": "模型耗尽输出额度时仍未给出可见答案，已停止本轮任务，未自动重试。请拆分任务或调整模型的思考设置后继续。",

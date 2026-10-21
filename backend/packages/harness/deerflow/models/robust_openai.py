@@ -780,9 +780,6 @@ class RobustChatOpenAI(ChatOpenAI):
             )
         return chunk_dict
 
-    def _prepare_provider_stream(self, response: Any) -> None:
-        """Provider-specific response-local inspection before SDK iteration."""
-
     def _stream(
         self,
         messages: list[BaseMessage],
@@ -827,7 +824,6 @@ class RobustChatOpenAI(ChatOpenAI):
                     response = self.client.create(**payload)
                 context_manager = response
             with context_manager as response:
-                self._prepare_provider_stream(response)
                 is_first_chunk = True
                 for raw_chunk in response:
                     chunk = frame_guard.normalize(raw_chunk)
@@ -955,7 +951,6 @@ class RobustChatOpenAI(ChatOpenAI):
                     response = await self.async_client.create(**payload)
                 context_manager = response
             async with context_manager as response:
-                self._prepare_provider_stream(response)
                 is_first_chunk = True
                 source_chunks = _astream_with_chunk_timeout(
                     response,

@@ -235,7 +235,7 @@ class TestBrowserTools:
         with patch.object(tools, "get_browser_session_manager", return_value=manager):
             result = await tools.browser_close_tool.coroutine(runtime=_runtime(), tool_call_id="t1")
         assert "No active browser session" in result.update["messages"][0].content
-        manager.close_session.assert_awaited_once_with("thread-1", owner_id="test-user-autouse", agent=True)
+        manager.close_session.assert_awaited_once_with("thread-1")
 
 
 @pytest.mark.asyncio
@@ -978,11 +978,12 @@ class _FakeRoute:
 
 
 @pytest.mark.asyncio
-async def test_context_guard_aborts_initial_blocked_request():
+async def test_request_guard_aborts_blocked_redirect_target():
     """The context request guard aborts any URL the SSRF policy rejects.
 
-    This unit test only exercises the context callback. Redirect coverage
-    belongs to the independent CDP guard and real Chromium fixture tests.
+    A public initial URL can 30x-redirect to a metadata/private host, and
+    Playwright follows it automatically; the per-request guard catches those
+    hops (and subresources/popups) that the one-time initial-URL check misses.
     """
     captured: dict[str, object] = {}
 
@@ -990,9 +991,6 @@ async def test_context_guard_aborts_initial_blocked_request():
         async def route(self, pattern, handler):
             captured["pattern"] = pattern
             captured["handler"] = handler
-
-        async def route_web_socket(self, pattern, handler):
-            captured["websocket"] = handler
 
     def guard(url: str) -> str | None:
         return "Error: blocked" if "169.254.169.254" in url else None

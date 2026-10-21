@@ -179,8 +179,7 @@ async def _load_channels_config(request: Request, config: ChannelConnectionsConf
     extra = app_config.model_extra or {}
     channels_config = extra.get("channels")
     result = dict(channels_config) if isinstance(channels_config, dict) else {}
-    await asyncio.to_thread(
-        merge_runtime_channel_configs,
+    await asyncio.to_thread(merge_runtime_channel_configs, 
         result,
         config,
         store=await _get_runtime_config_store(request),
@@ -690,3 +689,4 @@ async def configure_channel_provider_runtime(
         # Persistence succeeded. Never roll back over another writer's update.
         raise HTTPException(status_code=503, detail="Channel configuration saved, but local channel restart failed. Other workers were not reloaded.")
     return _provider_response(config, live_channels_config, provider, _PROVIDER_META[provider])
+

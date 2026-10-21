@@ -113,20 +113,11 @@ export default function ChatPage() {
     (mode: AgentMode) => {
       setSettings("context", {
         ...settings.context,
-        mode: resolveAgentMode(
-          mode,
-          supportsThinking,
-          selectedModel?.thinking_always_on,
-        ),
+        mode: resolveAgentMode(mode, supportsThinking),
         reasoning_effort: reasoningEffortForMode(mode),
       });
     },
-    [
-      setSettings,
-      settings.context,
-      supportsThinking,
-      selectedModel?.thinking_always_on,
-    ],
+    [setSettings, settings.context, supportsThinking],
   );
   const [isMounted, setIsMounted] = useState(false);
   const createdThreadIdRef = useRef<string | null>(null);
@@ -365,13 +356,12 @@ export default function ChatPage() {
                     <span>海能 AI</span>
                   </div>
                   <div className="cnooc-mobile-product-title cnooc-mobile-product-title-with-guide">
-                    <strong>海能通用智能体</strong>
+                    <strong>中国海油通用智能体</strong>
                     <ModeSelector
                       className="cnooc-mobile-mode-pill"
                       disabled={isAdminReview}
                       mode={settings.context.mode}
                       supportsThinking={supportsThinking}
-                      thinkingAlwaysOn={selectedModel?.thinking_always_on}
                       variant="mobile-header"
                       onSelect={handleModeSelect}
                     />
@@ -523,7 +513,6 @@ export default function ChatPage() {
                   )}
                   {isMounted ? (
                     <InputBox
-                      isNewThread={isNewThread}
                       className={cn(
                         "bg-background/5 w-full",
                         isWelcomeMode && "cnooc-welcome-composer",

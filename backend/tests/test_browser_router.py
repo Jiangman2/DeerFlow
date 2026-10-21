@@ -1,4 +1,3 @@
-import ipaddress
 import json
 import logging
 from types import SimpleNamespace
@@ -322,6 +321,7 @@ def test_validate_browser_url_rejects_private_and_non_http(monkeypatch):
     loopback / metadata / non-http targets, so the live stream cannot be steered
     at internal infrastructure.
     """
+    import ipaddress
 
     from deerflow.community.browser_automation import tools as browser_tools
     from deerflow.community.browser_automation import validate_browser_url
@@ -338,8 +338,7 @@ def test_validate_browser_url_rejects_private_and_non_http(monkeypatch):
     assert validate_browser_url("https://github.com/bytedance/deer-flow") is None
 
 
-@pytest.mark.parametrize("reconnecting", [False, True])
-def test_live_seed_and_navigation_await_async_validation(monkeypatch, reconnecting):
+def test_live_seed_and_navigation_await_async_validation(monkeypatch):
     import deerflow.community.browser_automation as browser_api
     import deerflow.config as config
 
@@ -348,14 +347,9 @@ def test_live_seed_and_navigation_await_async_validation(monkeypatch, reconnecti
         get=AsyncMock(return_value={"thread_id": "thread-1", "user_id": "browser-user"}),
     )
     session = SimpleNamespace(
-        session_id="a" * 32,
-        current_url=AsyncMock(return_value="about:blank"),
-        tabs=AsyncMock(return_value=[]),
-        start_screencast=AsyncMock(),
-        stop_screencast=AsyncMock(),
-        navigate=AsyncMock(),
-        dispatch_input=AsyncMock(),
-        login_control=AsyncMock(return_value={"manual_login": False, "scope": "thread_memory_only"}),
+        current_url=AsyncMock(return_value="about:blank"), tabs=AsyncMock(return_value=[]),
+        start_screencast=AsyncMock(), stop_screencast=AsyncMock(),
+        navigate=AsyncMock(), dispatch_input=AsyncMock(),
     )
     manager = MagicMock()
     manager.acquire_session.return_value.__enter__.return_value = session
@@ -367,73 +361,12 @@ def test_live_seed_and_navigation_await_async_validation(monkeypatch, reconnecti
         patch.object(browser_router, "_authenticate_ws", AsyncMock(return_value=_user())),
         patch.object(browser_router, "_browser_tools_enabled", return_value=True),
         TestClient(_browser_ws_app(store)) as client,
-        client.websocket_connect("/api/threads/thread-1/browser/stream?seed=https://example.test/seed" + ("&session_id=" + "a" * 32 if reconnecting else "")) as ws,
+        client.websocket_connect("/api/threads/thread-1/browser/stream?seed=https://example.test/seed") as ws,
     ):
         assert ws.receive_json()["type"] == "url"
         assert ws.receive_json()["type"] == "tabs"
-        assert ws.receive_json()["type"] == "login_state"
         ws.send_json({"type": "navigate", "url": "https://example.test/input"})
         assert ws.receive_json()["type"] == "nav_rejected"
-    assert [call.args[0] for call in validator.await_args_list] == (["https://example.test/input"] if reconnecting else ["https://example.test/seed", "https://example.test/input"])
-    assert manager.acquire_session.call_args.kwargs["expected_session_id"] == ("a" * 32 if reconnecting else None)
+    assert [call.args[0] for call in validator.await_args_list] == ["https://example.test/seed", "https://example.test/input"]
     session.navigate.assert_not_awaited()
     session.dispatch_input.assert_not_awaited()
-
-
-@pytest.mark.parametrize("revocation", ["token", "owner", "provider_failure"])
-def test_live_socket_closes_when_auth_or_thread_access_is_revoked(monkeypatch, revocation):
-    import deerflow.community.browser_automation as browser_api
-    import deerflow.config as config
-
-    store = SimpleNamespace(get=AsyncMock(return_value={"thread_id": "thread-1", "user_id": "browser-user"}))
-    session = SimpleNamespace(
-        session_id="a" * 32,
-        current_url=AsyncMock(return_value="about:blank"),
-        tabs=AsyncMock(return_value=[]),
-        start_screencast=AsyncMock(),
-        stop_screencast=AsyncMock(),
-        login_control=AsyncMock(return_value={"manual_login": True}),
-    )
-    manager = MagicMock()
-    manager.acquire_session.return_value.__enter__.return_value = session
-    authentication = AsyncMock(return_value=_user())
-    if revocation == "token":
-        authentication.side_effect = [_user(), None]
-    elif revocation == "owner":
-        store.get.side_effect = [{"thread_id": "thread-1", "user_id": "browser-user"}, None]
-    else:
-        authentication.side_effect = [_user(), RuntimeError("private provider failure")]
-    monkeypatch.setattr(browser_api, "get_browser_session_manager", lambda: manager)
-    monkeypatch.setattr(config, "get_app_config", lambda: SimpleNamespace(get_tool_config=lambda _: None))
-    monkeypatch.setattr(browser_router, "_BROWSER_ACCESS_RECHECK_SECONDS", 0.05)
-    monkeypatch.setattr(browser_router, "_authenticate_ws", authentication)
-    monkeypatch.setattr(browser_router, "_browser_tools_enabled", lambda: True)
-    with TestClient(_browser_ws_app(store)) as client:
-        with client.websocket_connect("/api/threads/thread-1/browser/stream") as ws:
-            assert ws.receive_json()["type"] == "url"
-            assert ws.receive_json()["type"] == "tabs"
-            assert ws.receive_json()["type"] == "login_state"
-            with pytest.raises(WebSocketDisconnect) as exc:
-                ws.receive_json()
-            assert exc.value.code == 4401
-    session.stop_screencast.assert_awaited_once()
-    manager.acquire_session.return_value.__exit__.assert_called_once()
-
-
-def test_live_reconnect_mismatch_does_not_launch_or_attach_browser(monkeypatch):
-    import deerflow.community.browser_automation as browser_api
-    import deerflow.config as config
-
-    store = SimpleNamespace(get=AsyncMock(return_value={"thread_id": "thread-1", "user_id": "browser-user"}))
-    manager = MagicMock()
-    manager.acquire_session.return_value.__enter__.side_effect = browser_api.BrowserSessionChangedError()
-    monkeypatch.setattr(browser_api, "get_browser_session_manager", lambda: manager)
-    monkeypatch.setattr(config, "get_app_config", lambda: SimpleNamespace(get_tool_config=lambda _: None))
-    monkeypatch.setattr(browser_router, "_authenticate_ws", AsyncMock(return_value=_user()))
-    monkeypatch.setattr(browser_router, "_browser_tools_enabled", lambda: True)
-    with TestClient(_browser_ws_app(store)) as client:
-        with client.websocket_connect("/api/threads/thread-1/browser/stream?session_id=" + "a" * 32) as ws:
-            with pytest.raises(WebSocketDisconnect) as exc:
-                ws.receive_json()
-            assert exc.value.code == 4410
-    manager.acquire_session.return_value.__exit__.assert_not_called()

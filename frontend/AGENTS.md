@@ -1,42 +1,5 @@
 # AGENTS.md
 
-Portal navigation buttons use generated rounded blue 3D bitmaps containing their
-outbound arrow. Bundle the
-pre-sized transparent image data so it needs no image download or Next optimizer;
-ordinary action menus have no outbound arrow. Preserve the approved destinations.
-The jump arrow is warm orange with a white keyline. All seven orange arrow
-silhouettes are 44 by 42 pixels on 144-pixel canvases; size complete bitmaps
-without separate arrow overlays. Keep original ordinary-action artwork;
-normalize transparent padding and center the
-visible icon plus label as one group in quick buttons and portal menu items.
-New `/ppt-master` requests use the ordinary Agent with the page-selected model
-and the existing enabled `skills/public/ppt-master` Skill. The UI accepts the
-Slash shortcut but sends an ordinary instruction to read that public Skill,
-without a leading slash in content or `original_user_content`. This intentionally
-avoids Gateway's explicit-Slash workflow checkpoint/sequence controller. Preserve
-the user's task and attachments and the Skill's native confirmation gates. Only
-the ordinary runtime submission branch performs this conversion; old Runner
-threads retain their exact input. Restore the shortcut for human-message display.
-An existing host Skill workflow requires a new conversation; never clear or
-rewrite its checkpoint from the browser. Do not attach Runner's
-60-second confirmation preference or show its new-task choice. Existing Runner
-threads retain their persisted runtime owner for reads, continuation, cancel
-and reconnect, including after a refresh with blocked sessionStorage. Never
-infer runtime ownership from new message text or move an old checkpoint.
-Model choices remain server-owned `/api/models` results; shipping GLM adapter
-code alone cannot enable a model without operator configuration and credentials.
-
-Browser Live manual login is a user-only WebSocket control, never an Agent
-message or a credential form in chat. Wait for server acknowledgement before
-enabling another login control. Keep failed resume protected, bound uncertain
-control waits, and never retry clear/login automatically. Reconnect to the
-reported browser session identity without replaying a stale seed URL; a missing
-or different session stops automatic reconnect and requires an explicit user
-reconnect. Keep the retry budget separate from the connection effect key so a
-successful reconnect does not immediately close itself. In-memory login scope
-must remain visible; rendered UI tests do not prove enterprise SSO or multi-Pod
-session continuity.
-
 Haineng home footer has four counters. Fetch existing signed Haineng usage and
 authenticated `/api/home/statistics` independently every minute; one failing
 source must not erase the other, and unavailable counters show a dash, not zero.
@@ -332,7 +295,7 @@ DeerFlow owns runtime installation and its security result.
 
 ### Data Flow
 
-1. Optional composer helpers such as `core/input-polish` can rewrite the local draft before submission. `core/voice-input` records microphone input only in a secure browser context, converts it to 16 kHz mono PCM16, and streams it over the same-origin authenticated `/api/voice-input/stream` WebSocket; Gateway returns partial/final text into that same local draft. Do not restore browser-vendor `SpeechRecognition` as an implicit fallback. Confirmed user input then flows to thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming. New `/ppt-master` requests follow this ordinary Agent path and activate the public Skill. `core/api/ppt-master-runtime.ts` uses persisted runtime ownership, never new Slash text, to retain existing Runner conversations on `/api/ppt-master-runtime` for stream, reconnect, cancel and checkpoint state/history. It checks shared run history before an unclassified continuation; a failed owner lookup must not dispatch to a different runtime. Paged conversation history, uploads, metadata and artifact APIs remain on the main Gateway. The hooks create new threads before first submission. PPT/PPTX attachments in explicit `/ppt-master` requests still use `upload_purpose=presentation_template` to preserve the original template instead of routing it through the document parser.
+1. Optional composer helpers such as `core/input-polish` can rewrite the local draft before submission. `core/voice-input` records microphone input only in a secure browser context, converts it to 16 kHz mono PCM16, and streams it over the same-origin authenticated `/api/voice-input/stream` WebSocket; Gateway returns partial/final text into that same local draft. Do not restore browser-vendor `SpeechRecognition` as an implicit fallback. Confirmed user input then flows to thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming. When that draft explicitly starts with `/ppt-master`, `core/api/ppt-master-runtime.ts` marks the thread with `runtime_profile=ppt-master-runner` **before** `useStream.submit()` can start state hydration, then routes stream, reconnect, cancel, and LangGraph checkpoint state/history through `/api/ppt-master-runtime`; paged conversation history, uploads, metadata, and artifact APIs remain on the main Gateway. Delaying the marker until the wrapped `runs.stream()` call creates a first-submit race in which `useStream` can query the ordinary checkpoint namespace and log misleading 404s. If the same request includes a PPT/PPTX attachment, the pre-submit upload uses `upload_purpose=presentation_template` so Gateway preserves the original template instead of routing it through the document parser.
    Welcome-page quick actions fill editable prompts that begin with their real
    Slash Skill name. The PPT action is a four-item route menu for Generate
    PPTX, Create Template, Fill Native PPTX, and Enhance Native PPTX; selecting
@@ -350,14 +313,6 @@ DeerFlow owns runtime installation and its security result.
 4. Stop actions call the LangGraph SDK stream stop path; `core/threads/hooks.ts` invalidates current-thread, thread-history, token-usage, and sidebar/search caches immediately and schedules one follow-up refetch because SDK stop may finish via abort + fire-and-forget cancel before backend title finalization commits
 5. TanStack Query manages server state; localStorage stores user settings
 6. Components subscribe to thread state and render updates. Completed message groups and turn-usage derivations retain stable references while only the active tail changes; histories with at least 60 groups use measured row virtualization while keeping the live tail mounted. Streaming Markdown uses a deferred, bounded 50 ms reveal cadence so provider token frequency cannot force a complete Markdown parse and React commit for every chunk.
-
-Data QA tool progress reuses the thread custom stream and tool-call step. Accept
-only closed stage codes bound to the active thread/run/call, deduplicate and
-bound its history, and keep the newest state visible while details are closed.
-Do not render upstream text or duplicate the business answer. Tool completion
-stops its spinner independently of assistant generation; failure, cancellation
-and a stream ending without completion must never leave it running. This is
-live UI state, not a migration or rewrite of historical messages.
 
 The composer labels the legacy shop-cart attachment flow as **Data Lake** while
 keeping its internal routes and modules unchanged. The control stores
@@ -681,27 +636,6 @@ The native App integration and release checklist live in
 
 `next.config.js` disables `poweredByHeader` at the application source. Preserve this after the Nextra wrapper; `tests/unit/config/http-identification.test.ts` loads the actual Next configuration and verifies both identification suppression and the API fallback rewrite ordering. Nginx suppresses upstream framework headers separately, so frontend rebuild/deployment remains required.
 
-### Opt-in slim build and release qualification
-
-`Dockerfile.slim` is a separate build path; it does not replace the legacy
-Compose Dockerfile or its `pnpm start` command override. It builds standalone
-output on a digest-pinned clean Node base and runs `node server.js` from
-`/app/frontend`. Never base a new slim release on the previous application image.
-Only standalone runtime dependencies, static assets and public assets belong in
-the final stage; retain type checking and `scripts/verify-standalone.mjs`.
-The demo artifact route must remain statically scoped to `public/demo/threads`:
-resolving request paths against `process.cwd()` makes Next trace the whole source
-tree. Preserve the demo mapping and reject path/symlink escapes.
-
-`python scripts/frontend_slim.py` (repository root) snapshots frontend inputs,
-excludes credentials/cache/output, checks image layer/size budgets, and runs
-isolated HTTP checks. It never deploys or pushes. `scripts/build_pool.py` creates
-separate persistent Docker-container builder lanes with CPU/memory budgets and
-per-lane locks. Do not bypass the frozen enterprise systemd BuildKit lock or
-claim Docker-lane qualification covers those native cgroup-v1 controls.
-See `release/frontend-slim-20261016/RUNBOOK.txt`; ARM64 and production integration
-acceptance remain separate from a local AMD64 pass.
-
 Backend API URLs are optional; an nginx proxy is used by default:
 
 ```
@@ -761,33 +695,3 @@ No database upgrade, downgrade, table deletion, push or deployment is performed
 by source candidate preparation. This candidate supersedes catalogue-only tree
 345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
 Previous broader-tree test results are historical, not acceptance of this tree.
-
-## 2026-10-13: compact office menu and curated discovery
-
-Welcome actions remove Surprise and Create. Proofreading and Translation are
-direct sibling actions, PPT Assistant belongs only in the PPT Generation menu
-(preserving all four editable Skill prompts), and `PortalToolsMenu` holds only
-the four remaining tools. Keep the seven exact
-destinations in `core/portal-links.ts`, preserve URL fragments, and use external
-anchors with noopener/noreferrer. Normalize new artwork's opaque bounds to the
-existing PPT icon, while reusing the desktop/mobile action canvas sizes. The
-two-column menu must remain viewport-bounded and compact without shrinking touch
-targets. The user-guide link is visible beside header actions on desktop and in
-the existing mobile header, not a second navigation/state implementation.
-
-Square discovery defaults to admin-curated hot flags. An explicit release-only
-snapshot marks existing public employees hot once; newly published employees also
-default hot. Explicit admin removal survives republication by the same publisher.
-Publish/unpublish success refreshes both the team catalogue and employee metadata
-before reporting completion so the current page never needs a manual refresh.
-Show all clears query/category/tag filters. Personal employees remain unfiltered by
-hot status. Ordinary `tags` cannot grant a hot badge. Query metadata per signed-in
-user, disable management on errors or missing identity tokens, invalidate after writes/conflicts, and keep
-backend admin authorization authoritative. Creator names come only from metadata.
-Preserve the existing personal editor and publishing permissions. Fixed-thinking
-models hide Flash and normalize stale Flash preferences to Thinking; other models
-retain all existing modes. UI contract tests do not prove production provider,
-SSO destination or network accessibility.
-The portal E2E suite verifies GLM selection and submitted thinking/model context
-at desktop and mobile widths using mock APIs only. Real GLM is enterprise-only;
-do not make local UI tests call its endpoint or embed credentials in fixtures.

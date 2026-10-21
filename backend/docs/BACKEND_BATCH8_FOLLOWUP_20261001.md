@@ -7,7 +7,7 @@ guard middleware, prompt template, runtime credential, or deployment is changed.
 
 ## Identity assertion
 
-The current role identifies the product as `海能通用智能体`. The same
+The current role identifies the product as `中国海油通用智能体`. The same
 system prompt legitimately names DeerFlow in internal native-tool documentation:
 `read_file` is a tool call, not a command to run in the Sandbox shell.
 The old global substring ban therefore rejected correct internal documentation.

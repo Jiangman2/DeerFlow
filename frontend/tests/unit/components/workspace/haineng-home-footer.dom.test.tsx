@@ -63,7 +63,7 @@ test("shows four independent counters and the updated contact/group details", as
   ]) {
     expect(container.textContent).not.toContain(label);
   }
-  expect(screen.getByText("海能通用智能体-问题反馈交流群")).toBeTruthy();
+  expect(screen.getByText("中国海油通用智能体-问题反馈交流群")).toBeTruthy();
   expect(
     screen.getByAltText("海能Work服务支持群二维码").getAttribute("src"),
   ).toBe("/images/haineng-work-support-qr-20261012.jpg");

@@ -55,7 +55,6 @@ import {
   resolveSlashSkillDisplay,
 } from "@/core/skills";
 import { useSkills } from "@/core/skills/hooks";
-import { displayPublicPptRequest } from "@/core/skills/public-ppt-request";
 import { SafeReasoningContent } from "@/core/streamdown/components";
 import { cn } from "@/lib/utils";
 
@@ -420,9 +419,7 @@ function MessageContent_({
 
   const contentToDisplay = useMemo(() => {
     if (isHuman) {
-      return rawContent
-        ? displayPublicPptRequest(stripUploadedFilesTag(rawContent))
-        : "";
+      return rawContent ? stripUploadedFilesTag(rawContent) : "";
     }
     return rawContent ?? "";
   }, [rawContent, isHuman]);

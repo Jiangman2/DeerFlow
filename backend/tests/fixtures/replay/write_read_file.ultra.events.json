@@ -13,7 +13,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "skill_context",
@@ -24,18 +23,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
-        "delegations",
-        "messages",
-        "skill_context",
-        "viewed_images"
-      ]
-    },
-    {
-      "event": "values",
-      "keys": [
-        "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "skill_context",
@@ -47,7 +34,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "skill_context",
@@ -59,7 +45,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "skill_context",
@@ -71,7 +56,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "skill_context",
@@ -83,19 +67,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
-        "delegations",
-        "messages",
-        "skill_context",
-        "thread_data",
-        "viewed_images"
-      ]
-    },
-    {
-      "event": "values",
-      "keys": [
-        "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "skill_context",
@@ -108,7 +79,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "skill_context",
@@ -121,20 +91,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
-        "delegations",
-        "messages",
-        "skill_context",
-        "thread_data",
-        "title",
-        "viewed_images"
-      ]
-    },
-    {
-      "event": "values",
-      "keys": [
-        "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "sandbox",
@@ -148,7 +104,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "sandbox",
@@ -162,7 +117,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "sandbox",
@@ -176,7 +130,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "sandbox",
@@ -190,7 +143,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "sandbox",
@@ -204,63 +156,6 @@
       "event": "values",
       "keys": [
         "artifacts",
-        "datalake_query_scope",
-        "delegations",
-        "messages",
-        "sandbox",
-        "skill_context",
-        "thread_data",
-        "title",
-        "viewed_images"
-      ]
-    },
-    {
-      "event": "values",
-      "keys": [
-        "artifacts",
-        "datalake_query_scope",
-        "delegations",
-        "messages",
-        "sandbox",
-        "skill_context",
-        "thread_data",
-        "title",
-        "viewed_images"
-      ]
-    },
-    {
-      "event": "values",
-      "keys": [
-        "artifacts",
-        "datalake_query_scope",
-        "delegations",
-        "messages",
-        "sandbox",
-        "skill_context",
-        "thread_data",
-        "title",
-        "viewed_images"
-      ]
-    },
-    {
-      "event": "values",
-      "keys": [
-        "artifacts",
-        "datalake_query_scope",
-        "delegations",
-        "messages",
-        "sandbox",
-        "skill_context",
-        "thread_data",
-        "title",
-        "viewed_images"
-      ]
-    },
-    {
-      "event": "values",
-      "keys": [
-        "artifacts",
-        "datalake_query_scope",
         "delegations",
         "messages",
         "sandbox",

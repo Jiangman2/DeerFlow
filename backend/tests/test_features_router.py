@@ -15,25 +15,21 @@ def _app_with_config(*, agents_api_enabled: bool) -> FastAPI:
     return app
 
 
-def test_features_reports_agents_api_enabled(monkeypatch) -> None:
-    monkeypatch.setenv("PPT_CONFIRMATION_TRANSPORT_ENABLED", "false")
+def test_features_reports_agents_api_enabled() -> None:
     with TestClient(_app_with_config(agents_api_enabled=True)) as client:
         response = client.get("/api/features")
     assert response.status_code == 200
     assert response.json() == {
         "agents_api": {"enabled": True},
         "browser_control": {"enabled": False},
-        "ppt_confirmation": {"enabled": False, "protocol": "ppt-confirmation-v1"},
     }
 
 
-def test_features_reports_agents_api_disabled(monkeypatch) -> None:
-    monkeypatch.setenv("PPT_CONFIRMATION_TRANSPORT_ENABLED", "false")
+def test_features_reports_agents_api_disabled() -> None:
     with TestClient(_app_with_config(agents_api_enabled=False)) as client:
         response = client.get("/api/features")
     assert response.status_code == 200
     assert response.json() == {
         "agents_api": {"enabled": False},
         "browser_control": {"enabled": False},
-        "ppt_confirmation": {"enabled": False, "protocol": "ppt-confirmation-v1"},
     }

@@ -29,9 +29,7 @@ const MODES: AgentMode[] = ["flash", "thinking", "pro", "ultra"];
 export function resolveAgentMode(
   mode: AgentMode | undefined,
   supportsThinking: boolean,
-  thinkingAlwaysOn = false,
 ): AgentMode {
-  if (thinkingAlwaysOn && (!mode || mode === "flash")) return "thinking";
   if (!supportsThinking && mode !== "flash") {
     return "flash";
   }
@@ -77,7 +75,6 @@ function ModeIcon({
 export function ModeSelector({
   mode,
   supportsThinking,
-  thinkingAlwaysOn = false,
   disabled = false,
   variant = "composer",
   className,
@@ -85,18 +82,13 @@ export function ModeSelector({
 }: {
   mode: AgentMode | undefined;
   supportsThinking: boolean;
-  thinkingAlwaysOn?: boolean;
   disabled?: boolean;
   variant?: "composer" | "mobile-header";
   className?: string;
   onSelect: (mode: AgentMode) => void;
 }) {
   const { t } = useI18n();
-  const selectedMode = resolveAgentMode(
-    mode,
-    supportsThinking,
-    thinkingAlwaysOn,
-  );
+  const selectedMode = resolveAgentMode(mode, supportsThinking);
   const labels = {
     flash: t.inputBox.flashMode,
     thinking: t.inputBox.reasoningMode,
@@ -109,11 +101,9 @@ export function ModeSelector({
     pro: t.inputBox.proModeDescription,
     ultra: t.inputBox.ultraModeDescription,
   };
-  const availableModes = thinkingAlwaysOn
-    ? MODES.filter((item) => item !== "flash")
-    : supportsThinking
-      ? MODES
-      : MODES.filter((item) => item === "flash");
+  const availableModes = supportsThinking
+    ? MODES
+    : MODES.filter((item) => item === "flash");
 
   const trigger =
     variant === "mobile-header" ? (

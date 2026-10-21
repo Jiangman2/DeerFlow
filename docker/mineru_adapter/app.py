@@ -29,7 +29,6 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
 
 import requests
 
@@ -1739,7 +1738,6 @@ class EnterpriseMinerUClient:
         sync_transient_retries: int | None = None,
         sync_retry_delay_seconds: float | None = None,
         sync_retry_max_elapsed_seconds: float | None = None,
-        task_query_url: str | None = None,
         session: Any | None = None,
     ) -> None:
         normalized_url = api_url.rstrip("/")
@@ -1750,10 +1748,6 @@ class EnterpriseMinerUClient:
         self.base_url = normalized_url
         self.api_url = f"{normalized_url}/file_parse"
         self.tasks_url = f"{normalized_url}/tasks"
-        # Operator-owned configuration only. Never use URLs returned by the
-        # provider to select the destination of an authenticated request.
-        query_url = os.getenv("MINERU_TASK_QUERY_URL", "") if task_query_url is None else task_query_url
-        self.task_query_url = self._validated_task_query_url(query_url, self.tasks_url)
         self.api_token = api_token
         if timeout_seconds <= 0:
             raise ValueError("MinerU timeout must be greater than zero")
@@ -1802,40 +1796,6 @@ class EnterpriseMinerUClient:
                     session.verify = ca_bundle
         self.session = session
 
-    @staticmethod
-    def _validated_task_query_url(value: str, submission_url: str) -> str:
-        if not value.strip():
-            return submission_url
-        # Keep the legacy default unchanged. An explicit alternate task route
-        # must be a canonical HTTPS URL on the submission endpoint's origin.
-        # Reject escaped/traversal paths, credentials and query tokens before
-        # any network access; do not include configuration values in errors.
-        try:
-            if any(ord(c) <= 32 or ord(c) >= 127 for c in value):
-                raise ValueError
-            query = urlsplit(value)
-            submit = urlsplit(submission_url)
-            if any(c in value for c in ("?", "#", "\\", "%")):
-                raise ValueError
-            if query.scheme != "https" or submit.scheme != "https":
-                raise ValueError
-            if query.username is not None or query.password is not None or submit.username is not None or submit.password is not None:
-                raise ValueError
-            query_port = query.port if query.port is not None else 443
-            submit_port = submit.port if submit.port is not None else 443
-            if not 1 <= query_port <= 65535 or not 1 <= submit_port <= 65535:
-                raise ValueError
-            if not query.hostname or (query.hostname, query_port) != (submit.hostname, submit_port):
-                raise ValueError
-            path = query.path.removesuffix("/")
-            if not path.endswith("/tasks") or not re.fullmatch(r"/[A-Za-z0-9._/-]+", path):
-                raise ValueError
-            if any(segment in {"", ".", ".."} for segment in path.split("/")[1:]):
-                raise ValueError
-        except ValueError:
-            raise ValueError("Invalid MinerU task query URL; require a same-origin HTTPS /tasks endpoint") from None
-        return value.removesuffix("/")
-
     def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self.api_token}",
@@ -1848,8 +1808,6 @@ class EnterpriseMinerUClient:
         if status_code is None:
             response.raise_for_status()
             return
-        if 300 <= int(status_code) < 400:
-            raise RuntimeError(f"Enterprise MinerU redirect refused during {operation}")
         if int(status_code) >= 400:
             raise MinerUHTTPError(operation=operation, response=response)
 
@@ -2010,7 +1968,6 @@ class EnterpriseMinerUClient:
                     },
                     data=self._request_data(),
                     timeout=self.timeout_seconds,
-                    allow_redirects=False,
                 )
                 self._raise_for_status(response, "synchronous parse")
                 payload = self._task_fields(self._decode_json_response(response, "synchronous parse"))
@@ -2095,16 +2052,15 @@ class EnterpriseMinerUClient:
             files={"files": (filename, content, media_type)},
             data=self._request_data(),
             timeout=min(self.timeout_seconds, 120),
-            allow_redirects=False,
         )
         if submission.status_code not in {HTTPStatus.OK, HTTPStatus.ACCEPTED}:
             self._raise_for_status(submission, "asynchronous submission")
         submission_payload = self._task_fields(self._decode_json_response(submission, "asynchronous submission"))
         task_id = str(submission_payload.get("task_id", "")).strip()
-        if not self._TASK_ID_RE.fullmatch(task_id) or task_id in {".", ".."}:
+        if not self._TASK_ID_RE.fullmatch(task_id):
             raise RuntimeError("Enterprise MinerU returned an invalid task identifier")
 
-        status_url = f"{self.task_query_url}/{task_id}"
+        status_url = f"{self.tasks_url}/{task_id}"
         result_url = f"{status_url}/result"
         consecutive_status_errors = 0
         while True:
@@ -2116,7 +2072,6 @@ class EnterpriseMinerUClient:
                     status_url,
                     headers=self._headers(),
                     timeout=min(60.0, max(1.0, remaining)),
-                    allow_redirects=False,
                 )
             except (requests.ConnectionError, requests.Timeout) as exc:
                 consecutive_status_errors += 1
@@ -2160,7 +2115,7 @@ class EnterpriseMinerUClient:
             status = str(status_payload.get("status", "")).strip().lower()
             if status == "completed":
                 break
-            if status in {"failed", "error"}:
+            if status == "failed":
                 error = str(status_payload.get("error") or status_payload.get("message") or "unknown failure")[:300]
                 raise RuntimeError(f"Enterprise MinerU asynchronous task failed: {error}")
             if status not in {"pending", "queued", "processing"}:
@@ -2177,7 +2132,6 @@ class EnterpriseMinerUClient:
                     result_url,
                     headers=self._headers(),
                     timeout=min(60.0, max(1.0, remaining)),
-                    allow_redirects=False,
                 )
             except (requests.ConnectionError, requests.Timeout) as exc:
                 consecutive_result_errors += 1

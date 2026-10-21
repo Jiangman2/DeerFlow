@@ -98,17 +98,6 @@ func NewVLM(config *Config, ollamaService *ollama.OllamaService) (VLM, error) {
 }
 
 func newVLM(config *Config, ollamaService *ollama.OllamaService) (VLM, error) {
-	if config == nil {
-		return nil, fmt.Errorf("VLM config is required")
-	}
-	// An explicit wire profile must never silently fall back to a different
-	// protocol. Existing models without this option retain their original path.
-	if profile, present := config.Extra["wire_profile"]; present {
-		if profile != EnterpriseGLMWireProfile {
-			return nil, fmt.Errorf("unsupported VLM wire profile")
-		}
-		return NewEnterpriseGLMVLM(config)
-	}
 	ifType := strings.ToLower(config.InterfaceType)
 
 	if ifType == "ollama" || config.Source == types.ModelSourceLocal {

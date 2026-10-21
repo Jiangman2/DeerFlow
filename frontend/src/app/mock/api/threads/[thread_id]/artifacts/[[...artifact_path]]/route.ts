@@ -14,56 +14,20 @@ export async function GET(
     }>;
   },
 ) {
-  const { thread_id: threadId, artifact_path: parts = [] } = await params;
-  if (
-    /^[a-zA-Z0-9_-]+$/.test(threadId) &&
-    parts[0] === "mnt" &&
-    parts.length > 1 &&
-    parts.every(
-      (part) =>
-        part !== "" && part !== "." && part !== ".." && !/[\\/\0]/.test(part),
-    )
-  ) {
-    // A literal subdirectory lets Next trace only demo assets, not the entire
-    // project. Never resolve a client-controlled path against process.cwd().
-    const threadRoot = path.resolve(
+  const threadId = (await params).thread_id;
+  let artifactPath = (await params).artifact_path?.join("/") ?? "";
+  if (artifactPath.startsWith("mnt/")) {
+    artifactPath = path.resolve(
       process.cwd(),
-      "public/demo/threads",
-      threadId,
+      artifactPath.replace("mnt/", `public/demo/threads/${threadId}/`),
     );
-    const artifactPath = path.resolve(
-      process.cwd(),
-      "public/demo/threads",
-      threadId,
-      ...parts.slice(1),
-    );
-    const relative = path.relative(threadRoot, artifactPath);
-    if (
-      relative !== ".." &&
-      !relative.startsWith(`..${path.sep}`) &&
-      !path.isAbsolute(relative) &&
-      fs.existsSync(artifactPath)
-    ) {
-      const realRelative = path.relative(
-        fs.realpathSync(threadRoot),
-        fs.realpathSync(artifactPath),
-      );
-      if (
-        // Kubernetes projected files resolve through a legal ..timestamp directory.
-        // Only a complete parent segment escapes this thread root.
-        realRelative === ".." ||
-        realRelative.startsWith(`..${path.sep}`) ||
-        path.isAbsolute(realRelative) ||
-        !fs.statSync(artifactPath).isFile()
-      ) {
-        return new Response("File not found", { status: 404 });
-      }
+    if (fs.existsSync(artifactPath)) {
       if (request.nextUrl.searchParams.get("download") === "true") {
         // Attach the file to the response
         const headers = new Headers();
         headers.set(
           "Content-Disposition",
-          `attachment; filename*=UTF-8''${encodeURIComponent(path.basename(artifactPath))}`,
+          `attachment; filename="${artifactPath}"`,
         );
         return new Response(fs.readFileSync(artifactPath), {
           status: 200,

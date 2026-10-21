@@ -30,13 +30,10 @@ from deerflow.community.url_safety import validate_public_http_url
 from deerflow.config import get_app_config
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
 from deerflow.constants import BROWSER_FRAMES_DIRNAME
-from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.tools.types import Runtime
 
 from .async_guard import run_url_guard
-from .login_policy import manual_login_origins
 from .session import BrowserSession, BrowserSessionManager, PageSnapshot, get_browser_session_manager
-from .url_policy import validate_browser_url_policy
 
 logger = logging.getLogger(__name__)
 
@@ -131,9 +128,7 @@ def _resolve_session(runtime: Runtime, tool_name: str) -> _SessionLease:
         viewport={"width": width, "height": height},
         cdp_url=cdp_url,
         allow_unguarded_cdp=_as_bool(cfg.get("allow_unguarded_cdp"), False),
-        owner_id=resolve_runtime_user_id(runtime),
         url_guard=validate_browser_url,
-        manual_login_origins=manual_login_origins(cfg.get("manual_login_origins")),
         pin=True,
     )
     return _SessionLease(manager, thread_id, session)
@@ -148,13 +143,6 @@ def validate_browser_url(url: str, *, tool_name: str = "browser_navigate") -> st
     policy (``allow_private_addresses`` from the ``browser_navigate`` tool config).
     """
     cfg = _get_tool_config(tool_name)
-    if cfg.get("private_origins") is not None or cfg.get("private_origin_suffixes") is not None:
-        return validate_browser_url_policy(
-            url,
-            cfg.get("private_origins"),
-            private_origin_suffixes=cfg.get("private_origin_suffixes"),
-            resolver=_resolve_host_addresses,
-        )
     allow_private = _as_bool(cfg.get("allow_private_addresses"), False)
     return validate_public_http_url(
         url,
@@ -258,7 +246,6 @@ async def navigate_and_capture(*, thread_id: str | None, url: str, outputs_path:
         cdp_url=_as_str(cfg.get("cdp_url")),
         allow_unguarded_cdp=_as_bool(cfg.get("allow_unguarded_cdp"), False),
         url_guard=validate_browser_url,
-        manual_login_origins=manual_login_origins(cfg.get("manual_login_origins")),
     ) as session:
         snapshot = await session.navigate(url)
         screenshot_path: str | None = None
@@ -459,7 +446,7 @@ async def browser_close_tool(runtime: Runtime, tool_call_id: Annotated[str, Inje
     """Close the current browser session and free its resources. Call this when done with the browsing flow; a later browser_navigate starts a fresh session."""
     try:
         manager = get_browser_session_manager()
-        closed = await manager.close_session(_thread_id(runtime), owner_id=resolve_runtime_user_id(runtime), agent=True)
+        closed = await manager.close_session(_thread_id(runtime))
         msg = "Browser session closed." if closed else "No active browser session to close."
         return _tool_message(msg, tool_call_id)
     except Exception as e:

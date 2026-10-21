@@ -1,10 +1,7 @@
 # Enterprise ARM64 deployment
 
-This overlay records an earlier three-node Kylin ARM64 deployment. It is not
-the current production desired state and must not be applied wholesale to the
-expanded cluster. The [2026-10-21 live reconciliation](../../docs/pr13-current-production-reconciliation-20261021.md)
-records the current replica/resource/image observations and remaining source
-gaps. The historical node layout below is retained for provenance:
+This overlay is the deployment source for the current three-node Kylin ARM64
+cluster:
 
 | Node             | Kubernetes name | Local storage                                        |
 | ---------------- | --------------- | ---------------------------------------------------- |

@@ -18,47 +18,44 @@ on step 3.
 
 from __future__ import annotations
 
-import asyncio
 import sqlite3
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import create_async_engine
 
 import deerflow.persistence.models  # noqa: F401  -- registers ORM models
-from deerflow.persistence.bootstrap import _get_alembic_config, _upgrade
+from deerflow.persistence.base import Base
 from deerflow.persistence.engine import close_engine, get_session_factory, init_engine
 from deerflow.persistence.run import RunRepository
 
 pytestmark = pytest.mark.asyncio
 
 
-async def _seed_historical_database(db_path: Path, *, drop_token_column: bool) -> None:
+def _seed_pre_3658_database(db_path: Path) -> None:
     """Build a DB that looks like a pre-PR-#3658 deployment.
 
-    Use the last pre-confirmation migration's real DDL so today's ORM cannot
-    accidentally pre-create the new confirmation tables in a historical DB.
+    Uses the synchronous ``sqlite3`` driver so the seed is independent of the
+    async engine under test.
     """
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    seed_engine = create_async_engine(f"sqlite+aiosqlite:///{db_path.as_posix()}")
+    # Easiest way to get the legacy shape exactly right: create_all then
+    # ALTER away the new column.
+    sync_url = f"sqlite:///{db_path.as_posix()}"
+    sync_engine = sa.create_engine(sync_url)
     try:
-        await asyncio.to_thread(_upgrade, _get_alembic_config(seed_engine), "0019_digital_employee_agents")
-        async with seed_engine.begin() as conn:
-            tables = await conn.run_sync(lambda c: set(sa.inspect(c).get_table_names()))
-            assert not {"ppt_confirmation_tasks", "ppt_confirmation_gates"} & tables
-            await conn.execute(sa.text("DROP TABLE alembic_version"))
-            if drop_token_column:
-                await conn.execute(sa.text("ALTER TABLE runs DROP COLUMN token_usage_by_model"))
+        Base.metadata.create_all(sync_engine)
+        with sync_engine.begin() as conn:
+            conn.execute(sa.text("ALTER TABLE runs DROP COLUMN token_usage_by_model"))
     finally:
-        await seed_engine.dispose()
+        sync_engine.dispose()
 
 
 async def test_legacy_database_recovers_token_usage_column(tmp_path: Path) -> None:
     db_path = tmp_path / "legacy.db"
-    await _seed_historical_database(db_path, drop_token_column=True)
+    _seed_pre_3658_database(db_path)
 
     # Sanity: confirm we did indeed land in the buggy pre-fix shape before
     # init_engine touches the file.
@@ -79,9 +76,7 @@ async def test_legacy_database_recovers_token_usage_column(tmp_path: Path) -> No
             cols = {row[1] for row in raw.execute("PRAGMA table_info(runs)").fetchall()}
             assert "token_usage_by_model" in cols
             version_row = raw.execute("SELECT version_num FROM alembic_version").fetchone()
-            assert version_row[0] == "0020_ppt_confirmation"
-            tables = {row[0] for row in raw.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            assert {"ppt_confirmation_tasks", "ppt_confirmation_gates"} <= tables
+            assert version_row[0] == "0019_digital_employee_agents"
 
         # And the read path that originally 500'd must now succeed.
         sf = get_session_factory()
@@ -105,8 +100,13 @@ async def test_legacy_database_with_manual_alter_still_bootstraps(tmp_path: Path
     db_path = tmp_path / "manual_altered.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Keep the historical token column, modelling the already-applied workaround.
-    await _seed_historical_database(db_path, drop_token_column=False)
+    sync_engine = sa.create_engine(f"sqlite:///{db_path.as_posix()}")
+    try:
+        Base.metadata.create_all(sync_engine)
+        # Don't strip the column -- this is the "user already ran the
+        # workaround" case where create_all already produced it.
+    finally:
+        sync_engine.dispose()
 
     url = f"sqlite+aiosqlite:///{db_path.as_posix()}"
     await init_engine(backend="sqlite", url=url, sqlite_dir=str(tmp_path))
@@ -116,8 +116,6 @@ async def test_legacy_database_with_manual_alter_still_bootstraps(tmp_path: Path
             # No duplicate column -- list, not set, to catch dupes.
             assert cols.count("token_usage_by_model") == 1
             version_row = raw.execute("SELECT version_num FROM alembic_version").fetchone()
-            assert version_row[0] == "0020_ppt_confirmation"
-            tables = {row[0] for row in raw.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            assert {"ppt_confirmation_tasks", "ppt_confirmation_gates"} <= tables
+            assert version_row[0] == "0019_digital_employee_agents"
     finally:
         await close_engine()

@@ -4,7 +4,6 @@ import contextlib
 import json
 import logging
 
-import anyio
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
@@ -15,7 +14,6 @@ from deerflow.runtime.user_context import get_effective_user_id, reset_current_u
 from deerflow.utils.thread_id import ThreadId
 
 logger = logging.getLogger(__name__)
-_BROWSER_ACCESS_RECHECK_SECONDS = 30.0
 
 router = APIRouter(prefix="/api", tags=["browser"])
 
@@ -247,7 +245,6 @@ async def browser_stream(websocket: WebSocket, thread_id: ThreadId) -> None:
         from deerflow.community.browser_automation import (
             BrowserLiveViewerError,
             BrowserSessionCapacityError,
-            BrowserSessionChangedError,
             get_browser_session_manager,
             validate_browser_url,
             validate_browser_url_async,
@@ -305,8 +302,6 @@ async def browser_stream(websocket: WebSocket, thread_id: ThreadId) -> None:
         value = extra.get(key)
         return value.strip() or None if isinstance(value, str) else None
 
-    from deerflow.community.browser_automation.login_policy import manual_login_origins
-
     manager = get_browser_session_manager()
     try:
         session_lease = manager.acquire_session(
@@ -317,15 +312,8 @@ async def browser_stream(websocket: WebSocket, thread_id: ThreadId) -> None:
             cdp_url=_cfg_str("cdp_url"),
             allow_unguarded_cdp=_cfg_bool("allow_unguarded_cdp", False),
             url_guard=validate_browser_url,
-            owner_id=str(user.id),
-            manual_login_origins=manual_login_origins(extra.get("manual_login_origins")),
-            expected_session_id=websocket.query_params.get("session_id"),
         )
         session = session_lease.__enter__()
-    except BrowserSessionChangedError:
-        await websocket.close(code=4410)
-        reset_current_user(token)
-        return
     except BrowserSessionCapacityError:
         await websocket.close(code=4429)
         reset_current_user(token)
@@ -340,10 +328,6 @@ async def browser_stream(websocket: WebSocket, thread_id: ThreadId) -> None:
             data = await frame_queue.get()
             async with send_lock:
                 await _send_browser_frame(websocket, data, binary=use_binary_frames)
-
-    async def _send_login_state() -> None:
-        state = await session.login_control("status")
-        await _send_payload({"type": "login_state", **state, "session_id": session.session_id})
 
     async def _send_url() -> None:
         # Report the page's real URL so the client's address bar reflects the
@@ -384,7 +368,6 @@ async def browser_stream(websocket: WebSocket, thread_id: ThreadId) -> None:
         while True:
             await asyncio.sleep(1.0)
             with contextlib.suppress(Exception):
-                await _send_login_state()
                 url = await session.current_url()
                 if url and url != last_url:
                     last_url = url
@@ -455,25 +438,6 @@ async def browser_stream(websocket: WebSocket, thread_id: ThreadId) -> None:
                     if _has_pending_input():
                         input_event.set()
                     break
-                if event.get("type") == "login_control":
-                    # Thread owner and same-origin checks already bind this
-                    # socket. No password/Cookie travels through an Agent tool.
-                    try:
-                        action = event.get("action")
-                        if action not in ("begin", "resume", "clear"):
-                            raise ValueError("Invalid login action")
-                        if action == "clear":
-                            while not frame_queue.empty():
-                                frame_queue.get_nowait()
-                        await session.login_control(action)
-                        await _send_login_state()
-                        await _send_url()
-                        await _send_tabs()
-                        await _send_payload({"type": "login_ack", "action": action})
-                    except Exception:
-                        await _send_login_state()
-                        await _send_payload({"type": "login_error", "message": "Login action could not complete. Finish or close the login page before resuming."})
-                    continue
                 if event.get("type") == "navigate":
                     # SSRF-screen client-driven navigations with the same policy
                     # the agent tools enforce; reject rather than dispatch.
@@ -485,70 +449,43 @@ async def browser_stream(websocket: WebSocket, thread_id: ThreadId) -> None:
                 try:
                     await session.dispatch_input(event)
                 except Exception as exc:
-                    logger.warning("browser stream input failed: %s", type(exc).__name__)
+                    logger.warning("browser stream input failed: %s", exc)
                 else:
                     # A location may have changed — resync the client's URL bar.
                     if event.get("type") in {"navigate", "back", "forward", "click", "activate_tab"}:
                         await _send_url()
                         await _send_tabs()
 
-    async def _watch_access() -> None:
-        # A long-lived socket must not retain access after platform auth expires,
-        # logout revokes the token, or thread ownership is removed.
-        while True:
-            await asyncio.sleep(_BROWSER_ACCESS_RECHECK_SECONDS)
-            try:
-                current_user = await _authenticate_ws(websocket)
-                valid = current_user is not None and str(current_user.id) == str(user.id)
-                if valid:
-                    valid = await _browser_thread_owned_by(thread_store, thread_id, str(user.id))
-            except Exception:
-                valid = False
-            if not valid:
-                await websocket.close(code=4401)
-                return
-
     pump_task = asyncio.create_task(_pump_frames())
     input_task: asyncio.Task | None = None
     reader_task: asyncio.Task | None = None
     poll_task: asyncio.Task | None = None
-    access_task: asyncio.Task | None = None
     try:
-        # Claim the viewer before any mutation: a rejected second connection
-        # must never navigate the active user's page. Reconnect seeds cannot
-        # replace an in-progress login with an older browser artifact.
+        # Seed the live page from the latest browser_view URL. A thread can have
+        # a stale browser session from an earlier panel/live attempt; if that
+        # page differs from the latest visible browser artifact, align Live with
+        # what the user expects instead of requiring an off/on reconnect.
+        seed = websocket.query_params.get("seed")
+        if seed and await validate_browser_url_async(seed) is None:
+            with contextlib.suppress(Exception):
+                current = await session.current_url()
+                if _should_apply_browser_seed(current, seed):
+                    await session.navigate(seed)
         try:
             await session.start_screencast(_on_frame)
         except BrowserLiveViewerError:
             await websocket.close(code=4409)
             return
-        state = await session.login_control("status")
-        seed = websocket.query_params.get("seed")
-        if seed and not websocket.query_params.get("session_id") and not state.get("manual_login") and await validate_browser_url_async(seed) is None:
-            with contextlib.suppress(Exception):
-                current = await session.current_url()
-                if _should_apply_browser_seed(current, seed):
-                    await session.dispatch_input({"type": "navigate", "url": seed})
         await _send_url()
         await _send_tabs()
-        await _send_login_state()
         input_task = asyncio.create_task(_process_inputs())
         reader_task = asyncio.create_task(_read_inputs())
         poll_task = asyncio.create_task(_poll_location())
-        access_task = asyncio.create_task(_watch_access())
-        done, _ = await asyncio.wait((reader_task, input_task, poll_task, pump_task, access_task), return_when=asyncio.FIRST_COMPLETED)
-        for task in done:
-            task.result()
+        await reader_task
     except WebSocketDisconnect:
         pass
-    except asyncio.CancelledError:
-        # ASGI cancels a disconnected connection's task group. Its owned
-        # background tasks still need cleanup and the session pin released.
-        pass
     except Exception as exc:
-        logger.error("browser stream error: thread_id=%s err_type=%s", thread_id, type(exc).__name__)
-        with contextlib.suppress(Exception):
-            await websocket.close(code=4501)
+        logger.exception("browser stream error: thread_id=%s err=%s", thread_id, exc)
     finally:
         pump_task.cancel()
         if input_task is not None:
@@ -557,13 +494,7 @@ async def browser_stream(websocket: WebSocket, thread_id: ThreadId) -> None:
             reader_task.cancel()
         if poll_task is not None:
             poll_task.cancel()
-        if access_task is not None:
-            access_task.cancel()
-        try:
-            with anyio.move_on_after(5, shield=True):
-                await asyncio.gather(*(task for task in (pump_task, input_task, reader_task, poll_task, access_task) if task is not None), return_exceptions=True)
-                with contextlib.suppress(Exception):
-                    await session.stop_screencast(_on_frame)
-        finally:
-            session_lease.__exit__(None, None, None)
-            reset_current_user(token)
+        with contextlib.suppress(Exception):
+            await session.stop_screencast(_on_frame)
+        session_lease.__exit__(None, None, None)
+        reset_current_user(token)

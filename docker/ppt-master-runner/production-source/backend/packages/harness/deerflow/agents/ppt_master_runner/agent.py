@@ -16,7 +16,6 @@ import logging
 import os
 import re
 from collections.abc import Callable
-from contextlib import nullcontext
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -32,7 +31,6 @@ from deerflow.agents.middlewares.title_middleware import fallback_title_from_tex
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.app_config import AppConfig, get_app_config
 from deerflow.config.title_config import TitleConfig
-from deerflow.ppt_confirmation.host_protocol import ConfirmationHostCompatibilityError, require_confirmation_host
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.sandbox import get_sandbox_provider
 
@@ -562,7 +560,6 @@ async def _poll_agent_turn(
     keep_sandbox_alive: Callable[[], bool] | None = None,
     report_usage: Callable[[dict[str, Any]], dict[str, int] | None] | None = None,
     provider_receipts=None,
-    confirmation_monitor=None,
 ) -> dict[str, Any]:
     after_seq = 0
     message_index = 0
@@ -573,14 +570,6 @@ async def _poll_agent_turn(
     last_unknown_calls = 0
     last_sync_delayed = False
     while True:
-        if confirmation_monitor is not None:
-            notice = confirmation_monitor.take_notice()
-            if notice is not None:
-                message_index += 1
-                message = AIMessage(id=f"ppt-confirmation:{task_id}:{message_index}", content=notice["message"])
-                writer({"type": "task_running", "task_id": task_id, "thread_id": thread_id,
-                        "model_name": "ppt-master-agent-host", "message": message.model_dump(),
-                        "message_index": message_index, "ppt_confirmation": notice})
         # The external Agent can legitimately spend much longer than the AIO
         # sandbox idle timeout building and validating a deck.  Host polling
         # bypasses the normal Sandbox client, so explicitly renew the provider
@@ -602,8 +591,6 @@ async def _poll_agent_turn(
                 payload, force=payload.get("status") in _TERMINAL_STATUSES)
         if not isinstance(payload, dict) or payload.get("task_id") != task_id or (thread_id is not None and payload.get("thread_id") != thread_id):
             raise RuntimeError("PPT task receipt identity mismatch")
-        if confirmation_monitor is not None:
-            confirmation_monitor.observe_task(payload)
         observation = observed_session_usage(payload)
         if observation is not None and observation != last_observation:
             writer({"type": "task_running", "task_id": task_id, **({"thread_id": thread_id} if thread_id else {}),
@@ -673,13 +660,7 @@ async def _poll_agent_turn(
         status = payload.get("status")
         if status in _TERMINAL_STATUSES:
             if "process_cleanup_complete" not in payload or payload["process_cleanup_complete"] is True:
-                if confirmation_monitor is None or not confirmation_monitor.hold_completed():
-                    return payload
-                # Original run remains active with its execution lease. The
-                # independent confirmation observer may resume ONLY this session.
-                cleanup_started_at = None
-                await asyncio.sleep(_POLL_INTERVAL_SECONDS)
-                continue
+                return payload
             now = asyncio.get_running_loop().time()
             if cleanup_started_at is None:
                 cleanup_started_at = now
@@ -693,13 +674,11 @@ class PptProviderReceipts:
 
     _POLL_SECONDS = 5.0
 
-    def __init__(self, capability, run_id, thread_id, *, renewal_key=None):
+    def __init__(self, capability, run_id, thread_id):
         self.capability, self.run_id, self.thread_id = capability, run_id, thread_id
         self.cursor, self.records, self.unknown = 0, {}, set()
         self.next_poll_at = 0.0
         self.sync_delayed = False
-        self.renewal_key = renewal_key
-        self.renew_at = None
 
     def _snapshot(self, payload):
         return {**payload, "usage_records": list(self.records.values()),
@@ -709,17 +688,12 @@ class PptProviderReceipts:
 
     async def merge(self, payload, *, force=False):
         now = asyncio.get_running_loop().time()
-        if self.renew_at is None:
-            self.renew_at = now + 3600
         if not force and now < self.next_poll_at:
             return self._snapshot(payload)
         # A receipt lookup is idempotent. Transport/server failures defer only
         # accounting, never Host event delivery or the active Agent process.
         self.next_poll_at = now + self._POLL_SECONDS
         try:
-            if self.renewal_key is not None and now >= self.renew_at:
-                self.capability = await _mint_ppt_capability(self.run_id, self.thread_id, self.renewal_key, refresh_confirmation=True)
-                self.renew_at = now + 3600
             async with httpx.AsyncClient(
                 trust_env=False, timeout=httpx.Timeout(10.0),
                 headers={"X-Ppt-Capability": self.capability,
@@ -773,15 +747,6 @@ class PptProviderReceipts:
                     if len(data["rows"]) < 500:
                         self.sync_delayed = False
                         return self._snapshot(payload)
-        except httpx.HTTPStatusError as exc:
-            # Renewal is also an idempotent accounting lookup. A temporary
-            # Gateway failure must not cancel the original Host task.
-            status = exc.response.status_code
-            if status != 429 and not 500 <= status <= 599:
-                raise
-            self.sync_delayed = True
-            logger.warning("PPT provider receipt lookup deferred: HTTP %s", status)
-            return self._snapshot(payload)
         except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadError,
                 httpx.ReadTimeout, httpx.RemoteProtocolError, httpx.PoolTimeout,
                 httpx.WriteError, httpx.WriteTimeout) as exc:
@@ -791,24 +756,13 @@ class PptProviderReceipts:
         raise RuntimeError("PPT provider receipt pagination limit reached")
 
 
-async def _mint_ppt_capability(run_id, thread_id, api_key, *, with_confirmation=False, refresh_confirmation=False):
-    operation = "confirmation-capability-refresh" if refresh_confirmation else "capability"
-    async with httpx.AsyncClient(trust_env=False, timeout=httpx.Timeout(10.0), headers={**_auth_headers(api_key), "X-Ppt-Runtime-Operation": operation}) as client:
+async def _mint_ppt_capability(run_id, thread_id, api_key):
+    async with httpx.AsyncClient(trust_env=False, timeout=httpx.Timeout(10.0), headers={**_auth_headers(api_key), "X-Ppt-Runtime-Operation": "capability"}) as client:
         response = await client.post("http://gateway:8001/api/codex/deepseek/v1/responses", json={"run_id": run_id, "thread_id": thread_id})
         response.raise_for_status()
-        body = response.json()
-        if not isinstance(body, dict):
-            raise RuntimeError("PPT runtime capability unavailable")
-        value = body.get("capability")
+        value = response.json().get("capability")
         if not isinstance(value, str) or len(value) > 1024 or "." not in value:
             raise RuntimeError("PPT runtime capability unavailable")
-        protocol = body.get("confirmation_protocol")
-        if refresh_confirmation and (protocol != "ppt-confirmation-v1" or body.get("task_id") != run_id or body.get("thread_id") != thread_id):
-            raise RuntimeError("PPT confirmation renewal scope mismatch")
-        if protocol is not None and protocol != "ppt-confirmation-v1":
-            raise RuntimeError("Unsupported PPT confirmation protocol")
-        if with_confirmation:
-            return {"capability": value, **({"confirmation_protocol": protocol} if protocol is not None else {})}
         return value
 
 
@@ -959,10 +913,8 @@ async def _run_external_ppt_master(
         resumed=resume,
     )
     provider = get_sandbox_provider()
-    admission = await _mint_ppt_capability(run_id, thread_id, app_config.sandbox.sandbox_api_key or "", with_confirmation=True)
-    capability = admission["capability"]
-    provider_receipts = PptProviderReceipts(capability, run_id, thread_id,
-        renewal_key=(app_config.sandbox.sandbox_api_key or "") if admission.get("confirmation_protocol") == "ppt-confirmation-v1" else None)
+    capability = await _mint_ppt_capability(run_id, thread_id, app_config.sandbox.sandbox_api_key or "")
+    provider_receipts = PptProviderReceipts(capability, run_id, thread_id)
     sandbox_id = await _acquire_ppt_sandbox(provider, thread_id, resolve_runtime_user_id(runtime))
     try:
         sandbox = provider.get(sandbox_id)
@@ -1012,11 +964,8 @@ async def _run_external_ppt_master(
         async with httpx.AsyncClient(
             headers=_auth_headers(app_config.sandbox.sandbox_api_key or ""),
             timeout=timeout,
-            trust_env=False,
         ) as client:
             await _wait_for_agent_host(client=client, host_url=host_url)
-            if admission.get("confirmation_protocol") == "ppt-confirmation-v1":
-                await require_confirmation_host(client=client, host_url=host_url, task_id=run_id)
             task_start_attempted = True
             response = await _start_agent_task_with_retry(
                 client=client,
@@ -1025,30 +974,22 @@ async def _run_external_ppt_master(
                     "task_id": run_id,
                     "thread_id": thread_id,
                     "runtime_capability": capability,
-                    **({"confirmation_protocol": admission["confirmation_protocol"]} if "confirmation_protocol" in admission else {}),
                     "prompt": prompt,
                     "resume": resume,
                     "delivery_contract": requested_delivery_contract(original_request),
                 },
             )
             response.raise_for_status()
-            confirmation = None
-            if admission.get("confirmation_protocol") == "ppt-confirmation-v1":
-                from deerflow.ppt_confirmation.monitor import create_monitor
-
-                confirmation = create_monitor(client, host_url, resolve_runtime_user_id(runtime), thread_id, run_id)
-            async with confirmation if confirmation is not None else nullcontext():
-                result = await _poll_agent_turn(
-                    client=client,
-                    host_url=host_url,
-                    task_id=run_id,
-                    thread_id=thread_id,
-                    writer=writer,
-                    keep_sandbox_alive=lambda: provider.get(sandbox_id) is not None,
-                    report_usage=lambda payload: _report_agent_usage(config, runtime, payload),
-                    provider_receipts=provider_receipts,
-                    confirmation_monitor=confirmation,
-                )
+            result = await _poll_agent_turn(
+                client=client,
+                host_url=host_url,
+                task_id=run_id,
+                thread_id=thread_id,
+                writer=writer,
+                keep_sandbox_alive=lambda: provider.get(sandbox_id) is not None,
+                report_usage=lambda payload: _report_agent_usage(config, runtime, payload),
+                provider_receipts=provider_receipts,
+            )
     except asyncio.CancelledError:
         try:
             if task_start_attempted:
@@ -1076,12 +1017,7 @@ async def _run_external_ppt_master(
                     "error": "当前轮次收到停止请求，但无法核实外部 Agent 已退出；请先检查任务状态，不要反复启动。"})
         raise
     except Exception as exc:
-        if isinstance(exc, ConfirmationHostCompatibilityError) and exc.reason == "existing_task" and execution_lease is not None:
-            # Observe only this exact prior run's terminal cleanup; a collision
-            # never authorizes cancellation, reposting or idle eviction.
-            _retain_ppt_cleanup_guard(provider, execution_lease, sandbox_id, host_url, run_id, thread_id, app_config.sandbox.sandbox_api_key or "")
-            cleanup_guard_retained = True
-        elif task_start_attempted:
+        if task_start_attempted:
             try:
                 async with httpx.AsyncClient(headers=_auth_headers(app_config.sandbox.sandbox_api_key or ""), timeout=httpx.Timeout(5.0), trust_env=False) as stop_client:
                     stopped = await _cancel_agent_turn(client=stop_client, host_url=host_url, task_id=run_id, thread_id=thread_id)
@@ -1091,7 +1027,6 @@ async def _run_external_ppt_master(
                     _retain_ppt_cleanup_guard(provider, execution_lease, sandbox_id, host_url, run_id, thread_id, app_config.sandbox.sandbox_api_key or "")
                     cleanup_guard_retained = True
         failure_kind = _transport_failure_kind(exc)
-        failure_message = str(exc) if isinstance(exc, ConfirmationHostCompatibilityError) else f"PPT Agent host transport failed before task completion ({failure_kind})"
         logger.exception(
             "External ppt-master transport failed (thread=%s run=%s sandbox=%s kind=%s)",
             thread_id,
@@ -1104,10 +1039,10 @@ async def _run_external_ppt_master(
                 "type": "task_failed",
                 "task_id": run_id,
                 "thread_id": thread_id,
-                "error": failure_message,
+                "error": f"PPT Agent host transport failed before task completion ({failure_kind})",
             }
         )
-        raise RuntimeError(failure_message) from exc
+        raise RuntimeError(f"PPT Agent host transport failed before task completion ({failure_kind})") from exc
     finally:
         if not cleanup_guard_retained:
             await _release_ppt_resources(provider, execution_lease, sandbox_id)

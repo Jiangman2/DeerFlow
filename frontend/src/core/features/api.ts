@@ -4,7 +4,6 @@ import { getBackendBaseURL } from "@/core/config";
 export interface FeaturesResponse {
   agents_api: { enabled: boolean };
   browser_control?: { enabled: boolean };
-  ppt_confirmation?: { enabled: boolean; protocol: string };
 }
 
 export async function fetchFeatures(): Promise<FeaturesResponse> {
@@ -21,11 +20,4 @@ export async function fetchAgentsApiEnabled(): Promise<boolean> {
 
 export async function fetchBrowserControlEnabled(): Promise<boolean> {
   return (await fetchFeatures()).browser_control?.enabled ?? false;
-}
-
-export async function fetchPptConfirmationEnabled(): Promise<boolean> {
-  const feature = (await fetchFeatures()).ppt_confirmation;
-  return (
-    feature?.enabled === true && feature.protocol === "ppt-confirmation-v1"
-  );
 }

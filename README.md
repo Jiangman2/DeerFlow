@@ -1,34 +1,5 @@
 # 🦌 DeerFlow - 2.0
 
-Enterprise GLM-5.3-Flash stream completion now checks the terminal choice and
-raw `[DONE]` marker before accepting a response. Truncated streams stop with a
-visible warning and no automatic tool execution or retry. Fixed thinking and
-single-image support retain the supplied 5.3 contract. See the
-[GLM contract and candidate verification](docs/enterprise-glm-modes.md);
-offline qualification is separate from server acceptance and deployment.
-The October 21 four-stage field canary and all five node preloads passed;
-the separately qualified image-only activation still requires an operator
-task-drain window and subsequent 70-worker runtime acceptance.
-
-Enterprise DeepSeek-V4.1-Flash is available as an opt-in
-[model profile](deploy/enterprise/deepseek-v4.1-flash.model.yaml). Append it to
-the existing server model list and inject `DEEPSEEK_V4_1_FLASH_API_KEY` from a
-Gateway Secret. The selector reads `/api/models`; no frontend rebuild is needed.
-Flash mode sends `enable_thinking: false`, thinking mode sends `true`; image and
-tool inputs use the existing Chat Completions adapter. Live provider acceptance
-and a Gateway configuration rollout are required before it appears online.
-Preserve the existing default model, GLM, OCR and isolated PPT provider.
-See [enterprise preparation and acceptance](docs/enterprise-deepseek-v41.md)
-for the hidden-key entry tool and the distinction between preparation and rollout.
-Wait for an existing Gateway rollout to finish before this preparation. Failed
-read-only preflight reports can be resumed with an explicitly bound recovery
-package; retain the original report and once marker.
-For an initial provider HTTP 503, an exact report-bound retry can be prepared;
-the model remains unavailable in the selector until all live checks pass.
-For the October 21 HTTP-503 incident, the preparation guide includes a
-credential-free application record and a read-only historical receipt collector;
-the existing reports do not identify which upstream component returned 503.
-
 Homepage portal footer: total/today model usage remains supplied by Haineng;
 today's users/tasks use the business dashboard's active-user/started-run
 definitions for Shanghai midnight through the current minute. The authenticated
@@ -60,133 +31,6 @@ their withdrawn snapshots, even after admin withdrawal; successful publication
 restores visibility and refreshes the private snapshot while preserving admin
 presentation/order overrides. Overwriting an online snapshot or another user's
 snapshot remains restricted to admins.
-
-## Enterprise portal candidate (2026-10-13, not deployed)
-
-The welcome quick actions remove Surprise and Create. Proofreading and Translation
-are direct links beside the original four shortcuts; PPT Assistant is an external
-link inside PPT Generation, alongside its unchanged four editable Skill prompts.
-More holds the remaining four tools in a compact two-column menu. All seven approved
-destinations preserve their URL fragments and open in a new tab. Mobile keeps a
-single horizontally scrollable action rail. New chat also offers a user-guide link.
-Digital-employee discovery shows administrator-curated hot entries. The one-time
-release snapshot marks all then-existing public employees hot; newly published
-employees also default to hot as soon as they enter the public catalogue. Private
-drafts remain private. Administrator removal survives refresh, restart and the
-same publisher republishing the same employee. Show all clears discovery filters. Administrators
-manage hot status from each public employee card; profile creator names come from
-trusted account display names, with an explicit unknown fallback.
-
-Hot flags use a separate shared persistent JSON file, not a new SQL table. Set
-`DEERFLOW_EMPLOYEE_FEATURED_PATH` to an operator-provisioned private directory's
-absolute JSON path, identical across Gateway replicas. Before admitting writes,
-verify cross-node locking/atomic rename and take a frozen catalogue snapshot with
-`python -m app.gateway.employee_directory_seed --initialize --actor RELEASE_ID`.
-This explicit one-time step must run with the production catalogue configuration
-while publication is paused; repeats preserve administrator choices. Missing or
-corrupt state fails visibly, never reseeds from GET or startup. Keep and back up
-this directory across releases; the file retains the latest 256 change records.
-Do not reuse the Work channel configuration or a container-local path. This does
-not remove migration requirements from any separately combined PPT feature.
-The GLM-5.3-Flash candidate profile in
-`deploy/enterprise/glm-5.3-flash.model.yaml` requires a server-side Secret and real
-text/tool/image acceptance; it does not change the current default model. The
-browser private-origin policy is opt-in, not a production network diagnosis or a
-blanket allowance for private networks. No code change here deploys production.
-GLM-5.3-Flash documentation section 6.2 explicitly requires always-on thinking;
-GLM-5.2's disabled-thinking option does not apply. The speculative switchable
-candidate was withdrawn before deployment. Single-image vision is configured;
-GLM-OCR remains a separate service. See `docs/enterprise-glm-modes.md`.
-
-Candidate operations (inside the candidate Backend Python 3.12 environment,
-with the verified shared mount; not the host's Python 3.7):
-
-```bash
-python -m app.gateway.employee_directory_maintenance status
-python -m app.gateway.employee_directory_maintenance backup --output /VERIFIED_PRIVATE_DIRECTORY/hot-before.json
-python -m app.gateway.employee_directory_maintenance restore \
-  --from-file /VERIFIED_PRIVATE_DIRECTORY/hot-before.json --sha256 VERIFIED_BACKUP_SHA256 \
-  --expected-revision CURRENT_REVISION --actor RELEASE_ID \
-  --backup-current /VERIFIED_PRIVATE_DIRECTORY/hot-before-restore.json
-```
-
-Replace the uppercase placeholders only with audited operator values. Backups
-are exclusive private files and never overwrite earlier evidence. Restore checks
-the supplied backup hash and live revision under the same lock as administrator
-writes, saves a preimage, and creates increasing per-entry versions. It must not
-copy old CAS versions back into service. Missing/corrupt live state fails closed
-and needs separate operator-led recovery; this command never reseeds it. Keep
-private backups out of Git and public artifact delivery.
-
-The opt-in GLM acceptance command is
-`python -m app.gateway.enterprise_glm_probe --run` **on the enterprise network**.
-It reads `GLM_5_3_FLASH_API_KEY` from the server environment, optionally an approved
-`GLM_5_3_FLASH_CA_BUNDLE`, and performs at most four synthetic requests (text,
-function call, function-result continuation, one generated red image). It prints
-only bounded receipts and provider-reported usage, not credentials, reasoning or
-answers, executes no business tool and never automatically retries. Each call
-defaults to a 120-second total deadline; reasoning tokens are not capped by
-`max_tokens`. TLS and hostname verification stay enabled, redirects are disabled,
-and this diagnostic uses direct internal routing, not inherited proxy variables.
-Qualify the actual candidate deployment's routing separately; a direct probe is
-not proof that a differently configured proxy route works. Local SDK/SSE tests
-use mock transports only: this enterprise model is not reachable from the local
-development machine. Do not run the supplied raw examples with embedded keys.
-
-Release scope for these portal additions is Frontend plus Gateway, shared hot
-configuration provisioning and the additive GLM model/Secret configuration. No
-new database migration belongs to these additions. The separately prepared PPT
-research/confirmation batch is not yet integrated into this workspace; its
-Runner, Agent Host and database requirements remain separate. Before combining
-or packaging, refresh production fingerprints, reconcile both deltas against
-that baseline, verify the shared filesystem across replicas and run candidate
-image/intranet acceptance. The deferred browser investigation must not be
-silently marked fixed or enabled by guessing private ranges or weakening TLS.
-
-Server diagnostics are bundled by `deploy/enterprise/package-acceptance.py`.
-Read `deploy/enterprise/ACCEPTANCE-RUNBOOK.txt` before running the package on
-datax-01. It supports Python 3.7 at the host and uses one-shot Python 3.12 children
-in owned Gateway replicas. `--glm` explicitly allows up to four synthetic live
-provider calls with a hidden terminal key; `--shared-fixture` creates only a new
-private directory on a verified common RWX/NFS mount. Neither option initializes
-the real hot store or changes channel credentials, workloads, images or schemas.
-Failure to verify the shared parent remains a blocker, never an automatic chmod.
-Collection completion is not acceptance or release approval; candidate-image,
-authenticated-browser and integrated PPT qualification remain separate gates.
-The October 14 r4 storage retest uses bounded stdin/stdout control acknowledgements,
-not shared-directory marker visibility, to synchronize lock holders and writers.
-Both writers must report ready before either receives GO; disconnects and invalid
-control messages cannot authorize a write. Real shared JSON reads, flock, CAS and
-atomic-replace checks remain unchanged, with no cache flush or eventual-success
-retry. Partial phase receipts are retained on failure. `--shared-only` requires
-an explicit safe shared parent, samples two Gateway nodes, and skips GLM and website
-probes; it does not claim a fresh all-70 source audit. Existing runtime-directory
-permissions are never changed. A passing retest is not candidate-image approval.
-
-The October 14 r3 diagnostic accepts identical static directory `subPath` mounts
-only after both replicas pass a read-only directory/permission preflight; single
-files, dynamic subpaths, mismatched shared identities and unsafe parents remain
-blocked. Its GLM request uses the supplied streaming example's `max_tokens=1000`,
-keeps the wall-time/response bounds, and reports `length` as an incomplete output
-limit rather than a capability verdict. Later uncalled stages remain explicitly
-`NOT_ATTEMPTED`; reasoning is not printed or assumed to fit that token parameter.
-The uploaded r2 root-page GET succeeded with TLS enabled, while application policy
-denied the private target. This is not authenticated browser acceptance, and no
-private-origin exception is enabled automatically by these diagnostics.
-
-Linux regression now checks real channel-store process locking, stale-writer
-conflicts, bounded lock timeout and failure-atomic saves. Permission setup failure
-must prevent publication. A different boundary applies after a successful save:
-a failed local channel restart returns 503 without undoing the committed shared
-configuration. Historical tests have been aligned with those existing semantics.
-Artifact downloads additionally recognize known active extensions independently
-of the OS MIME database, covering minimal Linux images with no XHTML mapping.
-Per-workspace output-mask patterns retain their existing boundary semantics but
-use CPython's uncached regex compiler, so process-global regex caches do not
-retain workspace-specific host paths. Targeted Linux regression passes; the
-full suite is not accepted yet: the temporary QA image's framework dependencies
-do not match the source lock and a later no-progress run was interrupted. Do not
-weaken the exact-version test or use scoped passes as full release acceptance.
 
 The 2026-10-04 multi-Gateway stop-routing and interrupted-history repairs are documented in [the production source reconciliation](docs/production-gateway-reconciliation-20261004.md). Git publication does not deploy or restart services.
 
@@ -1224,55 +1068,22 @@ Tavily search accepts operator-configured `include_domains` and
 search and fetch also resolve credentials from their own tool entries, with
 `TAVILY_API_KEY` as the fallback for either tool.
 
-Enterprise deployments can enable two CNOOC DataLake QA tools:
-`datalake_smart_qa` retains the internal Retrieve API and ranked narrative
-source chunks. `datalake_data_qa` calls the new AppForge application
-`app-v16p2syh` with a dedicated `APPFORGE_DATA_QA_API_KEY`, empty identity
-inputs, and a `SquareWorkflow_` conversation ID scoped to user/thread/tool.
-It replaces the retired Metrics/Detail registrations without calling their
-old applications. Keep `trust_env: false` for these internal direct routes.
-Publish a new versioned tool ConfigMap together with the compatible Gateway
-image and Secret reference; do not overwrite the live shared ConfigMap.
-Paired rollback restores the saved image/configuration references only after
-checking that no later Deployment change would be overwritten.
-See [Data QA replacement](docs/datalake-data-qa-replacement.md) for outstanding
-field acceptance and rollout requirements.
-The joint Data QA/GLM preparation tool creates separate immutable configuration
-resources and runs two bounded candidate checks before any Gateway cutover.
-Successful preparation does not establish business-data correctness or switch
-the active model/tool configuration.
-If a candidate Job fails before its result is collected, inspect its Job
-conditions/events and retain the already prepared resources for verified reuse.
-The report-bound r2 resumption reuses those immutable resources and copies the
-existing Gateway node toleration into two isolated checks; it does not roll out
-Gateway or require another credential entry.
-Both field candidate Jobs have now passed. The paired activation controller
-checks persisted custom-agent references before submitting one compare-and-swap
-patch for image, config and dedicated Secret reference, then accepts every
-Gateway replica. It requires a drained task window; candidate acceptance alone
-does not mean the production update or business-answer validation is complete.
-The first joint activation stopped before its patch: two of 186 persisted
-Agent files still reference retired tools. Keep that gate and inspect bounded
-reference details before preparing edits; do not blanket-replace tool names or
-repeat the rollout while these references remain unresolved.
-The detailed inventory identified four tokens in two personal SOUL files. The
-pinned r2 continuation backs up both originals, migrates only those references,
-and reuses the qualified paired rollout. It requires paused Agent edits as well
-as drained tasks; uncertain exec/patch outcomes never trigger automatic restore.
+Enterprise deployments can also enable three CNOOC DataLake tools:
+`datalake_smart_qa` calls the internal Retrieve API and returns ranked narrative
+source chunks, while `datalake_metrics_qa` and `datalake_detail_qa` continue to
+call the internal AppForge indicator and record workflows. Add their entries
+from `config.example.yaml`, inject the Retrieve endpoint/project/document-store
+identity and `APPFORGE_API_KEY` through the runtime Secret, keep the reviewed
+Metrics/Detail workflow IDs explicit (`app-n9ahac7g` and `app-5md031ia`), and
+keep `trust_env: false` for both reviewed internal direct routes. Credentials
+and workflow identity values are never model-visible.
 
-For recognized enterprise DataLake queries, disabled access returns a prompt to
-enable the **Use Data Lake** button. Once a run selects DataLake, empty results,
-permission failures and upstream errors never authorize fallback to external
-search, browsers, MCP services or scripts. The restriction follows delegated
-tasks; ordinary public-information questions remain independent.
-
-An optional AppForge workflow, `datalake_md_search`, is available for
+An independent AppForge workflow, `datalake_md_search`, is available for
 exploration-and-production master data only: companies, branches/operating
 organizations, oil and gas fields, blocks, wells, and their ownership, lists,
 or counts. It must not be used for production, KPIs, trends, reports,
 calculations, document QA, arbitrary SQL, or inferred business relationships.
-It is not enabled in the current enterprise deployment or this migration.
-For a separately approved deployment, add its `config.example.yaml` entry and inject
+Add its separate `config.example.yaml` entry and inject
 `APPFORGE_MD_SEARCH_API_KEY` through the Gateway runtime Secret. It is
 intentionally outside the user's **Use Data Lake** toggle and outside
 `DATALAKE_TOOL_NAMES`; do not reuse the browser's platform Token or expose the
@@ -2165,41 +1976,6 @@ double-submit CSRF contract.
 Writing or publishing a generated file no longer opens the artifact panel automatically. Deliverables remain available in the conversation and Files list; the chat column narrows only after the user explicitly opens a write step, artifact link, file card, or the Files control. Artifact reads use the authorized thread owner's storage bucket, so administrator read-only review and ordinary owner views resolve the same PPT preview companion.
 Final assistant responses cannot claim a `/mnt/user-data/outputs/...` deliverable unless that file both exists in the current thread outputs directory and was successfully published with `present_files`. DeerFlow retries one invalid delivery claim with hidden execution guidance, then returns a visible delivery error instead of persisting a fabricated download link.
 
-## GLM88 load diagnosis
-
-The enterprise-only `release/mineru-provider-switch-20261014/glm-native/diagnose_glm88_bottleneck.py`
-follows the accepted mixed-document load observation with bounded, read-only
-MinerU timeout/quarantine summaries, indexed processing-stage statistics,
-unexpired model-limit leases and shared-node Pod CPU attribution. Use its
-separately packaged, hash-pinned operator script and runbook on the reviewed
-`datax-01` deployment; it is not a generic local startup command. It preserves
-88 WeKnora slots and16 MinerU workers and never submits model work or performs
-tuning. Whole-image timings are not GLM-only latency, and incomplete history or
-missing metrics must remain unknown. Further expansion requires result review.
-
-The separate `release/mineru-provider-switch-20261014/glm-native/review_glm104.py`
-prepares the next enrichment-only step (48 to64, aggregate88 to104). It binds the
-accepted GLM88/load evidence and freshly checks queues, MinerU health, App-node
-resources and DB connections before a server-only dry run. Core16, model128,
-MinerU16, image and GLM references stay unchanged. It does not restart or stop
-consumers; PASS is preparation for a separately reviewed controlled switch, not
-performance acceptance. Pending queues need not empty. Future MinerU expansion
-requires separate shared-node resource review.
-
-After the reviewed104 preflight and explicit maintenance approval,
-`glm-native/switch_glm104.py` performs one guarded enrichment-only restart. It
-waits for three stopped/zero-claimed88 snapshots, preserves pending work, and
-requires same-image104 pools plus unchanged GLM/model128/MinerU16 afterwards.
-It has no automatic mutation retry, forced termination or rollback. Successful
-runtime acceptance still requires post-switch real-backlog observation.
-
-The104 environment patch can be acknowledged even when final MinerU acceptance
-fails. Use `release/mineru-provider-switch-20261014/glm-native/diagnose_glm104_mineru.py`
-to classify bounded logs and resource/health evidence without replaying the
-switch. `live=16` counts live workers, not non-quarantined usable capacity;
-`capacity_target_met` compares against the configured minimum6, not16. Retain
-the original UNCONFIRMED receipt until a separate reviewed acceptance succeeds.
-
 ## License
 
 This project is open source and available under the [MIT License](./LICENSE).
@@ -2251,46 +2027,3 @@ No database upgrade, downgrade, table deletion, push or deployment is performed
 by source candidate preparation. This candidate supersedes catalogue-only tree
 345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
 Previous broader-tree test results are historical, not acceptance of this tree.
-
-### GLM104 failure diagnosis (2026-10-17)
-
-`release/mineru-provider-switch-20261014/glm-native/GLM104-FAILURE-REASONS-RUNBOOK.txt`
-documents a read-only follow-up for MinerU HTTP400/502 and WeKnora failed
-processing steps. It separates parsing, Embedding, image enrichment and text
-generation evidence without changing104 slots, MinerU16, models or queues.
-Queries are index-backed and bounded; raw document/error content and credentials
-are not exported. Collection completion does not prove recovery or authorize
-batch retries or further expansion.
-
-The subsequent `glm-native/MINERU-ERROR-MESSAGES-RUNBOOK.txt` describes a
-log-only HTTP400/502 follow-up. It decodes escaped/truncated JSON diagnostics
-and emits only a fixed vocabulary of error fragments with unknown text masked.
-It does not export raw responses or call any database, health, model or parser
-endpoint. Patterns are lossy clues; absent/rotated logs never prove recovery.
-
-### WeKnora replica preparation (2026-10-17)
-
-`release/weknora-replicas-preflight-20261017-r1/README.md` provides a standalone
-Kubernetes GET-only inventory for cross-node replica planning. It examines
-mounted PVC/PV bindings, placement, declared worker configuration and current
-Pod/route identities without changing production or reading document data.
-The official Helm guide supports multiple App replicas with verified shared
-storage; the enterprise node-local volumes must not simply be scaled across
-nodes. Successful collection is not approval to scale. File-access tests,
-connection budgets and cross-instance task recovery remain separate gates.
-
-### WeKnora104 expansion review (2026-10-17)
-
-`release/weknora-glm168-review-20261017-r1/RUNBOOK.txt` describes the separate
-read-only enrichment128/total168 proposal, with enrichment96/total136 as an
-alternative. It binds the existing104 patch and corrected database diagnostic,
-rechecks current consumers, MinerU16, model-default128, PostgreSQL waits and App
-node resource reservations, and sends env-only server dry runs. Resource budgets
-are unapproved planning scenarios, not applied changes. Candidate-specific PASS
-does not authorize a restart, model override, storage move or live expansion.
-
-The separate `release/weknora-glm168-gate-diagnostic-20261017-r1/RUNBOOK.txt`
-explains the failed memory scenario and database gate without retrying review.
-It keeps historical peak, current cache, process RSS and working set distinct,
-prints every fresh gate snapshot, and never invents the discarded fifth sample.
-Collection completion does not clear a failed expansion gate.

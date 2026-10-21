@@ -5,26 +5,13 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.constants import TAG_NOSTREAM
 
 from deerflow.agents.middlewares import title_middleware as title_middleware_module
 from deerflow.agents.middlewares.dynamic_context_middleware import _DYNAMIC_CONTEXT_REMINDER_KEY
 from deerflow.agents.middlewares.title_middleware import TitleMiddleware
 from deerflow.config.title_config import TitleConfig, get_title_config, set_title_config
-
-
-def _streaming_model(text: str = "", *, error: Exception | None = None):
-    model = MagicMock()
-
-    async def chunks(*args, **kwargs):
-        if error is not None:
-            raise error
-        yield AIMessageChunk(content=text)
-
-    model.astream = MagicMock(side_effect=chunks)
-    model.ainvoke = AsyncMock(side_effect=AssertionError("title generation must use the stream"))
-    return model
 
 
 def _clone_title_config(config: TitleConfig) -> TitleConfig:
@@ -110,7 +97,8 @@ class TestTitleMiddlewareCoreLogic:
     def test_generate_title_uses_async_model_and_respects_max_chars(self, monkeypatch):
         _set_test_title_config(max_chars=12, model_name="title-model")
         middleware = TitleMiddleware()
-        model = _streaming_model("短标题")
+        model = MagicMock()
+        model.ainvoke = AsyncMock(return_value=AIMessage(content="短标题"))
         monkeypatch.setattr(title_middleware_module, "create_chat_model", MagicMock(return_value=model))
 
         state = {
@@ -124,10 +112,8 @@ class TestTitleMiddlewareCoreLogic:
 
         assert title == "短标题"
         title_middleware_module.create_chat_model.assert_called_once_with(name="title-model", thinking_enabled=False, attach_tracing=False)
-        model.astream.assert_called_once()
-        model.ainvoke.assert_not_awaited()
-        assert model.astream.call_args.kwargs["stream"] is True
-        assert model.astream.call_args.kwargs["config"] == {
+        model.ainvoke.assert_awaited_once()
+        assert model.ainvoke.await_args.kwargs["config"] == {
             "run_name": "title_agent",
             "tags": ["middleware:title", TAG_NOSTREAM],
         }
@@ -149,7 +135,8 @@ class TestTitleMiddlewareCoreLogic:
         title_config = TitleConfig(enabled=True, model_name="title-model", max_chars=20)
         app_config = SimpleNamespace(title=title_config)
         middleware = TitleMiddleware(app_config=app_config)
-        model = _streaming_model("显式标题")
+        model = MagicMock()
+        model.ainvoke = AsyncMock(return_value=AIMessage(content="显式标题"))
 
         def fail_get_title_config():
             raise AssertionError("ambient get_title_config() must not be used when app_config is explicit")
@@ -176,7 +163,8 @@ class TestTitleMiddlewareCoreLogic:
     def test_generate_title_normalizes_structured_message_content(self, monkeypatch):
         _set_test_title_config(max_chars=20, model_name="title-model")
         middleware = TitleMiddleware()
-        model = _streaming_model("请帮我总结这段代码")
+        model = MagicMock()
+        model.ainvoke = AsyncMock(return_value=AIMessage(content="请帮我总结这段代码"))
         monkeypatch.setattr(title_middleware_module, "create_chat_model", MagicMock(return_value=model))
 
         state = {
@@ -194,7 +182,8 @@ class TestTitleMiddlewareCoreLogic:
     def test_generate_title_fallback_for_long_message(self, monkeypatch):
         _set_test_title_config(max_chars=20, model_name="title-model")
         middleware = TitleMiddleware()
-        model = _streaming_model(error=RuntimeError("model unavailable"))
+        model = MagicMock()
+        model.ainvoke = AsyncMock(side_effect=RuntimeError("model unavailable"))
         monkeypatch.setattr(title_middleware_module, "create_chat_model", MagicMock(return_value=model))
 
         state = {
@@ -209,8 +198,6 @@ class TestTitleMiddlewareCoreLogic:
         # Assert behavior (truncated fallback + ellipsis) without overfitting exact text.
         assert title.endswith("...")
         assert title.startswith("这是一个非常长的问题描述")
-        model.astream.assert_called_once()
-        model.ainvoke.assert_not_awaited()
 
     def test_aafter_model_delegates_to_async_helper(self, monkeypatch):
         _set_test_title_config(model_name="title-model")
@@ -227,7 +214,8 @@ class TestTitleMiddlewareCoreLogic:
         """The legacy null semantics use the current default model for title generation."""
         _set_test_title_config(max_chars=20, model_name=None)
         middleware = TitleMiddleware()
-        model = _streaming_model("测试任务")
+        model = MagicMock()
+        model.ainvoke = AsyncMock(return_value=AIMessage(content="测试任务"))
         create_chat_model = MagicMock(return_value=model)
         monkeypatch.setattr(title_middleware_module, "create_chat_model", create_chat_model)
 
@@ -246,7 +234,8 @@ class TestTitleMiddlewareCoreLogic:
         """A failed default-model title call still degrades to a bounded local title."""
         _set_test_title_config(max_chars=20, model_name=None)
         middleware = TitleMiddleware()
-        model = _streaming_model(error=RuntimeError("default model unavailable"))
+        model = MagicMock()
+        model.ainvoke = AsyncMock(side_effect=RuntimeError("default model unavailable"))
         create_chat_model = MagicMock(return_value=model)
         monkeypatch.setattr(title_middleware_module, "create_chat_model", create_chat_model)
 
@@ -260,8 +249,6 @@ class TestTitleMiddlewareCoreLogic:
 
         assert result == {"title": "流式回答结束后不要再等待标题模型"}
         create_chat_model.assert_called_once_with(thinking_enabled=False, attach_tracing=False)
-        model.astream.assert_called_once()
-        model.ainvoke.assert_not_awaited()
 
     def test_async_default_model_falls_back_when_prompt_template_is_invalid(self, monkeypatch):
         """Invalid title prompt configuration degrades locally before model creation."""
@@ -541,7 +528,8 @@ class TestTitleMiddlewareCoreLogic:
         """Async title generation strips <think> blocks from the model response."""
         _set_test_title_config(max_chars=50, model_name="title-model")
         middleware = TitleMiddleware()
-        model = _streaming_model("<think>用户想研究贵阳。</think>贵阳发展研究")
+        model = MagicMock()
+        model.ainvoke = AsyncMock(return_value=AIMessage(content="<think>用户想研究贵阳。</think>贵阳发展研究"))
         monkeypatch.setattr(title_middleware_module, "create_chat_model", MagicMock(return_value=model))
 
         state = {

@@ -164,25 +164,12 @@ ENV PYTHONDONTWRITEBYTECODE=1
 COPY vendor/ppt-master-v6.6.0/ /opt/ppt-master-release-skill/
 COPY docker/sandbox-ppt-master/agent_host.py /opt/ppt-master-agent-host/agent_host.py
 COPY docker/sandbox-ppt-master/PPT_MASTER_UPSTREAM.env /opt/ppt-master-agent-host/PPT_MASTER_UPSTREAM.env
-COPY docker/sandbox-ppt-master/PPT_MASTER_CONFIRMATION_PATCH.json /opt/ppt-master-agent-host/PPT_MASTER_CONFIRMATION_PATCH.json
 COPY docker/sandbox-ppt-master/runtime_capability_probe.py /opt/ppt-master-agent-host/runtime_capability_probe.py
 COPY docker/sandbox-ppt-master/ppt_research_stdio.py /opt/ppt-master-agent-host/ppt_research_stdio.py
-COPY docker/sandbox-ppt-master/ppt_research_guard.py /opt/ppt-master-agent-host/ppt_research_guard.py
-COPY docker/sandbox-ppt-master/ppt_task_receipts.py /opt/ppt-master-agent-host/ppt_task_receipts.py
-COPY docker/sandbox-ppt-master/ppt_confirmation_pages.py /opt/ppt-master-agent-host/ppt_confirmation_pages.py
-COPY docker/sandbox-ppt-master/ppt_confirmation_control.py /opt/ppt-master-agent-host/ppt_confirmation_control.py
-COPY docker/sandbox-ppt-master/ppt_confirmation_capture.py /opt/ppt-master-agent-host/ppt_confirmation_capture.py
-COPY backend/packages/harness/deerflow/ppt_confirmation/proposal.py /opt/ppt-master-agent-host/ppt_confirmation_proposal.py
 RUN chmod 0755 \
         /opt/ppt-master-agent-host/agent_host.py \
         /opt/ppt-master-agent-host/runtime_capability_probe.py \
         /opt/ppt-master-agent-host/ppt_research_stdio.py \
-    && chmod 0644 /opt/ppt-master-agent-host/ppt_research_guard.py \
-        /opt/ppt-master-agent-host/ppt_task_receipts.py \
-        /opt/ppt-master-agent-host/ppt_confirmation_pages.py \
-        /opt/ppt-master-agent-host/ppt_confirmation_control.py \
-        /opt/ppt-master-agent-host/ppt_confirmation_capture.py \
-        /opt/ppt-master-agent-host/ppt_confirmation_proposal.py \
     && test -s /opt/ppt-master-release-skill/SKILL.md \
     && grep -Eq '^[[:space:]]+version:.*6\.6\.0' /opt/ppt-master-release-skill/SKILL.md \
     && cd /tmp \
@@ -192,11 +179,5 @@ RUN chmod 0755 \
         /opt/ppt-master-agent-host/agent_host.py \
         /opt/ppt-master-agent-host/runtime_capability_probe.py \
         /opt/ppt-master-agent-host/ppt_research_stdio.py \
-        /opt/ppt-master-agent-host/ppt_research_guard.py \
-        /opt/ppt-master-agent-host/ppt_task_receipts.py \
-        /opt/ppt-master-agent-host/ppt_confirmation_pages.py \
-        /opt/ppt-master-agent-host/ppt_confirmation_control.py \
-        /opt/ppt-master-agent-host/ppt_confirmation_capture.py \
-        /opt/ppt-master-agent-host/ppt_confirmation_proposal.py \
     && find /opt/ppt-master-release-skill -type d -name __pycache__ \
         -prune -exec rm -rf {} +

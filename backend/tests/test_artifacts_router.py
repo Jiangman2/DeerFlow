@@ -525,16 +525,6 @@ def test_get_artifact_forces_download_for_active_content_in_skill_archive(tmp_pa
     assert bytes(response.body) == content.encode("utf-8")
 
 
-@pytest.mark.parametrize("system_mime", [None, "text/plain"])
-@pytest.mark.parametrize("in_skill_archive", [False, True])
-def test_active_suffix_download_without_system_mime_database(tmp_path, monkeypatch, system_mime, in_skill_archive):
-    monkeypatch.setattr(artifacts_router.mimetypes, "guess_type", lambda *_: (system_mime, None))
-    if in_skill_archive:
-        test_get_artifact_forces_download_for_active_content_in_skill_archive(tmp_path, monkeypatch, "page.XHTML", XHTML_SCRIPT_XML)
-    else:
-        test_get_artifact_forces_download_for_active_content(tmp_path, monkeypatch, "page.XHTML", XHTML_SCRIPT_XML)
-
-
 @pytest.mark.parametrize("in_skill_archive", [False, True])
 def test_get_artifact_forces_download_for_any_xml_subtype(tmp_path, monkeypatch, in_skill_archive: bool) -> None:
     content = '<?xml version="1.0"?><rss><x:script xmlns:x="http://www.w3.org/1999/xhtml">alert("xss")</x:script></rss>'

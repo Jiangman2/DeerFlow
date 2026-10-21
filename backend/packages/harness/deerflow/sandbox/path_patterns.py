@@ -24,7 +24,6 @@ The two sites are *not* identical, and the difference is deliberate — see
 from __future__ import annotations
 
 import re
-from re import _compiler
 
 # Only match where a host base ends at a real path-segment boundary, so a mount
 # root does not match inside a sibling that merely shares its prefix
@@ -69,8 +68,4 @@ def build_output_mask_pattern(base: str, *, separator_agnostic: bool = False) ->
     escaped = re.escape(base)
     if separator_agnostic:
         escaped = escaped.replace(r"\\", r"[/\\]")
-    # CPython's public re.compile caches even per-thread workspace paths in a
-    # process-global table. Call its compiler directly: callers already cache
-    # the returned Pattern for their own lifetime. Do not purge a shared cache
-    # (which would evict unrelated patterns or race other requests).
-    return _compiler.compile(escaped + _SEGMENT_BOUNDARY + _PATH_TAIL, 0)
+    return re.compile(escaped + _SEGMENT_BOUNDARY + _PATH_TAIL)

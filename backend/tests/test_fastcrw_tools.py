@@ -4,8 +4,6 @@ import ipaddress
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 class TestWebSearchTool:
     @patch.dict("os.environ", {}, clear=True)
@@ -68,16 +66,6 @@ class TestWebSearchTool:
 
 
 class TestWebFetchTool:
-    @pytest.fixture(autouse=True)
-    def _example_public_dns(self, monkeypatch):
-        """The SDK is mocked below; DNS must also stay deterministic and offline."""
-
-        def resolve(hostname):
-            assert hostname == "example.com"
-            return [ipaddress.ip_address("93.184.216.34")]
-
-        monkeypatch.setattr("deerflow.community.url_safety.resolve_host_addresses", resolve)
-
     @patch.dict("os.environ", {}, clear=True)
     @patch("deerflow.community.fastcrw.tools.FirecrawlApp")
     @patch("deerflow.community.fastcrw.tools.get_app_config")

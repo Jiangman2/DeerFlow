@@ -2,10 +2,9 @@ import type { BaseStream } from "@langchain/langgraph-sdk/react";
 import { createContext, useContext } from "react";
 
 import type { AgentThreadState } from "@/core/threads";
-import type { DataQAProgressCarrier } from "@/core/threads/data-qa-progress";
 
 export interface ThreadContextType {
-  thread: BaseStream<AgentThreadState> & DataQAProgressCarrier;
+  thread: BaseStream<AgentThreadState>;
   isMock?: boolean;
 }
 

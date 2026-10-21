@@ -382,10 +382,6 @@ async def task_tool(
     )
     tools = filter_tools_by_datalake_scope(tools, enabled=datalake_enabled)
 
-    from deerflow.runtime.datalake_policy import query_scope
-
-    # A delegated prompt cannot erase the parent's enterprise-source restriction.
-    datalake_query_only = query_scope(getattr(runtime, "state", None), parent_context)["required"]
     # Create executor
     executor_kwargs = {
         "config": config,
@@ -403,7 +399,6 @@ async def task_tool(
         "channel_user_id": channel_user_id,
         "deerflow_trace_id": deerflow_trace_id,
         "datalake_enabled": datalake_enabled,
-        "datalake_query_only": datalake_query_only,
     }
     if resolved_app_config is not None:
         executor_kwargs["app_config"] = resolved_app_config

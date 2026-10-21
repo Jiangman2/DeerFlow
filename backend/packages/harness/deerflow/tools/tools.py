@@ -5,7 +5,6 @@ from langchain.tools import BaseTool
 
 from deerflow.config import get_app_config
 from deerflow.config.app_config import AppConfig
-from deerflow.config.datalake_tools import RETIRED_DATALAKE_TOOL_NAMES
 from deerflow.reflection import resolve_variable
 from deerflow.sandbox.security import is_host_bash_allowed
 from deerflow.tools.builtins import ask_clarification_tool, present_file_tool, review_skill_package, task_tool, view_image_tool
@@ -17,14 +16,15 @@ logger = logging.getLogger(__name__)
 DATALAKE_TOOL_NAMES = frozenset(
     {
         "datalake_smart_qa",
-        "datalake_data_qa",
+        "datalake_metrics_qa",
+        "datalake_detail_qa",
     }
 )
 
 
 def filter_tools_by_datalake_scope(tools: Iterable[BaseTool], *, enabled: bool | None) -> list[BaseTool]:
     """Expose DataLake tools only for an explicitly authorized run."""
-    tool_list = [tool for tool in tools if tool.name not in RETIRED_DATALAKE_TOOL_NAMES]
+    tool_list = list(tools)
     if enabled is True:
         return tool_list
     return [tool for tool in tool_list if tool.name not in DATALAKE_TOOL_NAMES]
@@ -195,8 +195,6 @@ def get_available_tools(
     seen_names: set[str] = set()
     unique_tools: list[BaseTool] = []
     for t in all_tools:
-        if t.name in RETIRED_DATALAKE_TOOL_NAMES:
-            continue
         if t.name not in seen_names:
             unique_tools.append(t)
             seen_names.add(t.name)

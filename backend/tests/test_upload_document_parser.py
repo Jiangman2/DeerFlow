@@ -128,20 +128,7 @@ def test_extract_parser_markdown_rejects_invalid_envelope() -> None:
         extract_parser_markdown({"results": {}})
 
 
-@pytest.mark.parametrize(
-    ("filename", "media_type"),
-    [
-        ("briefing.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
-        ("BRIEFING.PPTX", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
-        ("briefing.ppt", "application/vnd.ms-powerpoint"),
-        ("briefing.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-        ("briefing.doc", "application/msword"),
-        ("briefing.pdf", "application/pdf"),
-        ("briefing.unknown", "application/octet-stream"),
-    ],
-)
-def test_parse_conversation_document_preserves_media_type_without_system_database(monkeypatch, filename, media_type) -> None:
-    monkeypatch.setattr("app.gateway.upload_document_parser.mimetypes.guess_type", lambda _name: (None, None))
+def test_parse_conversation_document_preserves_pptx_media_type(monkeypatch) -> None:
     request_files = {}
     created_clients = 0
     post_count = 0
@@ -183,12 +170,12 @@ def test_parse_conversation_document_preserves_media_type_without_system_databas
         try:
             first = await parse_conversation_document(
                 endpoint="http://parser:50052/file_parse",
-                filename=filename,
+                filename="briefing.pptx",
                 content=b"pptx-content",
             )
             second = await parse_conversation_document(
                 endpoint="http://parser:50052/file_parse",
-                filename=filename,
+                filename="briefing.pptx",
                 content=b"pptx-content",
             )
             assert second == "# Slides"
@@ -202,7 +189,7 @@ def test_parse_conversation_document_preserves_media_type_without_system_databas
     assert created_clients == 1
     assert post_count == 2
     assert request_files["file"] == (
-        filename,
+        "briefing.pptx",
         b"pptx-content",
-        media_type,
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     )

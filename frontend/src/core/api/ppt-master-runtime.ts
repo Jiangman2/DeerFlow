@@ -6,6 +6,36 @@ export const PPT_MASTER_RUNTIME_METADATA_KEY = "runtime_profile";
 const STORAGE_PREFIX = "deerflow:ppt-master-runtime:";
 const rememberedRuntimeThreads = new Set<string>();
 
+function messageText(message: unknown): string {
+  if (typeof message !== "object" || message === null) return "";
+  const content = Reflect.get(message, "content");
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .flatMap((block) =>
+      typeof block === "object" && block !== null
+        ? [Reflect.get(block, "text")]
+        : [],
+    )
+    .filter((value): value is string => typeof value === "string")
+    .join("\n");
+}
+
+function isHumanMessage(message: unknown): boolean {
+  if (typeof message !== "object" || message === null) return false;
+  const role = Reflect.get(message, "role");
+  const type = Reflect.get(message, "type");
+  return role === "user" || role === "human" || type === "human";
+}
+
+export function isExplicitPptMasterRunInput(input: unknown): boolean {
+  if (typeof input !== "object" || input === null) return false;
+  const messages = Reflect.get(input, "messages");
+  if (!Array.isArray(messages)) return false;
+  const latestHuman = [...messages].reverse().find(isHumanMessage);
+  return /^\s*\/ppt-master(?:\s|$)/i.test(messageText(latestHuman));
+}
+
 export function hasPptMasterRuntimeMetadata(thread: unknown): boolean {
   if (typeof thread !== "object" || thread === null) return false;
   const metadata = Reflect.get(thread, "metadata");
@@ -38,11 +68,9 @@ function rememberThread(threadId: string): void {
 
 export function rememberPptMasterRuntimeThread(
   threadId: string,
-  thread: unknown,
+  input: unknown,
 ): boolean {
-  // Only persisted runtime ownership can select the legacy runner. A new
-  // /ppt-master request is an ordinary Agent Slash Skill activation.
-  if (!threadId || !hasPptMasterRuntimeMetadata(thread)) return false;
+  if (!threadId || !isExplicitPptMasterRunInput(input)) return false;
   rememberThread(threadId);
   return true;
 }
@@ -106,9 +134,22 @@ function hasPptMasterRuntimeRun(runs: unknown): boolean {
 export async function shouldUsePptMasterRuntime(
   client: LangGraphClient,
   threadId: string,
-  { submitting = false }: { submitting?: boolean } = {},
+  input?: unknown,
 ): Promise<boolean> {
+  if (rememberPptMasterRuntimeThread(threadId, input)) {
+    // The runner's run-creation request persists the runtime profile. Avoid an
+    // eager thread PATCH here: a first-submit thread does not exist yet, so the
+    // otherwise harmless caught 404 still pollutes the browser console.
+    return true;
+  }
   if (rememberedThread(threadId)) return true;
+
+  // A submitted input is authoritative for a fresh client-generated thread.
+  // Explicit /ppt-master inputs were handled above, and a known runner thread
+  // was handled by the remembered marker. Probing runs here would race ahead
+  // of the ordinary runtime's first POST /runs/stream, producing a guaranteed
+  // 404 for a thread that has not been created yet.
+  if (input !== undefined) return false;
 
   // A full page reload clears the in-memory marker, and enterprise browser
   // policy may also make sessionStorage unavailable. The shared run store is
@@ -117,19 +158,13 @@ export async function shouldUsePptMasterRuntime(
   // threads.get(), which emits the paired thread/state 404s this adapter is
   // intended to prevent. Older runner threads are recovered from assistant_id
   // even when their thread metadata predates runtime_profile persistence.
-  // Check on submission too: a continuation can arrive before state hydration
-  // on a refreshed page. New-thread hooks create the thread before submission,
-  // so its shared run list is empty rather than an uncreated-thread probe.
   try {
     const runs = await client.runs.list(threadId);
     if (hasPptMasterRuntimeRun(runs)) {
       rememberThread(threadId);
       return true;
     }
-  } catch (error) {
-    // Never create an ordinary Agent run when an existing runner's owner could
-    // not be established. Let the caller retry after the actual read failure.
-    if (submitting) throw error;
+  } catch {
     // Preserve the ordinary runtime as the fail-closed owner. Its subsequent
     // request will surface the canonical network/auth error to the caller.
   }

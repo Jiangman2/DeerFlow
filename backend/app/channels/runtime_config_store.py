@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 import logging
 import tempfile
 import threading
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +29,6 @@ class ChannelRuntimeConfigStore:
     def __init__(self, path: str | Path | None = None):
         if path is None:
             from deerflow.config.paths import get_paths
-
             path = Path(get_paths().base_dir) / "channels/runtime-config.json"
         self._path = Path(path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
@@ -40,7 +39,6 @@ class ChannelRuntimeConfigStore:
     def _policy(provider, config):
         import copy
         import os
-
         result = copy.deepcopy(config)
         domain = os.environ.get("DEERFLOW_FEISHU_DOMAIN")
         if provider == "feishu" and domain:
@@ -66,7 +64,6 @@ class ChannelRuntimeConfigStore:
         import os
         import stat
         import time
-
         with self._lock:
             lock_path = self._path.with_name(self._path.name + ".lock")
             fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
@@ -89,7 +86,6 @@ class ChannelRuntimeConfigStore:
 
     def _save(self):
         import os
-
         fd = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=self._path.parent, suffix=".tmp", delete=False)
         temp_path = Path(fd.name)
         try:
@@ -137,6 +133,7 @@ class ChannelRuntimeConfigStore:
             del self._data[provider]
             self._save()
             return True
+
 
 
 def _provider_enabled(channel_connections_config: Any, provider: str) -> bool:

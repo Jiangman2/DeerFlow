@@ -24,10 +24,6 @@ export interface Agent {
   published_by_user_id?: string | null;
   published_by_current_user?: boolean;
   external_url?: string | null;
-  is_hot?: boolean;
-  hot_version?: number;
-  hot_identity?: string;
-  creator_name?: string | null;
 }
 
 export interface CreateAgentRequest {

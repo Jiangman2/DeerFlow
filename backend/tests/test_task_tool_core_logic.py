@@ -425,12 +425,10 @@ def test_task_tool_gates_weknora_tools_using_parent_run_scope(monkeypatch):
 
 
 @pytest.mark.parametrize("enabled", [False, None, "true", 1, True])
-@pytest.mark.parametrize("query_only", [False, True])
-def test_task_tool_propagates_data_lake_scope_to_subagent(monkeypatch, enabled, query_only):
+def test_task_tool_propagates_data_lake_scope_to_subagent(monkeypatch, enabled):
     runtime = _make_runtime()
     if enabled is not None:
         runtime.context["datalake_enabled"] = enabled
-    runtime.context["datalake_query_only"] = query_only
     captured = {}
 
     class DummyExecutor:
@@ -469,8 +467,9 @@ def test_task_tool_propagates_data_lake_scope_to_subagent(monkeypatch, enabled, 
 
     assert _task_tool_message(output).content == "Task Succeeded. Result: done"
     assert captured["executor_kwargs"]["datalake_enabled"] is (enabled is True)
-    assert captured["executor_kwargs"]["datalake_query_only"] is query_only
-    assert [tool.name for tool in captured["executor_kwargs"]["tools"]] == (["datalake_smart_qa", "web_search"] if enabled is True else ["web_search"])
+    assert [tool.name for tool in captured["executor_kwargs"]["tools"]] == (
+        ["datalake_smart_qa", "web_search"] if enabled is True else ["web_search"]
+    )
 
 
 def test_task_tool_emits_running_and_completed_events(monkeypatch):

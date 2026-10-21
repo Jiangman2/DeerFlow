@@ -364,7 +364,7 @@ def test_gateway_and_nginx_readiness_do_not_form_a_transitive_failure_chain():
     }
     assert gateway["livenessProbe"]["httpGet"]["path"] == "/health"
     assert nginx["readinessProbe"] == {
-        "httpGet": {"path": "/health", "port": 2026, "httpHeaders": [{"name": "Host", "value": "localhost"}]},
+        "httpGet": {"path": "/health", "port": 2026},
         "initialDelaySeconds": 5,
         "periodSeconds": 5,
         "timeoutSeconds": 3,
@@ -372,8 +372,6 @@ def test_gateway_and_nginx_readiness_do_not_form_a_transitive_failure_chain():
     }
     assert nginx["startupProbe"]["httpGet"]["path"] == "/health"
     assert nginx["livenessProbe"]["httpGet"]["path"] == "/health"
-    for probe in ("startupProbe", "readinessProbe", "livenessProbe"):
-        assert nginx[probe]["httpGet"]["httpHeaders"] == [{"name": "Host", "value": "localhost"}]
 
 
 def test_enterprise_ppt_agent_disables_provider_hosted_web_search():
@@ -1210,17 +1208,7 @@ def test_skillhub_enterprise_values_keep_native_service_capabilities_enabled():
 def test_skillhub_nginx_routes_survive_the_kubernetes_template_renderer():
     config = _read("k8s/local-pvc/nginx.conf")
     assert "proxy_pass http://gateway:8001/internal/skillhub/session/assertion;" in config
-    skillhub_routes = {
-        "location = /platform/skillhub/api/v1/auth/session/bootstrap": "/_internal/skillhub/session-assertion",
-        "location = /platform/skillhub/api/web/notifications/sse": "/_internal/skillhub/api-auth",
-        "location ^~ /platform/skillhub/api/": "/_internal/skillhub/api-auth",
-        "location ^~ /platform/skillhub/": "/_internal/skillhub/browser-auth",
-    }
-    assert config.count("proxy_pass http://skillhub-web:80;") == len(skillhub_routes)
-    for location, authorization in skillhub_routes.items():
-        block = config.split(location + " {", 1)[1].split("\n        }", 1)[0]
-        assert "proxy_pass http://skillhub-web:80;" in block
-        assert f"auth_request {authorization};" in block
+    assert config.count("proxy_pass http://skillhub-web:80;") == 3
     assert "proxy_pass http://$gateway_upstream/internal/skillhub" not in config
     assert "proxy_pass http://$skillhub_upstream" not in config
 

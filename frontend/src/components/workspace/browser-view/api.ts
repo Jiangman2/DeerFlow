@@ -41,11 +41,7 @@ export async function navigateBrowser(
  * stale session lands on the page the user expects instead of a white
  * about:blank screen or a leftover page. The seed is SSRF-screened server-side.
  */
-export function browserStreamURL(
-  threadId: string,
-  seedUrl?: string,
-  sessionId?: string,
-): string {
+export function browserStreamURL(threadId: string, seedUrl?: string): string {
   const base = getBackendBaseURL();
   const origin =
     base && base.length > 0
@@ -56,7 +52,6 @@ export function browserStreamURL(
   const wsOrigin = origin.replace(/^http/i, "ws");
   const query = new URLSearchParams();
   query.set("frame_format", "binary");
-  if (sessionId) query.set("session_id", sessionId);
-  else if (seedUrl) query.set("seed", seedUrl);
+  if (seedUrl) query.set("seed", seedUrl);
   return `${wsOrigin}/api/threads/${encodeURIComponent(threadId)}/browser/stream?${query.toString()}`;
 }

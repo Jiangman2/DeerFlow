@@ -5,7 +5,6 @@ import pytest
 from _agent_e2e_helpers import FakeToolCallingModel
 from langchain.agents import create_agent
 from langchain.tools import InjectedToolCallId
-from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
@@ -747,7 +746,7 @@ class TestGraphIntegration:
                 AIMessage(content="after summary"),
             ]
         )
-        summary_model = FakeListChatModel(responses=["compressed summary"])
+        summary_model = FakeToolCallingModel(responses=[AIMessage(content="compressed summary")])
         agent = create_agent(
             model=model,
             tools=[fake_task],
@@ -876,7 +875,7 @@ class TestSkillContextInjection:
                 AIMessage(content="after summary"),
             ]
         )
-        summary_model = FakeListChatModel(responses=["compressed summary"])
+        summary_model = FakeToolCallingModel(responses=[AIMessage(content="compressed summary")])
         agent = create_agent(
             model=model,
             tools=[fake_read_file],
@@ -1027,7 +1026,7 @@ class TestDurableContextInjection:
 class TestSummaryRecordWindowSplit:
     def test_summary_in_channel_not_messages_then_injected(self):
         model = RecordingFakeModel(responses=[AIMessage(content="turn-a"), AIMessage(content="turn-b")])
-        summary_model = FakeListChatModel(responses=["COMPRESSED"])
+        summary_model = FakeToolCallingModel(responses=[AIMessage(content="COMPRESSED")])
         agent = create_agent(
             model=model,
             tools=[fake_task],

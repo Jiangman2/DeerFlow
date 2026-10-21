@@ -1,7 +1,7 @@
 "use client";
 
 import { Grid2X2Icon } from "lucide-react";
-import type { ComponentProps } from "react";
+import Image from "next/image";
 
 import { Suggestion } from "@/components/ai-elements/suggestion";
 import { Button } from "@/components/ui/button";
@@ -16,19 +16,20 @@ import {
 import { useI18n } from "@/core/i18n/hooks";
 import { PORTAL_MORE_TOOLS, type PortalTool } from "@/core/portal-links";
 
-import { PortalToolIcon } from "./portal-tool-icon";
-
-export function PortalArtwork({
-  id,
-}: {
-  id: ComponentProps<typeof PortalToolIcon>["id"];
-}) {
+function PortalArtwork({ src, scale }: { src: string; scale: number }) {
   return (
     <span
       className="cnooc-action-artwork cnooc-portal-artwork"
       aria-hidden="true"
     >
-      <PortalToolIcon id={id} />
+      <Image
+        src={src}
+        width={48}
+        height={48}
+        alt=""
+        className="size-full object-contain"
+        style={{ transform: `scale(${scale})` }}
+      />
     </span>
   );
 }
@@ -47,10 +48,9 @@ export function PortalQuickAction({ tool }: { tool: PortalTool }) {
         href={tool.href}
         target="_blank"
         rel="noopener noreferrer"
-        title={t.common.openInNewWindow}
         data-testid={`portal-tool-${tool.id}`}
       >
-        <PortalArtwork id={tool.id} />
+        <PortalArtwork src={tool.artwork} scale={tool.artworkScale} />
         <span>{t.portalTools[tool.id]}</span>
         <span className="sr-only">{t.common.openInNewWindow}</span>
       </a>
@@ -63,17 +63,16 @@ export function PortalToolMenuItem({ tool }: { tool: PortalTool }) {
   return (
     <DropdownMenuItem
       asChild
-      className="min-h-12 min-w-0 justify-center gap-1 rounded-lg px-1 py-0.5 text-center"
+      className="min-h-12 min-w-0 gap-1 rounded-lg px-1 py-0.5"
     >
       <a
         href={tool.href}
         target="_blank"
         rel="noopener noreferrer"
-        title={t.common.openInNewWindow}
         data-testid={`portal-tool-${tool.id}`}
       >
-        <PortalArtwork id={tool.id} />
-        <span className="min-w-0 text-xs leading-4 text-balance whitespace-normal">
+        <PortalArtwork src={tool.artwork} scale={tool.artworkScale} />
+        <span className="min-w-0 text-xs leading-4 whitespace-normal">
           {t.portalTools[tool.id]}
         </span>
         <span className="sr-only">{t.common.openInNewWindow}</span>
@@ -93,7 +92,7 @@ export function PortalToolsMenu() {
           icon={Grid2X2Icon}
           suggestion={t.common.more}
         >
-          <PortalArtwork id="more" />
+          <PortalArtwork src="/images/portal-more.png" scale={709 / 924} />
           <span>{t.common.more}</span>
         </Suggestion>
       </DropdownMenuTrigger>

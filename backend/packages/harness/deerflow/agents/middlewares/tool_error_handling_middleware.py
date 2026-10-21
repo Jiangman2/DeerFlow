@@ -1,6 +1,5 @@
 """Tool error handling middleware and shared runtime middleware builders."""
 
-import json
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -23,7 +22,6 @@ from deerflow.agents.middlewares.tool_result_meta import (
     stamp_exception_meta,
 )
 from deerflow.config.app_config import AppConfig
-from deerflow.config.datalake_tools import RETIRED_DATALAKE_TOOL_NAMES
 from deerflow.config.summarization_config import DEFAULT_SKILL_FILE_READ_TOOL_NAMES
 from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
 from deerflow.run_timing import (
@@ -44,18 +42,6 @@ logger = logging.getLogger(__name__)
 _MISSING_TOOL_CALL_ID = "missing_tool_call_id"
 _TASK_TOOL_NAME = "task"
 _RECOVERY_HINT = "Continue with available context, or choose an alternative tool."
-
-
-def _retired_datalake_message(request: ToolCallRequest) -> ToolMessage | None:
-    name = str(request.tool_call.get("name") or "")
-    if name not in RETIRED_DATALAKE_TOOL_NAMES:
-        return None
-    return ToolMessage(
-        content=json.dumps({"code": "datalake_tool_migrated", "error": "This tool has been retired. No request was sent. Use datalake_data_qa only if it is available and authorized in the current run.", "retryable": False}),
-        tool_call_id=str(request.tool_call.get("id") or _MISSING_TOOL_CALL_ID),
-        name=name,
-        status="error",
-    )
 
 
 def _stamp_task_exception_status(message: ToolMessage, *, tool_name: str, error: str) -> ToolMessage:
@@ -144,9 +130,6 @@ class ToolErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], ToolMessage | Command],
     ) -> ToolMessage | Command:
-        retired = _retired_datalake_message(request)
-        if retired is not None:
-            return retired
         timing_enabled = run_timing_logs_enabled()
         started_at = time.monotonic() if timing_enabled else 0.0
         tool_name = str(request.tool_call.get("name") or "unknown_tool")
@@ -202,9 +185,6 @@ class ToolErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
     ) -> ToolMessage | Command:
-        retired = _retired_datalake_message(request)
-        if retired is not None:
-            return retired
         timing_enabled = run_timing_logs_enabled()
         started_at = time.monotonic() if timing_enabled else 0.0
         tool_name = str(request.tool_call.get("name") or "unknown_tool")
@@ -263,7 +243,6 @@ def _build_runtime_middlewares(
     lazy_init: bool = True,
 ) -> list[AgentMiddleware]:
     """Build shared base middlewares for agent execution."""
-    from deerflow.agents.middlewares.datalake_source_middleware import DataLakeSourceMiddleware
     from deerflow.agents.middlewares.input_sanitization_middleware import InputSanitizationMiddleware
     from deerflow.agents.middlewares.llm_error_handling_middleware import LLMErrorHandlingMiddleware
     from deerflow.agents.middlewares.platform_confidentiality_middleware import PlatformConfidentialityMiddleware
@@ -284,7 +263,6 @@ def _build_runtime_middlewares(
     outer_wrappers: list[AgentMiddleware] = [
         InputSanitizationMiddleware(),
         PlatformConfidentialityMiddleware(),
-        DataLakeSourceMiddleware(),
         ToolOutputBudgetMiddleware.from_app_config(app_config),
         ToolResultSanitizationMiddleware(),
     ]
