@@ -28,15 +28,13 @@ for (const width of [1440, 390]) {
   }, testInfo) => {
     test.setTimeout(120_000);
     await page.setViewportSize({ width, height: 900 });
-    await page
-      .context()
-      .addCookies([
-        {
-          name: "locale",
-          value: "zh-CN",
-          url: String(testInfo.project.use.baseURL),
-        },
-      ]);
+    await page.context().addCookies([
+      {
+        name: "locale",
+        value: "zh-CN",
+        url: String(testInfo.project.use.baseURL),
+      },
+    ]);
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     const consoleMessages: { level: string; text: string }[] = [];
