@@ -267,9 +267,10 @@ class Controller:
 
 
 def candidate_job(deployment, name, node, config_name, secret_name, code):
+    gateway_pod = deployment["spec"]["template"]["spec"]
     container = next(
         c
-        for c in deployment["spec"]["template"]["spec"]["containers"]
+        for c in gateway_pod["containers"]
         if c["name"] == "gateway"
     )
     require(
@@ -309,6 +310,11 @@ def candidate_job(deployment, name, node, config_name, secret_name, code):
         restartPolicy="Never",
         automountServiceAccountToken=False,
         nodeSelector={"kubernetes.io/hostname": node},
+        # The enterprise Gateway nodes are dedicated via NoSchedule. Reuse
+        # only the reviewed Deployment's existing tolerations, never a broad
+        # Exists toleration or direct nodeName scheduler bypass.
+        tolerations=copy.deepcopy(gateway_pod.get("tolerations", [])),
+        schedulerName=gateway_pod.get("schedulerName", "default-scheduler"),
         containers=[candidate],
         volumes=[
             dict(
@@ -358,14 +364,41 @@ def job_diagnostics(c, job, uid, status):
     c.save()
 
 
+def observe_candidate_pods(c, job, uid):
+    """Retain startup evidence before a deadline removes the probe Pod."""
+    pods = c.call("candidate_pods", ["get", "pods", "-l", "job-name=" + job, "-o", "json"])["items"]
+    require(len(pods) <= 1, "candidate_pod_count")
+    snapshots = []
+    for pod in pods:
+        require(any(o.get("uid") == uid and o.get("controller") for o in pod["metadata"].get("ownerReferences", [])), "candidate_pod_owner")
+        status = pod.get("status", {})
+        containers = []
+        for container in status.get("containerStatuses", []):
+            state = container.get("state", {})
+            containers.append(dict(name=container.get("name"), ready=container.get("ready"), restarts=container.get("restartCount"), waiting_reason=state.get("waiting", {}).get("reason"), exit_code=state.get("terminated", {}).get("exitCode"), termination_reason=state.get("terminated", {}).get("reason"), running=bool(state.get("running"))))
+        snapshots.append(dict(name=pod["metadata"]["name"], uid=pod["metadata"]["uid"], node=pod.get("spec", {}).get("nodeName"), phase=status.get("phase"), containers=containers, conditions=[dict(type=x.get("type"), status=x.get("status"), reason=x.get("reason")) for x in status.get("conditions", [])]))
+    # Retain the last nonempty observation: deletion is not proof that no Pod
+    # was created. Never include env, command arguments or status messages.
+    record = c.report.setdefault("candidate_pod_observations", {}).setdefault(job, {})
+    record["currently_present"] = bool(pods)
+    if snapshots:
+        record["last_observed"] = snapshots
+    c.save()
+    return pods
+
+
 def inspect_job(c, job, uid, now=time.monotonic, sleep=time.sleep):
     started = now()
     status = {}
+    next_observation = started
     while now() - started < 240:
         value = c.get("job", job)
         require(value["metadata"]["uid"] == uid, "candidate_job_replaced")
         status = value.get("status", {})
         terminal_condition = any(x.get("type") in ("Failed", "Complete") and x.get("status") == "True" for x in status.get("conditions", []))
+        if now() >= next_observation and not (status.get("failed") or status.get("succeeded") or terminal_condition):
+            observe_candidate_pods(c, job, uid)
+            next_observation = now() + 12
         if status.get("failed") or status.get("succeeded") or terminal_condition:
             job_diagnostics(c, job, uid, status)
             pods = c.call(

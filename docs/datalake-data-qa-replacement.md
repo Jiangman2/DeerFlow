@@ -160,5 +160,26 @@ ConfigMap 转换保留非旧工具配置，原配置与新配置采用不同名�
 
 源码已将缺失 Pod、数量异常和归属异常分开报告；终态检查同时识别 Job 条件，并在
 拒绝前保存脱敏事件类别/资源字段。事件读取失败不能覆盖原失败。该修正未覆盖已交付
-r1 脚本，也未重新创建任何线上资源。等待只读 Job 事件后再制定明确续接；复用已创建
-资源前须重新核对 UID、不可变性和配置摘要，不重复输入或创建密钥。
+r1 脚本，也未重新创建任何线上资源。
+
+随后现场事件确认 Pod 创建后因 `untolerated taint` 无法调度，180 秒后
+`DeadlineExceeded`。目标节点带 `dedicated=gateway:NoSchedule`，正式 Gateway
+已有对应 Equal toleration，但原临时 Job 漏了该设置；候选代码尚未执行。
+
+`package-data-qa-glm-resumption.py` 生成独立 r2 续接工具，校验原报告字节/摘要、
+已有 ConfigMap/Secret UID、不可变性及配置摘要，保留原 once 标记。只创建两个新
+检查 Job，复制正式 Gateway 已有的精确 toleration，并保留预载节点限制、180 秒
+期限和零重试。无需重新输入密钥，不创建配置或 Secret，不修改 Deployment。
+新增启动状态快照会保留 Pod 消失前的阶段信息，不导出原始日志或凭据。
+准备、续接、迁移及发布计划相关 62 项离线检查通过；仍需现场续接回执。
+
+交付 `resume-portal-data-qa-glm-candidate-20261021-r2.py`，78,554 字节，
+SHA-256 `14c2108edf0d777f1dd2092624b6912caff40cda307a9705ad2a5855d49f094c`。
+完整包、内嵌迁移/候选/复用代码通过 Linux Python 3.7 编译、加载与预载绑定检查。
+复制至 datax-01 `/home/cnooc/` 后执行：
+
+```bash
+sudo python3 -I -B -u /home/cnooc/resume-portal-data-qa-glm-candidate-20261021-r2.py --resume-existing-candidate-once
+```
+
+原报告、已创建资源和原 once 标记须保留。续接失败时保留新报告，不自动重跑。

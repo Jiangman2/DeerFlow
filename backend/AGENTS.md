@@ -1328,6 +1328,11 @@ Distinguish an empty Pod inventory from a mismatched owner; a Job terminal
 condition may exist without a failed-Pod count. Missing events must not mask
 the primary failure. Do not infer quota/admission causes from a missing Pod
 alone, and do not repeat configuration/Secret creation to retry a probe.
+Copy only the reviewed Gateway tolerations into candidate Jobs and retain the
+preloaded-node selector; never bypass scheduling with nodeName or a broad Exists
+toleration. Observe startup Pod status before TTL cleanup. Resume the known
+failed probe only after verifying its sealed report and immutable resource
+identities, with a separate once marker and no Secret/config recreation.
 For the paired image/config/env plan, keep
 UID/resourceVersion/spec compare-and-swap checks and paired image/config/Secret
 restoration. They are not an activation controller: bind actual preload and

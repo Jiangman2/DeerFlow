@@ -275,3 +275,45 @@ def test_missing_events_do_not_mask_empty_pod_failure(scope):
     with pytest.raises(scope["Refused"], match="candidate_pod_absent_review_job_events"):
         scope["inspect_job"](c, "job", "job-uid")
     assert c.report["candidate_job_diagnostics"][0]["event_query_failed"] is True
+
+
+def test_startup_snapshot_survives_deadline_pod_deletion_without_exporting_messages(scope):
+    class Observer:
+        report = {}
+        present = True
+
+        def call(self, phase, args):
+            pod = dict(
+                metadata=dict(name="probe-pod", uid="pod-uid", ownerReferences=[dict(uid="job-uid", controller=True)]),
+                spec=dict(env="private-value"),
+                status=dict(
+                    phase="Pending",
+                    conditions=[dict(type="PodScheduled", status="False", reason="Unschedulable", message="private-value")],
+                    containerStatuses=[dict(name="candidate", state=dict(waiting=dict(reason="ContainerCreating", message="private-value")))],
+                ),
+            )
+            return {"items": [pod] if self.present else []}
+
+        def save(self):
+            pass
+
+    c = Observer()
+    scope["observe_candidate_pods"](c, "job", "job-uid")
+    c.present = False
+    scope["observe_candidate_pods"](c, "job", "job-uid")
+    observation = c.report["candidate_pod_observations"]["job"]
+    assert observation["currently_present"] is False
+    assert observation["last_observed"][0]["uid"] == "pod-uid"
+    assert observation["last_observed"][0]["conditions"][0]["reason"] == "Unschedulable"
+    assert "private-value" not in json.dumps(c.report)
+
+
+def test_startup_snapshot_rejects_foreign_pod(scope):
+    class Observer:
+        report = {}
+
+        def call(self, *args):
+            return {"items": [{"metadata": {"name": "foreign", "uid": "other", "ownerReferences": [{"uid": "other", "controller": True}]}}]}
+
+    with pytest.raises(scope["Refused"], match="candidate_pod_owner"):
+        scope["observe_candidate_pods"](Observer(), "job", "job-uid")

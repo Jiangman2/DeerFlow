@@ -1243,6 +1243,9 @@ Successful preparation does not establish business-data correctness or switch
 the active model/tool configuration.
 If a candidate Job fails before its result is collected, inspect its Job
 conditions/events and retain the already prepared resources for verified reuse.
+The report-bound r2 resumption reuses those immutable resources and copies the
+existing Gateway node toleration into two isolated checks; it does not roll out
+Gateway or require another credential entry.
 
 For recognized enterprise DataLake queries, disabled access returns a prompt to
 enable the **Use Data Lake** button. Once a run selects DataLake, empty results,
