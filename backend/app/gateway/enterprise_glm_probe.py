@@ -85,7 +85,7 @@ def error_category(exc):
     return "OTHER_UNCONFIRMED"
 
 
-async def run_probe(key, http, *, request_deadline=120, verify_modes=False):
+async def run_probe(key, http, *, request_deadline=120):
     receipt = {
         "glm_canary": "RUNNING",
         "stage": "setup",
@@ -98,7 +98,7 @@ async def run_probe(key, http, *, request_deadline=120, verify_modes=False):
         "usage": "NOT_REPORTED",
         "requested_max_tokens": PROBE_MAX_TOKENS,
         "request_deadline_seconds": request_deadline,
-        "stage_results": {stage: "NOT_ATTEMPTED" for stage in (("flash",) if verify_modes else ()) + ("text", "tool_call", "tool_resume", "image")},
+        "stage_results": {stage: "NOT_ATTEMPTED" for stage in ("text", "tool_call", "tool_resume", "image")},
         "checks": [],
     }
     reported_usage = []
@@ -122,10 +122,8 @@ async def run_probe(key, http, *, request_deadline=120, verify_modes=False):
             receipt["stage"] = stage
             receipt["stage_results"][stage] = "RUNNING"
             receipt["provider_requests_attempted"] += 1
-            if receipt["provider_requests_attempted"] > (5 if verify_modes else 4):
+            if receipt["provider_requests_attempted"] > 4:
                 raise ProbeRejected()
-            if verify_modes:
-                kwargs["extra_body"] = {"thinking": {"type": "disabled" if stage in ("flash", "tool_call", "tool_resume") else "enabled"}}
             start = time.monotonic()
             merged = None
             size = 0
@@ -155,19 +153,10 @@ async def run_probe(key, http, *, request_deadline=120, verify_modes=False):
                 raise ProbeOutputLimit()
             if finish != ("tool_calls" if stage == "tool_call" else "stop"):
                 raise ProbeRejected()
-            if verify_modes and stage in ("flash", "tool_call", "tool_resume") and check["reasoning_present"]:
-                raise ProbeRejected()
             return message
 
-        if verify_modes:
-            flash = await invoke("flash", [HumanMessage("请只回复 GLM_PROBE_OK，不调用工具。")])
-            if not isinstance(flash.content, str) or flash.content.strip() != MARKER or flash.tool_calls:
-                raise ProbeRejected()
-            receipt["stage_results"]["flash"] = "PASS"
         first = await invoke("text", [HumanMessage("请只回复 GLM_PROBE_OK，不调用工具。")])
         if not isinstance(first.content, str) or first.content.strip() != MARKER or first.tool_calls:
-            raise ProbeRejected()
-        if verify_modes and not first.additional_kwargs.get("reasoning_content"):
             raise ProbeRejected()
         receipt["stage_results"]["text"] = "PASS"
         prompt = [HumanMessage("接口验收：必须调用 probe_echo，value 严格等于 GLM_PROBE_OK。拿到工具结果后只输出该值。")]

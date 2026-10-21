@@ -25,15 +25,7 @@ class EnterpriseGLMChat(RobustChatOpenAI):
         if payload.get("model") != "GLM-5.3-Flash":
             raise ValueError("Enterprise GLM profile requires GLM-5.3-Flash")
         body = payload.setdefault("extra_body", {})
-        thinking = body.get("thinking", {"type": "enabled"})
-        if not isinstance(thinking, dict) or thinking.get("type") not in ("enabled", "disabled"):
-            raise ValueError("GLM thinking.type must be enabled or disabled")
-        body["thinking"] = thinking
-        if thinking["type"] == "disabled":
-            # Reasoning effort applies only to thinking mode. Neither the SDK
-            # field nor extra_body may reintroduce it into a flash request.
-            body.pop("reasoning_effort", None)
-            payload.pop("reasoning_effort", None)
+        body["thinking"] = {"type": "enabled"}
         effort = body.get("reasoning_effort", payload.get("reasoning_effort"))
         if effort not in (None, "high", "max"):
             raise ValueError("GLM reasoning_effort must be omitted, high or max")

@@ -1,38 +1,49 @@
-# GLM mode and vision audit
+# GLM-5.3-Flash contract audit (2026-10-21)
 
-The supplied GLM-5.2 documentation and stream/nonstream examples explicitly use
-`extra_body={"thinking":{"type":"disabled"}}`; the SDK flattens this into the
-HTTP JSON body. Enabled mode permits omitted, high or max reasoning effort.
-Disabled mode should return no reasoning content and should omit effort.
+Authority: operator-supplied GLM-5.3-Flash interface document and its four Python
+examples. This supersedes the provisional GLM-5.2 comparison.
 
-The deployed integration is GLM-5.3-Flash / FCGLM-001, a different endpoint.
-The old profile sets `thinking_always_on: true`, and the adapter formerly rewrote
-every request to enabled. Both must change to offer a working flash selector.
-The adapter now preserves explicit enabled/disabled, defaults to enabled,
-rejects invalid modes, and removes effort in flash mode. The original fixed
-profile remains intact for deployments not yet qualified. The opt-in switchable
-profile supplies explicit factory overrides for both modes; changing only the
-frontend or hiding reasoning text is insufficient.
+| Area | Contract | Current implementation |
+| --- | --- | --- |
+| Endpoint/model | FCGLM-001/v1/chat/completions; GLM-5.3-Flash | Matches profile and adapter |
+| Flash mode | Section 6.2 explicitly says thinking cannot be disabled | thinking_always_on true and forced enabled are correct |
+| Effort | Omitted, high or max | Adapter supports these; generic low/medium/high selector disabled, normal requests use provider default |
+| Vision | One base64 image, before text | supports_vision true; adapter reorders and rejects multiple images before HTTP |
+| Tool continuation | Same model, assistant tool call and matching tool result ID | Reasoning and tool-call IDs preserved; October 19 field probe passed |
+| Streaming | Separate reasoning/content; empty choices and errors | Shared adapter handles these; wire fixtures cover final text and usage |
+| Time limits | Nonstream upstream roughly 300s ceiling; streamed requests need total bound | Streaming default; 120s chunk timeout and 600s async total deadline |
 
-The existing profile already advertises `supports_vision: true`. The adapter
-accepts one uploaded base64 image per request, moves the image before text, and
-preserves tool-call/reasoning replay. The operator's 2026-10-19 canary reported
-image PASS. This is historical one-image acceptance, not new multi-image support.
-GLM-5.2's supplied documentation does not describe image input. GLM-OCR uses its
-own `/ocr` endpoint and data/data_type/text payload; keep it separate.
+The operator's 2026-10-19 report recorded text, tool call, tool result and image
+PASS. This is historical provider acceptance, not a fresh October 21 runtime
+inventory or proof of every image/long-running request. Image support is distinct
+from the independent GLM-OCR endpoint and limited to one image across request
+history.
 
-Package `diagnose-glm-modes.py` with the candidate adapter, probe and switchable
-profile using `package-glm-modes.py`. Run the artifact on datax-01 with Python
-`-I -B -u` and `--diagnose-glm-modes-once`. It samples one ready Gateway, uses its
-existing key only inside a short-lived process, checks the candidate factory's
-mode payloads and attempts at most five synthetic calls: flash, thinking, flash
-tool selection, flash tool-result continuation, one image in thinking mode.
-It checks absence of reasoning in flash and presence in the thinking text call.
-It does not execute business tools, change configuration, write Secrets or
-restart Gateway. The `.once` marker and private report preserve uncertain calls;
-do not delete them to repeat a failed or interrupted probe.
+## Example inconsistencies
 
-Passing this diagnostic permits preparing an adapter/config release, not claiming
-production completion. Bind the actual current Gateway baseline and preserve
-other operators' changes. Then check `/api/models`, both modes and image upload
-through the product. The generic selector needs no frontend rebuild.
+Section 11.4 resolves both: the nonstream example's disabled-thinking label is
+historical and does not disable thinking; the function-call Python example's
+second-turn GLM-5.2 is a copy/paste mismatch. The corrected document and our
+integration keep GLM-5.3-Flash in both turns. Do not copy these example bugs.
+
+## Stream acceptance limitation
+
+The SDK consumes [DONE] internally. The current adapter does not independently
+verify that raw marker; its frame guard rejects malformed-frame streams lacking
+a terminal chunk, but is not a general clean-EOF truncation detector. Therefore
+do not claim full compliance with section 6.5's strict raw [DONE] requirement
+solely from chunk-level tests. A transport-level termination guard requires
+separate implementation and qualification. The release canary does require a
+valid finish reason and rejects length-truncated results.
+
+## Withdrawn candidate
+
+The switchable profile, five-call mode diagnostic and adapter change prepared
+from the 5.2 comparison were withdrawn after reading 5.3 section 6.2. They were
+never deployed. The original fixed-thinking adapter and its regression tests
+are restored. The local unreleased diagnostic download is replaced by an inert
+withdrawal notice. No frontend rebuild or production Gateway change is needed
+merely to correct the interpretation of flash support.
+
+DeepSeek-V4.1's explicitly requested synthetic 503 retry is independent and
+retains its existing request format and five-call acceptance boundary.

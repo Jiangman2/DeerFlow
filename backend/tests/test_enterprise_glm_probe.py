@@ -114,24 +114,3 @@ async def test_filtered_expected_marker_is_not_pass():
     async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: reply("GLM_PROBE_OK", finish="content_filter"))) as http:
         result = await run_probe("fixture", http, request_deadline=1)
     assert result["glm_canary"] == "FAIL" and result["provider_requests_attempted"] == 1
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("bad_flash_reasoning", [False, True])
-async def test_modes_probe_five_requests_or_stops_on_ignored_disabled(bad_flash_reasoning):
-    requests = []
-
-    def respond(request):
-        body = json.loads(request.content)
-        requests.append(body)
-        index = len(requests) - 1
-        assert body["thinking"]["type"] == ("enabled" if index in (1, 4) else "disabled")
-        assert "reasoning_effort" not in body
-        return [reply("GLM_PROBE_OK", reasoning="unexpected" if bad_flash_reasoning else None),
-                reply("GLM_PROBE_OK", reasoning="synthetic"), reply(tool=True), reply("GLM_PROBE_OK"), reply("红色")][index]
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
-        result = await run_probe("fixture", http, request_deadline=1, verify_modes=True)
-    assert result["glm_canary"] == ("FAIL" if bad_flash_reasoning else "PASS")
-    assert len(requests) == (1 if bad_flash_reasoning else 5)
-    assert "unexpected" not in json.dumps(result)

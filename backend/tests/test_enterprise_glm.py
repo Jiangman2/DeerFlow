@@ -12,24 +12,10 @@ def model(**kwargs):
     return EnterpriseGLMChat(api_key="test-only", model="GLM-5.3-Flash", **kwargs)
 
 
-def test_explicit_flash_is_preserved_and_default_remains_enabled():
+def test_thinking_is_always_enabled_and_not_forwarded_as_false():
     payload = model(extra_body={"thinking": {"type": "disabled"}})._get_request_payload([HumanMessage("hello")])
-    assert payload["extra_body"]["thinking"] == {"type": "disabled"}
-    assert model()._get_request_payload([HumanMessage("hello")])["extra_body"]["thinking"] == {"type": "enabled"}
+    assert payload["extra_body"]["thinking"] == {"type": "enabled"}
     assert payload["model"] == "GLM-5.3-Flash"
-
-
-def test_flash_removes_effort_without_mutating_shared_config():
-    body = {"thinking": {"type": "disabled"}, "reasoning_effort": "max"}
-    payload = model(extra_body=body)._get_request_payload([HumanMessage("hello")], reasoning_effort="high")
-    assert "reasoning_effort" not in payload and "reasoning_effort" not in payload["extra_body"]
-    assert body["reasoning_effort"] == "max"
-
-
-@pytest.mark.parametrize("thinking", [None, False, {}, {"type": "typo"}])
-def test_invalid_thinking_rejected(thinking):
-    with pytest.raises(ValueError, match="thinking.type"):
-        model(extra_body={"thinking": thinking})._get_request_payload([HumanMessage("hello")])
 
 
 def test_image_precedes_text_without_mutating_message():
