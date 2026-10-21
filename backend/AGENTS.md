@@ -2265,6 +2265,13 @@ Use hidden terminal input and stdin, not argv, for optional live GLM credentials
 Only a new isolated synthetic directory may be mutated by the shared-volume probe;
 never initialize the real featured store or change existing directory permissions.
 Report incomplete checks and deferred candidate/PPT acceptance explicitly.
+For DeepSeek V4.1 incident retests, distinguish the diagnostic's explicit direct
+HTTPX client from a future default SDK production client. The old r4 already
+sets trust_env=false; missing NO_PROXY is not its 503 explanation. Bind the
+documented endpoint and original synthetic probe, collect bounded redacted
+timestamp/request-ID/transport evidence, and compare two nodes without retries
+or business-tool execution. Never present a client correlation ID as an upstream
+receipt, nor a successful diagnostic batch as production activation.
 Linux channel regression must exercise actual inter-process flock and timeout,
 permission failure before publication, and CAS conflicts. Do not mock away flock
 to manufacture a Windows pass. After a committed config save, local restart failure

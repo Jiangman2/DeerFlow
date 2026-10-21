@@ -109,3 +109,54 @@ headers or error bodies, so this collector cannot recover them. Local operation
 UUIDs must never be presented as upstream request IDs. If correlation remains
 impossible, a separately coordinated synthetic request needs timestamped,
 redacted transport evidence instead of another blind retry.
+
+### Explicit two-node transport comparison
+
+The October 21 renewed investigation verified the delivered r4 SHA256
+`3716be98c073b890ef33e64b3adfffbbd7d3b5361cde1d1379c2a1689350aa17`:
+its HTTPX client already explicitly uses `trust_env=False`, TLS verification,
+and disabled redirects. Missing `NO_PROXY` cannot explain those diagnostic
+503s. This says nothing about the default SDK client's later production route;
+qualify that configuration separately before enabling the selector entry.
+The documented endpoint/model/thinking toggle match the profile. Synthetic
+tool continuation uses the returned assistant call ID and matching tool result;
+there is no evidence yet attributing the 503 to a malformed continuation.
+
+`package-deepseek-v41-diagnosis.py` binds r4 and reuses its exact application
+probe. The new standalone diagnostic chooses two ready nodes of one stable
+Gateway Deployment, compares one direct nonstream HTTP request with the five
+application streaming stages on each node (at most twelve requests total),
+and never executes business tools or creates Secrets/configuration. Each stage
+runs once with no automatic retries. A raw baseline failure does not prevent
+the independent application comparison; application failure stops its later
+dependent stages. Wait until the joint Gateway rollout has finished.
+
+It records UTC request/header timestamps, client correlation IDs, allowlisted
+upstream response IDs, TCP peer/TLS certificate fingerprint when available,
+DNS observations, actual payload structure/hash, response status, closed error
+categories and bounded error-body fingerprint. Neither request bodies, model
+text/reasoning, credentials, cookies nor arbitrary response headers are exported.
+Client correlation IDs are sent via X-Request-ID; they are not proof of an
+upstream-assigned request ID or receipt at the model server. Peer/DNS addresses
+are not egress NAT evidence. Header/body signatures aid correlation but cannot
+alone identify which infrastructure hop generated a 503.
+
+Successful acceptance additionally requires both full application sequences,
+correct wire thinking flags/tool-result linkage/two-image count, and observed
+SSE terminal plus `[DONE]` markers. This validator is diagnostic-only; it does
+not silently modify the installed adapter. A green batch does not establish
+long-term availability or constitute production activation. Readiness/binding
+drift prevents acceptance. The separate once marker is claimed before requests;
+retain the report after failure and do not delete it for repeated trials.
+
+Run after copying the packaged file to datax-01:
+
+```bash
+sudo python3 -I -B -u /home/cnooc/diagnose-portal-deepseek-v41-transport-20261021-r1.py --diagnose-and-test-once
+```
+
+Enter the V4.1 key only at the hidden prompt. The resulting sanitized JSON can
+be forwarded to model/gateway operators for correlation. Preparing the immutable
+Secret, versioned ConfigMap, exact-host environment bypass if needed, full-spec
+CAS rollout and authenticated selector/browser acceptance remains a separate
+step after these results are reviewed; preserve the new Data QA/GLM release.
