@@ -211,3 +211,24 @@ Nginx spec 和 Gateway Service 均核对保持不变。
 控制器及引用扫描 13 项 Linux Python 3.7 检查通过，15 文件实际路径检查在隔离 QA
 及 SDK 2.32.0 下通过。QA 初次单文件挂载缺少现有 llm_timing_context 模块；补全
 同一工作树 harness 依赖挂载后通过，未改生产镜像来规避。现场候选镜像已独立通过。
+
+### 联合切换前的存量引用阻塞
+
+首次联合切换 `efa5e03631e046b08eb30497198936bd` 在发送补丁前停止，
+`patch_request_count=0`、`production_workload_mutation=false`，Gateway 仍为
+generation 381。扫描 186 个配置/提示词文件，2 个文件同时含有旧
+`datalake_detail_qa` 和 `datalake_metrics_qa`。这不是新接口、GLM 或滚动更新失败，
+也不能由文件数推断受影响 Agent 数。
+
+原报告 26,307 字节，SHA-256
+`fe2959adb97e8bf4f78c0a6a93f7d9d740785ce0e068c77a73be5e1900b21fd8`。
+摘要收录为 `data-qa-glm-activation-blocker-20261021-r1.json`。
+现有 ConfigMap/Secret 和候选镜像保留，不放宽引用检查或批量替换提示词。
+
+`inspect-portal-data-qa-agent-references-20261021-r1.py --inspect-readonly`
+绑定原报告、Gateway 基线及原 Pod，输出受影响文件类型/摘要/匿名句柄、行号、
+工具名和固定词表匹配。不会导出完整提示词、用户名、路径或密钥，不修改文件，
+不调用接口，不更新服务。配置中的允许/禁止列表和文字说明须分别判断；该诊断
+并不等同于已批准任意替换。7 项 Linux Python 3.7 检查及 Ruff 通过。
+交付脚本 10,890 字节，SHA-256
+`e55f74e27b0318d375fdcd717c33fbd273523952e756563f2d38c7f756eeb253`。

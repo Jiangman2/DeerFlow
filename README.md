@@ -1251,6 +1251,10 @@ checks persisted custom-agent references before submitting one compare-and-swap
 patch for image, config and dedicated Secret reference, then accepts every
 Gateway replica. It requires a drained task window; candidate acceptance alone
 does not mean the production update or business-answer validation is complete.
+The first joint activation stopped before its patch: two of 186 persisted
+Agent files still reference retired tools. Keep that gate and inspect bounded
+reference details before preparing edits; do not blanket-replace tool names or
+repeat the rollout while these references remain unresolved.
 
 For recognized enterprise DataLake queries, disabled access returns a prompt to
 enable the **Use Data Lake** button. Once a run selects DataLake, empty results,

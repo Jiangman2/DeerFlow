@@ -1345,6 +1345,13 @@ sample views without rewriting user artifacts. The live acceptance child checks
 the actual config mount and all 15 release sources; its network denial applies
 only after the existing local HTTP and read-only UUID checks. Never run that
 monkeypatch inside the serving application, or retry an uncertain rollout patch.
+For blocked persisted references, the separate diagnostic binds the no-patch
+report and current Pod/container identity. Export hashed handles, file hashes,
+line numbers and a closed vocabulary of structural clues only, never complete
+SOUL prompts, user paths or credentials. These clues do not independently prove
+that a prose replacement is correct; distinguish allow/deny configuration from
+instructional prose before preparing a scoped migration. Preserve the existing
+rollout gate and immutable resources while that review remains incomplete.
 
 `DataLakeSourceMiddleware` checkpoints the run's source restriction before
 execution and after model selection. Keep deterministic explicit-source/table
