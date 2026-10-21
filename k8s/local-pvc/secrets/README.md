@@ -119,27 +119,28 @@ kubectl rollout restart deployment/gateway -n deer-flow
 
 ## CNOOC DataLake tools
 
-Smart QA uses the DataLake Retrieve API and returns ranked source chunks for
-DeerFlow to analyze. Metrics and Detail continue to use the approved AppForge
-workflows. Store runtime endpoint/identity values and the AppForge credential
-in `deer-flow-env`, not as literals in `config.yaml` or a ConfigMap:
+Smart QA retains the DataLake Retrieve API and its existing configuration.
+Data QA calls the new AppForge `app-v16p2syh` application. It requires a
+dedicated Secret variable; it never falls back to the old shared key. Runtime
+identity inputs remain exactly empty strings. No master-data tool is enabled
+by this migration.
 
 ```dotenv
-DATALAKE_RETRIEVE_API_URL=http://10.77.124.142:15955/rag/internal/v1/Retrieve
-DATALAKE_RETRIEVE_PROJECT_ID=proj-i7f8eref
-DATALAKE_RETRIEVE_DOCUMENT_STORE_ID=docstore_zmmAUVXW
-APPFORGE_API_URL=http://10.77.124.142:9080
-APPFORGE_API_KEY=replace-me
-APPFORGE_METRICS_QA_APP_ID=app-n9ahac7g
-APPFORGE_DETAIL_QA_APP_ID=app-5md031ia
-APPFORGE_TRUST_ENV=false
+APPFORGE_DATA_QA_API_KEY=replace-me
 ```
 
-Restart Gateway after installing or rotating the values. Keep Metrics and
-Detail application IDs aligned with the reviewed AppForge workflows; update a
-value only when that workflow is republished under a new ID. A comma-separated
-`DATALAKE_RETRIEVE_DOCUMENT_STORE_IDS` is also accepted when multiple document
-stores are intentionally enabled.
+Use the explicit `api_url: http://10.77.124.142:9080`,
+`app_id: app-v16p2syh`, `conversation_prefix: SquareWorkflow_`, and
+`trust_env: false` in the new Data QA tool entry. Reference the key as
+`$APPFORGE_DATA_QA_API_KEY`; never commit its value. Leave the Smart Retrieve
+project, document store, endpoint and other credentials unchanged.
+
+For enterprise hot updates, prepare a new immutable ConfigMap and dedicated
+Secret. Switch Gateway image/config/Secret references in the same Deployment
+template update after candidate acceptance. Keep the old ConfigMap, image and
+credentials for paired rollback. Do not edit the shared live ConfigMap and then
+restart old-code Pods: retired/new Python exports are incompatible.
+See `docs/datalake-data-qa-replacement.md`.
 
 ## External agent click telemetry
 

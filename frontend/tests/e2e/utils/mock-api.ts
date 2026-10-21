@@ -1299,6 +1299,10 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
     });
   });
 
+  void page.route("**/api/employee-directory", (route) => {
+    return route.fulfill({ json: { employees: [] } });
+  });
+
   void page.route("**/api/team-agents", (route) => {
     return route.fulfill({
       status: 200,

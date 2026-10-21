@@ -1,0 +1,142 @@
+{
+  "base_layers_preserved": true,
+  "canary_tool_sha256": "6a64de5cfbbd89decc359b2f0e8d4c2d1edf161d0905df48dcb092a8f7895582",
+  "compressed_append_bytes": 13226,
+  "configuration_fields_preserved": true,
+  "expanded_append_bytes": 61440,
+  "field_acceptance": {
+    "base_manifest": "sha256:58a50175cfae4a141dd1c03bbd4362a3a3f672545e2d5c08cbc2f18816a204a3",
+    "candidate_bundle_sha256": "59dbde49f5a395fca612a73cbfb9442660a82db78e1a172c9f02bc068b276f04",
+    "completion_validation": "TERMINAL_AND_DONE",
+    "gateway": {
+      "generation": 381,
+      "spec_sha256": "5a84f74566171e588433779a59b9adec1ae752c2dc3c42706ff55db1e295fbda",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "image": "PASS",
+    "operation": "bf79a7b7f0bb413aa2916bab33e83ed3",
+    "production_deployed": false,
+    "report_bytes": 3253,
+    "report_sha256": "ab15569c02c626e085cbf00e4bf056faea0fd1e61e6e3cb341ee501c77825150",
+    "sdk_version": "2.32.0",
+    "text": "PASS",
+    "tool_call": "PASS",
+    "tool_resume": "PASS"
+  },
+  "importer_source_sha256": "8ec9625a5aab20a37030d4d6e69bd7f1fae65246ed2f29094be4e974d493dded",
+  "profile": {
+    "bases": {
+      "gateway": {
+        "config_bytes": 28181,
+        "config_digest": "sha256:7c8f39ebb9443abc3910d181350a74231f5dd80f512d45890d8c68812fe5dbbf",
+        "config_object_sha256": "7c8f39ebb9443abc3910d181350a74231f5dd80f512d45890d8c68812fe5dbbf",
+        "descriptor_prefix_sha256": "70c3f0ef1c514c1bdb04fd9c25374d88ae62be853e586f6b5d470dbc1348f7a5",
+        "diff_prefix_sha256": "d41929db59704c7b7fd8980da6d8e51bf8431e6f605c7b80e965787f223456db",
+        "final_chain_id": "sha256:bf89b290c8bd48204c233341452a1e988812d1c7279e98b942a6d0f590404a0d",
+        "layer_count": 66,
+        "manifest_bytes": 10501,
+        "manifest_digest": "sha256:58a50175cfae4a141dd1c03bbd4362a3a3f672545e2d5c08cbc2f18816a204a3",
+        "runtime_config_sha256": "599bb37d4a706db1937254b3733539463ebcf93d753af6bf907e92917863a651",
+        "tag": "deerflow.local/deer-flow-gateway:20261020-haineng-brand-r1-24349a0c18a6"
+      }
+    },
+    "nodes": {
+      "ecs-zdz-pro-0018": {
+        "expected_node_uid": "0243d097-3ee7-4abc-899a-319e57934eee",
+        "roles": [
+          "gateway-forward"
+        ]
+      },
+      "ecs-zdz-pro-0019": {
+        "expected_node_uid": "e23480a1-041d-4767-b6cb-e8b93d456ac1",
+        "roles": [
+          "gateway-forward"
+        ]
+      },
+      "ecs-zdz-pro-0020": {
+        "expected_node_uid": "d43ad71d-b5e1-49fc-a93f-3cb0aee6a6e2",
+        "roles": [
+          "gateway-forward"
+        ]
+      },
+      "ecs-zdz-pro-0021": {
+        "expected_node_uid": "181f267d-e653-4fa8-9e1f-d0138454f079",
+        "roles": [
+          "gateway-forward"
+        ]
+      },
+      "ecs-zdz-pro-0022": {
+        "expected_node_uid": "0f1fa57f-f37f-42ed-a296-047295f17856",
+        "roles": [
+          "gateway-forward"
+        ]
+      }
+    },
+    "preserve": {
+      "gateway": {
+        "deerflow.local/deer-flow-gateway:20261017-ppt-bound-r1-forward-ef500864eb40": "sha256:9b3a6d80d20b73585c6642213077236bb9948f35d0d5daa262e78d120422eb9e",
+        "deerflow.local/deer-flow-gateway:20261017-ppt-bound-r1-rollback-ef500864eb40": "sha256:0b1993135d0170d84ff28688b45648ceeeb7e5055c6051974ca3cee5ff01b0e2",
+        "deerflow.local/deer-flow-gateway:20261018-confirm-successor-r1-72c50d49eebd": "sha256:cdf881e75befc90e12533a941ececcecfae796c170fb42b0a42cb2b97c4afa40",
+        "deerflow.local/deer-flow-gateway:20261018-document-mime-r1-c307757302cc": "sha256:0bf4e4591fbda30604141929b53a33d5ba2c8580f9c3652049826fe27c8577f7",
+        "deerflow.local/deer-flow-gateway:20261019-employee-hot-nfs-r2-42d2368ef258": "sha256:4d1ee1dfaa0893e65cb8e0525aa6250561ace6e526eef5eb3aeeb4b69b783646",
+        "deerflow.local/deer-flow-gateway:20261019-employee-hot-uuid-r1-d90734ccbfde": "sha256:c62cee3f6d15b486d529304387d1be972ebe180764deff1d358533c1c45ffd18",
+        "deerflow.local/deer-flow-gateway:20261020-haineng-brand-r1-24349a0c18a6": "sha256:58a50175cfae4a141dd1c03bbd4362a3a3f672545e2d5c08cbc2f18816a204a3",
+        "deerflow.local/deer-flow-gateway@sha256:0b1993135d0170d84ff28688b45648ceeeb7e5055c6051974ca3cee5ff01b0e2": "sha256:0b1993135d0170d84ff28688b45648ceeeb7e5055c6051974ca3cee5ff01b0e2",
+        "deerflow.local/deer-flow-gateway@sha256:0bf4e4591fbda30604141929b53a33d5ba2c8580f9c3652049826fe27c8577f7": "sha256:0bf4e4591fbda30604141929b53a33d5ba2c8580f9c3652049826fe27c8577f7",
+        "deerflow.local/deer-flow-gateway@sha256:4d1ee1dfaa0893e65cb8e0525aa6250561ace6e526eef5eb3aeeb4b69b783646": "sha256:4d1ee1dfaa0893e65cb8e0525aa6250561ace6e526eef5eb3aeeb4b69b783646",
+        "deerflow.local/deer-flow-gateway@sha256:58a50175cfae4a141dd1c03bbd4362a3a3f672545e2d5c08cbc2f18816a204a3": "sha256:58a50175cfae4a141dd1c03bbd4362a3a3f672545e2d5c08cbc2f18816a204a3",
+        "deerflow.local/deer-flow-gateway@sha256:9b3a6d80d20b73585c6642213077236bb9948f35d0d5daa262e78d120422eb9e": "sha256:9b3a6d80d20b73585c6642213077236bb9948f35d0d5daa262e78d120422eb9e",
+        "deerflow.local/deer-flow-gateway@sha256:c62cee3f6d15b486d529304387d1be972ebe180764deff1d358533c1c45ffd18": "sha256:c62cee3f6d15b486d529304387d1be972ebe180764deff1d358533c1c45ffd18",
+        "deerflow.local/deer-flow-gateway@sha256:cdf881e75befc90e12533a941ececcecfae796c170fb42b0a42cb2b97c4afa40": "sha256:cdf881e75befc90e12533a941ececcecfae796c170fb42b0a42cb2b97c4afa40"
+      }
+    },
+    "roles": [
+      {
+        "base": "gateway",
+        "config_digest": "sha256:bbcb5f994ba56c302e7df9894beaa1b418e5f75b252beb251966b5b06538639e",
+        "expected_layer_count": 67,
+        "manifest_digest": "sha256:3a935533a484bd26e9bb8798ab8e446d92e9a852b593a3ce92f58c0496dd83ea",
+        "role": "gateway-forward",
+        "runtime_config_sha256": "599bb37d4a706db1937254b3733539463ebcf93d753af6bf907e92917863a651",
+        "tag": "deerflow.local/deer-flow-gateway:20261021-glm-stream-r1-3a935533a484",
+        "tail_layers": [
+          {
+            "blob_digest": "sha256:e1edb12ac417c984da8881c317d70ff1b31e16c6014e9a5311dc6e37c2e70ece",
+            "compressed_bytes": 13226,
+            "diff_id": "sha256:790a429fdc6d7486331212e6f0b0f29604610d7c49782d6a83d0c35895c15f1b",
+            "position": 67,
+            "uncompressed_bytes_upper_bound": 61440
+          }
+        ]
+      }
+    ],
+    "schema": "portal-gateway-glm-stream-profile.v1",
+    "tail_files": {
+      "gateway-forward": {
+        "files": {
+          "app/backend/packages/harness/deerflow/models/enterprise_glm.py": {
+            "bytes": 2922,
+            "sha256": "310eda0d33ddcc9ec8163debedd356360c88c6cb091968a79fae8bd7a298b68f"
+          },
+          "app/backend/packages/harness/deerflow/models/glm_stream_guard.py": {
+            "bytes": 2762,
+            "sha256": "f0b8127bd7217f0f4cd28ce973994deb64994e87354141cbe0c4dd3f7b475030"
+          },
+          "app/backend/packages/harness/deerflow/models/output_safety.py": {
+            "bytes": 3890,
+            "sha256": "d168aee0299bfc6a87f852f6941d59bcd3dc4eb33e2be6d8fe0ae4cdaa34ed65"
+          },
+          "app/backend/packages/harness/deerflow/models/robust_openai.py": {
+            "bytes": 46642,
+            "sha256": "8a41b677b843b6c8e58433f1725378c312af0315711bc1ca62422d55421f2a52"
+          }
+        },
+        "uncompressed_bytes": 61440
+      }
+    }
+  },
+  "schema": "portal-glm-stream-release-build.v1",
+  "script_bytes": 216813,
+  "script_sha256": "ff61541dfd01cc1d34201eb819a714e68dc0c1c261971e663defeef083b16f3c",
+  "workload_modified": false
+}

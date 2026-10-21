@@ -1,0 +1,25 @@
+Scope: read-only diagnosis of the acknowledged GLM104 switch whose final
+MinerU health check failed. Bind the exact switch tool/failure receipt and
+current App UID. Do not run obsolete88 observers or replay the104 mutator.
+
+The script reads current owned Pod state, 20-minute bounded current worker/
+dispatcher logs, previous worker containers when a restart exists, and safe
+App error markers. Only enums, numeric codes, timestamps, known Pod identity
+and aggregate timings leave memory. No raw error body, document name, token,
+task payload or environment is saved. Collect all16 workers, not only a set
+inferred from historical quarantine messages. Mark unavailable and truncated
+history explicitly; counts of marker lines are not unique requests/failures.
+
+Three health rounds and one kubelet resource sample follow. These are reads,
+not provider submissions. Health GETs can run the dispatcher's already-existing
+due readiness reprobe; no explicit quarantine clear is performed. live16 and
+HTTP200 do not prove full usable capacity; minimum6 is not the full16 target.
+An idle worker's ready response alone cannot reconstruct a past502 cause.
+
+Run on datax-01 as root from a root-private copied, SHA-verified script.
+No extra flags. The operator's tee log is the new evidence; the script itself
+writes no files. Diagnostic COMPLETE means collection completed, NOT runtime
+acceptance or expansion permission. INCOMPLETE still retains printed evidence.
+Do not rerun --apply-once, manually edit SUCCESS, clear isolation, resubmit
+documents, stop consumers, restart Pods, change concurrency or rollback.
+Review the safe output before deciding a remediation or status-only reconcile.

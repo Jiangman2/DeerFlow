@@ -1,0 +1,30 @@
+Hardlink follow-up: SAME_LAYER_TARGETS_CONFIRMED
+
+HARDLINK-REVIEW.json SHA256:
+3cd5e14cc42683514644e3e5ede2c7abb1f9fdb60f70df4bf010306c555d7496
+
+Only the two identified Gateway blobs were streamed again. Their compressed
+digests/sizes, complete expanded diffIDs and exact uncompressed sizes passed.
+The original ALLOCATION.json and scan_allocation.py remain byte-identical.
+
+All 44 hardlinks point directly to regular files already encountered in their
+same layer. No hardlink requires a lower-layer target. No prior symlink parent
+was observed along these hardlink source/target paths.
+
+Gateway layer 0: two links, two distinct earlier regular targets of 2,346 and
+3,681,928 bytes. Maximum symlink target length in that layer: 45 bytes.
+
+Gateway layer 14: 42 links all target the same earlier 23,915,168-byte regular
+file. That regular payload is already included once in ALLOCATION.json. The
+1,004,437,056-byte per-link target-size sum is descriptive only and must not be
+added as 42 independent regular payload copies. Maximum symlink target: 59 bytes.
+
+No lower-layer inspection is needed for these target relationships. This closes
+the specific unresolved-hardlink-target question from ALLOCATION.txt; it does
+not independently prove every physical filesystem metadata or runtime peak bound.
+
+Single CPU, BelowNormal; actual 30.703s wall / 11.469s CPU. Three microfixtures
+passed: prior target/chained links, unresolved forward/symlink targets, and unsafe
+target/symlink-parent rejection. No extraction, image execution or network use.
+
+ready_for_import=false; ready_for_rollout=false.

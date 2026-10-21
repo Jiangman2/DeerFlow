@@ -1,0 +1,30 @@
+WeKnora tuning-review process probe follow-up — 20261016-r1
+
+Evidence input: /var/lib/weknora-tuning-review-p6ns3my4/RESULT.json
+Evidence SHA256: 0f010c85617a0c9982f88d343bde79d7504c6c8d902feb3c678e1d4f6cccdfca
+This follow-up does NOT rerun SQL, Redis, model calls, or the capacity inventory.
+
+Run the standalone weknora-process-audit-20261016-r1.py as root on datax-01.
+It pins the app Deployment spec, exact Pod UID/container ID/restart count before
+and after its read-only probes; a changed baseline stops the audit.
+
+Scope: process 1 numerical identity, executable SHA256, fixed binary markers,
+availability of the original utilities, and grep option support on synthetic
+stdin. Never reads process arguments/environment or prints binary/error text.
+If root's proc-executable read fails with EACCES/EPERM and process 1 has one
+consistent non-root UID/GID, one additional diagnostic child may run as that
+same UID/GID via gosu. This does not change the live process, container, files,
+or permissions. It never elevates a non-root exec user. No signals are sent.
+
+The script writes a NEW local private report only (directory 0700/file 0600),
+and prints the safe report to the terminal. No old evidence is overwritten.
+
+COMPLETE means the diagnostic finished; process_read can still be INCOMPLETE.
+Executable markers and SigCgt are NOT proof that all six pools will stop safely.
+ready_to_apply and safe_to_signal_proven remain false. Do not use this audit as
+authority for a blind rollout restart, a SIGSTOP, or force termination.
+
+Local verification: Python 3.7 grammar; 15 unit tests, including exact embedded
+program execution against synthetic proc files, redaction, identity changes,
+bounded lower-privilege fallback selection, and read-only command construction.
+No live production runtime or Linux signal behavior has been tested locally.

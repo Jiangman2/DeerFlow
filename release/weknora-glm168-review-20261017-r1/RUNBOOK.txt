@@ -1,0 +1,43 @@
+WeKnora104 -> preferred168 / alternative136 READ-ONLY REVIEW
+
+Upload weknora-glm168-review-20261017-r1.py to /home/cnooc on datax-01 and
+execute RUN-DATAX01.txt as a complete block. Normal work includes five queue /
+MinerU observations at15-second intervals, three resource/DB samples and a final
+resource/identity recheck. Usually allow2-4minutes, depending on read latency.
+It hashes the existing App binary; it never recompiles an image.
+
+The only Kubernetes PATCH requests include --dry-run=server and can change only
+WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY 64 ->128 or96. There is no live branch.
+No consumer stop, signal, restart, SQL/Redis write, document/model submission,
+image operation, queue replay or storage change is permitted by this tool.
+Health GETs may invoke the dispatcher's pre-existing due readiness checks.
+
+Keep the current104 pools, MinerU16 and model-default128 throughout. Model128 is
+per-model across replicas, not128 calls shared by all model IDs. Stored model0
+inherits that default, and an absent database setting is not an unlimited cap.
+The review binds exact-process startup evidence and fresh DB/environment;
+it does not measure process-local model waiters. A GLM-only192 override is an
+optional later review topic, not a database mutation prepared by this tool.
+
+Resource budgets are unapproved planning scenarios only:
+ - preferred168: App requests2CPU/12Gi memory; memory limit32Gi, no CPU limit;
+ - alternative136: requests2CPU/8Gi memory; memory limit24Gi, no CPU limit.
+These are NOT included in the env-only candidate. They account for same-node
+Pod reservations, regular/init/restartable-init containers and Pod overhead.
+Unsupported resource accounting fails closed. Require90% reservation ceiling,
+>=8Gi node memory at full proposed App limit, and a conservative observed-memory
+scenario. These heuristics do not predict real image sizes or guarantee safety.
+
+PASS means a candidate may receive controlled-upgrade review, NOT permission to
+apply. Overall PASS can mean only the136 alternative passed: check candidates
+and preferred168_ready_for_controlled_review separately. Budget selection, a
+new maintenance window, fresh mutation-time checks,
+and post-change throughput/content acceptance remain required. The old104
+UNCONFIRMED receipt remains unchanged; fresh104 validation is separate evidence.
+Do not rerun old104 apply/reconcile or roll back models to resolve this review.
+
+The final stdout includes report/SHA/status_command. Send the safe summary and
+exit codes back. Keep PROPOSAL-*.private.json and DRY-RUN-*.private.json private;
+they contain complete Deployment specs. Status reads the saved report only and
+does not sample live production. On INCOMPLETE/BLOCKED, send results for review;
+do not change limits, clear quarantine, replay jobs, or force termination.

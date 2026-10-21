@@ -1,0 +1,9 @@
+Independent preload review: PASS within the fixed six-image preload-tool scope.
+
+Reviewed frozen preload_native.py cd7d3edf8c189b03e53fa421a7c36195f2343e91929bb898de1491eddbc71407 and PROFILE.json fdeef64d8c1ced80251f733e0e83cad589032712c1b8a476affc1797105002d2.
+
+Both concrete initial blockers are resolved: node lookup now pins admin.conf; OCI annotations accept only the observed exact five BuildKit full/short pairs and Host full/full pair. No remaining blocking finding in source sealing, exact tag/digest-alias checks, conservative per-device storage budget, failure preservation, or safe PG/Host metadata projection.
+
+Read final recorded Windows 15 pass + 4 POSIX skips, Linux 19 pass, and five actual local metadata passes. No repeated tests or multi-gigabyte archive rehash. The earlier Linux fixture timing failure remains recorded.
+
+This review did not access servers, transfer/import images or execute candidates. Actual preload and native ARM64 qualification remain unperformed; capacity_pass and ready_for_rollout remain false.

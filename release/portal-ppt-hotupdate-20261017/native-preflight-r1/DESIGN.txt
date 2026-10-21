@@ -1,0 +1,101 @@
+Native ARM64 isolated qualification: minimal read-only preflight design
+2026-10-17. PREPARATION ONLY. No execution or rollout authority.
+
+Target: datax-02 only. Historical identity is UID
+3148d4c1-6a97-42ed-a78c-950dcea5cbec, InternalIP 192.168.111.37;
+preload_home.py also pins SSH fingerprint SHA256:VIGU1xEuM2WSdXfS2dCu0qqZjSgbl1UeIXDjZEOPWMI.
+These are comparison inputs, not a current health/capacity attestation. No SSH
+belongs to this collector. A changed UID/IP is explicit drift, not silently repinned.
+
+Existing evidence to reuse
+- C:/Users/15285/Downloads/REPORT.json, SHA256
+  1e81bc2146de5c90a535c4e518e2f3febdc2e59dfcfa7333cd2050930fc84132:
+  Gateway 70 ready on ecs-zdz-pro-0018..0022; Frontend 2 ready on datax-02 and
+  ecs-zdz-pro-0015; Runner and Provisioner each 1 ready on datax-02.
+  These are observed placements. Deployment spec hashes are preserved, but the
+  report does not contain the actual Gateway/Runner/Provisioner scheduling fields.
+  Do not infer affinity/tolerations/selectors from current Pod placement.
+- The existing DB metadata receipt already binds the configured production DB
+  migration head 0019_digital_employee_agents and absent PPT confirmation tables.
+  This preflight performs no DB connection and does not repeat source collection.
+- Home worktree release/production-build-alignment-20260928/PRODUCTION-IMAGE-LOCK.json
+  records StatefulSet postgres, image:
+  m.daocloud.io/docker.io/library/postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+  That historical lock says reference_only_rebuilds_not_yet_verified. It does not
+  establish an ARM64 child manifest/config or a currently available local cache.
+  The current local QA PostgreSQL config 721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+  is explicitly amd64 and cannot serve as native ARM64 qualification evidence.
+
+Fixed Kubernetes reads, raw JSON in memory only
+1. GET /api/v1/nodes/datax-02
+   Project UID, InternalIP, linux/arm64, kubelet/runtime version, Ready and pressure
+   conditions, unschedulable, taints, allocatable/capacity CPU/memory/ephemeral/pods.
+   Retain only scheduling-relevant label keys/values; do not dump annotations.
+2. GET /apis/apps/v1/namespaces/deer-flow/deployments/{gateway,frontend,ppt-master-runner,provisioner}
+   Four fixed names. Project UID/generation/observed/counts, full-spec hash,
+   container image refs, nodeName/nodeSelector/affinity/tolerations/topology spread,
+   scheduler/runtime/priority class, container/init resource bounds, security
+   shape, command+args hash and narrowly recognized launcher class, workingDir,
+   ports, mount paths plus volume reference TYPE, probe shape/hash. No env values,
+   command/args text, probe headers/exec text, Secret/ConfigMap names or contents.
+3. GET /apis/apps/v1/namespaces/deer-flow/statefulsets/postgres
+   Then GET /api/v1/namespaces/deer-flow/pods?labelSelector=<validated selector>
+   Use the controller owner UID, not label match alone. Bound response and count.
+   Project owned Pod UID, phase/Ready/restarts, nodeName, image ref/imageID and
+   containerID hash. Foreign matches are counted/excluded, never used as evidence.
+   If PG is on another node, GET only that exact observed node for UID/OS/arch.
+   This proves observed runtime identity/node, not a recoverable ARM64 image cache.
+4. GET /api/v1/pods?fieldSelector=spec.nodeName%3Ddatax-02
+   Bounded list; retain no object body. Project active count and per-Pod resource
+   envelopes needed to assess allocatable headroom, including init/sidecar and
+   overhead semantics. Unknown quantity/scheduling semantics must be explicit
+   UNDETERMINED, never counted as zero. This is requests accounting, not live usage.
+5. NOT IMPLEMENTED/NOT EXECUTED in this version: possible later bounded discovery
+   GET /apis/apps/v1/namespaces/kube-system/daemonsets
+   Names/images/selectors/ready status only, to identify the actual CNI rather than
+   guess its name. An API object or a Ready daemon does not prove NetworkPolicy
+   enforcement. The read-only phase must leave isolation enforcement UNPROVEN.
+   Recheck fixed Node/workload identity/spec projections at the end; preserve both
+   snapshots and all step failures, rejecting drift as an execution precondition.
+
+Follow-up after the above, not in this collector
+- On the exact observed PG node, an operator may inspect the exact current PG ref
+  through the historically used /run/containerd/containerd.sock endpoint. Resolve
+  any index to the unique linux/arm64 child; verify manifest/config digest and OS/
+  architecture, without outputting image Env. Never pull based on a guessed tag.
+  A cache miss on one node does not imply cluster-wide absence. A native fixture
+  on datax-02 needs the same exact verified image locally before imagePullPolicy=Never.
+- Root has now received the successful Host server append identity: manifest
+  540c96e05aa5c0c7709871494dd094047223eaaf6393b2117e9149c0d1467971,
+  config aabaa4f970580fb5edac54745bedd558ddedc0768bebaeb663130272e76f043d.
+  This collector does not bind/start that candidate. Freeze the native execution
+  plan separately before fixture creation; this preflight is not release approval.
+- Confirm actual isolation support before native execution. The old canary runbook
+  explicitly says NetworkPolicy enforcement was NOT independently proven. A small
+  owned-fixture isolation check can be a later execution gate; no production URL,
+  credentials, production DB, production PVC, hostPath or model endpoint is needed.
+
+Reusable code, not executable wholesale with obsolete pins
+Home root: C:/Users/15285/.codex/worktrees/portal-home-only-20261014/deer-flow/
+- release/portal-home-only-20261014/preflight_home.py:153 validate_scheduling,
+  :171 node_metadata; SHA256 fd40835eb0cfbe91b5dc391f2ef4118fa1ad99991fc95b714eac181483a47925.
+- release/portal-home-only-20261014/preload_home.py:24 node identities and :130
+  image_meta; SHA256 72773654f7eeef17f7603ca7905c38589892f5fb93a11780a0ed4e728e685066.
+  Reuse read-only identity checks only; its preload/SSH/import main is out of scope.
+- release/portal-home-only-20261014/canary_home.py:80 fixture_pod, :113 verify_pod,
+  :194 UID-precondition cleanup; SHA256 84c4b543cc22e660508988a5a9b93b991ad2b2f4444275e0f81acb822954c6db.
+  Reuse unique namespace ownership, no service token/host namespaces, read-only
+  root, bounded resources/deadline, exact post-admission checks and UID cleanup.
+  Do not inherit its unschedulable-node toleration without a current requirement.
+- Current frozen refresh_baseline_v3.py has bounded subprocess draining, safe
+  runtime-shape projections, image-digest parsing and selector validation.
+
+Output contract: stdout-only bounded safe JSON report; progress and exact stdout
+byte-count/SHA256/exitcode summary go to stderr. There are no local file writes;
+kubectl is configured with --cache-dir=/dev/null. The caller's ordinary-user shell
+creates its private, non-overwriting report file. The CLI requires --collect,
+Linux root, and the exact operator host datax-01.
+The report has explicit per-step failures and
+scope omissions; ready_for_native_execution=false, ready_for_build=false and
+ready_for_rollout=false. No secrets/raw stderr/Env, no source re-scan, DB connection,
+Kubernetes mutation, Pod exec, SSH, image pull/import, service start or migration.

@@ -1,0 +1,70 @@
+MinerU dedicated async: prepare a backlog-preserving, global-16 release
+Revision: 20261015-r1. Preparation only, NOT a production switch.
+
+Scope
+- Reuse the already-built/preloaded candidate a5c21e7fbe155ea3 unchanged.
+- Pin the existing host helper package, accepted 8/16 mixed-load receipts,
+  prior build/preload/canary/rollback/credential chain, and live baselines.
+- Preserve the failed 32-load receipt and the single unknown submit outcome.
+  Do not resubmit it. provider_pending is not proof the provider still runs it.
+- Fresh node CPU/RAM/disk/inode review includes surviving test Pods.
+- Propose separate new worker Deployments, one new Dispatcher and private
+  Services. Old Deployments and in-memory requests remain untouched.
+- Only kubectl create/patch --dry-run=server is used; no live create/patch,
+  scale/delete/restart, queue edits, new parsing submissions, image operations,
+  Nginx/Frontend/Gateway/PPT/WeKnora configuration changes, or secret replacement.
+
+Concurrency
+The accepted final target is 16 serialized parser processes shared between
+knowledge and conversation. Do not set in-process PDFium concurrency to 16.
+Overlap reserves the old desired count + allowed surge + terminating Pods,
+or a larger observed old population. New initial slots = 16 - that reserve.
+For desired=9 and maxSurge=1, with no terminating/excess Pods: reserve old 10,
+start new 6. This is conservative; the three missing original tags must not
+be imported merely to repair old readiness during preparation.
+Keep new capacity bounded until old admission closure/inflight completion and
+old-pool retirement are verified. Whole WeKnora/Redis backlog need not be empty.
+An instantaneous idle snapshot alone is NOT a drain or admission-closure proof.
+These are LOCAL parser slot bounds, not proof of all provider jobs completing;
+the uncertain synthetic submit remains separately recorded.
+
+New placement/resources
+Exact per-node Deployments avoid a spread plan overcommitting a single node.
+Each new Pod reserves/limits 2 CPU, 4 GiB RAM and 4 GiB ephemeral storage.
+Only new-pool preferred pod-affinity/spread rules are replaced by exact placement;
+hard pod-affinity changes require review. Node constraints, mounts, CA, command,
+parser timeouts, queue settings and other environment are preserved.
+No new worker is selected by any pre-existing Service. The new Dispatcher
+discovers only its own headless Service. Labels/network policies and quotas
+are captured for review before any real deployment. Server-side Deployment
+dry-run does NOT prove Pod admission, scheduling or runtime readiness.
+
+Execution
+Upload mineru-bluegreen16-prepare-20261015-r1.py to /home/cnooc on datax-01.
+Use the hash-checked private /run installation command supplied in the chat.
+Run python3 -I -B <private-copy> --prepare-only. Linux Python 3.7 is supported.
+This script reuses /var/lib/mineru-stepped-load-fix1-tool-xnk0Pett byte-for-byte.
+Do not delete or chmod that tool or the historical evidence. No API key input.
+
+Evidence / operator handoff
+Writes a new root-owned 0700 /var/lib/mineru-bluegreen16-prepare-*/ directory.
+RESULT.json is sanitized and 0600. Proposed/admitted JSON files ending in
+private.json may contain inherited configuration: never download/share them.
+The tool attempts a separate safe cnooc-owned copy of RESULT.json; failure to
+make that download does not weaken private permissions or modify /home/cnooc.
+Send the terminal summary and safe RESULT.json, NOT the private snapshots.
+Do not change permissions to 777. Do not manually apply proposed manifests.
+
+Meaning of PASS
+ready_for_stage_review=true: read-only preparation/dry-run completed, review the
+report before staging any workload. ready_for_rollout remains false.
+Next: stage new pool without changing the public route, verify exact image,
+CA/config and private readiness, then CAS-switch only the public selector.
+Leave old Dispatcher alive for existing requests; verify endpoint convergence
+and old HTTP inflight completion before retiring it and expanding new to 16.
+Route-only rollback requires the original pool still alive/healthy. After its
+retirement, restoring old capacity is a separate reviewed operation, not an
+instantaneous selector rollback. Post-switch WeKnora and conversation E2E
+acceptance remains mandatory. No performance guarantee for untested documents.
+
+Local tests are not server dry-run, enterprise network, or rollout acceptance.

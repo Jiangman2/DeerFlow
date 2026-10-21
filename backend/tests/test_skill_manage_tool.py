@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import anyio
 import pytest
+from langchain_core.messages import AIMessageChunk
 
 from deerflow.skills.security_static_scanner import StaticScannerError
 
@@ -401,8 +402,10 @@ def test_scan_or_raise_does_not_attach_model_tracing(monkeypatch, tmp_path):
     create_kwargs = {}
 
     class FakeModel:
-        async def ainvoke(self, *args, **kwargs):
-            return SimpleNamespace(content='{"decision":"allow","reason":"ok"}')
+        async def astream(self, *args, **kwargs):
+            assert kwargs["stream"] is True
+            yield AIMessageChunk(content='{"decision":"allow",')
+            yield AIMessageChunk(content='"reason":"ok"}', response_metadata={"finish_reason": "stop"})
 
     def _fake_create_chat_model(**kwargs):
         create_kwargs.update(kwargs)

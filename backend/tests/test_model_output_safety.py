@@ -122,14 +122,15 @@ def test_local_guard_options_are_not_sent_to_provider():
 
 
 @pytest.mark.parametrize("mode", ["sync", "async"])
+@pytest.mark.parametrize("reason", ["repetitive_output", "incomplete_glm_stream"])
 @pytest.mark.asyncio
-async def test_safety_errors_are_not_retried_by_error_middleware(mode):
+async def test_safety_errors_are_not_retried_by_error_middleware(mode, reason):
     middleware = LLMErrorHandlingMiddleware(app_config=AppConfig(sandbox=SandboxConfig(use="test")))
     calls = []
 
     def fail(request):
         calls.append(request)
-        raise ModelOutputSafetyError("repetitive_output")
+        raise ModelOutputSafetyError(reason)
 
     async def afail(request):
         return fail(request)
@@ -138,4 +139,5 @@ async def test_safety_errors_are_not_retried_by_error_middleware(mode):
     result = middleware.wrap_model_call(request, fail) if mode == "sync" else await middleware.awrap_model_call(request, afail)
     assert len(calls) == 1
     assert result.additional_kwargs["deerflow_terminal_stop"]
-    assert result.additional_kwargs["error_reason"] == "repetitive_output"
+    assert result.additional_kwargs["error_reason"] == reason
+    assert not result.tool_calls

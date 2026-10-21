@@ -153,6 +153,7 @@ def test_build_subagent_runtime_middlewares_threads_app_config_to_llm_middleware
     # + 1 WeKnoraCitationMiddleware + 1 SafetyFinishReasonMiddleware
     # + 1 DurableContextMiddleware
     # + 1 SystemMessageCoalescingMiddleware (all enabled by default).
+    from deerflow.agents.middlewares.datalake_source_middleware import DataLakeSourceMiddleware
     from deerflow.agents.middlewares.durable_context_middleware import DurableContextMiddleware
     from deerflow.agents.middlewares.platform_confidentiality_middleware import PlatformConfidentialityMiddleware
     from deerflow.agents.middlewares.safety_finish_reason_middleware import SafetyFinishReasonMiddleware
@@ -161,10 +162,11 @@ def test_build_subagent_runtime_middlewares_threads_app_config_to_llm_middleware
     from deerflow.agents.middlewares.tool_output_budget_middleware import ToolOutputBudgetMiddleware
     from deerflow.agents.middlewares.weknora_citation_middleware import WeKnoraCitationMiddleware
 
-    assert len(middlewares) == 17
+    assert len(middlewares) == 18
     assert isinstance(middlewares[0], FakeMiddleware)  # InputSanitizationMiddleware stub
     assert isinstance(middlewares[1], PlatformConfidentialityMiddleware)
-    assert isinstance(middlewares[2], ToolOutputBudgetMiddleware)
+    assert isinstance(middlewares[2], DataLakeSourceMiddleware)
+    assert isinstance(middlewares[3], ToolOutputBudgetMiddleware)
     assert any(isinstance(m, ToolErrorHandlingMiddleware) for m in middlewares)
     # The token-budget backstop is attached by default so the cap engages (#3875).
     assert any(isinstance(m, TokenBudgetMiddleware) for m in middlewares)
@@ -726,6 +728,7 @@ def test_subagent_compaction_injects_summary_before_assistant_tool_tail(monkeypa
     """
     from langchain.agents import create_agent
     from langchain_core.language_models import BaseChatModel
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
     from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
     from langchain_core.outputs import ChatGeneration, ChatResult
 
@@ -761,7 +764,7 @@ def test_subagent_compaction_injects_summary_before_assistant_tool_tail(monkeypa
                 assert system_indices == [0], f"request must have exactly one leading SystemMessage, got {system_indices}"
             return ChatResult(generations=[ChatGeneration(message=AIMessage(content=self.text))])
 
-    summary_model = _StaticModel(text="COMPRESSED_SUBAGENT_HISTORY")
+    summary_model = FakeListChatModel(responses=["COMPRESSED_SUBAGENT_HISTORY"])
     strict_model = _StaticModel(text="final answer", require_durable_summary=True)
     monkeypatch.setattr(
         "deerflow.agents.middlewares.summarization_middleware.create_chat_model",
@@ -953,6 +956,7 @@ def test_subagent_summarization_fires_mid_run_and_produces_usable_result(monkeyp
     directly — the same instance the builder appends."""
     from langchain.agents import create_agent
     from langchain_core.language_models import BaseChatModel
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
     from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
     from langchain_core.outputs import ChatGeneration, ChatResult
 
@@ -981,11 +985,12 @@ def test_subagent_summarization_fires_mid_run_and_produces_usable_result(monkeyp
             return ChatResult(generations=[ChatGeneration(message=AIMessage(content=self.text))])
 
     static_model = _StaticModel()
-    # The factory resolves its summary model via create_chat_model; point it at
-    # the same static model so no real provider is contacted.
+    # Keep the agent fake unchanged and give only the private summary call a
+    # real stream of the same deterministic response.
+    summary_model = FakeListChatModel(responses=[static_model.text])
     monkeypatch.setattr(
         "deerflow.agents.middlewares.summarization_middleware.create_chat_model",
-        lambda **kwargs: static_model,
+        lambda **kwargs: summary_model,
     )
 
     app_config = SimpleNamespace(

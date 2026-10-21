@@ -1,0 +1,94 @@
+WeKnora overall scaling review — 20261016-r1
+
+This is a READ-ONLY review, not a release or an apply tool.
+Run only on datax-01 as root with existing kubectl/admin.conf. Python 3.7+.
+No new images, installations, Pod creation, restarts, process signals, Secret
+API reads, document submissions, queue changes, SQL writes or provider calls.
+New local private evidence only; existing files/permissions are not changed.
+
+User objective
+  Remove avoidable WeKnora-side bottlenecks; do not require the model provider's
+  concurrency approval before reviewing expansion. Provider capacity will be
+  increased by the operator/provider when measurements identify that need.
+  Retain bounded local admission for memory/database/Redis protection; a larger
+  provider quota is not a reason to disable every WeKnora safety limit.
+
+Proposed measurement ladder (NOT approved capacity and NOT applied)
+                    Current observation    First step    Next review
+  core                        4                  8              8
+  postprocess                 2                  4              4
+  enrichment                 12                 24             48
+  maintenance                 4                  4              8
+  shared                      2                  4              4
+  wiki                        8                 12             16
+  total                      32                 56             88
+
+  MinerU stays at 16 serialized worker processes. Core + shared is capped at12
+  in both planning profiles; these are not all dedicated OCR tasks. Four slots
+  of headroom for conversation uploads is a budget, not a strict reservation.
+  WeKnora remains one replica for this phase: doubling replicas doubles worker
+  budgets and may also duplicate other background components.
+  Local model default/per-model limits are reviewed for steps64 then128,
+  separately from worker changes to preserve attribution. Positive per-model
+  overrides take precedence. No automatic global disable/unlimited setting.
+  Idle maintenance is assessed, not enlarged solely to make its number larger.
+
+Collection
+  Bind the successful MinerU16 expansion receipt and fresh Deployment/Pod/route
+  identities. Read three Redis/heartbeat snapshots ten seconds apart.
+  Inspect only seven numeric system_settings keys and three known models'
+  max_concurrency fields. Never read/export full model parameters or credentials.
+  Execute PostgreSQL reads inside a READ ONLY transaction with short statement,
+  lock and idle-transaction deadlines. Use existing DB Pod credentials only
+  within that container; do not put passwords in argv or send them to this host.
+  Match app DB address/name/user/Secret reference to the owned PostgreSQL
+  StatefulSet Pod and current Service endpoints before SQL. Only aggregate
+  connection/lock counts are returned; SQL texts and user documents are not read.
+  Read only allowlisted app environment settings, executable digest, relevant
+  signal-handler bit and two binary markers for the heartbeat-bound process.
+  Binary markers do NOT prove exact source equivalence or safe signal handling.
+  Record deployment strategy/grace period/preStop presence and hashes, not raw
+  commands. Gather kubelet resource snapshots including DB host. Recheck all
+  protected workload identities and persisted settings at completion.
+
+Why a direct rollout restart is not issued
+  Local task.go constructs six asynq servers without an explicit ShutdownTimeout.
+  Upstream v0.26.0 default is8 seconds; the app also has its own HTTP shutdown
+  path. Changing only Kubernetes grace seconds does not fix application-level
+  task termination. Qualify the exact running binary's stop-claiming behavior
+  before signalling. Pending Redis tasks do not need to empty. Stop claiming,
+  wait only already claimed tasks, then perform a snapshot/CAS-protected config
+  restart. If stopping cannot be verified, report uncertainty; do not force kill.
+  Do not use SIGSTOP (freezes the process), blind SIGCONT, mass requeue, or repeat
+  an uncertain provider submission as a restart workaround.
+  Startup may also execute existing migration/builtin-model synchronization;
+  inspect AUTO_MIGRATE and current configuration before a restart.
+
+  Primary reference:
+  https://raw.githubusercontent.com/hibiken/asynq/v0.26.0/signals_unix.go
+  https://raw.githubusercontent.com/hibiken/asynq/v0.26.0/server.go
+  Local resolver: vendor/weknora-app-20260912/internal/application/service/system_setting.go
+
+Output
+  /var/lib/weknora-tuning-review-*/RESULT.json, root0600, new directory0700.
+  A credential-free allowlisted report is always printed between SAFE_REPORT_BEGIN
+  and SAFE_REPORT_END, so no home-directory chmod or additional download is needed.
+  Send the whole terminal output/log. COMPLETE means collection complete, not
+  permission to restart or proof of safe target capacity. PARTIAL keeps the
+  completed checks and states what was unavailable; do not repeat automatically.
+
+Acceptance after a separately reviewed change
+  Confirm effective heartbeat capacities (not just saved UI values), stable
+  memory and node headroom, no growth in database lock/connection contention,
+  Redis retry/error changes, queue age and completed-document throughput.
+  Use the required3/10/30-document acceptance with approved test content; this
+  read-only tool does not upload or reparse documents. Compare under comparable
+  workloads; task counts and model calls are not unique document counts.
+  If raising concurrency stops increasing completion rate, distinguish provider
+  latency from local CPU/RAM/DB/Redis waits before selecting the next level.
+  Lowering a local limit does not cancel active calls. Rollback/restart must use
+  the same in-flight protection, not abruptly delete the old process.
+
+Local verification
+  Unit tests, Python3.7 syntax, mock shell/credential handling and artifact hashes.
+  No production database/cluster access or real workload qualification locally.

@@ -1,0 +1,54 @@
+GLM104 / MinerU failure reasons — read-only follow-up, 2026-10-17 r1
+
+Purpose
+  Separate MinerU upstream HTTP errors from WeKnora parsing, Embedding,
+  image enrichment, question and summary failures. Preserve GLM104/MinerU16.
+  This tool does not restart, signal, patch, requeue, upload or call any model.
+  It does not explicitly reset quarantine or invoke a health endpoint.
+
+Inputs
+  Run on datax-01 as root. Reuse the exact root-private diagnostic helper
+  /var/lib/weknora-glm104-diagnostic-tool-7whC6f8S/check.py and its hash-pinned
+  predecessor readers. Bind the acknowledged104 failure receipt and exact App
+  UID 2fb12206-2d91-4b12-806b-471e1ca19c61 before collecting. Do not edit helpers
+  or bypass the identity guard if another rollout has replaced that Pod.
+
+Data boundaries
+  Read only failed spans started since 2026-10-17 15:00 China time. Limit to
+  latest2000 by started_at using the existing (status,started_at) B-tree; first
+  check schema and EXPLAIN without ANALYZE. READ ONLY, statement5s, lock1s.
+  At most1024 error-message and2048 error-detail characters are examined per
+  sampled span, inside PostgreSQL. Only allowlisted classifications, numeric
+  aggregates and epochs leave the database. Document IDs, filenames, content,
+  prompts, model credentials, raw error messages and details are not exported.
+  Database reads use the existing in-Pod credential, not a new Secret export.
+
+  Logs: all current16 workers plus the current App, since15:45 China time;
+  at most15000 lines/2MiB per Pod, three concurrent reads. Raw logs are examined
+  only in host memory and discarded. Emit fixed reason/provider hints and
+  explicitly labelled numeric business codes, never message excerpts.
+  Retained timestamps and truncation flags are part of the evidence. Older
+  rotated logs cannot be reconstructed by this tool.
+
+Interpretation
+  Failed spans are not failed documents. Root and child groups can overlap;
+  unique document counts are scoped to the sample and cannot be added across
+  groups. Final document statuses are not read. Cancelled steps are excluded.
+  A provider name in an error is only a hint, not proof of provider root cause.
+  No provider name is inferred merely from a summary/question/image stage.
+  UNCLASSIFIED means the preserved evidence does not match a reviewed category;
+  it never means success. HTTP400 alone does not prove a bad source document.
+  COMPLETE means collection completed, not recovery or expansion approval.
+  INCOMPLETE retains available sanitized output, never triggers a retry.
+
+Operation
+  Upload only the delivered Python file to /home/cnooc on datax-01. Use the
+  supplied SHA-256 installation command. Output is immediately printed;
+  tee may save the sanitized transcript in a fresh root-private /var/lib tool
+  directory. The Python collector itself writes no files and accepts no flags.
+  Send the output back. Do not click bulk reparse or repeat an upgrade command.
+
+Local qualification
+  Python3.7 grammar, content-leak/enum/bounds/read-only tests, the exact frozen
+  server helper chain and a real disposable networkless PostgreSQL16 fixture.
+  The synthetic database tests do not connect to production or use real docs.

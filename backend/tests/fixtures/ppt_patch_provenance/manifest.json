@@ -1,0 +1,60 @@
+{
+  "public": {
+    "path": "skills/public",
+    "source_commit": "ff96696aebd7092af395fbcafc423499d9a8e729",
+    "tree_oid": "d807a221fc972982a250302cfe15aebc28ff1b6a"
+  },
+  "runtime_sources": {
+    "backend/app/gateway/ppt_runtime_broker.py": {
+      "blob_oid": "3f9bb4a9839ea78dffaca56ac70ae56efd873d81",
+      "bytes": 13865,
+      "fixture": "ppt_runtime_broker.base.py.txt",
+      "sha256": "13eebb49b59ef396c18ada9edf8b3e36df78a40962455d22aee4ec9403ec27bd",
+      "source_commit": "0044d221d4338ddf455f57c46435920d896a5824",
+      "source_path": "backend/app/gateway/ppt_runtime_broker.py"
+    },
+    "docker/sandbox-ppt-master/agent_host.py": {
+      "blob_oid": "93ca560c10abe305a90f91e44b8008f28ed04517",
+      "bytes": 68403,
+      "fixture": "agent_host.base.py.txt",
+      "sha256": "9f54d333a60ccd3336259ccc969245764efcebedf5f80322ac7e92ee04cde5a6",
+      "source_commit": "0044d221d4338ddf455f57c46435920d896a5824",
+      "source_path": "docker/sandbox-ppt-master/agent_host.py"
+    },
+    "docker/sandbox-ppt-master/ppt_research_stdio.py": {
+      "blob_oid": "2d8ac821d2fe682bdcab0bd343be185bc40149f3",
+      "bytes": 4414,
+      "fixture": "ppt_research_stdio.base.py.txt",
+      "sha256": "4e5c63901d214779593859fda780108c0a9bccff8c5795bcf7945c741d8a6abd",
+      "source_commit": "0044d221d4338ddf455f57c46435920d896a5824",
+      "source_path": "docker/sandbox-ppt-master/ppt_research_stdio.py"
+    }
+  },
+  "schema": "ppt-patch-provenance-baselines.v1",
+  "source_commit": "0044d221d4338ddf455f57c46435920d896a5824",
+  "vendor": {
+    "allowed_files": {
+      "scripts/confirm_ui/conditional_protocol.py": {
+        "base_sha256": null,
+        "blob_oid": null,
+        "bytes": null,
+        "mode": null
+      },
+      "scripts/confirm_ui/server.py": {
+        "base_sha256": "cf4eb89544eec9f326a9d9771676ebc72ebaa88ab67c1a049cd4eb9964d37ff3",
+        "blob_oid": "3ed1767b338c05010db2b52fce164c12e3a27a22",
+        "bytes": 118754,
+        "mode": "100644"
+      },
+      "scripts/confirm_ui/static/app.js": {
+        "base_sha256": "9f2dbb312810e025a14b9935e06e4e0916af9431ba12b54c3fc5a723e8b4ce8a",
+        "blob_oid": "e00a4364425c6bcfae0108ced3b1c6036fdb48da",
+        "bytes": 246131,
+        "mode": "100644"
+      }
+    },
+    "path": "vendor/ppt-master-v6.6.0",
+    "source_commit": "0044d221d4338ddf455f57c46435920d896a5824",
+    "tree_oid": "125d8c7ce9f946080c64e31001b612408cf6792b"
+  }
+}

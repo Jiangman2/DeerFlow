@@ -70,6 +70,10 @@ test("digital employee directory filters compact rows on desktop and mobile", as
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/workspace/agents");
 
+  // Discovery now defaults to admin-curated hot employees; these legacy
+  // filtering/layout assertions explicitly exercise the complete catalog.
+  await page.getByTestId("employees-show-all").first().click();
+
   const cards = page.getByTestId("digital-employee-card");
   const pagination = page.getByTestId("digital-employee-pagination");
   await expect(cards).toHaveCount(6);

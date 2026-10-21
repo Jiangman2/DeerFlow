@@ -143,6 +143,7 @@ import {
   resolveAgentMode,
 } from "./mode-selector";
 import {
+  PortalArtwork,
   PortalQuickAction,
   PortalToolMenuItem,
   PortalToolsMenu,
@@ -152,14 +153,12 @@ import { ReferenceAttachmentSummary, useMaybeSidecar } from "./sidecar";
 import { SlashSkillChip } from "./slash-skill-chip";
 import { Tooltip } from "./tooltip";
 
-const QUICK_ACTION_ARTWORK = {
-  suggestions: [
-    "/images/action-image.png",
-    "/images/action-ppt.png",
-    "/images/action-research.png",
-    "/images/action-analysis.png",
-  ],
-} as const;
+const QUICK_ACTION_ICON_IDS = [
+  "image",
+  "pptAction",
+  "research",
+  "analysis",
+] as const;
 
 type InputBoxContext = Omit<
   AgentThreadContext,
@@ -279,6 +278,7 @@ export function InputBox({
   context,
   extraHeader,
   isWelcomeMode,
+  isNewThread: _isNewThread = false,
   threadId,
   initialValue,
   onContextChange,
@@ -299,6 +299,8 @@ export function InputBox({
    * decoupled from "the backend has created the thread" — see issue #2746.
    */
   isWelcomeMode?: boolean;
+  /** Server-thread creation state, not the visual welcome mode. */
+  isNewThread?: boolean;
   threadId: string;
   initialValue?: string;
   onContextChange?: (context: InputBoxContext) => void;
@@ -581,7 +583,11 @@ export function InputBox({
     const fallbackModel = currentModel ?? models[0]!;
     const supportsThinking = fallbackModel.supports_thinking ?? false;
     const nextModelName = fallbackModel.name;
-    const nextMode = resolveAgentMode(context.mode, supportsThinking);
+    const nextMode = resolveAgentMode(
+      context.mode,
+      supportsThinking,
+      fallbackModel.thinking_always_on,
+    );
 
     if (context.model_name === nextModelName && context.mode === nextMode) {
       return;
@@ -685,7 +691,11 @@ export function InputBox({
       onContextChange?.({
         ...context,
         model_name,
-        mode: resolveAgentMode(context.mode, model.supports_thinking ?? false),
+        mode: resolveAgentMode(
+          context.mode,
+          model.supports_thinking ?? false,
+          model.thinking_always_on,
+        ),
         reasoning_effort: context.reasoning_effort,
       });
       setModelDialogOpen(false);
@@ -700,11 +710,22 @@ export function InputBox({
       }
       onContextChange?.({
         ...context,
-        mode: resolveAgentMode(mode, supportThinking),
+        mode: resolveAgentMode(
+          mode,
+          supportThinking,
+          selectedModel?.thinking_always_on,
+        ),
         reasoning_effort: reasoningEffortForMode(mode),
       });
     },
-    [disabled, onContextChange, context, polishingInput, supportThinking],
+    [
+      disabled,
+      onContextChange,
+      context,
+      polishingInput,
+      supportThinking,
+      selectedModel?.thinking_always_on,
+    ],
   );
 
   const handleReasoningEffortSelect = useCallback(
@@ -931,7 +952,7 @@ export function InputBox({
       const quotes = sidecar?.conversationQuotes ?? [];
       const quoteIds = quotes.map((quote) => quote.id);
       const quoteContexts = quotes.map((quote) => quote.context);
-      const submitOptions: InputBoxSubmitOptions | undefined = quotes.length
+      const quoteOptions: InputBoxSubmitOptions | undefined = quotes.length
         ? {
             additionalKwargs: buildReferenceMessageMetadata(quoteContexts),
             additionalInputMessages: [
@@ -947,6 +968,15 @@ export function InputBox({
             },
           }
         : undefined;
+      const submitOptions: InputBoxSubmitOptions = {
+        ...quoteOptions,
+        additionalKwargs: {
+          ...quoteOptions?.additionalKwargs,
+        },
+        onSent: () => {
+          quoteOptions?.onSent?.();
+        },
+      };
       const submit = () => onSubmit?.(message, submitOptions);
 
       // Guard against submitting before the initial model auto-selection
@@ -958,6 +988,7 @@ export function InputBox({
           mode: resolveAgentMode(
             context.mode,
             selectedModel?.supports_thinking ?? false,
+            selectedModel?.thinking_always_on,
           ),
         });
         return new Promise<void>((resolve, reject) => {
@@ -976,6 +1007,7 @@ export function InputBox({
       reportUploadLimitViolations,
       resolvedModelName,
       selectedModel?.supports_thinking,
+      selectedModel?.thinking_always_on,
       sidecar,
       t.inputBox.suggestionPlaceholderRequired,
       uploadLimits,
@@ -1030,6 +1062,8 @@ export function InputBox({
       if (submitAction.kind === "empty") {
         return;
       }
+      // The ordinary Agent loads the public Skill and owns its native gates.
+      // Do not attach Runner confirmation preferences to new Skill requests.
       await submitThreadMessage(messageWithSlashSkill);
       if (selectedSlashSkill) {
         setSelectedSlashSkill(null);
@@ -2077,6 +2111,7 @@ export function InputBox({
               disabled={composerLocked}
               mode={context.mode}
               supportsThinking={supportThinking}
+              thinkingAlwaysOn={selectedModel?.thinking_always_on}
               onSelect={handleModeSelect}
             />
             {supportReasoningEffort && context.mode !== "flash" && (
@@ -2360,19 +2395,12 @@ function VoiceInputButton({
   );
 }
 
-function QuickActionArtwork({ src }: { src: string }) {
-  return (
-    <Image
-      aria-hidden="true"
-      alt=""
-      className="cnooc-action-artwork"
-      height={44}
-      loading="eager"
-      src={src}
-      unoptimized
-      width={44}
-    />
-  );
+function QuickActionArtwork({
+  id,
+}: {
+  id: (typeof QUICK_ACTION_ICON_IDS)[number];
+}) {
+  return <PortalArtwork id={id} />;
 }
 
 function SuggestionList({
@@ -2403,7 +2431,7 @@ function SuggestionList({
                 suggestion={suggestion.suggestion}
               >
                 <QuickActionArtwork
-                  src={QUICK_ACTION_ARTWORK.suggestions[suggestionIndex]!}
+                  id={QUICK_ACTION_ICON_IDS[suggestionIndex]!}
                 />
                 <span>{suggestion.suggestion}</span>
               </Suggestion>
@@ -2452,9 +2480,7 @@ function SuggestionList({
             suggestion={suggestion.suggestion}
             onClick={() => handleSuggestionClick(suggestion.prompt)}
           >
-            <QuickActionArtwork
-              src={QUICK_ACTION_ARTWORK.suggestions[suggestionIndex]!}
-            />
+            <QuickActionArtwork id={QUICK_ACTION_ICON_IDS[suggestionIndex]!} />
             <span>{suggestion.suggestion}</span>
           </Suggestion>
         ),

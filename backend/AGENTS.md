@@ -1,5 +1,40 @@
 # AGENTS.md
 
+DeepSeek-V4.1-Flash uses the opt-in enterprise model profile and existing
+`EnterpriseDeepSeekV41Chat`, a scoped subclass of `RobustChatOpenAI`. Normalize
+the parent SDK serializer's `max_completion_tokens` back to documented
+`max_tokens`; reject conflicting token limits without changing other models.
+The candidate adapter must be installed before selecting this profile. Its FCV-41 endpoint requires `/v1/chat/completions` and the
+top-level `enable_thinking` boolean via `extra_body`, not `thinking.type` or
+reasoning effort. Keep both thinking overrides explicit and selector capability
+metadata credential-free. Preserve the existing model list order/default and
+use a separate server Secret. Profile/SDK-wire tests run without network;
+provider availability and vision still need enterprise-network acceptance.
+Provider preparation reports Gateway readiness before refusing. Claim the once
+marker only after read-only preflight; recovery of an older consumed marker
+requires an exact hash-bound report proving no provider or Secret operation.
+Never clear an uncertain attempt or relax the rollout gate to make it pass.
+The separate explicit first-flash-503 recovery accepts only a pinned HTTP error
+with one synthetic request, zero completed stages and no Secret write; it is
+not a generic retry for timeout, tool execution or uncertain outcomes.
+An explicitly requested synthetic-tool-503 recovery separately binds the exact
+three completed test stages and failed fourth request, requires zero business
+tools and no possible Secret write, and reruns the bounded five-call canary.
+For historical DeepSeek 503 diagnosis, use the exact hash-bound receipt
+collector rather than another provider request. Old receipts contain neither
+upstream request IDs nor response bodies/headers; do not invent them, attribute
+503 to a particular service, or confuse report mtime with request time. Current
+Pod addresses are only current metadata, not proof of historical NAT routing.
+
+Employee featured-store reads use the field-qualified r6 source. On Linux,
+force pathname metadata refresh with statx before the bounded precommit open,
+then revalidate file identity, permissions and read stability. Do not turn an
+uncertain rename/fsync into a write retry, reseed on GET, or relax directory
+permissions. The exact qualified source is pinned in the enterprise source lock;
+local tests do not replace live shared-storage or rollout acceptance. The Git
+copy is formatted to repository style; its AST must match the hash-pinned field
+source. Do not confuse that semantic equivalence with identical source bytes.
+
 ## Combined Gateway release: OA / DNS / XLSX (2026-10-16)
 
 The additional runtime change is the exact lazy XLSX conversion shim from
@@ -1264,21 +1299,89 @@ JSONL development event stores are framed only by physical LF delimiters. Do not
 
 Additional providers also live here (`boxlite`, `brave`, `browserless`, `crawl4ai`, `ddg_search`, `e2b_sandbox`, `exa`, `fastcrw`, `groundroute`, `infoquest`, `searxng`, `serper`); see each subpackage for specifics.
 
-The `appforge/` package exposes three CNOOC DataLake tools. Narrative Smart QA
-uses the approved internal Retrieve API and returns bounded ranked source chunks
-for DeerFlow to analyze; indicator/metrics QA and record-level detail QA retain
-the AppForge SSE workflow path. Both services use the direct internal route with
-`trust_env=false`. Only `query` is model-visible; Retrieve endpoint/project/store
-identity, API keys, workflow identity inputs, application IDs, and conversation
-IDs are resolved server-side. Keep the reviewed Metrics/Detail IDs
-(`app-n9ahac7g` and `app-5md031ia`) explicit in runtime configuration so
-workflow republishing is an intentional deployment change. Reference a single
+The active CNOOC DataLake question-answering tools are `datalake_smart_qa`
+and `datalake_data_qa`. Smart QA retains the approved internal Retrieve API.
+Data QA calls a new AppForge application (`app-v16p2syh`); it does not compose
+or fall back to the retired Metrics/Detail applications. Use its dedicated
+`APPFORGE_DATA_QA_API_KEY`, `SquareWorkflow_` conversation prefix and exactly
+empty `hytoken`/`hyaccount` inputs, never inherited identities. Both services
+use `trust_env=false`; only `query` is model-visible. Keep the new App's actual
+SSE protocol and business capabilities subject to field acceptance. Reject
+retired registrations during config validation; pending historical old calls
+receive only a local migration notice. Switch a versioned ConfigMap, dedicated
+Secret reference and compatible image together; never modify the mounted old
+configuration first. Reference a single
 Retrieve store from `config.yaml` as a list containing
 `$DATALAKE_RETRIEVE_DOCUMENT_STORE_ID`; comma-separated
 `DATALAKE_RETRIEVE_DOCUMENT_STORE_IDS` is also supported. Keep runtime values in
 the Secret, sanitize provider errors, and retain bounded valid JSON so the
 generic tool-output budget does not replace useful structured evidence with a
 file-only preview.
+
+Data QA live progress on the existing LangGraph custom stream, scoped to thread,
+run and tool-call IDs. Emit only closed stage codes, never upstream prose, SQL,
+reasoning or credentials. Decode transport chunks without an 8 KB accumulation
+delay; intermediate answers prove processing, end-node answers prove answer
+composition, and only the accepted final result proves completion. A closed
+progress observer must not alter the tool result or authorization contract.
+
+The enterprise Data QA/GLM deployment-plan helpers are pure functions. Keep
+the preparation controller separate: bind actual five-node preload receipts,
+create new immutable config/Secret resources, and validate the candidate in
+bounded Jobs with no production Service labels, volumes or service-account
+token. Candidate checks deny network and never run a Gateway server. Record
+uncertain creates before submission; no write retry or automatic cleanup of
+shared resources. Job TTL is not proof of completed cleanup. Preparation does
+not switch the Deployment or qualify business result values.
+Candidate Job failure must retain sanitized conditions/events before refusing.
+Distinguish an empty Pod inventory from a mismatched owner; a Job terminal
+condition may exist without a failed-Pod count. Missing events must not mask
+the primary failure. Do not infer quota/admission causes from a missing Pod
+alone, and do not repeat configuration/Secret creation to retry a probe.
+Copy only the reviewed Gateway tolerations into candidate Jobs and retain the
+preloaded-node selector; never bypass scheduling with nodeName or a broad Exists
+toleration. Observe startup Pod status before TTL cleanup. Resume the known
+failed probe only after verifying its sealed report and immutable resource
+identities, with a separate once marker and no Secret/config recreation.
+For the paired image/config/env plan, keep
+UID/resourceVersion/spec compare-and-swap checks and paired image/config/Secret
+restoration. They are not an activation controller: bind actual preload and
+immutable-resource receipts and candidate-runtime acceptance before submission.
+The joint controller binds the accepted two-node candidate report and reuses
+the pinned rollout/HTTP/UUID/GLM checks. Before its single paired patch, inventory
+legacy/team/user custom-agent config.yaml and SOUL.md for retired tool names,
+with bounded reads and aggregate counts only. Refuse old references or differing
+sample views without rewriting user artifacts. The live acceptance child checks
+the actual config mount and all 15 release sources; its network denial applies
+only after the existing local HTTP and read-only UUID checks. Never run that
+monkeypatch inside the serving application, or retry an uncertain rollout patch.
+For blocked persisted references, the separate diagnostic binds the no-patch
+report and current Pod/container identity. Export hashed handles, file hashes,
+line numbers and a closed vocabulary of structural clues only, never complete
+SOUL prompts, user paths or credentials. These clues do not independently prove
+that a prose replacement is correct; distinguish allow/deny configuration from
+instructional prose before preparing a scoped migration. Preserve the existing
+rollout gate and immutable resources while that review remains incomplete.
+The separately reviewed r2 continuation may migrate only the two observed
+personal SOUL files and four pinned line tokens, preserving other prose and
+appending the new-interface/source-policy note. Bind whole-file/line hashes and
+the complete original inventory; keep both private fsynced originals before any
+replacement. Agent writers do not share the migration lock, so require an
+operator-attested task-drained and Agent-edit-free window; rechecks are not a
+distributed CAS guarantee. Restore originals on a known prepatch failure only
+while Gateway still matches the original binding and target bytes are unchanged
+or exactly migrated. Never restore after an uncertain exec or submitted rollout
+patch. Keep backup/once evidence and require two-node readback before deployment.
+
+`DataLakeSourceMiddleware` checkpoints the run's source restriction before
+execution and after model selection. Keep deterministic explicit-source/table
+recognition conservative and accompany it with model guidance; do not claim
+complete natural-language classification. Disabled access returns the button
+hint before model invocation for recognized questions. DataLake selection,
+including failed/empty calls, locks out external tools and arbitrary execution
+for that run. Enforce both schema filtering and tool execution, propagate the
+restriction through task/subagents, and merge parallel updates without losing
+the restriction. This never grants data access or rewrites historical messages.
 
 Retrieve image references from the reviewed DataLake preview origin are
 percent-encoded and rewritten to the authenticated same-origin Gateway route
@@ -1296,15 +1399,16 @@ HttpOnly platform-token cookie matching their persisted token hash (the same
 proof used by the Data Lake session endpoint). A client flag, owner attribution,
 or internal service credential alone never grants access. Missing opt-in or
 session proof denies access, including legacy and non-web runs. Never copy raw
-platform tokens into run context or checkpoints. A disabled run filters all
-three DataLake tools before deferred assembly. The
+platform tokens into run context or checkpoints. A disabled run filters both
+DataLake QA tools before deferred assembly. The
 `task` tool and `SubagentExecutor` propagate the effective flag to child runtime
 contexts and apply the same filter defensively. The DataLake boundaries still
 return a bounded `datalake_disabled` result unless the effective flag is exactly
 `true`, including stale direct references and absent/malformed context, before
 configuration, credentials, or network access.
 
-`datalake_md_search` is a distinct AppForge master-data workflow. It is limited
+`datalake_md_search` is an optional, distinct AppForge master-data workflow.
+It is not enabled in the current enterprise environment or this migration. It is limited
 to companies, branches/operating organizations, fields, blocks, wells, and
 their registered ownership/list/count relationships; it must not be used for
 metrics, production, reports, document QA, arbitrary SQL, or inferred complex
@@ -2063,3 +2167,147 @@ No database upgrade, downgrade, table deletion, push or deployment is performed
 by source candidate preparation. This candidate supersedes catalogue-only tree
 345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
 Previous broader-tree test results are historical, not acceptance of this tree.
+
+## 2026-10-13: portal/GLM candidate boundaries
+
+Hot-employee flags live only in the operator-configured shared JSON store
+`DEERFLOW_EMPLOYEE_FEATURED_PATH`; this feature adds no SQL tables or revisions.
+Do not reuse the channel configuration. Explicit release initialization freezes
+all currently public identities as hot, exactly once. New public employees
+default hot, while private drafts do not. Curation keys use source/name/publisher
+so the same publisher's updates and republication preserve admin removal.
+Publication-specific tokens separately reject stale browser edits. Gateway
+GET/startup must never initialize or recreate the file. Mutations require admin
+authorization, identity plus version CAS, bounded cross-process locks, fresh
+reads and fsynced atomic replacement. Each mutation and its bounded change record
+are one JSON transaction; the latest 256 changes are retained, not an unlimited
+audit log. Fail closed on missing/corrupt/unsafe storage and lock timeout. Linux
+flock/rename must be verified on the actual shared filesystem across nodes before
+release; Windows locks only qualify local development. Resolve creator display
+names in batches from trusted user records, never email or guessed identities.
+Operator maintenance is available only through `employee_directory_maintenance`.
+Never expose restore through the public API. Verify backup content against the
+explicit hash, compare the whole-document revision under lock, save a private
+exclusive preimage, and restore as a new transaction with increasing entry
+versions. A raw file copy can reauthorize stale admin edits and is not rollback.
+An unrelated PPT migration still needs its own qualification in every DB client
+image. Never downgrade production as a code rollback.
+
+`EnterpriseGLMChat` implements only the supplied GLM-5.3-Flash Chat Completions
+contract: fixed thinking, omitted/high/max effort, one base64 image before text,
+reasoning replay and bounded async wall time. Keep `thinking_always_on` and
+`supports_vision` out of provider payloads and credentials out of model metadata.
+The server Secret/config addition and real provider acceptance remain release
+gates; no default model, OCR service or isolated PPT provider is changed here.
+Reject Responses protocol overrides and immediately close the upstream iterator
+when GLM streaming is closed/cancelled. SDK-wire tests must stay offline. The
+explicit `enterprise_glm_probe --run` requires enterprise-network execution and a
+server-side environment key; at most four synthetic calls, no business tools,
+automatic retry, raw model output or credentials in receipts. Keep TLS enabled.
+The supplied GLM-5.3-Flash document section 6.2 explicitly forbids disabling
+thinking. Do not apply GLM-5.2 mode settings to FCGLM-001. The speculative
+switchable profile and diagnostic were withdrawn before deployment; preserve
+the fixed-thinking profile, single-image guard and the same model in tool turns.
+GLM streaming additionally requires a terminal choice followed by raw `[DONE]`.
+Keep the observer response-local, before the pinned OpenAI 2.32 decoder output
+is consumed; never patch shared SDK clients or change other model streams.
+Qualify private SDK seam changes with raw-byte sync/async and structured-output
+tests. Missing termination is a non-retriable terminal safety error, not a
+completed tool call. Preserve cancellation, close responses, retain final usage,
+and distinguish transport completion from task completion. The isolated field
+canary source-binds existing modules and never updates the running service.
+The October 21 GLM field canary passed all four stages on Gateway generation
+381 / SDK 2.32.0. Its release builder appends only those four exact source files
+to the observed `58a50175cfae...` ARM64 manifest; preserve all base layers and
+runtime settings. Preload-only receipts are not rollout acceptance. Recheck node
+identities and the live Gateway specification before any later image-only patch.
+The separate GLM activation binds all five actual preloads and the saved field
+canary, uses an operator-attested task-drain window, and tests the complete
+current specification before its one image replacement. Persist once/intent
+before submission and mark uncertain outcomes honestly. Post-rollout acceptance
+checks all 70 worker identities, exact source hashes and offline SDK termination
+semantics plus existing directory/model reads; it never repeats provider calls.
+An interrupted observer is not permission to reissue the patch or clear once.
+
+Browser `private_origins` are operator-owned exact scheme/host/port plus audited
+private address ranges. Explicit `private_origin_suffixes` additionally permit a
+base DNS domain and its dot-boundary subdomains at the configured scheme/port;
+they still require audited CIDRs and independent network enforcement. The
+explicit enterprise internal namespace `https://cnooc` is the only supported
+single-label suffix exception; never generalize it to public TLDs or enable it
+by default. Its dot-boundary children include `datalake.cnooc`, independently
+from the separate `https://cnooc.com.cn` policy. Exact
+origins override suffix rules; the most-specific suffix wins without merging
+parent ranges. Never populate them from a model or browser request,
+guess production ranges, allow metadata/loopback targets, or disable TLS checks.
+Application DNS checking does not prevent Chromium DNS rebinding or prove safe
+redirect/worker egress; independently validate deployment network controls and
+the actual failing URL before enabling a private exception. An empty diagnostic
+result is not proof of DNS, proxy, certificate or authorization health.
+
+Enterprise direct routing preserves existing NO_PROXY/no_proxy entries in both
+Gateway command environments and Provisioner-created Sandbox environments.
+Owned Chromium uses the separate operator-only DEERFLOW_BROWSER_DIRECT_SUFFIXES
+setting to build explicit dot-boundary proxy bypass arguments. This grants no
+private URL permission and changes neither TLS verification nor an existing CDP
+browser. Do not assume arbitrary Sandbox Chromium launchers consume NO_PROXY;
+verify their actual launcher before declaring browser acceptance. Existing
+processes are not reconfigured by an environment patch.
+
+Owned Browser Live sessions provide an explicit manual-login boundary. Exact
+operator `manual_login_origins` protect authentication pages (including MFA
+pages without password inputs); this setting grants no network access. Visible
+password/OTP inputs also latch privacy. Serialize human controls with Agent
+operations and suppress Agent snapshots, text, screenshots and mutation until
+the user returns control from outside the login surface. Clear destroys the
+owned context; never export Cookie/storage state or control an external CDP
+context's login. Bind the session to the trusted thread owner. Reconnects carry
+an opaque session identity and fail before allocation on a different worker;
+that identity is continuity metadata, never authorization. Revalidate platform
+authentication and thread ownership during long-lived sockets. These controls
+do not provide multi-Pod placement or cross-conversation login persistence;
+production intranet rollout still requires verified session routing and network
+enforcement. Do not substitute ClientIP affinity for per-thread browser ownership.
+
+Server acceptance packaging is allowlist-only (`deploy/enterprise/package-acceptance.py`).
+No keys, private configs or production source snapshots belong in that archive.
+Use hidden terminal input and stdin, not argv, for optional live GLM credentials.
+Only a new isolated synthetic directory may be mutated by the shared-volume probe;
+never initialize the real featured store or change existing directory permissions.
+Report incomplete checks and deferred candidate/PPT acceptance explicitly.
+For DeepSeek V4.1 incident retests, distinguish the diagnostic's explicit direct
+HTTPX client from a future default SDK production client. The old r4 already
+sets trust_env=false; missing NO_PROXY is not its 503 explanation. Bind the
+documented endpoint and original synthetic probe, collect bounded redacted
+timestamp/request-ID/transport evidence, and compare two nodes without retries
+or business-tool execution. Never present a client correlation ID as an upstream
+receipt, nor a successful diagnostic batch as production activation.
+Linux channel regression must exercise actual inter-process flock and timeout,
+permission failure before publication, and CAS conflicts. Do not mock away flock
+to manufacture a Windows pass. After a committed config save, local restart failure
+is 503 and must not roll back another writer's shared configuration.
+Known active artifact suffixes must remain attachment-only even if the Linux MIME
+database is missing or misclassifies them; keep both ordinary and .skill paths covered.
+
+The r3 server probe permits static directory subPath only with equal shared-volume
+and subPath identities, followed by successful read-only parent checks on both
+nodes before any fixture creation. Never infer directory safety from the name or
+repair permissions automatically. Keep single-file/dynamic/readonly/local-volume
+rejection and real cross-process lock/CAS tests. GLM diagnostic `length` must fail
+acceptance even if an expected marker appears; separately record incomplete and
+unattempted stages. Its 1000-token request setting follows the supplied streaming
+example, not a guaranteed bound on hidden reasoning; retain total deadlines,
+byte/frame caps, no retries and no raw content in exported receipts.
+
+The r4 shared-filesystem diagnostic synchronizes only through bounded kubectl
+stdin/stdout control frames. Do not use filesystem existence markers as a
+cross-node barrier: their visibility can be delayed independently of the data
+transaction under test. A holder acknowledges after acquiring real flock; both
+writers acknowledge before either receives an explicit nonce/action/index-bound
+GO. EOF or wrong control identity must fail without that write. Remote gated
+workers have a 45-second hard lifetime; controller transport waits are bounded.
+Keep every completed/failing phase receipt in both logs and the result, including
+partial/uncertain outcomes. Never weaken actual shared JSON freshness, lock/CAS,
+lost-update or atomic-failure assertions, flush caches or retry to manufacture a
+PASS. Shared-only mode forbids GLM and reports its two-node source scope honestly;
+it is not an all-replica production audit or rollout authorization.

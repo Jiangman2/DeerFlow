@@ -1,0 +1,30 @@
+STATUS: PREPARATION_NOT_DELIVERED
+
+Purpose: continue only Phase B for operation abf96dde50174b1eb7caf70a4e6711b1
+after the current root/image filesystem passes the original, unchanged storage gate.
+This preparation does not free disk space and is not an operator delivery.
+
+The script currently refuses execution. Before release, review the read-only target
+inventory and bind CHECKPOINT_SHA256 to exactly 24 original receipt hashes and sizes.
+Do not remove or relax any of those pins, the fixed FAIL/wire/module pins, inode
+identity, original unchanged budget or same-process common lock.
+
+There is no transfer, full archive re-hash, copy, Phase A replay, SSH/SCP, image
+deletion, prune, database/model access or workload mutation. Existing six metadata
+archives are validated as exactly four regular members; their manifest/config
+digests, tag, ARM64 platform and layer/diff IDs are checked by the frozen verifier.
+Only those held read-only FDs are supplied to the frozen Phase B import function.
+
+Old target files and both earlier attempts remain untouched. A separate once marker
+and new evidence directory contain all continuation receipts. The new attempt cannot
+be replayed, including after its own pre-import storage failure. Failures require
+review. The local host check uses hostname, ARM64 and the fixed SSH public host key;
+it does not query a current Kubernetes Node UID. Runtime qualification must recheck it.
+
+Preparation verification: 10 focused Linux root/FD fixtures passed in a read-only,
+network-disabled local container with no containerd socket. No actual image import,
+runtime test or server action occurred. The original r3 suite was not rerun.
+
+Remaining before delivery: collect and review exact checkpoint pins, complete the
+separate authorized space-recovery action, independently review the finalized script
+and its pins. Native runtime and production rollout remain later gates.

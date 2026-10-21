@@ -28,7 +28,8 @@ from deerflow.persistence.bootstrap import bootstrap_schema
 pytestmark = pytest.mark.asyncio
 
 
-HEAD = "0019_digital_employee_agents"
+HEAD = "0020_ppt_confirmation"
+CONFIRMATION_TABLES = frozenset({"ppt_confirmation_tasks", "ppt_confirmation_gates"})
 
 
 def _url(tmp_path: Path) -> str:
@@ -46,6 +47,11 @@ async def _runs_columns(engine) -> set[str]:
         return await conn.run_sync(lambda c: {col["name"] for col in sa.inspect(c).get_columns("runs")})
 
 
+async def _table_names(engine) -> set[str]:
+    async with engine.connect() as conn:
+        return await conn.run_sync(lambda c: set(sa.inspect(c).get_table_names()))
+
+
 async def test_two_concurrent_bootstrap_callers_converge(tmp_path: Path) -> None:
     engine = create_async_engine(_url(tmp_path))
     try:
@@ -54,6 +60,7 @@ async def test_two_concurrent_bootstrap_callers_converge(tmp_path: Path) -> None
             bootstrap_schema(engine, backend="sqlite"),
         )
         assert await _alembic_version(engine) == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
         assert "token_usage_by_model" in await _runs_columns(engine)
     finally:
         await engine.dispose()
@@ -64,6 +71,7 @@ async def test_five_concurrent_bootstrap_callers_converge(tmp_path: Path) -> Non
     try:
         await asyncio.gather(*(bootstrap_schema(engine, backend="sqlite") for _ in range(5)))
         assert await _alembic_version(engine) == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
     finally:
         await engine.dispose()
 
@@ -89,6 +97,7 @@ async def test_cancelled_caller_does_not_block_others(tmp_path: Path) -> None:
         # Lock must be free for the next caller.
         await bootstrap_schema(engine, backend="sqlite")
         assert await _alembic_version(engine) == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
     finally:
         await engine.dispose()
 
@@ -107,6 +116,7 @@ async def test_late_caller_after_head_is_noop(monkeypatch, tmp_path: Path) -> No
         await bootstrap_schema(engine, backend="sqlite")
         first_version = await _alembic_version(engine)
         assert first_version == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
 
         upgrade_calls: list[str] = []
         original_upgrade = bootstrap_mod._upgrade
@@ -121,6 +131,7 @@ async def test_late_caller_after_head_is_noop(monkeypatch, tmp_path: Path) -> No
         await bootstrap_schema(engine, backend="sqlite")
         assert upgrade_calls == ["head"]
         assert await _alembic_version(engine) == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
     finally:
         await engine.dispose()
 
@@ -146,5 +157,6 @@ async def test_slow_upgrade_does_not_corrupt_concurrent_state(monkeypatch, tmp_p
             bootstrap_schema(engine, backend="sqlite"),
         )
         assert await _alembic_version(engine) == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
     finally:
         await engine.dispose()

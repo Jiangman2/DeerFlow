@@ -1,0 +1,46 @@
+{
+  "schema": "portal-ppt-confirmation-existing-user-authority.v1",
+  "status": "EXISTING_EXPLICIT_USER_AUTHORITY_RECONCILED",
+  "source_chat": "01a0d2d7-0015-7a73-93c3-791b713a47f6",
+  "source_file": "C:\\Users\\15285\\.codex\\sessions\\2026\\09\\24\\rollout-2026-09-24T17-55-01-01a0d2d7-0015-7a73-93c3-791b713a47f6.jsonl",
+  "messages": [
+    {
+      "source_line": 34272,
+      "message_id": "msg_01a12eee-fd8d-7d81-8c50-d50486340624",
+      "timestamp_utc": "2026-10-12T07:06:16.845Z",
+      "role": "user",
+      "meaning": "INITIAL_REFUSAL",
+      "text": "<send_user_message_question_reply>\n[{\"questionItemId\":\"[\\\"request_user_input_async\\\",\\\"call_gKodWSSqVlmku8klPUPIlWUH\\\",0]\",\"question\":\"要让自动确认与人工点击、内容更新安全共存，需要给官方 Confirm UI 增加“版本绑定、重复提交识别、过期回执不得放行”的小型补丁。仓库当前规定官方 Skill 内只保留 CNOOC 模板和进程启动两类修改。是否允许本轮增加这项单独记录、可回退的确认协议补丁？不改变官方阶段顺序、字段选择和业务校验。\",\"answer\":\"保持官方包不变，暂不自动确认\"}]\n</send_user_message_question_reply>",
+      "text_utf8_sha256": "1e80ade9f59ed97c72402348bbd364634c84c4676357014f6571b3d4db748f4c"
+    },
+    {
+      "source_line": 34310,
+      "message_id": "msg_01a12ef3-3006-7a82-bceb-9c12dce0c479",
+      "timestamp_utc": "2026-10-12T07:10:51.910Z",
+      "role": "user",
+      "meaning": "LIMIT_TO_PPT_MASTER_CONFIRMATION",
+      "text": "我说的自动确认，就只针对ppt-master这个Skill的运行过程中的确认环节，不要改其他的\n",
+      "text_utf8_sha256": "6cbe7b03dab54e7b5afd1789b199351cebc5751d53771a970a3b23edd95e5cac"
+    },
+    {
+      "source_line": 34339,
+      "message_id": "msg_01a12ef4-64c1-7891-95c5-e2bbf4464dae",
+      "timestamp_utc": "2026-10-12T07:12:10.946Z",
+      "role": "user",
+      "meaning": "SUBSEQUENT_EXPLICIT_AUTHORIZATION",
+      "text": "允许仅修改 `ppt-master` 的确认实现，将自动确认重新纳入本轮修复  \n",
+      "text_utf8_sha256": "76c80b9dcf2664b202465170ed6ffafb8935a24d0d9db71ddace4175555cae0d"
+    }
+  ],
+  "order": "Initial refusal superseded by later explicit permission, retaining the PPT-only scope limit",
+  "authorized_scope": "Only ppt-master confirmation implementation: version-bound conditional submission, duplicate/expired receipt handling and automatic confirmation/resume within the already requested feature",
+  "excluded_scope": [
+    "Other Skills",
+    "Upstream stage order",
+    "Choice/schema business rules or validation",
+    "Unrelated vendor-tree replacement"
+  ],
+  "repository_guidance_relationship": "This exact user-approved pending feature is a narrow existing exception to the general two-modification vendor guidance; no new permission is inferred from a lock date or assistant plan.",
+  "production_deployment_authorized_by_this_record": false,
+  "scope_only_not_runtime_qualification": true
+}

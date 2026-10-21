@@ -1,0 +1,20 @@
+{
+  "scope": "LOCAL_TOOL_REGRESSION_NOT_PRODUCTION_IMPORT_ACCEPTANCE",
+  "script": "preload_native_candidate.py",
+  "script_sha256": "f1a11904740573ec86ddfa7f5f387ecc07a1c79730a8ff013ee22a134853317f",
+  "new_test_source_sha256": "1d8205d6de633c493103e34ce5307fe1cc2573aef72043ed6f6338578491d0b5",
+  "tests": 117,
+  "skipped": 0,
+  "result": "PASS",
+  "environment": "LOCAL_LINUX_ROOT_PYTHON312_NETWORK_NONE",
+  "suites": [
+    "test_native_preload", "test_runtime_reverify", "test_runtime_delta_audit",
+    "test_runtime_resume", "test_runtime_finish", "test_dwarf_build_fix",
+    "test_sqlite_build_fix", "test_native_build", "test_unpack_rust"
+  ],
+  "enterprise_containerd_exercised": false,
+  "native_intranet_acceptance": "NOT_TESTED",
+  "production_writes": 0,
+  "provider_requests": 0,
+  "ready_for_rollout": false
+}

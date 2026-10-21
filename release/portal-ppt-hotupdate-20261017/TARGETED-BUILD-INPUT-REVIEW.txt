@@ -1,0 +1,19 @@
+本次补证后的构建输入审查（2026-10-17）
+
+结论：可继续准备精确增量构建输入；尚不是构建/发布资格。未执行生产、网络、模型、迁移或构建操作。
+
+Runner 已有可复用的精确 OCI 基底：本地 runner.candidate.oci.tar（976314880 bytes）重新计算 SHA256=d521617c5d7918053e9403a831058ecf38cad109f34e82c8b634492456a12667；manifest=eb23de08345bab65c78264f99ce33085c4ea3574ff8d6281b62418f644fc06cd，config=bc378da76f8ba638256d7f70764dcd130a12cb44346a596ed7a17c4d61815cec，与新报告运行身份一致。选定源码逐层重放 365 层，无解包、导入或执行。镜像物理迁移只到 0017；20 个已有迁移/支持文件与 candidate 全部精确一致。
+
+运行挂载与镜像内容必须分别记录：物理 deps.py 是 29841 bytes / 223fb981...；有效挂载是 30083 bytes / d66a38e4...。0018、0019、0020 物理镜像中不存在。前向 Runner 需 14 项功能差异加有效 deps.py/0018/0019 三项闭包，共 17 项；0020 的 down_revision 是 0019，不能只加 0020 到物理 0017 链。完整 before/after 哈希与物理 21 项清单见 JSON。历史 git commit 330ce1227e05f24b944f3efde36906234bd71196:backend/app/gateway/deps.py 是物理 deps.py 的精确字节来源，可供离线 fixture 使用。现有四个挂载合同保持；回滚镜像兼容代码另行验证，不执行数据库降级。
+
+Gateway 当前为 20261017-background-stream-953eb97e4aaf，运行 digest=dff2b9d7323329733f14133b384030d6efeda948a86f082f055f1573ced224fd。33 项声明差异可继续准备；尚缺同事本次构建的 manifest/config/OCI 绑定。旧 R4 Gateway 归档不是当前基底，不能替代。最小补齐是同事现存构建回执/归档，或一个已知当前 Gateway 节点的固定 CRI/containerd 元数据；不需要重复 70 Pod 源码采集。
+
+Frontend 可以按已冻结 667 个生产输入做 standalone：Deployment 无启动命令覆盖，投影挂载不覆盖应用根，三个健康检查及资源形状与已知配置一致，候选自己提供 node server.js 启动器。Node 22 Alpine 的 index 和 ARM64 child descriptor 已固定，但本机 ARM64 只有 descriptor，没有 payload/原生运行资格。实际 Gateway 构建 origin、企业 CA/registry/proxy 仍须明确；保留 Deployment env 不等于证明旧 image ENV 等价。具体文件子集、构建流程和 canary 项见 C:/Users/15285/Documents/deer-flow/portal-ppt-merge-20261017/FRONTEND-BUILD-NEXT.json。不得用 git ls-files 或 linked node_modules 当构建上下文。
+
+Provisioner 配置的普通 Sandbox rc15 与 Agent Host 20260927-r2 都有真实历史构建回执、固定 OCI hash 和 R7 git 源码快照可复用；配置 tag 只证明引用，不证明当前运行 Pod 字节。普通 Sandbox 本次无需重建。Agent Host 的新确认 helper / shared proposal / vendored patch 需独立精确增量审查；Gateway/Runner 合并树并未包含或核销 Host 发布资格。历史归档路径、manifest/config、源码 commit 和三个原始 Host 文件摘要均列在 JSON。
+
+datax-01 无 Docker：不要要求 docker inspect。原补证 collector 调用本机 crictl inspecti，未指定 endpoint，且把命令失败/JSON/身份/格式失败统一为 local_image_metadata_unavailable；不能解释成缺缓存。历史只读工具明确使用 unix:///run/containerd/containerd.sock。JSON 提供固定 tag、固定 endpoint 的最小 CRI 命令向量；须由有界安全 parser 投影摘要，不回显完整 inspecti（可能含 Env/命令）。Runner 已具精确归档，不需再采；Gateway 优先取同事现成归档，必要时在 baseline 的一个实际 Gateway 节点采元数据。无拉取、导入、构建或部署。
+
+新数据库补证确认当前头 0019_digital_employee_agents，两张 PPT confirmation 表尚不存在；只做了双重只读 SELECT，没有执行 0020。
+
+完整证据：C:/Users/15285/Documents/deer-flow/deer-flow/release/portal-ppt-hotupdate-20261017/TARGETED-BUILD-INPUT-REVIEW.json

@@ -1,0 +1,62 @@
+WeKnora isolated backing-store preload recovery / 2026-10-17 r1
+
+Confirmed starting point
+  The original invocation transferred and fully verified both archives. Its
+  PostgreSQL import was acknowledged. A later image read failed; the old
+  inventory helper discarded stderr and left stale successful-command metadata.
+  Do not infer an image corruption or a particular transient cause from it.
+  Operator's subsequent --status confirms PostgreSQL content/unpack, CRI
+  identity and pinned=true. Redis reference is absent. No containers started.
+
+Scope
+  Run on datax-01 only, Linux/ARM64, root. Load the already-installed original
+  tool ONLY after verifying its exact published SHA256, never from cwd:
+    /var/lib/weknora-enrichment-preload-tool-xIpS67Mi/preload.py
+    db944072aa40e78118e70c0af34bc5f7ccc6a4059f9a8cc39b58a65c9c4f1e93
+  Bind all eight original receipt hashes, including FAILED.json:
+    469696342b6304d3145f5340b78e6bdcadcaeb22358cfd28781b6d03e87ee362
+  Verify PostgreSQL in place without importing, labeling or modifying it.
+  Rehash the retained 14084608-byte Redis OCI archive, all eight layers/DiffIDs,
+  the multiarch root, ARM64 manifest/config and exact reference annotation.
+  Import only Redis from that local archive, once. Pin if needed, then verify
+  both images. No SSH, passwords, image build, production database/Redis client,
+  Pod, model call, model change, consumer tuning or production workload patch.
+  This is not native enrichment or rollout acceptance.
+
+Operation
+  Deliver weknora-enrichment-preload-resume-20261017-r1.py to /home/cnooc.
+  Install to a fresh root-owned 0700 /var/lib tool directory as resume.py0600;
+  verify the published hash, then python3 -I -B -u <tool>/resume.py --recover-once.
+  Keep pipefail and both Python/tee exit codes. No executable mode is needed.
+  Do not run while another image import/export/build is active. The tool checks
+  this and will not stop another process or delete any image/cache. Existing
+  /var/lib/weknora-enrichment-preload-20261017-r1.lock is reused without truncation
+  so the original tool and recovery cannot run concurrently.
+  Read-only CLI failures have at most three attempts, two seconds apart. Exact
+  identity/integrity failures are never retried. Imports/labels are NEVER retried.
+  Imagefs reserve and >=4GiB available memory are checked before import; free
+  imagefs reserve is checked during import. Nice/ionice limit only the client,
+  not the complete containerd daemon. Import timeout1200s, total deadline1800s.
+
+Evidence and outcomes
+  Original /opt/weknora-enrichment-preload-20261017-r1 is unchanged.
+  Fresh /opt/weknora-enrichment-preload-resume-20261017-r1 uses0700/0600.
+  It contains STARTED.json; durable IMPORT-REQUESTED.json before the one Redis
+  import; IMPORT-ACK.json after success; optional PIN-REQUESTED.json;
+  RESULT.json or FAILED.json. Receipt files and parent directories are fsynced.
+  PASS: enrichment_store_preload_recovery=PASS, both content_and_unpack=PASS,
+  pinned=true. postgres_reimported=false, source_transfer_repeated=false,
+  native_enrichment_acceptance=NOT_TESTED, ready_for_rollout=false.
+
+  On any failure, interruption, disconnect or uncertainty: ONLY use
+    sudo python3 -I -B <same-tool>/resume.py --status
+  and send the output. Status never imports/labels/transfers or writes evidence.
+  Never rerun --recover-once or --prepare-once; never delete state or chmod777
+  to bypass a check. Retain old/new evidence and private archives.
+  If Redis appeared independently, the recovery stops for status review rather
+  than overwriting it. An uncertain import may already have completed.
+
+Next gate
+  After confirmed PASS, prepare a resource-bounded isolated full WeKnora App
+  with newly initialized test PostgreSQL/Redis and synthetic content. Production
+  stores, queues, WeKnora56, MinerU16 and the production visual model stay intact.

@@ -1,0 +1,99 @@
+WeKnora second-step controlled tuning — 20261016-r1
+
+AUTHORIZED TARGET / NOT YET APPLIED BY THIS DELIVERY
+core16, postprocess4, enrichment48, maintenance4, shared4, wiki12: 88 handlers.
+Background per-model default128; retain 16 independent serialized MinerU workers.
+Only three existing literal environment values change from the accepted56/64:
+WEKNORA_ASYNQ_CORE_CONCURRENCY 8->16
+WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY 24->48
+WEKNORA_MODEL_MAX_CONCURRENCY 64->128
+No image, replica, storage, queue, Secret, routing, timeout, resource or schema
+change. No provider quota approval required; no synthetic document submissions.
+This supersedes the OLD review-only88 profile (core8/maintenance8/wiki16); it is
+not that profile. All old tools and evidence remain unchanged.
+
+EXPECTED PREDECESSOR
+56/64 success receipt:
+/var/lib/weknora-tune56-20261016-r1-fix1/RESULT-eba156bba7d941adb77a9e1011f60d1a.json
+SHA256 73d09802ec1d18859cb55db0877fa1544283b8898d52696ceed7fc2a6198c35a
+Bind its original-spec digest, original/candidate plan, prepared-plan hash,
+forward success marker and patch acknowledgement. A prior rollback is blocking.
+The initial app UID must be e1ae4727-a544-4000-986f-edcc8bff5000. A replacement
+or spec change requires review, never a blind baseline refresh.
+Read-only shared flock on the previous controller lock prevents the old mutator
+from concurrently signalling or rolling back while this mutation is running.
+
+STATE AND EXECUTION
+Run only as root on datax-01, Python3.7+. Upload the standalone .py and use its
+hash-checked private installation command. New state:
+/var/lib/weknora-tune88-20261016-r1
+Never chmod0777, reuse a failed state, rerun --apply, or run the old56 mutator.
+
+--apply, first use only:
+1. Check the accepted56 spec/process, exact image/binary, bound local PVs, node
+   identity/readiness/cache metadata and16 healthy serialized MinerU workers.
+2. Take three fresh CPU/RAM/disk and read-only PostgreSQL samples. Verify no
+   numeric DB overrides, no model-specific cap overrides, AUTO_MIGRATE=false,
+   runtime environment and six active56-pool heartbeats. Resource guardrails:
+   node availableRAM>=24GiB, CPU<80%, disk>=max(10GiB,15%), app working set<=16GiB,
+   DB clients<60% of nonreserved slots, no lock waiters/idle transactions.
+   These are operational gates, not proof of sustained88 capacity.
+3. Save private snapshots, server-side dry run and exact-spec/UID/RV CAS plan.
+4. Recheck and persist intent BEFORE exactly one UID1000/PID1 identity-bound
+   SIGTSTP. Require all six pools stopped within90s, then three consecutive
+   zero-active samples. Wait only claimed tasks, up to30minutes. Pending/retry
+   queues remain intact. Failure leaves the process alive; no forced restart.
+5. Recheck resources/DB/dependencies/placement, then patch the one Deployment.
+   It remains single-replica Recreate: API/page and active knowledge Q&A may be
+   interrupted. No forced Pod deletion, TERM/KILL, timeout enlargement or queue
+   clearing. Retain the existing image and local-PV scheduling.
+6. Confirm the new process/image, three stable88-pool samples, runtime values,
+   numeric Redis-governor startup128 proof, and post-switch DB/resources.
+   Capture the startup proof early and reuse it only for the exact Pod/container
+   identity during recovery; never expose or save raw application logs.
+
+--observe:
+After CONFIGURATION_SWITCH PASS, sample21 times30seconds apart (about10minutes).
+Read task counts, all16 workers, dispatcher, five CPU/RAM/disk/DB samples and
+bounded log aggregates. Print a safe complete summary, so no permission changes
+or private snapshot download is necessary. Task counters are NOT document counts.
+Model actual occupancy and provider GPU capacity are not measured. A COMPLETE
+collection is not throughput acceptance; inspect warnings and the real3/10/30
+document plus interactive-upload tests. Observation never signals or rolls back.
+The supplied launcher runs --observe only after --apply exits successfully.
+
+--status:
+Read-only, no signal or patch. Use after any interruption or unexpected result.
+The claim-drained flag can be false after success because new work has resumed.
+
+--continue:
+Explicit recovery only. Never repeats an uncertain signal or patch. Continues
+the recorded drain or verifies an already visible exact target configuration.
+An unobserved patch outcome blocks rather than being resubmitted.
+
+--rollback:
+Explicit guarded lowering to the immediate predecessor56/64, NOT the older32
+profile. Stop claiming, wait current work, then CAS the exact saved predecessor
+environment. It requires a healthy readable app; it cannot force-recover an
+unready process. No automatic rollback. Review --status before using recovery.
+
+CAPACITY INTERPRETATION
+core16+shared4 permits up to20 WeKnora parser tasks, not20 concurrent OCR jobs.
+The16 independent native workers remain serialized; excess calls can wait in
+the existing bounded dispatcher. Interactive priority does not preempt running
+bulk work and no worker is strictly reserved for chat. A full16/16 display is
+not a release criterion: require increased completed throughput without worse
+interactive latency, new errors, growing memory or DB contention. Enrichment48
+is shared among image understanding, question/summary/graph/memory tasks.
+Default128 is per background model, not128 aggregate calls or a provider quota.
+
+No24/32 MinerU expansion is included. Previous failed/uncertain32-load evidence
+remains unchanged; never repeat its accepted/uncertain submissions. A subsequent
+24/32 review needs new resource placement and mixed-load qualification.
+
+VERIFICATION LIMITS
+Local Windows unit/mocked process/Kubernetes tests and Python3.7 syntax checks
+are not live Linux acceptance. Exact production stop/drain/runtime gates execute
+on the server. No server change has been performed by Codex during packaging.
+Private .private.json plans may contain inherited configuration: do not export.
+Share only terminal summaries, safe RESULT JSON and the private tool's safe log.

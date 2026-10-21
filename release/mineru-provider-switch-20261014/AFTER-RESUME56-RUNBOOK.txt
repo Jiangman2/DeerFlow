@@ -1,0 +1,62 @@
+WeKnora recovered56 / MinerU quarantine / GLM wire compatibility review
+20261016-r1
+
+Run only on datax-01 as root. Keep the production recovered56 Pod consuming.
+Upload weknora-after-resume56-20261016-r1.py to /home/cnooc and run the supplied
+hash-checked launcher. Do not chmod existing evidence or configuration to 777.
+
+Modes (exactly one):
+  --audit-and-glm-once  read diagnostics, then at most two synthetic GLM calls
+  --audit               diagnostics only, no provider calls
+  --status              read the retained safe result; never resubmit
+Choose the intended mode initially. This release uses one fixed exclusive new
+evidence directory. It will not repeat or overwrite an earlier run. If an outcome
+is uncertain, use --status and send the safe output; do not delete evidence.
+
+Boundaries:
+- No signals, app restarts, queue writes, image changes, model/Secret changes,
+  migrations, worker termination, quarantine reset, or live Kubernetes patches.
+- Existing normal health GETs may trigger the dispatcher's own due readiness
+  re-probe. Busy /ready=503 alone is not a service failure.
+- Three16-worker samples plus bounded recent logs for ALL workers. Log results
+  are numeric aggregates and fixed error categories only. No raw logs, business
+  document names, request IDs, provider task IDs, error messages, or credentials
+  are printed or saved. Log-window limits are reported; absence is not proof.
+- The existing health API does not expose current quarantine membership.
+  Historical quarantine events and current busy workers must not be equated.
+- Reuses the verified installed88 read helpers, never their main/apply/signal
+  entry points. Binds the new recovery receipt and Pod UID/container identities.
+- Read-only resource/DB headroom checks and a private88 proposal are saved.
+  Proposal is not release approval, dry-run, or a runnable switch plan.
+
+GLM:
+- Enter the key at the hidden terminal prompt; never put it in command argv,
+  shell history, files, screenshots or chat output. No existing model credential
+  is read. The key travels only via encrypted kubectl exec stdin into memory.
+- Calls occur from the exact current WeKnora App Pod, in an isolated Python
+  process. Production task handling and qwen3-vl-plus stay unchanged.
+- A locally synthesized32x32 solid-red PNG is the only image. First test:
+  single image before text with SSE; second test: current reviewed WeKnora
+  text-first/non-stream wire shape. These are distinct experiments, not retries.
+- Each request has180s total wall deadline including reasoning/keepalives.
+  The second test is not attempted if the first fails or is uncertain.
+  No redirects/proxy inheritance/TLS bypass. Existing App TLS trust is used.
+- Reasoning and visible model output are not printed or saved. Only HTTP status,
+  time, completeness and a red-colour boolean are exported. Non200 status bodies
+  are not read. Streams require both stop and DONE, not EOF.
+- This is PYTHON WIRE EMULATION, not the native Go client, application SSRF
+  validation, KB model-binding migration, model-load test, or real task acceptance.
+  Exact-host environment allowlist/bypass booleans are informational; DB-backed
+  or wildcard policy is not inferred. No broad private-network allowlisting.
+
+Expected wall time approximately4-10min (read operations and up to360s of model
+requests); progress is emitted at least every15s during model calls. No timeout
+or failure authorizes restarting the probe or clearing the production queue.
+
+Private evidence:
+  /var/lib/weknora-after-resume56-20261016-r1/RESULT.json
+  /var/lib/weknora-after-resume56-20261016-r1/NEXT88-PROPOSAL.private.json
+Send only the console output / RESULT.json. Do NOT export the private proposal.
+Collection completion is not acceptance. Keep56 until the MinerU diagnosis,
+stable16 health and native WeKnora/GLM compatibility path have been reviewed.
+Old weknora-tune88 --continue must NOT be run against the recovered Pod.

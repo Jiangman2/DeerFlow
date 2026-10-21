@@ -1,0 +1,35 @@
+# Current confirmation-enabled Runner source overlay; historical R3 recipe is unchanged.
+# The fixed ARM64 base supplies dependencies; this recipe never synchronizes or installs them.
+FROM deerflow.local/deer-flow-gateway@sha256:eb23de08345bab65c78264f99ce33085c4ea3574ff8d6281b62418f644fc06cd
+
+COPY docker/ppt-master-runner/confirmation-build-manifest.json /tmp/ppt-runner-build/confirmation-build-manifest.json
+COPY docker/ppt-master-runner/verify_confirmation_build.py /tmp/ppt-runner-build/verify_confirmation_build.py
+COPY docker/ppt-master-runner/production-source/backend/app/gateway/deps.py /app/backend/app/gateway/deps.py
+COPY docker/ppt-master-runner/production-source/backend/app/gateway/routers/features.py /app/backend/app/gateway/routers/features.py
+COPY docker/ppt-master-runner/production-source/backend/app/gateway/routers/ppt_confirmations.py /app/backend/app/gateway/routers/ppt_confirmations.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/agents/ppt_master_runner/agent.py /app/backend/packages/harness/deerflow/agents/ppt_master_runner/agent.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/persistence/migrations/versions/0018_scheduled_task_reliability.py /app/backend/packages/harness/deerflow/persistence/migrations/versions/0018_scheduled_task_reliability.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/persistence/migrations/versions/0019_digital_employee_agents.py /app/backend/packages/harness/deerflow/persistence/migrations/versions/0019_digital_employee_agents.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/persistence/migrations/versions/0020_ppt_confirmation.py /app/backend/packages/harness/deerflow/persistence/migrations/versions/0020_ppt_confirmation.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/persistence/models/__init__.py /app/backend/packages/harness/deerflow/persistence/models/__init__.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/persistence/ppt_confirmation/__init__.py /app/backend/packages/harness/deerflow/persistence/ppt_confirmation/__init__.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/persistence/ppt_confirmation/model.py /app/backend/packages/harness/deerflow/persistence/ppt_confirmation/model.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/persistence/ppt_confirmation/sql.py /app/backend/packages/harness/deerflow/persistence/ppt_confirmation/sql.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/__init__.py /app/backend/packages/harness/deerflow/ppt_confirmation/__init__.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/admission.py /app/backend/packages/harness/deerflow/ppt_confirmation/admission.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/continuation.py /app/backend/packages/harness/deerflow/ppt_confirmation/continuation.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/controller.py /app/backend/packages/harness/deerflow/ppt_confirmation/controller.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/host_owner.py /app/backend/packages/harness/deerflow/ppt_confirmation/host_owner.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/host_protocol.py /app/backend/packages/harness/deerflow/ppt_confirmation/host_protocol.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/lifecycle.py /app/backend/packages/harness/deerflow/ppt_confirmation/lifecycle.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/monitor.py /app/backend/packages/harness/deerflow/ppt_confirmation/monitor.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/proposal.py /app/backend/packages/harness/deerflow/ppt_confirmation/proposal.py
+
+RUN /app/backend/.venv/bin/python -I -B /tmp/ppt-runner-build/verify_confirmation_build.py \
+      --manifest /tmp/ppt-runner-build/confirmation-build-manifest.json --image-root /app \
+    && rm -rf /tmp/ppt-runner-build
+
+WORKDIR /app/backend
+ENV DEER_FLOW_RUNTIME_PROFILE=ppt-master-runner
+ENV PYTHONPATH=.
+CMD ["/app/backend/.venv/bin/python","-m","uvicorn","app.gateway.app:app","--host","0.0.0.0","--port","8003","--workers","1"]

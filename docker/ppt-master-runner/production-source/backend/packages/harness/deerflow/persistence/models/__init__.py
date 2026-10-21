@@ -32,6 +32,7 @@ from deerflow.persistence.feedback.model import FeedbackRow
 from deerflow.persistence.models.run_event import RunEventRow
 from deerflow.persistence.oa_policy_flow_jobs.model import OAPolicyFlowJobRow
 from deerflow.persistence.observability.model import AuditLogRow, OperationDispositionRow
+from deerflow.persistence.ppt_confirmation.model import ConfirmationGateRow, ConfirmationTaskRow
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
 from deerflow.persistence.scheduled_tasks.model import ScheduledTaskRow
@@ -45,6 +46,8 @@ __all__ = [
     "ChannelConversationRow",
     "ChannelCredentialRow",
     "ChannelOAuthStateRow",
+    "ConfirmationGateRow",
+    "ConfirmationTaskRow",
     "DataLakeAuthChallengeRow",
     "DashboardDailyRollupRow",
     "DashboardHourlyRollupRow",

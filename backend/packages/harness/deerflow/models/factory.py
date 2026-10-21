@@ -210,6 +210,7 @@ def create_chat_model(
     if model_config is None:
         raise ValueError(f"Model {name} not found in config") from None
     model_class = resolve_class(model_config.use, BaseChatModel)
+    thinking_enabled = thinking_enabled or model_config.thinking_always_on
     model_settings_from_config = model_config.model_dump(
         exclude_none=True,
         exclude={
@@ -218,6 +219,7 @@ def create_chat_model(
             "display_name",
             "description",
             "supports_thinking",
+            "thinking_always_on",
             "supports_reasoning_effort",
             "when_thinking_enabled",
             "when_thinking_disabled",

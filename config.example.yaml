@@ -15,7 +15,7 @@
 # ============================================================================
 # Bump this number when the config schema changes.
 # Run `make config-upgrade` to merge new fields into your local config.yaml.
-config_version: 31
+config_version: 32
 
 # Per-model request_admission RPM pacing is deferred in the dmdb 2026-09-30
 # merge: its typed config and model-factory hook are not implemented here.
@@ -739,7 +739,7 @@ tools:
   #   api_key: $WEKNORA_API_KEY
 
   # CNOOC DataLake tools (internal deployment only). Smart QA uses the
-  # Retrieve API; Metrics and Detail continue to use AppForge.
+  # Retrieve API; Data QA calls a new structured-data workflow via AppForge.
   # - name: datalake_smart_qa
   #   group: knowledge
   #   use: deerflow.community.appforge.tools:datalake_smart_qa_tool
@@ -753,20 +753,16 @@ tools:
   #   score_threshold_enabled: false
   #   weight: 0.5
   #   trust_env: false
-  # - name: datalake_metrics_qa
+  # - name: datalake_data_qa
   #   group: knowledge
-  #   use: deerflow.community.appforge.tools:datalake_metrics_qa_tool
-  #   api_url: $APPFORGE_API_URL
-  #   api_key: $APPFORGE_API_KEY
-  #   app_id: $APPFORGE_METRICS_QA_APP_ID
+  #   use: deerflow.community.appforge.tools:datalake_data_qa_tool
+  #   api_url: http://10.77.124.142:9080
+  #   api_key: $APPFORGE_DATA_QA_API_KEY
+  #   app_id: app-v16p2syh
+  #   conversation_prefix: SquareWorkflow_
+  #   timeout_seconds: 180
   #   trust_env: false
-  # - name: datalake_detail_qa
-  #   group: knowledge
-  #   use: deerflow.community.appforge.tools:datalake_detail_qa_tool
-  #   api_url: $APPFORGE_API_URL
-  #   api_key: $APPFORGE_API_KEY
-  #   app_id: $APPFORGE_DETAIL_QA_APP_ID
-  #   trust_env: false
+  # Optional only: not enabled in the current enterprise rollout.
   # Master-data search is an independent AppForge workflow. It is intentionally
   # not controlled by the user's Data Lake toggle. Keep its API key in the
   # runtime Secret; never put a literal credential in config.yaml.
