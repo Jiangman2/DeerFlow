@@ -68,3 +68,18 @@ ENV MAX_FILE_SIZE_MB=100 \
 
 EXPOSE 80
 ENTRYPOINT ["/docker-entrypoint.sh"]
+
+# Only this image's public document root is normalized; never follow symlinks.
+RUN --network=none set -eu; \
+    root=/usr/share/nginx/html; \
+    test -d "$root"; test ! -L "$root"; \
+    test -z "$(find "$root" ! -type d ! -type f -print -quit)"; \
+    printf 'PUBLIC_ASSET_NONSTANDARD_MODES_BEFORE\n'; \
+    find "$root" -type f ! -perm 0644 -exec ls -ln {} \;; \
+    find "$root" -type d ! -perm 0755 -exec ls -ldn {} \;; \
+    find "$root" -type d -exec chmod 0755 {} +; \
+    find "$root" -type f -exec chmod 0644 {} +; \
+    test -z "$(find "$root" -type d ! -perm 0755 -print -quit)"; \
+    test -z "$(find "$root" -type f ! -perm 0644 -print -quit)"; \
+    printf 'PUBLIC_ASSET_MODES_PASS\n'
+

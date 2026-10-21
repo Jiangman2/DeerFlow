@@ -27,6 +27,11 @@
                   </div>
                 </div>
 
+                <div v-if="mode === 'file'" class="upload-batch-notice">
+                  <p>{{ knowledgeUploadBatchHint(locale) }}</p>
+                  <p aria-live="polite">{{ knowledgeUploadSelectionHint(localFiles.length, locale) }}</p>
+                </div>
+
                 <div v-if="mode === 'file'" class="destination-row">
                   <t-popup
                     v-model:visible="destinationPickerVisible"
@@ -561,6 +566,7 @@ import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useUIStore } from '@/stores/ui'
 import { formatFileSize, getFileIcon } from '@/utils/files'
 import { getUploadFileKey } from '../utils/uploadSources'
+import { isKnowledgeUploadBatchTooLarge, knowledgeUploadBatchLimitMessage, knowledgeUploadBatchHint, knowledgeUploadSelectionHint } from '../utils/uploadBatchLimit'
 import { listKnowledgeTags } from '@/api/knowledge-base'
 import KbUploadSourceDropdown from './KbUploadSourceDropdown.vue'
 import FolderPickerMenu, { type FolderOption } from './FolderPickerMenu.vue'
@@ -649,7 +655,7 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const chatResources = useChatResourcesStore()
 const editorResources = useEditorResourcesStore()
 const uiStore = useUIStore()
@@ -1022,6 +1028,7 @@ function getSectionNavStatus(
 }
 
 const canConfirm = computed(() => {
+  if (props.mode === 'file' && isKnowledgeUploadBatchTooLarge(localFiles.value.length)) return false
   if (props.mode === 'file' && batchItemCount.value === 0) return false
   if (props.mode === 'manual' && !props.manualPreview?.content?.trim()) return false
   if (hasImages.value) {
@@ -1328,6 +1335,11 @@ const appendFiles = (incoming: File[]) => {
   }
 
   if (toAdd.length > 0) {
+    const count = localFiles.value.length + toAdd.length
+    if (isKnowledgeUploadBatchTooLarge(count)) {
+      MessagePlugin.warning(knowledgeUploadBatchLimitMessage(count, locale.value))
+      return
+    }
     localFiles.value = [...localFiles.value, ...toAdd]
     MessagePlugin.success(t('uploadConfirm.filesAdded', { count: toAdd.length }))
   } else if (duplicateCount > 0) {
@@ -1412,6 +1424,10 @@ const handleCancel = () => {
 }
 
 const handleConfirm = () => {
+  if (props.mode === 'file' && isKnowledgeUploadBatchTooLarge(localFiles.value.length)) {
+    MessagePlugin.warning(knowledgeUploadBatchLimitMessage(localFiles.value.length, locale.value))
+    return
+  }
   if (props.mode === 'file' && batchItemCount.value === 0) {
     MessagePlugin.warning(t('uploadConfirm.noItems'))
     return
@@ -1443,6 +1459,21 @@ const handleConfirm = () => {
 </script>
 
 <style lang="less" scoped>
+.upload-batch-notice {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--td-bg-color-secondarycontainer);
+  color: var(--td-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+
+  p {
+    margin: 0;
+  }
+}
+
 .upload-confirm-overlay {
   position: fixed;
   inset: 0;

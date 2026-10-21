@@ -29,6 +29,7 @@
           theme="default"
           :class="['kb-upload-source-trigger', triggerClass]"
           :data-guide="dataGuide || undefined"
+          :aria-label="tooltipText"
           size="small"
         >
           <template #icon><t-icon :name="triggerIcon" size="16px" /></template>
@@ -65,6 +66,7 @@ import { ref, computed, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin, Icon as TIcon } from 'tdesign-vue-next'
 import { filterUploadFiles } from '../utils/uploadSources'
+import { isKnowledgeUploadBatchTooLarge, knowledgeUploadBatchLimitMessage, knowledgeUploadBatchHint, knowledgeUploadMenuLimit } from '../utils/uploadBatchLimit'
 
 const props = withDefaults(defineProps<{
   acceptFileTypes?: string
@@ -92,24 +94,24 @@ const emit = defineEmits<{
   manual: []
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const folderInputRef = ref<HTMLInputElement | null>(null)
 const urlDialogVisible = ref(false)
 const urlInputValue = ref('')
 
-const tooltipText = computed(() => props.tooltip || t('knowledgeBase.addDocument'))
+const tooltipText = computed(() => `${props.tooltip || t('knowledgeBase.addDocument')} · ${knowledgeUploadBatchHint(locale.value)}`)
 
 const dropdownOptions = computed(() => {
   const options = [
     {
-      content: t('upload.uploadDocument'),
+      content: t('upload.uploadDocument') + knowledgeUploadMenuLimit(locale.value, false),
       value: 'upload',
       prefixIcon: () => h(TIcon, { name: 'upload', size: '16px' }),
     },
     {
-      content: t('upload.uploadFolder'),
+      content: t('upload.uploadFolder') + knowledgeUploadMenuLimit(locale.value, true),
       value: 'uploadFolder',
       prefixIcon: () => h(TIcon, { name: 'folder-add', size: '16px' }),
     },
@@ -170,6 +172,13 @@ const handleFilesChange = (event: Event, fromFolder: boolean) => {
   const input = event.target as HTMLInputElement
   const files = input.files
   if (!files || files.length === 0) return
+
+  // Count the entire selection, including nested directory entries, before filtering.
+  if (isKnowledgeUploadBatchTooLarge(files.length)) {
+    MessagePlugin.warning(knowledgeUploadBatchLimitMessage(files.length, locale.value))
+    input.value = ''
+    return
+  }
 
   const result = filterUploadFiles(files, {
     supportedFileTypes: props.supportedFileTypes,

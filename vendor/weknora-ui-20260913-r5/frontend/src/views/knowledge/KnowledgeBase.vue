@@ -53,6 +53,7 @@ import BatchTagDialog from './components/BatchTagDialog.vue';
 import KbTagManageDrawer from './components/KbTagManageDrawer.vue';
 import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess';
 import { useUploadConfirmStore, type UploadConfirmResult } from '@/stores/uploadConfirm';
+import { isKnowledgeUploadBatchTooLarge, knowledgeUploadBatchLimitMessage, knowledgeUploadBatchHint } from './utils/uploadBatchLimit';
 import WikiBrowser from './wiki/WikiBrowser.vue';
 import { getWikiStats } from '@/api/wiki';
 import {
@@ -76,7 +77,7 @@ import { useI18n } from 'vue-i18n';
 import { useMarqueeSelect } from '@/hooks/useMarqueeSelect';
 import type { ParserEngineInfo } from '@/api/system';
 const route = useRoute();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const kbId = computed(() => (route.params as any).kbId as string || '');
 const kbInfo = ref<any>(null);
 const uploadSourceRef = ref<InstanceType<typeof KbUploadSourceDropdown> | null>(null);
@@ -1652,6 +1653,11 @@ const executeUploadBatch = async (
     targetFolder?: string;
   } = {},
 ) => {
+  // Last browser-side boundary: never truncate or auto-split an oversized batch.
+  if (isKnowledgeUploadBatchTooLarge(files.length)) {
+    MessagePlugin.warning(knowledgeUploadBatchLimitMessage(files.length, locale.value));
+    return { successCount: 0, failCount: files.length };
+  }
   const targetKbId = kbId.value;
   if (!targetKbId || files.length === 0) {
     return { successCount: 0, failCount: files.length };
@@ -1772,6 +1778,10 @@ const handleUploadConfirmResult = async (result: UploadConfirmResult) => {
   }
 
   const files = result.files || [];
+  if (isKnowledgeUploadBatchTooLarge(files.length)) {
+    MessagePlugin.warning(knowledgeUploadBatchLimitMessage(files.length, locale.value));
+    return;
+  }
   const urls = result.urls || [];
   const processConfig = result.processConfig;
   const tagIds = result.tagIds || [];
@@ -1794,6 +1804,10 @@ const handleUploadConfirmResult = async (result: UploadConfirmResult) => {
 };
 
 const openUploadConfirmDialog = async (files: File[], urls: string[] = []) => {
+  if (isKnowledgeUploadBatchTooLarge(files.length)) {
+    MessagePlugin.warning(knowledgeUploadBatchLimitMessage(files.length, locale.value));
+    return;
+  }
   if (!kbInfo.value) return;
   if (files.length === 0 && urls.length === 0) return;
   try {
@@ -2581,6 +2595,9 @@ async function createNewSession(value: string): Promise<void> {
                   </div>
                 </div>
               </div>
+              <p v-if="canEdit" class="knowledge-upload-batch-hint">
+                {{ knowledgeUploadBatchHint(locale) }}
+              </p>
               <div class="doc-scroll-container"
                 :class="{
                   'is-empty': !cardList.length && !currentChildFolders.length && !docListLoading,
@@ -2729,6 +2746,18 @@ async function createNewSession(value: string): Promise<void> {
   />
 </template>
 <style>
+.knowledge-upload-batch-hint {
+  flex-shrink: 0;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--td-bg-color-secondarycontainer);
+  color: var(--td-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 /* 下拉菜单容器样式已统一至 @/assets/dropdown-menu.less */
 .tag-filter-popup {
   z-index: 5500 !important;
