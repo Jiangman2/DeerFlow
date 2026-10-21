@@ -1,5 +1,12 @@
 # 🦌 DeerFlow - 2.0
 
+Enterprise GLM-5.3-Flash stream completion now checks the terminal choice and
+raw `[DONE]` marker before accepting a response. Truncated streams stop with a
+visible warning and no automatic tool execution or retry. Fixed thinking and
+single-image support retain the supplied 5.3 contract. See the
+[GLM contract and candidate verification](docs/enterprise-glm-modes.md);
+offline qualification is separate from server acceptance and deployment.
+
 Enterprise DeepSeek-V4.1-Flash is available as an opt-in
 [model profile](deploy/enterprise/deepseek-v4.1-flash.model.yaml). Append it to
 the existing server model list and inject `DEEPSEEK_V4_1_FLASH_API_KEY` from a

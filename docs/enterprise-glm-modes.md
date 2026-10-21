@@ -26,15 +26,40 @@ historical and does not disable thinking; the function-call Python example's
 second-turn GLM-5.2 is a copy/paste mismatch. The corrected document and our
 integration keep GLM-5.3-Flash in both turns. Do not copy these example bugs.
 
-## Stream acceptance limitation
+## Stream termination guard
 
-The SDK consumes [DONE] internally. The current adapter does not independently
-verify that raw marker; its frame guard rejects malformed-frame streams lacking
-a terminal chunk, but is not a general clean-EOF truncation detector. Therefore
-do not claim full compliance with section 6.5's strict raw [DONE] requirement
-solely from chunk-level tests. A transport-level termination guard requires
-separate implementation and qualification. The release canary does require a
-valid finish reason and rejects length-truncated results.
+The GLM adapter installs a response-local observer before OpenAI SDK 2.32.0
+consumes SSE events. It requires a choice-zero terminal reason followed by the
+exact `[DONE]` marker. Clean EOF, a partial marker, or `[DONE]` without a terminal
+choice fails with `incomplete_glm_stream`. JSON content containing that text is
+not a marker. The SDK still parses fragmented UTF-8, CRLF, comments and SSE data;
+the observer stores only two booleans. It does not patch a shared client or
+another provider. Unknown SDK stream shapes fail closed; SDK upgrades require
+qualification of this private decoder seam, including structured-output wrappers.
+
+Already streamed text can remain visible, but the error middleware produces a
+terminal warning with no tool calls and no automatic retry. Caller cancellation
+preserves cancellation and closes the upstream response. A terminal `length`
+still reaches the existing truncation handling; `[DONE]` is transport completion,
+not proof of task completion. The provider canary also rejects length truncation.
+
+Offline raw-SSE tests cover sync/async, final text/usage, truncated tool calls,
+structured output, cancellation and concurrent response isolation. These do not
+constitute production acceptance. Package the standalone field canary with:
+
+```sh
+python deploy/enterprise/package-glm-stream-completion.py --output /path/to/verify-glm-stream.py
+```
+
+On datax-01, run `sudo python3 -I -B -u /home/cnooc/verify-glm-stream.py
+--verify-glm-stream-once` as one command. The Python 3.7 controller checks a steady
+Gateway, exact baseline source hashes and SDK version, then loads candidate
+modules only in a short-lived process. It uses the existing environment key,
+verified TLS and at most four synthetic requests (text, tool call, tool result,
+single image); no business tools, Secret writes or Deployment updates. Preserve
+its report and once marker after failure or uncertainty. A passing report is
+candidate acceptance only; prepare the Gateway patch against the reported image
+and freshly verify the rollout baseline before a separate update.
 
 ## Withdrawn candidate
 

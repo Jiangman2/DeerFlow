@@ -6,12 +6,16 @@ from copy import deepcopy
 
 from pydantic import Field, field_validator
 
+from deerflow.models.glm_stream_guard import install_glm_stream_guard
 from deerflow.models.robust_openai import RobustChatOpenAI
 
 
 class EnterpriseGLMChat(RobustChatOpenAI):
     use_responses_api: bool = False
     request_deadline_seconds: float = Field(default=600, gt=0, le=1800)
+
+    def _prepare_provider_stream(self, response):
+        install_glm_stream_guard(response)
 
     @field_validator("use_responses_api", mode="before")
     @classmethod

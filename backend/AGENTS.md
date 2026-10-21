@@ -2131,6 +2131,14 @@ The supplied GLM-5.3-Flash document section 6.2 explicitly forbids disabling
 thinking. Do not apply GLM-5.2 mode settings to FCGLM-001. The speculative
 switchable profile and diagnostic were withdrawn before deployment; preserve
 the fixed-thinking profile, single-image guard and the same model in tool turns.
+GLM streaming additionally requires a terminal choice followed by raw `[DONE]`.
+Keep the observer response-local, before the pinned OpenAI 2.32 decoder output
+is consumed; never patch shared SDK clients or change other model streams.
+Qualify private SDK seam changes with raw-byte sync/async and structured-output
+tests. Missing termination is a non-retriable terminal safety error, not a
+completed tool call. Preserve cancellation, close responses, retain final usage,
+and distinguish transport completion from task completion. The isolated field
+canary source-binds existing modules and never updates the running service.
 
 Browser `private_origins` are operator-owned exact scheme/host/port plus audited
 private address ranges. Explicit `private_origin_suffixes` additionally permit a
