@@ -2149,6 +2149,13 @@ The October 21 GLM field canary passed all four stages on Gateway generation
 to the observed `58a50175cfae...` ARM64 manifest; preserve all base layers and
 runtime settings. Preload-only receipts are not rollout acceptance. Recheck node
 identities and the live Gateway specification before any later image-only patch.
+The separate GLM activation binds all five actual preloads and the saved field
+canary, uses an operator-attested task-drain window, and tests the complete
+current specification before its one image replacement. Persist once/intent
+before submission and mark uncertain outcomes honestly. Post-rollout acceptance
+checks all 70 worker identities, exact source hashes and offline SDK termination
+semantics plus existing directory/model reads; it never repeats provider calls.
+An interrupted observer is not permission to reissue the patch or clear once.
 
 Browser `private_origins` are operator-owned exact scheme/host/port plus audited
 private address ranges. Explicit `private_origin_suffixes` additionally permit a

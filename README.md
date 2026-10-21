@@ -6,6 +6,9 @@ visible warning and no automatic tool execution or retry. Fixed thinking and
 single-image support retain the supplied 5.3 contract. See the
 [GLM contract and candidate verification](docs/enterprise-glm-modes.md);
 offline qualification is separate from server acceptance and deployment.
+The October 21 four-stage field canary and all five node preloads passed;
+the separately qualified image-only activation still requires an operator
+task-drain window and subsequent 70-worker runtime acceptance.
 
 Enterprise DeepSeek-V4.1-Flash is available as an opt-in
 [model profile](deploy/enterprise/deepseek-v4.1-flash.model.yaml). Append it to

@@ -88,6 +88,33 @@ matrix must be freshly checked during activation; preload is not rollout
 acceptance. A separate release step still needs all five preload receipts,
 fresh Gateway baseline checks and the operator's task-drain window.
 
+### October 21 activation preparation
+
+All five actual preload receipts passed and are recorded in
+`deploy/enterprise/glm-stream-preload-receipts-20261021-r1.json`. A later operator
+read confirmed Gateway generation 381 (70/70 updated and ready) and frontend
+generation 225 (2/2). This does not attest that interactive tasks are drained.
+
+`package-glm-stream-activation.py` builds the separate activation tool from the
+hash-pinned earlier controller, these receipts and the field-qualified source
+manifest. Run the generated tool on datax-01 only after the operator confirms
+the idle window, with `--activate-gateway-glm-stream-once --tasks-drained`.
+It verifies the saved canary, current exact Gateway/frontend specification
+bindings, five current node UIDs and image caches, existing model configuration,
+two preflight samples and Service endpoint ownership. The only patch replaces
+the Gateway container image, using UID/resourceVersion/generation/full-spec
+JSON Patch tests. The once marker and intent are durable before submission;
+uncertain patch outcomes must never be retried or automatically rolled back.
+
+After convergence it checks all 70 workers, exact four-file hashes, SDK 2.32,
+offline complete/truncated stream behavior, authenticated directory/model reads,
+typed UUID reads and unchanged configuration/other deployments. The verification
+does not call a model or alter business state. Local qualification comprises
+17 Linux Python 3.7 controller tests and 3 real-SDK runtime helper tests; actual
+production rollout and browser acceptance still await operator execution.
+Preserve the report, intent and once marker if observation fails; inspect the
+already-issued update rather than sending another patch.
+
 ## Withdrawn candidate
 
 The switchable profile, five-call mode diagnostic and adapter change prepared
