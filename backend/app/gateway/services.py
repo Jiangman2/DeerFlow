@@ -979,6 +979,7 @@ async def launch_scheduled_thread_run(
     run_context: Mapping[str, Any] | None = None,
     metadata: dict[str, Any] | None = None,
     stream_mode: list[str] | None = None,
+    recursion_limit: int | None = None,
 ) -> dict[str, Any]:
     if request is None:
         if app is None:
@@ -1002,7 +1003,7 @@ async def launch_scheduled_thread_run(
 
     app_config = get_app_config()
     scheduled_recursion_limit = min(
-        app_config.scheduler.recursion_limit,
+        app_config.scheduler.recursion_limit if recursion_limit is None else _clamp_recursion_limit(recursion_limit, app_config.max_recursion_limit),
         app_config.max_recursion_limit,
     )
 

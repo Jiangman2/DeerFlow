@@ -393,8 +393,14 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   `/api/v1/integrations/oa/policy-flow/jobs`; it authenticates a scoped Bearer
   key, pins owner/agent and optional callback from server environment, stores idempotency,
   leases, retries, and callback state in `oa_policy_flow_jobs`, and launches via
-  `launch_scheduled_thread_run`. Completion requires exactly one valid UTF-8
-  JSON artifact from `present_files`. Polling-only mode sets
+  `launch_scheduled_thread_run`. The default v1 contract requires exactly one
+  valid UTF-8 JSON artifact from `present_files`. Explicit, operator-enabled v2
+  accepts a bounded batch, validates every file and run attribution, and stores
+  content-addressed snapshots outside Sandbox mounts before publishing the
+  durable result manifest. Never downgrade a v2 result to its first file, merge
+  independent JSON documents, or treat an errored run as success. Retain the
+  additive manifest columns during application rollback, and drain v2 jobs
+  before using a v1-only worker. Polling-only mode sets
   `OA_POLICY_FLOW_CALLBACK_ENABLED=false`, marks terminal jobs' callback state
   `disabled`, and never schedules callback transport. When enabled, keep callback
   targets operator-owned, `trust_env=false`, redirect-disabled, and TLS verified. Never allow an OA

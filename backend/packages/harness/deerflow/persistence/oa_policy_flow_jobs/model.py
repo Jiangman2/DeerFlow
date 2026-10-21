@@ -29,6 +29,8 @@ class OAPolicyFlowJobRow(Base):
     output_virtual_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     output_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     output_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    result_protocol: Mapped[str] = mapped_column(String(8), default="v1", server_default="v1")
+    result_files: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     process_attempts: Mapped[int] = mapped_column(Integer, default=0)
     callback_attempts: Mapped[int] = mapped_column(Integer, default=0)
