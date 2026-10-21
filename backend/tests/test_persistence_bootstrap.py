@@ -48,7 +48,7 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0020_ppt_confirmation"
+HEAD = "0021_oa_result_sets"
 BASELINE = "0001_baseline"
 PRE_CONFIRMATION_HEAD = "0019_digital_employee_agents"
 CONFIRMATION_TABLES = frozenset({"ppt_confirmation_tasks", "ppt_confirmation_gates"})

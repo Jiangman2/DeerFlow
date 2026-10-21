@@ -1,0 +1,63 @@
+{
+  "source_build_record": "C:\\Users\\15285\\.codex\\tmp\\oa-data-qa-progress-frontend-build-r3\\RESULT.json",
+  "source": {
+    "files": 938,
+    "bytes": 47285452,
+    "sha256": "e7a1156f04044016607dedcb9916d90231085c1db9158c4cf4fd27a7e390870c",
+    "path": "C:\\Users\\15285\\.codex\\tmp\\oa-data-qa-progress-frontend-build-r3\\context"
+  },
+  "image": {
+    "tag": "deerflow.local/deer-flow-frontend:20261021-data-qa-progress-r1",
+    "id": "sha256:15d1327740e688faf0617d1d8fb9f662618a963624ba7280a6d0efb54ed70475",
+    "bytes": 127303964,
+    "layers": 11
+  },
+  "production_writes": 0,
+  "ready_for_rollout": false,
+  "fresh_runtime": {
+    "pinned_base_prefix": "PASS",
+    "base_layers": 4,
+    "added_layers": 7,
+    "previous_application_image_used": false
+  },
+  "runtime": {
+    "layout": {
+      "standalone_layout": "PASS",
+      "files": 2841,
+      "bytes": 131966012,
+      "symlinks": 35,
+      "assets_checked": true,
+      "build_id_sha256": "9f21e0c81acf60563f8d7fd8bed37d175c532c45418ef597c99b8d03c5baef36",
+      "routes_sha256": "9b19f00490aaa2b8ffb5d056901e9ba959518b38b1365a3ea1290c0f689647f9",
+      "runtime_http": "NOT_TESTED",
+      "production_acceptance": "NOT_TESTED"
+    },
+    "http": {
+      "local_http": "PASS",
+      "runtime_env": "PASS",
+      "sso_redirect": "SYNTHETIC_PASS",
+      "static_assets": [
+        ".js",
+        ".css"
+      ],
+      "unauthenticated_launch_status": 401,
+      "production_sso": "NOT_TESTED",
+      "gateway": "NOT_TESTED",
+      "models": "NOT_REQUESTED"
+    }
+  },
+  "export_seconds": 100.03,
+  "export": {
+    "archive": "C:\\Users\\15285\\.codex\\tmp\\oa-data-qa-progress-frontend-qualified-r4\\frontend.oci.tar",
+    "sha256": "aeb791af15e7456ad41c1d64590e5f9796071475c5066da6bb46922418eae7b2",
+    "bytes": 127319040,
+    "layers": 11,
+    "compressed_layer_bytes": 127292671,
+    "uncompressed_layer_bytes": 302004224,
+    "exact_qualified_layers": "PASS",
+    "blob_and_diffid_hashes": "PASS"
+  },
+  "status": "LOCAL_RUNTIME_AND_OCI_ACCEPTED_NOT_DEPLOYED",
+  "source_build_record_sha256": "6ae26c54db4244370b8d820158db79d5f52acd5254c4005308e8a4051c8b15b7",
+  "qualification_kind": "LOCAL_ARM64_RUNTIME_AND_EXACT_OCI_LAYERS_NOT_FIELD_ACCEPTANCE"
+}

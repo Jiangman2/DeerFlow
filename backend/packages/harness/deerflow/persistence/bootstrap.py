@@ -518,6 +518,13 @@ async def bootstrap_schema(engine: AsyncEngine, *, backend: str) -> None:
             await asyncio.to_thread(_upgrade, cfg, "head")
 
         elif decision == "versioned":
+            from deerflow.persistence.oa_schema_compatibility import accepts_oa_additive_schema
+
+            async with engine.connect() as conn:
+                compatible_successor = await conn.run_sync(lambda c: accepts_oa_additive_schema(c, local_head=head))
+            if compatible_successor:
+                logger.info("bootstrap: accepted audited OA additive successor without schema changes")
+                return
             logger.info("bootstrap: branch=versioned -> upgrade head (%s)", head)
             await asyncio.to_thread(_upgrade, cfg, "head")
 

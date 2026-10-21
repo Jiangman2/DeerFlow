@@ -1,0 +1,205 @@
+{
+  "schema": "portal-oa-data-qa-preload-field-observation.v1",
+  "source_attachment_sha256": "2fc1f3972f9a4bd0c386b1fc772c3f2779d713a06b10a8b4c999729827952149",
+  "evidence_origin": "OPERATOR_PASTED_RECEIPTS_NOT_DIRECT_CLUSTER_READ",
+  "preloaded_nodes": [
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-oa-data-qa-report-ry0i5bpx/REPORT.json",
+      "elapsed_seconds": 6.083,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "0243d097-3ee7-4abc-899a-319e57934eee",
+      "hostname": "ecs-zdz-pro-0018",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "f9db188270654f20aac1c795721b0b96",
+      "query_count": 133,
+      "ready_for_rollout": false,
+      "report_bytes": 76082,
+      "report_sha256": "8c1cd149a22248fd867837fbc88f2b1f85a0e5ddf2c0a8c88625935176b21766",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2](http://deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2)",
+            "[deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c](http://deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c)"
+          ],
+          "config_digest": "sha256:5fac6d5924346675db6f3dcf9a117359679c609cf78da4968c69497b47908425",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2](http://deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-oa-data-qa-preload.v1",
+      "status": "COMPLETE_GATEWAY_OA_DATA_QA_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-oa-data-qa-report-5b30xsgw/REPORT.json",
+      "elapsed_seconds": 5.641,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "e23480a1-041d-4767-b6cb-e8b93d456ac1",
+      "hostname": "ecs-zdz-pro-0019",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "b43a6a6d5c904224b0fdf510c533b1d8",
+      "query_count": 133,
+      "ready_for_rollout": false,
+      "report_bytes": 76082,
+      "report_sha256": "03d652a5b919db24b1689d42934341ae619970d357d998678da635e1fdd57ed8",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2](http://deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2)",
+            "[deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c](http://deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c)"
+          ],
+          "config_digest": "sha256:5fac6d5924346675db6f3dcf9a117359679c609cf78da4968c69497b47908425",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2](http://deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-oa-data-qa-preload.v1",
+      "status": "COMPLETE_GATEWAY_OA_DATA_QA_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-oa-data-qa-report-zc94tytm/REPORT.json",
+      "elapsed_seconds": 5.325,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "d43ad71d-b5e1-49fc-a93f-3cb0aee6a6e2",
+      "hostname": "ecs-zdz-pro-0020",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "bb7496a1d5fd4ddbb6f918a607cd8ab5",
+      "query_count": 133,
+      "ready_for_rollout": false,
+      "report_bytes": 76082,
+      "report_sha256": "f1d2a9378a5581c0d83588df90e950eeb22f09ad34bacc7600b8fc588a90cea9",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2](http://deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2)",
+            "[deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c](http://deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c)"
+          ],
+          "config_digest": "sha256:5fac6d5924346675db6f3dcf9a117359679c609cf78da4968c69497b47908425",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2](http://deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-oa-data-qa-preload.v1",
+      "status": "COMPLETE_GATEWAY_OA_DATA_QA_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-oa-data-qa-report-8fmoifo7/REPORT.json",
+      "elapsed_seconds": 5.613,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "181f267d-e653-4fa8-9e1f-d0138454f079",
+      "hostname": "ecs-zdz-pro-0021",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "9058e8e67d734b26ae0532f1684907cf",
+      "query_count": 133,
+      "ready_for_rollout": false,
+      "report_bytes": 76082,
+      "report_sha256": "caa4ae098adc41cede354e82ed3ac4b2b556329dbe6ba3d3c7db03c1e7d3670c",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2](http://deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2)",
+            "[deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c](http://deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c)"
+          ],
+          "config_digest": "sha256:5fac6d5924346675db6f3dcf9a117359679c609cf78da4968c69497b47908425",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2](http://deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-oa-data-qa-preload.v1",
+      "status": "COMPLETE_GATEWAY_OA_DATA_QA_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-oa-data-qa-report-lc0cnz1m/REPORT.json",
+      "elapsed_seconds": 5.909,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "0f1fa57f-f37f-42ed-a296-047295f17856",
+      "hostname": "ecs-zdz-pro-0022",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "2f90dbcadc504362928a36206dee6d15",
+      "query_count": 133,
+      "ready_for_rollout": false,
+      "report_bytes": 76083,
+      "report_sha256": "a8a53bafb1a05f26d34eaa181b1a98e512af3258baffbbee21a8ae1525cc5249",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2](http://deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2)",
+            "[deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c](http://deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c)"
+          ],
+          "config_digest": "sha256:5fac6d5924346675db6f3dcf9a117359679c609cf78da4968c69497b47908425",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2](http://deerflow.local/deer-flow-gateway:20261021-oa-data-qa-r1-0a47db87acd2)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-oa-data-qa-preload.v1",
+      "status": "COMPLETE_GATEWAY_OA_DATA_QA_PRELOAD_REVIEW_REQUIRED"
+    }
+  ],
+  "production_schema_modified": false,
+  "rollout_accepted": false,
+  "schema_consumer_compatibility_pending": true
+}

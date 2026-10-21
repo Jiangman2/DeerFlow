@@ -79,7 +79,7 @@ async def test_legacy_database_recovers_token_usage_column(tmp_path: Path) -> No
             cols = {row[1] for row in raw.execute("PRAGMA table_info(runs)").fetchall()}
             assert "token_usage_by_model" in cols
             version_row = raw.execute("SELECT version_num FROM alembic_version").fetchone()
-            assert version_row[0] == "0020_ppt_confirmation"
+            assert version_row[0] == "0021_oa_result_sets"
             tables = {row[0] for row in raw.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             assert {"ppt_confirmation_tasks", "ppt_confirmation_gates"} <= tables
 
@@ -116,7 +116,7 @@ async def test_legacy_database_with_manual_alter_still_bootstraps(tmp_path: Path
             # No duplicate column -- list, not set, to catch dupes.
             assert cols.count("token_usage_by_model") == 1
             version_row = raw.execute("SELECT version_num FROM alembic_version").fetchone()
-            assert version_row[0] == "0020_ppt_confirmation"
+            assert version_row[0] == "0021_oa_result_sets"
             tables = {row[0] for row in raw.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             assert {"ppt_confirmation_tasks", "ppt_confirmation_gates"} <= tables
     finally:

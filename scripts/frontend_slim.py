@@ -132,6 +132,12 @@ def verify_fresh_layers(base, image):
             'added_layers': len(layers) - len(baseline), 'previous_application_image_used': False}
 
 
+def inspect_platform_base(reference, platform):
+    base = json.loads(capture(["docker", "image", "inspect", "--platform", platform, reference]))[0]
+    require(base["Architecture"] == platform.split('/')[1], "base_image_architecture_mismatch")
+    return base
+
+
 def run_build(command, out, log_name="BUILD.log"):
     start = time.monotonic()
     with (out / log_name).open("xb") as log:
@@ -345,7 +351,7 @@ def main():
                 "image_size_or_layer_budget_exceeded")
         result["image"] = {"tag": args.tag, "id": image["Id"], "bytes": image["Size"],
                            "layers": len(image["RootFS"]["Layers"])}
-        base = json.loads(capture(["docker", "image", "inspect", args.node_image]))[0]
+        base = inspect_platform_base(args.node_image, args.platform)
         result['fresh_runtime'] = verify_fresh_layers(base, image)
         result["runtime"] = qualify(image["Id"], args.platform, out)
         if args.export_oci:

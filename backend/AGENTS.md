@@ -400,7 +400,13 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   durable result manifest. Never downgrade a v2 result to its first file, merge
   independent JSON documents, or treat an errored run as success. Retain the
   additive manifest columns during application rollback, and drain v2 jobs
-  before using a v1-only worker. Polling-only mode sets
+  before using a v1-only worker. Old 0020 consumers cannot resolve Alembic 0021:
+  before migration, qualify the narrow `oa_schema_compatibility` bootstrap
+  backport in every shared-database consumer (including PPT Runner) and the
+  rollback image. It accepts only the audited 0020 -> 0021 expansion with exact
+  column shapes; it never stamps a revision, runs a downgrade, or accepts an
+  unknown successor. Do not treat column compatibility as startup compatibility.
+  Polling-only mode sets
   `OA_POLICY_FLOW_CALLBACK_ENABLED=false`, marks terminal jobs' callback state
   `disabled`, and never schedules callback transport. When enabled, keep callback
   targets operator-owned, `trust_env=false`, redirect-disabled, and TLS verified. Never allow an OA

@@ -13,6 +13,14 @@ import build_pool as pool
 
 
 class SlimTests(unittest.TestCase):
+    def test_base_inspection_selects_target_architecture(self):
+        with patch.object(slim, 'capture', return_value=b'[{"Architecture":"arm64"}]') as capture:
+            self.assertEqual(slim.inspect_platform_base('node@sha256:fixture', 'linux/arm64')['Architecture'], 'arm64')
+            capture.assert_called_once_with(['docker', 'image', 'inspect', '--platform', 'linux/arm64', 'node@sha256:fixture'])
+        with patch.object(slim, 'capture', return_value=b'[{"Architecture":"amd64"}]'):
+            with self.assertRaisesRegex(slim.CheckFailure, 'base_image_architecture_mismatch'):
+                slim.inspect_platform_base('node@sha256:fixture', 'linux/arm64')
+
     def test_fresh_runtime_prefix_and_layer_budget(self):
         base = {'RootFS': {'Layers': ['node-a', 'node-b']}}
         good = {'RootFS': {'Layers': ['node-a', 'node-b', 'new-app']}}

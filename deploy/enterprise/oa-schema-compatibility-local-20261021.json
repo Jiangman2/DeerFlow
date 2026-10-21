@@ -1,0 +1,60 @@
+{
+  "schema": "portal-oa-schema-compatibility-local.v1",
+  "status": "LOCAL_SYNTHETIC_ACCEPTED_NOT_DEPLOYED",
+  "checks": [
+    "baseline_unknown_revision_reproduced",
+    "compatible_0020_consumer_restarts_on_0021",
+    "revision_and_legacy_row_preserved",
+    "incomplete_expansion_rejected",
+    "unknown_successor_rejected",
+    "existing_0020_startup_preserved"
+  ],
+  "backends": [
+    "SQLite",
+    "PostgreSQL16_isolated_fixture"
+  ],
+  "migration_regression_passed": 51,
+  "host_wrapper_tests_passed": 3,
+  "host_wrapper_drift_subcases": 5,
+  "python37_host_compile": "PASS",
+  "postgres_fixture_removed": true,
+  "production_database_access": false,
+  "production_migration_performed": false,
+  "consumer_observation": {
+    "evidence_origin": "OPERATOR_PASTED_READONLY_RESULT",
+    "same_database_endpoint": true,
+    "database_endpoint_fingerprint": "b0fdaf30f3160cd52abf01520da71a20570c23795938bf73165153083fae9d91",
+    "gateway_generation": 382,
+    "ppt_runner_generation": 54,
+    "both_schema_heads": "0020_ppt_confirmation",
+    "both_startup_engine_calls_present": true
+  },
+  "candidate_sources": {
+    "bootstrap.py": {
+      "bytes": 24641,
+      "sha256": "611dff501f59b3b94bccd4b3f9b31309955eb5e38356ed257882ead79d8e1fb1"
+    },
+    "oa_schema_compatibility.py": {
+      "bytes": 2024,
+      "sha256": "2dd04bfafc29856c0f646926043aed7b713d79d69744a9053ff99fdf6af24c8b"
+    }
+  },
+  "field_candidate_script_r1_sha256": "ecf4a64a609024b462a8041c1219f8fde4573a899bc5fd6a0fcbd9562890c899",
+  "field_candidate_script_r2_sha256": "c4a42a6499416614d078ff75ff35db588e1366373a586efd2aeb028001b1a04c",
+  "sqlite_baseline_variants_passed": [
+    "b852ea3bd215124e605e8c5a276c1cc99343a67d4165136121d885ea3def9449",
+    "990e6381692083a00a856a61c19f072e81f57f4ec41b232db4d8e8ebecf3ab86",
+    "aed07790a9bb3bf8afd47000c91ba9799bcf130a9e30af47ceaa560786913194"
+  ],
+  "postgres_baseline_variant_passed": "b852ea3bd215124e605e8c5a276c1cc99343a67d4165136121d885ea3def9449",
+  "field_r1": {
+    "gateway": "SYNTHETIC_SCHEMA_COMPATIBILITY_ACCEPTED",
+    "ppt_master_runner": "INCOMPLETE",
+    "runner_error_class": "AssertionError",
+    "runner_failure_stage": "NOT_RECORDED",
+    "overall_accepted": false,
+    "production_database_access": false,
+    "workload_modified": false
+  },
+  "field_r2_pending": true
+}
