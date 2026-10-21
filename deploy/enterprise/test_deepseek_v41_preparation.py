@@ -259,5 +259,48 @@ class Provider503ResumeTests(unittest.TestCase):
                 P.verify_prior_attempt(parent, prior)
 
 
+class SyntheticTool503ResumeTests(Provider503ResumeTests):
+    def fixture(self, parent, mutate=None):
+        def update(report):
+            report["resumed_provider_503_operation"] = report.pop("resumed_noop_operation")
+            provider = report["provider"]
+            provider.update(stage="tool_resume", provider_requests_attempted=4,
+                            checks=[dict(stage=s, finish_reason=f) for s, f in (("flash", "stop"), ("thinking", "stop"), ("tool_call", "tool_calls"))],
+                            stage_results=dict(flash="PASS", thinking="PASS", tool_call="PASS", tool_resume="FAIL", multi_image="NOT_ATTEMPTED"))
+            if mutate:
+                mutate(report)
+        prior = super().fixture(parent, update)
+        prior["kind"] = "synthetic_tool_http_503"
+        prior["resumed_provider_503_operation"] = prior.pop("resumed_noop_operation")
+        return prior
+
+    def test_timeout_auth_successful_stages_and_secret_activity_are_not_retried(self):
+        changes = [
+            lambda r: r["provider"].update(http_status=401),
+            lambda r: r["provider"].pop("http_status"),
+            lambda r: r["provider"].update(business_tools_executed=1),
+            lambda r: r["provider"].update(provider_requests_attempted=5),
+            lambda r: r["provider"].update(checks=[]),
+            lambda r: r["provider"]["stage_results"].update(tool_resume="PASS"),
+            lambda r: r.update(secret_creation_may_have_applied=True),
+            lambda r: r.update(profile_sha256="0" * 64),
+        ]
+        for index, change in enumerate(changes):
+            with self.subTest(case=index), tempfile.TemporaryDirectory() as tmp:
+                parent = pathlib.Path(tmp)
+                prior = self.fixture(parent, change)
+                with self.assertRaises(P.Refused):
+                    P.verify_prior_attempt(parent, prior)
+
+    def test_prior_marker_mismatch_is_not_new_attempt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            parent = pathlib.Path(tmp)
+            prior = self.fixture(parent)
+            marker = parent / ("portal-deepseek-v41-resume-" + prior["resumed_provider_503_operation"] + ".once")
+            marker.write_bytes(P.canonical(dict(operation="f" * 32)))
+            with self.assertRaisesRegex(P.Refused, "prior_once_identity_changed"):
+                P.verify_prior_attempt(parent, prior)
+
+
 if __name__ == "__main__":
     unittest.main()

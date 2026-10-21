@@ -64,8 +64,15 @@ or workload mutation. It binds the preceding recovery marker and unchanged
 profile, preserves both reports/markers, and claims a new exclusive marker.
 This is not an automatic retry loop. Timeout/unknown outcomes, 401/402, successful
 stages, later tool stages, or any possible Secret write refuse this recovery.
-If the explicit retry again returns 503, obtain provider availability confirmation
-before further requests; do not publish an unqualified selector entry.
+A separate `--resume-synthetic-tool-503-receipt` package is available only for an
+explicit operator request after the three successful synthetic stages followed
+by tool-result HTTP 503. It pins that report and its previous recovery marker,
+requires zero business tools and no Secret writes, and reruns at most five
+requests without automatic retry. It does not replay any business tool or claim
+the provider is healthy. The supplied v1.2 document records transient deployment
+503s, but the field status alone does not prove that explanation for this run.
+Further attempts require an explicit decision after reviewing the latest receipt;
+do not publish an unqualified selector entry or build an unattended retry loop.
 
 For activation, bind the current successful Gateway/frontend reports, append the
 profile to a new configuration copy, add only the new required Secret reference,

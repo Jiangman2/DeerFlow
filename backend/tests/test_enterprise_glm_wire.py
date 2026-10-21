@@ -115,3 +115,35 @@ async def test_closing_wrapper_closes_parent_generator_immediately(monkeypatch):
 def test_responses_protocol_override_rejected_before_io():
     with pytest.raises(ValueError, match="Chat Completions"):
         EnterpriseGLMChat(model="GLM-5.3-Flash", api_key="offline", use_responses_api=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("thinking", [False, True])
+async def test_switchable_profile_factory_sdk_wire_and_selector(thinking):
+    from pathlib import Path
+
+    import yaml
+
+    from app.gateway.routers.models import list_models
+    from deerflow.config.app_config import AppConfig
+    from deerflow.config.sandbox_config import SandboxConfig
+    from deerflow.models.factory import create_chat_model
+
+    profile = yaml.safe_load((Path(__file__).resolve().parents[2] / "deploy/enterprise/glm-5.3-flash-switchable.model.yaml").read_text())["models"][0]
+    profile["api_key"] = "offline-test-only"
+    config = AppConfig(models=[profile], sandbox=SandboxConfig(use="deerflow.sandbox.local:LocalSandboxProvider"))
+    metadata = (await list_models(config)).models[0]
+    assert metadata.supports_vision and metadata.supports_thinking and not metadata.thinking_always_on
+
+    def respond(request):
+        body = json.loads(request.content)
+        assert body["thinking"] == {"type": "enabled" if thinking else "disabled"}
+        assert "reasoning_effort" not in body
+        assert "supports_vision" not in body and "thinking_always_on" not in body
+        assert body["messages"][0]["content"][0]["type"] == "image_url"
+        return sse(chunk({"role": "assistant", "content": "red"}, "stop"))
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+        instance = create_chat_model("glm-5.3-flash", thinking_enabled=thinking, reasoning_effort="low", app_config=config, attach_tracing=False, http_async_client=http)
+        result = await instance.ainvoke([HumanMessage([{"type": "text", "text": "color"}, {"type": "image_url", "image_url": {"url": "data:image/png;base64,aGVsbG8="}}])])
+    assert result.content == "red"

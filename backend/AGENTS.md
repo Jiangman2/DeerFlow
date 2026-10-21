@@ -14,6 +14,9 @@ Never clear an uncertain attempt or relax the rollout gate to make it pass.
 The separate explicit first-flash-503 recovery accepts only a pinned HTTP error
 with one synthetic request, zero completed stages and no Secret write; it is
 not a generic retry for timeout, tool execution or uncertain outcomes.
+An explicitly requested synthetic-tool-503 recovery separately binds the exact
+three completed test stages and failed fourth request, requires zero business
+tools and no possible Secret write, and reruns the bounded five-call canary.
 
 Employee featured-store reads use the field-qualified r6 source. On Linux,
 force pathname metadata refresh with statx before the bounded precommit open,
@@ -2114,7 +2117,7 @@ An unrelated PPT migration still needs its own qualification in every DB client
 image. Never downgrade production as a code rollback.
 
 `EnterpriseGLMChat` implements only the supplied GLM-5.3-Flash Chat Completions
-contract: fixed thinking, omitted/high/max effort, one base64 image before text,
+contract: default thinking, omitted/high/max effort, one base64 image before text,
 reasoning replay and bounded async wall time. Keep `thinking_always_on` and
 `supports_vision` out of provider payloads and credentials out of model metadata.
 The server Secret/config addition and real provider acceptance remain release
@@ -2124,6 +2127,12 @@ when GLM streaming is closed/cancelled. SDK-wire tests must stay offline. The
 explicit `enterprise_glm_probe --run` requires enterprise-network execution and a
 server-side environment key; at most four synthetic calls, no business tools,
 automatic retry, raw model output or credentials in receipts. Keep TLS enabled.
+The explicit switchable candidate preserves `thinking.type=disabled` and omits
+effort in flash mode. GLM-5.2 documentation is not proof of FCGLM-001 capability:
+retain the existing fixed-thinking deployment profile until that endpoint passes
+the five-call `verify_modes` canary (flash, thinking, flash tool roundtrip, image).
+The isolated field diagnostic loads candidate sources only in a short-lived
+process and reads the existing server environment key; it never deploys a model.
 
 Browser `private_origins` are operator-owned exact scheme/host/port plus audited
 private address ranges. Explicit `private_origin_suffixes` additionally permit a

@@ -15,6 +15,7 @@ def main():
     recovery = parser.add_mutually_exclusive_group()
     recovery.add_argument("--resume-noop-receipt", type=Path, help="Operator-returned operation/bytes/sha256 for an exact no-action failure")
     recovery.add_argument("--resume-flash-503-receipt", type=Path, help="Exact first synthetic request HTTP 503; no successful stages or Secret creation")
+    recovery.add_argument("--resume-synthetic-tool-503-receipt", type=Path, help="Explicit operator retry of a pinned synthetic tool-result HTTP 503, no business actions")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     profile = yaml.safe_load(
@@ -34,12 +35,14 @@ def main():
         "PROFILE = " + repr(profile),
     )
     template = template.replace("PROBE_SOURCE = None", "PROBE_SOURCE = " + repr(source))
-    recovery_path = args.resume_noop_receipt or args.resume_flash_503_receipt
+    recovery_path = args.resume_noop_receipt or args.resume_flash_503_receipt or args.resume_synthetic_tool_503_receipt
     if recovery_path:
         prior = json.loads(recovery_path.read_text(encoding="utf-8"))
         fields = {"operation", "bytes", "sha256"}
         if args.resume_flash_503_receipt:
             fields.add("resumed_noop_operation")
+        if args.resume_synthetic_tool_503_receipt:
+            fields.add("resumed_provider_503_operation")
         assert set(prior) == fields
         assert len(prior["operation"]) == 32 and all(c in "0123456789abcdef" for c in prior["operation"])
         assert type(prior["bytes"]) is int and 0 < prior["bytes"] <= 65536
@@ -47,6 +50,9 @@ def main():
         if args.resume_flash_503_receipt:
             assert len(prior["resumed_noop_operation"]) == 32 and all(c in "0123456789abcdef" for c in prior["resumed_noop_operation"])
             prior["kind"] = "flash_http_503"
+        if args.resume_synthetic_tool_503_receipt:
+            assert len(prior["resumed_provider_503_operation"]) == 32 and all(c in "0123456789abcdef" for c in prior["resumed_provider_503_operation"])
+            prior["kind"] = "synthetic_tool_http_503"
         template = template.replace("PRIOR_ATTEMPT = None  # Optional pinned, no-provider/no-Secret failure receipt.", "PRIOR_ATTEMPT = " + repr(prior))
     ast.parse(template, feature_version=(3, 7))
     raw = template.encode("utf-8")

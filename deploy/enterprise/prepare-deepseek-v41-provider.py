@@ -132,10 +132,11 @@ def verify_prior_attempt(parent, prior):
     operation = prior["operation"]
     require(len(operation) == 32 and all(c in "0123456789abcdef" for c in operation), "prior_operation_invalid")
     kind = prior.get("kind", "noop")
-    require(kind in ("noop", "flash_http_503"), "prior_kind_invalid")
+    require(kind in ("noop", "flash_http_503", "synthetic_tool_http_503"), "prior_kind_invalid")
     marker_name = ONCE_NAME
-    if kind == "flash_http_503":
-        previous = prior.get("resumed_noop_operation", "")
+    if kind != "noop":
+        parent_field = "resumed_provider_503_operation" if kind == "synthetic_tool_http_503" else "resumed_noop_operation"
+        previous = prior.get(parent_field, "")
         require(len(previous) == 32 and all(c in "0123456789abcdef" for c in previous), "prior_parent_operation_invalid")
         marker_name = "portal-deepseek-v41-resume-" + previous + ".once"
     rootfd = os.open(str(parent), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -159,13 +160,21 @@ def verify_prior_attempt(parent, prior):
         require(value.get("error_code") == "gateway_rollout_in_progress" and value.get("provider_probe_requested") is False, "prior_attempt_may_have_side_effects")
     else:
         require(value.get("error_code") == "provider_acceptance_failed" and value.get("provider_probe_requested") is True
-                and value.get("resumed_noop_operation") == previous and value.get("profile_sha256") == hashlib.sha256(canonical(PROFILE)).hexdigest(), "prior_provider_binding_changed")
+                and value.get(parent_field) == previous and value.get("profile_sha256") == hashlib.sha256(canonical(PROFILE)).hexdigest(), "prior_provider_binding_changed")
         provider = value.get("provider", {})
-        require(provider.get("status") == "INCOMPLETE" and provider.get("stage") == "flash" and provider.get("http_status") == 503
-                and provider.get("provider_requests_attempted") == 1 and provider.get("checks") == [] and provider.get("automatic_retry") is False
-                and provider.get("business_tools_executed") == 0
-                and provider.get("stage_results") == dict(flash="FAIL", thinking="NOT_ATTEMPTED", tool_call="NOT_ATTEMPTED", tool_resume="NOT_ATTEMPTED", multi_image="NOT_ATTEMPTED"),
-                "prior_provider_outcome_not_safe_to_retry")
+        require(provider.get("status") == "INCOMPLETE" and provider.get("http_status") == 503
+                and provider.get("automatic_retry") is False and provider.get("business_tools_executed") == 0, "prior_provider_outcome_not_safe_to_retry")
+        if kind == "flash_http_503":
+            require(provider.get("stage") == "flash" and provider.get("provider_requests_attempted") == 1 and provider.get("checks") == []
+                    and provider.get("stage_results") == dict(flash="FAIL", thinking="NOT_ATTEMPTED", tool_call="NOT_ATTEMPTED", tool_resume="NOT_ATTEMPTED", multi_image="NOT_ATTEMPTED"),
+                    "prior_provider_outcome_not_safe_to_retry")
+        else:
+            require(provider.get("stage") == "tool_resume" and provider.get("provider_requests_attempted") == 4
+                    and provider.get("stage_results") == dict(flash="PASS", thinking="PASS", tool_call="PASS", tool_resume="FAIL", multi_image="NOT_ATTEMPTED"),
+                    "prior_provider_outcome_not_safe_to_retry")
+            checks = provider.get("checks", [])
+            require(len(checks) == 3 and [c.get("stage") for c in checks] == ["flash", "thinking", "tool_call"]
+                    and [c.get("finish_reason") for c in checks] == ["stop", "stop", "tool_calls"], "prior_completed_checks_changed")
     return operation
 
 
@@ -358,7 +367,7 @@ def main():
         once = ONCE_NAME
         if PRIOR_ATTEMPT is not None:
             prior_operation = verify_prior_attempt(parent, PRIOR_ATTEMPT)
-            recovery_field = "resumed_provider_503_operation" if PRIOR_ATTEMPT.get("kind") == "flash_http_503" else "resumed_noop_operation"
+            recovery_field = {"flash_http_503": "resumed_provider_503_operation", "synthetic_tool_http_503": "resumed_synthetic_tool_503_operation"}.get(PRIOR_ATTEMPT.get("kind"), "resumed_noop_operation")
             report[recovery_field] = prior_operation
             once = "portal-deepseek-v41-resume-" + prior_operation + ".once"
         require(not os.path.lexists(str(parent / once)), "preparation_already_claimed")

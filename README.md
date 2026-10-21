@@ -80,6 +80,13 @@ The GLM-5.3-Flash candidate profile in
 text/tool/image acceptance; it does not change the current default model. The
 browser private-origin policy is opt-in, not a production network diagnosis or a
 blanket allowance for private networks. No code change here deploys production.
+The optional `deploy/enterprise/glm-5.3-flash-switchable.model.yaml` corrects the
+selector's fixed-thinking setting together with an adapter that honors disabled
+thinking. Qualify the actual GLM-5.3-Flash endpoint with
+`deploy/enterprise/diagnose-glm-modes.py` before activation: the supplied GLM-5.2
+documentation confirms that API's switch, not the deployed version's behavior.
+Vision remains single-image input; the separate GLM-OCR example does not establish
+chat-model vision support. See `docs/enterprise-glm-modes.md`.
 
 Candidate operations (inside the candidate Backend Python 3.12 environment,
 with the verified shared mount; not the host's Python 3.7):
