@@ -141,3 +141,24 @@ ConfigMap 转换保留非旧工具配置，原配置与新配置采用不同名�
 交付脚本 55,390 字节，SHA-256 为
 `e4e5b461f79737a4eb15a32e046ce6db92b617c63364efa127148b64ce023860`。
 完整包与内嵌代码已通过 Linux Python 3.7 编译/导入和预载绑定检查。
+
+### 首次配置准备现场结果（未切换）
+
+操作 `2e0fd403b23a4cf5b880daaee1b8e504` 已创建并读回不可变 ConfigMap
+`deer-flow-config-data-qa-glm-2e0fd403b23a`（UID
+`5aefbbbc-fee1-4745-99f9-54d092b6ad4d`）和专属 Secret
+`deer-flow-data-qa-2e0fd403b23a`（UID
+`b2f728c8-8129-4d4f-98ba-48ce9b730f1f`）。配置数据摘要为
+`046185f02faccb041f6ce0f853d9847c84d6f01674e812210662aed4da57c9f6`。
+未调用 Provider、未更新 Deployment，候选运行检查尚未通过。
+
+首个 Job `portal-data-qa-check-2e0fd403b23a-0` 等待约 180 秒后，原工具把空或
+异常 Pod 集合统称为 `candidate_pod_owner`；这不能证明镜像代码失败，也不能证明
+具体的集群准入/配额原因。收到的报告 6,520 字节、SHA-256
+`5e389a9a1710b239159e3d4872329943db55add3fcc52f66af7ad41c55780c98`，
+实际回执保存在 `data-qa-glm-preparation-failure-20261021-r1.json`。
+
+源码已将缺失 Pod、数量异常和归属异常分开报告；终态检查同时识别 Job 条件，并在
+拒绝前保存脱敏事件类别/资源字段。事件读取失败不能覆盖原失败。该修正未覆盖已交付
+r1 脚本，也未重新创建任何线上资源。等待只读 Job 事件后再制定明确续接；复用已创建
+资源前须重新核对 UID、不可变性和配置摘要，不重复输入或创建密钥。

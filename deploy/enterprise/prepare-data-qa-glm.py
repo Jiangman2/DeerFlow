@@ -339,19 +339,42 @@ def candidate_job(deployment, name, node, config_name, secret_name, code):
     )
 
 
+def job_diagnostics(c, job, uid, status):
+    """Export bounded control-plane reasons, never raw messages or manifests."""
+    def reason(value):
+        return value if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_]{1,80}", value) else "OTHER"
+
+    observation = dict(job=job, uid=uid, counts={k: status.get(k) for k in ("active", "failed", "succeeded")}, conditions=[dict(type=reason(x.get("type")), status=reason(x.get("status")), reason=reason(x.get("reason"))) for x in status.get("conditions", [])][:12])
+    try:
+        events = c.call("candidate_job_events", ["get", "events", "--field-selector", "involvedObject.uid=" + uid, "-o", "json"])
+        observation["events"] = []
+        for event in events.get("items", [])[-20:]:
+            text = str(event.get("message", ""))[:16384]
+            low = text.lower()
+            observation["events"].append(dict(reason=reason(event.get("reason")), categories=[word for word in ("exceeded quota", "must specify", "forbidden", "admission", "podsecurity", "serviceaccount", "not found", "deadline", "insufficient", "taint", "imagepull") if word in low], resource_fields=sorted(set(re.findall(r"(?:requests|limits)\.[a-zA-Z_.]+", text))), resource_quantities=re.findall(r"(?:requests|limits)\.[a-zA-Z_.]+=[0-9.]+[A-Za-z]*", text)[:24]))
+    except (Refused, ValueError, TypeError, AttributeError):
+        observation["event_query_failed"] = True
+    c.report.setdefault("candidate_job_diagnostics", []).append(observation)
+    c.save()
+
+
 def inspect_job(c, job, uid, now=time.monotonic, sleep=time.sleep):
     started = now()
+    status = {}
     while now() - started < 240:
         value = c.get("job", job)
         require(value["metadata"]["uid"] == uid, "candidate_job_replaced")
         status = value.get("status", {})
-        if status.get("failed") or status.get("succeeded"):
+        terminal_condition = any(x.get("type") in ("Failed", "Complete") and x.get("status") == "True" for x in status.get("conditions", []))
+        if status.get("failed") or status.get("succeeded") or terminal_condition:
+            job_diagnostics(c, job, uid, status)
             pods = c.call(
                 "candidate_pods", ["get", "pods", "-l", "job-name=" + job, "-o", "json"]
             )["items"]
+            require(bool(pods), "candidate_pod_absent_review_job_events")
+            require(len(pods) == 1, "candidate_pod_count")
             require(
-                len(pods) == 1
-                and any(
+                any(
                     o.get("uid") == uid and o.get("controller")
                     for o in pods[0]["metadata"].get("ownerReferences", [])
                 ),
@@ -409,6 +432,7 @@ def inspect_job(c, job, uid, now=time.monotonic, sleep=time.sleep):
             )
             return
         sleep(4)
+    job_diagnostics(c, job, uid, status)
     raise Refused("candidate_job_deadline")
 
 

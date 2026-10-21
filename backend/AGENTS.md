@@ -1323,6 +1323,11 @@ token. Candidate checks deny network and never run a Gateway server. Record
 uncertain creates before submission; no write retry or automatic cleanup of
 shared resources. Job TTL is not proof of completed cleanup. Preparation does
 not switch the Deployment or qualify business result values.
+Candidate Job failure must retain sanitized conditions/events before refusing.
+Distinguish an empty Pod inventory from a mismatched owner; a Job terminal
+condition may exist without a failed-Pod count. Missing events must not mask
+the primary failure. Do not infer quota/admission causes from a missing Pod
+alone, and do not repeat configuration/Secret creation to retry a probe.
 For the paired image/config/env plan, keep
 UID/resourceVersion/spec compare-and-swap checks and paired image/config/Secret
 restoration. They are not an activation controller: bind actual preload and

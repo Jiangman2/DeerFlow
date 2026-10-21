@@ -177,10 +177,15 @@ def test_candidate_job_refuses_wrong_ownership_image_or_failed_result(scope, fai
     class JobController:
         report = {"candidate_checks": []}
 
+        def save(self):
+            pass
+
         def get(self, kind, name):
             return dict(metadata=dict(uid="wrong" if failure == "job_uid" else "job-uid"), status=dict(succeeded=1))
 
         def call(self, phase, args, raw=False):
+            if phase == "candidate_job_events":
+                return {"items": []}
             if phase == "candidate_pods":
                 image = "wrong" if failure == "image" else scope["RELEASE"]["profile"]["roles"][0]["manifest_digest"]
                 return dict(items=[dict(metadata=dict(name="p", ownerReferences=[dict(uid="wrong" if failure == "owner" else "job-uid", controller=True)]), status=dict(containerStatuses=[dict(imageID=image)]))])
@@ -216,3 +221,57 @@ def test_successful_create_persists_uid_without_secret_value(scope, tmp_path):
     assert report["resource_intents"][0]["uid"] == uid
     assert report["resource_intents"][0]["creation_confirmed"] is True
     assert "hidden" not in json.dumps(report)
+
+
+@pytest.mark.parametrize("condition_only", [False, True])
+def test_empty_pod_inventory_reports_job_diagnostics_not_wrong_owner(scope, condition_only):
+    class MissingPod:
+        def __init__(self):
+            self.report = {"candidate_checks": []}
+            self.saved = False
+
+        def save(self):
+            self.saved = True
+
+        def get(self, kind, name):
+            status = {"conditions": [{"type": "Failed", "status": "True", "reason": "DeadlineExceeded", "message": "private-value"}]}
+            if not condition_only:
+                status["failed"] = 1
+            return {"metadata": {"uid": "job-uid"}, "status": status}
+
+        def call(self, phase, args, raw=False):
+            if phase == "candidate_job_events":
+                return {"items": [{"reason": "FailedCreate", "message": "private-value: forbidden: must specify requests.ephemeral-storage, exceeded quota: limits.cpu=1"}]}
+            assert phase == "candidate_pods"
+            return {"items": []}
+
+    c = MissingPod()
+    with pytest.raises(scope["Refused"], match="candidate_pod_absent_review_job_events"):
+        scope["inspect_job"](c, "job", "job-uid")
+    assert c.saved
+    assert c.report["candidate_checks"] == []
+    observation = c.report["candidate_job_diagnostics"][0]
+    assert observation["conditions"][0]["reason"] == "DeadlineExceeded"
+    assert "private-value" not in json.dumps(observation)
+    assert observation["events"][0]["categories"] == ["exceeded quota", "must specify", "forbidden"]
+
+
+def test_missing_events_do_not_mask_empty_pod_failure(scope):
+    class NoEvents:
+        report = {}
+
+        def save(self):
+            pass
+
+        def get(self, kind, name):
+            return {"metadata": {"uid": "job-uid"}, "status": {"failed": 1}}
+
+        def call(self, phase, args, raw=False):
+            if phase == "candidate_job_events":
+                raise scope["Refused"]("events_unavailable")
+            return {"items": []}
+
+    c = NoEvents()
+    with pytest.raises(scope["Refused"], match="candidate_pod_absent_review_job_events"):
+        scope["inspect_job"](c, "job", "job-uid")
+    assert c.report["candidate_job_diagnostics"][0]["event_query_failed"] is True

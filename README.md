@@ -1241,6 +1241,8 @@ The joint Data QA/GLM preparation tool creates separate immutable configuration
 resources and runs two bounded candidate checks before any Gateway cutover.
 Successful preparation does not establish business-data correctness or switch
 the active model/tool configuration.
+If a candidate Job fails before its result is collected, inspect its Job
+conditions/events and retain the already prepared resources for verified reuse.
 
 For recognized enterprise DataLake queries, disabled access returns a prompt to
 enable the **Use Data Lake** button. Once a run selects DataLake, empty results,
