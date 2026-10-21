@@ -2139,6 +2139,11 @@ tests. Missing termination is a non-retriable terminal safety error, not a
 completed tool call. Preserve cancellation, close responses, retain final usage,
 and distinguish transport completion from task completion. The isolated field
 canary source-binds existing modules and never updates the running service.
+The October 21 GLM field canary passed all four stages on Gateway generation
+381 / SDK 2.32.0. Its release builder appends only those four exact source files
+to the observed `58a50175cfae...` ARM64 manifest; preserve all base layers and
+runtime settings. Preload-only receipts are not rollout acceptance. Recheck node
+identities and the live Gateway specification before any later image-only patch.
 
 Browser `private_origins` are operator-owned exact scheme/host/port plus audited
 private address ranges. Explicit `private_origin_suffixes` additionally permit a

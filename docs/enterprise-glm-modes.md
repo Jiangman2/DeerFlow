@@ -61,6 +61,33 @@ its report and once marker after failure or uncertainty. A passing report is
 candidate acceptance only; prepare the Gateway patch against the reported image
 and freshly verify the rollout baseline before a separate update.
 
+### October 21 field result and preload
+
+The operator returned a passing four-call candidate receipt, operation
+`bf79a7b7f0bb413aa2916bab33e83ed3`, report SHA-256
+`ab15569c02c626e085cbf00e4bf056faea0fd1e61e6e3cb341ee501c77825150`.
+Text, tool call, tool-result continuation and single-image responses all passed
+`TERMINAL_AND_DONE` on SDK 2.32.0. Gateway generation 381 and its specification
+hash were unchanged. This is real provider acceptance in an isolated process,
+not evidence that the live workers have loaded the patch.
+
+`package-glm-stream-preload.py` appends those exact four qualified Python files
+to the observed ARM64 Gateway manifest `58a50175cfae...`, preserving all 66 base
+layers, existing runtime configuration, and previous image references. It binds
+the exact earlier importer and candidate tool by SHA-256. Its generated script
+contains the new metadata/layer, so no separate image archive is needed.
+The complete identity is recorded in `deploy/enterprise/glm-stream-release-20261021-r1.json`.
+
+Preload once on each of `ecs-zdz-pro-0018` through `ecs-zdz-pro-0022`, using
+`sudo python3 -I -B -u /home/cnooc/preload-portal-gateway-glm-stream-20261021-r1.py --preload-gateway-glm-stream-once`.
+This only updates the local image cache: it does not patch a Deployment, restart
+a worker, access a database or call a model. It validates the four-file layer,
+containerd content/unpack and CRI visibility, preserving old references. Keep
+reports and do not repeat failed/uncertain imports. The historical node UID
+matrix must be freshly checked during activation; preload is not rollout
+acceptance. A separate release step still needs all five preload receipts,
+fresh Gateway baseline checks and the operator's task-drain window.
+
 ## Withdrawn candidate
 
 The switchable profile, five-call mode diagnostic and adapter change prepared
