@@ -1315,6 +1315,11 @@ the Secret, sanitize provider errors, and retain bounded valid JSON so the
 generic tool-output budget does not replace useful structured evidence with a
 file-only preview.
 
+The enterprise Data QA/GLM deployment-plan helpers are pure functions. Keep
+UID/resourceVersion/spec compare-and-swap checks and paired image/config/Secret
+restoration. They are not an activation controller: bind actual preload and
+immutable-resource receipts and candidate-runtime acceptance before submission.
+
 `DataLakeSourceMiddleware` checkpoints the run's source restriction before
 execution and after model selection. Keep deterministic explicit-source/table
 recognition conservative and accompany it with model guidance; do not claim

@@ -1233,6 +1233,8 @@ It replaces the retired Metrics/Detail registrations without calling their
 old applications. Keep `trust_env: false` for these internal direct routes.
 Publish a new versioned tool ConfigMap together with the compatible Gateway
 image and Secret reference; do not overwrite the live shared ConfigMap.
+Paired rollback restores the saved image/configuration references only after
+checking that no later Deployment change would be overwritten.
 See [Data QA replacement](docs/datalake-data-qa-replacement.md) for outstanding
 field acceptance and rollout requirements.
 
