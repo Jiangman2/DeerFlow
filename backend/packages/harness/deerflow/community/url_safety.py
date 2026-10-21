@@ -10,6 +10,43 @@ from urllib.parse import urlparse
 _BLOCKED_HOSTNAMES = {"localhost", "metadata.google.internal"}
 
 
+def validate_cloud_fetch_url(url: str) -> str | None:
+    """Validate a URL passed to a fixed external cloud fetch API, without DNS.
+
+    The local process connects only to the configured provider, not to this URL.
+    Target DNS and redirects belong to that provider's enforcement boundary;
+    local DNS cannot establish what the remote fetcher will resolve. Local/self-
+    hosted fetchers must keep using validate_public_http_url below instead.
+    """
+    try:
+        if not url or len(url) > 8192 or any(char.isspace() or ord(char) < 32 for char in url):
+            return "Error: Invalid URL"
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc or not parsed.hostname:
+            return "Error: Only complete http:// and https:// URLs are supported"
+        if parsed.username is not None or parsed.password is not None:
+            return "Error: URL credentials are not allowed"
+        # Accessing port also validates malformed/out-of-range ports.
+        if parsed.port == 0:
+            return "Error: Invalid URL port"
+        host = parsed.hostname.rstrip(".").lower()
+        if host in _BLOCKED_HOSTNAMES or host.endswith((".localhost", ".local", ".internal")):
+            return "Error: Private or local URL targets are not supported"
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            try:
+                # inet_aton parses legacy numeric IP spellings; it does not resolve DNS.
+                address = ipaddress.ip_address(socket.inet_aton(host))
+            except OSError:
+                address = None
+        if address is not None and not address.is_global:
+            return "Error: Non-public IP literal targets are not supported"
+    except (ValueError, UnicodeError):
+        return "Error: Invalid URL"
+    return None
+
+
 def resolve_host_addresses(hostname: str) -> list[ipaddress._BaseAddress]:
     """Resolve a hostname to all IP addresses for SSRF screening."""
     addresses: list[ipaddress._BaseAddress] = []

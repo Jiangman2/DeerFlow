@@ -7,6 +7,8 @@ from langchain.tools import tool
 from requests.adapters import HTTPAdapter
 from tavily import TavilyClient
 
+from deerflow.community.url_safety import validate_cloud_fetch_url
+from deerflow.community.web_fetch_output import content_limit, format_page
 from deerflow.config import get_app_config
 
 
@@ -56,8 +58,8 @@ def _build_tavily_session() -> requests.Session | None:
     return session
 
 
-def _get_tavily_client() -> TavilyClient:
-    config = get_app_config().get_tool_config("web_search")
+def _get_tavily_client(tool_name: str = "web_search") -> TavilyClient:
+    config = get_app_config().get_tool_config(tool_name)
     api_key = None
     if config is not None and "api_key" in config.model_extra:
         api_key = config.model_extra.get("api_key")
@@ -104,12 +106,17 @@ def web_fetch_tool(url: str) -> str:
     Args:
         url: The URL to fetch the contents of.
     """
-    client = _get_tavily_client()
+    error = validate_cloud_fetch_url(url)
+    if error:
+        return error
+    config = get_app_config().get_tool_config("web_fetch")
+    limit = content_limit(config.model_extra if config else None)
+    client = _get_tavily_client("web_fetch")
     res = client.extract([url])
     if "failed_results" in res and len(res["failed_results"]) > 0:
         return f"Error: {res['failed_results'][0]['error']}"
     elif "results" in res and len(res["results"]) > 0:
         result = res["results"][0]
-        return f"# {result['title']}\n\n{result['raw_content'][:4096]}"
+        return format_page(result.get("title"), result.get("raw_content"), limit)
     else:
         return "Error: No results found"

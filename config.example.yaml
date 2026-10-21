@@ -830,6 +830,17 @@ tools:
   #   # exclude_domains: []
   #   # api_key: $TAVILY_API_KEY  # Set if needed
 
+  # DeepSeek standalone Search API (independent of the selected chat model).
+  # - name: web_search
+  #   group: web
+  #   use: deerflow.community.deepseek.tools:web_search_tool
+  #   api_key: $DEEPSEEK_API_KEY
+  #   max_results: 5
+  #   send_original_question: true  # Real current user text only, up to 128 chars; false omits it.
+  #   snippet_source: summary       # summary (default) or snippet; falls back if absent.
+  #   snippet_max_characters: 1000  # Per-source budget, clamped to 1-10000.
+  #   timeout: 30
+
   # Web search tool (uses InfoQuest, requires InfoQuest API key)
   # - name: web_search
   #   group: web
@@ -842,7 +853,7 @@ tools:
   #   group: web
   #   use: deerflow.community.exa.tools:web_search_tool
   #   max_results: 5
-  #   search_type: auto  # Options: auto, neural, keyword
+  #   search_type: auto  # Use auto; other modes depend on the installed Exa SDK/API.
   #   contents_max_characters: 1000
   #   # api_key: $EXA_API_KEY
 
@@ -937,6 +948,23 @@ tools:
   #   group: web
   #   use: deerflow.community.exa.tools:web_fetch_tool
   #   # api_key: $EXA_API_KEY
+  #   max_characters: 20000  # Optional body budget; default 4096, capped at 100000.
+
+  # Web fetch via Tavily Extract. Configure its key independently of web_search.
+  # Enable only one web_fetch provider; disable Jina below when enabling another.
+  # - name: web_fetch
+  #   group: web
+  #   use: deerflow.community.tavily.tools:web_fetch_tool
+  #   api_key: $TAVILY_API_KEY
+  #   max_characters: 20000
+
+  # Web fetch via DeepSeek's official standalone API (public URLs only).
+  # - name: web_fetch
+  #   group: web
+  #   use: deerflow.community.deepseek.tools:web_fetch_tool
+  #   api_key: $DEEPSEEK_API_KEY
+  #   max_characters: 20000
+  #   timeout: 30
 
   # Web fetch tool (uses Jina AI reader)
   - name: web_fetch
