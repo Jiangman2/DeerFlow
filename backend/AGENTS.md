@@ -1296,21 +1296,34 @@ JSONL development event stores are framed only by physical LF delimiters. Do not
 
 Additional providers also live here (`boxlite`, `brave`, `browserless`, `crawl4ai`, `ddg_search`, `e2b_sandbox`, `exa`, `fastcrw`, `groundroute`, `infoquest`, `searxng`, `serper`); see each subpackage for specifics.
 
-The `appforge/` package exposes three CNOOC DataLake tools. Narrative Smart QA
-uses the approved internal Retrieve API and returns bounded ranked source chunks
-for DeerFlow to analyze; indicator/metrics QA and record-level detail QA retain
-the AppForge SSE workflow path. Both services use the direct internal route with
-`trust_env=false`. Only `query` is model-visible; Retrieve endpoint/project/store
-identity, API keys, workflow identity inputs, application IDs, and conversation
-IDs are resolved server-side. Keep the reviewed Metrics/Detail IDs
-(`app-n9ahac7g` and `app-5md031ia`) explicit in runtime configuration so
-workflow republishing is an intentional deployment change. Reference a single
+The active CNOOC DataLake question-answering tools are `datalake_smart_qa`
+and `datalake_data_qa`. Smart QA retains the approved internal Retrieve API.
+Data QA calls a new AppForge application (`app-v16p2syh`); it does not compose
+or fall back to the retired Metrics/Detail applications. Use its dedicated
+`APPFORGE_DATA_QA_API_KEY`, `SquareWorkflow_` conversation prefix and exactly
+empty `hytoken`/`hyaccount` inputs, never inherited identities. Both services
+use `trust_env=false`; only `query` is model-visible. Keep the new App's actual
+SSE protocol and business capabilities subject to field acceptance. Reject
+retired registrations during config validation; pending historical old calls
+receive only a local migration notice. Switch a versioned ConfigMap, dedicated
+Secret reference and compatible image together; never modify the mounted old
+configuration first. Reference a single
 Retrieve store from `config.yaml` as a list containing
 `$DATALAKE_RETRIEVE_DOCUMENT_STORE_ID`; comma-separated
 `DATALAKE_RETRIEVE_DOCUMENT_STORE_IDS` is also supported. Keep runtime values in
 the Secret, sanitize provider errors, and retain bounded valid JSON so the
 generic tool-output budget does not replace useful structured evidence with a
 file-only preview.
+
+`DataLakeSourceMiddleware` checkpoints the run's source restriction before
+execution and after model selection. Keep deterministic explicit-source/table
+recognition conservative and accompany it with model guidance; do not claim
+complete natural-language classification. Disabled access returns the button
+hint before model invocation for recognized questions. DataLake selection,
+including failed/empty calls, locks out external tools and arbitrary execution
+for that run. Enforce both schema filtering and tool execution, propagate the
+restriction through task/subagents, and merge parallel updates without losing
+the restriction. This never grants data access or rewrites historical messages.
 
 Retrieve image references from the reviewed DataLake preview origin are
 percent-encoded and rewritten to the authenticated same-origin Gateway route
@@ -1328,15 +1341,16 @@ HttpOnly platform-token cookie matching their persisted token hash (the same
 proof used by the Data Lake session endpoint). A client flag, owner attribution,
 or internal service credential alone never grants access. Missing opt-in or
 session proof denies access, including legacy and non-web runs. Never copy raw
-platform tokens into run context or checkpoints. A disabled run filters all
-three DataLake tools before deferred assembly. The
+platform tokens into run context or checkpoints. A disabled run filters both
+DataLake QA tools before deferred assembly. The
 `task` tool and `SubagentExecutor` propagate the effective flag to child runtime
 contexts and apply the same filter defensively. The DataLake boundaries still
 return a bounded `datalake_disabled` result unless the effective flag is exactly
 `true`, including stale direct references and absent/malformed context, before
 configuration, credentials, or network access.
 
-`datalake_md_search` is a distinct AppForge master-data workflow. It is limited
+`datalake_md_search` is an optional, distinct AppForge master-data workflow.
+It is not enabled in the current enterprise environment or this migration. It is limited
 to companies, branches/operating organizations, fields, blocks, wells, and
 their registered ownership/list/count relationships; it must not be used for
 metrics, production, reports, document QA, arbitrary SQL, or inferred complex

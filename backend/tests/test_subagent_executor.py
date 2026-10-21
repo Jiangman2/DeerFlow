@@ -281,10 +281,16 @@ class TestAgentConstruction:
     @pytest.mark.parametrize("enabled", [None, False, "true", 1, True])
     def test_data_lake_requires_explicit_authorized_parent(self, classes, base_config, enabled):
         kwargs = {} if enabled is None else {"datalake_enabled": enabled}
-        tools = [NamedTool("datalake_detail_qa"), NamedTool("web_search")]
+        tools = [NamedTool("datalake_data_qa"), NamedTool("web_search")]
         executor = classes["SubagentExecutor"](config=base_config, tools=tools, **kwargs)
         assert executor.datalake_enabled is (enabled is True)
-        assert [tool.name for tool in executor._base_tools] == (["datalake_detail_qa", "web_search"] if enabled is True else ["web_search"])
+        assert [tool.name for tool in executor._base_tools] == (["datalake_data_qa", "web_search"] if enabled is True else ["web_search"])
+
+    def test_data_lake_query_only_excludes_external_tools(self, classes, base_config):
+        tools = [NamedTool("datalake_data_qa"), NamedTool("web_search"), NamedTool("bash")]
+        executor = classes["SubagentExecutor"](config=base_config, tools=tools, datalake_enabled=True, datalake_query_only=True)
+        assert executor.datalake_query_only is True
+        assert [t.name for t in executor._base_tools] == ["datalake_data_qa"]
 
     def test_create_agent_threads_explicit_app_config_to_model_and_middlewares(
         self,

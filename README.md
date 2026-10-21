@@ -1224,22 +1224,31 @@ Tavily search accepts operator-configured `include_domains` and
 search and fetch also resolve credentials from their own tool entries, with
 `TAVILY_API_KEY` as the fallback for either tool.
 
-Enterprise deployments can also enable three CNOOC DataLake tools:
-`datalake_smart_qa` calls the internal Retrieve API and returns ranked narrative
-source chunks, while `datalake_metrics_qa` and `datalake_detail_qa` continue to
-call the internal AppForge indicator and record workflows. Add their entries
-from `config.example.yaml`, inject the Retrieve endpoint/project/document-store
-identity and `APPFORGE_API_KEY` through the runtime Secret, keep the reviewed
-Metrics/Detail workflow IDs explicit (`app-n9ahac7g` and `app-5md031ia`), and
-keep `trust_env: false` for both reviewed internal direct routes. Credentials
-and workflow identity values are never model-visible.
+Enterprise deployments can enable two CNOOC DataLake QA tools:
+`datalake_smart_qa` retains the internal Retrieve API and ranked narrative
+source chunks. `datalake_data_qa` calls the new AppForge application
+`app-v16p2syh` with a dedicated `APPFORGE_DATA_QA_API_KEY`, empty identity
+inputs, and a `SquareWorkflow_` conversation ID scoped to user/thread/tool.
+It replaces the retired Metrics/Detail registrations without calling their
+old applications. Keep `trust_env: false` for these internal direct routes.
+Publish a new versioned tool ConfigMap together with the compatible Gateway
+image and Secret reference; do not overwrite the live shared ConfigMap.
+See [Data QA replacement](docs/datalake-data-qa-replacement.md) for outstanding
+field acceptance and rollout requirements.
 
-An independent AppForge workflow, `datalake_md_search`, is available for
+For recognized enterprise DataLake queries, disabled access returns a prompt to
+enable the **Use Data Lake** button. Once a run selects DataLake, empty results,
+permission failures and upstream errors never authorize fallback to external
+search, browsers, MCP services or scripts. The restriction follows delegated
+tasks; ordinary public-information questions remain independent.
+
+An optional AppForge workflow, `datalake_md_search`, is available for
 exploration-and-production master data only: companies, branches/operating
 organizations, oil and gas fields, blocks, wells, and their ownership, lists,
 or counts. It must not be used for production, KPIs, trends, reports,
 calculations, document QA, arbitrary SQL, or inferred business relationships.
-Add its separate `config.example.yaml` entry and inject
+It is not enabled in the current enterprise deployment or this migration.
+For a separately approved deployment, add its `config.example.yaml` entry and inject
 `APPFORGE_MD_SEARCH_API_KEY` through the Gateway runtime Secret. It is
 intentionally outside the user's **Use Data Lake** toggle and outside
 `DATALAKE_TOOL_NAMES`; do not reuse the browser's platform Token or expose the
