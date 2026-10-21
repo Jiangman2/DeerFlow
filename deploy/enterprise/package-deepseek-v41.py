@@ -12,7 +12,9 @@ import yaml
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--resume-noop-receipt", type=Path, help="Operator-returned operation/bytes/sha256 for an exact no-action failure")
+    recovery = parser.add_mutually_exclusive_group()
+    recovery.add_argument("--resume-noop-receipt", type=Path, help="Operator-returned operation/bytes/sha256 for an exact no-action failure")
+    recovery.add_argument("--resume-flash-503-receipt", type=Path, help="Exact first synthetic request HTTP 503; no successful stages or Secret creation")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     profile = yaml.safe_load(
@@ -32,12 +34,19 @@ def main():
         "PROFILE = " + repr(profile),
     )
     template = template.replace("PROBE_SOURCE = None", "PROBE_SOURCE = " + repr(source))
-    if args.resume_noop_receipt:
-        prior = json.loads(args.resume_noop_receipt.read_text(encoding="utf-8"))
-        assert set(prior) == {"operation", "bytes", "sha256"}
+    recovery_path = args.resume_noop_receipt or args.resume_flash_503_receipt
+    if recovery_path:
+        prior = json.loads(recovery_path.read_text(encoding="utf-8"))
+        fields = {"operation", "bytes", "sha256"}
+        if args.resume_flash_503_receipt:
+            fields.add("resumed_noop_operation")
+        assert set(prior) == fields
         assert len(prior["operation"]) == 32 and all(c in "0123456789abcdef" for c in prior["operation"])
         assert type(prior["bytes"]) is int and 0 < prior["bytes"] <= 65536
         assert len(prior["sha256"]) == 64 and all(c in "0123456789abcdef" for c in prior["sha256"])
+        if args.resume_flash_503_receipt:
+            assert len(prior["resumed_noop_operation"]) == 32 and all(c in "0123456789abcdef" for c in prior["resumed_noop_operation"])
+            prior["kind"] = "flash_http_503"
         template = template.replace("PRIOR_ATTEMPT = None  # Optional pinned, no-provider/no-Secret failure receipt.", "PRIOR_ATTEMPT = " + repr(prior))
     ast.parse(template, feature_version=(3, 7))
     raw = template.encode("utf-8")

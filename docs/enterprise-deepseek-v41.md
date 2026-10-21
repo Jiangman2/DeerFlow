@@ -57,6 +57,16 @@ both, and atomically claims a separate marker before the first provider request.
 Unknown or partially executed attempts cannot use this path. Wait for any other
 operator's Gateway rollout to finish before running preparation.
 
+An explicit `--resume-flash-503-receipt` package supports one narrowly scoped
+provider retry: the exact pinned report must show HTTP 503 on the first synthetic
+flash request, zero completed checks, all later stages unattempted, and no Secret
+or workload mutation. It binds the preceding recovery marker and unchanged
+profile, preserves both reports/markers, and claims a new exclusive marker.
+This is not an automatic retry loop. Timeout/unknown outcomes, 401/402, successful
+stages, later tool stages, or any possible Secret write refuse this recovery.
+If the explicit retry again returns 503, obtain provider availability confirmation
+before further requests; do not publish an unqualified selector entry.
+
 For activation, bind the current successful Gateway/frontend reports, append the
 profile to a new configuration copy, add only the new required Secret reference,
 and preserve all existing configuration and list ordering. Check actual routing

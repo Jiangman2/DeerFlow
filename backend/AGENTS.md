@@ -11,6 +11,9 @@ Provider preparation reports Gateway readiness before refusing. Claim the once
 marker only after read-only preflight; recovery of an older consumed marker
 requires an exact hash-bound report proving no provider or Secret operation.
 Never clear an uncertain attempt or relax the rollout gate to make it pass.
+The separate explicit first-flash-503 recovery accepts only a pinned HTTP error
+with one synthetic request, zero completed stages and no Secret write; it is
+not a generic retry for timeout, tool execution or uncertain outcomes.
 
 Employee featured-store reads use the field-qualified r6 source. On Linux,
 force pathname metadata refresh with statx before the bounded precommit open,

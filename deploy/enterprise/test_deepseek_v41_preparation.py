@@ -1,8 +1,8 @@
 """Offline controller checks, also runnable on operator Python 3.7."""
 
+import hashlib
 import importlib.util
 import json
-import hashlib
 import pathlib
 import tempfile
 import unittest
@@ -195,6 +195,67 @@ class ResumeTests(unittest.TestCase):
             target.rename(saved)
             target.symlink_to(saved)
             with self.assertRaises(OSError):
+                P.verify_prior_attempt(parent, prior)
+
+
+class Provider503ResumeTests(unittest.TestCase):
+    def fixture(self, parent, mutate=None):
+        operation, previous = "e" * 32, "b" * 32
+        provider = dict(status="INCOMPLETE", stage="flash", http_status=503, provider_requests_attempted=1,
+                        checks=[], automatic_retry=False, business_tools_executed=0,
+                        stage_results=dict(flash="FAIL", thinking="NOT_ATTEMPTED", tool_call="NOT_ATTEMPTED", tool_resume="NOT_ATTEMPTED", multi_image="NOT_ATTEMPTED"))
+        report = dict(operation=operation, status="INCOMPLETE", error_code="provider_acceptance_failed", resumed_noop_operation=previous,
+                      provider_probe_requested=True, secret_creation_requested=False, secret_creation_may_have_applied=False,
+                      workload_modified=False, configuration_modified=False, gateway_restarted=False, provider=provider,
+                      profile_sha256=hashlib.sha256(P.canonical(P.PROFILE)).hexdigest())
+        if mutate:
+            mutate(report)
+        folder = parent / ("portal-deepseek-v41-preparation-" + operation)
+        folder.mkdir(mode=0o700)
+        raw = P.canonical(report)
+        path = folder / "REPORT.json"
+        path.write_bytes(raw)
+        path.chmod(0o600)
+        marker = parent / ("portal-deepseek-v41-resume-" + previous + ".once")
+        marker.write_bytes(P.canonical(dict(operation=operation)))
+        marker.chmod(0o600)
+        return dict(operation=operation, bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest(), kind="flash_http_503", resumed_noop_operation=previous)
+
+    def test_exact_first_flash_503_can_be_explicitly_retried(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            parent = pathlib.Path(tmp)
+            prior = self.fixture(parent)
+            self.assertEqual(P.verify_prior_attempt(parent, prior), prior["operation"])
+            name = "portal-deepseek-v41-resume-" + prior["operation"] + ".once"
+            P.claim_once(parent, name, dict(operation="f" * 32))
+            with self.assertRaises(FileExistsError):
+                P.claim_once(parent, name, dict(operation="0" * 32))
+
+    def test_timeout_auth_successful_stages_and_secret_activity_are_not_retried(self):
+        changes = [
+            lambda r: r["provider"].update(http_status=401),
+            lambda r: r["provider"].pop("http_status"),
+            lambda r: r["provider"].update(stage="tool_resume"),
+            lambda r: r["provider"].update(provider_requests_attempted=2),
+            lambda r: r["provider"].update(checks=[dict(stage="flash")]),
+            lambda r: r["provider"]["stage_results"].update(thinking="PASS"),
+            lambda r: r.update(secret_creation_may_have_applied=True),
+            lambda r: r.update(profile_sha256="0" * 64),
+        ]
+        for index, change in enumerate(changes):
+            with self.subTest(case=index), tempfile.TemporaryDirectory() as tmp:
+                parent = pathlib.Path(tmp)
+                prior = self.fixture(parent, change)
+                with self.assertRaises(P.Refused):
+                    P.verify_prior_attempt(parent, prior)
+
+    def test_prior_marker_mismatch_is_not_new_attempt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            parent = pathlib.Path(tmp)
+            prior = self.fixture(parent)
+            marker = parent / ("portal-deepseek-v41-resume-" + prior["resumed_noop_operation"] + ".once")
+            marker.write_bytes(P.canonical(dict(operation="f" * 32)))
+            with self.assertRaisesRegex(P.Refused, "prior_once_identity_changed"):
                 P.verify_prior_attempt(parent, prior)
 
 

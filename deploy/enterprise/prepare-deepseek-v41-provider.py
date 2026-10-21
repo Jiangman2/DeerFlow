@@ -72,8 +72,7 @@ def call(args, payload=None, timeout=25):
         ]
         + args,
         input=payload,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         timeout=timeout,
     )
     require(process.returncode == 0, "kubectl_command_failed")
@@ -132,9 +131,16 @@ def verify_prior_attempt(parent, prior):
     require(isinstance(prior, dict), "prior_binding_required")
     operation = prior["operation"]
     require(len(operation) == 32 and all(c in "0123456789abcdef" for c in operation), "prior_operation_invalid")
+    kind = prior.get("kind", "noop")
+    require(kind in ("noop", "flash_http_503"), "prior_kind_invalid")
+    marker_name = ONCE_NAME
+    if kind == "flash_http_503":
+        previous = prior.get("resumed_noop_operation", "")
+        require(len(previous) == 32 and all(c in "0123456789abcdef" for c in previous), "prior_parent_operation_invalid")
+        marker_name = "portal-deepseek-v41-resume-" + previous + ".once"
     rootfd = os.open(str(parent), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        marker = json.loads(read_private(rootfd, ONCE_NAME, 4096))
+        marker = json.loads(read_private(rootfd, marker_name, 4096))
         require(marker == dict(operation=operation), "prior_once_identity_changed")
         folderfd = os.open("portal-deepseek-v41-preparation-" + operation, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=rootfd)
         try:
@@ -147,8 +153,19 @@ def verify_prior_attempt(parent, prior):
         os.close(rootfd)
     require(len(raw) == prior["bytes"] and hashlib.sha256(raw).hexdigest() == prior["sha256"], "prior_report_mismatch")
     value = json.loads(raw)
-    require(value.get("operation") == operation and value.get("status") == "INCOMPLETE" and value.get("error_code") == "gateway_rollout_in_progress", "prior_failure_mismatch")
-    require(all(value.get(k) is False for k in ("provider_probe_requested", "secret_creation_requested", "secret_creation_may_have_applied", "workload_modified", "configuration_modified", "gateway_restarted")), "prior_attempt_may_have_side_effects")
+    require(value.get("operation") == operation and value.get("status") == "INCOMPLETE", "prior_failure_mismatch")
+    require(all(value.get(k) is False for k in ("secret_creation_requested", "secret_creation_may_have_applied", "workload_modified", "configuration_modified", "gateway_restarted")), "prior_attempt_may_have_side_effects")
+    if kind == "noop":
+        require(value.get("error_code") == "gateway_rollout_in_progress" and value.get("provider_probe_requested") is False, "prior_attempt_may_have_side_effects")
+    else:
+        require(value.get("error_code") == "provider_acceptance_failed" and value.get("provider_probe_requested") is True
+                and value.get("resumed_noop_operation") == previous and value.get("profile_sha256") == hashlib.sha256(canonical(PROFILE)).hexdigest(), "prior_provider_binding_changed")
+        provider = value.get("provider", {})
+        require(provider.get("status") == "INCOMPLETE" and provider.get("stage") == "flash" and provider.get("http_status") == 503
+                and provider.get("provider_requests_attempted") == 1 and provider.get("checks") == [] and provider.get("automatic_retry") is False
+                and provider.get("business_tools_executed") == 0
+                and provider.get("stage_results") == dict(flash="FAIL", thinking="NOT_ATTEMPTED", tool_call="NOT_ATTEMPTED", tool_resume="NOT_ATTEMPTED", multi_image="NOT_ATTEMPTED"),
+                "prior_provider_outcome_not_safe_to_retry")
     return operation
 
 
@@ -341,7 +358,8 @@ def main():
         once = ONCE_NAME
         if PRIOR_ATTEMPT is not None:
             prior_operation = verify_prior_attempt(parent, PRIOR_ATTEMPT)
-            report["resumed_noop_operation"] = prior_operation
+            recovery_field = "resumed_provider_503_operation" if PRIOR_ATTEMPT.get("kind") == "flash_http_503" else "resumed_noop_operation"
+            report[recovery_field] = prior_operation
             once = "portal-deepseek-v41-resume-" + prior_operation + ".once"
         require(not os.path.lexists(str(parent / once)), "preparation_already_claimed")
         report["profile_sha256"] = hashlib.sha256(canonical(PROFILE)).hexdigest()

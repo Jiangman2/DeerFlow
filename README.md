@@ -13,6 +13,8 @@ for the hidden-key entry tool and the distinction between preparation and rollou
 Wait for an existing Gateway rollout to finish before this preparation. Failed
 read-only preflight reports can be resumed with an explicitly bound recovery
 package; retain the original report and once marker.
+For an initial provider HTTP 503, an exact report-bound retry can be prepared;
+the model remains unavailable in the selector until all live checks pass.
 
 Homepage portal footer: total/today model usage remains supplied by Haineng;
 today's users/tasks use the business dashboard's active-user/started-run
