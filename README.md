@@ -1255,6 +1255,10 @@ The first joint activation stopped before its patch: two of 186 persisted
 Agent files still reference retired tools. Keep that gate and inspect bounded
 reference details before preparing edits; do not blanket-replace tool names or
 repeat the rollout while these references remain unresolved.
+The detailed inventory identified four tokens in two personal SOUL files. The
+pinned r2 continuation backs up both originals, migrates only those references,
+and reuses the qualified paired rollout. It requires paused Agent edits as well
+as drained tasks; uncertain exec/patch outcomes never trigger automatic restore.
 
 For recognized enterprise DataLake queries, disabled access returns a prompt to
 enable the **Use Data Lake** button. Once a run selects DataLake, empty results,

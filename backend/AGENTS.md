@@ -1352,6 +1352,16 @@ SOUL prompts, user paths or credentials. These clues do not independently prove
 that a prose replacement is correct; distinguish allow/deny configuration from
 instructional prose before preparing a scoped migration. Preserve the existing
 rollout gate and immutable resources while that review remains incomplete.
+The separately reviewed r2 continuation may migrate only the two observed
+personal SOUL files and four pinned line tokens, preserving other prose and
+appending the new-interface/source-policy note. Bind whole-file/line hashes and
+the complete original inventory; keep both private fsynced originals before any
+replacement. Agent writers do not share the migration lock, so require an
+operator-attested task-drained and Agent-edit-free window; rechecks are not a
+distributed CAS guarantee. Restore originals on a known prepatch failure only
+while Gateway still matches the original binding and target bytes are unchanged
+or exactly migrated. Never restore after an uncertain exec or submitted rollout
+patch. Keep backup/once evidence and require two-node readback before deployment.
 
 `DataLakeSourceMiddleware` checkpoints the run's source restriction before
 execution and after model selection. Keep deterministic explicit-source/table
