@@ -1,7 +1,10 @@
 # AGENTS.md
 
 DeepSeek-V4.1-Flash uses the opt-in enterprise model profile and existing
-`RobustChatOpenAI`. Its FCV-41 endpoint requires `/v1/chat/completions` and the
+`EnterpriseDeepSeekV41Chat`, a scoped subclass of `RobustChatOpenAI`. Normalize
+the parent SDK serializer's `max_completion_tokens` back to documented
+`max_tokens`; reject conflicting token limits without changing other models.
+The candidate adapter must be installed before selecting this profile. Its FCV-41 endpoint requires `/v1/chat/completions` and the
 top-level `enable_thinking` boolean via `extra_body`, not `thinking.type` or
 reasoning effort. Keep both thinking overrides explicit and selector capability
 metadata credential-free. Preserve the existing model list order/default and

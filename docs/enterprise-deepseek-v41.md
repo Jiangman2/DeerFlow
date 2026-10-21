@@ -6,7 +6,7 @@ the default model, WeKnora/OCR models, or isolated PPT provider.
 
 - Configuration: `deploy/enterprise/deepseek-v4.1-flash.model.yaml`.
 - Endpoint: `https://aiapi.cnooc.com.cn/DeepSeek-V4.1-Flash/FCV-41/v1/chat/completions`.
-- Provider: existing `deerflow.models.robust_openai:RobustChatOpenAI`.
+- Provider: candidate `deerflow.models.enterprise_deepseek_v41:EnterpriseDeepSeekV41Chat` (must be installed before activating the profile).
 - Credential: Gateway-only `DEEPSEEK_V4_1_FLASH_API_KEY`, supplied through a required Secret reference.
 - Flash/thinking: explicit `extra_body.enable_thinking: false/true`.
 - Images: single/multiple base64 images; qualify the actual endpoint before activation.
@@ -160,3 +160,44 @@ be forwarded to model/gateway operators for correlation. Preparing the immutable
 Secret, versioned ConfigMap, exact-host environment bypass if needed, full-spec
 CAS rollout and authenticated selector/browser acceptance remains a separate
 step after these results are reviewed; preserve the new Data QA/GLM release.
+
+
+### Afternoon direct-path evidence and token-field candidate
+
+The field r1 batch `ce9c7e15fa854b4da7d417a01e774f96` made six requests
+on two nodes, preserving generation 382 and the joint Data QA/GLM image.
+One direct raw request with documented `max_tokens` received HTTP 503; two
+application streams completed with `stop` and `[DONE]`; three requests ended
+at local 45/90-second deadlines without response headers. Do not count those
+three cancellations as server HTTP 503s. Both successful streams used
+`max_completion_tokens`, showing a parent serializer mismatch with the supplied
+contract, but the raw failure rules it out as the sole cause. Correlation details
+are in `docs/deepseek-v41-503-afternoon-20261021.txt`. No production model has
+been added by these diagnostics.
+
+The dedicated adapter normalizes only this model's token field after parent
+serialization. It preserves thinking toggles, tool linkage and images. Generic
+RobustChatOpenAI and GLM behavior are unchanged. Local success is not provider
+qualification. Previously delivered preparation scripts contain the old profile
+and must not be reused to publish this candidate.
+
+`package-deepseek-v41-candidate-diagnosis.py` binds the exact r1 package, prior
+private receipt and generation-382 specification. The r2 diagnostic loads the
+candidate source only inside a temporary child, validates the installed factory
+and base adapter hashes, then repeats the bounded two-node comparison. Each
+request has a 180-second total deadline (restored to the original preparation
+canary allowance); no retry is automatic. This is a diagnostic timeout, not a
+production timeout change. All application wire payloads must actually contain
+`max_tokens: 1000`, no `max_completion_tokens`, and the required mode/history
+fields before acceptance. Normal SDK GeneratorExit after terminal + DONE is
+labelled as stream cleanup. Missing DONE still fails. The script writes only its
+own private marker/report; it does not create a Secret, change configuration,
+restart Gateway or install code in a running worker. Keep the joint release intact.
+
+```bash
+sudo python3 -I -B -u /home/cnooc/diagnose-portal-deepseek-v41-transport-20261021-r2.py --diagnose-and-test-once
+```
+
+A full passing result is still needed before packaging the adapter image and
+versioned model configuration for a separate rollout. Longer diagnostic waits
+cannot establish a root cause or guarantee production latency.
