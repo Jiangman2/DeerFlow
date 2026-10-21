@@ -185,7 +185,9 @@ for (const { width, height } of [
     ).toHaveCount(0);
     await expect(page.getByTestId("ppt-submission-choice")).toHaveCount(0);
     await expect(page.getByTestId("ppt-confirmation-opt-in")).toHaveCount(0);
-    const threadId = /\/threads\/([^/]+)\/runs\/stream$/.exec(runs[0]!.url)?.[1];
+    const threadId = /\/threads\/([^/]+)\/runs\/stream$/.exec(
+      runs[0]!.url,
+    )?.[1];
     expect(threadId).toBeTruthy();
     await page.goto(`/workspace/chats/${threadId}`);
     await page.reload();

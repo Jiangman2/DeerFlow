@@ -128,8 +128,7 @@ async def test_documented_effort_reaches_wire_with_fixed_thinking(effort, stream
         assert body["model"] == "GLM-5.3-Flash"
         if streaming:
             return sse(chunk({"role": "assistant", "content": "ok"}, "stop"))
-        return httpx.Response(200, json=dict(id="fixture", object="chat.completion", created=1, model="GLM-5.3-Flash",
-                                            choices=[dict(index=0, message=dict(role="assistant", content="ok"), finish_reason="stop")]))
+        return httpx.Response(200, json=dict(id="fixture", object="chat.completion", created=1, model="GLM-5.3-Flash", choices=[dict(index=0, message=dict(role="assistant", content="ok"), finish_reason="stop")]))
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
         result = await client(http, streaming=streaming, extra_body={"thinking": {"type": "enabled"}, "reasoning_effort": effort}).ainvoke("fixture")

@@ -63,7 +63,8 @@ describe("public PPT shortcut as ordinary Agent input", () => {
     const result = preparePublicPptRequest(payload);
     expect(result.input.messages[0]).toBe(old);
     const message = result.input.messages[1]!;
-    if (!("additional_kwargs" in message)) throw new Error("Missing file metadata");
+    if (!("additional_kwargs" in message))
+      throw new Error("Missing file metadata");
     expect(message.additional_kwargs.files).toBe(files);
     expect(message.additional_kwargs.original_user_content).not.toMatch(/^\//);
     expect(message.content[1]).toBe(image);

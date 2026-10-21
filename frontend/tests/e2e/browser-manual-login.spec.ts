@@ -1,4 +1,5 @@
 import { test, expect, type WebSocketRoute } from "@playwright/test";
+
 import { mockLangGraphAPI, MOCK_THREAD_ID } from "./utils/mock-api";
 
 // The synthetic WebSocket peer verifies client controls, not production SSO
@@ -44,35 +45,19 @@ for (const viewport of [
     let rejectReconnect = false;
     const sessionId = "a".repeat(32);
     const socketURLs: string[] = [];
-    await page.routeWebSocket(/\/api\/threads\/.*\/browser\/stream/, (ws) => {
-      socketCount++;
-      currentSocket = ws;
-      socketURLs.push(ws.url());
-      if (rejectReconnect) {
-        expect(new URL(ws.url()).searchParams.get("session_id")).toBe(
-          sessionId,
-        );
-        ws.close({ code: 4410, reason: "session changed" });
-        return;
-      }
-      ws.send(
-        JSON.stringify({
-          type: "login_state",
-          manual_login: manual,
-          session_id: sessionId,
-        }),
-      );
-      ws.send(frame);
-      ws.send(JSON.stringify({ type: "url", url: "https://au.cnooc.com.cn/" }));
-      ws.onMessage((message) => {
-        const event = JSON.parse(String(message));
-        if (event.type !== "login_control") return;
-        controls.push(event.action);
-        if (event.action === "resume" && rejectResume) {
-          ws.send(JSON.stringify({ type: "login_error" }));
+    await page.routeWebSocket(
+      /\/api\/threads\/.*\/browser\/stream/,
+      async (ws) => {
+        socketCount++;
+        currentSocket = ws;
+        socketURLs.push(ws.url());
+        if (rejectReconnect) {
+          expect(new URL(ws.url()).searchParams.get("session_id")).toBe(
+            sessionId,
+          );
+          await ws.close({ code: 4410, reason: "session changed" });
           return;
         }
-        manual = event.action === "begin";
         ws.send(
           JSON.stringify({
             type: "login_state",
@@ -80,12 +65,33 @@ for (const viewport of [
             session_id: sessionId,
           }),
         );
-        ws.send(JSON.stringify({ type: "login_ack" }));
-        if (event.action === "clear") {
-          ws.send(JSON.stringify({ type: "url", url: "about:blank" }));
-        }
-      });
-    });
+        ws.send(frame);
+        ws.send(
+          JSON.stringify({ type: "url", url: "https://au.cnooc.com.cn/" }),
+        );
+        ws.onMessage((message) => {
+          const event = JSON.parse(String(message));
+          if (event.type !== "login_control") return;
+          controls.push(event.action);
+          if (event.action === "resume" && rejectResume) {
+            ws.send(JSON.stringify({ type: "login_error" }));
+            return;
+          }
+          manual = event.action === "begin";
+          ws.send(
+            JSON.stringify({
+              type: "login_state",
+              manual_login: manual,
+              session_id: sessionId,
+            }),
+          );
+          ws.send(JSON.stringify({ type: "login_ack" }));
+          if (event.action === "clear") {
+            ws.send(JSON.stringify({ type: "url", url: "about:blank" }));
+          }
+        });
+      },
+    );
     await page.goto(`/workspace/chats/${MOCK_THREAD_ID}`);
     await expect(page.getByTestId("browser-trigger")).toBeVisible({
       timeout: 60000,
@@ -126,7 +132,7 @@ for (const viewport of [
     expect(controls).toEqual(["begin", "resume", "resume", "clear"]);
     expect(socketCount).toBe(establishedSocketCount);
     rejectReconnect = true;
-    currentSocket!.close({ code: 1012, reason: "restart fixture" });
+    await currentSocket!.close({ code: 1012, reason: "restart fixture" });
     await expect(
       section.getByText(
         "未连接到原来的浏览器会话，已停止自动重连。重新连接后可能需要再次登录。",
