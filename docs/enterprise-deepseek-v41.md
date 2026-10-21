@@ -201,3 +201,31 @@ sudo python3 -I -B -u /home/cnooc/diagnose-portal-deepseek-v41-transport-2026102
 A full passing result is still needed before packaging the adapter image and
 versioned model configuration for a separate rollout. Longer diagnostic waits
 cannot establish a root cause or guarantee production latency.
+
+
+### Candidate r2 field outcome (15:11-15:19 Shanghai time)
+
+Operation `2c4cf8c607cd43568f185e34db653476` made ten direct requests: eight
+functional passes, one real HTTP 503 after 155.337 seconds, and one HTTP-200
+multi-image stream cancelled by the diagnostic output budget. No 180-second
+request deadline fired. All emitted requests used the corrected `max_tokens`.
+The two tool-call bodies are byte-identical (575 bytes, SHA256
+`8facb73144635a3b1b6f93f6d2054341718119b6e9c8175421c9cd8f433a519c`),
+yet one returned 503 and the other completed, followed by a successful tool
+continuation. The synthetic body is preserved in
+`deploy/enterprise/deepseek-v41-synthetic-tool-request.json`; its bytes were
+reconstructed offline through the real SDK and matched both recorded hashes.
+No credentials or business data are included. Node/time/path differences remain
+possible; this is not proof of a particular failing infrastructure hop.
+
+The image rejection counts serialized LangChain chunk JSON characters (512000)
+or chunks (4096), not wire bytes or model tokens. The legacy probe did not
+report the counters separately. Do not label that local cancellation as HTTP
+503, upstream truncation, unsupported vision, or proof that max_tokens was
+ignored. The image request used thinking mode; the supplied document says
+max_tokens does not bound reasoning, but the current receipt does not prove
+which content caused the limit. Do not relax limits merely to pass acceptance.
+See `docs/deepseek-v41-503-followup-20261021-r2.txt` for exact timestamps and
+upstream correlation IDs. Provider-path investigation and completed vision
+acceptance remain required. Production generation 382 was unchanged and this
+model is still not qualified for rollout.
