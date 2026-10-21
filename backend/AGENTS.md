@@ -1316,6 +1316,14 @@ generic tool-output budget does not replace useful structured evidence with a
 file-only preview.
 
 The enterprise Data QA/GLM deployment-plan helpers are pure functions. Keep
+the preparation controller separate: bind actual five-node preload receipts,
+create new immutable config/Secret resources, and validate the candidate in
+bounded Jobs with no production Service labels, volumes or service-account
+token. Candidate checks deny network and never run a Gateway server. Record
+uncertain creates before submission; no write retry or automatic cleanup of
+shared resources. Job TTL is not proof of completed cleanup. Preparation does
+not switch the Deployment or qualify business result values.
+For the paired image/config/env plan, keep
 UID/resourceVersion/spec compare-and-swap checks and paired image/config/Secret
 restoration. They are not an activation controller: bind actual preload and
 immutable-resource receipts and candidate-runtime acceptance before submission.

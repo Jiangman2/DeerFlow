@@ -1237,6 +1237,10 @@ Paired rollback restores the saved image/configuration references only after
 checking that no later Deployment change would be overwritten.
 See [Data QA replacement](docs/datalake-data-qa-replacement.md) for outstanding
 field acceptance and rollout requirements.
+The joint Data QA/GLM preparation tool creates separate immutable configuration
+resources and runs two bounded candidate checks before any Gateway cutover.
+Successful preparation does not establish business-data correctness or switch
+the active model/tool configuration.
 
 For recognized enterprise DataLake queries, disabled access returns a prompt to
 enable the **Use Data Lake** button. Once a run selects DataLake, empty results,
