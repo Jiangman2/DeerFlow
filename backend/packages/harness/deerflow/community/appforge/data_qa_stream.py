@@ -32,7 +32,9 @@ def iter_data_qa_events(response: httpx.Response) -> Iterator[dict[str, Any]]:
     data: list[str] = []
     received = frame_size = 0
     try:
-        for chunk in response.iter_bytes(chunk_size=8192):
+        # A fixed chunk_size buffers small SSE events until 8 KB or EOF.
+        # Decode each transport chunk so progress is observable immediately.
+        for chunk in response.iter_bytes():
             received += len(chunk)
             if received > _MAX_BYTES:
                 raise DataQAStreamError("response_limit")
@@ -77,7 +79,7 @@ def iter_data_qa_events(response: httpx.Response) -> Iterator[dict[str, Any]]:
         raise DataQAStreamError("invalid_sse_event") from error
 
 
-def collect_data_qa_stream(response: httpx.Response, *, parse_knowledge: Callable) -> dict[str, Any]:
+def collect_data_qa_stream(response: httpx.Response, *, parse_knowledge: Callable, on_progress: Callable[[str], None] | None = None) -> dict[str, Any]:
     answer = end_answer = ""
     knowledge: list[dict[str, str]] = []
     progress: deque[str] = deque(maxlen=10)
@@ -104,6 +106,11 @@ def collect_data_qa_stream(response: httpx.Response, *, parse_knowledge: Callabl
             if type(val) in (int, float) and 0 <= val <= 10**12:
                 usage[key] = val
         if kind == "answer":
+            if on_progress:
+                # The observed protocol has unrecognized intermediate node
+                # types. Do not infer SQL execution or intent extraction from
+                # prose. An end-node answer only proves answer composition.
+                on_progress("answering" if data.get("node_type") == "end" or event.get("type") == "answer" else "processing")
             # Legacy type=answer is a delta. Workflow answer/end is a separate
             # answer channel; prefer the terminal full output when provided.
             if event.get("type") == "answer":
@@ -116,7 +123,8 @@ def collect_data_qa_stream(response: httpx.Response, *, parse_knowledge: Callabl
                     truncated |= len(end_answer) + len(text) > 5000
                     end_answer = (end_answer + text)[:5001]
                 else:
-                    progress.append(text[:1200])
+                    if not progress:
+                        progress.append("处理中")
         elif kind == "knowledge":
             content = event.get("content")
             if isinstance(content, str):

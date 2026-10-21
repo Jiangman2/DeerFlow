@@ -351,6 +351,14 @@ DeerFlow owns runtime installation and its security result.
 5. TanStack Query manages server state; localStorage stores user settings
 6. Components subscribe to thread state and render updates. Completed message groups and turn-usage derivations retain stable references while only the active tail changes; histories with at least 60 groups use measured row virtualization while keeping the live tail mounted. Streaming Markdown uses a deferred, bounded 50 ms reveal cadence so provider token frequency cannot force a complete Markdown parse and React commit for every chunk.
 
+Data QA tool progress reuses the thread custom stream and tool-call step. Accept
+only closed stage codes bound to the active thread/run/call, deduplicate and
+bound its history, and keep the newest state visible while details are closed.
+Do not render upstream text or duplicate the business answer. Tool completion
+stops its spinner independently of assistant generation; failure, cancellation
+and a stream ending without completion must never leave it running. This is
+live UI state, not a migration or rewrite of historical messages.
+
 The composer labels the legacy shop-cart attachment flow as **Data Lake** while
 keeping its internal routes and modules unchanged. The control stores
 `datalake_enabled` in the user's shared local settings, defaults missing values

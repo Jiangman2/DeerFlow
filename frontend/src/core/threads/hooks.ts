@@ -46,6 +46,11 @@ import {
   type ThreadMetadataPatch,
 } from "./api";
 import { isCustomEventForThread } from "./custom-event-scope";
+import {
+  mergeDataQAProgress,
+  settleDataQAProgress,
+  type DataQAProgressMap,
+} from "./data-qa-progress";
 import { LEAD_AGENT_RECURSION_LIMIT } from "./run-config";
 import { isStaticDemoThreadId, loadStaticDemoThread } from "./static-demo";
 import {
@@ -1242,6 +1247,8 @@ export function useThreadStream({
   onToolEnd,
 }: ThreadStreamOptions) {
   const { t } = useI18n();
+  const [dataQAProgress, setDataQAProgress] = useState<DataQAProgressMap>({});
+  const progressRunIdRef = useRef<string | null>(null);
   const currentViewThreadId = displayThreadId ?? threadId ?? null;
   const currentViewThreadIdRef = useRef(currentViewThreadId);
   currentViewThreadIdRef.current = currentViewThreadId;
@@ -1323,6 +1330,10 @@ export function useThreadStream({
   }, [threadId]);
 
   const handleStreamStart = useCallback((_threadId: string, _runId: string) => {
+    if (progressRunIdRef.current !== _runId) {
+      setDataQAProgress({});
+      progressRunIdRef.current = _runId;
+    }
     // Preserve isolated-runtime ownership when the run creation response uses
     // an authoritative id different from the welcome page's client id. Do
     // this before changing refs or enabling state/history hydration.
@@ -1486,6 +1497,10 @@ export function useThreadStream({
       ) {
         return;
       }
+      const progressRunId = progressRunIdRef.current;
+      setDataQAProgress((previous) =>
+        mergeDataQAProgress(previous, event, progressRunId),
+      );
       // Narrow `event.type` once; taskEventToSubtaskUpdate already validated the
       // task_* events, so the per-branch re-narrowing below reads this single
       // source of truth instead of re-checking the object shape each time.
@@ -1535,6 +1550,10 @@ export function useThreadStream({
       }
     },
     onError(error) {
+      const progressRunId = progressRunIdRef.current;
+      setDataQAProgress((previous) =>
+        settleDataQAProgress(previous, "failed", progressRunId),
+      );
       setOptimisticMessages([]);
       setOptimisticThreadId(null);
       setLiveMessagesThreadId(null);
@@ -1556,6 +1575,10 @@ export function useThreadStream({
       }
     },
     onFinish(state) {
+      const progressRunId = progressRunIdRef.current;
+      setDataQAProgress((previous) =>
+        settleDataQAProgress(previous, "stopped", progressRunId),
+      );
       listeners.current.onFinish?.(state.values);
       pendingUsageBaselineMessageIdsRef.current = new Set(
         messagesRef.current
@@ -1594,6 +1617,7 @@ export function useThreadStream({
   } | null>(null);
 
   const stopThread = useCallback(async () => {
+    const progressRunId = progressRunIdRef.current;
     const stoppedThreadId =
       threadIdRef.current ?? displayThreadId ?? threadId ?? null;
     await stopThreadAndInvalidateCaches(
@@ -1601,6 +1625,9 @@ export function useThreadStream({
       () => thread.stop(),
       stoppedThreadId,
       isMock,
+    );
+    setDataQAProgress((previous) =>
+      settleDataQAProgress(previous, "cancelled", progressRunId),
     );
   }, [displayThreadId, isMock, queryClient, thread, threadId]);
 
@@ -2231,6 +2258,7 @@ export function useThreadStream({
   // History messages may overlap with thread.messages; thread.messages take precedence
   const mergedThread = {
     ...thread,
+    dataQAProgress,
     isLoading: thread.isLoading || isRecoveringActiveRun,
     stop: stopThread,
     values: hasVisibleStreamState ? thread.values : EMPTY_THREAD_VALUES,

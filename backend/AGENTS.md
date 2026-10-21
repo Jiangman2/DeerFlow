@@ -1318,6 +1318,13 @@ the Secret, sanitize provider errors, and retain bounded valid JSON so the
 generic tool-output budget does not replace useful structured evidence with a
 file-only preview.
 
+Data QA live progress on the existing LangGraph custom stream, scoped to thread,
+run and tool-call IDs. Emit only closed stage codes, never upstream prose, SQL,
+reasoning or credentials. Decode transport chunks without an 8 KB accumulation
+delay; intermediate answers prove processing, end-node answers prove answer
+composition, and only the accepted final result proves completion. A closed
+progress observer must not alter the tool result or authorization contract.
+
 The enterprise Data QA/GLM deployment-plan helpers are pure functions. Keep
 the preparation controller separate: bind actual five-node preload receipts,
 create new immutable config/Secret resources, and validate the candidate in
