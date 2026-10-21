@@ -1246,6 +1246,11 @@ conditions/events and retain the already prepared resources for verified reuse.
 The report-bound r2 resumption reuses those immutable resources and copies the
 existing Gateway node toleration into two isolated checks; it does not roll out
 Gateway or require another credential entry.
+Both field candidate Jobs have now passed. The paired activation controller
+checks persisted custom-agent references before submitting one compare-and-swap
+patch for image, config and dedicated Secret reference, then accepts every
+Gateway replica. It requires a drained task window; candidate acceptance alone
+does not mean the production update or business-answer validation is complete.
 
 For recognized enterprise DataLake queries, disabled access returns a prompt to
 enable the **Use Data Lake** button. Once a run selects DataLake, empty results,

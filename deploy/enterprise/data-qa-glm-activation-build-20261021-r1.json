@@ -1,0 +1,10 @@
+{
+  "schema": "portal-data-qa-glm-activation-build.v1",
+  "script_bytes": 336085,
+  "script_sha256": "157e68b96459d065df544aa7347b7fd343b25c985564def6c85eb6a3436ae7ec",
+  "controller_and_inventory_tests_linux_python37": 13,
+  "runtime_15_sources_sdk232": "PASS_SYNTHETIC_QA",
+  "field_candidate_accepted": 2,
+  "production_deployed": false,
+  "provider_requests_during_packaging": 0
+}

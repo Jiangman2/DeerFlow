@@ -1337,6 +1337,14 @@ For the paired image/config/env plan, keep
 UID/resourceVersion/spec compare-and-swap checks and paired image/config/Secret
 restoration. They are not an activation controller: bind actual preload and
 immutable-resource receipts and candidate-runtime acceptance before submission.
+The joint controller binds the accepted two-node candidate report and reuses
+the pinned rollout/HTTP/UUID/GLM checks. Before its single paired patch, inventory
+legacy/team/user custom-agent config.yaml and SOUL.md for retired tool names,
+with bounded reads and aggregate counts only. Refuse old references or differing
+sample views without rewriting user artifacts. The live acceptance child checks
+the actual config mount and all 15 release sources; its network denial applies
+only after the existing local HTTP and read-only UUID checks. Never run that
+monkeypatch inside the serving application, or retry an uncertain rollout patch.
 
 `DataLakeSourceMiddleware` checkpoints the run's source restriction before
 execution and after model selection. Keep deterministic explicit-source/table

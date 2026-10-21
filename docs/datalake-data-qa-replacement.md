@@ -183,3 +183,31 @@ sudo python3 -I -B -u /home/cnooc/resume-portal-data-qa-glm-candidate-20261021-r
 ```
 
 原报告、已创建资源和原 once 标记须保留。续接失败时保留新报告，不自动重跑。
+
+### 候选检查通过与联合切换工具
+
+续接 `84193cd46073486cb9b2451d6cc61010` 的两个 Job 在 0018/0019 成功完成，
+15 个文件、两个数据湖工具、新密钥引用、关闭权限提示、7 类外部兜底限制、空结果/
+错误/委派范围和 GLM terminal+[DONE] 均通过。报告 8,677 字节，SHA-256
+`b96301c50c6d04e66ac1a600596039362df2f20336bb459fcd22e6788cd8ed2a`。
+Gateway 仍为 generation 381，未修改；启动观察中的 Pending 是先前快照，最终
+Job Complete 和检查结果均为成功。TTL 清理尚未单独确认。
+
+`package-data-qa-glm-activation.py` 从摘要固定的既有 GLM 切换控制器构建联合版本，
+绑定这份回执、旧失败报告、已有不可变资源、两份接口联调回执和五台预载。启动先
+只读检查存量个人/团队/旧版 Agent 配置及 SOUL.md 的旧工具引用；有引用、扫描
+不完整或两节点视图不一致均在补丁前停止，不自动改写用户文件。
+
+确认任务结束后，通过 `--activate-gateway-data-qa-glm-once --tasks-drained`
+执行。仅一次 JSON Patch 同时改镜像、ConfigMap 名和专属 Secret 环境引用，
+带 UID/resourceVersion/generation/完整 spec 比较条件。旧配置和 Secret 保留；
+原始 spec 与期望 spec 保存到 root 私有目录，回退必须成套恢复，不能只退镜像。
+这不是自动回退工具；超时或不确定写入不重复提交。前端/PPT runner/Provisioner/
+Nginx spec 和 Gateway Service 均核对保持不变。
+
+滚动完成后逐个核验 70 个副本的镜像、源码、实际配置、Data QA 离线行为、GLM
+流完整性、已认证内部 HTTP、真实 UUID 只读路径和产品名称。不会再次调用模型
+或新业务接口；新接口业务答案、统计问题及浏览器交互仍需单独验收。
+控制器及引用扫描 13 项 Linux Python 3.7 检查通过，15 文件实际路径检查在隔离 QA
+及 SDK 2.32.0 下通过。QA 初次单文件挂载缺少现有 llm_timing_context 模块；补全
+同一工作树 harness 依赖挂载后通过，未改生产镜像来规避。现场候选镜像已独立通过。
