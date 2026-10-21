@@ -22,6 +22,9 @@ read-only preflight reports can be resumed with an explicitly bound recovery
 package; retain the original report and once marker.
 For an initial provider HTTP 503, an exact report-bound retry can be prepared;
 the model remains unavailable in the selector until all live checks pass.
+For the October 21 HTTP-503 incident, the preparation guide includes a
+credential-free application record and a read-only historical receipt collector;
+the existing reports do not identify which upstream component returned 503.
 
 Homepage portal footer: total/today model usage remains supplied by Haineng;
 today's users/tasks use the business dashboard's active-user/started-run

@@ -17,6 +17,11 @@ not a generic retry for timeout, tool execution or uncertain outcomes.
 An explicitly requested synthetic-tool-503 recovery separately binds the exact
 three completed test stages and failed fourth request, requires zero business
 tools and no possible Secret write, and reruns the bounded five-call canary.
+For historical DeepSeek 503 diagnosis, use the exact hash-bound receipt
+collector rather than another provider request. Old receipts contain neither
+upstream request IDs nor response bodies/headers; do not invent them, attribute
+503 to a particular service, or confuse report mtime with request time. Current
+Pod addresses are only current metadata, not proof of historical NAT routing.
 
 Employee featured-store reads use the field-qualified r6 source. On Linux,
 force pathname metadata refresh with statx before the bounded precommit open,

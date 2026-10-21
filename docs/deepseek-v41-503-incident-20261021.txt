@@ -1,0 +1,88 @@
+DeepSeek-V4.1-Flash 应用端 HTTP 503 排查记录
+整理日期：2026-10-21；时间口径：北京时间（UTC+08:00）
+用途：供接口、网关及网络运维联合排查；本文件不含密钥、鉴权头或业务对话。
+
+一、结论与证据边界
+应用端 OpenAI 兼容 SDK 在三个独立验收批次中记录了 HTTP 503，异常类为 InternalServerError。
+r3 同一批次先通过闪速、思考和工具调用，随后工具结果续接失败；r2、r4 在第一条普通闪速请求即失败。
+因此，不能将问题限定为工具续接，也不能仅凭 503 认定模型实例故障或服务波动。
+503 的生成位置目前未确定，仍可能涉及入口、负载均衡、转发链路或上游服务；这些均待日志核实。
+运维反馈后台服务及所查网关正常，是需要共同关联的新信息，不与应用收到 503 的记录直接矛盾。
+
+二、请求入口与执行位置
+方法：POST
+完整 URL：https://aiapi.cnooc.com.cn/DeepSeek-V4.1-Flash/FCV-41/v1/chat/completions
+model：DeepSeek-V4.1-Flash
+协议：Chat Completions，stream=true，stream_options.include_usage=true
+模式：flash、tool_call、tool_resume 使用顶层 enable_thinking=false；thinking 使用 true。
+max_tokens 配置值：1000；实际 SDK 序列化字段名不在历史回执中。
+自动重试：关闭，SDK max_retries=0。三次批次为人工发起的独立重试，不是循环自动重试。
+网络：工具明确使用 httpx.AsyncClient(trust_env=False, follow_redirects=False)，不继承 HTTP(S)_PROXY；保留 TLS 校验，读取 SSL_CERT_FILE 配置的 CA。
+这只证明客户端未使用环境变量代理，不能据此排除透明网络转发，也不能推断历史解析 IP 或 NAT 出口。
+
+执行方式：在 datax-01 通过 kubectl exec，进入一个正常 Gateway Pod 的短时 Python 检查进程，调用已安装的模型工厂及 RobustChatOpenAI。
+这不是经产品 HTTP 路由发起的业务聊天，因此不能假定生产 Gateway 的 Uvicorn 访问日志会记录这些出站模型请求。
+namespace：deer-flow
+Pod：gateway-8649cdbc5b-26q9l
+Pod UID：b5451481-1577-4656-a1ed-e28decdabc7a
+节点：ecs-zdz-pro-0021
+Gateway Deployment：generation=381；desired/updated/ready/available 均为 70。
+Deployment UID：a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1
+spec_sha256：5a84f74566171e588433779a59b9adec1ae752c2dc3c42706ff55db1e295fbda
+
+三、历史请求结果
+r2：共尝试 1 次请求；第 1 条 flash 返回 503，checks 为空；其余阶段未尝试。
+本地操作 ID：11a8655d26394f249766f7d2a77063e4
+原报告：/var/lib/portal-deepseek-v41-preparation-11a8655d26394f249766f7d2a77063e4/REPORT.json
+报告：1781 字节；SHA-256=baa2aff6a6c750f98d72c97e693aceac3bb00c210ef094861faa9238efb7c73a
+
+r3：共尝试 4 次请求：
+  1. flash：PASS；10.67 秒；finish_reason=stop；推理字段未出现。
+     用量：input_tokens=15，output_tokens=5，total_tokens=20。
+  2. thinking：PASS；19.16 秒；finish_reason=stop；推理字段出现。
+     用量：input_tokens=41，output_tokens=41，total_tokens=82。
+  3. tool_call：PASS；5.36 秒；finish_reason=tool_calls；推理字段未出现。
+     用量：input_tokens=309，output_tokens=43，total_tokens=352。
+  4. tool_resume：HTTP 503；失败请求耗时未记录。
+  多图阶段未尝试；没有执行真实业务工具。
+本地操作 ID：f6dbf7f90154471789b2b42ddca90ecc
+原报告：/var/lib/portal-deepseek-v41-preparation-f6dbf7f90154471789b2b42ddca90ecc/REPORT.json
+报告：2247 字节；SHA-256=d710b3124e9cab0627d80fdd2961d94348fd570de14715d175109517357f0609
+
+r4：共尝试 1 次请求；第 1 条 flash 返回 503，checks 为空；其余阶段未尝试。
+本地操作 ID：b63817e832e74c5da7b70c88fd83ffca
+原报告：/var/lib/portal-deepseek-v41-preparation-b63817e832e74c5da7b70c88fd83ffca/REPORT.json
+报告：1795 字节；SHA-256=a7da7831f6b0aa434103de8fa18cfde15f705894b3c40fc6fbb8396cab24e788
+
+三次合计尝试 6 次合成请求，3 次成功、3 次 HTTP 503。没有创建模型 Secret，没有修改配置或重启服务。
+以上操作 ID 由应用检查工具本地生成，不是上游 request_id，不能据其直接检索模型服务日志。
+
+四、时间信息
+现有回执未记录请求开始/结束的墙钟时间，也未记录失败请求耗时。
+终端中的 Last login 只是登录时间，不能作为请求时间。提供的登录提示分别为 08:28:46、08:38:53、09:06:28，但不据此断言调用发生在这些时刻。
+可先以 2026-10-21 上午 08:20～09:20 北京时间作为宽范围检索起点；这是人工定位建议，不是已测量的请求区间。
+配套只读采集脚本会读取上述三份原报告的文件 mtime，提供 UTC 和北京时间，可辅助估计批次结束时间；文件复制或 touch 会影响 mtime，仍不能视为精确请求时间。
+
+五、合成请求内容与版本一致性
+普通文字请求固定为：Reply exactly V41_PROBE_OK and nothing else.
+工具为 probe_echo，仅返回合成字符串 V41_PROBE_OK，无业务读写。
+续接按 user → assistant(tool_calls) → tool(tool_call_id) 发送，保留该次真实工具调用 ID；历史完整报文及 tool_call_id 没有导出，不补造它们。
+r2/r3/r4 的嵌入模型配置、探测代码、远端执行包装代码摘要一致，已核对本机发布脚本。
+模型配置 SHA-256：a7d6020874fa3533706e7238d84dffe69c8f4b19a2b8314ee69d75812b6ef787
+探测代码 SHA-256：a51825961a9c5dd2141e02cc7e74a4ce4fef738ea347852b1e1a03f1dca6ce82
+执行包装代码 SHA-256：722164c750d1a18bd52a284628ce1100ae0cbc2ac644da5abed572bcfd80e0fe
+现场模型工厂 SHA-256：8009fc0ea267d9520aec2eef9c8a6e1daa1d454ddab028c6d70eb68da8070510
+现场 RobustChatOpenAI SHA-256：91793fafb98f430aae43856250558f2bb483219c9ca39c2443643e631057c51e
+
+六、旧记录没有的信息
+未保存上游 request_id / trace_id、HTTP 响应头、响应正文、历史目标 IP、请求精确时间、出站 NAT 地址。
+旧工具主动抑制原始异常及响应内容，当前不能恢复这些字段，也不能称这份记录是完整 HTTP 抓包。
+配套采集只会读取原报告、文件时间和同一 UID Pod 的当前地址，不会再次调用模型。
+当前 Pod/节点 IP 只用于协助定位；它们不等于已经确认的历史请求源地址或 NAT 出口。
+
+七、请运维协助关联
+1. 按上述完整 Host、路径、模型名及北京时间范围核对实际入口、VIP/LB、API 转发和模型后端日志。
+2. 如模型后端没有对应记录，请继续核对入口或转发层是否产生 503，并确认所查环境、路由和时区一致。
+3. 如当前记录仍不足以定位，双方约定一个短时排查窗口，再做一次带时间戳与可关联请求 ID 的合成请求；届时仅提供脱敏状态、响应头白名单和错误摘要。不要循环重试或传递 API Key。
+
+该文件供用户自行转交运维，未向任何外部人员自动发送。

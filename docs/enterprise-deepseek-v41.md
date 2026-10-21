@@ -85,5 +85,27 @@ tool alone do not perform or authorize this rollout.
 
 The document reports that `max_tokens` does not bound hidden reasoning. The
 probe has an independent 180-second total deadline per request; no keepalive
-extends it. A 402 indicates model entitlement failure; 503 indicates provider
-unavailability. Neither is silently retried by the acceptance tool.
+extends it. The supplied contract describes 402 as an entitlement error. An
+observed HTTP 503 establishes a failure somewhere on the inference HTTP path;
+without response provenance it does not identify the model service, ingress or
+another forwarding layer. Neither status is silently retried by the tool.
+
+## October 21 incident evidence
+
+The operator reported three HTTP-503 batches: r2 failed its first flash request;
+r3 passed flash, thinking and synthetic tool calling before tool-result failure;
+r4 again failed its first flash request. The pinned profiles and probe sources
+are identical. See `docs/deepseek-v41-503-incident-20261021.txt` for the shareable
+application-side record. It contains no credentials or business conversations.
+
+`deploy/enterprise/collect-deepseek-v41-incident.py --collect-existing-readonly`
+is a Python 3.7 controller for datax-01. It reads only the three exact private
+reports, checks their size/hash, exports report-file timestamps in UTC and
+Shanghai time, and queries the current identity/address of the original Pod.
+It does not run another canary, access Secrets, read raw logs or write files.
+Report mtime is not a request timestamp; current Pod addresses are not historical
+egress/NAT proof. The original tool did not save upstream request IDs, response
+headers or error bodies, so this collector cannot recover them. Local operation
+UUIDs must never be presented as upstream request IDs. If correlation remains
+impossible, a separately coordinated synthetic request needs timestamped,
+redacted transport evidence instead of another blind retry.
