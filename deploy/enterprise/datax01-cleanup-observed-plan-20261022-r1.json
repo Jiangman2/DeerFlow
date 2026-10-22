@@ -1,0 +1,257 @@
+{
+  "archive": {
+    "allocated_bytes": 3818332160,
+    "bytes": 3818332160,
+    "device": 64512,
+    "inode": 43873316,
+    "links": 1,
+    "mtime_ns": 1792232889849537159,
+    "path": "/home/cnooc/portal-ppt-native-offline-20261017-r1.tar",
+    "uid": 1000
+  },
+  "extracted_root": "/home/cnooc/portal-ppt-native-preload-20261017-r1",
+  "logs": [
+    {
+      "allocated_bytes": 3682787328,
+      "bytes": 3682719337,
+      "device": 64512,
+      "inode": 270441644,
+      "links": 1,
+      "mtime_ns": 1751356584062636684,
+      "path": "/var/log/hadoop-yarn/yarn/hadoop-yarn-nodemanager-as.hdp.com.out",
+      "uid": 528
+    },
+    {
+      "allocated_bytes": 420052992,
+      "bytes": 420048538,
+      "device": 64512,
+      "inode": 437196438,
+      "links": 1,
+      "mtime_ns": 1751356501782424097,
+      "path": "/var/log/spark3/spark-spark-org.apache.spark.deploy.history.HistoryServer-1-as.hdp.com.out",
+      "uid": 1014
+    },
+    {
+      "allocated_bytes": 268468224,
+      "bytes": 268444700,
+      "device": 64512,
+      "inode": 270419909,
+      "links": 1,
+      "mtime_ns": 1746561630023940286,
+      "path": "/var/log/hadoop-yarn/yarn/hadoop-yarn-nodemanager-as.hdp.com.log.4",
+      "uid": 528
+    },
+    {
+      "allocated_bytes": 268460032,
+      "bytes": 268437504,
+      "device": 64512,
+      "inode": 269522664,
+      "links": 1,
+      "mtime_ns": 1745144430002320295,
+      "path": "/var/log/hadoop-yarn/yarn/hadoop-yarn-nodemanager-as.hdp.com.log.5",
+      "uid": 528
+    },
+    {
+      "allocated_bytes": 268460032,
+      "bytes": 268443499,
+      "device": 64512,
+      "inode": 270441601,
+      "links": 1,
+      "mtime_ns": 1747978830005551580,
+      "path": "/var/log/hadoop-yarn/yarn/hadoop-yarn-nodemanager-as.hdp.com.log.3",
+      "uid": 528
+    },
+    {
+      "allocated_bytes": 268451840,
+      "bytes": 268444153,
+      "device": 64512,
+      "inode": 270441604,
+      "links": 1,
+      "mtime_ns": 1749396930019493038,
+      "path": "/var/log/hadoop-yarn/yarn/hadoop-yarn-nodemanager-as.hdp.com.log.2",
+      "uid": 528
+    },
+    {
+      "allocated_bytes": 268443648,
+      "bytes": 268435651,
+      "device": 64512,
+      "inode": 270441605,
+      "links": 1,
+      "mtime_ns": 1750814670022498069,
+      "path": "/var/log/hadoop-yarn/yarn/hadoop-yarn-nodemanager-as.hdp.com.log.1",
+      "uid": 528
+    },
+    {
+      "allocated_bytes": 268443648,
+      "bytes": 268437554,
+      "device": 64512,
+      "inode": 873266062,
+      "links": 1,
+      "mtime_ns": 1750566763741984531,
+      "path": "/var/log/hadoop/hdfs/hadoop-hdfs-datanode-as.hdp.com.log.1",
+      "uid": 1009
+    },
+    {
+      "allocated_bytes": 113270784,
+      "bytes": 113260557,
+      "device": 64512,
+      "inode": 269522663,
+      "links": 1,
+      "mtime_ns": 1744007804615614402,
+      "path": "/var/log/hadoop-yarn/yarn/hadoop-yarn-nodemanager-as.hdp.com.out.1",
+      "uid": 528
+    },
+    {
+      "allocated_bytes": 104869888,
+      "bytes": 104862382,
+      "device": 64512,
+      "inode": 503417226,
+      "links": 1,
+      "mtime_ns": 1749887156596088987,
+      "path": "/var/log/flink/flink-flink-historyserver-0-as.hdp.com.log.3",
+      "uid": 1012
+    },
+    {
+      "allocated_bytes": 104869888,
+      "bytes": 104860800,
+      "device": 64512,
+      "inode": 503417244,
+      "links": 1,
+      "mtime_ns": 1750239637366789228,
+      "path": "/var/log/flink/flink-flink-historyserver-0-as.hdp.com.log.5",
+      "uid": 1012
+    },
+    {
+      "allocated_bytes": 104869888,
+      "bytes": 104860818,
+      "device": 64512,
+      "inode": 504138257,
+      "links": 1,
+      "mtime_ns": 1750592119727496785,
+      "path": "/var/log/flink/flink-flink-historyserver-0-as.hdp.com.log.7",
+      "uid": 1012
+    },
+    {
+      "allocated_bytes": 104865792,
+      "bytes": 104860800,
+      "device": 64512,
+      "inode": 503417243,
+      "links": 1,
+      "mtime_ns": 1750063396481437815,
+      "path": "/var/log/flink/flink-flink-historyserver-0-as.hdp.com.log.4",
+      "uid": 1012
+    },
+    {
+      "allocated_bytes": 104865792,
+      "bytes": 104860836,
+      "device": 64512,
+      "inode": 503417245,
+      "links": 1,
+      "mtime_ns": 1750415884722158732,
+      "path": "/var/log/flink/flink-flink-historyserver-0-as.hdp.com.log.6",
+      "uid": 1012
+    },
+    {
+      "allocated_bytes": 83894272,
+      "bytes": 83886195,
+      "device": 64512,
+      "inode": 872489650,
+      "links": 1,
+      "mtime_ns": 1743809243592589268,
+      "path": "/var/log/ambari-server/ambari-server.log.4",
+      "uid": 0
+    },
+    {
+      "allocated_bytes": 83894272,
+      "bytes": 83886206,
+      "device": 64512,
+      "inode": 872420388,
+      "links": 1,
+      "mtime_ns": 1743991429213304976,
+      "path": "/var/log/ambari-server/ambari-server.log.3",
+      "uid": 0
+    },
+    {
+      "allocated_bytes": 83890176,
+      "bytes": 83886168,
+      "device": 64512,
+      "inode": 873266087,
+      "links": 1,
+      "mtime_ns": 1744112543126228775,
+      "path": "/var/log/ambari-server/ambari-server.log.2",
+      "uid": 0
+    },
+    {
+      "allocated_bytes": 83890176,
+      "bytes": 83886175,
+      "device": 64512,
+      "inode": 873266067,
+      "links": 1,
+      "mtime_ns": 1744150455584183858,
+      "path": "/var/log/ambari-server/ambari-server.log.1",
+      "uid": 0
+    },
+    {
+      "allocated_bytes": 41529344,
+      "bytes": 41529179,
+      "device": 64512,
+      "inode": 503417222,
+      "links": 1,
+      "mtime_ns": 1744008017436164270,
+      "path": "/var/log/flink/flink-flink-historyserver-0-as.hdp.com.log.2",
+      "uid": 1012
+    }
+  ],
+  "packages": [
+    {
+      "allocated_bytes": 976396288,
+      "bytes": 976393728,
+      "device": 64512,
+      "inode": 549813491,
+      "links": 1,
+      "mtime_ns": 1792232915769597305,
+      "path": "/home/cnooc/portal-ppt-native-preload-20261017-r1/runner.candidate.oci.tar",
+      "uid": 1000
+    },
+    {
+      "allocated_bytes": 870473728,
+      "bytes": 870471168,
+      "device": 64512,
+      "inode": 549813489,
+      "links": 1,
+      "mtime_ns": 1792232904789571826,
+      "path": "/home/cnooc/portal-ppt-native-preload-20261017-r1/gateway.candidate.oci.tar",
+      "uid": 1000
+    },
+    {
+      "allocated_bytes": 124760064,
+      "bytes": 124756992,
+      "device": 64512,
+      "inode": 549813488,
+      "links": 1,
+      "mtime_ns": 1792232900649562220,
+      "path": "/home/cnooc/portal-ppt-native-preload-20261017-r1/frontend.oci.tar",
+      "uid": 1000
+    },
+    {
+      "allocated_bytes": 869703680,
+      "bytes": 869703680,
+      "device": 64512,
+      "inode": 380524596,
+      "links": 1,
+      "mtime_ns": 1791982345159249840,
+      "path": "/home/cnooc/output-recovery-r3-05900f6102e0/gateway.oci.tar",
+      "uid": 1000
+    },
+    {
+      "allocated_bytes": 207323136,
+      "bytes": 207321600,
+      "device": 64512,
+      "inode": 33613910,
+      "links": 1,
+      "mtime_ns": 1788255732927498067,
+      "path": "/home/cnooc/deer-flow-skills-20260901-enterprise-arm64-rc15-researchfund1.oci.tar",
+      "uid": 1000
+    }
+  ]
+}
