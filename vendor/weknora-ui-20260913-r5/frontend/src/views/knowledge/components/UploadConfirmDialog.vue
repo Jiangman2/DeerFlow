@@ -28,8 +28,8 @@
                 </div>
 
                 <div v-if="mode === 'file'" class="upload-batch-notice">
-                  <p>{{ knowledgeUploadBatchHint(locale) }}</p>
-                  <p aria-live="polite">{{ knowledgeUploadSelectionHint(localFiles.length, locale) }}</p>
+                  <p>{{ knowledgeUploadBatchHint(locale, authStore.isSystemAdmin) }}</p>
+                  <p aria-live="polite">{{ knowledgeUploadSelectionHint(localFiles.length, locale, authStore.isSystemAdmin) }}</p>
                 </div>
 
                 <div v-if="mode === 'file'" class="destination-row">
@@ -557,6 +557,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useAuthStore } from '@/stores/auth'
 import { MessagePlugin } from 'tdesign-vue-next'
 import ModelSelector from '@/components/ModelSelector.vue'
 import KBParserSettings from '../settings/KBParserSettings.vue'
@@ -656,6 +657,7 @@ const emit = defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
+const authStore = useAuthStore()
 const chatResources = useChatResourcesStore()
 const editorResources = useEditorResourcesStore()
 const uiStore = useUIStore()
@@ -1028,7 +1030,7 @@ function getSectionNavStatus(
 }
 
 const canConfirm = computed(() => {
-  if (props.mode === 'file' && isKnowledgeUploadBatchTooLarge(localFiles.value.length)) return false
+  if (props.mode === 'file' && isKnowledgeUploadBatchTooLarge(localFiles.value.length, authStore.isSystemAdmin)) return false
   if (props.mode === 'file' && batchItemCount.value === 0) return false
   if (props.mode === 'manual' && !props.manualPreview?.content?.trim()) return false
   if (hasImages.value) {
@@ -1336,7 +1338,7 @@ const appendFiles = (incoming: File[]) => {
 
   if (toAdd.length > 0) {
     const count = localFiles.value.length + toAdd.length
-    if (isKnowledgeUploadBatchTooLarge(count)) {
+    if (isKnowledgeUploadBatchTooLarge(count, authStore.isSystemAdmin)) {
       MessagePlugin.warning(knowledgeUploadBatchLimitMessage(count, locale.value))
       return
     }
@@ -1424,7 +1426,7 @@ const handleCancel = () => {
 }
 
 const handleConfirm = () => {
-  if (props.mode === 'file' && isKnowledgeUploadBatchTooLarge(localFiles.value.length)) {
+  if (props.mode === 'file' && isKnowledgeUploadBatchTooLarge(localFiles.value.length, authStore.isSystemAdmin)) {
     MessagePlugin.warning(knowledgeUploadBatchLimitMessage(localFiles.value.length, locale.value))
     return
   }
