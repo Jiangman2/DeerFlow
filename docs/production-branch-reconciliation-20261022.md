@@ -69,7 +69,7 @@ OA v2、多文件数据库扩展、OA 兼容启动补丁和 Token 等待状态�
 
 Gateway 的 `runtime/interrupted_history.py` 和 `runtime/journal.py` 已从本地保留的 `9b3a6d80…` 历史镜像中取得，并与当前服务器原始字节 SHA-256 完全一致。因此额外两文件导出工具无需执行。发布包来源记录、Git blob 和本地镜像来源记录见 `source-restoration-20261022.json`。
 
-当前恢复在 `codex/production-source-alignment-20261022` 独立工作分支内，尚未修改远端目标分支。Gateway 主目录恢复 51 项差异；Runner 使用独立源码快照，不能把它覆盖到 Gateway 主目录。原来的 9 月 Runner 构建锁仍是历史记录，不把它伪装为当前镜像构建依据。
+本次恢复在 `codex/production-source-alignment-20261022` 独立工作分支完成；用户随后明确要求推送并合入 `codex/enterprise-consolidation-20260716`。Gateway 主目录恢复 51 项差异；Runner 使用独立源码快照，不能把它覆盖到 Gateway 主目录。原来的 9 月 Runner 构建锁仍是历史记录，不把它伪装为当前镜像构建依据。
 
 验证命令（Python 3.12+）：
 
@@ -80,3 +80,7 @@ python deploy/enterprise/verify-production-source-snapshot.py
 未将上述结果扩大为“整个产品与镜像完全一致”：前端完整构建溯源、WeKnora UI 构建对应、非 Python 运行文件、依赖锁和生产配置有效值仍需分别核对。没有部署、数据库操作或模型调用。
 
 校验边界：本次执行逐文件哈希、完整 Python 文件集合及 Python 3.12 语法检查，没有宣称已通过完整应用回归或 CI。当前复用的本地虚拟环境未安装 Ruff。Runner 原始 `lead_agent/prompt.py` 有一行尾部空格，为保持服务器源码哈希保留；归档范围的空白差异不应被误报成检查全部通过。
+
+## 合并时的并发修改核对
+
+推送前重新获取目标分支，发现新提交 `f9ea6eacd`（系统管理员豁免 WeKnora 上传批次数量限制）。已无冲突合入，四个 WeKnora 文件与该远端提交完全相同。本次集成后的 Gateway 579 项、Runner 550 项哈希及 Python 3.12 语法检查再次通过。这不改变前端构建对应关系仍待核实的结论，也不代表执行过生产部署或全量 CI。
