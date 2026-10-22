@@ -1654,7 +1654,7 @@ const executeUploadBatch = async (
   } = {},
 ) => {
   // Last browser-side boundary: never truncate or auto-split an oversized batch.
-  if (isKnowledgeUploadBatchTooLarge(files.length)) {
+  if (isKnowledgeUploadBatchTooLarge(files.length, authStore.isSystemAdmin)) {
     MessagePlugin.warning(knowledgeUploadBatchLimitMessage(files.length, locale.value));
     return { successCount: 0, failCount: files.length };
   }
@@ -1778,7 +1778,7 @@ const handleUploadConfirmResult = async (result: UploadConfirmResult) => {
   }
 
   const files = result.files || [];
-  if (isKnowledgeUploadBatchTooLarge(files.length)) {
+  if (isKnowledgeUploadBatchTooLarge(files.length, authStore.isSystemAdmin)) {
     MessagePlugin.warning(knowledgeUploadBatchLimitMessage(files.length, locale.value));
     return;
   }
@@ -1804,7 +1804,7 @@ const handleUploadConfirmResult = async (result: UploadConfirmResult) => {
 };
 
 const openUploadConfirmDialog = async (files: File[], urls: string[] = []) => {
-  if (isKnowledgeUploadBatchTooLarge(files.length)) {
+  if (isKnowledgeUploadBatchTooLarge(files.length, authStore.isSystemAdmin)) {
     MessagePlugin.warning(knowledgeUploadBatchLimitMessage(files.length, locale.value));
     return;
   }
@@ -2596,7 +2596,7 @@ async function createNewSession(value: string): Promise<void> {
                 </div>
               </div>
               <p v-if="canEdit" class="knowledge-upload-batch-hint">
-                {{ knowledgeUploadBatchHint(locale) }}
+                {{ knowledgeUploadBatchHint(locale, authStore.isSystemAdmin) }}
               </p>
               <div class="doc-scroll-container"
                 :class="{

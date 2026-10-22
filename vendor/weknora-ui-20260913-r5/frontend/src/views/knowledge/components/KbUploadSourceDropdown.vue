@@ -64,6 +64,7 @@
 <script setup lang="ts">
 import { ref, computed, h } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useAuthStore } from '@/stores/auth'
 import { MessagePlugin, Icon as TIcon } from 'tdesign-vue-next'
 import { filterUploadFiles } from '../utils/uploadSources'
 import { isKnowledgeUploadBatchTooLarge, knowledgeUploadBatchLimitMessage, knowledgeUploadBatchHint, knowledgeUploadMenuLimit } from '../utils/uploadBatchLimit'
@@ -95,23 +96,24 @@ const emit = defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
+const authStore = useAuthStore()
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const folderInputRef = ref<HTMLInputElement | null>(null)
 const urlDialogVisible = ref(false)
 const urlInputValue = ref('')
 
-const tooltipText = computed(() => `${props.tooltip || t('knowledgeBase.addDocument')} · ${knowledgeUploadBatchHint(locale.value)}`)
+const tooltipText = computed(() => `${props.tooltip || t('knowledgeBase.addDocument')} · ${knowledgeUploadBatchHint(locale.value, authStore.isSystemAdmin)}`)
 
 const dropdownOptions = computed(() => {
   const options = [
     {
-      content: t('upload.uploadDocument') + knowledgeUploadMenuLimit(locale.value, false),
+      content: t('upload.uploadDocument') + knowledgeUploadMenuLimit(locale.value, false, authStore.isSystemAdmin),
       value: 'upload',
       prefixIcon: () => h(TIcon, { name: 'upload', size: '16px' }),
     },
     {
-      content: t('upload.uploadFolder') + knowledgeUploadMenuLimit(locale.value, true),
+      content: t('upload.uploadFolder') + knowledgeUploadMenuLimit(locale.value, true, authStore.isSystemAdmin),
       value: 'uploadFolder',
       prefixIcon: () => h(TIcon, { name: 'folder-add', size: '16px' }),
     },
@@ -174,7 +176,7 @@ const handleFilesChange = (event: Event, fromFolder: boolean) => {
   if (!files || files.length === 0) return
 
   // Count the entire selection, including nested directory entries, before filtering.
-  if (isKnowledgeUploadBatchTooLarge(files.length)) {
+  if (isKnowledgeUploadBatchTooLarge(files.length, authStore.isSystemAdmin)) {
     MessagePlugin.warning(knowledgeUploadBatchLimitMessage(files.length, locale.value))
     input.value = ''
     return
