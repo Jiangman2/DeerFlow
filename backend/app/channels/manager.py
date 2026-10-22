@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import mimetypes
+import os
 import re
 import time
 from collections import OrderedDict
@@ -828,6 +829,7 @@ class ChannelManager:
         self._channel_sessions = dict(channel_sessions or {})
         self._connection_repo = connection_repo
         self._require_bound_identity = require_bound_identity
+        self._work_documents = None  # Opt-in Work integration; production state is shared in SQL.
         self._client = None  # lazy init — langgraph_sdk async client
         self._channel_metadata_synced: set[str] = set()
         # Per-conversation locks so concurrent inbound messages for the same
@@ -1115,6 +1117,9 @@ class ChannelManager:
             except asyncio.CancelledError:
                 pass
             self._task = None
+        if self._work_documents is not None:
+            await self._work_documents.close()
+            self._work_documents = None
         logger.info("ChannelManager stopped")
 
     # -- dispatch loop -----------------------------------------------------
@@ -1338,7 +1343,7 @@ class ChannelManager:
             channel_name=msg.channel_name,
             chat_id=msg.chat_id,
             thread_id="",
-            text=bound_identity_rejection.message,
+            text=("【本地 UAT】" if msg.channel_name == "feishu" and os.getenv("DEER_FLOW_WORK_DOCS_UAT_ENABLED") == "true" else "") + bound_identity_rejection.message,
             thread_ts=msg.thread_ts,
             connection_id=bound_identity_rejection.outbound_connection_id,
             owner_user_id=bound_identity_rejection.outbound_owner_user_id,
@@ -1503,6 +1508,13 @@ class ChannelManager:
         if bound_identity_rejection is not None:
             await self._reject_unbound_channel_message(msg, bound_identity_rejection=bound_identity_rejection)
             return
+
+        if msg.channel_name == "feishu":
+            from app.integrations.work.service import active_work_service
+
+            work_service = await active_work_service(self)
+            if work_service is not None and await work_service.handle(msg):
+                return
 
         client = self._get_client()
         storage_user_id = _channel_storage_user_id(msg)

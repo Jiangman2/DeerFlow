@@ -37,8 +37,10 @@ from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
 from deerflow.persistence.scheduled_tasks.model import ScheduledTaskRow
 from deerflow.persistence.thread_meta.model import ThreadCreationRow, ThreadMetaRow
 from deerflow.persistence.user.model import UserRow
+from deerflow.persistence.work.model import WorkRecordRow
 
 __all__ = [
+    "WorkRecordRow",
     "AgentRow",
     "AnnouncementRow",
     "ChannelConnectionRow",

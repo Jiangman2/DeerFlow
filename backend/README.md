@@ -1,5 +1,18 @@
 # DeerFlow Backend
 
+Local UAT Work integration is disabled by default behind app/test-owner/relay-key
+gates. `app/integrations/work/` separates sender-bound memory-only authorization,
+typed document/calendar capabilities, and model planning. Writes require an
+explicit owner-bound preview confirmation and read-back verification; tokens
+never reach models/Skills. No tables/migrations were added. This is not a production
+OAuth rollout; see [the UAT workflow and limits](docs/WORK_DOCUMENTS_UAT.md).
+
+The Work receiver closes its SDK socket/tasks on removal or reconfiguration and
+serializes channel lifecycle changes. A live retry thread is not a connected
+transport; provider availability uses actual handshake health. Work quota error
+`1000040350` requires operator-side connection inspection/cleanup as well as
+stopping old receivers; signed WebSocket URLs must remain redacted in logs.
+
 Batch fourteen repairs active TUI quit, reserved-command handling, contentless
 message extraction, WeChat batch failure/cancellation handling and diff totals.
 WeChat now attempts remaining messages after a bad attachment and advances its
@@ -790,3 +803,44 @@ No database upgrade, downgrade, table deletion, push or deployment is performed
 by source candidate preparation. This candidate supersedes catalogue-only tree
 345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
 Previous broader-tree test results are historical, not acceptance of this tree.
+
+## Local UAT Work calendar consent (2026-10-21)
+
+Production hardening and administrator/UI credential precedence are documented in
+[WORK_PRODUCTION.md](docs/WORK_PRODUCTION.md). The production profile adds the
+Gateway HTTPS callback and shared encrypted SQL state (migration 0020), remains
+opt-in, and retains the local UAT profile below. It has not been deployed to production.
+See [the release checklist](docs/WORK_RELEASE_CHECKLIST.md) for source/deployment/ITC
+responsibilities. The optional owner filter gates only Work document/calendar
+capabilities, not channel binding or ordinary chat; leave it explicitly empty for
+a full production rollout. Shared-database Runner images need the Work migration
+and ORM registration too; the narrow production overlay preserves its dedicated Agent.
+
+The default-off local UAT integration requests `calendar:calendar:readonly` and
+`calendar:calendar` together on first calendar use, matching the actual Work
+permission catalogue rather than fine-grained names in newer API templates.
+It checks both returned scopes on the original user's token and reuses complete
+consent; document requests continue to request only `docx:document`. ITC must
+enable and publish the corresponding user-identity permissions on the UAT app.
+Older write-only tokens require a new OAuth flow, not channel rebinding. Calendar
+writes still require an explicit sender-bound preview confirmation; no deletion,
+invitations or room bookings are enabled, despite the broad provider write scope.
+See [WORK_DOCUMENTS_UAT.md](docs/WORK_DOCUMENTS_UAT.md).
+
+Local UAT calendar requests now use a semantic intent followed by server-side
+target resolution, rather than asking the model for a complete executable event.
+Query by date/time/original title, choose explicitly from numbered ambiguous
+results, and preview changes to title, description or times. Title-only changes
+preserve times/description and send only the changed field. Relative shifts move
+both boundaries; a missing duration/end-time policy prompts a question. Candidate
+facts and up to four clarification turns expire after ten minutes and are isolated
+by the complete authenticated principal. Editing remains limited to the user's
+own non-recurring timed events without other attendees; all-day events are readable
+but not editable. Deletion remains disabled. UAT memory mode clears personal
+OAuth grants/previews on restart; production and UAT SQL mode retain unexpired
+shared state with the same key/configuration. Persisted channel bindings are not cleared.
+
+Read-only calendar intents accept absent, empty or `null` changes. They reject
+actual mutation fields; create/update still require a non-null changes object.
+Validation diagnostics record only controlled field names/category/attempt, never
+raw model output, user values or credentials.

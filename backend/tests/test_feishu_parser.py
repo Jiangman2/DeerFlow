@@ -132,6 +132,25 @@ def test_feishu_on_message_rich_text():
         assert "\n\n" in parsed_text
 
 
+def test_feishu_rich_text_preserves_document_links_and_private_chat_type(monkeypatch):
+    channel = FeishuChannel(MessageBus(), {"app_id": "test", "app_secret": "test"})
+    event = MagicMock()
+    event.event.message.chat_id = "chat-test"
+    event.event.message.message_id = "message-test"
+    event.event.message.root_id = None
+    event.event.message.parent_id = None
+    event.event.message.thread_id = None
+    event.event.message.chat_type = "p2p"
+    event.event.sender.sender_id.open_id = "ou-test"
+    url = "https://haiyoutest.w.cnooc.com.cn/docx/doxTest123"
+    event.event.message.content = json.dumps({"content": [[{"tag": "text", "text": "请总结"}, {"tag": "a", "text": "会议纪要", "href": url}]]})
+    make_inbound = MagicMock()
+    monkeypatch.setattr(channel, "_make_inbound", make_inbound)
+    channel._on_message(event)
+    assert url in make_inbound.call_args.kwargs["text"]
+    assert make_inbound.call_args.kwargs["metadata"]["chat_type"] == "p2p"
+
+
 def test_feishu_receive_file_replaces_placeholders_in_order():
     async def go():
         bus = MessageBus()

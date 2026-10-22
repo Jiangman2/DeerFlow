@@ -179,11 +179,15 @@ async def _load_channels_config(request: Request, config: ChannelConnectionsConf
     extra = app_config.model_extra or {}
     channels_config = extra.get("channels")
     result = dict(channels_config) if isinstance(channels_config, dict) else {}
-    await asyncio.to_thread(merge_runtime_channel_configs, 
+    await asyncio.to_thread(
+        merge_runtime_channel_configs,
         result,
         config,
         store=await _get_runtime_config_store(request),
     )
+    from app.integrations.work.config import apply_work_credential_defaults
+
+    apply_work_credential_defaults(result)
     return result
 
 
@@ -229,12 +233,15 @@ def _runtime_unavailable_reason(provider: str) -> str:
 
 
 def _runtime_not_running_reason(provider: str) -> str:
+    status = _runtime_channel_status(provider)
+    if provider == "feishu" and status and status.get("transport_business_code") == 1000040350:
+        return "海能 Work 应用长连接数已达到上限（1000040350），请联系 ITC 清理残留连接并确认旧接收进程已停止。"
     meta = _PROVIDER_META.get(provider)
     display_name = meta["display_name"] if meta else provider
     return f"{display_name} channel is configured but is not running. Check the credentials and service logs."
 
 
-def _runtime_channel_running(provider: str) -> bool | None:
+def _runtime_channel_status(provider: str) -> dict[str, Any] | None:
     try:
         from app.channels.service import get_channel_service
     except Exception:
@@ -251,11 +258,18 @@ def _runtime_channel_running(provider: str) -> bool | None:
         return None
 
     if not status.get("service_running"):
-        return False
+        return {"running": False}
     channel_status = status.get("channels", {}).get(provider)
     if not isinstance(channel_status, dict):
         return None
-    return bool(channel_status.get("running"))
+    return channel_status
+
+
+def _runtime_channel_running(provider: str) -> bool | None:
+    channel_status = _runtime_channel_status(provider)
+    if channel_status is None:
+        return None
+    return bool(channel_status.get("running") and channel_status.get("connected", True))
 
 
 async def _ensure_runtime_channel_ready_if_available(
@@ -671,6 +685,12 @@ async def configure_channel_provider_runtime(
     runtime_config.pop("_runtime_disabled", None)
     for key in _RUNTIME_REQUIREMENTS[provider]:
         runtime_config[key] = values[key]
+    if provider == "feishu":
+        from app.integrations.work.config import apply_work_credential_defaults
+
+        selected = {"feishu": runtime_config}
+        apply_work_credential_defaults(selected)
+        runtime_config = selected["feishu"]
     if provider == "telegram":
         runtime_config["bot_username"] = values["bot_username"]
 
@@ -689,4 +709,3 @@ async def configure_channel_provider_runtime(
         # Persistence succeeded. Never roll back over another writer's update.
         raise HTTPException(status_code=503, detail="Channel configuration saved, but local channel restart failed. Other workers were not reloaded.")
     return _provider_response(config, live_channels_config, provider, _PROVIDER_META[provider])
-

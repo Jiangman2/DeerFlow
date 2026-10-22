@@ -50,6 +50,7 @@ from app.gateway.routers import (
     uploads,
     voice_input,
     weknora,
+    work_documents,
 )
 from app.gateway.trace_middleware import TraceMiddleware, resolve_trace_enabled
 from app.gateway.upload_document_parser import close_conversation_document_parser_client
@@ -566,6 +567,9 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     # runtime toggle would otherwise leave the log formatter (installed once by
     # configure_logging() at lifespan startup) out of sync with the middleware.
     app.add_middleware(TraceMiddleware, enabled=_resolve_trace_enabled_for_app_construction())
+    from app.gateway.work_oauth_logging import WorkOAuthQueryRedactionMiddleware
+
+    app.add_middleware(WorkOAuthQueryRedactionMiddleware)
 
     # Include routers
     # Models API is mounted at /api/models
@@ -619,6 +623,7 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Channels API is mounted at /api/channels
     app.include_router(channels.router)
+    app.include_router(work_documents.router)
 
     # Assistants compatibility API (LangGraph Platform stub)
     app.include_router(assistants_compat.router)

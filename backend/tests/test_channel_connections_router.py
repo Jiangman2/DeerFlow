@@ -694,7 +694,7 @@ def test_runtime_config_endpoints_require_admin(tmp_path):
     anyio.run(repo.close)
 
 
-def test_configure_provider_runtime_rolls_back_visible_state_when_start_fails(tmp_path, monkeypatch):
+def test_configure_provider_runtime_preserves_saved_config_when_start_fails(tmp_path, monkeypatch):
     import anyio
 
     repo = anyio.run(_make_repo, tmp_path)
@@ -726,8 +726,8 @@ def test_configure_provider_runtime_rolls_back_visible_state_when_start_fails(tm
             json={"values": {"bot_token": "xoxb-new", "app_token": "xapp-new"}},
         )
 
-    assert response.status_code == 400
-    assert "Failed to start Slack channel" in response.json()["detail"]
+    assert response.status_code == 503
+    assert "configuration saved" in response.json()["detail"]
     service.configure_channel.assert_awaited_once_with(
         "slack",
         {
@@ -736,8 +736,9 @@ def test_configure_provider_runtime_rolls_back_visible_state_when_start_fails(tm
             "app_token": "xapp-new",
         },
     )
-    assert app.state.channels_config["slack"] == existing_runtime_config
-    assert runtime_config_store.get_provider_config("slack") == existing_runtime_config
+    expected_saved = {"enabled": True, "bot_token": "xoxb-new", "app_token": "xapp-new"}
+    assert app.state.channels_config["slack"] == expected_saved
+    assert runtime_config_store.get_provider_config("slack") == expected_saved
 
     anyio.run(repo.close)
 

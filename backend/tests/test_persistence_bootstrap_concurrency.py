@@ -28,7 +28,7 @@ from deerflow.persistence.bootstrap import bootstrap_schema
 pytestmark = pytest.mark.asyncio
 
 
-HEAD = "0019_digital_employee_agents"
+HEAD = "0020_work_integration_state"
 
 
 def _url(tmp_path: Path) -> str:

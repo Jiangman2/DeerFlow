@@ -1,0 +1,20 @@
+# Work schema compatibility layer for the accepted R3 dedicated Runner.
+# Independently verify RUNNER_BASE_IMAGE against RUNNER-LOCK.json current_image
+# and current_manifest_digest before building. Publish under a NEW immutable tag;
+# the old R3 image identity in RUNNER-LOCK.json is not a receipt for this output.
+ARG RUNNER_BASE_IMAGE=deerflow.local/deer-flow-gateway:20260928-ppt-receipt-r3-runner-c1c876c9b520a0fe@sha256:529a8408063003ecb2c89f1ce81b6d6d141f63254c9e8a497f7732e196fe77b5
+FROM ${RUNNER_BASE_IMAGE}
+
+RUN printf '%s  %s\n' \
+    '2c5c21575c9380f081fe408073142de9a17de7418efd38198c1dd85d343395a8' \
+    /app/backend/packages/harness/deerflow/agents/ppt_master_runner/agent.py \
+    | sha256sum -c -
+
+# Versioned databases need the revision; empty databases also need the ORM table
+# registered before bootstrap create_all + stamp head. Do not replace the Runner
+# application or agent with the ordinary Gateway implementation.
+COPY backend/packages/harness/deerflow/persistence/work/ /app/backend/packages/harness/deerflow/persistence/work/
+COPY backend/packages/harness/deerflow/persistence/models/__init__.py /app/backend/packages/harness/deerflow/persistence/models/__init__.py
+COPY backend/packages/harness/deerflow/persistence/migrations/versions/0020_work_integration_state.py /app/backend/packages/harness/deerflow/persistence/migrations/versions/0020_work_integration_state.py
+
+RUN cd /app/backend && .venv/bin/python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; from deerflow.persistence import models; from deerflow.persistence.base import Base; c=Config(); c.set_main_option('script_location','packages/harness/deerflow/persistence/migrations'); s=ScriptDirectory.from_config(c); assert s.get_current_head() == '0020_work_integration_state'; assert s.get_revision('0020_work_integration_state').down_revision == '0019_digital_employee_agents'; assert 'work_integration_records' in Base.metadata.tables"

@@ -8,11 +8,13 @@ import logging
 import re
 import threading
 import time
+from collections import OrderedDict
 from typing import Any, Literal
 
 from app.channels.base import Channel
 from app.channels.commands import is_known_channel_command, strip_leading_mentions
 from app.channels.connection_identity import attach_connection_identity
+from app.channels.feishu_transport import observed_client
 from app.channels.message_bus import (
     PENDING_CLARIFICATION_METADATA_KEY,
     RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY,
@@ -58,6 +60,11 @@ class FeishuChannel(Channel):
     def __init__(self, bus: MessageBus, config: dict[str, Any]) -> None:
         super().__init__(name="feishu", bus=bus, config=config)
         self._thread: threading.Thread | None = None
+        self._ws_loop: asyncio.AbstractEventLoop | None = None
+        self._ws_client = None
+        self._ws_connected = threading.Event()
+        self._ws_stop_requested = threading.Event()
+        self._ws_failure = None
         self._main_loop: asyncio.AbstractEventLoop | None = None
         self._api_client = None
         self._CreateMessageReactionRequest = None
@@ -68,6 +75,7 @@ class FeishuChannel(Channel):
         self._background_tasks: set[asyncio.Task] = set()
         self._running_card_ids: dict[str, str] = {}
         self._running_card_tasks: dict[str, asyncio.Task] = {}
+        self._prepared_inbound: OrderedDict[tuple[str, str, str], float] = OrderedDict()
         self._pending_clarifications: dict[tuple[str, str], list[dict[str, Any]]] = {}
         self._pending_inbound_batches: dict[tuple[str, str], dict[str, Any]] = {}
         self._CreateFileRequest = None
@@ -134,7 +142,12 @@ class FeishuChannel(Channel):
     def is_running(self) -> bool:
         if not self._running:
             return False
-        return self._thread is not None and self._thread.is_alive()
+        return bool(self._api_client) if self.config.get("_work_send_only") else self._thread is not None and self._thread.is_alive()
+
+    @property
+    def transport_connected(self) -> bool:
+        """Actual successful handshake, not merely an alive SDK retry thread."""
+        return bool(self.config.get("_work_receiver_ready")) if self.config.get("_work_send_only") else self._ws_connected.is_set()
 
     def _build_event_handler(self, lark):
         return (
@@ -150,6 +163,10 @@ class FeishuChannel(Channel):
     async def start(self) -> None:
         if self._running:
             return
+        if self._thread and self._thread.is_alive():
+            raise RuntimeError("Previous Work receiver has not stopped; refusing duplicate worker")
+        self._ws_stop_requested.clear()
+        self._ws_connected.clear()
 
         try:
             import lark_oapi as lark
@@ -204,6 +221,10 @@ class FeishuChannel(Channel):
         self._running = True
         self.bus.subscribe_outbound(self._on_outbound)
 
+        if self.config.get("_work_send_only"):
+            logger.info("Work HTTP sender ready; another process owns the receiver lease")
+            return
+
         # Both ws.Client construction and start() must happen in a dedicated
         # thread with its own event loop.  lark-oapi caches the running loop
         # at construction time and later calls loop.run_until_complete(),
@@ -231,6 +252,19 @@ class FeishuChannel(Channel):
         """
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        self._ws_loop = loop
+
+        def guarded_task_factory(worker_loop, coroutine, **kwargs):
+            task = asyncio.Task(coroutine, loop=worker_loop, **kwargs)
+            # SDK start() creates ping/select tasks *after* its handshake
+            # run_until_complete returns. stop() can race in that gap and
+            # otherwise cancel only the old task snapshot, leaving new tasks
+            # running forever. Fence all newly created SDK tasks after stop.
+            if self._ws_stop_requested.is_set():
+                task.cancel()
+            return task
+
+        loop.set_task_factory(guarded_task_factory)
         try:
             import lark_oapi as lark
             import lark_oapi.ws.client as _ws_client_mod
@@ -241,24 +275,55 @@ class FeishuChannel(Channel):
             _ws_client_mod.loop = loop
 
             event_handler = self._build_event_handler(lark)
-            ws_client = lark.ws.Client(
+            client_type = observed_client(lark.ws.Client, self)
+            ws_client = client_type(
                 app_id=app_id,
                 app_secret=app_secret,
                 event_handler=event_handler,
                 log_level=lark.LogLevel.INFO,
                 domain=domain,
             )
+            self._ws_client = ws_client
+            if self._ws_stop_requested.is_set():
+                return
             ws_client.start()
+        except asyncio.CancelledError:
+            pass
         except Exception:
             if self._running:
-                logger.exception("Feishu WebSocket error")
+                logger.error("Feishu WebSocket worker stopped; handshake=%s", self._ws_failure)
+        finally:
+            loop.set_task_factory(None)  # Cleanup coroutines must still run.
+            self._ws_connected.clear()
             self._running = False
+            if self._ws_client is not None:
+                self._ws_client._auto_reconnect = False
+            tasks = asyncio.all_tasks(loop)
+            for task in tasks:
+                task.cancel()
+            if tasks:
+                loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+            if self._ws_client is not None:
+                connection = getattr(self._ws_client, "_conn", None)
+                try:
+                    loop.run_until_complete(asyncio.wait_for(self._ws_client._disconnect(), timeout=5))
+                except Exception:
+                    logger.warning("Work WebSocket shutdown required transport abort")
+                finally:
+                    transport = getattr(connection, "transport", None)
+                    if transport is not None:
+                        transport.abort()
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.close()
+            self._ws_client = None
 
     def _on_ignored_message_event(self, event) -> None:
         logger.debug("[Feishu] ignoring non-content message event: %s", type(event).__name__)
 
     async def stop(self) -> None:
         self._running = False
+        self._ws_stop_requested.set()
+        self._ws_connected.clear()
         self.bus.unsubscribe_outbound(self._on_outbound)
         for task in list(self._background_tasks):
             task.cancel()
@@ -267,7 +332,21 @@ class FeishuChannel(Channel):
             task.cancel()
         self._running_card_tasks.clear()
         if self._thread:
-            self._thread.join(timeout=5)
+
+            def cancel_worker():
+                if self._ws_client is not None:
+                    self._ws_client._auto_reconnect = False
+                for task in asyncio.all_tasks(self._ws_loop):
+                    task.cancel()
+
+            if self._ws_loop is not None and not self._ws_loop.is_closed():
+                try:
+                    self._ws_loop.call_soon_threadsafe(cancel_worker)
+                except RuntimeError:
+                    pass  # The worker completed between the check and scheduling.
+            await asyncio.to_thread(self._thread.join, 15)
+            if self._thread.is_alive():
+                raise RuntimeError("Work receiver did not stop; refusing a second worker")
             self._thread = None
         logger.info("Feishu channel stopped")
 
@@ -505,6 +584,9 @@ class FeishuChannel(Channel):
         content = self._build_card_content(text)
         request = self._ReplyMessageRequest.builder().message_id(message_id).request_body(self._ReplyMessageRequestBody.builder().msg_type("interactive").content(content).build()).build()
         response = await asyncio.to_thread(self._api_client.im.v1.message.reply, request)
+        code = getattr(response, "code", None)
+        if isinstance(code, int) and code != 0:
+            raise RuntimeError(f"Work card reply was rejected (code={code})")
         response_data = getattr(response, "data", None)
         return getattr(response_data, "message_id", None)
 
@@ -524,7 +606,12 @@ class FeishuChannel(Channel):
 
         content = self._build_card_content(text)
         request = self._PatchMessageRequest.builder().message_id(message_id).request_body(self._PatchMessageRequestBody.builder().content(content).build()).build()
-        await asyncio.to_thread(self._api_client.im.v1.message.patch, request)
+        response = await asyncio.to_thread(self._api_client.im.v1.message.patch, request)
+        # SDK returns business failures rather than raising; do not claim a card
+        # was updated while it actually remains stuck at its initial placeholder.
+        code = getattr(response, "code", None)
+        if isinstance(code, int) and code != 0:
+            raise RuntimeError("Work card update was rejected")
 
     def _track_background_task(self, task: asyncio.Task, *, name: str, msg_id: str) -> None:
         """Keep a strong reference to fire-and-forget tasks and surface errors."""
@@ -834,6 +921,8 @@ class FeishuChannel(Channel):
             now = time.time()
             if batch:
                 if now - batch["created_at"] <= FEISHU_INBOUND_BATCH_WINDOW_SECONDS:
+                    if msg_id in batch["message_ids"]:
+                        return True
                     batched_inbound = batch["inbound"]
                     batch["message_ids"].append(msg_id)
                     batch["text_parts"].append(inbound.text)
@@ -908,14 +997,34 @@ class FeishuChannel(Channel):
             pass
 
     async def _prepare_inbound(self, msg_id: str, inbound, *, source_message_ids: list[str] | None = None) -> None:
-        """Kick off Feishu side effects without delaying inbound dispatch."""
-        inbound = await self._attach_connection_identity(inbound)
-        reaction_message_ids = source_message_ids or [msg_id]
-        for reaction_message_id in reaction_message_ids:
-            reaction_task = asyncio.create_task(self._add_reaction(reaction_message_id, "OK"))
-            self._track_background_task(reaction_task, name="add_reaction", msg_id=reaction_message_id)
-        self._ensure_running_card_started(msg_id, metadata=inbound.metadata)
-        await self.bus.publish_inbound(inbound)
+        """Deduplicate SDK retries before any visible reaction/placeholder."""
+        guard = self.config.get("_work_receiver_guard")
+        if guard is not None and not await guard():
+            return
+        now = time.monotonic()
+        while self._prepared_inbound:
+            oldest, at = next(iter(self._prepared_inbound.items()))
+            if now - at <= 600 and len(self._prepared_inbound) <= 4096:
+                break
+            self._prepared_inbound.pop(oldest, None)
+        keys = [(inbound.chat_id, inbound.user_id, value) for value in (source_message_ids or [msg_id])]
+        if any(key in self._prepared_inbound for key in keys):
+            return
+        # Claim synchronously, before awaits, including concurrent SDK deliveries.
+        for key in keys:
+            self._prepared_inbound[key] = now
+        try:
+            inbound = await self._attach_connection_identity(inbound)
+            reaction_message_ids = source_message_ids or [msg_id]
+            for reaction_message_id in reaction_message_ids:
+                reaction_task = asyncio.create_task(self._add_reaction(reaction_message_id, "OK"))
+                self._track_background_task(reaction_task, name="add_reaction", msg_id=reaction_message_id)
+            self._ensure_running_card_started(msg_id, metadata=inbound.metadata)
+            await self.bus.publish_inbound(inbound)
+        except BaseException:
+            for key in keys:
+                self._prepared_inbound.pop(key, None)
+            raise
 
     async def _attach_connection_identity(self, inbound: InboundMessage) -> InboundMessage:
         return await attach_connection_identity(
@@ -926,6 +1035,9 @@ class FeishuChannel(Channel):
         )
 
     async def _bind_connection_from_connect_code(self, *, message_id: str, chat_id: str, user_id: str, code: str) -> bool:
+        guard = self.config.get("_work_receiver_guard")
+        if guard is not None and not await guard():
+            return True
         if self._connection_repo is None or not code:
             return False
 
@@ -954,6 +1066,8 @@ class FeishuChannel(Channel):
 
     def _on_message(self, event) -> None:
         """Called by lark-oapi when a message is received (runs in lark thread)."""
+        if self._ws_stop_requested.is_set():
+            return
         try:
             logger.info("[Feishu] raw event received: type=%s", type(event).__name__)
             message = event.event.message
@@ -1004,6 +1118,13 @@ class FeishuChannel(Channel):
                                     text_value = element.get("text", "")
                                     if text_value:
                                         paragraph_text_parts.append(text_value)
+                                elif element.get("tag") == "a":
+                                    href = element.get("href")
+                                    label = element.get("text")
+                                    if isinstance(label, str) and label:
+                                        paragraph_text_parts.append(label)
+                                    if isinstance(href, str) and href:
+                                        paragraph_text_parts.append(href)
                                 elif element.get("tag") == "img":
                                     image_key = element.get("image_key")
                                     if isinstance(image_key, str) and image_key:
@@ -1103,6 +1224,7 @@ class FeishuChannel(Channel):
                 "thread_id": feishu_thread_id,
                 "topic_id": topic_id,
                 "user_id": sender_id,
+                "chat_type": chat_type,
                 RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY: resolved_from_pending,
             }
             if source_preview:
