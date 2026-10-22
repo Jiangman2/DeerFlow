@@ -49,7 +49,8 @@ def test_downgrade_removes_last_login_and_index(tmp_path) -> None:
     database_path = tmp_path / "user-last-login-downgrade.db"
     async_engine = create_async_engine(f"sqlite+aiosqlite:///{database_path}")
     config = _get_alembic_config(async_engine)
-    command.upgrade(config, "head")
+    # Exercise this historical revision only; 0021 intentionally forbids downgrade.
+    command.upgrade(config, "0012_user_last_login")
 
     engine = create_engine(f"sqlite:///{database_path}")
     command.downgrade(config, "0011_user_sso_profile")

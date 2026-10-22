@@ -7,7 +7,7 @@ from alembic import command
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from deerflow.persistence.bootstrap import _get_alembic_config
+from deerflow.persistence.bootstrap import _get_alembic_config, _get_head_revision
 
 
 def test_upgrade_adds_empty_run_context_to_existing_scheduled_tasks(tmp_path) -> None:
@@ -59,7 +59,7 @@ def test_upgrade_adds_empty_run_context_to_existing_scheduled_tasks(tmp_path) ->
         migrated_run = connection.exec_driver_sql("SELECT status, attempt_count, occurrence_seq, launch_accounted FROM scheduled_task_runs WHERE id = 'task-run-existing'").one()
         version = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
 
-    assert version == "0020_ppt_confirmation"
+    assert version == _get_head_revision()
     assert task_columns["run_context"]["nullable"] is False
     assert json.loads(stored.run_context) == {}
     assert stored.overlap_policy == "enqueue"

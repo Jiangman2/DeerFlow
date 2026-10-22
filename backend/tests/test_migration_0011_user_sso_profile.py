@@ -5,7 +5,7 @@ from alembic import command
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from deerflow.persistence.bootstrap import _get_alembic_config
+from deerflow.persistence.bootstrap import _get_alembic_config, _get_head_revision
 
 
 def test_upgrade_adds_nullable_sso_profile_columns_to_existing_users(tmp_path) -> None:
@@ -44,7 +44,7 @@ def test_upgrade_adds_nullable_sso_profile_columns_to_existing_users(tmp_path) -
         ).one()
         version = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
 
-    assert version == "0020_ppt_confirmation"
+    assert version == _get_head_revision()
     assert row == (None, None, None, None)
     for name in (
         "display_name",

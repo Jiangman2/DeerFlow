@@ -32,7 +32,7 @@ import sqlalchemy as sa
 from alembic import command
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from deerflow.persistence.bootstrap import _get_alembic_config
+from deerflow.persistence.bootstrap import _get_alembic_config, _get_head_revision
 from deerflow.persistence.engine import close_engine, init_engine
 
 pytestmark = pytest.mark.asyncio
@@ -142,7 +142,7 @@ async def test_migration_dedupes_duplicate_active_rows_before_unique_index(tmp_p
 
         with sqlite3.connect(db_path) as raw:
             version_row = raw.execute("SELECT version_num FROM alembic_version").fetchone()
-        assert version_row[0] == "0020_ppt_confirmation"
+        assert version_row[0] == _get_head_revision()
 
         # Sanity: the invariant the index enforces is now true — at most one
         # active row per thread.

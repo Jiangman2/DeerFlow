@@ -894,7 +894,7 @@ class TestDecideState:
 # ---------------------------------------------------------------------------
 
 
-def test_head_revision_is_ppt_confirmation_revision() -> None:
+def test_head_revision_is_oa_result_sets_revision() -> None:
     assert _get_head_revision() == HEAD
 
 

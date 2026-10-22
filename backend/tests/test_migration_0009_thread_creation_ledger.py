@@ -7,7 +7,7 @@ from alembic import command
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from deerflow.persistence.bootstrap import _get_alembic_config
+from deerflow.persistence.bootstrap import _get_alembic_config, _get_head_revision
 
 
 def test_upgrade_backfills_retained_and_deleted_threads(tmp_path) -> None:
@@ -84,7 +84,7 @@ def test_upgrade_backfills_retained_and_deleted_threads(tmp_path) -> None:
         creations = {row["thread_id"]: row for row in rows}
         version = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
 
-    assert version == "0020_ppt_confirmation"
+    assert version == _get_head_revision()
     assert set(creations) == {"deleted-thread", "retained-thread"}
     assert creations["retained-thread"]["assistant_id"] == "retained-agent"
     assert creations["retained-thread"]["user_id"] == "retained-user"
