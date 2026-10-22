@@ -36,3 +36,34 @@ mismatch/missing/symlink/unsafe-path rejection, lossless compression and metadat
 open-file refusal, changed pins, existing destinations, bounded reads,
 incompressible files and journal failure. Packaged Python 3.7 syntax/import and
 scope checks passed separately. Server execution is pending.
+
+## Field receipt and preload continuation
+
+The operator subsequently returned a matching 6,318-byte report, SHA-256
+`44bed22e700b265adc7936cabe01819b5be9976b6a8120e25bacc50fb11ef4e8`,
+archived in `datax01-cleanup-field-20261022-r1.json`. The outer archive was removed
+after verifying eight files; all 19 logs were compressed and verified. Five OCI
+archives were retained because compression saved less than the configured
+minimum. Available space increased from 51,923,722,240 to 62,276,112,384 bytes
+(net 9.64 GiB); summed file allocation savings were 10,420,715,520 bytes. These
+differ because filesystem availability also reflects other concurrent writes.
+No service restart, containerd command or database access was performed.
+
+The datax-01 r2 preload embeds the original r1 script (SHA-256
+`4b540f4e9cb1241ebfc6641c6fb9a1a7ee5dd91968f6e1f711fe9b46c776e2a1`)
+with `resume-oa-compat-datax01.py` installed before its main entry and the flag
+changed to `--resume-datax01-preload-once`. It verifies the exact previous
+pre-import refusal and cleanup reports, restricts execution to datax-01, and
+uses a new exclusive control directory. The original once marker remains.
+
+The resource helper inherited a stale control-directory constant. r2 binds it
+to the actual directory, restoring its existing 64 MiB accounting allowance.
+All reserves and live admission checks remain; the corresponding observed
+requirement becomes 53,993,575,461 bytes. Cleanup's historical free-space value
+does not substitute for a fresh check. Image digest, embedded sources and
+existing references are unchanged. Seven Linux Python 3.7 resume tests passed.
+
+Generated r2 script SHA-256:
+`9269eb40ebe54d84a6b1cbbd038dd1215977f689abaff0c42d8a6806b708c7f7`.
+Runner preload on datax-01 and subsequent runtime qualification remain pending;
+the other fourteen accepted preload receipts remain applicable.
