@@ -8563,5 +8563,14 @@
       ]
     }
   ],
-  "scope": "GATEWAY_AND_RUNNER_PYTHON_ONLY_NOT_COMPLETE_IMAGE_BUILD_EQUIVALENCE"
+  "scope": "GATEWAY_AND_RUNNER_PYTHON_ONLY_NOT_COMPLETE_IMAGE_BUILD_EQUIVALENCE",
+  "validation": {
+    "python": "3.12.13",
+    "gateway_hashes_and_syntax": 579,
+    "runner_hashes_and_syntax": 550,
+    "extra_python_files": 0,
+    "full_application_tests_run": false,
+    "ruff": "UNAVAILABLE_IN_LOCAL_VENV",
+    "archive_whitespace": "ONE_EXISTING_TRAILING_WHITESPACE_LINE_PRESERVED_FOR_SOURCE_HASH_IDENTITY"
+  }
 }

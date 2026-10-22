@@ -78,3 +78,5 @@ python deploy/enterprise/verify-production-source-snapshot.py
 ```
 
 未将上述结果扩大为“整个产品与镜像完全一致”：前端完整构建溯源、WeKnora UI 构建对应、非 Python 运行文件、依赖锁和生产配置有效值仍需分别核对。没有部署、数据库操作或模型调用。
+
+校验边界：本次执行逐文件哈希、完整 Python 文件集合及 Python 3.12 语法检查，没有宣称已通过完整应用回归或 CI。当前复用的本地虚拟环境未安装 Ruff。Runner 原始 `lead_agent/prompt.py` 有一行尾部空格，为保持服务器源码哈希保留；归档范围的空白差异不应被误报成检查全部通过。
