@@ -71,6 +71,47 @@ async def test_complete_fragmented_utf8_crlf_comments_usage(asynchronous, header
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("cls", [RobustChatOpenAI, EnterpriseGLMChat])
+@pytest.mark.parametrize("live_usage", [False, True])
+async def test_shared_usage_path_yields_before_stream_end_without_double_counting(cls, live_usage):
+    """GLM must retain the shared DeepSeek-compatible live usage path.
+
+    Cumulative mode is enabled explicitly for this synthetic contract, not
+    inferred for a real provider whose midstream usage has not been observed.
+    """
+    first = frame({"role": "assistant", "content": "A"})
+    last = frame({"content": "B"}, "stop")
+    if live_usage:
+        first["usage"] = {"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4}
+        last["usage"] = {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5}
+    stream = Bytes(event(first) + event(last) + USAGE + DONE)
+
+    def handler(request):
+        assert json.loads(request.content)["stream_options"]["include_usage"] is True
+        return response(stream)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        llm = model(http, True, cls=cls, cumulative_stream_usage=True)
+        chunks = llm.astream("fixture")
+        try:
+            first_chunk = await anext(chunks)
+            assert first_chunk.content == "A"
+            assert not stream.closed
+            if live_usage:
+                assert {key: first_chunk.usage_metadata[key] for key in ("input_tokens", "output_tokens", "total_tokens")} == {"input_tokens": 3, "output_tokens": 1, "total_tokens": 4}
+            else:
+                assert first_chunk.usage_metadata is None
+            combined = first_chunk
+            async for chunk in chunks:
+                combined += chunk
+        finally:
+            await chunks.aclose()
+    assert combined.content == "AB"
+    assert {key: combined.usage_metadata[key] for key in ("input_tokens", "output_tokens", "total_tokens")} == {"input_tokens": 3, "output_tokens": 2, "total_tokens": 5}
+    assert stream.closed
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize(
     "body",
