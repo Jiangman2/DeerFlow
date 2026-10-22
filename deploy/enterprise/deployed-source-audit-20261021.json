@@ -1,0 +1,203 @@
+{
+  "schema": "pr13-deployed-source-audit.v1",
+  "audited_head": "fff68933a95518a194eb58cb819b926d5441fca2",
+  "scope": "THIS_CONVERSATION_RELEASE_PINS_NOT_WHOLE_CLUSTER_INVENTORY",
+  "exact_source_file_checks": [
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/datalake_source_middleware.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "ac65e710357fceb5d0fd528c56ea5b06ce2ed8d2f8b8780ceeaf095791722d10",
+      "git_blob_sha256": "ac65e710357fceb5d0fd528c56ea5b06ce2ed8d2f8b8780ceeaf095791722d10",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/tool_error_handling_middleware.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "787d19c27993ed4b4fc141ca8afbf2b5e8b396c4bb71f1b48b1c6341330c285f",
+      "git_blob_sha256": "787d19c27993ed4b4fc141ca8afbf2b5e8b396c4bb71f1b48b1c6341330c285f",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/appforge/__init__.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "553b621cd4518f9300620a2aea7c5593069e7deb6e4206160f9494ead3ea345b",
+      "git_blob_sha256": "553b621cd4518f9300620a2aea7c5593069e7deb6e4206160f9494ead3ea345b",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/appforge/data_qa_stream.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "08a8eb1953c7ed3d8d97fa67f0c3a53ee554c7954fe015b9ce4fbb84bb91b0d6",
+      "git_blob_sha256": "08a8eb1953c7ed3d8d97fa67f0c3a53ee554c7954fe015b9ce4fbb84bb91b0d6",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/appforge/tools.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "7587a95601373abc2507b44ec403316d3d1fd0f6e005d225d9df1ebc4c266184",
+      "git_blob_sha256": "7587a95601373abc2507b44ec403316d3d1fd0f6e005d225d9df1ebc4c266184",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/datalake_tools.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "2c00b516772f2fd0c7623a44dbe915b3433f5ca2fdeafd90e17a1f363942535e",
+      "git_blob_sha256": "2c00b516772f2fd0c7623a44dbe915b3433f5ca2fdeafd90e17a1f363942535e",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/tool_config.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "9af1f6fe20a41021d0da8dc461c02789fb09bd6d9b1630f7f807349f8e4e1142",
+      "git_blob_sha256": "9af1f6fe20a41021d0da8dc461c02789fb09bd6d9b1630f7f807349f8e4e1142",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/models/enterprise_glm.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "310eda0d33ddcc9ec8163debedd356360c88c6cb091968a79fae8bd7a298b68f",
+      "git_blob_sha256": "310eda0d33ddcc9ec8163debedd356360c88c6cb091968a79fae8bd7a298b68f",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/models/glm_stream_guard.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "f0b8127bd7217f0f4cd28ce973994deb64994e87354141cbe0c4dd3f7b475030",
+      "git_blob_sha256": "f0b8127bd7217f0f4cd28ce973994deb64994e87354141cbe0c4dd3f7b475030",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/models/output_safety.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "d168aee0299bfc6a87f852f6941d59bcd3dc4eb33e2be6d8fe0ae4cdaa34ed65",
+      "git_blob_sha256": "d168aee0299bfc6a87f852f6941d59bcd3dc4eb33e2be6d8fe0ae4cdaa34ed65",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/models/robust_openai.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "8a41b677b843b6c8e58433f1725378c312af0315711bc1ca62422d55421f2a52",
+      "git_blob_sha256": "8a41b677b843b6c8e58433f1725378c312af0315711bc1ca62422d55421f2a52",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/runtime/datalake_policy.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "3ce9d43e3802a6d03dd0670a606d9e037e2ba5732f4d3b4205470f5b2152657c",
+      "git_blob_sha256": "3ce9d43e3802a6d03dd0670a606d9e037e2ba5732f4d3b4205470f5b2152657c",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/subagents/executor.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "e2fa000b3d54eb4f12d32bd7e177e629907cc4ec78303268c71144b5c7860a7e",
+      "git_blob_sha256": "e2fa000b3d54eb4f12d32bd7e177e629907cc4ec78303268c71144b5c7860a7e",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "25f48c9c233f96c02380d8447bc682368cb62bd323a1e63e542ea897b8f1815b",
+      "git_blob_sha256": "25f48c9c233f96c02380d8447bc682368cb62bd323a1e63e542ea897b8f1815b",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/tools/tools.py",
+      "commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "expected_sha256": "e689594bc8493f55429fcbcfafb38d783c309eb6a1f24010f287a2f2fe71be52",
+      "git_blob_sha256": "e689594bc8493f55429fcbcfafb38d783c309eb6a1f24010f287a2f2fe71be52",
+      "exact_match": true
+    },
+    {
+      "path": "backend/packages/harness/deerflow/constants.py",
+      "commit": "99942526442d32023d0272aea29f6b5a43241e66",
+      "expected_sha256": "7629fc0d5dc53a9583c34023cc0f7c1b50fb01e68f4781efb187e07d6c857de2",
+      "git_blob_sha256": "7629fc0d5dc53a9583c34023cc0f7c1b50fb01e68f4781efb187e07d6c857de2",
+      "exact_match": true
+    },
+    {
+      "path": "backend/app/gateway/routers/employee_directory.py",
+      "commit": "def40185024bc84d48e8ca74d73fd269a94efa15",
+      "expected_sha256": "2da901eb81f94c31fba86b299fc35dfc6cfbff7c693cc2013f2cc1ad8cfbdcae",
+      "git_blob_sha256": "2da901eb81f94c31fba86b299fc35dfc6cfbff7c693cc2013f2cc1ad8cfbdcae",
+      "exact_match": true
+    }
+  ],
+  "historical_delivery_inputs": [
+    {
+      "filename": "preload-portal-gateway-haineng-brand-20261020-r1.py",
+      "sha256": "8ec9625a5aab20a37030d4d6e69bd7f1fae65246ed2f29094be4e974d493dded",
+      "profile_sha256": "6892ea46f4d8f670211c259c6b8f01483537a3a01915672b842ea83c37a37733"
+    },
+    {
+      "filename": "preload-portal-employee-hot-uuid-20261019-r1.py",
+      "sha256": "451ababb8abcb7d1dfbd66d0b17a57b1973c4a9f0cb6171d4615a3f41f98786c",
+      "profile_sha256": "77d62f1630c241b2e28b8fab82c35f8f8f8666f350fcaa26ae4dfeec482831c1"
+    }
+  ],
+  "feature_commits": [
+    {
+      "feature": "product_name",
+      "commit": "99942526442d32023d0272aea29f6b5a43241e66",
+      "in_pr_ancestry": true
+    },
+    {
+      "feature": "employee_roster_and_square_icon",
+      "commit": "473e0657f508c0f8bf3bfcbdea94eb0f97376f07",
+      "in_pr_ancestry": true
+    },
+    {
+      "feature": "audit_assistant_description",
+      "commit": "aa2a90134d7edbebd7f1e1f6d4ba66b07b197dde",
+      "in_pr_ancestry": true
+    },
+    {
+      "feature": "ppt_ordinary_public_skill",
+      "commit": "fe73799b2c3e147e9e918d95085ff8bf3be743c3",
+      "in_pr_ancestry": true
+    },
+    {
+      "feature": "employee_hot_uuid",
+      "commit": "def40185024bc84d48e8ca74d73fd269a94efa15",
+      "in_pr_ancestry": true
+    },
+    {
+      "feature": "employee_hot_nfs",
+      "commit": "57f1eff2a9351aeafec3e43e5c335614124b19be",
+      "in_pr_ancestry": true
+    },
+    {
+      "feature": "glm_stream_completion",
+      "commit": "7690d766abf164d9e75fbe2103ec3c413387a3ce",
+      "in_pr_ancestry": true
+    },
+    {
+      "feature": "new_data_qa_and_source_policy",
+      "commit": "8fa4905702dcaeffdb143106f972f2bb328a4b9f",
+      "in_pr_ancestry": true
+    },
+    {
+      "feature": "persisted_agent_reference_migration",
+      "commit": "d97374bf8fe1e4e363196d40f1b3a6bb7c42c587",
+      "in_pr_ancestry": true
+    }
+  ],
+  "frontend_observed_rollout": {
+    "generation": 225,
+    "image_manifest": "sha256:ee145e6357e4f6b63003d786b7c6b0f28cf6bbe663e1b5589f92f7c829bb89e5",
+    "report_sha256": "c8851d68ccce11a9883d05320cd7952123de21d66fae4ad22f2959e3ac6e31b6",
+    "evidence": "operator_submitted_runtime_acceptance",
+    "browser_acceptance_pending": true,
+    "source_to_image_full_build_reproduction_performed": false
+  },
+  "gateway_joint_image": "sha256:eeeb190145dd6677e0da372bbdf36ab207a6826d89960eca2ed49de15d40dcc5",
+  "whole_cluster_completeness_claimed": false,
+  "production_modified": false,
+  "credentials_included": false,
+  "verification": {
+    "exact_source_hash_matches": 17,
+    "targeted_regression_passed": 148,
+    "product_source_changed_by_this_followup": false,
+    "remote_ci_for_followup": "PENDING_NEW_COMMIT"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schema": "portal-deepseek-v41-transport-build.v1",
+  "artifact": "diagnose-portal-deepseek-v41-transport-20261021-r1.py",
+  "bytes": 30334,
+  "sha256": "3399918178cb1a614ce3ee5eb827f754b5b4b8ea8c690d3cbfc6df28f5c325ee",
+  "historical_canary_source_sha256": "a51825961a9c5dd2141e02cc7e74a4ce4fef738ea347852b1e1a03f1dca6ce82",
+  "qualification": {
+    "offline_tests": 9,
+    "host_python37": "PASS",
+    "ruff": "PASS",
+    "field_executed": false
+  },
+  "maximum_provider_requests": 12,
+  "production_mutation": false
+}

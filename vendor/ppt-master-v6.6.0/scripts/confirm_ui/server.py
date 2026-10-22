@@ -55,6 +55,10 @@ if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
 from console_encoding import configure_utf8_stdio  # noqa: E402
+from confirm_ui.conditional_protocol import (  # noqa: E402
+    ConditionalConfirmation,
+    validate_receipt as _validate_conditional_receipt,
+)
 from language_tags import (  # noqa: E402
     LanguageTagError,
     language_base,
@@ -164,6 +168,7 @@ def _read_json_object(path: Path, retries: int = 2, delay: float = 0.08) -> dict
 def _read_result_object(path: Path, retries: int = 2, delay: float = 0.08) -> dict:
     """Read result.json and apply the legacy Design Spec depth default."""
     data = _read_json_object(path, retries=retries, delay=delay)
+    _validate_conditional_receipt(path.parent, data)
     data.setdefault('design_spec_depth', 'complete')
     return data
 
@@ -1105,7 +1110,8 @@ def _stage1_sha256(confirm_dir: Path) -> str:
 def _fresh_template_restart(confirm_dir: Path) -> bool:
     """A changed Stage-1 recommendation invalidates every prior receipt."""
     try:
-        result = _read_result_object(confirm_dir / RESULT_NAME)
+        # Stage-2 protocol staleness is an error, not a new Stage-1 round.
+        result = _read_json_object(confirm_dir / RESULT_NAME)
         return result.get('stage1_sha256') != _stage1_sha256(confirm_dir)
     except (OSError, json.JSONDecodeError, ValueError):
         return True
@@ -1867,6 +1873,13 @@ def _build_session_state(
         'template_install_version': _file_version(confirm_dir.parent / 'template_install.json'),
     })
 
+    if not fresh_restart:
+        try:
+            _read_result_object(result_file)
+        except (OSError, ValueError):
+            session.update(status='error', recommendation_error='confirmation_receipt_stale_or_unconfirmed')
+            return session
+
     if result_stage == 'final':
         session.update({
             'template_status': 'ready',
@@ -2317,6 +2330,8 @@ def create_app(
     app = Flask(__name__, static_folder='static', static_url_path='/static')
     app.config['PROJECT_PATH'] = project_path
     app.config['CONFIRM_DIR'] = confirm_dir
+    # Enterprise opt-in affects only this PPT owner, not ordinary Skills.
+    protocol = ConditionalConfirmation(confirm_dir) if os.environ.get('PPT_MASTER_CONFIRMATION_PROTOCOL') == '1' else None
     app.config['LOCK_FILE'] = lock_file
     app.config['SERVER_PORT'] = server_port
     app.config['LAST_REQUEST_TIME'] = time.time()
@@ -2405,6 +2420,26 @@ def create_app(
         resp.headers['Cache-Control'] = 'no-store'
         return resp
 
+    @app.route('/api/confirmation-receipts/<operation_id>', methods=['GET'])
+    def confirmation_receipt(operation_id):
+        if protocol is None:
+            return jsonify({'error': 'conditional_confirmation_disabled'}), 404
+        body, status = protocol.receipt(operation_id)
+        response = jsonify(body)
+        response.status_code = status
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    @app.route('/api/confirmation-receipts/by-version/<version>', methods=['GET'])
+    def confirmation_receipt_by_version(version):
+        if protocol is None:
+            return jsonify({'error': 'conditional_confirmation_disabled'}), 404
+        body, status = protocol.receipt_by_version(version)
+        response = jsonify(body)
+        response.status_code = status
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+
     @app.route('/api/session')
     def get_session():
         """Expose the derived template/Strategist wizard state for polling."""
@@ -2456,7 +2491,14 @@ def create_app(
 
     @app.route('/api/recommendations')
     def get_recommendations():
+        if protocol is not None:
+            return protocol.describe(lambda: app.make_response(_get_recommendations()))
+        return _get_recommendations()
+
+    def _get_recommendations():
         """Serve the Strategist-authored recommendations for this project."""
+        if protocol is not None and _build_session_state(confirm_dir).get('recommendation_error') == 'confirmation_receipt_stale_or_unconfirmed':
+            return jsonify({'error': 'confirmation_receipt_stale_or_unconfirmed'}), 409
         result_file = confirm_dir / RESULT_NAME
         if (
             _result_stage(result_file) == 'final'
@@ -2559,8 +2601,13 @@ def create_app(
 
     @app.route('/api/confirm', methods=['POST'])
     def confirm():
-        """Persist the user's final choices to result.json for the AI to read."""
         payload = request.get_json(silent=True)
+        if protocol is not None:
+            return protocol.submit(payload, _confirm)
+        return _confirm(payload)
+
+    def _confirm(payload):
+        """Persist the user's final choices to result.json for the AI to read."""
         if not isinstance(payload, dict):
             return jsonify({'error': 'invalid payload'}), 400
         confirm_dir.mkdir(parents=True, exist_ok=True)
@@ -2735,9 +2782,12 @@ def create_app(
             else previous_result['selection_sha256']
         )
         result['confirmed_at'] = time.strftime('%Y-%m-%dT%H:%M:%S')
-        if write_selection and selection_receipt is not None:
-            _write_json_atomic(selection_file, selection_receipt)
-        _write_json_atomic(result_file, result)
+        if protocol is not None:
+            protocol.commit(result, selection_receipt if write_selection else None, _write_json_atomic)
+        else:
+            if write_selection and selection_receipt is not None:
+                _write_json_atomic(selection_file, selection_receipt)
+            _write_json_atomic(result_file, result)
         _sync_session_state(
             confirm_dir,
             server_port=app.config.get('SERVER_PORT'),

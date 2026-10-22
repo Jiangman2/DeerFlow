@@ -44,6 +44,10 @@ class OAPolicyFlowConfig:
     run_timeout_seconds: int
     max_document_bytes: int
     max_result_bytes: int
+    multi_result_enabled: bool = False
+    max_result_files: int = 10
+    max_total_result_bytes: int = 50 * 1024 * 1024
+    recursion_limit: int = 1000
 
 
 def load_oa_policy_flow_config() -> OAPolicyFlowConfig:
@@ -107,4 +111,8 @@ def load_oa_policy_flow_config() -> OAPolicyFlowConfig:
         run_timeout_seconds=_bounded_int("OA_POLICY_FLOW_RUN_TIMEOUT_SECONDS", 30 * 60, 60, 2 * 60 * 60),
         max_document_bytes=_bounded_int("OA_POLICY_FLOW_MAX_DOCUMENT_BYTES", 10 * 1024 * 1024, 1024, 10 * 1024 * 1024),
         max_result_bytes=_bounded_int("OA_POLICY_FLOW_MAX_RESULT_BYTES", 10 * 1024 * 1024, 1024, 50 * 1024 * 1024),
+        multi_result_enabled=_truthy("OA_POLICY_FLOW_MULTI_RESULT_ENABLED"),
+        max_result_files=_bounded_int("OA_POLICY_FLOW_MAX_RESULT_FILES", 10, 1, 32),
+        max_total_result_bytes=_bounded_int("OA_POLICY_FLOW_MAX_TOTAL_RESULT_BYTES", 50 * 1024 * 1024, 1024, 100 * 1024 * 1024),
+        recursion_limit=_bounded_int("OA_POLICY_FLOW_RECURSION_LIMIT", 1000, 100, 2000),
     )

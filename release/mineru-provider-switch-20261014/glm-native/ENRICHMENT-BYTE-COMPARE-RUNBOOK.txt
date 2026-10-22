@@ -1,0 +1,41 @@
+WeKnora runtime byte classification / 2026-10-17 r1
+
+Starting evidence
+  /var/lib/weknora-enrichment-runtime-audit-e6_1488t/RESULT.json
+  SHA256 1536733f52e61636a90444255ec35c691f16dcbddde1ef0ad399d1f998b5303e
+  All 182 migration and 14 config assets present. Raw hashes differ for 181
+  migrations and all 14 configs. This does NOT establish semantic changes.
+  Local source line endings are predominantly CRLF; server proof is required.
+
+Read-only comparison
+  Bind the preceding report and the exact compiled source checksum manifest.
+  Rehash the sealed 737000448-byte candidate archive, read its 24 layers without
+  extraction/execution, preserve whiteouts, and compute raw/LF/CRLF hashes.
+  Match the compiled-source raw hash against exact candidate byte transforms.
+  Do NOT trim spaces, remove comments/BOM, normalize a standalone CR, add a final
+  newline, or parse/reserialize SQL/YAML. Non-UTF8/NUL files are raw-only.
+  Reconcile the original raw comparison with the immutable previous receipt.
+  Never rewrite source, image content, or original failure/success reports.
+
+No image imports, builds, subprocesses, cluster queries, Pods, credentials,
+production DB/Redis connections, provider requests, or configuration changes.
+Only a fresh private local /var/lib/weknora-runtime-byte-compare-* report is written.
+Input reads are bounded, nice10 and a 900-second total deadline are applied.
+Unlike compilation, this reads only an existing local image and small receipts.
+
+Execution on datax-01
+  Upload weknora-runtime-byte-compare-20261017-r1.py to /home/cnooc.
+  Install as root0600 in a fresh /var/lib tool directory0700; verify the published
+  SHA256; run python3 -I -B -u <tool>/compare.py with pipefail/tee.
+
+Interpretation
+  runtime_asset_classification=COMPLETE means collection complete, not rollout.
+  EXACT = same raw bytes. LINE_ENDINGS_ONLY = compiled-source raw hash matches
+  the stated exact LF/CRLF transform. No semantic or migration success claim.
+  UNCLASSIFIED_BYTE_DIFFERENCE/MISSING/NONREGULAR_PATH require file-specific review.
+  app/config/config.yaml is operator-owned, not a source asset; it is listed
+  separately and must NOT be copied into the isolated fixture.
+  byte_differences_explained=true allows full-App fixture preparation, not a
+  production migration, GLM model switch or 88-consumer rollout.
+  Full fresh-database migration, enrichment and actual indexing remain untested.
+  Send the terminal summary and new report SHA. Do not rebuild or reimport.

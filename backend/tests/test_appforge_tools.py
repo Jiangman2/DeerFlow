@@ -16,6 +16,7 @@ class _StreamResponse:
         self.status_code = status_code
         self.text = text
         self.is_error = status_code >= 400
+        self.headers = {"content-type": "text/event-stream"}
 
     def __enter__(self):
         return self
@@ -32,6 +33,9 @@ class _StreamResponse:
             response = httpx.Response(self.status_code, request=request, text=self.text)
             raise httpx.HTTPStatusError("failed", request=request, response=response)
 
+    def iter_bytes(self, chunk_size=8192):
+        yield ("\n\n".join(self._lines) + "\n\n").encode()
+
     def iter_lines(self):
         yield from self._lines
 
@@ -41,6 +45,11 @@ def reset_appforge_state(monkeypatch: pytest.MonkeyPatch):
     import deerflow.community.appforge.tools as module
 
     for name in (
+        "APPFORGE_DATA_QA_API_URL",
+        "APPFORGE_DATA_QA_API_KEY",
+        "APPFORGE_DATA_QA_APP_ID",
+        "APPFORGE_DATA_QA_CONVERSATION_PREFIX",
+        "APPFORGE_DATA_QA_TIMEOUT_SECONDS",
         "APPFORGE_API_URL",
         "APPFORGE_API_KEY",
         "APPFORGE_HYTOKEN",
@@ -106,23 +115,21 @@ def _invoke_with_retrieve(app, response_payload: dict):
 
 def test_public_tool_schemas_expose_only_the_business_query():
     from deerflow.community.appforge.tools import (
-        datalake_detail_qa_tool,
+        datalake_data_qa_tool,
         datalake_md_search_tool,
-        datalake_metrics_qa_tool,
         datalake_smart_qa_tool,
     )
 
     for tool in (
         datalake_smart_qa_tool,
-        datalake_metrics_qa_tool,
-        datalake_detail_qa_tool,
+        datalake_data_qa_tool,
         datalake_md_search_tool,
     ):
         assert set(tool.tool_call_schema.model_json_schema()["properties"]) == {"query"}
 
 
 @pytest.mark.parametrize("context", [None, {}, {"datalake_enabled": False}, {"datalake_enabled": None}, {"datalake_enabled": "true"}, {"datalake_enabled": 1}])
-@pytest.mark.parametrize("tool_name", ["datalake_smart_qa", "datalake_metrics_qa", "datalake_detail_qa"])
+@pytest.mark.parametrize("tool_name", ["datalake_smart_qa", "datalake_data_qa"])
 def test_disabled_data_lake_context_rejects_before_configuration_or_network(context, tool_name):
     import deerflow.community.appforge.tools as module
 
@@ -138,7 +145,7 @@ def test_disabled_data_lake_context_rejects_before_configuration_or_network(cont
                 result = json.loads(module._invoke_tool(tool_name, "问题", runtime))
 
     assert result == {
-        "error": "Data Lake use is disabled for this run",
+        "error": "请先点击数据湖按钮开启权限，然后重新发送这个问题。我不会使用外部查询替代数据湖查询。",
         "code": "datalake_disabled",
         "retryable": False,
     }
@@ -154,16 +161,16 @@ def test_conversation_id_is_stable_per_user_thread_and_tool():
             "datalake_smart_qa",
             _runtime(thread_id="thread-2"),
         )
-        assert first != module._conversation_id("datalake_metrics_qa", _runtime())
+        assert first != module._conversation_id("datalake_data_qa", _runtime())
     assert first.startswith("ApiKeyAgent_")
 
 
-def test_metrics_qa_invocation_uses_secret_config_and_parses_sse():
+def test_data_qa_invocation_uses_secret_config_and_parses_sse():
     app = _app_config(
-        datalake_metrics_qa={
+        datalake_data_qa={
             "api_url": "http://appforge.internal:9080",
             "api_key": "secret-key",
-            "app_id": "app-smart",
+            "app_id": "app-v16p2syh",
             "trust_env": False,
             "inputs": {"business": "exploration"},
             "hytoken": "server-side-hytoken",
@@ -179,7 +186,7 @@ def test_metrics_qa_invocation_uses_secret_config_and_parses_sse():
     ]
 
     result, call, client_kwargs = _invoke_with_stream(
-        "datalake_metrics_qa",
+        "datalake_data_qa",
         app,
         lines,
     )
@@ -195,15 +202,12 @@ def test_metrics_qa_invocation_uses_secret_config_and_parses_sse():
     assert client_kwargs == {"timeout": 180.0, "trust_env": False}
     assert call.args[:2] == (
         "POST",
-        "http://appforge.internal:9080/appforge/openapi/v1/InvokeApp/app-smart",
+        "http://appforge.internal:9080/appforge/openapi/v1/InvokeApp/app-v16p2syh",
     )
     assert call.kwargs["headers"]["Authorization"] == "Bearer secret-key"
-    assert call.kwargs["json"]["inputs"] == {
-        "business": "exploration",
-        "hytoken": "server-side-hytoken",
-        "hyaccount": "server-side-account",
-    }
-    assert call.kwargs["json"]["conversationId"].startswith("WorkflowAgent_")
+    assert call.kwargs["json"]["inputs"] == {"hytoken": "", "hyaccount": ""}
+    assert result["thinking"] == []
+    assert call.kwargs["json"]["conversationId"].startswith("SquareWorkflow_")
     assert "secret-key" not in json.dumps(result, ensure_ascii=False)
     assert "server-side-hytoken" not in json.dumps(result, ensure_ascii=False)
 
@@ -361,7 +365,7 @@ def test_retrieve_does_not_proxy_an_unapproved_image_preview_origin():
 
 def test_workflow_answer_interrupt_and_finished_events_are_supported():
     app = _app_config(
-        datalake_metrics_qa={
+        datalake_data_qa={
             "api_url": "http://appforge.internal:9080",
             "api_key": "secret-key",
         }
@@ -372,10 +376,10 @@ def test_workflow_answer_interrupt_and_finished_events_are_supported():
         'data: {"event":"workflow_interrupt","data":{"status":"interrupted","outputs":{"choices":["天津分公司","湛江分公司"]}}}',
     ]
 
-    result, _, _ = _invoke_with_stream("datalake_metrics_qa", app, lines)
+    result, _, _ = _invoke_with_stream("datalake_data_qa", app, lines)
 
     assert result["answer"] == "计划工作量 12 平方公里"
-    assert result["progress"] == "处理中\n计划工作量 12 平方公里"
+    assert result["progress"] == "处理中"
     assert result["interrupt"] == {"choices": ["天津分公司", "湛江分公司"]}
     assert result["status"] == "interrupted"
 
@@ -384,7 +388,7 @@ def test_output_is_valid_json_and_stays_below_tool_budget():
     import deerflow.community.appforge.tools as module
 
     app = _app_config(
-        datalake_detail_qa={
+        datalake_data_qa={
             "api_url": "http://appforge.internal:9080",
             "api_key": "secret-key",
         }
@@ -394,18 +398,19 @@ def test_output_is_valid_json_and_stays_below_tool_budget():
             {
                 "chunk_id": f"chunk-{index}",
                 "knowledge_filename": f"document-{index}.pdf",
-                "content": "内容" * 10_000,
+                "content": "内容" * 300,
             }
-            for index in range(30)
+            for index in range(8)
         ],
         ensure_ascii=False,
     )
     lines = [
         f"data: {json.dumps({'type': 'answer', 'content': '回答' * 10_000}, ensure_ascii=False)}",
         f"data: {json.dumps({'type': 'knowledge', 'content': huge_knowledge}, ensure_ascii=False)}",
+        'data: {"type":"done"}',
     ]
 
-    raw_result, _, _ = _invoke_with_stream("datalake_detail_qa", app, lines)
+    raw_result, _, _ = _invoke_with_stream("datalake_data_qa", app, lines)
     encoded = json.dumps(raw_result, ensure_ascii=False, indent=2)
 
     assert len(encoded) <= module._OUTPUT_CHAR_LIMIT
@@ -416,10 +421,10 @@ def test_output_is_valid_json_and_stays_below_tool_budget():
 def test_missing_key_and_empty_query_are_safe_structured_errors():
     import deerflow.community.appforge.tools as module
 
-    app = _app_config(datalake_metrics_qa={"api_url": "http://internal.invalid"})
+    app = _app_config(datalake_data_qa={"api_url": "http://internal.invalid"})
     with patch.object(module, "get_app_config", return_value=app):
-        missing = json.loads(module._invoke_tool("datalake_metrics_qa", "问题", _runtime()))
-        empty = json.loads(module._invoke_tool("datalake_metrics_qa", "  ", _runtime()))
+        missing = json.loads(module._invoke_tool("datalake_data_qa", "问题", _runtime()))
+        empty = json.loads(module._invoke_tool("datalake_data_qa", "  ", _runtime()))
 
     assert missing == {
         "error": "AppForge authentication is not configured",
@@ -432,7 +437,7 @@ def test_http_and_network_errors_do_not_expose_internal_details():
     import deerflow.community.appforge.tools as module
 
     app = _app_config(
-        datalake_metrics_qa={
+        datalake_data_qa={
             "api_url": "http://10.77.124.142:9080",
             "api_key": "secret-key",
         }
@@ -446,7 +451,7 @@ def test_http_and_network_errors_do_not_expose_internal_details():
         with patch.object(module.httpx, "Client") as client_cls:
             client_cls.return_value.__enter__.return_value.stream.return_value = response
             http_error = module._invoke_tool(
-                "datalake_metrics_qa",
+                "datalake_data_qa",
                 "问题",
                 _runtime(),
             )
@@ -456,7 +461,7 @@ def test_http_and_network_errors_do_not_expose_internal_details():
             side_effect=httpx.ConnectError("failed at http://10.77.124.142:9080"),
         ):
             network_error = module._invoke_tool(
-                "datalake_metrics_qa",
+                "datalake_data_qa",
                 "问题",
                 _runtime(),
             )
@@ -469,7 +474,7 @@ def test_http_and_network_errors_do_not_expose_internal_details():
     assert json.loads(network_error) == {
         "error": "AppForge request failed",
         "code": "ConnectError",
-        "retryable": True,
+        "retryable": False,
     }
     assert "10.77" not in http_error + network_error
     assert "secret-key" not in http_error + network_error

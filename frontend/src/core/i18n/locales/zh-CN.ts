@@ -11,6 +11,23 @@ import {
 import type { Translations } from "./types";
 
 export const zhCN: Translations = {
+  employeeDiscovery: {
+    hot: "热门",
+    hotOnly: "只看热门",
+    showAll: "展示全部",
+    markHot: "设为热门",
+    unmarkHot: "取消热门",
+    emptyTitle: "暂无符合条件的热门数字员工",
+    emptyHint:
+      "热门由管理员配置。你可以点击“展示全部”浏览广场上的全部数字员工。",
+    creator: "创建者",
+    creatorUnknown: "暂无创建者记录",
+    loadError: "热门状态加载失败，暂无法判断哪些员工为热门。仍可展示全部。",
+    saveError: "热门设置保存失败，请稍后重试。",
+    conflict: "其他管理员已修改此设置，已重新加载，请确认后再操作。",
+    saved: "热门设置已保存",
+    retry: "重新加载",
+  },
   portalTools: {
     title: "更多办公工具",
     userGuide: "用户指南（新窗口打开）",
@@ -72,6 +89,19 @@ export const zhCN: Translations = {
   },
 
   browser: {
+    loginBegin: "人工登录",
+    loginResume: "完成登录，交还助手",
+    loginClear: "清除登录状态",
+    loginPrivate:
+      "人工登录中：助手暂停读取和操作浏览器。请直接在下方网页输入账号、密码或验证码。",
+    loginScope: "登录状态仅保留在本对话当前浏览器中；回收或重启后需重新登录。",
+    loginFailure:
+      "操作未完成。请先完成或关闭登录页面，再交还助手；清除失败时请重连后重试。",
+    loginUnavailable:
+      "连接后可使用人工登录；若按钮仍不可用，需要更新浏览器服务。",
+    loginSessionLost:
+      "未连接到原来的浏览器会话，已停止自动重连。重新连接后可能需要再次登录。",
+    loginReconnect: "重新连接浏览器",
     title: "实时浏览器",
     back: "后退",
     forward: "前进",
@@ -100,7 +130,7 @@ export const zhCN: Translations = {
   welcome: {
     greeting: "你好，欢迎回来！",
     description:
-      "欢迎使用中国海油通用智能体。\n这是一个面向油气业务的智能研究与协同作业平台。\n通过内置和自定义 Skills，本平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，将复杂任务沉淀为可复用的业务成果。",
+      "欢迎使用海能通用智能体。\n这是一个面向油气业务的智能研究与协同作业平台。\n通过内置和自定义 Skills，本平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，将复杂任务沉淀为可复用的业务成果。",
     mobileDescription: "面向油气业务的智能研究与协作助手",
 
     createYourOwnSkill: "创建您的专属技能",
@@ -112,7 +142,7 @@ export const zhCN: Translations = {
     todayUsers: "今日用户",
     todayTasks: "今日任务数",
     supportGroupTitle: "海能Work服务支持群",
-    supportGroupName: "中国海油通用智能体-问题反馈交流群",
+    supportGroupName: "海能通用智能体-问题反馈交流群",
     supportGroupQrAlt: "海能Work服务支持群二维码",
     supportGroupScan: "请使用移动海能Work扫码入群",
     usageUnavailable: "使用量暂不可用",
@@ -841,7 +871,7 @@ export const zhCN: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "中国海油通用智能体",
+    appName: "海能通用智能体",
     chats: "对话",
     newChat: "新对话",
     untitled: "未命名",
@@ -919,6 +949,8 @@ export const zhCN: Translations = {
       "暂无 Token 用量。只有模型成功返回且供应商提供 usage_metadata 时才会显示。",
     unavailableShort: "未返回用量",
     collecting: "统计中",
+    waitingForUsage: "统计中，等待模型返回用量",
+    reportedSoFar: "已返回用量，仍在统计",
     note: "顶部总量优先使用后端持久化的线程用量；当当前回复仍在流式返回时，还会叠加可见的进行中用量。每轮和调试用量只来自当前可见消息，可能与平台账单页不完全一致。",
     presets: {
       off: "关闭",

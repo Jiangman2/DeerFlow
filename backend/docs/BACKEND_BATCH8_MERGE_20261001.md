@@ -22,7 +22,7 @@ touch the live checkout, copy production configuration, or change credentials.
 
 ## Tests aligned with the retained implementation
 
-The enterprise identity test expects the current `中国海油通用智能体` name;
+The enterprise identity test expects the current `海能通用智能体` name;
 its enterprise-description and no-artifact-branding assertions are retained.
 Its memory configuration is explicitly disabled instead of relying on a missing
 fixture field. No prompt template or branding implementation is changed.

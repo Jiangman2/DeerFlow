@@ -1,0 +1,136 @@
+{
+  "status": "PRE_FIXTURE_GATEWAY_REPLICA_ASSUMPTION_FAILED_RECOVERY_PREPARED",
+  "local_qualification": {
+    "offline_tests": 312,
+    "skipped": 0,
+    "packaged_function_test": "PASS",
+    "python37_grammar": "PASS",
+    "server_execution": "NOT_EXECUTED_LOCALLY",
+    "tool_sha256": "a880111601819c65f813c806cbb28fb1adab42a931132b1e004a6886e85bc2c3"
+  },
+  "native_acceptance_report_sha256": "6a1f5a14418d6f16c4edfb48ffcd4860bca6709b7e1595cea63c8fec035489f0",
+  "inventory_source": "OPERATOR_PASTED_KUBECTL_POD_IMAGE_METADATA",
+  "inventory_attachment_sha256": "1b130640eeb14aac8e677189d6c4541dcf4e5705f0fd9beee0ce384857106c8f",
+  "preferred_fixture_node": "datax-01",
+  "datax01_image_list_observation": "OPERATOR_RECOVERY_PASS_BOTH_CONTENT_UNPACK_CRI_PIN_VERIFIED",
+  "next_operator_tool": "weknora-enrichment-gateway-recovery-20261017-r1.py",
+  "gateway_update": "OPERATOR_CONFIRMED_70_OF_70_UPDATED_READY_AVAILABLE_GENERATION_373_FRESH_ENDPOINT_RECHECK_REQUIRED",
+  "gateway_recovery": {
+    "previous_report_sha256": "907f15094fe916f139bafb8a51f62f4e19c2818a6c940ea8fa276653189262ac",
+    "cause": "ORIGINAL_TOOL_ASSUMED_MAXIMUM_4_REPLICAS",
+    "previous_document_submission_attempted": false,
+    "new_state": "/var/lib/weknora-full-enrichment-20261017-r1-fix1",
+    "old_evidence_modified": false,
+    "production_gateway_scaled": false,
+    "runtime_contract_sampling": false,
+    "parallel_readonly_exec_maximum": 4
+  },
+  "runtime_asset_audit_receipt_sha256": "1536733f52e61636a90444255ec35c691f16dcbddde1ef0ad399d1f998b5303e",
+  "runtime_asset_audit": "OPERATOR_CONFIRMED_ALL_BYTE_DIFFERENCES_EXPLAINED_BY_LF_CRLF",
+  "runtime_byte_comparison": {
+    "report": "/var/lib/weknora-runtime-byte-compare-qikece4_/RESULT.json",
+    "report_sha256": "28e69e7eee425af64dbb3b0825a0985bc26a72fbb213c3eeedf7bd07248cc068",
+    "source_manifest_sha256": "43b8484b6ef5a18ed76a6a13ab3faf8a13eca8a76589d454ae0687293971e1b0",
+    "candidate_archive_sha256": "471ba1fecc997ce0785da151dac47da313d256506ece353275d04cdcff168f51",
+    "postgres_migrations": {"expected": 182, "exact": 1, "line_endings_only": 181, "unresolved": 0},
+    "config_assets": {"expected": 14, "exact": 0, "line_endings_only": 14, "unresolved": 0},
+    "entrypoint": {"expected": 1, "exact": 1, "line_endings_only": 0, "unresolved": 0},
+    "operator_config_reuse_allowed": false,
+    "unexpected_extra_count": 0,
+    "rebuild_required_for_byte_differences": false,
+    "semantic_equivalence_proven": false,
+    "fresh_database_migration_acceptance": "NOT_TESTED"
+  },
+  "store_preload_pass_receipt_sha256": "e3a480818f57cea1d41f0eca47edaf7a373a69b813ee62ad89651ca008b737f9",
+  "preload_failure_receipt_sha256": "469696342b6304d3145f5340b78e6bdcadcaeb22358cfd28781b6d03e87ee362",
+  "preload_recovery_scope": "LOCAL_REDIS_ARCHIVE_ONLY_NO_POSTGRES_REIMPORT_NO_TRANSFER",
+  "accepted_exports_attachment_sha256": "eb62c0e2e322cbd42d977b949bf565ff91cdc5025bc6421fd782fc387521faab",
+  "accepted_exports": {
+    "postgres": {
+      "result_sha256": "27ac4b9ff6096b47a4aa1cc9ac07a0a6a0b444934ade337fb9bcdc27fcd3b854",
+      "archive_sha256": "61a43e362909e1597330364a1afcfd6e037fe97a22ab41beba1147404682d24c",
+      "archive_bytes": 636895232,
+      "layer_and_diffid_verification": "OPERATOR_CONFIRMED_PASS"
+    },
+    "redis": {
+      "result_sha256": "5c3b8b501e20f4ef6bcf3f4fe2045dd2a2f550318afea29d746d9fbece10454d",
+      "archive_sha256": "0159f9dd3aabb24f64f3005a9d508c3ae1a021d2665baaa76cb2b79d37e9f290",
+      "archive_bytes": 14084608,
+      "layer_and_diffid_verification": "OPERATOR_CONFIRMED_PASS"
+    }
+  },
+  "candidate": {
+    "image": "deerflow.local/weknora-app:20261016-native-glm-runtimefix-fc44d25744194ece",
+    "manifest_digest": "sha256:3bc43f4e4643fd069f59fdcd6a824ed6edb6603c3f2b957ff5b5451b853f4709",
+    "config_digest": "sha256:22b73c727cfb445ecf9fabe97f693efd5ceb7cbcb449b593c219e6407aef64c5",
+    "preload_on_datax01": "OPERATOR_CONFIRMED_PASS_RECHECK_BEFORE_FIXTURE"
+  },
+  "backing_store_image_inputs": [
+    {
+      "role": "postgres",
+      "observed_pod": "weknora-postgres-0",
+      "observed_node": "datax-02",
+      "image": "deerflow.local/weknora-postgres:pg16-search-arm64-20260722-1",
+      "observed_image_id": "sha256:5656e1d666225b9ee09c83684b3f1363d6b216bab498d11e0a186a21e175b85b",
+      "manifest_digest": "sha256:f094a1fe0d28a507315e482498087e8a6934e666fecaa7cfeb041ee79d84811d",
+      "content_unpacked_on_datax01": "OPERATOR_STATUS_CONTENT_UNPACK_CRI_PIN_PASS_RECHECK_BEFORE_FIXTURE"
+    },
+    {
+      "role": "redis",
+      "observed_pod": "weknora-redis-ddc9d84b5-dn6qv",
+      "observed_node": "datax-03",
+      "image": "m.daocloud.io/docker.io/library/redis@sha256:c9d92d840fd011c908f040592857c724ae6d877f2aba5c40ad963276507386b2",
+      "observed_image_id": "m.daocloud.io/docker.io/library/redis@sha256:c9d92d840fd011c908f040592857c724ae6d877f2aba5c40ad963276507386b2",
+      "observed_digest_kind": "OCI_IMAGE_INDEX_OPERATOR_EXPORT_CONFIRMED",
+      "arm64_manifest_digest": "sha256:4c609b1ccae44c2a0f7b3eca475af5d0f1f02f8fb7df3970ee4d7ab6a5590f56",
+      "config_digest": "sha256:755105238729ef40393b21c3e7e2fb6ee886fc504e04718a4133ca2bc1aa294a",
+      "content_unpacked_on_datax01": "OPERATOR_RECOVERY_CONTENT_UNPACK_CRI_PIN_PASS_RECHECK_BEFORE_FIXTURE"
+    }
+  ],
+  "fixture_constraints": {
+    "fresh_namespace_and_test_stores": true,
+    "production_pvc_or_hostpath_mounts": false,
+    "production_db_redis_credentials_or_connections": false,
+    "production_data_clone": false,
+    "full_weknora_server_required": true,
+    "inherited_image_environment": "REPLACE_WITH_EXPLICIT_CLEAN_CHILD_PROCESS_ENVIRONMENT",
+    "test_stores_listen_addresses": "LOOPBACK_ONLY_IN_DISPOSABLE_POD",
+    "service_or_ingress_publication": false,
+    "production_config_yaml_reuse": false,
+    "database_role_plan": "TEST_ONLY_BOOTSTRAP_ROLE_FOR_SCHEMA_AND_EXTENSIONS; SEPARATE_NON_SUPERUSER_APP_ROLE_FOR_ENRICHMENT",
+    "database_connection_limit_plan": "BOUNDED_TEST_INSTANCE_ONLY; NO_PRODUCTION_TUNING",
+    "initial_input": "SYNTHETIC_RASTER_IMAGE_WITH_TEXT_AND_DIAGRAM",
+    "initial_test_not_pdf_mineru_or_neo4j_acceptance": true,
+    "schema_setup_scope": "EMPTY_DISPOSABLE_TEST_DATABASE_ONLY",
+    "network_policy_enforcement": "REQUIRES_INDEPENDENT_EVIDENCE_NOT_ASSUMED",
+    "provider_request_budget": "ONE_UPLOAD_ONE_SEARCH_NATIVE_RETRIES_RETAINED_BOUNDED_TEST_LIFETIME_NOT_HARD_PROVIDER_CAP",
+    "credential_persistence": "HIDDEN_GLM_AND_SCOPED_GATEWAY_RELAY_KEY_TEMPORARILY_IN_DISPOSABLE_TEST_DB_NO_EXPORT_UID_CLEANUP",
+    "cleanup": "UID_BOUND_TEST_RESOURCES_ONLY_PRESERVE_SAFE_RECEIPTS"
+  },
+  "source_review": {
+    "model_resolution": "DOCUMENT_PROCESS_OVERRIDES_THEN_KB_CONFIG_THEN_MODEL_SERVICE_OR_LEGACY_INLINE",
+    "per_image_calls": "OPTIONAL_OCR_THEN_CAPTION_SEPARATE_PREDICT_CALLS",
+    "index_acceptance": "VERIFY_ACTUAL_INDEX_AND_RETRIEVAL_NOT_ONLY_HANDLER_INDEXED_FLAG",
+    "reason": "indexChunks returns early on failures; caller still sets indexed=true; disabled indexing can also mark chunks indexed",
+    "runtime_migrations": "READ_FROM_FILES_NOT_EMBEDDED; verify inherited migration files against candidate schema needs before test"
+  },
+  "acceptance_contract": {
+    "migration": "VERIFY_FRESH_SCHEMA_VERSION_90_DIRTY_FALSE_AND_REQUIRED_EXTENSIONS; HEALTH_ALONE_INSUFFICIENT",
+    "consumer": "VERIFY_REAL_ASYNQ_ENRICHMENT_TASK_EXECUTION_IN_TEST_REDIS",
+    "vlm": "EXACT_NATIVE_ENTERPRISE_GLM_PROFILE; SYNTHETIC_IMAGE_ONLY; REQUEST_BUDGET_INCLUDES_OCR_CAPTION_AND_RETRIES",
+    "persistence": "VERIFY_IMAGE_OCR_CAPTION_CHILD_CHUNKS_AND_KNOWLEDGE_ID_LINKAGE_IN_TEST_DB",
+    "indexing": "VERIFY_ACTUAL_INDEX_ROWS_AND_RETRIEVAL; DO_NOT_ACCEPT_ONLY_INDEXED_FLAG",
+    "embedding_scope": "USER_AUTHORIZED_REAL_ENTERPRISE_QWEN3_EMBEDDING_8B_VIA_EXISTING_GATEWAY_1024D_RELAY_NO_FAKE_VECTORS",
+    "production_acceptance": "STILL_REQUIRES_CONTROLLED_APP_AND_MODEL_SWITCH_AND_POST_SWITCH_BUSINESS_VALIDATION"
+  },
+  "next_missing_evidence": [
+    "FRESH_NODE_RESOURCE_BUDGET",
+    "CLEAN_CONFIG_AND_FRESH_DB_MIGRATIONS_AND_ISOLATED_STARTUP",
+    "SERVER_FULL_APP_GLM_EMBEDDING_INDEX_AND_RETRIEVAL_RECEIPT"
+  ],
+  "production_writes": 0,
+  "provider_requests": 0,
+  "images_imported": false,
+  "pods_created": 0,
+  "ready_for_rollout": false
+}

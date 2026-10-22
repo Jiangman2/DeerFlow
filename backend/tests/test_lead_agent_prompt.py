@@ -148,7 +148,7 @@ def test_apply_prompt_template_uses_enterprise_identity(monkeypatch):
     # may name the framework without claiming it as the product identity.
     assert "<role>" in prompt and "</role>" in prompt
     role = prompt.split("<role>", 1)[1].split("</role>", 1)[0]
-    assert "中国海油通用智能体" in role
+    assert "海能通用智能体" in role
     assert "面向油气勘探开发业务的企业级多智能体工作平台" in role
     assert "DeerFlow" not in role
     assert "github.com/bytedance" not in prompt

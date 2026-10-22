@@ -1,0 +1,46 @@
+WeKnora GLM104 review, 2026-10-17 r1
+
+Scope: datax-01, root, read-only cluster/database/queue checks plus server dry-run.
+Actual live configuration remains GLM88. No restart, signal, model request,
+queue pause, task resubmission, live patch, image build/import or schema change.
+The only PROPOSED change is enrichment48 ->64: 104 aggregate Worker slots.
+Keep core16/postprocess4/shared4/maintenance4/wiki12, model default128, MinerU16,
+single replica, accepted GLM image/default references and local-PV placement.
+
+Transfer the standalone Python file only to /home/cnooc. Use the chat wrapper
+to verify its exact published SHA in a fresh root-private directory. Run
+python3 -I -B -u <verified-script> --review. Do not weaken root-private evidence
+permissions to download results. Public aggregate output is sufficient.
+
+The tool first binds the accepted GLM88 and bottleneck-diagnostic receipts,
+then takes five queue/17-Pod health samples at >=15-second intervals plus three
+App-node/DB resource reviews and a final fresh resource review. Allow several
+minutes for bounded kubectl exec/metrics reads; each phase prints progress.
+
+Gates: exact accepted Pod/process, full spec, environment, dependencies, PG
+binding, six active pool identities, GLM policy/config/doc refs, exact128
+distributed startup receipt, all16 MinerU workers readable with zero quarantine.
+Busy workers and pending queues are allowed. An active idle pool is not a drain.
+Node/App metrics must be fresh; datax-03 has >=24GiB available memory, CPU <80%
+allocatable, disk >=max(10GiB,15% capacity), App working set (0,16GiB]. PG
+connections <60% non-reserved max, no idle-in-transaction or lock waiters.
+These are conservative eligibility thresholds, not proof of104-load safety.
+
+Health GETs may trigger the existing dispatcher's due readiness reprobe; the
+tool never explicitly clears quarantine. Shared MinerU-node host CPU attribution
+and any24/32/64 expansion remain separate reviews, not granted by this preflight.
+
+PASS means ready_for_controlled_upgrade_review=true, never ready_to_apply=true.
+It saves a private environment-only proposal and dry-run CAS in a NEW directory.
+Future mutation needs fresh checks, operator maintenance approval, one
+identity-bound stop, claimed-work drain and a separate guarded switch tool.
+Pending tasks need NOT empty and must not be deleted/requeued by this workflow.
+Single-replica restart briefly interrupts the knowledge service; do not restart
+manually or reuse obsolete88 scripts.
+
+On BLOCKED/INCOMPLETE send the aggregate output. Do not chmod existing evidence,
+skip a failed check or rerun any apply. The printed --status command reads only
+the stored RESULT, does not recollect live state and makes no writes. A new
+review may be prepared after diagnosing changed or unavailable evidence.
+Never send PROPOSAL.private.json or SERVER-DRY-RUN.private.json: they may contain
+private production configuration. Model/API keys are never requested here.

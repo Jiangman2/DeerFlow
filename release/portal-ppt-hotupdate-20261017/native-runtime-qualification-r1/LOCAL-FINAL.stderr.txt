@@ -1,0 +1,26 @@
+test_actual_network_checker_full_orchestration_and_cleanup (__main__.ControllerTests.test_actual_network_checker_full_orchestration_and_cleanup) ... ok
+test_admission_drift_stays_ledgered_and_blocks (__main__.ControllerTests.test_admission_drift_stays_ledgered_and_blocks) ... ok
+test_admission_rejected_owned_uid_can_be_cleaned (__main__.ControllerTests.test_admission_rejected_owned_uid_can_be_cleaned) ... ok
+test_bad_baseline_one_direction_and_protocol_never_qualify (__main__.ControllerTests.test_bad_baseline_one_direction_and_protocol_never_qualify) ... ok
+test_db_init_started_pending_not_scheduling_timeout (__main__.ControllerTests.test_db_init_started_pending_not_scheduling_timeout) ... ok
+test_exact_embedded_assets_and_all_renderer_safety (__main__.ControllerTests.test_exact_embedded_assets_and_all_renderer_safety) ... ok
+test_host_frontend_main_selection_order_and_failure_stops_next_stage (__main__.ControllerTests.test_host_frontend_main_selection_order_and_failure_stops_next_stage) ... ok
+test_known_api_default_serialization_and_unknown_annotation (__main__.ControllerTests.test_known_api_default_serialization_and_unknown_annotation) ... ok
+test_namespace_or_object_replacement_never_deletes (__main__.ControllerTests.test_namespace_or_object_replacement_never_deletes) ... ok
+test_pending_deadline_is_bounded_by_clock (__main__.ControllerTests.test_pending_deadline_is_bounded_by_clock) ... ok
+test_pg_index_allowed_only_with_exact_selected_manifest_link (__main__.ControllerTests.test_pg_index_allowed_only_with_exact_selected_manifest_link) ... ok
+test_pg_sidecar_shutdown_requires_success_and_order (__main__.ControllerTests.test_pg_sidecar_shutdown_requires_success_and_order) ... ok
+test_policy_empty_lists_omitted_and_nonempty_rule_drift (__main__.ControllerTests.test_policy_empty_lists_omitted_and_nonempty_rule_drift) ... ok
+test_policy_injection_prevents_candidate_boundary (__main__.ControllerTests.test_policy_injection_prevents_candidate_boundary) ... ok
+test_production_reads_server_allowlist_only (__main__.ControllerTests.test_production_reads_server_allowlist_only) ... ok
+test_runtime_wrong_image_restart_or_container_id_block (__main__.ControllerTests.test_runtime_wrong_image_restart_or_container_id_block) ... ok
+test_transport_interrupt_preserves_real_child_exit (__main__.ControllerTests.test_transport_interrupt_preserves_real_child_exit) ... ok
+test_transport_leader_exit_still_terminates_owned_descendant (__main__.ControllerTests.test_transport_leader_exit_still_terminates_owned_descendant) ... ok
+test_transport_real_nonzero_private_stderr_and_returncode (__main__.ControllerTests.test_transport_real_nonzero_private_stderr_and_returncode) ... ok
+test_transport_timeout_and_output_limit_preserve_actual_result (__main__.ControllerTests.test_transport_timeout_and_output_limit_preserve_actual_result) ... ok
+test_unknown_create_is_not_retried_adopted_or_deleted (__main__.ControllerTests.test_unknown_create_is_not_retried_adopted_or_deleted) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 3.920s
+
+OK

@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-14",
+  "archive": "deerflow-mineru-capacity-20261014-r1.tar.gz",
+  "sha256": "8394730771a45da89f8d508dade9f47adcd2a8a81ccd60e672748d8f55f51f61",
+  "unit_and_collection_tests": {"passed": 18, "failed": 0},
+  "delivered_archive_fixture": "PASS",
+  "fixture_environment": "disposable_no_network_Linux_container_with_fake_kubectl",
+  "delivered_manifest": "PASS",
+  "credential_redaction": "PASS",
+  "report_hash_and_cnooc_download_permissions": "PASS",
+  "initial_test_harness_failures": [
+    "tmpfs_var_lib_had_unsafe_default_mode; corrected_test_mount_to_0755",
+    "fake_kubectl_on_noexec_tmpfs; enabled_exec_only_for_disposable_fixture_tmpfs"
+  ],
+  "production_safety_guards_weakened": false,
+  "provider_requests": 0,
+  "real_cluster_access": false,
+  "images_built_or_imported": false,
+  "ready_for_rollout": false
+}

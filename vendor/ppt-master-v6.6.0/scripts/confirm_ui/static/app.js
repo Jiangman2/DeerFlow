@@ -4340,14 +4340,43 @@
         return !!valid;
     }
 
+    // Enterprise protocol: version/operation metadata only. Choices remain
+    // constructed by this official page. No countdown or auto-click in the UI.
+    var pendingConfirmation = null;
+    function postConfirmation(payload) {
+        return Promise.resolve().then(function () {
+            var protocol = REC && REC.confirmation_protocol;
+            var body = payload;
+            if (protocol) {
+                if (protocol.protocol !== 1 || !/^[a-f0-9]{64}$/.test(protocol.version) ||
+                        !window.crypto || !window.crypto.getRandomValues) {
+                    throw new Error("Conditional confirmation unavailable");
+                }
+                var key = protocol.version + JSON.stringify(payload);
+                if (!pendingConfirmation || pendingConfirmation.key !== key) {
+                    var random = new Uint8Array(16);
+                    window.crypto.getRandomValues(random);
+                    var operation = Array.from(random).map(function (value) {
+                        return value.toString(16).padStart(2, "0");
+                    }).join("");
+                    pendingConfirmation = { key: key, operation: operation };
+                }
+                body = Object.assign({}, payload, { _confirmation_request: {
+                    protocol: 1, version: protocol.version,
+                    operation_id: pendingConfirmation.operation
+                } });
+            }
+            return fetch("/api/confirm", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+        });
+    }
+
     function submitStage(payload, nextStage) {
         var btn = document.getElementById("btn-confirm");
         btn.disabled = true;
-        fetch("/api/confirm", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        }).then(function (r) {
+        postConfirmation(payload).then(function (r) {
             if (!r.ok) throw new Error("stage submit failed");
             showDeriving();
             pollForStage(nextStage);
@@ -4470,11 +4499,7 @@
         if (!designSystemValid(payload)) return;
         if (!customSelectionsValid(payload)) return;
         btn.disabled = true;
-        fetch("/api/confirm", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        }).then(function (r) {
+        postConfirmation(payload).then(function (r) {
             if (!r.ok) throw new Error("confirm failed");
             showConfirmedOverlay();
             fetch("/api/shutdown", {

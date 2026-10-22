@@ -2,8 +2,8 @@
 export const USER_GUIDE_URL =
   "https://hnwork.w.cnooc.com.cn/docx/doxkjqbGzuarsaBp3oeDtVmcBug";
 
-// All PNGs use a 1254px canvas. Normalize their opaque extent to the existing
-// PPT icon's 709px extent, without altering the original assets or hit targets.
+// Retain legacy asset metadata for older release consumers. Portal navigation
+// now renders pre-sized embedded 3D bitmaps, without fetching these legacy files.
 export const PORTAL_TOOLS = [
   {
     id: "ppt",

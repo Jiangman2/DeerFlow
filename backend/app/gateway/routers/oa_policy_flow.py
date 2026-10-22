@@ -10,12 +10,14 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, Request, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 from app.gateway.file_security import UploadSecurityError
+from app.gateway.oa_policy_flow_results import public_results, read_result_snapshot
 from app.gateway.oa_policy_flow_service import (
     allowed_oa_document_extensions,
     parse_strict_json_text,
@@ -54,6 +56,8 @@ class OAPolicyFlowJobResponse(BaseModel):
     callback_error: str | None = None
     result_filename: str | None = None
     result_sha256: str | None = None
+    result_protocol: str | None = None
+    results: list[dict[str, Any]] | None = None
 
 
 def _job_response(job: dict[str, Any]) -> OAPolicyFlowJobResponse:
@@ -71,6 +75,7 @@ def _job_response(job: dict[str, Any]) -> OAPolicyFlowJobResponse:
         callback_error=job.get("last_callback_error"),
         result_filename=job.get("output_filename"),
         result_sha256=job.get("output_sha256"),
+        **({"result_protocol": "v2", "results": public_results(job)} if job.get("result_protocol") == "v2" else {}),
     )
 
 
@@ -122,16 +127,21 @@ def _cleanup_submission(thread_id: str, owner_user_id: str) -> None:
     get_paths().delete_thread_dir(thread_id, user_id=owner_user_id)
 
 
-@router.post("", response_model=OAPolicyFlowJobResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post("", response_model=OAPolicyFlowJobResponse, response_model_exclude_unset=True, status_code=status.HTTP_202_ACCEPTED)
 async def submit_policy_flow_job(
     request: Request,
     document: Annotated[UploadFile, File(...)],
     request_id: Annotated[str, Form(min_length=1, max_length=128)],
     key_fields: Annotated[str, Form(min_length=2)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    result_protocol: Annotated[str, Form()] = "v1",
 ) -> OAPolicyFlowJobResponse:
     service, repository, config = _get_runtime(request)
     _authenticate(request, config)
+    if result_protocol not in {"v1", "v2"}:
+        raise HTTPException(status_code=422, detail="result_protocol must be v1 or v2")
+    if result_protocol == "v2" and not config.multi_result_enabled:
+        raise HTTPException(status_code=503, detail="OA v2 is not enabled by the operator")
     request_id = request_id.strip()
     if not request_id or any(ord(char) < 32 for char in request_id):
         raise HTTPException(status_code=422, detail="request_id contains invalid characters")
@@ -173,7 +183,10 @@ async def submit_policy_flow_job(
             raise HTTPException(status_code=422, detail="document must not be empty")
         await run_file_io(_make_uploaded_paths_sandbox_readable, [written_path])
         document_sha = await run_file_io(_hash_file, written_path)
-        fingerprint = hashlib.sha256(f"{request_id}\n{canonical_fields}\n{document_sha}".encode()).hexdigest()
+        fingerprint_input = f"{request_id}\n{canonical_fields}\n{document_sha}"
+        if result_protocol == "v2":
+            fingerprint_input += "\nresult_protocol=v2"
+        fingerprint = hashlib.sha256(fingerprint_input.encode()).hexdigest()
         now = datetime.now(UTC)
         job, created = await repository.create_or_get(
             {
@@ -188,6 +201,7 @@ async def submit_policy_flow_job(
                 "callback_status": "not_ready",
                 "document_filename": filename,
                 "key_fields": parsed_fields,
+                "result_protocol": result_protocol,
                 "process_attempts": 0,
                 "callback_attempts": 0,
                 "next_attempt_at": now,
@@ -213,7 +227,7 @@ async def submit_policy_flow_job(
     return _job_response(job)
 
 
-@router.get("/{job_id}", response_model=OAPolicyFlowJobResponse)
+@router.get("/{job_id}", response_model=OAPolicyFlowJobResponse, response_model_exclude_unset=True)
 async def get_policy_flow_job(job_id: str, request: Request) -> OAPolicyFlowJobResponse:
     _service, repository, config = _get_runtime(request)
     _authenticate(request, config)
@@ -232,6 +246,8 @@ async def download_policy_flow_result(job_id: str, request: Request) -> FileResp
         raise HTTPException(status_code=404, detail="OA policy-flow job not found")
     if job["status"] != "succeeded":
         raise HTTPException(status_code=409, detail=f"Result is not available; current status is {job['status']}")
+    if job.get("result_protocol") == "v2":
+        raise HTTPException(status_code=409, detail="Use the v2 results list and /results/{result_id} to download every result")
     try:
         path = resolve_oa_result_path(job, max_result_bytes=config.max_result_bytes)
     except Exception as exc:
@@ -244,5 +260,33 @@ async def download_policy_flow_result(job_id: str, request: Request) -> FileResp
             "Cache-Control": "private, no-store",
             "X-Content-Type-Options": "nosniff",
             "ETag": f'"{job["output_sha256"]}"',
+        },
+    )
+
+
+@router.get("/{job_id}/results/{result_id}")
+async def download_policy_flow_result_v2(job_id: str, result_id: str, request: Request) -> Response:
+    _service, repository, config = _get_runtime(request)
+    _authenticate(request, config)
+    job = await repository.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="OA policy-flow job not found")
+    if job.get("result_protocol") != "v2" or job["status"] != "succeeded":
+        raise HTTPException(status_code=409, detail="A successful v2 result set is required")
+    result = next((r for r in public_results(job) if r["id"] == result_id), None)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Result not found")
+    try:
+        payload = await run_file_io(read_result_snapshot, job, result, max_result_bytes=config.max_result_bytes)
+    except Exception as exc:
+        raise HTTPException(status_code=410, detail="Accepted result is no longer available") from exc
+    return Response(
+        payload,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": "attachment; filename*=UTF-8''" + quote(result["filename"], safe=""),
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+            "ETag": f'"{result["sha256"]}"',
         },
     )

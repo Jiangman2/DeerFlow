@@ -11,6 +11,25 @@ import {
 import type { Translations } from "./types";
 
 export const enUS: Translations = {
+  employeeDiscovery: {
+    hot: "Hot",
+    hotOnly: "Hot only",
+    showAll: "Show all",
+    markHot: "Mark as hot",
+    unmarkHot: "Remove hot label",
+    emptyTitle: "No matching hot employees yet",
+    emptyHint:
+      "Administrators curate hot employees. Choose Show all to browse the entire directory.",
+    creator: "Creator",
+    creatorUnknown: "Creator not recorded",
+    loadError:
+      "Hot status could not be loaded. You can still show all employees.",
+    saveError: "Could not save the hot setting. Please try again.",
+    conflict:
+      "Another administrator changed this setting. Review the refreshed state before saving again.",
+    saved: "Hot setting saved",
+    retry: "Reload",
+  },
   portalTools: {
     title: "More office tools",
     userGuide: "User guide (opens in a new tab)",
@@ -72,6 +91,20 @@ export const enUS: Translations = {
   },
 
   browser: {
+    loginBegin: "Manual login",
+    loginResume: "Resume agent",
+    loginClear: "Clear login state",
+    loginPrivate:
+      "Manual login: agent browser access is paused. Enter credentials directly in the page below.",
+    loginScope:
+      "Login state stays in this conversation’s current browser only; recycling or restarting requires signing in again.",
+    loginFailure:
+      "Action incomplete. Finish or close the login page before resuming; reconnect before retrying a failed clear.",
+    loginUnavailable:
+      "Manual login is available after connecting; unavailable controls may require a browser service update.",
+    loginSessionLost:
+      "The previous browser session is unavailable. Automatic reconnect stopped; reconnecting may require signing in again.",
+    loginReconnect: "Reconnect browser",
     title: "Browser",
     back: "Back",
     forward: "Forward",
@@ -892,7 +925,7 @@ export const enUS: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "中国海油通用智能体",
+    appName: "海能通用智能体",
     chats: "Chats",
     newChat: "New chat",
     untitled: "Untitled",
@@ -972,6 +1005,8 @@ export const enUS: Translations = {
       "No token usage yet. Usage appears only after a successful model response when the provider returns usage_metadata.",
     unavailableShort: "No usage returned",
     collecting: "Collecting tokens",
+    waitingForUsage: "Waiting for model token usage",
+    reportedSoFar: "Usage received so far; still collecting",
     note: "Header totals use persisted thread usage, plus visible in-flight usage while a run is still streaming. Per-turn and debug usage come from currently visible messages only. Totals may differ from provider billing pages.",
     presets: {
       off: "Off",

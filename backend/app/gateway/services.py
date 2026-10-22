@@ -328,11 +328,7 @@ def inject_data_lake_access_context(config: dict[str, Any], request: Request) ->
     runtime_context = config.setdefault("context", {})
     user = getattr(request.state, "user", None)
     token = request.cookies.get(CNOOC_PLATFORM_TOKEN_COOKIE_NAME, "").strip()
-    runtime_context[_DATALAKE_CONTEXT_KEY] = (
-        runtime_context.get(_DATALAKE_CONTEXT_KEY) is True
-        and getattr(request.state, "auth_source", None) != AUTH_SOURCE_INTERNAL
-        and platform_token_matches_user(user, token)
-    )
+    runtime_context[_DATALAKE_CONTEXT_KEY] = runtime_context.get(_DATALAKE_CONTEXT_KEY) is True and getattr(request.state, "auth_source", None) != AUTH_SOURCE_INTERNAL and platform_token_matches_user(user, token)
 
 
 def strip_internal_context_keys(config: dict[str, Any]) -> None:
@@ -983,6 +979,7 @@ async def launch_scheduled_thread_run(
     run_context: Mapping[str, Any] | None = None,
     metadata: dict[str, Any] | None = None,
     stream_mode: list[str] | None = None,
+    recursion_limit: int | None = None,
 ) -> dict[str, Any]:
     if request is None:
         if app is None:
@@ -1006,7 +1003,7 @@ async def launch_scheduled_thread_run(
 
     app_config = get_app_config()
     scheduled_recursion_limit = min(
-        app_config.scheduler.recursion_limit,
+        app_config.scheduler.recursion_limit if recursion_limit is None else _clamp_recursion_limit(recursion_limit, app_config.max_recursion_limit),
         app_config.max_recursion_limit,
     )
 

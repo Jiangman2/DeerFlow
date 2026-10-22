@@ -1,0 +1,59 @@
+WeKnora full enrichment fixture-config recovery — 2026-10-17 r1
+
+ROOT CAUSE / SCOPE
+The operator's bounded startup diagnostic reproduced nil-pointer panic at
+NewPluginExtractEntity, extract_entity.go:41 (config.ExtractManager.ExtractEntity).
+The isolated test config's extract children were all empty maps. Viper 1.21.0
+flattens settings by leaves and drops this empty subtree before mapstructure
+decodes it. ExtractManager remains nil even though NEO4J_ENABLE is false;
+the plugin constructor is still invoked during startup.
+The same Go1.26.8 / locked Viper and mapstructure versions reproduced both
+the nil pointer and its correction in a minimal local probe. This is not a full
+ARM64 application acceptance run. PostgreSQL readiness had passed and neither
+GLM nor Embedding was called in either failed startup attempt.
+
+FIX
+Only disposable test config changes: extract_graph.description and
+extract_entity.description receive explicit empty string leaves; fabri_text
+receives with_tag/with_no_tag string leaves. conversation.summary receives the
+native 16384 max_input_chars default so that nested pointer is also present.
+No production config/schema/model or program source/binary/image changes.
+Fresh schema initialization in the disposable database remains required.
+The safe startup stack projection is retained for any subsequent failure.
+
+The fresh attempt uses the same pinned candidate and preloaded PG/Redis images,
+fresh empty stores, original nonroot App flow, native migrations, one synthetic
+image, real GLM enrichment, real 1024D Embedding indexing, and one vector search.
+All real acceptance checks remain. Every live Gateway endpoint is re-reviewed;
+runtime contract reads are bounded to four concurrent read-only execs.
+
+PROVIDER REQUEST BOUNDARY
+The GLM key prompt appears only AFTER bootstrap migrations, schema checks and
+non-superuser App health pass. The key is hidden; stored only in the disposable
+test database until UID-bound namespace cleanup. Gateway's scoped internal relay
+key is used for actual enterprise Embedding; its upstream credential is not read.
+One document and one search are submitted by the orchestrator, with no automatic
+resubmission. Native HTTP/task and Gateway busy retries remain; expected model
+call counts are not hard provider-request caps. Existing request budgets remain.
+No enterprise document or production database/Redis is used.
+
+EXECUTION
+Upload weknora-enrichment-config-recovery-20261017-r1.py to /home/cnooc.
+Run the supplied hash-checked root launcher on datax-01 with --accept-once.
+Use only the printed --status command after failure or interruption; do not
+repeat --accept-once or any prior acceptance/recovery/diagnostic entry point.
+Old evidence remains immutable. --cleanup-only is limited to the fresh fixture's
+exact recorded Namespace UID. No production Deployment or public Service changes.
+
+RECEIPTS
+Wrapper: /var/lib/weknora-enrichment-config-recovery-20261017-r1
+Full App: /var/lib/weknora-full-enrichment-20261017-r1-fix2
+Expect fixture_config_recovery=PASS only if native_enrichment_acceptance,
+native_schema_migration, real_asynq_glm_enrichment, real_embedding_1024d_index,
+vector_only_retrieval all PASS, production baseline is unchanged and namespace
+absence is verified. ready_for_rollout stays false: deployment is a separate step.
+
+LIMITS
+The test namespace NetworkPolicy only declares reviewed GLM/Gateway egress;
+CNI enforcement is not independently verified. Local regression tests and the
+minimal Go config reproduction are not live service or business-document acceptance.

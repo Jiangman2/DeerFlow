@@ -1,0 +1,82 @@
+WeKnora accepted GLM56 -> GLM88, controlled single-replica restart, 2026-10-17 r1
+
+This is a NEW mutator bound to the accepted GLM image/config/default policies,
+not the obsolete pre-GLM tune88 attempt. Run on datax-01 only, once. It restarts
+the single WeKnora App: knowledge UI/API may briefly fail and ongoing Q&A can
+be interrupted. User previously chose an immediate controlled maintenance step.
+The successful review itself did not change production or grant stale approval.
+
+Scope: core8->16, enrichment24->48, model-default64->128. Keep postprocess4,
+maintenance4, shared4, wiki12 (88 total). MinerU16, current GLM image, immutable
+GLM ConfigMap, encrypted model credential, schema90/AUTO_MIGRATE=false, document
+reference policies, Embedding, local-PV placement, replica count1 and all other
+Deployment fields remain unchanged. No builds, image imports, SQL/schema/data
+writes, queue writes, document resubmissions or synthetic model calls.
+Normal consumers naturally call configured models after restart; provider_probe
+requests=0 does not mean there are no ordinary business model calls.
+
+Pinned review:
+ /var/lib/weknora-glm88-review-as_x5aw_/RESULT.json
+ SHA256 38a68ba1044b1e2b13c9372ff11c5c83d526320260d0c65355ba1d7259c1b0a7
+ PROPOSAL.private.json SHA256
+ d2aa4396028fdc5dd31d816a4d8c50361e711fdc55c07e3236f18a9cfe2ca276
+ Exact reader /var/lib/weknora-glm88-review-tool-r0ivAWJl/review.py
+ SHA256 b732b7433b30469f412f8ae0a7246afbb419506786688ba36bf4eac2a38a5f76
+ The frozen activator/full-enrichment/tune readers remain independently pinned.
+ No obsolete mutator main/apply/continue function is called.
+
+Fresh preflight before stopping consumers:
+ - exact reviewed new GLM Pod/UID/container/start ticks/binary and startup64;
+ - GLM active/default/native encrypted projection, exact policies, no legacy or
+   inline document overrides, immutable mounted config hashes, single endpoint;
+ - same bound local PVs/node and current/rollback images still present;
+ - six live56 pools, expected consumer IDs, no queue pauses or other active hosts;
+ - all16 MinerU workers readable/serialized and dispatcher16/live16/quarantine0;
+ - fresh >=24GiB node memory, CPU<80%, disk>=max(10GiB,15%), App memory<=16GiB,
+   DB connections<60% of usable limit, no lock waiters/idle transactions;
+ - exact environment-only server dry-run, with UID/resourceVersion/full-spec CAS.
+Current App has no explicit Kubernetes resource requests/limits. This tool does
+not silently add them; idle headroom is not a guarantee of safety under load.
+
+Sequence:
+ 1. Acquire prior-controller and new-operation locks; save root-private plan.
+ 2. Journal before one nonroot PID1 identity-bound SIGTSTP.
+ 3. Wait up to1800s for SIX stopped pools and THREE zero-claimed-work samples.
+    Pending queue may remain nonempty. No force termination or queue deletion.
+ 4. Repeat GLM, dependency, resource and stopped-work checks, server dry-run.
+ 5. Journal before ONE live CAS changing only the three environment values.
+ 6. Wait up to600s for the new UID/exact same image/no restarts, all88 active
+    handlers configured and distributed Redis model-startup128 evidence.
+    Three stable pool samples, GLM config/policy/storage/endpoint/resource and
+    strict MinerU16 health checks are required for configuration PASS.
+
+Root-private state: /var/lib/weknora-glm88-switch-20261017-r1
+--apply-once cannot be repeated against an existing state. Never delete it.
+--status reads current spec/owned Pods/six pools/queue counts/GLM database state;
+it writes nothing, sends no signals, and does not submit work. A false
+consumers_stopped_and_claimed_empty is normal for active (even idle) pools.
+
+After an interrupt/error: use --status and send the safe summary. Do not rerun
+--apply-once, the obsolete tune88 tool or the GLM activation tool. Do not force
+terminate or manually restart a Pod whose claimed-work state is unknown.
+--reconcile is ONLY for a separately reviewed explicit operator invocation:
+ - It never sends another signal.
+ - If signal was requested but patch was not, it can verify the same stopped
+   process, repeat drain/preflight, and issue the first recorded env CAS.
+ - If a patch was requested, it never replays it; only an already exact candidate
+   may proceed to read-only runtime acceptance. Unknown/original spec stops.
+ - No automatic rollback. Returning to56 would require a new identity-bound
+   drain and env-only plan preserving GLM, not an old image/config rollback.
+
+Keep GLM56 rollback configuration in PLAN.private.json; do not export it.
+Local unit/frozen-loader qualification is not production execution or approval.
+88 configured handlers do not mean88 OCR jobs or doubled throughput. Core16
+plus shared4 can yield20 parse handlers behind16 serialized MinerU workers;
+there is no strict interactive reservation. Model128 is the local per-model
+default, not a promise of128 simultaneously active calls or a provider quota.
+
+After configuration PASS: test3, then10, then30 approved documents; observe
+completion rate, queue ages/deltas, failed/retry changes, CPU/memory, DB waits,
+MinerU waiting/quarantine and model wait/latency. Do not automatically submit
+those batches. Current preflight queues were idle: it measured no throughput
+benefit. Do not expand MinerU24/32 or enable multi-replica as part of this step.
