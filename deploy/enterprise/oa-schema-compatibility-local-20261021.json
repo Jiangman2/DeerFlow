@@ -56,5 +56,6 @@
     "production_database_access": false,
     "workload_modified": false
   },
-  "field_r2_pending": true
+  "field_r2_pending": false,
+  "field_r2_record": "oa-schema-compatibility-field-observation-20261022-r2.json"
 }
