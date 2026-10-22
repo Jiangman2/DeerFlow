@@ -811,6 +811,8 @@ export interface Translations {
     unavailable: string;
     unavailableShort: string;
     collecting: string;
+    waitingForUsage: string;
+    reportedSoFar: string;
     note: string;
     presets: {
       off: string;

@@ -794,11 +794,13 @@ export function MessageList({
   const renderTokenUsage = useCallback(
     ({
       messages,
+      isLoading,
       turnUsageMessages,
       inlineDebug = true,
       debugMessageIds,
     }: {
       messages: Message[];
+      isLoading: boolean;
       turnUsageMessages?: Message[] | null;
       inlineDebug?: boolean;
       debugMessageIds?: string[];
@@ -807,7 +809,7 @@ export function MessageList({
         return (
           <MessageTokenUsageList
             enabled={true}
-            isLoading={thread.isLoading}
+            isLoading={isLoading}
             messages={turnUsageMessages ?? []}
           />
         );
@@ -824,7 +826,7 @@ export function MessageList({
         return (
           <MessageTokenUsageDebugList
             enabled={true}
-            isLoading={thread.isLoading}
+            isLoading={isLoading}
             steps={tokenDebugSteps.filter((step) =>
               messageIds.has(step.messageId),
             )}
@@ -834,7 +836,7 @@ export function MessageList({
 
       return null;
     },
-    [thread.isLoading, tokenDebugSteps, tokenUsageInlineMode],
+    [tokenDebugSteps, tokenUsageInlineMode],
   );
 
   if (thread.isThreadLoading && messages.length === 0) {
@@ -943,6 +945,7 @@ export function MessageList({
                       );
                     })}
                     {renderTokenUsage({
+                      isLoading: currentTurnGroupIsLoading,
                       messages: group.messages,
                       turnUsageMessages,
                     })}
@@ -999,6 +1002,7 @@ export function MessageList({
                         }
                       />
                       {renderTokenUsage({
+                        isLoading: currentTurnGroupIsLoading,
                         messages: group.messages,
                         turnUsageMessages,
                       })}
@@ -1023,6 +1027,7 @@ export function MessageList({
                         components={threadMarkdownComponents}
                       />
                       {renderTokenUsage({
+                        isLoading: currentTurnGroupIsLoading,
                         messages: group.messages,
                         turnUsageMessages,
                       })}
@@ -1061,6 +1066,7 @@ export function MessageList({
                       <ArtifactFileList files={files} threadId={threadId} />
                     )}
                     {renderTokenUsage({
+                      isLoading: currentTurnGroupIsLoading,
                       messages: group.messages,
                       turnUsageMessages,
                     })}
@@ -1164,6 +1170,7 @@ export function MessageList({
                   >
                     {results}
                     {renderTokenUsage({
+                      isLoading: currentTurnGroupIsLoading,
                       messages: group.messages,
                       turnUsageMessages,
                       debugMessageIds: subagentDebugMessageIds,
@@ -1187,6 +1194,7 @@ export function MessageList({
                     }
                   />
                   {renderTokenUsage({
+                    isLoading: currentTurnGroupIsLoading,
                     messages: group.messages,
                     turnUsageMessages,
                     inlineDebug: false,

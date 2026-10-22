@@ -3,20 +3,23 @@ import { CoinsIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/core/i18n/hooks";
-import { accumulateUsage, formatTokenCount } from "@/core/messages/usage";
+import {
+  accumulateUsage,
+  formatTokenCount,
+  hasNonZeroUsage,
+  type TokenUsage,
+} from "@/core/messages/usage";
 import type { TokenDebugStep } from "@/core/messages/usage-model";
 import { cn } from "@/lib/utils";
 
 function TokenUsageSummary({
   className,
-  inputTokens,
-  outputTokens,
-  totalTokens,
+  usage,
+  isLoading,
 }: {
   className?: string;
-  inputTokens?: number;
-  outputTokens?: number;
-  totalTokens?: number;
+  usage: TokenUsage | null;
+  isLoading: boolean;
 }) {
   const { t } = useI18n();
 
@@ -31,15 +34,26 @@ function TokenUsageSummary({
         <CoinsIcon className="size-3" />
         {t.tokenUsage.label}
       </span>
-      <span>
-        {t.tokenUsage.input}: {formatTokenCount(inputTokens ?? 0)}
-      </span>
-      <span>
-        {t.tokenUsage.output}: {formatTokenCount(outputTokens ?? 0)}
-      </span>
-      <span className="font-medium">
-        {t.tokenUsage.total}: {formatTokenCount(totalTokens ?? 0)}
-      </span>
+      {usage ? (
+        <>
+          <span>
+            {t.tokenUsage.input}: {formatTokenCount(usage.inputTokens)}
+          </span>
+          <span>
+            {t.tokenUsage.output}: {formatTokenCount(usage.outputTokens)}
+          </span>
+          <span className="font-medium">
+            {t.tokenUsage.total}: {formatTokenCount(usage.totalTokens)}
+          </span>
+          {isLoading && <span>{t.tokenUsage.reportedSoFar}</span>}
+        </>
+      ) : (
+        <span role="status">
+          {isLoading
+            ? t.tokenUsage.waitingForUsage
+            : t.tokenUsage.unavailableShort}
+        </span>
+      )}
     </div>
   );
 }
@@ -47,7 +61,7 @@ function TokenUsageSummary({
 export function MessageTokenUsageList({
   className,
   enabled = false,
-  isLoading: _isLoading = false,
+  isLoading = false,
   messages,
 }: {
   className?: string;
@@ -67,16 +81,11 @@ export function MessageTokenUsageList({
 
   const usage = accumulateUsage(aiMessages);
 
-  if (!usage) {
-    return null;
-  }
-
   return (
     <TokenUsageSummary
       className={className}
-      inputTokens={usage.inputTokens}
-      outputTokens={usage.outputTokens}
-      totalTokens={usage.totalTokens}
+      usage={isLoading && !hasNonZeroUsage(usage) ? null : usage}
+      isLoading={isLoading}
     />
   );
 }
