@@ -1,0 +1,19 @@
+{
+  "exitcode": 1,
+  "simulation_only": true,
+  "working_tree_or_branch_modified": false,
+  "tree": "32ec27c3d35de8e98bb3a9ae59bb92b207c96fda",
+  "conflict_paths": [
+    "backend/tests/test_glm_stream_completion.py",
+    "backend/tests/test_migration_0004_run_ownership_dedupe.py",
+    "backend/tests/test_migration_0009_thread_creation_ledger.py",
+    "backend/tests/test_migration_0010_scheduled_task_run_context.py",
+    "backend/tests/test_migration_0011_user_sso_profile.py",
+    "backend/tests/test_migration_0013_data_lake_auth.py",
+    "backend/tests/test_persistence_bootstrap.py",
+    "backend/tests/test_persistence_bootstrap_concurrency.py",
+    "backend/tests/test_persistence_bootstrap_regression.py",
+    "scripts/frontend_slim.py",
+    "scripts/tests/test_frontend_slim.py"
+  ]
+}

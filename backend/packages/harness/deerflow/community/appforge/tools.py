@@ -1,8 +1,8 @@
 """Secure CNOOC DataLake adapters for question answering.
 
 ``datalake_smart_qa`` uses the DataLake Retrieve API and returns only ranked
-source chunks for the DeerFlow model to analyze. Metrics, detail, and master
-data search use internal AppForge SSE workflows. Credentials and workflow
+source chunks for the DeerFlow model to analyze. Unified structured data and
+independent master data search use internal AppForge SSE workflows. Credentials and workflow
 identity inputs are resolved only from server-side configuration; the
 model-visible tool schema contains only the business question.
 """
@@ -23,8 +23,12 @@ import httpx
 from langchain.tools import tool
 
 from deerflow.config import get_app_config
+from deerflow.config.datalake_tools import RETIRED_DATALAKE_TOOL_NAMES
+from deerflow.runtime.datalake_policy import ACCESS_HINT
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.tools.types import Runtime
+
+from .data_qa_stream import DataQAStreamError, collect_data_qa_stream
 
 logger = logging.getLogger(__name__)
 
@@ -70,23 +74,12 @@ _TOOL_DEFAULTS: dict[str, dict[str, str]] = {
         "hytoken_env": "APPFORGE_SMART_QA_HYTOKEN",
         "hyaccount_env": "APPFORGE_SMART_QA_HYACCOUNT",
     },
-    "datalake_metrics_qa": {
-        "app_id": "app-n9ahac7g",
-        "app_id_env": "APPFORGE_METRICS_QA_APP_ID",
-        "conversation_prefix": "WorkflowAgent_",
-        "conversation_prefix_env": "APPFORGE_METRICS_QA_CONVERSATION_PREFIX",
-        "timeout_env": "APPFORGE_METRICS_QA_TIMEOUT_SECONDS",
-        "hytoken_env": "APPFORGE_METRICS_QA_HYTOKEN",
-        "hyaccount_env": "APPFORGE_METRICS_QA_HYACCOUNT",
-    },
-    "datalake_detail_qa": {
-        "app_id": "app-5md031ia",
-        "app_id_env": "APPFORGE_DETAIL_QA_APP_ID",
-        "conversation_prefix": "WorkflowAgent_",
-        "conversation_prefix_env": "APPFORGE_DETAIL_QA_CONVERSATION_PREFIX",
-        "timeout_env": "APPFORGE_DETAIL_QA_TIMEOUT_SECONDS",
-        "hytoken_env": "APPFORGE_DETAIL_QA_HYTOKEN",
-        "hyaccount_env": "APPFORGE_DETAIL_QA_HYACCOUNT",
+    "datalake_data_qa": {
+        "app_id": "app-v16p2syh",
+        "app_id_env": "APPFORGE_DATA_QA_APP_ID",
+        "conversation_prefix": "SquareWorkflow_",
+        "conversation_prefix_env": "APPFORGE_DATA_QA_CONVERSATION_PREFIX",
+        "timeout_env": "APPFORGE_DATA_QA_TIMEOUT_SECONDS",
     },
     "datalake_md_search": {
         "app_id": "app-1qdkpgka",
@@ -104,7 +97,7 @@ _TOOL_DEFAULTS: dict[str, dict[str, str]] = {
 # configured master-data service and must remain available when that toggle is
 # disabled. Keep this separate from ``DATALAKE_TOOL_NAMES`` to avoid importing
 # the tool registry into this provider module.
-_DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS = frozenset({"datalake_metrics_qa", "datalake_detail_qa"})
+_DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS = frozenset({"datalake_data_qa"})
 
 
 def _tool_defaults(tool_name: str) -> dict[str, str]:
@@ -216,7 +209,8 @@ def _retrieve_timeout(tool_name: str) -> float:
 
 
 def _api_url(tool_name: str) -> str:
-    value = _get_string(tool_name, "api_url", "APPFORGE_API_URL", _DEFAULT_API_URL)
+    env = "APPFORGE_DATA_QA_API_URL" if tool_name == "datalake_data_qa" else "APPFORGE_API_URL"
+    value = _get_string(tool_name, "api_url", env, _DEFAULT_API_URL)
     return (value or _DEFAULT_API_URL).rstrip("/")
 
 
@@ -226,6 +220,9 @@ def _app_id(tool_name: str) -> str:
 
 
 def _api_key(tool_name: str) -> str | None:
+    if tool_name == "datalake_data_qa":
+        value = _get_string(tool_name, "api_key", "APPFORGE_DATA_QA_API_KEY")
+        return value if value and not value.startswith("$") else None
     return _get_string(tool_name, "api_key", "APPFORGE_API_KEY")
 
 
@@ -268,6 +265,10 @@ def _conversation_id(tool_name: str, runtime: object | None) -> str:
 
 
 def _get_inputs(tool_name: str) -> dict[str, str]:
+    if tool_name == "datalake_data_qa":
+        # The new workflow's reviewed contract has no delegated identity input.
+        # Never inherit the common or another tool's token/account/extra inputs.
+        return {"hytoken": "", "hyaccount": ""}
     defaults = _tool_defaults(tool_name)
     extra = _tool_extra(tool_name)
     configured = extra.get("inputs")
@@ -378,9 +379,11 @@ def _stream_invoke(tool_name: str, payload: dict[str, Any]) -> dict[str, Any]:
             headers=_headers(api_key),
             json=payload,
         ) as response:
-            if response.is_error:
+            if response.is_error and tool_name != "datalake_data_qa":
                 response.read()
             response.raise_for_status()
+            if tool_name == "datalake_data_qa":
+                return collect_data_qa_stream(response, parse_knowledge=_parse_knowledge)
             for event in _iter_sse_events(response):
                 extra = event.get("xx_ceai_extra_data")
                 if isinstance(extra, dict):
@@ -460,7 +463,7 @@ def _fit_output_budget(result: dict[str, Any]) -> dict[str, Any]:
                 item["content"] = str(item.get("content") or "")[:200]
     fitted["answer"] = str(fitted.get("answer") or "")[:3_000]
     fitted["interrupt"] = None
-    while isinstance(fitted.get("knowledge"), list) and _encoded_length(fitted) > _OUTPUT_CHAR_LIMIT:
+    while isinstance(fitted.get("knowledge"), list) and fitted["knowledge"] and _encoded_length(fitted) > _OUTPUT_CHAR_LIMIT:
         fitted["knowledge"].pop()
     if _encoded_length(fitted) > _OUTPUT_CHAR_LIMIT:
         fitted["answer"] = str(fitted.get("answer") or "")[:1_000]
@@ -614,7 +617,7 @@ def _safe_retrieve_json(value: dict[str, Any]) -> str:
 def _invoke_retrieve_tool(query: str, runtime: object | None) -> str:
     runtime_context = getattr(runtime, "context", None)
     if not isinstance(runtime_context, Mapping) or runtime_context.get("datalake_enabled") is not True:
-        return json.dumps({"error": "Data Lake use is disabled for this run", "code": "datalake_disabled", "retryable": False})
+        return json.dumps({"error": ACCESS_HINT, "code": "datalake_disabled", "retryable": False})
     if not query.strip():
         return json.dumps({"error": "query is required", "code": "invalid_query"})
 
@@ -634,13 +637,13 @@ def _invoke_retrieve_tool(query: str, runtime: object | None) -> str:
 
 
 def _invoke_tool(tool_name: str, query: str, runtime: object | None) -> str:
+    if tool_name in RETIRED_DATALAKE_TOOL_NAMES:
+        return json.dumps({"code": "datalake_tool_migrated", "error": "This tool was retired. Use datalake_data_qa only when enabled for the current run.", "retryable": False})
     runtime_context = getattr(runtime, "context", None)
-    if tool_name in _DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS and (
-        not isinstance(runtime_context, Mapping) or runtime_context.get("datalake_enabled") is not True
-    ):
+    if tool_name in _DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS and (not isinstance(runtime_context, Mapping) or runtime_context.get("datalake_enabled") is not True):
         return json.dumps(
             {
-                "error": "Data Lake use is disabled for this run",
+                "error": ACCESS_HINT,
                 "code": "datalake_disabled",
                 "retryable": False,
             }
@@ -666,6 +669,9 @@ def _invoke_tool(tool_name: str, query: str, runtime: object | None) -> str:
     }
     try:
         return _safe_json(_stream_invoke(tool_name, payload))
+    except DataQAStreamError as exc:
+        logger.warning("Data QA stream was not accepted: %s", exc.code)
+        return json.dumps({"error": "Data QA response was not accepted; do not invent results or automatically replay the workflow", "code": exc.code, "status": "failed", "retryable": False})
     except httpx.HTTPStatusError as exc:
         status_code = exc.response.status_code
         logger.error(
@@ -681,12 +687,13 @@ def _invoke_tool(tool_name: str, query: str, runtime: object | None) -> str:
             }
         )
     except Exception as exc:
-        logger.exception("AppForge tool %s request failed", tool_name)
+        # Exception text/tracebacks can contain upstream bodies or identity data.
+        logger.error("AppForge tool %s request failed (%s)", tool_name, type(exc).__name__)
         return json.dumps(
             {
                 "error": "AppForge request failed",
                 "code": type(exc).__name__,
-                "retryable": True,
+                "retryable": tool_name != "datalake_data_qa",
             }
         )
 
@@ -696,8 +703,8 @@ def datalake_smart_qa_tool(runtime: Runtime, query: str) -> str:
     """Retrieve narrative well-engineering evidence from the enterprise DataLake.
 
     Use this for document, report, well-history, geology, completion, and other
-    narrative questions. Use detail QA for table fields or record lists, and
-    metrics QA for named KPIs, plans, actuals, rankings, rates, or totals.
+    narrative questions. Use datalake_data_qa for table fields, record lists,
+    named KPIs, plans, actuals, rankings, rates, or totals.
 
     This tool returns ranked source chunks only. Analyze and summarize those
     chunks yourself, identify uncertainty when the evidence is incomplete, and
@@ -719,35 +726,21 @@ def datalake_smart_qa_tool(runtime: Runtime, query: str) -> str:
     return _invoke_retrieve_tool(query, runtime)
 
 
-@tool("datalake_metrics_qa", parse_docstring=True)
-def datalake_metrics_qa_tool(runtime: Runtime, query: str) -> str:
-    """Query enterprise DataLake business indicators and metrics.
+@tool("datalake_data_qa", parse_docstring=True)
+def datalake_data_qa_tool(runtime: Runtime, query: str) -> str:
+    """查询企业数据湖中的结构化业务数据。
 
-    Use this for named indicators, KPIs, plans, actual/completed values,
-    rankings, comparisons, totals, progress, costs, rates, and time series. If
-    an interruption returns choices, present those choices to the user.
-
-    Args:
-        query: The user's complete indicator or metrics question.
-    """
-
-    return _invoke_tool("datalake_metrics_qa", query, runtime)
-
-
-@tool("datalake_detail_qa", parse_docstring=True)
-def datalake_detail_qa_tool(runtime: Runtime, query: str) -> str:
-    """Query record-level enterprise DataLake tables and fields.
-
-    Use this for lists, counts of records, concrete table fields, basic
-    oilfield/platform/well attributes, coordinates, design depths, and other
-    SQL-backed detail data. Use metrics QA for named indicators and smart QA
-    for narrative document interpretation.
+    适用于表字段、记录明细与列表、井/平台/油气田属性、筛选、统计汇总、
+    指标、排名、比较、比率及时间序列问题。保留完整问题中的时间范围、
+    筛选条件、字段、单位和排序要求。文档、报告及井史等非结构化资料
+    使用 datalake_smart_qa。上游要求澄清或返回候选项时，展示给用户并
+    等待补充，不擅自选择；上游无数据或失败时不得编造结果。
 
     Args:
-        query: The user's complete record-level or table-field question.
+        query: 用户完整的结构化数据或指标问题。
     """
 
-    return _invoke_tool("datalake_detail_qa", query, runtime)
+    return _invoke_tool("datalake_data_qa", query, runtime)
 
 
 @tool("datalake_md_search", parse_docstring=True)
@@ -762,8 +755,8 @@ def datalake_md_search_tool(runtime: Runtime, query: str) -> str:
 
     Do not use this for production, KPIs, trends, reports, calculations,
     unstructured-document questions, arbitrary SQL, or unregistered complex
-    business-relationship inference. Use metrics QA, detail QA, or smart QA as
-    appropriate for those requests.
+    business-relationship inference. Use datalake_data_qa or datalake_smart_qa
+    as appropriate for those requests.
 
     This service is independently configured and remains available when the
     user's Data Lake toggle is disabled.

@@ -1,4 +1,4 @@
-"""Internal, read-only placement and existing-Run owner routing.
+"""Internal, read-only selector for placing new streamed Runs on Gateway Pods.
 
 Nginx asks this service for a target before proxying the original request. The
 request body, cookies, and SSE response go directly between Nginx and the
@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 import httpx
-from fastapi import FastAPI, Header, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -35,9 +35,6 @@ _RUN_COUNTS_SQL = text(
     "AND status IN ('pending', 'running') AND owner_worker_id IS NOT NULL "
     "GROUP BY 1"
 )
-_RUN_OWNER_SQL = text("SELECT status, owner_worker_id FROM runs WHERE run_id = :run_id AND thread_id = :thread_id")
-_ACTIVE_STATUSES = frozenset({"pending", "running"})
-OWNER_ROUTE_VERSION = "owner-cancel-20261004-r1"
 
 
 @dataclass(frozen=True)
@@ -70,9 +67,9 @@ class RunPlacementSelector:
         self._reservations: dict[str, list[float]] = defaultdict(list)
         self._tie_cursor = 0
 
-    async def _ready_pods(self, *, refresh: bool = False) -> tuple[ReadyPod, ...]:
+    async def _ready_pods(self) -> tuple[ReadyPod, ...]:
         now = time.monotonic()
-        if not refresh and now < self._ready_until:
+        if now < self._ready_until:
             return self._ready_cache
         token = (await asyncio.to_thread(_KUBE_TOKEN.read_text, encoding="utf-8")).strip()
         if not token:
@@ -128,47 +125,6 @@ class RunPlacementSelector:
             self._reservations[chosen.name].append(now + 5.0)
             return chosen, counts.get(chosen.name, 0), scores[chosen.name]
 
-    async def existing_target(self, *, thread_id: str, run_id: str, operation: str, method: str, action: str) -> ReadyPod:
-        """Route cancellation to its owner, without changing any Run.
-
-        Read-only joins and POST joins without an action can consume Redis on
-        any Ready Gateway. Unknown/mismatched or terminal records still reach
-        Gateway, which owns authorization and final HTTP semantics. An active
-        Run with no Ready owner MUST NOT be reassigned to a different worker.
-        """
-        for value in (thread_id, run_id):
-            if not value or len(value) > 512 or any(ord(char) < 32 or ord(char) == 127 or char in "/\\" for char in value):
-                raise ValueError("Invalid route identifier")
-        if operation not in ("cancel", "stream") or not method or len(method) > 16 or len(action) > 32:
-            raise ValueError("Invalid route metadata")
-        cancelling = (method == "POST" and operation == "cancel") or (method in {"GET", "POST"} and operation == "stream" and bool(action))
-        if not cancelling:
-            pods = await self._ready_pods()
-            if not pods:
-                raise RuntimeError("No ready Gateway Pod is available")
-            return pods[0]
-
-        # Bind both identifiers. Never use a browser-supplied address, Pod name,
-        # owner header, cached lease snapshot, or least-load selection here.
-        async with self.engine.connect() as conn:
-            row = (await conn.execute(_RUN_OWNER_SQL, {"run_id": run_id, "thread_id": thread_id})).mappings().first()
-        pods = await self._ready_pods(refresh=True)
-        if not pods:
-            raise RuntimeError("No ready Gateway Pod is available")
-        if row is None:
-            # Let Gateway return its existing authentication/404 responses.
-            return pods[0]
-        owner = row.get("owner_worker_id")
-        owner_name = owner.partition(":")[0] if isinstance(owner, str) else ""
-        for pod in pods:
-            if pod.name == owner_name:
-                return pod
-        if row.get("status") in _ACTIVE_STATUSES:
-            raise RuntimeError("Active Run owner is unavailable")
-        # Retained Redis history survives the owner's departure. Gateway, not
-        # this service, decides terminal/idempotent cancellation semantics.
-        return pods[0]
-
 
 def _selector_from_environment() -> RunPlacementSelector:
     raw_url = os.environ["DATABASE_URL"]
@@ -223,23 +179,3 @@ async def select() -> Response:
         raise HTTPException(status_code=503, detail="Run placement unavailable") from None
     logger.info("RUN_PLACEMENT event=selected pod=%s active_runs=%d score=%d", pod.name, active, score)
     return Response(status_code=204, headers={"X-DeerFlow-Gateway-Target": pod.target, "Cache-Control": "no-store"})
-
-
-@app.get("/resolve")
-async def resolve(
-    thread_id: str = Header(alias="X-DeerFlow-Thread-ID", max_length=512),
-    run_id: str = Header(alias="X-DeerFlow-Run-ID", max_length=512),
-    operation: str = Header(alias="X-DeerFlow-Run-Operation", max_length=16),
-    method: str = Header(alias="X-DeerFlow-Run-Method", max_length=16),
-    action: str = Header(default="", alias="X-DeerFlow-Run-Action", max_length=32),
-) -> Response:
-    """Bodyless Nginx subrequest; no user authentication, secrets, or mutation."""
-    try:
-        pod = await app.state.selector.existing_target(thread_id=thread_id, run_id=run_id, operation=operation, method=method, action=action)
-    except Exception as exc:
-        logger.error("RUN_OWNER_ROUTE event=resolve_failed error_type=%s", type(exc).__name__)
-        raise HTTPException(status_code=503, detail="Run owner routing unavailable") from None
-    return Response(
-        status_code=204,
-        headers={"X-DeerFlow-Gateway-Target": pod.target, "X-DeerFlow-Owner-Route-Version": OWNER_ROUTE_VERSION, "Cache-Control": "no-store"},
-    )

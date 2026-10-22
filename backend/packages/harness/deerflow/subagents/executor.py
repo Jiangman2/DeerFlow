@@ -432,6 +432,7 @@ class SubagentExecutor:
         channel_user_id: str | None = None,
         deerflow_trace_id: str | None = None,
         datalake_enabled: bool = False,
+        datalake_query_only: bool = False,
     ):
         """Initialize the executor.
 
@@ -458,6 +459,7 @@ class SubagentExecutor:
                 from the parent run for Langfuse metadata correlation.
             datalake_enabled: Whether AppForge Data Lake tools are available to
                 this delegated run.
+            datalake_query_only: Inherited source restriction; never grants access.
         """
         self.config = config
         self.app_config = app_config
@@ -486,6 +488,7 @@ class SubagentExecutor:
         self.channel_user_id = channel_user_id
         self.deerflow_trace_id = deerflow_trace_id
         self.datalake_enabled = datalake_enabled is True
+        self.datalake_query_only = datalake_query_only is True
 
         self._base_tools = _filter_tools(
             tools,
@@ -498,6 +501,10 @@ class SubagentExecutor:
             self._base_tools,
             enabled=self.datalake_enabled,
         )
+        if self.datalake_query_only:
+            from deerflow.runtime.datalake_policy import ALLOWED_TOOLS
+
+            self._base_tools = [tool for tool in self._base_tools if tool.name in ALLOWED_TOOLS]
         self.tools = self._base_tools
         # Guard middlewares that expose ``consume_stop_reason`` (currently
         # ``TokenBudgetMiddleware`` and ``LoopDetectionMiddleware``), captured in
@@ -819,6 +826,7 @@ class SubagentExecutor:
             if self.deerflow_trace_id:
                 context[DEERFLOW_TRACE_METADATA_KEY] = self.deerflow_trace_id
             context["datalake_enabled"] = self.datalake_enabled
+            context["datalake_query_only"] = self.datalake_query_only
             context["is_subagent"] = True
 
             logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} starting async execution with max_turns={self.config.max_turns}")

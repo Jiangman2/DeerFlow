@@ -344,6 +344,7 @@ class BrowserSession:
         # cloud-metadata host.
         self._url_guard = url_guard
         self._request_guard_bound = False
+        self._chromium_request_guard = None
         # When set, attach to an already-running Chrome via the DevTools
         # Protocol (like Codex's "connect to your real browser") instead of
         # launching a private headless instance. The user watches the agent
@@ -415,9 +416,13 @@ class BrowserSession:
 
     async def _ensure_page(self) -> Page:
         if self._page is not None and not self._page.is_closed():
+            if self._chromium_request_guard is not None:
+                await self._chromium_request_guard.wait_page(self._context, self._page)
             return self._page
         async with self._ensure_page_lock:
             if self._page is not None and not self._page.is_closed():
+                if self._chromium_request_guard is not None:
+                    await self._chromium_request_guard.wait_page(self._context, self._page)
                 return self._page
             from playwright.async_api import async_playwright
 
@@ -455,12 +460,30 @@ class BrowserSession:
                 if browser_ca_args:
                     launch_options["args"] = browser_ca_args
                 self._browser = await self._playwright.chromium.launch(**launch_options)
+                if self._url_guard is not None:
+                    from .request_guard import ChromiumRequestGuard
+
+                    self._chromium_request_guard = ChromiumRequestGuard(self._browser, self._url_guard)
+                    try:
+                        await self._chromium_request_guard.start()
+                    except Exception:
+                        await self._browser.close()
+                        await self._chromium_request_guard.close()
+                        raise RuntimeError("Browser request guard could not be installed") from None
             # device_scale_factor=2 renders screenshots at retina density so the
             # panel stays crisp when the image is scaled up to fill the view.
-            self._context = await self._browser.new_context(viewport=self._viewport, device_scale_factor=2)
+            self._context = await self._browser.new_context(viewport=self._viewport, device_scale_factor=2, service_workers="block")
             self._context.set_default_timeout(self._timeout_ms)
-            await self._install_request_guard()
-            self._set_active_page(await self._context.new_page())
+            self._request_guard_bound = False
+            self._page_listener_bound = False
+            try:
+                await self._install_request_guard()
+                self._set_active_page(await self._context.new_page())
+                if self._chromium_request_guard is not None:
+                    await self._chromium_request_guard.wait_page(self._context, self._page)
+            except BaseException:
+                await self._close()
+                raise
             self._bind_new_page_listener()
             return self._page
 
@@ -500,12 +523,10 @@ class BrowserSession:
     async def _install_request_guard(self) -> None:
         """Abort any request whose URL fails the SSRF guard.
 
-        Runs at the context level so it covers the top navigation, every
-        redirect hop, popups/new tabs, iframes, and subresource fetches — the
-        paths a one-time initial-URL check cannot see. A public URL that
-        redirects to ``http://169.254.169.254/...`` is aborted before the
-        response is exposed through snapshots/text. Skipped for CDP-attached
-        real Chrome, which owns its own browsing context.
+        Context routes guard initial requests and WebSockets. Chromium Fetch
+        request-stage interception independently guards every HTTP redirect.
+        Neither boundary may silently fail open. CDP-attached user browsers
+        remain outside this owned-browser guard and require explicit opt-in.
         """
         if self._url_guard is None or self._context is None or self._request_guard_bound or self._cdp_url:
             return
@@ -513,20 +534,32 @@ class BrowserSession:
         guard = self._url_guard
 
         async def _route(route: Any) -> None:
-            url = ""
-            with contextlib.suppress(Exception):
+            try:
                 url = route.request.url
-            if url.startswith(("http://", "https://")) and await run_url_guard(guard, url) is not None:
-                logger.warning("browser request blocked by SSRF guard: %s", redact_browser_url(url))
+                allowed = url.startswith(("http://", "https://")) and await run_url_guard(guard, url) is None
+            except Exception:
+                allowed = False
+            if not allowed:
                 with contextlib.suppress(Exception):
                     await route.abort("blockedbyclient")
                 return
-            with contextlib.suppress(Exception):
-                await route.continue_()
+            await route.continue_()
 
-        with contextlib.suppress(Exception):
-            await self._context.route("**/*", _route)
-            self._request_guard_bound = True
+        async def _websocket(route: Any) -> None:
+            try:
+                url = route.url
+                policy_url = "https://" + url[6:] if url.startswith("wss://") else "http://" + url[5:] if url.startswith("ws://") else ""
+                allowed = bool(policy_url) and await run_url_guard(guard, policy_url) is None
+            except Exception:
+                allowed = False
+            if allowed:
+                route.connect_to_server()
+            else:
+                await route.close(code=1008, reason="Browser access policy")
+
+        await self._context.route("**/*", _route)
+        await self._context.route_web_socket("**/*", _websocket)
+        self._request_guard_bound = True
 
     async def _rebind_screencast(self) -> None:
         if self._on_frame is not None:
@@ -737,6 +770,8 @@ class BrowserSession:
                 if self._browser is not None:
                     with contextlib.suppress(Exception):
                         await self._browser.close()
+                if self._chromium_request_guard is not None:
+                    await self._chromium_request_guard.close()
             if self._playwright is not None:
                 with contextlib.suppress(Exception):
                     await self._playwright.stop()
@@ -752,6 +787,7 @@ class BrowserSession:
             self._input_live_frame_generation += 1
             self._page_listener_bound = False
             self._request_guard_bound = False
+            self._chromium_request_guard = None
 
     async def _start_screencast(self, on_frame: Callable[[bytes], None]) -> None:
         """Start Live mode and send an initial JPEG frame.
