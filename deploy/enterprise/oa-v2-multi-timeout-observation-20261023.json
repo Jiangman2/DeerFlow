@@ -1,0 +1,38 @@
+{
+  "schema": "portal-oa-v2-multi-timeout-field-summary.v1",
+  "evidence_source": "operator_pasted_activation_summary_and_subsequent_readonly_kubectl_output",
+  "full_server_report_copied": false,
+  "activation": {
+    "status": "INCOMPLETE",
+    "error_code": "ROLLOUT_OBSERVATION_TIMEOUT",
+    "patch_acknowledged": true,
+    "patch_request_count": 1,
+    "production_workload_mutation": true,
+    "report_path": "/var/lib/portal-oa-v2-multi-enable-20261023-r1/REPORT.json",
+    "report_bytes": 8717,
+    "report_sha256": "d656711cd54e0f4aaa1f31703d7b05fe63494246518ebf363e508479986e8270",
+    "planned_gateway": {
+      "generation": 386,
+      "spec_sha256": "890cc7b2aa7fc8bff6abaebfe99f6f7149ac17e17405bc7e056ecd24263516b4",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    }
+  },
+  "subsequent_rollout_observation": {
+    "generation": 386,
+    "observed_generation": 386,
+    "paused_field": null,
+    "desired": 70,
+    "total": 71,
+    "updated": 51,
+    "ready": 70,
+    "available": 70,
+    "terminating": 1,
+    "conditions": [
+      {"type": "Available", "status": "True", "reason": "MinimumReplicasAvailable"},
+      {"type": "Progressing", "status": "True", "reason": "ReplicaSetUpdated"}
+    ],
+    "old_pod_template_hash": "696f76644c",
+    "new_pod_template_hash": "75c6db56c8",
+    "runtime_acceptance_pending": true
+  }
+}
