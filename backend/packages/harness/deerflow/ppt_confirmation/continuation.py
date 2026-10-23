@@ -18,22 +18,19 @@ class ConfirmationContinuation:
 
     async def _act(self, scope, snapshot, action, **evidence):
         gate = snapshot["gate"]
-        return await self.repository.transition(scope, expected_revision=snapshot["revision"], gate_id=gate["gate_id"],
-            expected_gate_revision=gate["revision"], action=action, **evidence)
+        return await self.repository.transition(scope, expected_revision=snapshot["revision"], gate_id=gate["gate_id"], expected_gate_revision=gate["revision"], action=action, **evidence)
 
     async def tick(self, scope, snapshot, task):
         gate = snapshot.get("gate") if snapshot else None
         if not gate or snapshot["cancelled"]:
             return snapshot
         if gate["state"] == "confirmed":
-            core.require(isinstance(task, dict) and task.get("task_id") == scope.task_id and task.get("thread_id") == scope.thread_id,
-                         "continuation_task_scope_mismatch")
+            core.require(isinstance(task, dict) and task.get("task_id") == scope.task_id and task.get("thread_id") == scope.thread_id, "continuation_task_scope_mismatch")
             # A live CLI continues by consuming the native receipt itself.
             if task.get("status") != "completed" or task.get("process_cleanup_complete") is not True or task.get("artifacts"):
                 return snapshot
             session = core.identifier(task.get("session_id"))
-            core.require(task.get("confirmation_protocol") == "ppt-confirmation-v1" and not task.get("cancel_requested"),
-                         "continuation_protocol_unavailable")
+            core.require(task.get("confirmation_protocol") == "ppt-confirmation-v1" and not task.get("cancel_requested"), "continuation_protocol_unavailable")
             snapshot = await self._act(scope, snapshot, "claim_continuation", original_turn="waiting_user", run_id=scope.task_id)
             gate = snapshot["gate"]
             current = await self.repository.get(scope)
@@ -60,7 +57,8 @@ class ConfirmationContinuation:
         core.require(isinstance(proof, dict), "invalid_continuation_receipt")
         if proof.get("state") != "dispatched":
             return snapshot
-        core.require(proof.get("task_id") == scope.task_id and proof.get("thread_id") == scope.thread_id
-            and proof.get("gate_id") == gate["gate_id"] and proof.get("receipt_digest") == gate["receipt_digest"]
-            and proof.get("retry_permitted") is False, "continuation_receipt_mismatch")
+        core.require(
+            proof.get("task_id") == scope.task_id and proof.get("thread_id") == scope.thread_id and proof.get("gate_id") == gate["gate_id"] and proof.get("receipt_digest") == gate["receipt_digest"] and proof.get("retry_permitted") is False,
+            "continuation_receipt_mismatch",
+        )
         return await self._act(scope, snapshot, "record_continuation", run_id=scope.task_id)

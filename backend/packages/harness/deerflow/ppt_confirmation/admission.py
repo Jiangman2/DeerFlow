@@ -21,8 +21,7 @@ def _initial_request(row):
     messages = data.get("messages") if isinstance(data, dict) else None
     if not isinstance(messages, list) or not 1 <= len(messages) <= 64:
         return False, False, False
-    marked = [message for message in messages if isinstance(message, dict)
-              and isinstance(message.get("additional_kwargs"), dict) and FIELD in message["additional_kwargs"]]
+    marked = [message for message in messages if isinstance(message, dict) and isinstance(message.get("additional_kwargs"), dict) and FIELD in message["additional_kwargs"]]
     # Consent is only supported on one initial human message. Extra historical
     # or generated input must not be mistaken for a new task's explicit choice.
     if len(messages) != 1 or not isinstance(messages[0], dict):
@@ -40,15 +39,13 @@ def _initial_request(row):
     if isinstance(content, list) and len(content) <= 32:
         # Upload references are separate metadata; don't concatenate arbitrary
         # structured blocks into a synthetic Slash command.
-        content = "".join(part["text"] for part in content
-                          if isinstance(part, dict) and part.get("type") == "text" and isinstance(part.get("text"), str))
+        content = "".join(part["text"] for part in content if isinstance(part, dict) and part.get("type") == "text" and isinstance(part.get("text"), str))
     explicit = isinstance(content, str) and re.match(r"^/ppt-master(?:\s|$)", content.lstrip(), re.IGNORECASE) is not None
     return explicit, mode == "auto_after_60s", bool(marked)
 
 
 async def admit_initial_task(scope, row, *, run_store, repository):
-    expected = {"user_id": scope.owner_id, "thread_id": scope.thread_id,
-                "run_id": scope.task_id, "assistant_id": "ppt-master-runner"}
+    expected = {"user_id": scope.owner_id, "thread_id": scope.thread_id, "run_id": scope.task_id, "assistant_id": "ppt-master-runner"}
     require(isinstance(row, dict) and all(row.get(key) == value for key, value in expected.items()), "confirmation_run_scope_mismatch")
     require(row.get("status") in {"pending", "running"} and not row.get("cancel_action"), "confirmation_run_inactive")
     existing = await repository.get(scope)

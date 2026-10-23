@@ -347,9 +347,12 @@ def test_live_seed_and_navigation_await_async_validation(monkeypatch):
         get=AsyncMock(return_value={"thread_id": "thread-1", "user_id": "browser-user"}),
     )
     session = SimpleNamespace(
-        current_url=AsyncMock(return_value="about:blank"), tabs=AsyncMock(return_value=[]),
-        start_screencast=AsyncMock(), stop_screencast=AsyncMock(),
-        navigate=AsyncMock(), dispatch_input=AsyncMock(),
+        current_url=AsyncMock(return_value="about:blank"),
+        tabs=AsyncMock(return_value=[]),
+        start_screencast=AsyncMock(),
+        stop_screencast=AsyncMock(),
+        navigate=AsyncMock(),
+        dispatch_input=AsyncMock(),
     )
     manager = MagicMock()
     manager.acquire_session.return_value.__enter__.return_value = session

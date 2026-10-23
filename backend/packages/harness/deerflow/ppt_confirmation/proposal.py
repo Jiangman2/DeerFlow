@@ -146,8 +146,9 @@ def prepare_snapshot(*, before: dict, recommendations: dict, catalogs: dict, aft
     protocol = recommendations.get("confirmation_protocol")
     owner_version = None
     if protocol is not None:
-        _require(isinstance(protocol, dict) and type(protocol.get("protocol")) is int and protocol["protocol"] == 1
-                 and isinstance(protocol.get("version"), str) and re.fullmatch(r"[a-f0-9]{64}", protocol["version"]), "invalid_owner_protocol")
+        _require(
+            isinstance(protocol, dict) and type(protocol.get("protocol")) is int and protocol["protocol"] == 1 and isinstance(protocol.get("version"), str) and re.fullmatch(r"[a-f0-9]{64}", protocol["version"]), "invalid_owner_protocol"
+        )
         owner_version = protocol["version"]
     assets, source_digest = load_assets(source_root)
     version = _digest(_json({**binding, "recommendations": _digest(rec_raw), "catalogs": _digest(catalog_raw), "source": source_digest}))
@@ -217,8 +218,14 @@ async def capture_proposal(browser, snapshot: PageSnapshot, *, screenshot_path: 
                 _require(isinstance(payload, dict) and payload.get("stage") == ("stage1" if snapshot.stage == 1 else "final"), "proposal_stage_mismatch")
                 metadata = payload.pop("_confirmation_request", None)
                 if snapshot.owner_version is not None:
-                    _require(isinstance(metadata, dict) and metadata.get("protocol") == 1 and metadata.get("version") == snapshot.owner_version
-                             and isinstance(metadata.get("operation_id"), str) and re.fullmatch(r"[A-Za-z0-9_-]{1,128}", metadata["operation_id"]), "proposal_protocol_mismatch")
+                    _require(
+                        isinstance(metadata, dict)
+                        and metadata.get("protocol") == 1
+                        and metadata.get("version") == snapshot.owner_version
+                        and isinstance(metadata.get("operation_id"), str)
+                        and re.fullmatch(r"[A-Za-z0-9_-]{1,128}", metadata["operation_id"]),
+                        "proposal_protocol_mismatch",
+                    )
                 else:
                     _require(metadata is None, "proposal_protocol_mismatch")
                 raw = _json(payload, MAX_PAYLOAD_BYTES)
@@ -270,8 +277,7 @@ async def capture_proposal(browser, snapshot: PageSnapshot, *, screenshot_path: 
         await page.locator("#btn-confirm").click(timeout=3000)
         raw = await asyncio.wait_for(asyncio.shield(future), timeout=3000 / 1000)
         _require(not errors and not console_errors, "official_page_capture_errors")
-        return CapturedProposal(snapshot.version, snapshot.source_digest, _digest(raw), raw, title, len(console_errors), count,
-                                len(console_warnings), owner_version=snapshot.owner_version)
+        return CapturedProposal(snapshot.version, snapshot.source_digest, _digest(raw), raw, title, len(console_errors), count, len(console_warnings), owner_version=snapshot.owner_version)
 
     try:
         # Python 3.10 is still deployed in the Agent Host. Keep the whole

@@ -2089,7 +2089,7 @@
     }
   },
   "scope": {
-    "gateway": "Python sources: prior observed inventory plus 10 verified release overlay files",
+    "gateway": "582 production Python source records; 13 formatting-only derivatives retain original bytes and AST verification, including 2 explicitly reordered import blocks",
     "ppt-master-runner": "Python snapshot: prior observed inventory plus 2 verified compatibility overlay files",
     "frontend": "complete sealed frontend build input inventory",
     "weknora": "existing colleague source retained; image build mapping not proven"
@@ -2144,5 +2144,59 @@
         "git_lf_sha256": "99d31b4cafe66369ec6727b182a34c17e91fac3d45a08f1b241be88384cab116"
       }
     ]
+  },
+  "format_normalizations": {
+    "backend/app/channels/runtime_config_store.py": {
+      "kind": "layout_and_import_order",
+      "formatted_sha256": "1ad7926afea1f85821b8430e2d428463e32fd376a6d5716e35c5bbe2a83cc9a7"
+    },
+    "backend/app/gateway/employee_featured_store.py": {
+      "kind": "layout_only",
+      "formatted_sha256": "cde9330bbc7ac18171252e836b3c20a2348ef0c88587b1c1b3a7b31058a79789"
+    },
+    "backend/app/gateway/ppt_runtime_broker.py": {
+      "kind": "layout_only",
+      "formatted_sha256": "f7fea90af35f7d3e0c32e43200bb3564e949f35fb73bef25588c92f8218cf9e4"
+    },
+    "backend/app/gateway/routers/channel_connections.py": {
+      "kind": "layout_only",
+      "formatted_sha256": "a3802b11806f1e5266c6b1edaa47445f8dddc4385039b5b9bb609c8e4b943790"
+    },
+    "backend/app/gateway/routers/ppt_confirmations.py": {
+      "kind": "layout_only",
+      "formatted_sha256": "9007e78cf6e4b2a66064bc2278fbf962bdc1367e71f50ea414c7028dc65cce9b"
+    },
+    "backend/packages/harness/deerflow/community/browser_automation/request_guard.py": {
+      "kind": "layout_only",
+      "formatted_sha256": "6dfb1362d56c5fa20480255092b209ff813759abd5f208f296f9d13b2a4b6202"
+    },
+    "backend/packages/harness/deerflow/ppt_confirmation/admission.py": {
+      "kind": "layout_only",
+      "formatted_sha256": "65ab7dba9ec4dd066e06b967e6d083b86c8f822bc1544f6634f38fbe34ca680b"
+    },
+    "backend/packages/harness/deerflow/ppt_confirmation/continuation.py": {
+      "kind": "layout_only",
+      "formatted_sha256": "b6be4e22f5aea2dd1502890464437f47bad708c2010bc5083acc929c624839aa"
+    },
+    "backend/packages/harness/deerflow/ppt_confirmation/host_owner.py": {
+      "kind": "layout_only",
+      "formatted_sha256": "68292b1a474e9cd60490b634e47048eb1bcbe172de17fc5210c7f42836e0cd0c"
+    },
+    "backend/packages/harness/deerflow/ppt_confirmation/monitor.py": {
+      "kind": "layout_only",
+      "formatted_sha256": "ab7e07ff8f3350ab629073e9a9954e9281ed9ffc8cb8c6b6fd3c9705301aa493"
+    },
+    "backend/packages/harness/deerflow/ppt_confirmation/proposal.py": {
+      "kind": "layout_only",
+      "formatted_sha256": "093c120602454ffc840151aa91e31d395084d45db82fcb3742a5b3f02816039d"
+    },
+    "backend/packages/harness/deerflow/runtime/interrupted_history.py": {
+      "kind": "layout_only",
+      "formatted_sha256": "4cc3a595d0b58ed05acf588bc06e88b5acbc3edec9f593331a0afc38194e077d"
+    },
+    "backend/packages/harness/deerflow/runtime/journal.py": {
+      "kind": "layout_and_import_order",
+      "formatted_sha256": "d8a6f48e57046d014c0ea9e9397ac308ea03fc05ce09130757e58be5a49fcdaf"
+    }
   }
 }

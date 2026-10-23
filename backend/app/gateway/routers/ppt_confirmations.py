@@ -37,8 +37,7 @@ async def owned_state(request, thread_id, task_id):
     if not owner:
         raise HTTPException(404, "PPT confirmation unavailable")
     row = await get_run_store(request).get(task_id, user_id=owner)
-    if not isinstance(row, dict) or any(row.get(key) != value for key, value in
-        (("run_id", task_id), ("thread_id", thread_id), ("user_id", owner), ("assistant_id", "ppt-master-runner"))):
+    if not isinstance(row, dict) or any(row.get(key) != value for key, value in (("run_id", task_id), ("thread_id", thread_id), ("user_id", owner), ("assistant_id", "ppt-master-runner"))):
         raise HTTPException(404, "PPT confirmation unavailable")
     factory = get_session_factory()
     if factory is None:
@@ -51,13 +50,19 @@ async def owned_state(request, thread_id, task_id):
 
 def safe_state(scope, snapshot, row, *, viewer_id):
     active = row.get("status") in {"pending", "running"} and not row.get("cancel_action")
-    return {"protocol": "ppt-confirmation-v1", "thread_id": scope.thread_id, "task_id": scope.task_id,
-        "admitted": snapshot is not None, "revision": snapshot["revision"] if snapshot else None,
+    return {
+        "protocol": "ppt-confirmation-v1",
+        "thread_id": scope.thread_id,
+        "task_id": scope.task_id,
+        "admitted": snapshot is not None,
+        "revision": snapshot["revision"] if snapshot else None,
         "auto_enabled": snapshot["policy"]["auto_enabled"] if snapshot else False,
-        "cancelled": snapshot["cancelled"] if snapshot else False, "run_active": active,
+        "cancelled": snapshot["cancelled"] if snapshot else False,
+        "run_active": active,
         "can_open": viewer_id == scope.owner_id and active and snapshot is not None and not snapshot["cancelled"],
         "gate": public_status(snapshot) if snapshot and not snapshot["cancelled"] else None,
-        "server_time": int(time.time())}
+        "server_time": int(time.time()),
+    }
 
 
 @router.get("/{task_id}/state")
@@ -99,8 +104,7 @@ async def open_native_page(request, scope):
     if not key:
         raise HTTPException(503, "PPT Host authentication unavailable")
     try:
-        async with httpx.AsyncClient(trust_env=False, follow_redirects=False, timeout=20,
-            headers={"Authorization": "Bearer " + key}) as client:
+        async with httpx.AsyncClient(trust_env=False, follow_redirects=False, timeout=20, headers={"Authorization": "Bearer " + key}) as client:
             result = await client.get(host)
             result.raise_for_status()
             value = result.json()
@@ -113,8 +117,7 @@ async def open_native_page(request, scope):
         port = value.get("port")
         if type(port) is not int or not 5050 <= port <= 5099:
             raise ValueError("invalid_port")
-        return JSONResponse({"url": f"/api/threads/{scope.thread_id}/live-preview/{port}/", "auto_enabled": False,
-            "confirmation_submitted": False, "agent_started": False}, headers={"Cache-Control": "private, no-store"})
+        return JSONResponse({"url": f"/api/threads/{scope.thread_id}/live-preview/{port}/", "auto_enabled": False, "confirmation_submitted": False, "agent_started": False}, headers={"Cache-Control": "private, no-store"})
     except (httpx.HTTPError, ValueError, TypeError):
         raise HTTPException(409, "PPT confirmation page could not be recovered; no confirmation was submitted") from None
 

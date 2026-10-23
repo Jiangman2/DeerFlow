@@ -38,8 +38,7 @@ def _linux_statx():
         function = ctypes.CDLL(None, use_errno=True).statx
     except AttributeError:
         raise FeaturedUnavailable("featured_metadata_sync_unavailable") from None
-    function.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int,
-                         ctypes.c_uint, ctypes.c_void_p)
+    function.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_uint, ctypes.c_void_p)
     function.restype = ctypes.c_int
     return function
 
@@ -172,9 +171,7 @@ class FeaturedStore:
     def _read_stamp(metadata):
         # Exclude atime: this read itself may update it. Identity and security
         # attributes, plus data size/change times, must remain stable.
-        return (metadata.st_dev, metadata.st_ino, metadata.st_mode,
-                metadata.st_uid, metadata.st_gid, metadata.st_nlink,
-                metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns)
+        return (metadata.st_dev, metadata.st_ino, metadata.st_mode, metadata.st_uid, metadata.st_gid, metadata.st_nlink, metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns)
 
     @classmethod
     def _same_read_file(cls, opened, named):
@@ -241,8 +238,7 @@ class FeaturedStore:
         # all identity, permission and data-stability validation.
         result = (ctypes.c_uint64 * 32)()
         # AT_FDCWD, SYMLINK_NOFOLLOW | NO_AUTOMOUNT | STATX_FORCE_SYNC.
-        rc = _linux_statx()(-100, os.fsencode(self.path), 0x2900, 0x7FF,
-                            ctypes.byref(result))
+        rc = _linux_statx()(-100, os.fsencode(self.path), 0x2900, 0x7FF, ctypes.byref(result))
         if rc != 0:
             code = ctypes.get_errno() or errno.EIO
             if code in (errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP):
@@ -262,8 +258,7 @@ class FeaturedStore:
             # This is read-only, inside the existing bounded pre-commit retry.
             self._refresh_path_metadata()
             self.path.stat(follow_symlinks=False)
-            fd = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-                         | getattr(os, "O_NONBLOCK", 0))
+            fd = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
         except FileNotFoundError:
             raise FeaturedUnavailable("featured_store_not_initialized") from None
         with os.fdopen(fd, "rb") as stream:
