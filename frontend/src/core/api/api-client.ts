@@ -3,6 +3,10 @@
 import { Client as LangGraphClient } from "@langchain/langgraph-sdk/client";
 
 import { getLangGraphBaseURL } from "../config";
+import {
+  hasPersistedSkillWorkflow,
+  preparePublicPptRequest,
+} from "../skills/public-ppt-request";
 import { isStaticWebsiteOnly } from "../static-mode";
 import {
   loadStaticDemoThread,
@@ -17,6 +21,7 @@ import {
   getPptMasterRuntimeBaseURL,
   PPT_MASTER_RUNTIME_ASSISTANT_ID,
   PPT_MASTER_RUNTIME_METADATA_KEY,
+  rememberPptMasterRuntimeThread,
   shouldUsePptMasterRuntime,
 } from "./ppt-master-runtime";
 import { sanitizeRunStreamOptions } from "./stream-mode";
@@ -200,7 +205,7 @@ function createCompatibleClient(
 
   const originalRunStream = client.runs.stream.bind(client.runs);
 
-  // Explicit ppt-master threads are checkpointed by the isolated runtime on
+  // Existing runner threads are checkpointed by the isolated runtime on
   // port 8003.  Keep read-side state/history on that same namespace.  Sending
   // these reads to the ordinary LangGraph runtime produces misleading 404s
   // and prevents artifact/history hydration after a page reload even while
@@ -212,9 +217,11 @@ function createCompatibleClient(
       threadId &&
       (await shouldUsePptMasterRuntime(client, threadId)),
     );
-    return usePptMaster && pptMasterClient
+    const thread = await (usePptMaster && pptMasterClient
       ? pptMasterClient.threads.get(threadId, options)
-      : originalGetThread(threadId, options);
+      : originalGetThread(threadId, options));
+    rememberPptMasterRuntimeThread(threadId, thread);
+    return thread;
   }) as typeof client.threads.get;
 
   const originalGetState = client.threads.getState.bind(client.threads);
@@ -243,11 +250,10 @@ function createCompatibleClient(
 
   client.runs.stream = async function* (threadId, assistantId, payload) {
     const sanitized = sanitizeRunStreamOptions(payload);
-    const input = Reflect.get(sanitized as object, "input");
     const usePptMaster = Boolean(
       pptMasterClient &&
       threadId &&
-      (await shouldUsePptMasterRuntime(client, threadId, input)),
+      (await shouldUsePptMasterRuntime(client, threadId, { submitting: true })),
     );
     if (usePptMaster && pptMasterClient) {
       const metadata = Reflect.get(sanitized as object, "metadata");
@@ -267,7 +273,29 @@ function createCompatibleClient(
       );
       return;
     }
-    yield* originalRunStream(threadId, assistantId, sanitized);
+    const ordinaryPayload = preparePublicPptRequest(sanitized);
+    if (ordinaryPayload !== sanitized && threadId) {
+      let state: unknown;
+      try {
+        state = await originalGetState(threadId);
+      } catch (error) {
+        // A just-created thread has no checkpoint yet. All other failures
+        // must stop submission instead of guessing that no old gate exists.
+        if (
+          typeof error !== "object" ||
+          error === null ||
+          Reflect.get(error, "status") !== 404
+        ) {
+          throw error;
+        }
+      }
+      if (hasPersistedSkillWorkflow(state)) {
+        throw new Error(
+          "此对话保留了旧的 Skill 工作流检查点。请新建对话后使用 /ppt-master；原对话和文件会保留。",
+        );
+      }
+    }
+    yield* originalRunStream(threadId, assistantId, ordinaryPayload);
   } as typeof client.runs.stream;
 
   const originalCancel = client.runs.cancel.bind(client.runs);

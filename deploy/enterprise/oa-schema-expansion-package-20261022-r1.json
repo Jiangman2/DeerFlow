@@ -1,0 +1,29 @@
+{
+  "schema": "portal-oa-schema-expansion-package.v1",
+  "status": "LOCAL_QUALIFICATION_ACCEPTED_NOT_EXECUTED_ON_PRODUCTION",
+  "artifact": "expand-portal-oa-schema-20261022-r1.py",
+  "bytes": 64545,
+  "sha256": "ea0f559f45461c5443dd8241959246a872be19026784735068c5504b78849e7c",
+  "child_source_sha256": "3aa5c04fdd3c4caedb9aa240c2331e3f812f564e37e3c77238e0550a9cbf0c45",
+  "qualification": {
+    "exact_packaged_linux_python37_host_tests": 21,
+    "postgres16_child_and_process_tests": 17,
+    "closed_stdout_deadline_subcase": "PASS",
+    "independent_review": "NO_REMAINING_BLOCKING_FINDINGS",
+    "fixture_database_only": true,
+    "production_database_access": false,
+    "provider_requests": 0
+  },
+  "bound_gateway_generation": 383,
+  "bound_runner_generation": 55,
+  "bound_frontend_generation": 225,
+  "base_revision": "0020_ppt_confirmation",
+  "target_revision": "0021_oa_result_sets",
+  "migration_source_bytes": 801,
+  "migration_source_sha256": "f0f4e5571251359f12ca023b864542a69fda97f990bf476dbf366d9039657347",
+  "schema_migration_executed_on_production": false,
+  "feature_deployed": false,
+  "automatic_retry": false,
+  "task_drain_required": false,
+  "success_status": "OA_SCHEMA_EXPANSION_ACCEPTED_FEATURE_NOT_DEPLOYED"
+}

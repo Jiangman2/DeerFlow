@@ -1,7 +1,7 @@
 import type { Agent } from "./types";
 
 /**
- * 数字员工1008.xlsx / Sheet1, in source-row order (18 application entries).
+ * 数字员工1008.xlsx / Sheet1, with the October 20 operator roster updates.
  * Names use Q (建议修改数字员工名称) when present, otherwise F.
  * URLs use M (网站), except explicit latest updates in P11/P21 (1008状态).
  * Rows without application URLs are omitted; existing fixed employees stay separate.
@@ -18,15 +18,15 @@ export const CONTEST_EXTERNAL_AGENTS: Agent[] = [
     avatar_id: "reservoir-development",
     external_url: "https://10.141.11.158:8443/",
   },
-  // Sheet1 row 6.
+  // October 20 addition, replacing the withdrawn Sheet1 row 6 entry.
   {
-    name: "研究总院水驱可采储量计算专家",
+    name: "智能穿透审计助手",
     description:
-      "研究总院开发规划与油藏工程人员采用该方法自动计算水驱可采储量，实现可闭环、可验证的产量预测。",
-    category_id: "oil-gas-resource-development",
-    tags: ["水驱储量", "油藏工程", "产量预测"],
-    avatar_id: "reservoir-development",
-    external_url: "http://10.57.4.101:8088",
+      "面向合同转分包审计，依托集团“海能”平台与数智化审计数据，运用 AI 技术开展全量筛查与风险识别，为审计人员重点复核提供规则和证据支持，提升审计覆盖度与工作效率。",
+    category_id: "audit-inspection",
+    tags: ["穿透审计", "合同转分包", "风险筛查"],
+    avatar_id: "finance-analyst",
+    external_url: "http://10.77.79.194:18080/",
   },
   // Sheet1 row 7.
   {
@@ -109,7 +109,7 @@ export const CONTEST_EXTERNAL_AGENTS: Agent[] = [
     category_id: "science-technology-innovation",
     tags: ["配方优选", "材料研发", "实验数据"],
     avatar_id: "ai-scientist",
-    external_url: "http://10.77.65.163:8000/",
+    external_url: "http://10.77.80.56:10086/login?redirect=/chat",
   },
   // Sheet1 row 15.
   {

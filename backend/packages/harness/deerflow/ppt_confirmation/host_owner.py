@@ -22,9 +22,7 @@ MAX_RESPONSE_BYTES = 300 * 1024
 class HostOwner:
     def __init__(self, client, host_url: str, scope: Scope):
         url = urlsplit(host_url)
-        core.require(url.scheme == "http" and url.hostname is not None and url.port == 8788
-                     and not url.username and not url.password and not url.query and not url.fragment
-                     and url.path in {"", "/"}, "invalid_confirmation_host")
+        core.require(url.scheme == "http" and url.hostname is not None and url.port == 8788 and not url.username and not url.password and not url.query and not url.fragment and url.path in {"", "/"}, "invalid_confirmation_host")
         core.require(isinstance(scope, Scope), "explicit_scope_required")
         self.client, self.scope = client, scope
         self.base = host_url.rstrip("/") + "/v1/tasks/" + scope.task_id + "/confirmation/"
@@ -34,8 +32,7 @@ class HostOwner:
 
     async def _rpc(self, suffix, *, body=None, not_ready=False):
         try:
-            async with self.client.stream("GET" if body is None else "POST", self.base + suffix,
-                                          **({"json": body} if body is not None else {}), timeout=35.0) as response:
+            async with self.client.stream("GET" if body is None else "POST", self.base + suffix, **({"json": body} if body is not None else {}), timeout=35.0) as response:
                 if not_ready and response.status_code == 409:
                     return None
                 if response.status_code != 200 or response.headers.get("content-type", "").split(";")[0].strip().lower() != "application/json":
@@ -60,20 +57,22 @@ class HostOwner:
         value = await self._rpc("observation", not_ready=True)
         if value is None:
             return None
-        core.require(value.get("task_id") == scope.task_id and value.get("thread_id") == scope.thread_id
-                     and value.get("confirmation_submitted") is False and isinstance(value.get("payload"), dict),
-                     "invalid_official_observation")
+        core.require(value.get("task_id") == scope.task_id and value.get("thread_id") == scope.thread_id and value.get("confirmation_submitted") is False and isinstance(value.get("payload"), dict), "invalid_official_observation")
         raw = json.dumps(value["payload"], ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
         core.require(len(raw) <= 256 * 1024, "invalid_official_observation")
-        proposed = CapturedProposal(value.get("version"), value.get("source_digest"), value.get("payload_digest"), raw,
-                                    "Official Confirm UI", 0, 1, owner_version=value.get("owner_version"))
+        proposed = CapturedProposal(value.get("version"), value.get("source_digest"), value.get("payload_digest"), raw, "Official Confirm UI", 0, 1, owner_version=value.get("owner_version"))
         return ObservedProposal(scope, value.get("project_id"), value.get("stage"), proposed).validate(scope)
 
     async def submit_guarded(self, scope, claim, proposal):
         self._scope(scope)
-        core.require(isinstance(claim, dict) and all(claim.get(key) == getattr(scope, key) for key in ("owner_id", "thread_id", "task_id"))
-                     and claim.get("state") == "submission_pending" and isinstance(claim.get("submission"), dict)
-                     and claim["submission"].get("mode") == "automatic", "confirmation_claim_mismatch")
+        core.require(
+            isinstance(claim, dict)
+            and all(claim.get(key) == getattr(scope, key) for key in ("owner_id", "thread_id", "task_id"))
+            and claim.get("state") == "submission_pending"
+            and isinstance(claim.get("submission"), dict)
+            and claim["submission"].get("mode") == "automatic",
+            "confirmation_claim_mismatch",
+        )
         operation = core.identifier(claim["submission"].get("id"))
         # Host re-reads the committed claim and every native binding under its
         # cancellation guard; body metadata cannot authorize the effect.
@@ -90,8 +89,7 @@ class HostOwner:
 
     async def continue_guarded(self, scope, gate, session):
         self._scope(scope)
-        core.require(gate.get("state") == "continuation_pending" and gate.get("task_id") == scope.task_id,
-                     "invalid_continuation_claim")
+        core.require(gate.get("state") == "continuation_pending" and gate.get("task_id") == scope.task_id, "invalid_continuation_claim")
         return await self._rpc("continue", body={"gate_id": core.fingerprint(gate["gate_id"]), "session_id": core.identifier(session)})
 
     async def continuation_receipt(self, scope, gate_id):

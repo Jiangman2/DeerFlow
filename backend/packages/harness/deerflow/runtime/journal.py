@@ -30,8 +30,8 @@ from langchain_core.messages import AIMessage, AnyMessage, BaseMessage, HumanMes
 from langgraph.types import Command
 
 from deerflow.agents.human_input import read_human_input_response
-from deerflow.utils.messages import message_to_text, restore_original_human_message
 from deerflow.runtime.interrupted_history import InterruptedCapture, InterruptedJournalMethods
+from deerflow.utils.messages import message_to_text, restore_original_human_message
 
 if TYPE_CHECKING:
     from deerflow.runtime.events.store.base import RunEventStore

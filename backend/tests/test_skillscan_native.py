@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from langchain_core.messages import AIMessageChunk
 
 from deerflow.skills.package_files import is_executable_binary_prefix
 from deerflow.skills.security_scanner import scan_skill_content
@@ -383,9 +384,11 @@ async def test_llm_scanner_receives_static_findings_context(monkeypatch: pytest.
     captured_messages = []
 
     class FakeModel:
-        async def ainvoke(self, messages, config=None):
+        async def astream(self, messages, config=None, *, stream=False):
+            assert stream is True
             captured_messages.extend(messages)
-            return SimpleNamespace(content='{"decision":"allow","reason":"ok"}')
+            yield AIMessageChunk(content='{"decision":"allow",')
+            yield AIMessageChunk(content='"reason":"ok"}', response_metadata={"finish_reason": "stop"})
 
     config = SimpleNamespace(skill_evolution=SimpleNamespace(moderation_model_name=None))
     monkeypatch.setattr("deerflow.skills.security_scanner.create_chat_model", lambda **kwargs: FakeModel())

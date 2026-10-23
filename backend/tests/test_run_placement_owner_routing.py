@@ -7,8 +7,9 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from support.production_dispatcher import load_dispatcher
 
-from app.gateway import run_placement as module
+module = load_dispatcher()
 
 ReadyPod = module.ReadyPod
 RunPlacementSelector = module.RunPlacementSelector

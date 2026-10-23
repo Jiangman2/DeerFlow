@@ -1,0 +1,601 @@
+{
+  "schema": "portal-oa-schema-compatibility-preloads-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_REPORT_SUMMARIES",
+  "attachments": [
+    {
+      "attachment": "d7879f35-66ca-4e9c-b38e-e24a077bac49",
+      "sha256": "a2f2810d81e3704fb689f7cd88a9a3c56ada0600629f38be0d9e26a9f4d7e3d0"
+    },
+    {
+      "attachment": "576f8df8-3c99-445e-b4eb-b7ff157578a8",
+      "sha256": "149b186b0f9788746b67bd6fbf2d762fa68555d0170554d36ee048f3f07d63a4"
+    }
+  ],
+  "receipts": [
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-runner-oa-schema-compatibility-report-mmfccu1f/REPORT.json",
+      "elapsed_seconds": 2.502,
+      "error_code": "resource_based_storage_admission_failed",
+      "exitcode": 1,
+      "expected_node_uid": "ec5698b0-8d82-4eed-bae0-3711c7b7f36c",
+      "hostname": "datax-01",
+      "image_import_may_be_partial": false,
+      "image_import_requested": false,
+      "kubernetes_node_uid_freshly_checked": true,
+      "node_preload_passed": false,
+      "old_references_preserved": false,
+      "operation": "10ffc378f8de4920afcc9de26968fc71",
+      "query_count": 23,
+      "ready_for_rollout": false,
+      "report_bytes": 17517,
+      "report_sha256": "f80540b32a3f59549d31d6d96abbe8774297476425c72c38fc83205cbcc59210",
+      "roles": [
+        {
+          "canonical_names_created": [],
+          "config_digest": "sha256:5a3f917506bd172815346f7021fcb864ae62d522903f30dedc34ff2dc406afa2",
+          "manifest_digest": "sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+          "phase_a": "NOT_REQUESTED",
+          "phase_b": "NOT_REQUESTED",
+          "role": "ppt-master-runner-forward",
+          "status": "PREFLIGHT",
+          "tag": "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)"
+        }
+      ],
+      "schema": "portal-runner-oa-schema-compatibility-node.v1",
+      "status": "INCOMPLETE"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-runner-oa-schema-compatibility-report-pxyravx0/REPORT.json",
+      "elapsed_seconds": 40.593,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+      "hostname": "datax-02",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "ee2d2208b7894711be3db1d6c52ce572",
+      "query_count": 101,
+      "ready_for_rollout": false,
+      "report_bytes": 55303,
+      "report_sha256": "c8b8585c2ec8420bd53b96b770af38f6a06f370b0e4fb220b88b6d7ce916e48b",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+            "[deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140](http://deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140)"
+          ],
+          "config_digest": "sha256:5a3f917506bd172815346f7021fcb864ae62d522903f30dedc34ff2dc406afa2",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "ppt-master-runner-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-runner-oa-schema-compatibility-node.v1",
+      "status": "COMPLETE_RUNNER_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-runner-oa-schema-compatibility-report-8ngn8jn8/REPORT.json",
+      "elapsed_seconds": 8.457,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "9acb9556-0d63-46ca-8a6f-384c4b469a18",
+      "hostname": "datax-03",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "4f4f9176e32f42cdba8bdd0f0ec443fc",
+      "query_count": 101,
+      "ready_for_rollout": false,
+      "report_bytes": 55301,
+      "report_sha256": "a4209183e4e5d555198924cf7949ec82c7c5d2c3f3aeac193ce1f63974597dcf",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+            "[deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140](http://deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140)"
+          ],
+          "config_digest": "sha256:5a3f917506bd172815346f7021fcb864ae62d522903f30dedc34ff2dc406afa2",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "ppt-master-runner-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-runner-oa-schema-compatibility-node.v1",
+      "status": "COMPLETE_RUNNER_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-runner-oa-schema-compatibility-report-ms9hbvz3/REPORT.json",
+      "elapsed_seconds": 7.808,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "388c4cc8-091a-4278-8d1c-3e944bb68c81",
+      "hostname": "ecs-zdz-pro-0011",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "32f9835789d440e283bd18294e598039",
+      "query_count": 101,
+      "ready_for_rollout": false,
+      "report_bytes": 55328,
+      "report_sha256": "d009640cdf86360a268edf66d129fc2b3e5a497c6668178a45c1aa2ad698f659",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+            "[deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140](http://deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140)"
+          ],
+          "config_digest": "sha256:5a3f917506bd172815346f7021fcb864ae62d522903f30dedc34ff2dc406afa2",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "ppt-master-runner-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-runner-oa-schema-compatibility-node.v1",
+      "status": "COMPLETE_RUNNER_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-runner-oa-schema-compatibility-report-6uem7rt0/REPORT.json",
+      "elapsed_seconds": 7.087,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "54972705-807f-443b-bae4-919d0d56f993",
+      "hostname": "ecs-zdz-pro-0012",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "e715daa86d954975a6f8cf1b2b3cd6ae",
+      "query_count": 101,
+      "ready_for_rollout": false,
+      "report_bytes": 55329,
+      "report_sha256": "a5aa67620c951fd6fa08fda792bdc453060927d35875b194704cde96832e4e58",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+            "[deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140](http://deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140)"
+          ],
+          "config_digest": "sha256:5a3f917506bd172815346f7021fcb864ae62d522903f30dedc34ff2dc406afa2",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "ppt-master-runner-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-runner-oa-schema-compatibility-node.v1",
+      "status": "COMPLETE_RUNNER_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-runner-oa-schema-compatibility-report-y2nzsiug/REPORT.json",
+      "elapsed_seconds": 7.046,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "ad29159e-eb63-47d3-97f9-326be1446af3",
+      "hostname": "ecs-zdz-pro-0013",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "bf5a91886193476db8768dd701b8a999",
+      "query_count": 101,
+      "ready_for_rollout": false,
+      "report_bytes": 55329,
+      "report_sha256": "f3af84117b754b50a67af02c7f9cd5075342dc8f76dd7a1f0669e5288e434997",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+            "[deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140](http://deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140)"
+          ],
+          "config_digest": "sha256:5a3f917506bd172815346f7021fcb864ae62d522903f30dedc34ff2dc406afa2",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "ppt-master-runner-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-runner-oa-schema-compatibility-node.v1",
+      "status": "COMPLETE_RUNNER_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-runner-oa-schema-compatibility-report-7el4k2uh/REPORT.json",
+      "elapsed_seconds": 7.089,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "968a1cee-4b1d-47fc-ad79-ab4d889152de",
+      "hostname": "ecs-zdz-pro-0014",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "4d41568a6e9c4af99d70c40b2068c39e",
+      "query_count": 101,
+      "ready_for_rollout": false,
+      "report_bytes": 55327,
+      "report_sha256": "d7535f631c70343f1c68a60b72750fcd15f72c8e8cc6a557f915c88498a6ceda",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+            "[deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140](http://deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140)"
+          ],
+          "config_digest": "sha256:5a3f917506bd172815346f7021fcb864ae62d522903f30dedc34ff2dc406afa2",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "ppt-master-runner-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-runner-oa-schema-compatibility-node.v1",
+      "status": "COMPLETE_RUNNER_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-runner-oa-schema-compatibility-report-wgs7cn4s/REPORT.json",
+      "elapsed_seconds": 7.672,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+      "hostname": "ecs-zdz-pro-0015",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "9d94c292db374ebd8ffbd1bea87cc4aa",
+      "query_count": 101,
+      "ready_for_rollout": false,
+      "report_bytes": 55326,
+      "report_sha256": "aad684f2969ca8cf742a8928f46a5a647b2fde383ba8a0d1c2a2429ead31deb9",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+            "[deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140](http://deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140)"
+          ],
+          "config_digest": "sha256:5a3f917506bd172815346f7021fcb864ae62d522903f30dedc34ff2dc406afa2",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "ppt-master-runner-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-runner-oa-schema-compatibility-node.v1",
+      "status": "COMPLETE_RUNNER_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-runner-oa-schema-compatibility-report-ikscg46g/REPORT.json",
+      "elapsed_seconds": 7.559,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "daccd125-0612-4602-8f3f-1cc447d2cbc1",
+      "hostname": "ecs-zdz-pro-0016",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "5b02cf91de3248feb08db5f3ca7b8c07",
+      "query_count": 101,
+      "ready_for_rollout": false,
+      "report_bytes": 55328,
+      "report_sha256": "b05e664f45b1d7034fd882a0eb001da1e56d2d165349384c074bc64d4d73f567",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+            "[deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140](http://deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140)"
+          ],
+          "config_digest": "sha256:5a3f917506bd172815346f7021fcb864ae62d522903f30dedc34ff2dc406afa2",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "ppt-master-runner-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-runner-oa-schema-compatibility-node.v1",
+      "status": "COMPLETE_RUNNER_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-runner-oa-schema-compatibility-report-6o_tmz_3/REPORT.json",
+      "elapsed_seconds": 6.851,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "ba629f68-a45f-49f0-af2b-7416bc82a32a",
+      "hostname": "ecs-zdz-pro-0017",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "68fa09042d264b7f83d8b90669d0991d",
+      "query_count": 101,
+      "ready_for_rollout": false,
+      "report_bytes": 55329,
+      "report_sha256": "78d6025e8e462145effec4dc1233ab86fcc0daed94bafe24ae74518488748ec5",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+            "[deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140](http://deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140)"
+          ],
+          "config_digest": "sha256:5a3f917506bd172815346f7021fcb864ae62d522903f30dedc34ff2dc406afa2",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "ppt-master-runner-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957](http://deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-runner-oa-schema-compatibility-node.v1",
+      "status": "COMPLETE_RUNNER_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-oa-schema-compatibility-report-6we7ds52/REPORT.json",
+      "elapsed_seconds": 6.404,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "0243d097-3ee7-4abc-899a-319e57934eee",
+      "hostname": "ecs-zdz-pro-0018",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "61859994892e4ed294f1f21f63cfd1cf",
+      "query_count": 133,
+      "ready_for_rollout": false,
+      "report_bytes": 73555,
+      "report_sha256": "75c3595044f8eb4fa2775a3017adff78d9efcc83c8cb7cd50a3c2ff5f0a42878",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1](http://deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1)",
+            "[deerflow.local/deer-flow-gateway@sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5](http://deerflow.local/deer-flow-gateway@sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5)"
+          ],
+          "config_digest": "sha256:3d506b1ee51ff438b6446c3c8a4201f8556a2ee040ea3a75304bd6cd2db1ecf8",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1](http://deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-oa-schema-compatibility-preload.v1",
+      "status": "COMPLETE_GATEWAY_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-oa-schema-compatibility-report-nap36fqn/REPORT.json",
+      "elapsed_seconds": 5.801,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "e23480a1-041d-4767-b6cb-e8b93d456ac1",
+      "hostname": "ecs-zdz-pro-0019",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "c95d7d3eff1243f19d42fc1f542aaa29",
+      "query_count": 133,
+      "ready_for_rollout": false,
+      "report_bytes": 73554,
+      "report_sha256": "fde9b091c1c4ff6beed9f5c282454498d937e6c469e693a46c594a1c8045b386",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1](http://deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1)",
+            "[deerflow.local/deer-flow-gateway@sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5](http://deerflow.local/deer-flow-gateway@sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5)"
+          ],
+          "config_digest": "sha256:3d506b1ee51ff438b6446c3c8a4201f8556a2ee040ea3a75304bd6cd2db1ecf8",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1](http://deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-oa-schema-compatibility-preload.v1",
+      "status": "COMPLETE_GATEWAY_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-oa-schema-compatibility-report-jq82r276/REPORT.json",
+      "elapsed_seconds": 5.708,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "d43ad71d-b5e1-49fc-a93f-3cb0aee6a6e2",
+      "hostname": "ecs-zdz-pro-0020",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "b1991fbac40b44caa54d1c299b6fb14d",
+      "query_count": 133,
+      "ready_for_rollout": false,
+      "report_bytes": 73555,
+      "report_sha256": "8cbfd14701c10257bf649c37cbc35cc3523347898a36c8ad58689daac69376a0",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1](http://deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1)",
+            "[deerflow.local/deer-flow-gateway@sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5](http://deerflow.local/deer-flow-gateway@sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5)"
+          ],
+          "config_digest": "sha256:3d506b1ee51ff438b6446c3c8a4201f8556a2ee040ea3a75304bd6cd2db1ecf8",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1](http://deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-oa-schema-compatibility-preload.v1",
+      "status": "COMPLETE_GATEWAY_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-oa-schema-compatibility-report-hfyucbym/REPORT.json",
+      "elapsed_seconds": 5.62,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "181f267d-e653-4fa8-9e1f-d0138454f079",
+      "hostname": "ecs-zdz-pro-0021",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "8ac9bf1c538e4f55bdb7dc644345bbeb",
+      "query_count": 133,
+      "ready_for_rollout": false,
+      "report_bytes": 73554,
+      "report_sha256": "775db037503abb83487cc40730c25a24c72d75cedfce30b6d3c1208a1d720db8",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1](http://deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1)",
+            "[deerflow.local/deer-flow-gateway@sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5](http://deerflow.local/deer-flow-gateway@sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5)"
+          ],
+          "config_digest": "sha256:3d506b1ee51ff438b6446c3c8a4201f8556a2ee040ea3a75304bd6cd2db1ecf8",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1](http://deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-oa-schema-compatibility-preload.v1",
+      "status": "COMPLETE_GATEWAY_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-oa-schema-compatibility-report-h7rlu3sd/REPORT.json",
+      "elapsed_seconds": 6.154,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "0f1fa57f-f37f-42ed-a296-047295f17856",
+      "hostname": "ecs-zdz-pro-0022",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "72da495786514bca98dffac531bda693",
+      "query_count": 133,
+      "ready_for_rollout": false,
+      "report_bytes": 73556,
+      "report_sha256": "e5bd685178e5a7199f33ae4821bcf311b5c2ac9ccfa96e0151e69baec24a0cea",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "[deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1](http://deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1)",
+            "[deerflow.local/deer-flow-gateway@sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5](http://deerflow.local/deer-flow-gateway@sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5)"
+          ],
+          "config_digest": "sha256:3d506b1ee51ff438b6446c3c8a4201f8556a2ee040ea3a75304bd6cd2db1ecf8",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "[deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1](http://deerflow.local/deer-flow-gateway:20261022-oa-schema-compat-r1-361592fec9d1)",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-oa-schema-compatibility-preload.v1",
+      "status": "COMPLETE_GATEWAY_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+    }
+  ],
+  "passed": 14,
+  "failed": [
+    "datax-01"
+  ],
+  "ready_for_rollout": false,
+  "expected_node_identity_and_image_summaries_match": true
+}

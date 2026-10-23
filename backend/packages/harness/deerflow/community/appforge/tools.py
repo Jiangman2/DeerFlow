@@ -9,6 +9,7 @@ model-visible tool schema contains only the business question.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -28,6 +29,7 @@ from deerflow.runtime.datalake_policy import ACCESS_HINT
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.tools.types import Runtime
 
+from .data_qa_progress import DataQAProgress
 from .data_qa_stream import DataQAStreamError, collect_data_qa_stream
 
 logger = logging.getLogger(__name__)
@@ -354,7 +356,7 @@ def _workflow_text(event: dict[str, Any]) -> tuple[str, str]:
     return str(text or ""), str(data.get("node_type") or "")
 
 
-def _stream_invoke(tool_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _stream_invoke(tool_name: str, payload: dict[str, Any], *, on_progress=None) -> dict[str, Any]:
     api_key = _api_key(tool_name)
     if not api_key:
         raise ValueError("missing_api_key")
@@ -383,7 +385,7 @@ def _stream_invoke(tool_name: str, payload: dict[str, Any]) -> dict[str, Any]:
                 response.read()
             response.raise_for_status()
             if tool_name == "datalake_data_qa":
-                return collect_data_qa_stream(response, parse_knowledge=_parse_knowledge)
+                return collect_data_qa_stream(response, parse_knowledge=_parse_knowledge, on_progress=on_progress)
             for event in _iter_sse_events(response):
                 extra = event.get("xx_ceai_extra_data")
                 if isinstance(extra, dict):
@@ -667,12 +669,27 @@ def _invoke_tool(tool_name: str, query: str, runtime: object | None) -> str:
         "query": query.strip(),
         "conversationId": _conversation_id(tool_name, runtime),
     }
+    progress = DataQAProgress(runtime) if tool_name == "datalake_data_qa" else None
     try:
+        if progress:
+            progress.emit("waiting")
+            result = _stream_invoke(tool_name, payload, on_progress=progress.emit)
+            output = _safe_json(result)
+            progress.emit({"interrupted": "clarification", "empty": "empty"}.get(result.get("status"), "completed"))
+            return output
         return _safe_json(_stream_invoke(tool_name, payload))
+    except asyncio.CancelledError:
+        if progress:
+            progress.emit("cancelled")
+        raise
     except DataQAStreamError as exc:
+        if progress:
+            progress.emit("failed")
         logger.warning("Data QA stream was not accepted: %s", exc.code)
         return json.dumps({"error": "Data QA response was not accepted; do not invent results or automatically replay the workflow", "code": exc.code, "status": "failed", "retryable": False})
     except httpx.HTTPStatusError as exc:
+        if progress:
+            progress.emit("failed")
         status_code = exc.response.status_code
         logger.error(
             "AppForge tool %s was rejected with HTTP %s",
@@ -687,6 +704,8 @@ def _invoke_tool(tool_name: str, query: str, runtime: object | None) -> str:
             }
         )
     except Exception as exc:
+        if progress:
+            progress.emit("timeout" if isinstance(exc, httpx.TimeoutException) else "failed")
         # Exception text/tracebacks can contain upstream bodies or identity data.
         logger.error("AppForge tool %s request failed (%s)", tool_name, type(exc).__name__)
         return json.dumps(

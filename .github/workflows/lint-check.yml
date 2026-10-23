@@ -36,6 +36,9 @@ jobs:
         working-directory: backend
         run: make lint
 
+      - name: Verify production source provenance
+        run: python deploy/enterprise/verify-release-source-20261023.py
+
   lint-frontend:
     runs-on: ubuntu-latest
     steps:

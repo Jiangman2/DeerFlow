@@ -992,6 +992,9 @@ async def test_request_guard_aborts_blocked_redirect_target():
             captured["pattern"] = pattern
             captured["handler"] = handler
 
+        async def route_web_socket(self, pattern, handler):
+            captured["websocket"] = handler
+
     def guard(url: str) -> str | None:
         return "Error: blocked" if "169.254.169.254" in url else None
 

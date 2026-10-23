@@ -48,6 +48,7 @@ import { useArtifacts } from "../artifacts";
 import { FlipDisplay } from "../flip-display";
 import { Tooltip } from "../tooltip";
 
+import { DataQAProgressStep } from "./data-qa-progress";
 import { MarkdownContent } from "./markdown-content";
 import { createMarkdownLinkComponent } from "./markdown-link";
 import { ToolResultLink } from "./tool-result-link";
@@ -256,6 +257,7 @@ export function MessageGroup({
         key={step.id}
         {...step}
         threadId={threadId}
+        isLoading={isLoading}
         tokenDebugStep={
           debugStep && !debugStep.sharedAttribution ? debugStep : undefined
         }
@@ -512,6 +514,7 @@ function ToolCall({
   result,
   threadId,
   tokenDebugStep,
+  isLoading,
 }: {
   id?: string;
   messageId?: string;
@@ -520,6 +523,7 @@ function ToolCall({
   result?: string | Record<string, unknown>;
   threadId?: string;
   tokenDebugStep?: TokenDebugStep;
+  isLoading: boolean;
 }) {
   const { t } = useI18n();
   const { openArtifactPanel, select } = useArtifacts();
@@ -533,7 +537,16 @@ function ToolCall({
       fallback
     );
 
-  if (name === "web_search") {
+  if (name === "datalake_data_qa") {
+    return (
+      <DataQAProgressStep
+        id={id}
+        threadId={threadId}
+        result={result}
+        isLoading={isLoading}
+      />
+    );
+  } else if (name === "web_search") {
     let label: React.ReactNode = t.toolCalls.searchForRelatedInfo;
     const query = toolDisplayText(args, "query");
     if (query) {

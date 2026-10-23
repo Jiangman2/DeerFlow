@@ -115,10 +115,11 @@ async def test_redirect_guard_fails_closed_on_timeout(monkeypatch, pool):
         release.wait(2)
         return None
 
-    context = SimpleNamespace(route=AsyncMock())
+    context = SimpleNamespace(route=AsyncMock(), route_web_socket=AsyncMock())
     session = BrowserSession(MagicMock(), headless=True, timeout_ms=1000, viewport={}, url_guard=slow)
     session._context = context
     await session._install_request_guard()
+    context.route_web_socket.assert_awaited_once()
     handler = context.route.await_args.args[1]
     route = SimpleNamespace(request=SimpleNamespace(url="https://example.test/redirect"), abort=AsyncMock(), continue_=AsyncMock())
     try:

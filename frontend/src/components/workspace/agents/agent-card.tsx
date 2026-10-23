@@ -4,6 +4,7 @@ import {
   BotIcon,
   ExternalLinkIcon,
   EyeIcon,
+  FlameIcon,
   MessageSquareIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -29,6 +30,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -63,6 +65,8 @@ interface AgentCardProps {
   showPublish?: boolean;
   showUnpublish?: boolean;
   onEdit?: (agent: Agent) => void;
+  onToggleHot?: (agent: Agent) => void;
+  hotPending?: boolean;
 }
 
 function DigitalEmployeeAvatar({
@@ -107,6 +111,8 @@ export function AgentCard({
   showPublish = false,
   showUnpublish = false,
   onEdit,
+  onToggleHot,
+  hotPending,
 }: AgentCardProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -218,6 +224,12 @@ export function AgentCard({
               >
                 {sourceLabel}
               </Badge>
+              {agent.is_hot && (
+                <Badge data-testid="employee-hot-badge" variant="secondary">
+                  <FlameIcon aria-hidden="true" />
+                  {t.employeeDiscovery.hot}
+                </Badge>
+              )}
               {categoryLabel ? (
                 <span className="text-muted-foreground text-[11px]">
                   · {categoryLabel}
@@ -267,43 +279,57 @@ export function AgentCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
-                <EyeIcon />
-                {t.agents.viewProfile}
-              </DropdownMenuItem>
-              {onEdit ? (
-                <DropdownMenuItem onSelect={() => onEdit(agent)}>
-                  <PencilIcon />
-                  {t.agents.edit}
-                </DropdownMenuItem>
-              ) : null}
-              {showPublish ? (
-                <DropdownMenuItem
-                  disabled={publishAgent.isPending}
-                  onSelect={() => void handlePublish()}
-                >
-                  <Share2Icon />
-                  {t.agents.publishToSquare}
-                </DropdownMenuItem>
-              ) : null}
-              {showUnpublish ? (
-                <DropdownMenuItem onSelect={() => setUnpublishOpen(true)}>
-                  <Undo2Icon />
-                  {t.agents.unpublishFromSquare}
-                </DropdownMenuItem>
-              ) : null}
-              {showDelete ? (
-                <>
-                  <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                {onToggleHot && (
                   <DropdownMenuItem
-                    variant="destructive"
-                    onSelect={() => setDeleteOpen(true)}
+                    disabled={hotPending}
+                    data-testid="employee-toggle-hot"
+                    onSelect={() => onToggleHot(agent)}
                   >
-                    <Trash2Icon />
-                    {t.agents.delete}
+                    <FlameIcon />
+                    {agent.is_hot
+                      ? t.employeeDiscovery.unmarkHot
+                      : t.employeeDiscovery.markHot}
                   </DropdownMenuItem>
-                </>
-              ) : null}
+                )}
+                <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
+                  <EyeIcon />
+                  {t.agents.viewProfile}
+                </DropdownMenuItem>
+                {onEdit ? (
+                  <DropdownMenuItem onSelect={() => onEdit(agent)}>
+                    <PencilIcon />
+                    {t.agents.edit}
+                  </DropdownMenuItem>
+                ) : null}
+                {showPublish ? (
+                  <DropdownMenuItem
+                    disabled={publishAgent.isPending}
+                    onSelect={() => void handlePublish()}
+                  >
+                    <Share2Icon />
+                    {t.agents.publishToSquare}
+                  </DropdownMenuItem>
+                ) : null}
+                {showUnpublish ? (
+                  <DropdownMenuItem onSelect={() => setUnpublishOpen(true)}>
+                    <Undo2Icon />
+                    {t.agents.unpublishFromSquare}
+                  </DropdownMenuItem>
+                ) : null}
+                {showDelete ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => setDeleteOpen(true)}
+                    >
+                      <Trash2Icon />
+                      {t.agents.delete}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -335,6 +361,14 @@ export function AgentCard({
                 {agent.description}
               </p>
             ) : null}
+            <dl className="text-sm" data-testid="employee-creator">
+              <dt className="text-muted-foreground">
+                {t.employeeDiscovery.creator}
+              </dt>
+              <dd className="mt-1 break-words">
+                {agent.creator_name ?? t.employeeDiscovery.creatorUnknown}
+              </dd>
+            </dl>
             {capabilityLabels.length > 0 ? <Separator /> : null}
             {capabilityLabels.length > 0 ? (
               <section className="flex flex-col gap-2">

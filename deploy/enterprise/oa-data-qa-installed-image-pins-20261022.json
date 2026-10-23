@@ -1,0 +1,50 @@
+{
+  "schema": "portal-oa-data-qa-installed-image-pins.v1",
+  "build_record_sha256": "8d9ecab561905ccd36faaa707ac3c15b67d18b53eb781ac4d175f777817f7aa3",
+  "candidate_image": "deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c",
+  "config_digest": "sha256:5fac6d5924346675db6f3dcf9a117359679c609cf78da4968c69497b47908425",
+  "node": "ecs-zdz-pro-0018",
+  "node_uid": "0243d097-3ee7-4abc-899a-319e57934eee",
+  "sources": {
+    "app/backend/app/gateway/oa_policy_flow_config.py": {
+      "bytes": 5712,
+      "sha256": "98ba757fe20f0924c65d924d7b952ce7d3aae06e5b8de186df7029630062e0b4"
+    },
+    "app/backend/app/gateway/oa_policy_flow_results.py": {
+      "bytes": 5142,
+      "sha256": "2ba213b9bbecf6aefc8f586c527afc8ea574e24007cd15cf6051e8d33260cd76"
+    },
+    "app/backend/app/gateway/oa_policy_flow_service.py": {
+      "bytes": 33165,
+      "sha256": "f2d7835127d84333cd592156c6bfe7588e70a150087ca87ba048cb3eef557312"
+    },
+    "app/backend/app/gateway/routers/oa_policy_flow.py": {
+      "bytes": 12974,
+      "sha256": "a494e1657b6cf2aa986bd8b5bc0fd5ea8495b85dbe686a4039c232cfeeab53f2"
+    },
+    "app/backend/app/gateway/services.py": {
+      "bytes": 52517,
+      "sha256": "507d877a1e68cfe39c405ee3f9ac9a6c6261e1c242065e07b7eb4a59dc525f58"
+    },
+    "app/backend/packages/harness/deerflow/community/appforge/data_qa_progress.py": {
+      "bytes": 1803,
+      "sha256": "cf1ca9eeb13b04b536c0d476a2cd6e5dd626f973c5338dd8d8ca3e88d4ce99d3"
+    },
+    "app/backend/packages/harness/deerflow/community/appforge/data_qa_stream.py": {
+      "bytes": 8116,
+      "sha256": "d0493f0b9dff204d7c931c23d9257ea86acef06d90e1e8a2a04218178317fe9c"
+    },
+    "app/backend/packages/harness/deerflow/community/appforge/tools.py": {
+      "bytes": 32928,
+      "sha256": "45919fdad0e5fe0fb18fa19cb0e2ea620c7b7ce07d1cb17486b8e0a8a2d31398"
+    },
+    "app/backend/packages/harness/deerflow/persistence/migrations/versions/0021_oa_result_sets.py": {
+      "bytes": 801,
+      "sha256": "f0f4e5571251359f12ca023b864542a69fda97f990bf476dbf366d9039657347"
+    },
+    "app/backend/packages/harness/deerflow/persistence/oa_policy_flow_jobs/model.py": {
+      "bytes": 3307,
+      "sha256": "21623a05aa01b804cf7b887acaeb6aff5937ecc8c73e88f0392f69e9ca95bb2b"
+    }
+  }
+}

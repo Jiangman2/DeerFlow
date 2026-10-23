@@ -1,0 +1,197 @@
+{
+  "ecs-zdz-pro-0018": {
+    "automatic_retry": false,
+    "download_report": "/var/lib/portal-gateway-glm-stream-report-2ik9kovv/REPORT.json",
+    "elapsed_seconds": 7.435,
+    "error_code": null,
+    "exitcode": 0,
+    "expected_node_uid": "0243d097-3ee7-4abc-899a-319e57934eee",
+    "hostname": "ecs-zdz-pro-0018",
+    "image_import_may_be_partial": false,
+    "image_import_requested": true,
+    "kubernetes_node_uid_freshly_checked": false,
+    "node_preload_passed": true,
+    "old_references_preserved": true,
+    "operation": "d452a68d31e34c0ea4b897d14eecdef9",
+    "query_count": 125,
+    "ready_for_rollout": false,
+    "report_bytes": 69221,
+    "report_sha256": "980ef273474dffd2812f0e2ee677f0f0a0f6dc53cabba41bb2a2468aa390c6e4",
+    "roles": [
+      {
+        "canonical_names_created": [
+          "deerflow.local/deer-flow-gateway:20261021-glm-stream-r1-3a935533a484",
+          "deerflow.local/deer-flow-gateway@sha256:3a935533a484bd26e9bb8798ab8e446d92e9a852b593a3ce92f58c0496dd83ea"
+        ],
+        "config_digest": "sha256:bbcb5f994ba56c302e7df9894beaa1b418e5f75b252beb251966b5b06538639e",
+        "content_and_unpack": "PASS",
+        "cri_visibility": "PASS",
+        "manifest_digest": "sha256:3a935533a484bd26e9bb8798ab8e446d92e9a852b593a3ce92f58c0496dd83ea",
+        "phase_a": "PASS",
+        "phase_b": "PASS",
+        "role": "gateway-forward",
+        "status": "IMPORTED_COMPLETE",
+        "tag": "deerflow.local/deer-flow-gateway:20261021-glm-stream-r1-3a935533a484",
+        "temporary_reference_retained": true
+      }
+    ],
+    "schema": "portal-gateway-glm-stream-preload.v1",
+    "status": "COMPLETE_GATEWAY_GLM_STREAM_PRELOAD_REVIEW_REQUIRED"
+  },
+  "ecs-zdz-pro-0019": {
+    "automatic_retry": false,
+    "download_report": "/var/lib/portal-gateway-glm-stream-report-3pfkezjh/REPORT.json",
+    "elapsed_seconds": 5.895,
+    "error_code": null,
+    "exitcode": 0,
+    "expected_node_uid": "e23480a1-041d-4767-b6cb-e8b93d456ac1",
+    "hostname": "ecs-zdz-pro-0019",
+    "image_import_may_be_partial": false,
+    "image_import_requested": true,
+    "kubernetes_node_uid_freshly_checked": false,
+    "node_preload_passed": true,
+    "old_references_preserved": true,
+    "operation": "7bb6861c7d554cfc8001f72f7e26c282",
+    "query_count": 125,
+    "ready_for_rollout": false,
+    "report_bytes": 69221,
+    "report_sha256": "dccdf9d0a47b11252f0587c223fed59b12231960d943d7f547d4572b656b0dec",
+    "roles": [
+      {
+        "canonical_names_created": [
+          "deerflow.local/deer-flow-gateway:20261021-glm-stream-r1-3a935533a484",
+          "deerflow.local/deer-flow-gateway@sha256:3a935533a484bd26e9bb8798ab8e446d92e9a852b593a3ce92f58c0496dd83ea"
+        ],
+        "config_digest": "sha256:bbcb5f994ba56c302e7df9894beaa1b418e5f75b252beb251966b5b06538639e",
+        "content_and_unpack": "PASS",
+        "cri_visibility": "PASS",
+        "manifest_digest": "sha256:3a935533a484bd26e9bb8798ab8e446d92e9a852b593a3ce92f58c0496dd83ea",
+        "phase_a": "PASS",
+        "phase_b": "PASS",
+        "role": "gateway-forward",
+        "status": "IMPORTED_COMPLETE",
+        "tag": "deerflow.local/deer-flow-gateway:20261021-glm-stream-r1-3a935533a484",
+        "temporary_reference_retained": true
+      }
+    ],
+    "schema": "portal-gateway-glm-stream-preload.v1",
+    "status": "COMPLETE_GATEWAY_GLM_STREAM_PRELOAD_REVIEW_REQUIRED"
+  },
+  "ecs-zdz-pro-0020": {
+    "automatic_retry": false,
+    "download_report": "/var/lib/portal-gateway-glm-stream-report-i0bu6nbf/REPORT.json",
+    "elapsed_seconds": 5.675,
+    "error_code": null,
+    "exitcode": 0,
+    "expected_node_uid": "d43ad71d-b5e1-49fc-a93f-3cb0aee6a6e2",
+    "hostname": "ecs-zdz-pro-0020",
+    "image_import_may_be_partial": false,
+    "image_import_requested": true,
+    "kubernetes_node_uid_freshly_checked": false,
+    "node_preload_passed": true,
+    "old_references_preserved": true,
+    "operation": "bcf67efbe51a49a4aafcae67a79c7e0c",
+    "query_count": 125,
+    "ready_for_rollout": false,
+    "report_bytes": 69221,
+    "report_sha256": "6b0891475ddc2eb6f7175ff1d7b3230da4617604129d24167fbf347d6c128d88",
+    "roles": [
+      {
+        "canonical_names_created": [
+          "deerflow.local/deer-flow-gateway:20261021-glm-stream-r1-3a935533a484",
+          "deerflow.local/deer-flow-gateway@sha256:3a935533a484bd26e9bb8798ab8e446d92e9a852b593a3ce92f58c0496dd83ea"
+        ],
+        "config_digest": "sha256:bbcb5f994ba56c302e7df9894beaa1b418e5f75b252beb251966b5b06538639e",
+        "content_and_unpack": "PASS",
+        "cri_visibility": "PASS",
+        "manifest_digest": "sha256:3a935533a484bd26e9bb8798ab8e446d92e9a852b593a3ce92f58c0496dd83ea",
+        "phase_a": "PASS",
+        "phase_b": "PASS",
+        "role": "gateway-forward",
+        "status": "IMPORTED_COMPLETE",
+        "tag": "deerflow.local/deer-flow-gateway:20261021-glm-stream-r1-3a935533a484",
+        "temporary_reference_retained": true
+      }
+    ],
+    "schema": "portal-gateway-glm-stream-preload.v1",
+    "status": "COMPLETE_GATEWAY_GLM_STREAM_PRELOAD_REVIEW_REQUIRED"
+  },
+  "ecs-zdz-pro-0021": {
+    "automatic_retry": false,
+    "download_report": "/var/lib/portal-gateway-glm-stream-report-73a7e1ss/REPORT.json",
+    "elapsed_seconds": 5.531,
+    "error_code": null,
+    "exitcode": 0,
+    "expected_node_uid": "181f267d-e653-4fa8-9e1f-d0138454f079",
+    "hostname": "ecs-zdz-pro-0021",
+    "image_import_may_be_partial": false,
+    "image_import_requested": true,
+    "kubernetes_node_uid_freshly_checked": false,
+    "node_preload_passed": true,
+    "old_references_preserved": true,
+    "operation": "6be4756ade6046b396d36d266e69248a",
+    "query_count": 125,
+    "ready_for_rollout": false,
+    "report_bytes": 69221,
+    "report_sha256": "3e264da4ec967b249330a48c57c23b36ed29407713b8b411ce7f0e61773906a0",
+    "roles": [
+      {
+        "canonical_names_created": [
+          "deerflow.local/deer-flow-gateway:20261021-glm-stream-r1-3a935533a484",
+          "deerflow.local/deer-flow-gateway@sha256:3a935533a484bd26e9bb8798ab8e446d92e9a852b593a3ce92f58c0496dd83ea"
+        ],
+        "config_digest": "sha256:bbcb5f994ba56c302e7df9894beaa1b418e5f75b252beb251966b5b06538639e",
+        "content_and_unpack": "PASS",
+        "cri_visibility": "PASS",
+        "manifest_digest": "sha256:3a935533a484bd26e9bb8798ab8e446d92e9a852b593a3ce92f58c0496dd83ea",
+        "phase_a": "PASS",
+        "phase_b": "PASS",
+        "role": "gateway-forward",
+        "status": "IMPORTED_COMPLETE",
+        "tag": "deerflow.local/deer-flow-gateway:20261021-glm-stream-r1-3a935533a484",
+        "temporary_reference_retained": true
+      }
+    ],
+    "schema": "portal-gateway-glm-stream-preload.v1",
+    "status": "COMPLETE_GATEWAY_GLM_STREAM_PRELOAD_REVIEW_REQUIRED"
+  },
+  "ecs-zdz-pro-0022": {
+    "automatic_retry": false,
+    "download_report": "/var/lib/portal-gateway-glm-stream-report-ge7sttbj/REPORT.json",
+    "elapsed_seconds": 6.295,
+    "error_code": null,
+    "exitcode": 0,
+    "expected_node_uid": "0f1fa57f-f37f-42ed-a296-047295f17856",
+    "hostname": "ecs-zdz-pro-0022",
+    "image_import_may_be_partial": false,
+    "image_import_requested": true,
+    "kubernetes_node_uid_freshly_checked": false,
+    "node_preload_passed": true,
+    "old_references_preserved": true,
+    "operation": "cdfee3a5482b49b6bb70061f178dcf82",
+    "query_count": 125,
+    "ready_for_rollout": false,
+    "report_bytes": 69222,
+    "report_sha256": "0370c3803e2de47f502b7bdafd910aa29fb72de9a0eb443f86057f4b2c06cf41",
+    "roles": [
+      {
+        "canonical_names_created": [
+          "deerflow.local/deer-flow-gateway:20261021-glm-stream-r1-3a935533a484",
+          "deerflow.local/deer-flow-gateway@sha256:3a935533a484bd26e9bb8798ab8e446d92e9a852b593a3ce92f58c0496dd83ea"
+        ],
+        "config_digest": "sha256:bbcb5f994ba56c302e7df9894beaa1b418e5f75b252beb251966b5b06538639e",
+        "content_and_unpack": "PASS",
+        "cri_visibility": "PASS",
+        "manifest_digest": "sha256:3a935533a484bd26e9bb8798ab8e446d92e9a852b593a3ce92f58c0496dd83ea",
+        "phase_a": "PASS",
+        "phase_b": "PASS",
+        "role": "gateway-forward",
+        "status": "IMPORTED_COMPLETE",
+        "tag": "deerflow.local/deer-flow-gateway:20261021-glm-stream-r1-3a935533a484",
+        "temporary_reference_retained": true
+      }
+    ],
+    "schema": "portal-gateway-glm-stream-preload.v1",
+    "status": "COMPLETE_GATEWAY_GLM_STREAM_PRELOAD_REVIEW_REQUIRED"
+  }
+}

@@ -31,12 +31,14 @@ const RIGHT_PANEL_ANIMATION_MS = 280;
 
 type RightPanelKind = "sidecar" | "artifacts" | "browser";
 
-const ChatBox: React.FC<{
+type ChatBoxProps = {
   children: React.ReactNode;
   threadId: string;
   canHydratePersistedArtifacts?: boolean;
   browserEnabled?: boolean;
-}> = ({
+};
+
+const ChatBox: React.FC<ChatBoxProps> = ({
   children,
   threadId,
   canHydratePersistedArtifacts = true,
@@ -252,7 +254,9 @@ const ChatBox: React.FC<{
   if (isMobile) {
     return (
       <>
-        <div className="relative size-full min-w-0">{children}</div>
+        <div className="cnooc-chat-box relative size-full min-w-0">
+          {children}
+        </div>
         <Sheet
           open={rightPanelOpen}
           onOpenChange={(open) => {
@@ -299,7 +303,7 @@ const ChatBox: React.FC<{
     <div
       id={`${resizableIdBase}-panels`}
       className={cn(
-        "[container-type:inline-size] size-full min-h-0",
+        "cnooc-chat-box [container-type:inline-size] size-full min-h-0",
         artifactsOverlayOpen
           ? "relative"
           : "grid transition-[grid-template-columns] duration-[280ms] ease-out motion-reduce:transition-none",

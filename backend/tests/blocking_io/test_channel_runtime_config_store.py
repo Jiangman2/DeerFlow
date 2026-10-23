@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
-import logging
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -144,32 +144,30 @@ async def test_runtime_config_store_overwrites_loose_existing_file(tmp_path) -> 
     assert mode == 0o600
 
 
-async def test_runtime_config_store_chmod_failure_is_logged_not_fatal(tmp_path, caplog) -> None:
-    """A chmod failure on the temp file is logged at debug and never aborts the save.
-
-    This is the line the previous owner-only assertion could not protect: with the
-    pre-rename chmod patched to raise, the save must still persist the secret and
-    the destination must still end up owner-only (via the temp file's mkstemp mode
-    that ``Path.replace`` preserves). If the chmod call were dropped, the expected
-    debug record would be absent and this test would fail.
-    """
+async def test_runtime_config_store_chmod_failure_aborts_before_publication(tmp_path) -> None:
+    """A real temporary-file permission failure must not publish new secrets."""
     path = tmp_path / "channels" / "runtime-config.json"
     store = await asyncio.to_thread(ChannelRuntimeConfigStore, path)
+    original = {"enabled": True, "bot_token": "xoxb-original"}
+    await asyncio.to_thread(store.set_provider_config, "slack", original)
+    before = await asyncio.to_thread(path.read_bytes)
 
-    real_chmod = Path.chmod
+    real_chmod = os.chmod
 
-    def chmod_spy(self: Path, mode: int, *args, **kwargs):
-        if self.suffix == ".tmp":
-            raise OSError("chmod unsupported on this filesystem")
-        return real_chmod(self, mode, *args, **kwargs)
+    def chmod_spy(target, mode: int, *args, **kwargs):
+        if Path(target).suffix == ".tmp":
+            raise PermissionError("fixture temporary-file chmod failure")
+        return real_chmod(target, mode, *args, **kwargs)
 
     def _save_with_failing_temp_chmod() -> None:
-        with caplog.at_level(logging.DEBUG, logger="app.channels.runtime_config_store"), mock.patch.object(Path, "chmod", chmod_spy):
+        with mock.patch.object(os, "chmod", chmod_spy):
             store.set_provider_config("slack", {"enabled": True, "bot_token": "xoxb-ui"})
 
-    await asyncio.to_thread(_save_with_failing_temp_chmod)
+    with pytest.raises(PermissionError, match="fixture temporary-file chmod failure"):
+        await asyncio.to_thread(_save_with_failing_temp_chmod)
 
-    assert any("Unable to chmod temporary channel runtime config store" in record.getMessage() for record in caplog.records)
+    assert await asyncio.to_thread(path.read_bytes) == before
     mode = await asyncio.to_thread(lambda: path.stat().st_mode & 0o777)
     assert mode == 0o600
-    assert await asyncio.to_thread(store.get_provider_config, "slack") == {"enabled": True, "bot_token": "xoxb-ui"}
+    assert await asyncio.to_thread(lambda: list(path.parent.glob("*.tmp"))) == []
+    assert await asyncio.to_thread(store.get_provider_config, "slack") == original

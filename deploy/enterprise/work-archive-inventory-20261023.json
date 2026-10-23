@@ -1,0 +1,957 @@
+{
+  "base": "5862bb6936d4d736f2f1c0beb79afd5ed4cf317c",
+  "files": [
+    {
+      "path": "deploy/enterprise/activate-data-qa-progress-frontend.py",
+      "bytes": 24044,
+      "sha256": "b6cfc75bfc4ad3d7ae17b8e1eec9382a18895d33f32bb40b5c005ce6ac6f5744",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/activate-nonconfidential-notice-frontend.py",
+      "bytes": 33541,
+      "sha256": "60facf27ea371ed2e43177095a3b23f3e4ca4f0c8e0a56b106d9bc4e8783d70a",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/activate-oa-compat.py",
+      "bytes": 23529,
+      "sha256": "35c1aa5ee5f840044e76e591d678e157415c9e7a0910e2be0a1a3eac846de958",
+      "kind": "modified"
+    },
+    {
+      "path": "deploy/enterprise/activate-oa-data-qa-feature.py",
+      "bytes": 19619,
+      "sha256": "3fa2b0fffdf8002248d92cf8754d7072eb67f29d5e4a1ab8432e65d6c88d0019",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/build-data-qa-token-frontend.py",
+      "bytes": 2915,
+      "sha256": "cbb7a39521cd0d8c05470a495e0571e2cf837aa6d4bcb4ce7d865bae867a80d9",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/build-nonconfidential-notice-frontend.py",
+      "bytes": 5201,
+      "sha256": "a486596d59bd24fe35f2395372ad3bb756cc8b0e3432f1d07fa5950925e3b7a7",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/build-oa-v12-interface-document.py",
+      "bytes": 24041,
+      "sha256": "ddca4fae4c423d02d19bc4c02435b09a6b9dae12e771182b886341dfb0d607c7",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/current-production-observation-20261022.json",
+      "bytes": 121670,
+      "sha256": "99ffc9ed95ee2b95f4dd8fab5db1c2ddde64ade73bddf66ad61fc01d3ff1a8f9",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-progress-frontend-activation-20261022-r1.md",
+      "bytes": 5045,
+      "sha256": "0dfb9772a0b45ad4c5857f985632f63878a1bda413664a0a1347b29883a12bba",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-progress-frontend-package-20261022-r2.json",
+      "bytes": 1466,
+      "sha256": "dae0d87cc8b1b6e53da14cbed18bd36f1b6d8098b69a86b3cf0c6eca07129a61",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-progress-frontend-preload-20261022-r2.md",
+      "bytes": 3883,
+      "sha256": "3b0235d064f0ec0a38380dd5e41633348231320808cd8bb91d56747747ed7c88",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-progress-frontend-preloads-field-20261022-r2.json",
+      "bytes": 2861,
+      "sha256": "de06a294a0964322805fb76b0e68f839f613681d542501f7942b4a74a4698ae6",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-token-frontend-20261022-r1.md",
+      "bytes": 3067,
+      "sha256": "b523597cce30b2b755db73e71930234d0e0f26c45e1b19d1344dc2459a791594",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-token-frontend-activation-20261023-r1.md",
+      "bytes": 4140,
+      "sha256": "fb9be375f0c97b3b53d1ba010ad1ff86426f7857cf7b7d2c8e2ff3421e840552",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-token-frontend-activation-field-20261023-r1.json",
+      "bytes": 5876,
+      "sha256": "f7a088b79f43cce7e51e6f206120acc6923766a05dbed21e0b7079e6bfbc5109",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-token-frontend-activation-package-20261023-r1.json",
+      "bytes": 1301,
+      "sha256": "a1beebbe50c6ab26abe3e3c393c262496bc8f95a98371fe2306921ae58084fd5",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-token-frontend-assets-20261022-r1.json",
+      "bytes": 1396,
+      "sha256": "11c1d710680a7d422aeb62a2706bf70bce1b41ca303a61330902a74f3eacb036",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-token-frontend-build-20261022-r1.json",
+      "bytes": 1935,
+      "sha256": "eb90a293e27761a858a218f8b4e56d8dbd83f66776420533d3571d2163e4234b",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-token-frontend-package-20261022-r1.json",
+      "bytes": 1812,
+      "sha256": "846f5caec296f9c5a988bf76e593c72c67bc5617b1a1c926edf4c20f6cfb7d13",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-token-frontend-preloads-field-20261023-r1.json",
+      "bytes": 3493,
+      "sha256": "b16d79f932ad598d3c4d997a788f80e54ee21385fcb4c46039e68e958ab9afd4",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/data-qa-token-frontend-source-20261022-r1.json",
+      "bytes": 2249,
+      "sha256": "ef63f89878ab773d498e10efa327a62f65eb25aed123d80e33877e7452953474",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/diagnose-oa-callback-transport.py",
+      "bytes": 2447,
+      "sha256": "dc907c9643a7eb226bc443cb6db349fdf4b41b0f8c11ff507c44e946f67fde73",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/enable-oa-v2-integration.py",
+      "bytes": 15809,
+      "sha256": "4ffdb7b6bbbcac755b898394121365be08e4b264407cfb019375cd0f1fe29ca4",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/expand-oa-schema.py",
+      "bytes": 20369,
+      "sha256": "f1b0fab7c09269baf34c1548d4cc9561f9a55dbdf11c39e81f61f96af0dfb4eb",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/inspect-oa-v2-integration.py",
+      "bytes": 13372,
+      "sha256": "e8922fda61e5cdcbcf43a45b2d6c806726d6226329a808926eee578068930b96",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/inspect-production-runtime-sources.py",
+      "bytes": 10869,
+      "sha256": "64c0515f3574790ad45f0a19a006f9694de1f04427947de5a50f32bd0a133993",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/nonconfidential-notice-frontend-20261023-r2.md",
+      "bytes": 4399,
+      "sha256": "b35375cdcda9b10145ce6ae7e1123aa2164fc3d980c8069037f47170dba10c88",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/nonconfidential-notice-frontend-activation-20261023-r3.md",
+      "bytes": 4374,
+      "sha256": "d0c5338020b5107e7d5441adc88cd8b24d4b710fbe3be3875fb37f4ebfe4f019",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/nonconfidential-notice-frontend-activation-field-20261023-r3.json",
+      "bytes": 9592,
+      "sha256": "f5a28bf39e3a765907596942e5e2f14a16b73fbfdeea8d9ee48f11bd74b05baf",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/nonconfidential-notice-frontend-activation-package-20261023-r2.json",
+      "bytes": 1176,
+      "sha256": "09614414be278036f6013a4d538214ba8e378bb919936798334762604a98b8c3",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/nonconfidential-notice-frontend-assets-20261023-r2.json",
+      "bytes": 1766,
+      "sha256": "6c5ea900b3df47916813cbbd4b122f410271618f118aa370cfedc5c8c7d7b078",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/nonconfidential-notice-frontend-browser-qa-20261023-r2.json",
+      "bytes": 7167,
+      "sha256": "54a608908cc2cc0acbbf25c6a6053020d7601bf8d8a68881ab71d2bb7cf90da6",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/nonconfidential-notice-frontend-build-20261023-r2.json",
+      "bytes": 2122,
+      "sha256": "742a6907c91cc9170508f47e0de8fccaa40765cea475154ecd19a12c88729284",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/nonconfidential-notice-frontend-package-20261023-r2.json",
+      "bytes": 1857,
+      "sha256": "ab5d8b48330dfbd618a52f5f602a13dfdb35eed6aacc1794ddc6f4755ca00a68",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/nonconfidential-notice-frontend-preloads-field-20261023-r2.json",
+      "bytes": 3434,
+      "sha256": "b220037c9c0685a83bf0b34472ce6a534a6c6daad4d9d205f94d3e6dced5aa62",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/nonconfidential-notice-frontend-source-20261023-r2.json",
+      "bytes": 178975,
+      "sha256": "409bcf7f34f08fc92e44ce5e890cc72f3d4aac4105abf9434c94a0d3463b4672",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-callback-certificate-handoff-20261023-r2.txt",
+      "bytes": 3607,
+      "sha256": "57891b5e1b624c59574013e902388e464254dc62882cbc7293e5e795027f572b",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-callback-transport-field-20261023-r1.json",
+      "bytes": 11620,
+      "sha256": "4eba632ed5cd809c6d6cafb29a1c6c2b1195eae2583dd61202468c33bacd662a",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-callback-transport-field-20261023-r2.json",
+      "bytes": 15247,
+      "sha256": "5798cfc2c24afa47592734fb2716e2ad8aaaf114920480bcc85855eac7520553",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-callback-transport-probe.py",
+      "bytes": 8899,
+      "sha256": "57817e03fe20a6e6126bd2818552f9fe4f1be4d67c0e95c03efc2c72ef5eee44",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-compat-activation-field-20261022-r2.json",
+      "bytes": 2671,
+      "sha256": "4842725be3362a76e7745b83450b1d80f44f8c67b9875299c4dd09e92dfce55b",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-compat-activation-field-20261022-r4.json",
+      "bytes": 8773,
+      "sha256": "c966af793228c9490f4fd0e429587b3f5390f9dd0284c0eca2f213817a96d12c",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-compat-activation-preparation-20261022-r1.md",
+      "bytes": 3742,
+      "sha256": "ef8c04696a0df6b3d9d9b551763dba5ab3b4220c062333b93268cc1b05337445",
+      "kind": "modified"
+    },
+    {
+      "path": "deploy/enterprise/oa-compat-activation-resume-20261022-r2.md",
+      "bytes": 4773,
+      "sha256": "20936493658b708f438db7de6d79157a5c0e84844083cfdf4c221fae3c79986f",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-compat-activation-resume-20261022-r4.md",
+      "bytes": 5405,
+      "sha256": "48201db383539a5b3d651fed146fc227453db5b42a05157e7dfba7c603d8b6a0",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-compat-live-check.py",
+      "bytes": 5922,
+      "sha256": "f4e9d23d915126b0931000d54317250f4ec532fcf322ddf82b6b6866455c3eca",
+      "kind": "modified"
+    },
+    {
+      "path": "deploy/enterprise/oa-compat-node-gate.py",
+      "bytes": 8633,
+      "sha256": "4fa4a1261f24e3084931e9a40aef56c888f57adbe3bd5d0ef8b59883d9912b07",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-data-qa-image-check-20261022-r1.md",
+      "bytes": 4815,
+      "sha256": "4cfc0994882cafff998f23170f035a4818f35e8ee3976a3f1fb1898c60491745",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-data-qa-installed-check.py",
+      "bytes": 10015,
+      "sha256": "8090892a4ebf7af7da84c2e2a5b71cf57e551e63467778d3885f71e5af41fa8e",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-data-qa-installed-image-field-20261022-r1.json",
+      "bytes": 2877,
+      "sha256": "54307a4c2b186d029a9c917f7e5d7014cfbe134f1f8dec66083a22c412e888ad",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-data-qa-installed-image-pins-20261022.json",
+      "bytes": 2307,
+      "sha256": "ddeb7d6a5cc7be17e331199fb428a2b2434a68f83d2f118d5197fd72f7dc15c1",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-feature-activation-20261022-r1.md",
+      "bytes": 6306,
+      "sha256": "235c1f7274452cf17e1cd32d74f2b4a53c47f3290bddfcae16bd67f71b889dcc",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-feature-activation-field-20261023-r1.json",
+      "bytes": 10853,
+      "sha256": "16cf77ffb237df34292d4d897e153cf63591c1b02bd263450367920aff5ec57e",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-feature-activation-package-20261022-r1.json",
+      "bytes": 1264,
+      "sha256": "34ded2629ac6829852c8fcd9c8fe57bee44e9f9ad086c5c14df12f3522779e36",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-feature-live-check.py",
+      "bytes": 15901,
+      "sha256": "a6fcec2e12c4170a053d5bab99acb16335bcd887e2cc4851d0c33865245d1169",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-schema-expansion-20261022-r1.md",
+      "bytes": 6419,
+      "sha256": "2d440efe00a4713d0bec2f646a7dcd4ad142fd79d04ac6f0c37c7a9e14afff67",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-schema-expansion-child.py",
+      "bytes": 17773,
+      "sha256": "3aa5c04fdd3c4caedb9aa240c2331e3f812f564e37e3c77238e0550a9cbf0c45",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-schema-expansion-field-20261022-r1.json",
+      "bytes": 1106,
+      "sha256": "ddbf34430c0fce3a5204a207aa2aeecb70b78821c35872900f0c30fed972cf12",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-schema-expansion-migration-base-20261022.json",
+      "bytes": 2731,
+      "sha256": "473f0db3a19c6695e660aaa64f6c0c9b12bc22aad54efb0e3f9409eef828cee5",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-schema-expansion-package-20261022-r1.json",
+      "bytes": 1243,
+      "sha256": "652437d944daf5f039b6267a6ad7608b4b2974054f7b9038ecda02df08724301",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-v12-interface-document-qualification-20261023-r1.json",
+      "bytes": 881,
+      "sha256": "96ae3fe23989820f6ec8ba70f9d73ea4c2d17f03a6eba446a61a181ef22e55c8",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-v2-enable-failure-field-20261023-r1.json",
+      "bytes": 1014,
+      "sha256": "129b1da2e648a9cd339c8d91cd38fff4139c55dceedd2dbee1577647e8f86537",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-v2-integration-enable-20261023-r1.md",
+      "bytes": 6145,
+      "sha256": "9978beba92c3aea1202ca14bf1a1f8cd6c93eebb18cc7de8056e13e71160fe78",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-v2-integration-handoff-20261023.txt",
+      "bytes": 6802,
+      "sha256": "ee0ac0d29af5fc158f1a627fb8dc24cddb150ba5d4f9a716e8fa912b2aee14b5",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-v2-integration-preflight-field-20261023-r1.json",
+      "bytes": 2441,
+      "sha256": "7b99aacab0fe1f19e0e6fe12b3a8e6f0fe7621a234d3628eebbce19b0a64e6ef",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/oa-v2-integration-preflight-package-20261023-r1.json",
+      "bytes": 665,
+      "sha256": "f77cc80c7ca95005653fb8c5f4cf190f92bdb4e1e9a495599e3e099d47f29824",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/package-data-qa-progress-frontend-activation.py",
+      "bytes": 7410,
+      "sha256": "02ae5d10fa63e3c600d04fb1e65d41284af38e2e2ca0aee249b5954e40225f66",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/package-data-qa-progress-frontend-r2.py",
+      "bytes": 10466,
+      "sha256": "5ddd31b940ee66a0f49e685524930af87eb9d58ff7363046f06a6056a822bce1",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/package-data-qa-token-frontend-activation.py",
+      "bytes": 4859,
+      "sha256": "a1370adbe62a798d0c20f5a763c5697f3427176d25ddfc70fc565d9917606526",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/package-data-qa-token-frontend.py",
+      "bytes": 6222,
+      "sha256": "3d55c97fd4ef1d9b8283f89163f28f8ac012dfb886451d56ca9c591c4f6ac597",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/package-nonconfidential-notice-frontend-activation.py",
+      "bytes": 3521,
+      "sha256": "6f25ec5e51814de977af66ae1e985df38936fd789f0ed5b56d44382e49ec3189",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/package-nonconfidential-notice-frontend.py",
+      "bytes": 6381,
+      "sha256": "7ed55a98b5a617d3a68542877f8aaf8035d226056779d0a530d7a29a87a665b4",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/package-oa-callback-transport.py",
+      "bytes": 1948,
+      "sha256": "3666261eb0c6ddd76e86489885b8d9db15b38ee462e6cdc276e28f228db3d272",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/package-oa-compat-activation.py",
+      "bytes": 2237,
+      "sha256": "40cbcfe8d2ad7d7335ede4acb2beef878db987fbcf34354486539b283cc18506",
+      "kind": "modified"
+    },
+    {
+      "path": "deploy/enterprise/package-oa-feature-activation.py",
+      "bytes": 3409,
+      "sha256": "f2ae4b61af9345ac10511301591e378a98a9d7123bede5d90218c0db2b37c949",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/package-oa-feature-image-check.py",
+      "bytes": 6037,
+      "sha256": "013fa83c4a1bd88d34da25c711db385f34dee3386686203c11f1d448589fa040",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/package-oa-schema-expansion.py",
+      "bytes": 4303,
+      "sha256": "96131e4163dd2e433dc15bc77a88fc3daf990271520a56d2e985a79b313af790",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/package-oa-v2-integration-enable.py",
+      "bytes": 2475,
+      "sha256": "e9b26f0837d9279f13282a23508a3f525077bb47d8b7a159d1d39eedd68fa955",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/package-oa-v2-integration-preflight.py",
+      "bytes": 1981,
+      "sha256": "6f28685a8e85c5e07087b82580c043bc89fe057ea4dd9d65720d0d205767cd23",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/pr13-branch-release-comparison-20261022.json",
+      "bytes": 17152,
+      "sha256": "eebd6e43da62a65639e9cf6be147beb50c22bd7bb4af31f18bf911bfe59758c5",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/pr13-merge-simulation-20261022.json",
+      "bytes": 815,
+      "sha256": "00aabf3166c0835e40af192b4c20fc9a449e0995a339a7f99440b013de542c68",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/prepare-data-qa-token-frontend.py",
+      "bytes": 3814,
+      "sha256": "9ef895c0e1a19be553af7e18cab35e2b7e2c4ebf3c0befd042f902848898e8e5",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/prepare-nonconfidential-notice-frontend.py",
+      "bytes": 3606,
+      "sha256": "928939a82ddcba161fc274b1c49970f83abf2e1cf52c0a7831a6c38bc72f66a3",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_data_qa_progress_frontend_activation.py",
+      "bytes": 18129,
+      "sha256": "522fe85a13a7432e7b5a0a7f8223e942b3343e7e8c6303de8348dcbb83dfb83f",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_data_qa_progress_frontend_r2.py",
+      "bytes": 9378,
+      "sha256": "69c8ef3b2fb3ff4d6a922b33cbb580b3d97093e3a927608668dfff7f3823a918",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_data_qa_token_frontend_activation.py",
+      "bytes": 7716,
+      "sha256": "e345e978d63c722b477650815d0a573a641d31eb348e2eb913c03b5e9ec09a6d",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_data_qa_token_frontend_preload.py",
+      "bytes": 5292,
+      "sha256": "06da80aa5ac8088da749155ddcd08914849cc2cbad68ae1afde4105a691bbff3",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_nonconfidential_notice_frontend_activation.py",
+      "bytes": 14505,
+      "sha256": "f3b3cdf8275a6dd0515e1761a7be2134f6c4b251f48b293051b116d8902fe3ec",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_nonconfidential_notice_frontend_preload.py",
+      "bytes": 5480,
+      "sha256": "1e035fe2e0cffef0ae3126fa121db147dc0bac07b5ebff53a1f52d94fa309ff0",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_oa_callback_transport.py",
+      "bytes": 9509,
+      "sha256": "0df3c5c20a631b6ef4e05ad18add3fe4da70b4dab832da75f8266bb912617625",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_oa_compat_activation.py",
+      "bytes": 21192,
+      "sha256": "0346f096c211377fa48781bbcd34cd166b97319f313ed751ed2d80db43860e79",
+      "kind": "modified"
+    },
+    {
+      "path": "deploy/enterprise/test_oa_compat_interruption.py",
+      "bytes": 6988,
+      "sha256": "a8b087bff9581793291a7dbe43125e46d0209283ff235ee3c340bdfece0d15c7",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_oa_compat_node_gate.py",
+      "bytes": 12985,
+      "sha256": "ad0bf11133af98ace60d7d203dc8e591175d13ed50fe1365ff650b8f34fa5f2a",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_oa_compat_task_inventory.py",
+      "bytes": 12750,
+      "sha256": "d0a8d9761e49d8df0d81d7d3f50b2265a6dab1bab139d1e927196b3cf8ddb95d",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_oa_feature_activation.py",
+      "bytes": 23349,
+      "sha256": "0658a16e85986ab0d5eebe097abca164c455611ef5c1047bcea82b71d6ae6f31",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_oa_feature_image_check.py",
+      "bytes": 8946,
+      "sha256": "762aef46b57750d2a438c6b9b2e33c4e1c4bdb6f84229f6a9d8735ec419eaac3",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_oa_feature_live_check.py",
+      "bytes": 15828,
+      "sha256": "4835cb7fb83d3fee4597b5102c3f3cdccc9e4af0c1f87ebaf3ab9d2c0f561a6c",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_oa_schema_expansion_child.py",
+      "bytes": 25861,
+      "sha256": "1ae4dba11e66873ecd779c868ae5a13e8451d3a5305d542060a24c8a933b1206",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_oa_schema_expansion_host.py",
+      "bytes": 18663,
+      "sha256": "fb5837d6ec2b61de868f344ba2572b15b187bbf12ef87ea0fa31a4b223811103",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_oa_v2_integration_enable.py",
+      "bytes": 10745,
+      "sha256": "fa34e13cd5d4583442b3aa13fce8282b918ec51030f5508eb43bb4754254ca26",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_oa_v2_integration_preflight.py",
+      "bytes": 9588,
+      "sha256": "3c4bdf415a59f5ed60e82a4c7f0c71f9ff41baa5f191905b27feeba4fd72daf8",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/test_production_runtime_sources.py",
+      "bytes": 4526,
+      "sha256": "d003f805c24e16eecea72abdaa02b38097c379176f9f8226eaac985416cc3387",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/verify-data-qa-token-assets.py",
+      "bytes": 2926,
+      "sha256": "0dcf8509eec759c972dc9782fdaecc002c38f9fdc0d634392c30c76c89357a1f",
+      "kind": "new"
+    },
+    {
+      "path": "deploy/enterprise/verify-nonconfidential-notice-assets.py",
+      "bytes": 3190,
+      "sha256": "d83e7d412bfa564b54a8cb6fdef8138d3247a13cb5b1f4e6ce96731bb94d6c9c",
+      "kind": "new"
+    },
+    {
+      "path": "docs/oa-policy-flow-v2.md",
+      "bytes": 11337,
+      "sha256": "ee445f6b58a4ee7df33a21ea1920b14bc9137c002cfbf2ccbe474f8e34222cf6",
+      "kind": "modified"
+    },
+    {
+      "path": "docs/production-branch-reconciliation-20261022.md",
+      "bytes": 4839,
+      "sha256": "6e74eafd11692d4cf9593b97a7cf264ecefabeb9f98df42e9aac209fb00d48af",
+      "kind": "new"
+    },
+    {
+      "path": "docs/token-usage-streaming-display-20261022.md",
+      "bytes": 6548,
+      "sha256": "be61e59a16f05f3e40b2453f88479f90bb36d21c9cb2ef96c65f0651e0374b9f",
+      "kind": "modified"
+    },
+    {
+      "path": "docs/集团OA制度文生图数据服务接口规范说明文档_V1.2.docx",
+      "bytes": 50317,
+      "sha256": "44e4ed6b2859cf61da144b9b945580c4d02d3d6aa84d011d815c16c66b879bfc",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/AGENTS.md",
+      "bytes": 65726,
+      "sha256": "ae731f61af7d2b695919c18971fa657abcc07fb55374af5f595eaf3a09afdcd6",
+      "kind": "modified"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019-r2/PROMPTS.md",
+      "bytes": 3610,
+      "sha256": "c617ecfd00413966c1f371ea70c4ca8b15960258cbfd7593356a0d104123b04d",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019-r2/build-artwork.cjs",
+      "bytes": 4939,
+      "sha256": "ef4e3d5a1b9722dac78bfb60fa1c8fff63bdbe0a380aaa42a73c8f6555131ea1",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019-r2/convert.png",
+      "bytes": 415916,
+      "sha256": "833567aa48cfc15ecbcebbc6a5e9f3f3fdb6857d2ff4b51a4bbc9746abcbed9d",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019-r2/liveTranscribe.png",
+      "bytes": 579512,
+      "sha256": "937588f079a69ad65466e89ace2ec7752d4b171970cab04220422550f002b629",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019-r2/manifest.json",
+      "bytes": 9683,
+      "sha256": "aecd809c0ec5812cbb38d061e89088523d98b58638eb67ce55d87a03d629a4dd",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019-r2/more.png",
+      "bytes": 476991,
+      "sha256": "1023374bcdcde421807110703e8df6116064138ce569a6989749f9b7436ce3e5",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019-r2/ppt.png",
+      "bytes": 546237,
+      "sha256": "4953ca6c3c45ed148c46a1c04f9b3d0245030aaa51877b3f09a74e2d99304df3",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019-r2/proofread.png",
+      "bytes": 562009,
+      "sha256": "ce2cb27d6b17032a99e457fc36a7fe0f6b781fc6ea26018a5be82d86fba96709",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019-r2/recordTranscribe.png",
+      "bytes": 602770,
+      "sha256": "6e72f2269ae4d229c6f1efb9f18275f05b20ff500f5a02865329a1ef827dee92",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019-r2/speech.png",
+      "bytes": 504657,
+      "sha256": "666091cc8083ac09b48900d490db516bdad43e24f9359241ed2484893bf6f7d5",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019-r2/translate.png",
+      "bytes": 548316,
+      "sha256": "b67cc652953a4047eca1cc6a9bd49b043bec53b53c0b275d0e83852cefd0d859",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019/PROMPTS.md",
+      "bytes": 2090,
+      "sha256": "5822fc890b7bc225c6a12091d6a9ccae93b5587f09788a45f9a9b526f80af53c",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019/build-artwork.cjs",
+      "bytes": 4621,
+      "sha256": "7e9fc004de5fa4b3552805f4e46c0dd59054c5e4add19c63b4224fe247ec9c92",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019/convert.png",
+      "bytes": 411638,
+      "sha256": "64f21eac915a5de4feffc4a27346991acf28d2d2bd6ed24ac02b3f37a76cb93d",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019/liveTranscribe.png",
+      "bytes": 550801,
+      "sha256": "1ff878243771f8b8d8ba8c785924bd4e91be83e2536783195b6d028eb15dcf6d",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019/manifest.json",
+      "bytes": 6217,
+      "sha256": "0b08a061ad82853445b393fdf583b0b4c60d4cf1ae04694d369defe30f4264e0",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019/more.png",
+      "bytes": 476991,
+      "sha256": "1023374bcdcde421807110703e8df6116064138ce569a6989749f9b7436ce3e5",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019/ppt.png",
+      "bytes": 550751,
+      "sha256": "26a4979ea523cc8661e73437524f64dbdc54c0f095e9ba6b0c0c43c40f6ca354",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019/proofread.png",
+      "bytes": 556394,
+      "sha256": "3e55e3e28e504de7bc13908fb19eaa01ddea2b3470b9ec9375734f620e57ffb7",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019/recordTranscribe.png",
+      "bytes": 582097,
+      "sha256": "81d02dc21ee98fe5641b047d6fe0479b281f7d892f3257db5e6af48da9cf14fe",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019/speech.png",
+      "bytes": 495399,
+      "sha256": "2184128e940cf9beb5bcb0a67d826140f2b1b7c895ebe369b9839876dddd1469",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/assets/portal-icons/20261019/translate.png",
+      "bytes": 546042,
+      "sha256": "9cf8f0a71ac868236c32aaf88e95e4f469dd8cf0eb40ae14ec7474f8c8c8773b",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-convert.webp",
+      "bytes": 3270,
+      "sha256": "171c307aa8b8febc065995a9d1babc03f9a7b712af4c89115509bedc7b75888b",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-liveTranscribe.webp",
+      "bytes": 3372,
+      "sha256": "93bca4287a3dc661912df14e7defe8970fb9d990691fe4306325a7c8d734d6a4",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-more.webp",
+      "bytes": 3618,
+      "sha256": "35f2383ef5c1bbb04044eb6e2188bdc0149baf20057063da2ce95d16f1e0fb69",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-ppt.webp",
+      "bytes": 3018,
+      "sha256": "e2e2fcab9922ac26e938be96d5d37e9e6bd2587659dc0295d510951398bf6897",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-proofread.webp",
+      "bytes": 3206,
+      "sha256": "14d093ebc027d7bc10e0e67ec22c1be5a1fb9b5265cd22a00e0b60f5088356ae",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-r2-analysis.webp",
+      "bytes": 3488,
+      "sha256": "308c946eacdd319659a187394ae7492ea54ee2c2f57de12b6fb3110018a3aa39",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-r2-convert.webp",
+      "bytes": 4360,
+      "sha256": "c73f747e99e268bf8a149eb1612b4f1a38c2877fc3e5629380cbce6613a9dbbf",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-r2-image.webp",
+      "bytes": 2990,
+      "sha256": "e40ffeb7f0290c7888300f51fbb3c36a5e8804ad19603c6b5e32a47cb891d19c",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-r2-liveTranscribe.webp",
+      "bytes": 4364,
+      "sha256": "a379e034f8ad4becbf95ab4725d1aadc619b44856197965d834d4a1869eeb098",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-r2-more.webp",
+      "bytes": 5204,
+      "sha256": "66378d82829b4f2816551a7211accb1025f7ca40ee41b7650118861613136f37",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-r2-ppt.webp",
+      "bytes": 4284,
+      "sha256": "76188f3b97c80fdf5987a6cfcb0366923c1a65a3c569f8e397434b63e611365e",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-r2-pptAction.webp",
+      "bytes": 3176,
+      "sha256": "5142256528749c484cface243a709809e0d9f4b4d395db2bf9c723bf4f40d518",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-r2-proofread.webp",
+      "bytes": 4708,
+      "sha256": "b0c384b7d2b4d0344a80972b4eaf56f65cdc9aa7eeda308b9db3c1265276c70b",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-r2-recordTranscribe.webp",
+      "bytes": 4668,
+      "sha256": "7fd88ded48fb7dda30ffdb46fbc25d555430a454416d501fac702f0c6a08ee5b",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-r2-research.webp",
+      "bytes": 4900,
+      "sha256": "2bd1202d690e9321938bb6ebd00864801e0625fdb5829936cb788c7ac568f2fe",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-r2-speech.webp",
+      "bytes": 4144,
+      "sha256": "ac4e092a912b72b2711407ea36dec5410f2ab25e6f701ae69b151152bc589469",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-r2-translate.webp",
+      "bytes": 4632,
+      "sha256": "44faa82c068b8909db5bedbe97d8e7e405ed198a03016d13a613039c9c6dbad2",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-recordTranscribe.webp",
+      "bytes": 3556,
+      "sha256": "70b084dc0c59e8741f1a0b620c20219e8794c0ed25eb64b55332975bc9d53134",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-speech.webp",
+      "bytes": 3340,
+      "sha256": "230760739fa05382164ac0072de0c0675a5704a7d39a32ed1ece793d715c01ec",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/public/images/portal-3d-20261019-translate.webp",
+      "bytes": 3426,
+      "sha256": "58fcaa527139f2c225d2500a906f7f65a39a8b09dbdf9d100aa49ea115f09d14",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/src/app/workspace/chats/[thread_id]/layout.tsx",
+      "bytes": 784,
+      "sha256": "eebcece3c3f0608719e34045e0f5f3e98b85159a66823a7b8ada24486229578d",
+      "kind": "modified"
+    },
+    {
+      "path": "frontend/src/app/workspace/chats/[thread_id]/page.tsx",
+      "bytes": 21852,
+      "sha256": "2abbb6071f035eb362c05ee8289dac293e5c691b75ace005c10b6c29ef037fcf",
+      "kind": "modified"
+    },
+    {
+      "path": "frontend/src/components/workspace/non-confidential-notice.tsx",
+      "bytes": 540,
+      "sha256": "e3da052ed346cf5eee866f80774f477b33b3ab44313732af1201c79729a1ea8c",
+      "kind": "new"
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en-US.ts",
+      "bytes": 50418,
+      "sha256": "1e87cf11697e6d6d1316973c5e31a8aea3dfb5b79059a85c4f7302c21ace69ae",
+      "kind": "modified"
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/types.ts",
+      "bytes": 25952,
+      "sha256": "5582d58c0be573b8ea4835220a7416fce8f543ce7b75d745cda3fd88be527992",
+      "kind": "modified"
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh-CN.ts",
+      "bytes": 48762,
+      "sha256": "6d2d4bc32c68d2a5c71198d3f6526a75a160418f485f74514c5980a33b6a8c9c",
+      "kind": "modified"
+    },
+    {
+      "path": "frontend/src/styles/cnooc-concept.css",
+      "bytes": 113805,
+      "sha256": "3062a9e839392e224a09fb8c40443e64b247c5e2f2156173e25eb937981bc506",
+      "kind": "modified"
+    }
+  ],
+  "secret_scan_flags": [],
+  "scope": "All 158 tracked modifications and untracked files in this task worktree since 5862bb693. Does not include pre-existing unrelated edits in the primary checkout.",
+  "production_equivalence_claimed": false,
+  "pending_work_preserved": true
+}

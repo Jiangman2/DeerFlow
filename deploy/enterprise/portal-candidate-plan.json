@@ -1,0 +1,87 @@
+{
+  "candidate": "portal-glm-hotfix-20261013",
+  "source_base_commit": "ff96696aebd7092af395fbcafc423499d9a8e729",
+  "source_branch": "codex/portal-glm-hotfix-20261013",
+  "source_changes_committed": false,
+  "production_baseline": "REFRESH_REQUIRED_BEFORE_PACKAGING",
+  "features": {
+    "compact_more_menu_seven_approved_links": "LOCAL_VERIFIED",
+    "user_guide_link": "LOCAL_VERIFIED",
+    "admin_hot_flags_and_default_gallery_filter": "LOCAL_VERIFIED_SHARED_VOLUME_ACCEPTANCE_REQUIRED",
+    "creator_display_name": "LOCAL_VERIFIED",
+    "glm_text_stream_tools_single_image": "LOCAL_MOCK_VERIFIED_ENTERPRISE_ACCEPTANCE_REQUIRED",
+    "intranet_browser_open_work": "LOCAL_REDIRECT_WEBSOCKET_REGRESSION_PASS_EXTENDED_AND_ENTERPRISE_ACCEPTANCE_REQUIRED"
+  },
+  "hot_policy": {
+    "existing_public_employees": "HOT_AT_EXPLICIT_INITIALIZATION",
+    "newly_published_employees": "DEFAULT_HOT",
+    "private_drafts": "NOT_PUBLIC",
+    "admin_removal": "PRESERVED_ACROSS_REPUBLICATION_BY_SAME_PUBLISHER",
+    "persistence": "SHARED_JSON_WITH_LOCK_ATOMIC_RENAME_AND_CAS",
+    "new_database_table": false,
+    "maintenance": "EXPLICIT_PRIVATE_BACKUP_AND_REVISION_BOUND_RESTORE"
+  },
+  "local_qualification": {
+    "browser_real_chromium_gate": {
+      "status": "SCOPED_PASS_NOT_RELEASE_READY",
+      "scoped_pytest_result": {"passed": 102, "failed": 0, "skipped": 0},
+      "result_scope": "private_flow_private_origins_browser_automation_browser_router",
+      "network": "DISABLED_LOOPBACK_SYNTHETIC_TARGETS_ONLY",
+      "enterprise_credentials_used": false,
+      "test": "backend/tests/test_browser_private_flow.py",
+      "passed_flows": ["resources_css_and_javascript", "synthetic_login_post_cookie_303_and_interaction", "direct_denied_origin", "denied_image_iframe_js_navigation_and_popup"],
+      "fixed_regressions": ["HTTP_301_302_303_307_308_REACH_DENIED_FIXTURE", "WEBSOCKET_HANDSHAKE_REACHES_DENIED_FIXTURE"],
+      "remaining": ["extended_worker_websocket_and_lifecycle_tests", "production_dependency_and_egress_qualification", "enterprise_end_to_end_acceptance"],
+      "enterprise_chat_login_acceptance": "NOT_PERFORMED_NO_CANDIDATE_DEPLOYMENT",
+      "production_browser_policy_changed": false,
+      "application_guard_changed_by_this_verification": true
+    },
+    "backend_scoped": { "passed": 360, "skipped": 3 },
+    "linux_offline_supplement": { "passed": 32 },
+    "frontend_playwright": { "passed": 13, "api_mode": "MOCK", "provider_calls": 0 },
+    "frontend_unit_scoped": { "passed": 9 },
+    "typescript": "PASS",
+    "linux_channel_contract": { "passed": 12, "real_process_locks": true },
+    "linux_diagnostic_and_safety_scoped": { "passed": 142 },
+    "backend_full_suite": {
+      "status": "INCOMPLETE_NOT_ACCEPTED",
+      "interrupted_after_no_progress": true,
+      "passed": 7449,
+      "failed": 4,
+      "skipped": 60,
+      "subtests_passed": 27,
+      "followup_scoped_passed": 149,
+      "followup": "IMPORT_PATH_AND_PWD_FIXTURES_AND_REGEX_CACHE_FIXED_AND_RETESTED",
+      "remaining": "QA_IMAGE_LANGCHAIN_CORE_1_4_9_DOES_NOT_MATCH_LOCK_1_3_3_ALIGN_DEPENDENCIES_AND_COMPLETE_FULL_RERUN",
+      "version_assertion_weakened": false
+    },
+    "diagnostic_archive": {
+      "file": "portal-glm-acceptance-20261013-r2.tar.gz",
+      "sha256": "5875460c25cbdd7c981ba5de292b932c997665dceeefd537c02f384ca30a7c32",
+      "linux_bundle_checks": "PASS",
+      "server_execution": "NOT_PERFORMED"
+    },
+    "production_acceptance": "NOT_PERFORMED"
+  },
+  "release_scope_portal_glm_only": {
+    "images": ["gateway", "frontend"],
+    "new_sql_migration": false,
+    "operator_configuration": ["shared_featured_json_path_and_initialization", "additive_glm_model_entry", "required_server_side_glm_secret"],
+    "default_model_change": false,
+    "ocr_service_change": false,
+    "isolated_ppt_provider_change": false
+  },
+  "separate_ppt_batch": "PRESERVED_NOT_YET_INTEGRATED_ITS_IMAGE_AND_MIGRATION_REQUIREMENTS_STILL_APPLY",
+  "release_gates": [
+    "Recheck production image/source/configuration fingerprints and reconcile candidate deltas",
+    "Verify hot-store persistence, cross-node locking and atomic rename across Gateway replicas",
+    "Provision the model Secret without storing credentials in Git or shell history",
+    "Run enterprise_glm_probe in the enterprise network and qualify actual deployment routing",
+    "Build source-locked candidate images and run isolated image/browser acceptance",
+    "Prepare reviewed backup, rollback and rollout plan",
+    "Do not enable private browser exceptions before real Chromium redirect/WebSocket denial and deployment egress controls pass; then qualify authenticated enterprise chat and browser flow"
+  ],
+  "production_workloads_mutated": false,
+  "images_built_or_imported_by_this_batch": false,
+  "ready_for_rollout": false
+}

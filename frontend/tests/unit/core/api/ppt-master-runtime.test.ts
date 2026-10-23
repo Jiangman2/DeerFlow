@@ -1,40 +1,18 @@
-import { describe, expect, it, rs } from "@rstest/core";
+import { afterEach, describe, expect, it, rs } from "@rstest/core";
 
 import {
   PPT_MASTER_RUNTIME_ASSISTANT_ID,
   hasPptMasterRuntimeMetadata,
   inheritPptMasterRuntimeThread,
-  isExplicitPptMasterRunInput,
   rememberPptMasterRuntimeThread,
   shouldUsePptMasterRuntime,
 } from "@/core/api/ppt-master-runtime";
 
-describe("ppt-master isolated runtime routing", () => {
-  it("routes only an explicit leading slash activation", () => {
-    expect(
-      isExplicitPptMasterRunInput({
-        messages: [{ role: "user", content: "/ppt-master 请创建5页PPT" }],
-      }),
-    ).toBe(true);
-    expect(
-      isExplicitPptMasterRunInput({
-        messages: [{ role: "user", content: "请介绍 ppt-master" }],
-      }),
-    ).toBe(false);
-  });
+afterEach(() => {
+  rs.unstubAllGlobals();
+});
 
-  it("supports SDK text content blocks and ignores earlier activations", () => {
-    expect(
-      isExplicitPptMasterRunInput({
-        messages: [
-          { role: "user", content: "/ppt-master old" },
-          { role: "assistant", content: "done" },
-          { role: "user", content: [{ type: "text", text: "继续" }] },
-        ],
-      }),
-    ).toBe(false);
-  });
-
+describe("persisted ppt-master runtime ownership", () => {
   it("recognizes persisted runner thread metadata", () => {
     expect(
       hasPptMasterRuntimeMetadata({
@@ -44,7 +22,7 @@ describe("ppt-master isolated runtime routing", () => {
     expect(hasPptMasterRuntimeMetadata({ metadata: {} })).toBe(false);
   });
 
-  it("marks an explicit first submit before state hydration starts", () => {
+  it("does not mark a new Slash Skill request as a runner thread", () => {
     const setItem = rs.fn();
     rs.stubGlobal("window", { sessionStorage: { setItem } });
 
@@ -52,11 +30,8 @@ describe("ppt-master isolated runtime routing", () => {
       rememberPptMasterRuntimeThread("thread-ppt", {
         messages: [{ role: "user", content: "/ppt-master 创建演示文稿" }],
       }),
-    ).toBe(true);
-    expect(setItem).toHaveBeenCalledWith(
-      "deerflow:ppt-master-runtime:thread-ppt",
-      PPT_MASTER_RUNTIME_ASSISTANT_ID,
-    );
+    ).toBe(false);
+    expect(setItem).not.toHaveBeenCalled();
   });
 
   it("inherits the runtime marker when the runner returns a different id", () => {
@@ -68,7 +43,7 @@ describe("ppt-master isolated runtime routing", () => {
     rs.stubGlobal("window", { sessionStorage });
 
     rememberPptMasterRuntimeThread("welcome-thread", {
-      messages: [{ role: "user", content: "/ppt-master 创建演示文稿" }],
+      metadata: { runtime_profile: PPT_MASTER_RUNTIME_ASSISTANT_ID },
     });
 
     expect(
@@ -88,7 +63,7 @@ describe("ppt-master isolated runtime routing", () => {
 
     expect(
       rememberPptMasterRuntimeThread("storage-blocked-source", {
-        messages: [{ role: "user", content: "/ppt-master 创建演示文稿" }],
+        metadata: { runtime_profile: PPT_MASTER_RUNTIME_ASSISTANT_ID },
       }),
     ).toBe(true);
     expect(
@@ -99,19 +74,54 @@ describe("ppt-master isolated runtime routing", () => {
     ).toBe(true);
   });
 
-  it("does not probe runs before an ordinary first submit creates the thread", async () => {
-    const list = rs.fn();
+  it("keeps a created thread with no runner history on the ordinary Agent", async () => {
+    const list = rs.fn(async () => []);
     const client = { runs: { list } };
 
     await expect(
       shouldUsePptMasterRuntime(
         client as unknown as Parameters<typeof shouldUsePptMasterRuntime>[0],
         "ordinary-first-submit",
-        {
-          messages: [{ role: "user", content: "分析这份资料" }],
-        },
+        { submitting: true },
       ),
     ).resolves.toBe(false);
-    expect(list).not.toHaveBeenCalled();
+    expect(list).toHaveBeenCalledWith("ordinary-first-submit");
+  });
+
+  it("recovers runner ownership for an early continuation with blocked storage", async () => {
+    rs.stubGlobal("window", {
+      get sessionStorage() {
+        throw new DOMException("Blocked", "SecurityError");
+      },
+    });
+    const list = rs.fn(async () => [
+      { assistant_id: PPT_MASTER_RUNTIME_ASSISTANT_ID },
+    ]);
+    const client = { runs: { list } } as unknown as Parameters<
+      typeof shouldUsePptMasterRuntime
+    >[0];
+    await expect(
+      shouldUsePptMasterRuntime(client, "early-runner-continuation", {
+        submitting: true,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      shouldUsePptMasterRuntime(client, "early-runner-continuation"),
+    ).resolves.toBe(true);
+    expect(list).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not submit to a different owner when run discovery fails", async () => {
+    const list = rs.fn(async () => {
+      throw new Error("owner lookup unavailable");
+    });
+    const client = { runs: { list } } as unknown as Parameters<
+      typeof shouldUsePptMasterRuntime
+    >[0];
+    await expect(
+      shouldUsePptMasterRuntime(client, "unknown-owner-submit", {
+        submitting: true,
+      }),
+    ).rejects.toThrow("owner lookup unavailable");
   });
 });

@@ -1,0 +1,19 @@
+{
+  "schema": "oa-v12-interface-document-qualification.v1",
+  "reference_sha256": "7103256916efb1988feba586840065ccc9b0b31b58565f55b2f159e634e774bf",
+  "document_sha256": "44e4ed6b2859cf61da144b9b945580c4d02d3d6aa84d011d815c16c66b879bfc",
+  "document_bytes": 50317,
+  "reference_unchanged": true,
+  "preserved_package_parts": 14,
+  "cover_structure_preserved_except_version_and_date": true,
+  "section_geometry_and_first_page_footer_preserved": true,
+  "footer_preserved_except_version": true,
+  "header_absent_as_in_reference": true,
+  "rendered_pages_visually_reviewed": 9,
+  "hmac_example_checks_passed": 20,
+  "enable_script_bytes": 32577,
+  "enable_script_sha256": "a84ea8336b5cdb91073e6fb1dad806cef26025401a65d4d601104dc609360de5",
+  "enable_script_matches_qualified_packager": true,
+  "production_modified": false,
+  "oa_business_acceptance": "PENDING"
+}

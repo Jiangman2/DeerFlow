@@ -7,6 +7,10 @@ from pathlib import Path
 
 def main():
     root = Path(__file__).resolve().parents[2]
+    if (root / "deploy/enterprise/production-source-lock-20261023.json").exists():
+        import runpy
+        runpy.run_path(str(root / "deploy/enterprise/verify-release-source-20261023.py"), run_name="__main__")
+        return
     evidence = json.loads((root / "deploy/enterprise/production-runtime-fingerprints-20261022.json").read_text())
     results = []
     for component in evidence["observation"]["components"]:
