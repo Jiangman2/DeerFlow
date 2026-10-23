@@ -1,0 +1,84 @@
+{
+  "schema": "portal-oa-data-qa-image-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_RECEIPT_NOT_DIRECT_CLUSTER_READ",
+  "image_reference_markdown_normalized": true,
+  "observation": {
+    "automatic_retry": false,
+    "checks": [
+      {
+        "deployment": "gateway",
+        "job": "portal-oa-feature-check-9e91a0b5da43",
+        "job_conditions": [
+          {
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "SuccessCriteriaMet"
+          },
+          {
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "job_uid": "de48c0b2-f6c2-4c8c-a47c-e170cb2c0bca",
+        "observation": {
+          "business_values_verified": false,
+          "checks": [
+            "installed_sources_and_0021_head",
+            "v2_disabled_by_default",
+            "scheduler_budget_300",
+            "oa_budget_1000",
+            "three_file_snapshot",
+            "snapshot_retry_stable",
+            "agent_edit_does_not_change_delivery",
+            "invalid_batch_rejected",
+            "errored_run_not_promoted",
+            "data_qa_progress_before_stream_end",
+            "progress_redacted_and_terminal",
+            "additive_migration_preserves_legacy_row"
+          ],
+          "oa_callback_requests": 0,
+          "production_configuration_used": false,
+          "production_database_access": false,
+          "provider_requests": 0,
+          "ready_for_rollout": false,
+          "schema_migrated": false,
+          "status": "INSTALLED_OA_DATA_QA_IMAGE_ACCEPTED",
+          "synthetic_database": "TEMPORARY_SQLITE",
+          "temporary_files_cleaned": true
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c",
+                "waiting_reason": null
+              }
+            ],
+            "name": "portal-oa-feature-check-9e91a0b5da43-28gzv",
+            "phase": "Succeeded",
+            "uid": "1dad0dff-030f-4d15-9762-f3564ffa0a64"
+          }
+        ],
+        "status": "PASS"
+      }
+    ],
+    "production_database_access": false,
+    "production_workload_modified": false,
+    "provider_requests": 0,
+    "ready_for_rollout": false,
+    "report_bytes": 1759,
+    "report_path": "/var/lib/portal-oa-data-qa-image-check-20261022-r1/REPORT.json",
+    "report_sha256": "04f0f94236e3941898c974f45e8351b5764b3f972eaf2f79cde6791c2496fc25",
+    "schema": "portal-oa-data-qa-installed-image.v1",
+    "schema_migrated": false,
+    "status": "OA_DATA_QA_IMAGE_ACCEPTED_NOT_DEPLOYED",
+    "temporary_jobs_created": [
+      {
+        "creation_requested": true,
+        "name": "portal-oa-feature-check-9e91a0b5da43"
+      }
+    ]
+  }
+}

@@ -59,12 +59,17 @@ export function BrowserViewPanel({
     },
     [t.browser.cannotOpen],
   );
-  const { status, frameUrl, liveUrl, sendInput } = useBrowserStream(
-    threadId,
-    live,
-    streamSeedUrl,
-    handleNavRejected,
-  );
+  const {
+    status,
+    frameUrl,
+    liveUrl,
+    sendInput,
+    manualLogin,
+    loginPending,
+    loginError,
+    sessionLost,
+    reconnectNewSession,
+  } = useBrowserStream(threadId, live, streamSeedUrl, handleNavRejected);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<HTMLImageElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -244,9 +249,11 @@ export function BrowserViewPanel({
 
   const liveActive = live && status === "open";
   const liveConnecting = live && status === "connecting";
-  const displayUrl = live
-    ? (frameUrl ?? liveFallback?.frameUrl ?? imageUrl)
-    : (liveFallback?.frameUrl ?? imageUrl);
+  const displayUrl = sessionLost
+    ? null
+    : live
+      ? (frameUrl ?? liveFallback?.frameUrl ?? imageUrl)
+      : (liveFallback?.frameUrl ?? imageUrl);
 
   // React registers onWheel as a passive listener, so preventDefault() there is
   // ignored and the wheel scrolls the host chat page. Bind a native, non-passive
@@ -407,7 +414,7 @@ export function BrowserViewPanel({
           title={live ? t.browser.stopLive : t.browser.startLive}
         >
           <RadioIcon className="size-3.5" />
-          {live ? (status === "open" ? t.browser.live : "…") : t.browser.live}
+          {live && status !== "open" && !sessionLost ? "…" : t.browser.live}
         </Button>
         <Button
           size="icon-sm"
@@ -421,6 +428,70 @@ export function BrowserViewPanel({
           <XIcon />
         </Button>
       </header>
+      <section
+        aria-label={t.browser.loginBegin}
+        className="bg-background shrink-0 space-y-2 border-b px-3 py-2 text-xs"
+      >
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant={manualLogin ? "default" : "outline"}
+            disabled={
+              !live || status !== "open" || manualLogin === null || loginPending
+            }
+            onClick={() =>
+              sendInput({
+                type: "login_control",
+                action: manualLogin ? "resume" : "begin",
+              })
+            }
+          >
+            {manualLogin ? t.browser.loginResume : t.browser.loginBegin}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={
+              !live || status !== "open" || manualLogin === null || loginPending
+            }
+            onClick={() => {
+              setLiveFallback(null);
+              sendInput({ type: "login_control", action: "clear" });
+            }}
+          >
+            {t.browser.loginClear}
+          </Button>
+        </div>
+        {!sessionLost && (
+          <p role="status" className="text-muted-foreground">
+            {manualLogin
+              ? t.browser.loginPrivate
+              : manualLogin === null
+                ? t.browser.loginUnavailable
+                : t.browser.loginScope}
+          </p>
+        )}
+        {loginError && (
+          <p role="alert" className="text-destructive">
+            {t.browser.loginFailure}
+          </p>
+        )}
+        {sessionLost && (
+          <div role="alert" className="space-y-2">
+            <p>{t.browser.loginSessionLost}</p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setLiveFallback(null);
+                reconnectNewSession();
+              }}
+            >
+              {t.browser.loginReconnect}
+            </Button>
+          </div>
+        )}
+      </section>
       <main className="relative flex min-h-0 grow flex-col overflow-hidden bg-neutral-950">
         <div
           ref={stageRef}
@@ -440,11 +511,21 @@ export function BrowserViewPanel({
             />
           ) : (
             <ConversationEmptyState
-              className="absolute inset-0 m-auto h-fit"
+              className="absolute inset-0 m-auto h-fit text-neutral-100 [&_.text-muted-foreground]:text-neutral-300"
               icon={<MonitorIcon />}
-              title={live ? t.browser.connecting : t.browser.noActivity}
+              title={
+                sessionLost
+                  ? t.browser.loginReconnect
+                  : live
+                    ? t.browser.connecting
+                    : t.browser.noActivity
+              }
               description={
-                live ? t.browser.waitingForFrame : t.browser.emptyDescription
+                sessionLost
+                  ? t.browser.loginSessionLost
+                  : live
+                    ? t.browser.waitingForFrame
+                    : t.browser.emptyDescription
               }
             />
           )}

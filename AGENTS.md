@@ -1,5 +1,13 @@
 # AGENTS.md
 
+The latest verified production source sets (Gateway 385, Frontend 227 and
+PPT Runner 55) are documented in `docs/production-source-reconciliation-20261023.md`.
+Run `python deploy/enterprise/verify-release-source-20261023.py --ref HEAD`
+to check committed sources against the accepted release inventories. Runner
+retains a separate source snapshot; do not replace it with Gateway sources.
+Historical preparation and diagnostic scripts are not a request to rerun a
+completed deployment, migration or callback.
+
 The 2026-09-28 enterprise source alignment is documented in
 `release/production-build-alignment-20260928/README.md`. The running PPT Agent
 Host uses `vendor/ppt-master-v6.6.0/`; shared Skills retain their separate

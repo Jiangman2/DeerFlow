@@ -1,0 +1,61 @@
+集团 OA 制度文生图 v2 联调交接单
+更新：2026-10-23
+
+本交接单用于平台操作记录。对 OA 的完整接口契约以 docs/集团OA制度文生图数据服务接口规范说明文档_V1.2.docx 为准。V1.2 已直接沿用 V1.1 原模板，保留封面、无页眉设置、首页无页脚及正文页脚样式。本轮用户已明确要求同时启用接口、v2 多文件和回调；启用工具在提交补丁前被回调 HTTPS 证书验证失败阻止，不能将本交接单当作已开放通知。
+
+一、当前状态
+联合 Gateway 功能镜像和数据库 0021_oa_result_sets 已部署。r2 诊断回执中 API 已启用，多文件和回调仍关闭。两个节点 DNS/TCP 正常，默认信任库和显式现有 CA 均因自签名叶证书验证失败（OpenSSL 18）而未完成回调 HTTPS 连接。现有 CA 文件可正常加载，不能将旧 r1 的 UnicodeDecodeError 解释为证书损坏。详见 oa-callback-certificate-handoff-20261023-r2.txt。
+待实现的开关配置包括 OA_POLICY_FLOW_MULTI_RESULT_ENABLED=true；它不是当前实测值。配置在 Gateway 启动时加载，须在证书问题解决后完成配置滚动更新。无需重跑加列迁移、此前预载或前端切换。真实制度生成、OA 渲染及回调接收尚未验收。
+
+二、接口约定
+基础地址：https://cnoocclaw.cnooc.com.cn/api/v1/integrations/oa/policy-flow/jobs
+沿用现有机器接口密钥，通过 Authorization: Bearer <接口密钥> 或 X-OA-Integration-Key 请求头传递；不要把密钥写入交接记录、聊天或截图。
+
+POST 基础地址，multipart/form-data：
+  document：一份获准联调的 .doc、.docx 或 .pdf 制度文件
+  request_id：新的 OA 业务测试请求号
+  key_fields：JSON 对象字符串；用于回传业务关联字段，不是生成指令
+  result_protocol：v2
+请求头 Idempotency-Key 必填，使用本次测试专属稳定值，8–200 个可见 ASCII 字符。
+首次受理返回 202 及 job_id。相同逻辑请求重试必须保持文件、字段和幂等键不变；变更内容或协议后应新建请求，不能复用原键。不要用旧失败任务作为新联调任务。
+
+GET 基础地址/{job_id}：保存 status、callback_status、error_code 和 results。
+生成成功后，逐份 GET 基础地址/{job_id}/results/{result_id}，result_id 必须来自 results 清单。
+清单中每项包含 id、part_name、filename、bytes、sha256。全部文件下载后逐份核对字节数、SHA-256、JSON 格式，并由 OA 验证 JointJS 加载和业务流程正确性。
+v2 调用旧的 /{job_id}/result 返回 409；不要只取第一份文件。
+未传 result_protocol 继续使用 v1；v1 仍要求唯一结果文件，未知协议返回 422。
+v2 未启用时返回 503，须与模型上游的 503 区分；此处不应反复提交来绕过开关。
+
+三、回调联调（本轮纳入启用范围）
+OA 提供固定 HTTPS 接收地址及既有鉴权方式；凭据通过服务器配置或安全渠道处理。提交接口不接受调用者指定任意回调地址。
+回调 multipart 包含：
+  manifest：原始 UTF-8 JSON 文本，含 job_id、request_id、status、key_fields、completed_at、error_code/error_detail、result_protocol 和 results。
+  result_001、result_002……：与 results[i].part_name 精确对应的独立文件部分。
+失败通知 results 为空，不附带文件。v2 manifest 不包含 v1 单值 result_filename/result_sha256。
+
+沿用 V1.1 的 HMAC 必选约定与现场已有签名密钥，回调带 X-OA-Callback-Timestamp 和 X-OA-Callback-Signature。
+v2 签名：sha256= + HMAC-SHA256 小写十六进制值。
+签名消息：UTF8("v2." + timestamp + "." + manifest原始文本)。
+必须用收到的原始 manifest 文本验签，不能重新序列化；校验时间窗口并采用恒定时间比较。此算法仅用于 v2，v1 算法保持原样。
+若同时配置 Bearer，回调还带 Authorization。
+回调幂等键：oa-policy-flow-callback:{job_id}。
+OA 应全部验签、校验文件且幂等持久化后才返回 2xx；重复通知不能重复创建流程。部分接收失败后的重试应补齐同一任务，不应产生重复数据。
+网络错误及 408/409/425/429/5xx 会有界重试。生成 status=succeeded 不等于 OA 已收到；还须确认 callback_status=delivered 及 OA 端入库、渲染结果。
+本轮按用户指示同时启用回调；沿用已有固定地址和签名密钥。历史 callback_status=disabled 任务不会因此自动补发。
+
+四、联调次序与记录
+1. 只读核对 Gateway 当前版本、多文件开关、鉴权及回调配置状态。
+2. 将 V1.2 文档交给 OA，按完整提交/查询/下载/回调协议改造，确定测试制度与预期 2 或 3 份独立流程。
+3. 先由 OA 运维确认回调入口及信任证书，完成严格 TLS 复验和部署基线复核，再执行相应启用工具，将 OA_POLICY_FLOW_ENABLED、OA_POLICY_FLOW_MULTI_RESULT_ENABLED、OA_POLICY_FLOW_CALLBACK_ENABLED 设为 true，等待所有 Gateway 副本完成配置更新；保留现有模型、问数、前端和凭据配置。当前失败的 r1 不直接重跑。
+4. OA 从实际接入入口提交一个新的 v2 测试任务，记录北京时间、request_id、job_id、HTTP 状态及幂等键。响应不明确时先按同一幂等键核对，不换键盲目重复生成。
+5. 生成成功后验收全部文件和业务内容；双方核对回调接收数量、摘要、验签、入库和渲染。
+6. 用同一请求重复提交一次核对幂等；再以单流程样本验证现有 v1。回调重复/部分失败测试只使用专用测试任务，由双方约定执行，不影响正式业务。
+保留脱敏结果：任务 ID、时间、状态、错误代码、文件数/摘要和 OA 验收结论；不转发制度正文、密钥或完整鉴权请求头。
+
+五、本轮只读工具
+在 datax-01 执行：
+sudo python3 -I -B -u /home/cnooc/inspect-portal-oa-v2-integration-20261023-r1.py --inspect-readonly
+
+工具绑定已验收 Gateway 384 / Frontend 226 / PPT Runner 55，在两个 Gateway 节点核对已发布源码、配置状态，并各发至多一次带现有机器密钥的固定本地 GET，查询不存在的全零任务 ID。只有精确的预期 404 才标记本地鉴权路由通过。它不提交任务、不发回调、不调用模型、不修改部署或配置，不从 Kubernetes Secret API 读取密钥。应用可为该 GET 执行正常只读任务查询。配置仅输出存在性和非敏感参数；回调地址不输出路径或查询串。
+本地检查不覆盖 Nginx/企业统一认证入口；第 4 步必须由 OA 的实际调用环境验证。
+若工具报告版本变化或检查失败，保留 JSON，先核对差异再继续，不直接使用旧基线切换配置。

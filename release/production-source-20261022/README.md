@@ -1,5 +1,12 @@
 # Sampled production Python source snapshot
 
+Updated on 2026-10-23 using accepted release overlays: the primary Gateway
+Python tree now has 582 files; the separate Runner tree has 551 files, including
+the two-file OA schema compatibility patch. The original 2026-10-22 observations
+below remain historical evidence. Current image bindings and source checks are
+in `docs/production-source-reconciliation-20261023.md` and
+`deploy/enterprise/production-source-lock-20261023.json`.
+
 Captured from the operator-provided 2026-10-22 runtime fingerprints. The primary
 `backend/app` and `backend/packages/harness` directories match the sampled Gateway.
 `ppt-master-runner/backend` separately preserves all 550 sampled Runner Python files.

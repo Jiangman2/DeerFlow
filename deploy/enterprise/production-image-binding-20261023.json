@@ -1,0 +1,27 @@
+{
+  "schema": "portal-deployment-source-binding.v1",
+  "evidence_origin": "operator_pasted_kubectl_get_deployment_20261023",
+  "collection_time_not_recorded": true,
+  "deployments": [
+    {
+      "name": "gateway",
+      "generation": 385,
+      "ready": 70,
+      "image": "deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c"
+    },
+    {
+      "name": "frontend",
+      "generation": 227,
+      "ready": 2,
+      "image": "deerflow.local/deer-flow-frontend@sha256:b37036e9b226f8605e3da98d9f81cb072fc30da29cb5b972702c5ed6ec535638"
+    },
+    {
+      "name": "ppt-master-runner",
+      "generation": 55,
+      "ready": 1,
+      "image": "deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140"
+    }
+  ],
+  "production_modified": false,
+  "configuration_values_not_collected": true
+}

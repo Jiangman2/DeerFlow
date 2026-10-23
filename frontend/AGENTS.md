@@ -1,5 +1,11 @@
 # AGENTS.md
 
+Main chat pages display the complete non-confidential-system warning in red.
+Desktop places it above the chat header; mobile places it below the navigation
+and product-title row, in normal flow, with full wrapping. Keep it visible for
+both new and existing main chats without covering the composer. The released
+source inventory is pinned in `deploy/enterprise/production-source-lock-20261023.json`.
+
 Haineng home footer has four counters. Fetch existing signed Haineng usage and
 authenticated `/api/home/statistics` independently every minute; one failing
 source must not erase the other, and unavailable counters show a dash, not zero.

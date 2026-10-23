@@ -1,0 +1,153 @@
+{
+  "base_layers_preserved": true,
+  "consumer": "runner",
+  "importer_sha256": "53f541432ddcd80770e50076b515adcabb758c24833306229571fedcf9a9e29a",
+  "migration_tree_preserved": true,
+  "profile": {
+    "bases": {
+      "runner": {
+        "config_bytes": 151759,
+        "config_digest": "sha256:92024ae463517c6f8fbc0480f9831e91b0aa3f3d9f8cf59763fe4f01f814ae9e",
+        "config_object_sha256": "92024ae463517c6f8fbc0480f9831e91b0aa3f3d9f8cf59763fe4f01f814ae9e",
+        "descriptor_prefix_sha256": "d7b74034dcef17ae00963739adc865b009a89e2fd6bfa6d11270d6098336c838",
+        "diff_prefix_sha256": "95f987d70f50dec8ae27d03a209b4e1fb0fd6e24c8d8bc132fd555682e52d050",
+        "final_chain_id": "sha256:d5fc7e0fdad6adce4f20765753869a6335742faf26dbd684441bcbb203108be2",
+        "layer_count": 384,
+        "manifest_bytes": 59759,
+        "manifest_digest": "sha256:8a853325c46a215c06d0ab77720aa3a8e48b06c98c60f2837c663867e704b0f0",
+        "runtime_config_sha256": "79c0c5403a2c8f3830a37f41350cf22211c834098e3063e3b764c639de1a924c",
+        "tag": "deerflow.local/deer-flow-ppt-master-runner:20261018-host-capability-r1-04b13b758353"
+      }
+    },
+    "nodes": {
+      "datax-01": {
+        "expected_node_uid": "ec5698b0-8d82-4eed-bae0-3711c7b7f36c",
+        "roles": [
+          "ppt-master-runner-forward"
+        ]
+      },
+      "datax-02": {
+        "expected_node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+        "roles": [
+          "ppt-master-runner-forward"
+        ]
+      },
+      "datax-03": {
+        "expected_node_uid": "9acb9556-0d63-46ca-8a6f-384c4b469a18",
+        "roles": [
+          "ppt-master-runner-forward"
+        ]
+      },
+      "ecs-zdz-pro-0011": {
+        "expected_node_uid": "388c4cc8-091a-4278-8d1c-3e944bb68c81",
+        "roles": [
+          "ppt-master-runner-forward"
+        ]
+      },
+      "ecs-zdz-pro-0012": {
+        "expected_node_uid": "54972705-807f-443b-bae4-919d0d56f993",
+        "roles": [
+          "ppt-master-runner-forward"
+        ]
+      },
+      "ecs-zdz-pro-0013": {
+        "expected_node_uid": "ad29159e-eb63-47d3-97f9-326be1446af3",
+        "roles": [
+          "ppt-master-runner-forward"
+        ]
+      },
+      "ecs-zdz-pro-0014": {
+        "expected_node_uid": "968a1cee-4b1d-47fc-ad79-ab4d889152de",
+        "roles": [
+          "ppt-master-runner-forward"
+        ]
+      },
+      "ecs-zdz-pro-0015": {
+        "expected_node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+        "roles": [
+          "ppt-master-runner-forward"
+        ]
+      },
+      "ecs-zdz-pro-0016": {
+        "expected_node_uid": "daccd125-0612-4602-8f3f-1cc447d2cbc1",
+        "roles": [
+          "ppt-master-runner-forward"
+        ]
+      },
+      "ecs-zdz-pro-0017": {
+        "expected_node_uid": "ba629f68-a45f-49f0-af2b-7416bc82a32a",
+        "roles": [
+          "ppt-master-runner-forward"
+        ]
+      }
+    },
+    "preserve": {
+      "runner": {
+        "deerflow.local/deer-flow-ppt-master-runner:20261017-ppt-bound-r1-forward-eb23de08345b": "sha256:5ceccdd1bcd90791818912c1bb3cc5f3781c3b5c706d7c7273f064c27cf4ce2c",
+        "deerflow.local/deer-flow-ppt-master-runner:20261017-ppt-bound-r1-rollback-eb23de08345b": "sha256:25f30a7cca9968bd607239252c15f5ce4577da6df7afb6039be65895a5fafafd",
+        "deerflow.local/deer-flow-ppt-master-runner:20261018-confirm-successor-r1-94116f78e06a": "sha256:1093578bc0a23becb11903ed1c765bae525e48aaba5b6b76fce8866189c6d7c3",
+        "deerflow.local/deer-flow-ppt-master-runner:20261018-host-capability-r1-04b13b758353": "sha256:8a853325c46a215c06d0ab77720aa3a8e48b06c98c60f2837c663867e704b0f0",
+        "deerflow.local/deer-flow-ppt-master-runner@sha256:1093578bc0a23becb11903ed1c765bae525e48aaba5b6b76fce8866189c6d7c3": "sha256:1093578bc0a23becb11903ed1c765bae525e48aaba5b6b76fce8866189c6d7c3",
+        "deerflow.local/deer-flow-ppt-master-runner@sha256:25f30a7cca9968bd607239252c15f5ce4577da6df7afb6039be65895a5fafafd": "sha256:25f30a7cca9968bd607239252c15f5ce4577da6df7afb6039be65895a5fafafd",
+        "deerflow.local/deer-flow-ppt-master-runner@sha256:5ceccdd1bcd90791818912c1bb3cc5f3781c3b5c706d7c7273f064c27cf4ce2c": "sha256:5ceccdd1bcd90791818912c1bb3cc5f3781c3b5c706d7c7273f064c27cf4ce2c",
+        "deerflow.local/deer-flow-ppt-master-runner@sha256:8a853325c46a215c06d0ab77720aa3a8e48b06c98c60f2837c663867e704b0f0": "sha256:8a853325c46a215c06d0ab77720aa3a8e48b06c98c60f2837c663867e704b0f0"
+      }
+    },
+    "roles": [
+      {
+        "base": "runner",
+        "config_digest": "sha256:5a3f917506bd172815346f7021fcb864ae62d522903f30dedc34ff2dc406afa2",
+        "expected_layer_count": 385,
+        "manifest_digest": "sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+        "role": "ppt-master-runner-forward",
+        "runtime_config_sha256": "79c0c5403a2c8f3830a37f41350cf22211c834098e3063e3b764c639de1a924c",
+        "tag": "deerflow.local/deer-flow-ppt-master-runner:20261022-oa-schema-compat-r1-0b0cdbbbf957",
+        "tail_layers": [
+          {
+            "blob_digest": "sha256:5a1e5dce40a0b06e22ef371f2a7d2d84be115a8f01acaf95865155a63aba2eaf",
+            "compressed_bytes": 9222,
+            "diff_id": "sha256:558fd325607bd102b0378cf6ca5b5aa658c5e4e6bf061021f3041aa44d635b75",
+            "position": 385,
+            "uncompressed_bytes_upper_bound": 30720
+          }
+        ]
+      }
+    ],
+    "schema": "portal-runner-oa-schema-compatibility-profile.v1",
+    "tail_files": {
+      "ppt-master-runner-forward": {
+        "files": {
+          "app/backend/packages/harness/deerflow/persistence/bootstrap.py": {
+            "bytes": 24613,
+            "sha256": "7b704c7f4434556d354f9bbbd326dfdb15f935dbb5b1d8b1fd7908866f02e612"
+          },
+          "app/backend/packages/harness/deerflow/persistence/oa_schema_compatibility.py": {
+            "bytes": 2024,
+            "sha256": "2dd04bfafc29856c0f646926043aed7b713d79d69744a9053ff99fdf6af24c8b"
+          }
+        },
+        "uncompressed_bytes": 30720
+      }
+    }
+  },
+  "qualification": {
+    "baseline_bootstrap_sha256": "990e6381692083a00a856a61c19f072e81f57f4ec41b232db4d8e8ebecf3ab86",
+    "candidate_bootstrap_sha256": "7b704c7f4434556d354f9bbbd326dfdb15f935dbb5b1d8b1fd7908866f02e612",
+    "candidate_helper_sha256": "2dd04bfafc29856c0f646926043aed7b713d79d69744a9053ff99fdf6af24c8b",
+    "checks_passed": 6,
+    "consumer": "runner",
+    "evidence_origin": "OPERATOR_PASTED_20261022_R2_RESULT",
+    "field_checker_sha256": "c4a42a6499416614d078ff75ff35db588e1366373a586efd2aeb028001b1a04c",
+    "image_runtime_acceptance_pending": true,
+    "production_database_access": false,
+    "status": "SYNTHETIC_SCHEMA_COMPATIBILITY_ACCEPTED"
+  },
+  "ready_for_rollout": false,
+  "runtime_configuration_preserved": true,
+  "schema": "portal-oa-schema-compatibility-build.v1",
+  "script_bytes": 437707,
+  "script_sha256": "4b540f4e9cb1241ebfc6641c6fb9a1a7ee5dd91968f6e1f711fe9b46c776e2a1",
+  "offline_preload_tests_passed": 10,
+  "offline_python": "3.7.17",
+  "network_used_by_tests": false
+}

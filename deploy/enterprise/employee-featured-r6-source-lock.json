@@ -1,0 +1,28 @@
+{
+  "schema": "employee-featured-r6-source-alignment.v1",
+  "field_source": {
+    "bytes": 15135,
+    "sha256": "6a939265afb13e2c7cae65f7a9bc5acba7d61725e84ddeadd9a777d8e2d0524b"
+  },
+  "repository_source": {
+    "path": "backend/app/gateway/employee_featured_store.py",
+    "bytes": 15025,
+    "sha256": "cde9330bbc7ac18171252e836b3c20a2348ef0c88587b1c1b3a7b31058a79789"
+  },
+  "ast_equal": true,
+  "canonical_ast_sha256": "95255345d6202ab9399f67e11cea3e13bcc0e0bed36ed0b3571de598b5917f74",
+  "field_evidence": {
+    "kind": "operator_terminal_projection_not_full_report_download",
+    "operation": "1ff1080a169e4d558bad62f53b8e097f",
+    "report_bytes": 93762,
+    "report_sha256": "899425a913bd0b25de691624e169da2849f65e5ccdcd265d18118054915b9d88",
+    "rounds": 12,
+    "writers": 24
+  },
+  "local_linux_arm64_emulated_regression": {
+    "passed": 73,
+    "production_contacted": false
+  },
+  "gateway_rollout_accepted": false,
+  "frontend_changed_by_backend_alignment": false
+}

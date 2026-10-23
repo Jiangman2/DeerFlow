@@ -420,6 +420,7 @@ export default function AgentChatPage() {
                       isWelcomeMode && "cnooc-welcome-composer",
                     )}
                     isWelcomeMode={isWelcomeMode}
+                    isNewThread={isNewThread}
                     threadId={threadId}
                     autoFocus={isWelcomeMode}
                     status={
@@ -456,7 +457,8 @@ export default function AgentChatPage() {
                   aria-label="版权信息"
                   className="cnooc-welcome-copyright"
                 >
-                  Copyright © 2024–2026 CNOOC. All rights reserved.中国海洋石油集团有限公司版权所有
+                  Copyright © 2024–2026 CNOOC. All rights
+                  reserved.中国海洋石油集团有限公司版权所有
                 </footer>
               )}
             </main>

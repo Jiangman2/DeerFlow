@@ -1,0 +1,53 @@
+{
+  "schema": "portal-data-qa-field-observation.v1",
+  "evidence_source": "operator_submitted_canary_receipt",
+  "operation": "18cdf0ea7de24ecabd963a6f3abce69f",
+  "report_path": "/var/lib/portal-data-qa-canary-18cdf0ea7de24ecabd963a6f3abce69f.json",
+  "report_bytes": 3983,
+  "report_sha256": "e8000fc35a03bd1434e99d9324530bd5cd1de302e1cc42b5c3f07b2c119f2987",
+  "canary_script_sha256": "16c0ef7472a6493eebb1498ad7a81d2104a621a09c7a9fd8f150fc57b4772171",
+  "gateway": {
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1",
+    "generation": 381,
+    "spec_sha256": "5a84f74566171e588433779a59b9adec1ae752c2dc3c42706ff55db1e295fbda"
+  },
+  "provider_requests_attempted": 1,
+  "result_status": "done",
+  "answer_present": true,
+  "answer_characters": 455,
+  "knowledge_count": 0,
+  "interrupt_present": false,
+  "truncated": false,
+  "error_code": null,
+  "observed_event_counts": {
+    "unrecognized": 1,
+    "answer_non_end_node": 5,
+    "answer_end_node": 7,
+    "workflow_finished": 1
+  },
+  "terminal": {
+    "event": "workflow_finished",
+    "data_status": "succeeded",
+    "answer_field": "data.outputs.output",
+    "usage_field": "xx_ceai_extra_data",
+    "usage_status": "success",
+    "inputToken": 46014,
+    "outputToken": 1135,
+    "totalToken": 47149
+  },
+  "business_values_verified": false,
+  "metric_question_available": false,
+  "production_deployed": false,
+  "ready_for_rollout": false,
+  "secret_created": false,
+  "configuration_modified": false,
+  "workload_modified": false,
+  "raw_business_content_included": false,
+  "pending": [
+    "business_result_fields_order_count_and_values",
+    "approved_aggregation_question",
+    "live_error_empty_and_clarification_samples",
+    "upstream_authorization_isolation",
+    "combined_runtime_and_configuration_acceptance"
+  ]
+}

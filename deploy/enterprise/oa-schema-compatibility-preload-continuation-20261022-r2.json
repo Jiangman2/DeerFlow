@@ -1,0 +1,42 @@
+{
+  "effective_gateway_passed": 5,
+  "effective_runner_passed": 10,
+  "evidence_origin": "OPERATOR_PASTED_REPORT_SUMMARY_NOT_FULL_REPORT_READ",
+  "prior_receipts": "oa-schema-compatibility-preloads-field-20261022-r1.json",
+  "production_schema_migrated": false,
+  "ready_for_rollout": false,
+  "receipt": {
+    "download_report": "/var/lib/portal-runner-oa-schema-compatibility-report-7wg7eifv/REPORT.json",
+    "elapsed_seconds": 10.789,
+    "exitcode": 0,
+    "expected_node_uid": "ec5698b0-8d82-4eed-bae0-3711c7b7f36c",
+    "hostname": "datax-01",
+    "image_import_may_be_partial": false,
+    "image_import_requested": true,
+    "kubernetes_node_uid_freshly_checked": true,
+    "node_preload_passed": true,
+    "old_references_preserved": true,
+    "operation": "b4f1d3aa6dc847d3b7c3f976aafdb719",
+    "query_count": 111,
+    "ready_for_rollout": false,
+    "report_bytes": 66574,
+    "report_sha256": "1822affa77b7ae04d1d0884d83ac2e6922c9648b30fd6f42dae3d66ac2af15de",
+    "roles": [
+      {
+        "config_digest": "sha256:5a3f917506bd172815346f7021fcb864ae62d522903f30dedc34ff2dc406afa2",
+        "content_and_unpack": "PASS",
+        "cri_visibility": "PASS",
+        "manifest_digest": "sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+        "phase_a": "PASS",
+        "phase_b": "PASS",
+        "role": "ppt-master-runner-forward",
+        "status": "IMPORTED_COMPLETE",
+        "temporary_reference_retained": true
+      }
+    ],
+    "status": "COMPLETE_RUNNER_OA_SCHEMA_COMPATIBILITY_PRELOAD_REVIEW_REQUIRED"
+  },
+  "runtime_image_acceptance_pending": true,
+  "schema": "portal-oa-schema-compatibility-preload-continuation.v1",
+  "superseded_failed_operation": "10ffc378f8de4920afcc9de26968fc71"
+}

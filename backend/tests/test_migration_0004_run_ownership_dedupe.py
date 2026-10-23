@@ -2,10 +2,10 @@
 
 End-to-end shape:
 
-1. Hand-build a SQLite DB that mirrors a real pre-0004 deployment that ran
+1. Build a SQLite DB through the historical migrations to mirror a deployment that ran
    ``GATEWAY_WORKERS>1`` before this PR and accumulated duplicate active rows
    per thread (the exact dirty state the multi-worker ownership fix targets).
-2. Stamp it at ``0003_scheduled_tasks`` so ``bootstrap_schema`` takes the
+2. Upgrade it to ``0003_scheduled_tasks`` so ``bootstrap_schema`` takes the
    versioned branch and runs ``alembic upgrade head``.
 3. Insert two+ pending/running rows for the same ``thread_id`` (only possible
    because the partial unique index does not exist yet).
@@ -22,18 +22,18 @@ upgrade and blocking gateway startup.
 
 from __future__ import annotations
 
+import asyncio
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.orm import Session
+from alembic import command
+from sqlalchemy.ext.asyncio import create_async_engine
 
-import deerflow.persistence.models  # noqa: F401  -- registers ORM models
-from deerflow.persistence.base import Base
+from deerflow.persistence.bootstrap import _get_alembic_config, _get_head_revision
 from deerflow.persistence.engine import close_engine, init_engine
-from deerflow.persistence.run.model import RunRow
 
 pytestmark = pytest.mark.asyncio
 
@@ -41,71 +41,57 @@ pytestmark = pytest.mark.asyncio
 def _seed_pre_0004_with_duplicates(db_path: Path) -> None:
     """Build a DB at revision 0003 with duplicate active rows per thread.
 
-    Uses a synchronous engine so the seed is independent of the async engine
-    under test. ``Base.metadata.create_all`` produces the full current schema
-    (including the partial unique index), so we drop just the unique index to
-    land in the dirty state the migration's dedupe pass targets: a versioned
-    DB at 0003 where duplicate active rows per thread can coexist. We then
-    stamp at 0003 and insert the duplicates via the ORM (so Python-side
-    defaults populate).
+    Build the actual historical schema through Alembic, rather than creating
+    today's ORM tables and stamping an older revision. The latter incorrectly
+    pre-created the 0020 confirmation tables before replaying their migration.
+    Reflect the historical runs table so current ORM columns/defaults cannot
+    silently change this pre-0004 fixture.
     """
     db_path.parent.mkdir(parents=True, exist_ok=True)
+    config = _get_alembic_config(create_async_engine(f"sqlite+aiosqlite:///{db_path.as_posix()}"))
+    command.upgrade(config, "0003_scheduled_tasks")
     sync_engine = sa.create_engine(f"sqlite:///{db_path.as_posix()}")
     try:
-        Base.metadata.create_all(sync_engine)
-        with sync_engine.begin() as conn:
-            # Drop only the partial unique index — this is the invariant the
-            # migration rebuilds, and its absence is what permits duplicate
-            # active rows to exist in the first place.
-            conn.execute(sa.text("DROP INDEX IF EXISTS uq_runs_thread_active"))
-            # Stamp at 0003 so bootstrap takes the versioned branch and runs
-            # ``alembic upgrade head`` (which is what executes 0004.upgrade()).
-            conn.execute(sa.text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL)"))
-            conn.execute(sa.text("DELETE FROM alembic_version"))
-            conn.execute(sa.text("INSERT INTO alembic_version (version_num) VALUES ('0003_scheduled_tasks')"))
-
+        inspector = sa.inspect(sync_engine)
+        assert {"ppt_confirmation_tasks", "ppt_confirmation_gates"}.isdisjoint(inspector.get_table_names())
+        assert {"owner_worker_id", "lease_expires_at"}.isdisjoint(column["name"] for column in inspector.get_columns("runs"))
+        assert "uq_runs_thread_active" not in {index["name"] for index in inspector.get_indexes("runs")}
+        runs = sa.Table("runs", sa.MetaData(), autoload_with=sync_engine)
         base = datetime.now(UTC)
-        with Session(sync_engine) as session:
-            session.add_all(
+        with sync_engine.begin() as conn:
+            assert conn.execute(sa.text("SELECT version_num FROM alembic_version")).scalar_one() == "0003_scheduled_tasks"
+            conn.execute(
+                runs.insert(),
                 [
-                    RunRow(
-                        run_id="run-old-a",
-                        thread_id="thread-dup",
-                        status="pending",
-                        created_at=base,
-                        updated_at=base,
-                    ),
-                    RunRow(
-                        run_id="run-old-b",
-                        thread_id="thread-dup",
-                        status="running",
-                        created_at=base + timedelta(seconds=10),
-                        updated_at=base + timedelta(seconds=10),
-                    ),
-                    RunRow(
-                        run_id="run-newest",
-                        thread_id="thread-dup",
-                        status="pending",
-                        created_at=base + timedelta(seconds=60),
-                        updated_at=base + timedelta(seconds=60),
-                    ),
-                    RunRow(
-                        run_id="run-solo",
-                        thread_id="thread-solo",
-                        status="running",
-                        created_at=base,
-                        updated_at=base,
-                    ),
-                    RunRow(
-                        run_id="run-success",
-                        thread_id="thread-done",
-                        status="success",
-                        created_at=base,
-                        updated_at=base,
-                    ),
-                ]
+                    {
+                        "run_id": run_id,
+                        "thread_id": thread_id,
+                        "status": status,
+                        "multitask_strategy": "reject",
+                        "metadata_json": {},
+                        "kwargs_json": {},
+                        "message_count": 0,
+                        "total_input_tokens": 0,
+                        "total_output_tokens": 0,
+                        "total_tokens": 0,
+                        "llm_call_count": 0,
+                        "lead_agent_tokens": 0,
+                        "subagent_tokens": 0,
+                        "middleware_tokens": 0,
+                        "token_usage_by_model": {},
+                        "created_at": base + timedelta(seconds=seconds),
+                        "updated_at": base + timedelta(seconds=seconds),
+                    }
+                    for run_id, thread_id, status, seconds in (
+                        ("run-old-a", "thread-dup", "pending", 0),
+                        ("run-old-b", "thread-dup", "running", 10),
+                        ("run-newest", "thread-dup", "pending", 60),
+                        ("run-solo", "thread-solo", "running", 0),
+                        ("run-success", "thread-done", "success", 0),
+                    )
+                ],
             )
-            session.commit()
+            assert conn.execute(sa.text("SELECT COUNT(*) FROM runs WHERE thread_id = 'thread-dup' AND status IN ('pending', 'running')")).scalar_one() == 3
     finally:
         sync_engine.dispose()
 
@@ -128,7 +114,7 @@ def _index_exists(db_path: Path, index_name: str) -> bool:
 
 async def test_migration_dedupes_duplicate_active_rows_before_unique_index(tmp_path: Path) -> None:
     db_path = tmp_path / "dirty.db"
-    _seed_pre_0004_with_duplicates(db_path)
+    await asyncio.to_thread(_seed_pre_0004_with_duplicates, db_path)
 
     url = f"sqlite+aiosqlite:///{db_path.as_posix()}"
     await init_engine(backend="sqlite", url=url, sqlite_dir=str(tmp_path))
@@ -156,7 +142,7 @@ async def test_migration_dedupes_duplicate_active_rows_before_unique_index(tmp_p
 
         with sqlite3.connect(db_path) as raw:
             version_row = raw.execute("SELECT version_num FROM alembic_version").fetchone()
-        assert version_row[0] == "0019_digital_employee_agents"
+        assert version_row[0] == _get_head_revision()
 
         # Sanity: the invariant the index enforces is now true — at most one
         # active row per thread.

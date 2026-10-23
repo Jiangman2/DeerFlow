@@ -35,6 +35,7 @@ import {
   reasoningEffortForMode,
   resolveAgentMode,
 } from "@/components/workspace/mode-selector";
+import { NonConfidentialNotice } from "@/components/workspace/non-confidential-notice";
 import {
   SidecarProvider,
   SidecarTrigger,
@@ -113,11 +114,20 @@ export default function ChatPage() {
     (mode: AgentMode) => {
       setSettings("context", {
         ...settings.context,
-        mode: resolveAgentMode(mode, supportsThinking),
+        mode: resolveAgentMode(
+          mode,
+          supportsThinking,
+          selectedModel?.thinking_always_on,
+        ),
         reasoning_effort: reasoningEffortForMode(mode),
       });
     },
-    [setSettings, settings.context, supportsThinking],
+    [
+      setSettings,
+      settings.context,
+      supportsThinking,
+      selectedModel?.thinking_always_on,
+    ],
   );
   const [isMounted, setIsMounted] = useState(false);
   const createdThreadIdRef = useRef<string | null>(null);
@@ -327,7 +337,7 @@ export default function ChatPage() {
             !isNewThread && (isStaticDemo || Boolean(threadMetadata.data))
           }
         >
-          <div className="relative flex size-full min-h-0 justify-between">
+          <div className="cnooc-main-chat-with-notice relative flex size-full min-h-0 justify-between">
             <header
               className={cn(
                 "cnooc-chat-header absolute top-0 right-0 left-0 z-40 flex h-12 min-w-0 shrink-0 items-center gap-1 overflow-hidden px-2 sm:gap-2 sm:px-4",
@@ -356,12 +366,13 @@ export default function ChatPage() {
                     <span>海能 AI</span>
                   </div>
                   <div className="cnooc-mobile-product-title cnooc-mobile-product-title-with-guide">
-                    <strong>中国海油通用智能体</strong>
+                    <strong>海能通用智能体</strong>
                     <ModeSelector
                       className="cnooc-mobile-mode-pill"
                       disabled={isAdminReview}
                       mode={settings.context.mode}
                       supportsThinking={supportsThinking}
+                      thinkingAlwaysOn={selectedModel?.thinking_always_on}
                       variant="mobile-header"
                       onSelect={handleModeSelect}
                     />
@@ -423,6 +434,7 @@ export default function ChatPage() {
                 <ArtifactTrigger />
               </div>
             </header>
+            <NonConfidentialNotice className="md:hidden" />
             <main
               className={cn(
                 "cnooc-chat-main flex min-h-0 max-w-full grow flex-col",
@@ -513,6 +525,7 @@ export default function ChatPage() {
                   )}
                   {isMounted ? (
                     <InputBox
+                      isNewThread={isNewThread}
                       className={cn(
                         "bg-background/5 w-full",
                         isWelcomeMode && "cnooc-welcome-composer",

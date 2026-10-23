@@ -1,0 +1,33 @@
+{
+  "schema": "portal-data-qa-progress-frontend-package.v2",
+  "manifest": "sha256:15d1327740e688faf0617d1d8fb9f662618a963624ba7280a6d0efb54ed70475",
+  "config": "sha256:377bac0b69157c9cd0b1514ca986343381a6541ef30135127df4876f350d5ffc",
+  "transport": {
+    "bytes": 127319040,
+    "sha256": "aeb791af15e7456ad41c1d64590e5f9796071475c5066da6bb46922418eae7b2"
+  },
+  "scripts": {
+    "0015": {
+      "file": "preload-portal-frontend-data-qa-progress-0015-20261022-r2.py",
+      "bytes": 85305,
+      "sha256": "7e6ddc2fc22b905f296888b0aea61ad8a3f73d67dd0323079489846cac61596c",
+      "hostname": "ecs-zdz-pro-0015",
+      "expected_node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+      "prior_script_sha256": "37523051cf47795c4ef1454bfa3a0aaae857a41ab1d044a345f574f6401e35de"
+    },
+    "datax02": {
+      "file": "preload-portal-frontend-data-qa-progress-datax02-20261022-r2.py",
+      "bytes": 86890,
+      "sha256": "1b478db9eb36910b1a5fbb95a4b523539cbafecc64c9079393ee116adbfc7707",
+      "hostname": "datax-02",
+      "expected_node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+      "prior_script_sha256": "c2354849999ce397dd3225def02d337d17f6243676dfc4ea6791644683cc98b5"
+    }
+  },
+  "archive_blob_and_diffid_validation": "PASS",
+  "exact_host_binding": true,
+  "capacity_checked_before_once_claim": true,
+  "frontend_deployed": false,
+  "ready_for_rollout": false,
+  "fresh_node_uid_check_required_at_activation": true
+}

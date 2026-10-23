@@ -4204,62 +4204,145 @@
 }
 
 @media (min-width: 48rem) {
-  /* The desktop grid already fits its container. Keep Radix's fractional
-     scroll viewport from clipping the last button; mobile remains scrollable. */
+  /* Preserve the already-published narrow desktop/zoom layout. */
   .cnooc-welcome-actions [data-slot="scroll-area-viewport"] {
     overflow: visible !important;
   }
 
-  /* A viewport resize must not animate the old, taller composer through the
-     newly shortened canvas and temporarily push the action rail offscreen. */
   .cnooc-welcome-composer.cnooc-composer {
     transition-property: color, background-color, border-color, box-shadow;
   }
 }
 
-/* Seven peer actions still fit at desktop 175–200% zoom. Stack each icon
-   over its label in the narrow desktop range; retain the mobile scroll rail. */
-@media (min-width: 48rem) and (max-width: 74.99rem) {
-  .cnooc-welcome-actions,
-  .cnooc-welcome-actions [data-slot="suggestions-list"] {
-    height: 68px !important;
+/* Navigation uses one generated bitmap with the arrow already in its pixels. */
+.cnooc-welcome-actions
+  [data-slot="suggestion-item"]
+  > :is(button, a[data-slot="suggestion"]) {
+  flex-direction: row;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  padding-inline: 4px !important;
+  font-size: 14px !important;
+  text-align: center;
+}
+
+.cnooc-portal-artwork > span,
+.cnooc-portal-artwork img {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  flex-shrink: 0;
+}
+
+/* Narrow desktop and mobile retain a touch/keyboard-scrollable rail instead
+   of wrapping the navigation marker or shrinking the established icon canvas. */
+@media (max-width: 74.99rem) {
+  .cnooc-welcome-actions {
+    height: 60px !important;
+    overflow: hidden !important;
+  }
+
+  .cnooc-welcome-actions > [data-slot="scroll-area"] {
+    height: 58px !important;
+    overflow: hidden !important;
+  }
+
+  .cnooc-welcome-actions [data-slot="scroll-area-viewport"] {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    touch-action: pan-x;
   }
 
   .cnooc-welcome-actions [data-slot="suggestions-list"] {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    display: flex !important;
+    width: max-content !important;
+    min-width: 100% !important;
+    height: 58px !important;
+    gap: 8px !important;
+  }
+
+  .cnooc-welcome-actions [data-slot="suggestion-item"] {
+    width: 140px !important;
+    min-width: 140px !important;
+    flex: 0 0 140px !important;
+    scroll-snap-align: start;
   }
 
   .cnooc-welcome-actions
     [data-slot="suggestion-item"]
     > :is(button, a[data-slot="suggestion"]) {
-    height: 64px !important;
-    flex-direction: column;
-    gap: 0 !important;
-    padding: 2px 4px !important;
+    height: 54px !important;
+    padding-block: 0 !important;
     border-radius: 16px !important;
     font-size: 12px !important;
   }
 
-  .cnooc-welcome-actions
+  .cnooc-workspace-shell
+    .cnooc-welcome-actions
     [data-slot="suggestion-item"]
     > :is(button, a[data-slot="suggestion"])
-    > span:not(.cnooc-action-artwork):not(.sr-only) {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    .cnooc-action-artwork {
+    margin-bottom: 0 !important;
   }
 }
 
-/* Same icon canvas as the existing quick actions. The inner image scale
-   normalizes the new artwork's opaque bounds to the existing PPT artwork. */
+/* Same icon canvas as existing quick actions. Bitmap visible bounds are
+   normalized at asset build time; the small arrow is already in its pixels. */
 .cnooc-portal-artwork {
+  position: relative;
   display: inline-flex;
   width: 42px;
   height: 42px;
   flex: 0 0 42px;
   align-items: center;
   justify-content: center;
+}
+
+/* Tight, normalized artwork bounds make the visible icon and label a centered
+   group. The PNG's former transparent half-canvas must not act as layout space. */
+.cnooc-workspace-shell,
+.cnooc-portal-menu {
+  --cnooc-action-icon-size: 24px;
+}
+
+.cnooc-workspace-shell
+  .cnooc-welcome-actions
+  [data-slot="suggestion-item"]
+  > :is(button, a[data-slot="suggestion"])
+  .cnooc-action-artwork,
+.cnooc-portal-menu .cnooc-action-artwork,
+.cnooc-create-menu .cnooc-action-artwork {
+  width: var(--cnooc-action-icon-size) !important;
+  height: var(--cnooc-action-icon-size) !important;
+  min-width: var(--cnooc-action-icon-size) !important;
+  max-width: var(--cnooc-action-icon-size) !important;
+  max-height: var(--cnooc-action-icon-size) !important;
+  flex: 0 0 var(--cnooc-action-icon-size) !important;
+}
+
+@media (min-width: 48rem) and (max-width: 100rem),
+  (min-width: 48rem) and (max-height: 900px) {
+  .cnooc-workspace-shell,
+  .cnooc-portal-menu {
+    --cnooc-action-icon-size: 22px;
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .cnooc-workspace-shell,
+  .cnooc-portal-menu {
+    --cnooc-action-icon-size: 28px;
+  }
+}
+
+@media (max-width: 25rem) {
+  .cnooc-workspace-shell,
+  .cnooc-portal-menu {
+    --cnooc-action-icon-size: 26px;
+  }
 }
 
 @media (min-width: 48rem) and (max-width: 100rem),
@@ -4305,5 +4388,33 @@
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.76);
     color: var(--cnooc-blue-dark);
+  }
+}
+
+/* Keep the main-chat notice below mobile navigation in normal document flow. */
+@media (max-width: 47.999rem) {
+  .cnooc-main-chat-with-notice {
+    flex-direction: column;
+  }
+
+  .cnooc-main-chat-with-notice > .cnooc-chat-header {
+    position: relative !important;
+  }
+
+  .cnooc-main-chat-with-notice > .cnooc-chat-main {
+    height: auto;
+    flex: 1 1 0%;
+    padding-top: 0;
+  }
+
+  .cnooc-main-chat-with-notice .cnooc-welcome-stage {
+    top: 6px;
+  }
+}
+
+@media (min-width: 48rem) and (max-width: 64rem) and (max-height: 32rem) {
+  .cnooc-main-chat-with-notice .cnooc-composer-dock-welcome {
+    top: auto !important;
+    bottom: 0 !important;
   }
 }
