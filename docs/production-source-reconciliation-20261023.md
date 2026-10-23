@@ -6,17 +6,27 @@
 
 ## 最新现场依据
 
-2026-10-23 用户从 datax-01 贴回 Deployment 查询：
+2026-10-23 用户从 datax-01 贴回 Deployment 查询，并在单独开启 OA v2 后补回全部 70 个 Gateway 副本的只读验收结果：
 
 | 组件 | generation | Ready | 镜像摘要 |
 | --- | --- | --- | --- |
-| Gateway | 385 | 70 | `0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c` |
+| Gateway | 386 | 70 | `0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c` |
 | Frontend | 227 | 2 | `b37036e9b226f8605e3da98d9f81cb072fc30da29cb5b972702c5ed6ec535638` |
 | PPT Runner | 55 | 1 | `0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140` |
 
-这是用户提供的现场证据，不是本地代理持续连接生产集群。Gateway 385
-继续使用已经过 70 副本验收的联合功能镜像；此次查询只确认镜像与就绪数，
-不把 generation 的增加推断为某个环境变量已成功启用。
+这是用户提供的现场证据，不是本地代理持续连接生产集群。Gateway 386
+继续使用同一联合功能镜像，变更是两个显式环境变量：
+`OA_POLICY_FLOW_MULTI_RESULT_ENABLED=true`、`OA_POLICY_FLOW_CALLBACK_ENABLED=false`。
+这两项状态由全部 70 个副本的源码与配置检查、两个节点的鉴权回环检查证实，
+不是根据 generation 推测。回执保存在
+`deploy/enterprise/oa-v2-multi-runtime-accepted-field-20261023.json`；
+更新、就绪和可用副本均为 70，终止中为 0，其他部署保持不变。
+原 Gateway 385 查询和更新超时报告保留为历史证据，不改写成后续成功结果。
+
+本次归档只增加启用/续验工具、离线测试、现场回执和当前交接状态，
+不修改产品运行源码、镜像、Secret、ConfigMap、数据库结构或 WeKnora 内容。
+OA 业务方现在可显式选择 `result_protocol=v2` 进行提交、查询、逐文件下载联调；
+回调仍关闭，真实制度内容与 OA 接收端业务正确性尚未验收。
 
 ## 源码恢复范围
 

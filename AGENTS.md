@@ -1,7 +1,12 @@
 # AGENTS.md
 
-The latest verified production source sets (Gateway 385, Frontend 227 and
+The latest verified production source sets (Gateway 386, Frontend 227 and
 PPT Runner 55) are documented in `docs/production-source-reconciliation-20261023.md`.
+Gateway 386 retains the Gateway 385 image and adds explicit OA overrides:
+`OA_POLICY_FLOW_MULTI_RESULT_ENABLED=true` and `OA_POLICY_FLOW_CALLBACK_ENABLED=false`.
+All 70 replicas passed the readonly verification recorded in
+`deploy/enterprise/oa-v2-multi-runtime-accepted-field-20261023.json`; OA business
+acceptance is still pending. Do not rerun historical activation commands.
 Run `python deploy/enterprise/verify-release-source-20261023.py --ref HEAD`
 to check committed sources against the accepted release inventories. Runner
 retains a separate source snapshot; do not replace it with Gateway sources.
