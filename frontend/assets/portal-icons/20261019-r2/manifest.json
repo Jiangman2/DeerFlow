@@ -1,0 +1,318 @@
+{
+  "mode": "built-in image_gen",
+  "reference": "public/images/action-image.png",
+  "referenceBounds": {
+    "left": 322,
+    "top": 313,
+    "width": 611,
+    "height": 609,
+    "canvasWidth": 1254,
+    "canvasHeight": 1254
+  },
+  "canvas": 128,
+  "visibleExtent": 124,
+  "alphaThreshold": 16,
+  "arrows": "Warm orange navigation arrows baked into seven generated bitmaps; More and preserved ordinary actions have no arrow",
+  "assets": [
+    {
+      "id": "ppt",
+      "generatedSource": "exec-2beada60-4d96-442e-9da8-629113a017a4.png",
+      "pngSha256": "4953ca6c3c45ed148c46a1c04f9b3d0245030aaa51877b3f09a74e2d99304df3",
+      "originalBounds": {
+        "left": 300,
+        "top": 305,
+        "width": 654,
+        "height": 639,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-r2-ppt.webp",
+      "webBytes": 4284,
+      "webSha256": "76188f3b97c80fdf5987a6cfcb0366923c1a65a3c569f8e397434b63e611365e",
+      "normalizedBounds": {
+        "left": 2,
+        "top": 3,
+        "width": 124,
+        "height": 121,
+        "canvasWidth": 128,
+        "canvasHeight": 128
+      },
+      "origin": "built-in image_gen edit"
+    },
+    {
+      "id": "proofread",
+      "generatedSource": "exec-a8b72417-ac99-40ca-b73d-1f5352068eb3.png",
+      "pngSha256": "ce2cb27d6b17032a99e457fc36a7fe0f6b781fc6ea26018a5be82d86fba96709",
+      "originalBounds": {
+        "left": 312,
+        "top": 281,
+        "width": 631,
+        "height": 702,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-r2-proofread.webp",
+      "webBytes": 4708,
+      "webSha256": "b0c384b7d2b4d0344a80972b4eaf56f65cdc9aa7eeda308b9db3c1265276c70b",
+      "normalizedBounds": {
+        "left": 8,
+        "top": 2,
+        "width": 111,
+        "height": 124,
+        "canvasWidth": 128,
+        "canvasHeight": 128
+      },
+      "origin": "built-in image_gen edit"
+    },
+    {
+      "id": "translate",
+      "generatedSource": "exec-f89bca23-5263-45f1-a4f3-bf57d95cab13.png",
+      "pngSha256": "b67cc652953a4047eca1cc6a9bd49b043bec53b53c0b275d0e83852cefd0d859",
+      "originalBounds": {
+        "left": 264,
+        "top": 315,
+        "width": 777,
+        "height": 644,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-r2-translate.webp",
+      "webBytes": 4632,
+      "webSha256": "44faa82c068b8909db5bedbe97d8e7e405ed198a03016d13a613039c9c6dbad2",
+      "normalizedBounds": {
+        "left": 2,
+        "top": 12,
+        "width": 124,
+        "height": 103,
+        "canvasWidth": 128,
+        "canvasHeight": 128
+      },
+      "origin": "built-in image_gen edit"
+    },
+    {
+      "id": "liveTranscribe",
+      "generatedSource": "exec-e7e9b8cb-fe44-4a6d-aae0-eef4b5562c6a.png",
+      "pngSha256": "937588f079a69ad65466e89ace2ec7752d4b171970cab04220422550f002b629",
+      "originalBounds": {
+        "left": 295,
+        "top": 302,
+        "width": 664,
+        "height": 654,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-r2-liveTranscribe.webp",
+      "webBytes": 4364,
+      "webSha256": "a379e034f8ad4becbf95ab4725d1aadc619b44856197965d834d4a1869eeb098",
+      "normalizedBounds": {
+        "left": 2,
+        "top": 3,
+        "width": 124,
+        "height": 122,
+        "canvasWidth": 128,
+        "canvasHeight": 128
+      },
+      "origin": "built-in image_gen edit"
+    },
+    {
+      "id": "convert",
+      "generatedSource": "exec-7ca56882-e85c-4900-ad08-6b0602931264.png",
+      "pngSha256": "833567aa48cfc15ecbcebbc6a5e9f3f3fdb6857d2ff4b51a4bbc9746abcbed9d",
+      "originalBounds": {
+        "left": 301,
+        "top": 327,
+        "width": 669,
+        "height": 601,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-r2-convert.webp",
+      "webBytes": 4360,
+      "webSha256": "c73f747e99e268bf8a149eb1612b4f1a38c2877fc3e5629380cbce6613a9dbbf",
+      "normalizedBounds": {
+        "left": 2,
+        "top": 8,
+        "width": 124,
+        "height": 111,
+        "canvasWidth": 128,
+        "canvasHeight": 128
+      },
+      "origin": "built-in image_gen edit"
+    },
+    {
+      "id": "recordTranscribe",
+      "generatedSource": "exec-51801e47-d30c-465e-8c36-b5f3b45ed077.png",
+      "pngSha256": "6e72f2269ae4d229c6f1efb9f18275f05b20ff500f5a02865329a1ef827dee92",
+      "originalBounds": {
+        "left": 288,
+        "top": 290,
+        "width": 679,
+        "height": 672,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-r2-recordTranscribe.webp",
+      "webBytes": 4668,
+      "webSha256": "7fd88ded48fb7dda30ffdb46fbc25d555430a454416d501fac702f0c6a08ee5b",
+      "normalizedBounds": {
+        "left": 2,
+        "top": 2,
+        "width": 124,
+        "height": 123,
+        "canvasWidth": 128,
+        "canvasHeight": 128
+      },
+      "origin": "built-in image_gen edit"
+    },
+    {
+      "id": "speech",
+      "generatedSource": "exec-d52aa8ba-2e14-40f9-a191-01e9d5c20ca3.png",
+      "pngSha256": "666091cc8083ac09b48900d490db516bdad43e24f9359241ed2484893bf6f7d5",
+      "originalBounds": {
+        "left": 317,
+        "top": 311,
+        "width": 623,
+        "height": 616,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-r2-speech.webp",
+      "webBytes": 4144,
+      "webSha256": "ac4e092a912b72b2711407ea36dec5410f2ab25e6f701ae69b151152bc589469",
+      "normalizedBounds": {
+        "left": 2,
+        "top": 2,
+        "width": 124,
+        "height": 123,
+        "canvasWidth": 128,
+        "canvasHeight": 128
+      },
+      "origin": "built-in image_gen edit"
+    },
+    {
+      "id": "more",
+      "generatedSource": "more.png",
+      "pngSha256": "1023374bcdcde421807110703e8df6116064138ce569a6989749f9b7436ce3e5",
+      "originalBounds": {
+        "left": 312,
+        "top": 335,
+        "width": 630,
+        "height": 616,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-r2-more.webp",
+      "webBytes": 5204,
+      "webSha256": "66378d82829b4f2816551a7211accb1025f7ca40ee41b7650118861613136f37",
+      "normalizedBounds": {
+        "left": 2,
+        "top": 3,
+        "width": 124,
+        "height": 121,
+        "canvasWidth": 128,
+        "canvasHeight": 128
+      },
+      "origin": "built-in image_gen edit"
+    },
+    {
+      "id": "image",
+      "generatedSource": "public/images/action-image.png",
+      "pngSha256": "33e5995e15b73df5b5db910fb72dc958c5667288ecde2fe6c48376e3b803feca",
+      "originalBounds": {
+        "left": 322,
+        "top": 313,
+        "width": 611,
+        "height": 609,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-r2-image.webp",
+      "webBytes": 2990,
+      "webSha256": "e40ffeb7f0290c7888300f51fbb3c36a5e8804ad19603c6b5e32a47cb891d19c",
+      "normalizedBounds": {
+        "left": 2,
+        "top": 2,
+        "width": 124,
+        "height": 124,
+        "canvasWidth": 128,
+        "canvasHeight": 128
+      },
+      "origin": "preserved application artwork"
+    },
+    {
+      "id": "pptAction",
+      "generatedSource": "public/images/action-ppt.png",
+      "pngSha256": "f5d43ee8359666bfff1ec90324f88b1f9e1f409e1a0aeb8234bb6d0d7b31f5e3",
+      "originalBounds": {
+        "left": 308,
+        "top": 252,
+        "width": 632,
+        "height": 710,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-r2-pptAction.webp",
+      "webBytes": 3176,
+      "webSha256": "5142256528749c484cface243a709809e0d9f4b4d395db2bf9c723bf4f40d518",
+      "normalizedBounds": {
+        "left": 9,
+        "top": 2,
+        "width": 110,
+        "height": 124,
+        "canvasWidth": 128,
+        "canvasHeight": 128
+      },
+      "origin": "preserved application artwork"
+    },
+    {
+      "id": "research",
+      "generatedSource": "public/images/action-research.png",
+      "pngSha256": "98c2a931713e86f7f47a5a642db822fc4e67c1da3a7c24e9c664980610203a93",
+      "originalBounds": {
+        "left": 287,
+        "top": 257,
+        "width": 682,
+        "height": 690,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-r2-research.webp",
+      "webBytes": 4900,
+      "webSha256": "2bd1202d690e9321938bb6ebd00864801e0625fdb5829936cb788c7ac568f2fe",
+      "normalizedBounds": {
+        "left": 2,
+        "top": 2,
+        "width": 123,
+        "height": 124,
+        "canvasWidth": 128,
+        "canvasHeight": 128
+      },
+      "origin": "preserved application artwork"
+    },
+    {
+      "id": "analysis",
+      "generatedSource": "public/images/action-analysis.png",
+      "pngSha256": "9f735972353a1169f11532de8f78b2223323e080f61dd23530006a1dd02803aa",
+      "originalBounds": {
+        "left": 254,
+        "top": 312,
+        "width": 747,
+        "height": 632,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-r2-analysis.webp",
+      "webBytes": 3488,
+      "webSha256": "308c946eacdd319659a187394ae7492ea54ee2c2f57de12b6fb3110018a3aa39",
+      "normalizedBounds": {
+        "left": 2,
+        "top": 11,
+        "width": 124,
+        "height": 105,
+        "canvasWidth": 128,
+        "canvasHeight": 128
+      },
+      "origin": "preserved application artwork"
+    }
+  ]
+}

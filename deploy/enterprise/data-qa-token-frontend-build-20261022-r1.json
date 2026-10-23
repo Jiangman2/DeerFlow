@@ -1,0 +1,58 @@
+{
+  "source_change_sha256": "0ccbaed8c687af03736c12b5633206ab37f56fd145493277f383b221fe0167d7",
+  "source": "C:\\Users\\15285\\.codex\\tmp\\oa-data-qa-token-frontend-20261022-r1\\source",
+  "production_writes": 0,
+  "images_pushed": false,
+  "ready_for_rollout": false,
+  "build_seconds": 1200.89,
+  "image": {
+    "tag": "deerflow.local/deer-flow-frontend:20261022-data-qa-token-r1",
+    "id": "sha256:b6c17e31ebcadb3c514fd2c3f87752e0eb84ee3e28ccc921366bac6a0bf91cd5",
+    "bytes": 127304207,
+    "layers": 11
+  },
+  "fresh_runtime": {
+    "pinned_base_prefix": "PASS",
+    "base_layers": 4,
+    "added_layers": 7,
+    "previous_application_image_used": false
+  },
+  "runtime": {
+    "layout": {
+      "standalone_layout": "PASS",
+      "files": 2841,
+      "bytes": 131967195,
+      "symlinks": 35,
+      "assets_checked": true,
+      "build_id_sha256": "31618d3f62b595d4e99edd989d630e600f873efabb47631fd25e9404cc6cba96",
+      "routes_sha256": "9b19f00490aaa2b8ffb5d056901e9ba959518b38b1365a3ea1290c0f689647f9",
+      "runtime_http": "NOT_TESTED",
+      "production_acceptance": "NOT_TESTED"
+    },
+    "http": {
+      "local_http": "PASS",
+      "runtime_env": "PASS",
+      "sso_redirect": "SYNTHETIC_PASS",
+      "static_assets": [
+        ".js",
+        ".css"
+      ],
+      "unauthenticated_launch_status": 401,
+      "production_sso": "NOT_TESTED",
+      "gateway": "NOT_TESTED",
+      "models": "NOT_REQUESTED"
+    }
+  },
+  "export_seconds": 110.03,
+  "export": {
+    "archive": "C:\\Users\\15285\\.codex\\tmp\\oa-data-qa-token-frontend-20261022-r1\\build\\frontend.oci.tar",
+    "sha256": "6379f2658531913bbe9d8e7067336125eb210f2c8b2d3835bbeba6139d4d62d7",
+    "bytes": 127319040,
+    "layers": 11,
+    "compressed_layer_bytes": 127292914,
+    "uncompressed_layer_bytes": 302006272,
+    "exact_qualified_layers": "PASS",
+    "blob_and_diffid_hashes": "PASS"
+  },
+  "status": "LOCAL_RUNTIME_AND_OCI_ACCEPTED_NOT_DEPLOYED"
+}

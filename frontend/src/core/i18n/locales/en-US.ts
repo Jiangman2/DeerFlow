@@ -48,6 +48,8 @@ export const enUS: Translations = {
 
   // Common
   common: {
+    nonConfidentialNotice:
+      "This platform is an unclassified information system. Processing or transmitting state secrets or state work secrets, or entering sensitive classified information, is strictly prohibited.",
     home: "Home",
     settings: "Settings",
     delete: "Delete",

@@ -1,0 +1,3845 @@
+{
+  "source_file_sha256": "942ddeccbea6164a2a19a3820a5a10213df63b26e175115d2986a0d03986878b",
+  "observation": {
+    "changed_configmaps": [],
+    "configmaps": [
+      {
+        "content_sha256": "6aa7302e0c3f0dab8c46f8ca162ba559b6d7a6f2f746020c310d5ab7cf83e81f",
+        "identity": {
+          "generation": null,
+          "name": "deer-flow-config-data-qa-glm-2e0fd403b23a",
+          "resourceVersion": "24242720",
+          "uid": "5aefbbbc-fee1-4745-99f9-54d092b6ad4d"
+        },
+        "immutable": true,
+        "keys": [
+          "config.yaml"
+        ]
+      },
+      {
+        "content_sha256": "2110b686e9e975e6a3566bb93bfb31b6adb75c9c3dd4da0273d1784cf2b4c63d",
+        "identity": {
+          "generation": null,
+          "name": "deer-flow-config-ppt-runner-heartbeat-20261004-r1",
+          "resourceVersion": "17846044",
+          "uid": "de0cb69a-bf21-42a6-9227-e210f6af21b3"
+        },
+        "immutable": true,
+        "keys": [
+          "config.yaml"
+        ]
+      },
+      {
+        "content_sha256": "5ec752c66dd46a105672762376ff068258bec8602b473aabed42414d6f499827",
+        "identity": {
+          "generation": null,
+          "name": "deer-flow-demo-thread-core",
+          "resourceVersion": "4234434",
+          "uid": "ba62af13-d1c5-45e0-8b46-91f574fa9b36"
+        },
+        "immutable": false,
+        "keys": [
+          "deck.pptx",
+          "preview.html",
+          "thread.json"
+        ]
+      },
+      {
+        "content_sha256": "a4d10f54648396d1e8d7e3a4649cb3cd6005dce81c953c96311ab813b0749dc2",
+        "identity": {
+          "generation": null,
+          "name": "deer-flow-demo-thread-preview-a",
+          "resourceVersion": "4234436",
+          "uid": "5e1722a1-21ab-4f8e-8173-655a5ed6f7d3"
+        },
+        "immutable": false,
+        "keys": [
+          "preview.pdf",
+          "slide-1.png",
+          "slide-2.png"
+        ]
+      },
+      {
+        "content_sha256": "0afc2781f37d938fb035caf762d6b9874e7b1d8f91906554e283adb56f1f3e34",
+        "identity": {
+          "generation": null,
+          "name": "deer-flow-demo-thread-preview-b",
+          "resourceVersion": "4234439",
+          "uid": "c6e56118-d14b-494e-9cf7-93f796c2cc40"
+        },
+        "immutable": false,
+        "keys": [
+          "slide-3.png",
+          "slide-4.png",
+          "slide-5.png"
+        ]
+      },
+      {
+        "content_sha256": "b054f3eeb5b60da6fa49b52bdaa2fe83ecdbba91f205326e56148765887731a8",
+        "identity": {
+          "generation": null,
+          "name": "deer-flow-extensions-config",
+          "resourceVersion": "384037",
+          "uid": "1a972649-1a24-4637-82b6-9492f69c747b"
+        },
+        "immutable": false,
+        "keys": [
+          "extensions_config.json"
+        ]
+      },
+      {
+        "content_sha256": "d24c2da2c5cfb1e5ea5eae2c227e6dc1a88fc6a3a0f4d5aca4bbac9af596340c",
+        "identity": {
+          "generation": null,
+          "name": "deer-flow-gateway-openssl-compat",
+          "resourceVersion": "975769",
+          "uid": "c7165253-4db8-4587-9fb9-902bba34edd6"
+        },
+        "immutable": false,
+        "keys": [
+          "openssl.cnf"
+        ]
+      },
+      {
+        "content_sha256": "1c9455ceebe7956f6be04e4a0a9856878eaeb98fa86ef5050b7cf44ce62bf125",
+        "identity": {
+          "generation": null,
+          "name": "deer-flow-nginx-hostguard-20261011-r1",
+          "resourceVersion": "20285807",
+          "uid": "e9d12df6-1f22-4a2a-818e-02bdb9b4efd9"
+        },
+        "immutable": true,
+        "keys": [
+          "nginx.conf"
+        ]
+      },
+      {
+        "content_sha256": "f9e41b856cfd5e095dbaea89673d59cb60169a154c07ff3b6cca5ed32b305fc2",
+        "identity": {
+          "generation": null,
+          "name": "gateway-redis-config-backlog4096-r1",
+          "resourceVersion": "17812381",
+          "uid": "1847b326-d7f4-46e0-babc-2dde33afd933"
+        },
+        "immutable": false,
+        "keys": [
+          "redis.conf"
+        ]
+      },
+      {
+        "content_sha256": "7500337cb01f680ada99ad28f8d3a066b7f17725dd8501484974fd473cea7ee9",
+        "identity": {
+          "generation": null,
+          "name": "ppt-runner-execution-lease-fd-9b703c4c17847f34",
+          "resourceVersion": "12836021",
+          "uid": "19658615-cc00-4f57-9749-c52de650ee73"
+        },
+        "immutable": true,
+        "keys": [
+          "aio_sandbox_provider.py"
+        ]
+      },
+      {
+        "content_sha256": "9e8f8f1db0d4cfd364a1f0e7e70a051080a3e3d5c770b59ce576829d36254857",
+        "identity": {
+          "generation": null,
+          "name": "ppt-runner-startup-safety-542a3c2ca306c7a2",
+          "resourceVersion": "12694042",
+          "uid": "e096a18b-244a-4db7-938d-ed9048d151ee"
+        },
+        "immutable": true,
+        "keys": [
+          "0018_scheduled_task_reliability.py",
+          "0019_digital_employee_agents.py",
+          "deps.py"
+        ]
+      },
+      {
+        "content_sha256": "abfe42b0b27530f23534ef5e62323faff536055c90a1b21f03f72a2ba17566cc",
+        "identity": {
+          "generation": null,
+          "name": "weknora-config-glm-20261017-r1",
+          "resourceVersion": "22685535",
+          "uid": "8b0819ce-bc2b-4d92-9d56-ed0daa321cfe"
+        },
+        "immutable": true,
+        "keys": [
+          "builtin_agents.yaml",
+          "builtin_models.yaml",
+          "config.yaml"
+        ]
+      },
+      {
+        "content_sha256": "7e2d1b43056ebaa61e5e92713c877a1152975ec27384ea731e394c54c30af477",
+        "identity": {
+          "generation": null,
+          "name": "weknora-docreader-xlsx-compat",
+          "resourceVersion": "5981025",
+          "uid": "8e42d0e0-9127-4179-bfa5-86655092d609"
+        },
+        "immutable": false,
+        "keys": [
+          "sitecustomize.py",
+          "web_compat.py",
+          "xlsx_compat.py"
+        ]
+      },
+      {
+        "content_sha256": "9c14959e63a71717c0d8fc76a0796e2c375b7607ccf8ba079ec309bf025fef71",
+        "identity": {
+          "generation": null,
+          "name": "weknora-v08-preview-patch",
+          "resourceVersion": "13329177",
+          "uid": "6a4f91af-4d92-402c-862b-747117ed508f"
+        },
+        "immutable": false,
+        "keys": [
+          "patch-legacy-office-preview.sh"
+        ]
+      }
+    ],
+    "configuration_modified": false,
+    "credentials_exported": false,
+    "elapsed_seconds": 8.335,
+    "exitcode": 0,
+    "full_source_or_effective_database_configuration_collected": false,
+    "ingresses": [],
+    "pod_exec_requested": false,
+    "provider_requests": 0,
+    "queries": 37,
+    "release_authorized": false,
+    "runtime_image_counts": [
+      {
+        "container": "dispatcher",
+        "count": 2,
+        "imageID": "docker.io/library/import-2026-10-08@sha256:54a0fa6b0ac6dcdbecdf190823e5fca722c94ea643ca02ac967258b9e74f5ce9",
+        "node": "datax-01",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "dispatcher",
+        "count": 2,
+        "imageID": "sha256:a3596597c8c19932ada758f54a4b259b436214b6e191e36a1e57409803ba2f22",
+        "node": "datax-01",
+        "ready": false,
+        "terminating": false
+      },
+      {
+        "container": "nginx",
+        "count": 1,
+        "imageID": "",
+        "node": "datax-01",
+        "ready": false,
+        "terminating": false
+      },
+      {
+        "container": "nginx",
+        "count": 1,
+        "imageID": "m.daocloud.io/docker.io/library/nginx@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+        "node": "datax-01",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "provisioner",
+        "count": 1,
+        "imageID": "",
+        "node": "datax-01",
+        "ready": false,
+        "terminating": false
+      },
+      {
+        "container": "provisioner",
+        "count": 1,
+        "imageID": "deerflow.local/deer-flow-provisioner@sha256:0addf46cb542e6f3bf6b1db362ec84bad67f4eccfd63ef67d6754c6fdee49e5b",
+        "node": "datax-01",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "frontend",
+        "count": 1,
+        "imageID": "deerflow.local/deer-flow-frontend@sha256:ee145e6357e4f6b63003d786b7c6b0f28cf6bbe663e1b5589f92f7c829bb89e5",
+        "node": "datax-02",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "postgres",
+        "count": 1,
+        "imageID": "sha256:5656e1d666225b9ee09c83684b3f1363d6b216bab498d11e0a186a21e175b85b",
+        "node": "datax-02",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "app",
+        "count": 1,
+        "imageID": "sha256:22b73c727cfb445ecf9fabe97f693efd5ceb7cbcb449b593c219e6407aef64c5",
+        "node": "datax-03",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "docreader",
+        "count": 1,
+        "imageID": "sha256:99c577f5772db50bcc05028cb4c31507f30877bb6874602a911e1ff18418a2a5",
+        "node": "datax-03",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "frontend",
+        "count": 1,
+        "imageID": "sha256:de5074d6b353514dc190063b2cd27fd464b12c160b494d26c57b1bbe7b68860e",
+        "node": "datax-03",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "neo4j",
+        "count": 1,
+        "imageID": "m.daocloud.io/docker.io/library/neo4j@sha256:155c8aad10d5c838bc3bbc476c0418779086547822acb214ec5e3d49ba336907",
+        "node": "datax-03",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "redis",
+        "count": 1,
+        "imageID": "m.daocloud.io/docker.io/library/redis@sha256:c9d92d840fd011c908f040592857c724ae6d877f2aba5c40ad963276507386b2",
+        "node": "datax-03",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "app",
+        "count": 1,
+        "imageID": "sha256:22b73c727cfb445ecf9fabe97f693efd5ceb7cbcb449b593c219e6407aef64c5",
+        "node": "ecs-zdz-pro-0008",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "redis",
+        "count": 1,
+        "imageID": "m.daocloud.io/docker.io/library/redis@sha256:0637954999d01b7c9ce9167db2da50656e2590d3b884f1c600c5f63bb6e6773c",
+        "node": "ecs-zdz-pro-0008",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "frontend",
+        "count": 1,
+        "imageID": "deerflow.local/deer-flow-frontend@sha256:ee145e6357e4f6b63003d786b7c6b0f28cf6bbe663e1b5589f92f7c829bb89e5",
+        "node": "ecs-zdz-pro-0015",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "ppt-master-runner",
+        "count": 1,
+        "imageID": "deerflow.local/deer-flow-ppt-master-runner@sha256:8a853325c46a215c06d0ab77720aa3a8e48b06c98c60f2837c663867e704b0f0",
+        "node": "ecs-zdz-pro-0017",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "gateway",
+        "count": 14,
+        "imageID": "deerflow.local/deer-flow-gateway@sha256:eeeb190145dd6677e0da372bbdf36ab207a6826d89960eca2ed49de15d40dcc5",
+        "node": "ecs-zdz-pro-0018",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "gateway",
+        "count": 14,
+        "imageID": "deerflow.local/deer-flow-gateway@sha256:eeeb190145dd6677e0da372bbdf36ab207a6826d89960eca2ed49de15d40dcc5",
+        "node": "ecs-zdz-pro-0019",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "gateway",
+        "count": 14,
+        "imageID": "deerflow.local/deer-flow-gateway@sha256:eeeb190145dd6677e0da372bbdf36ab207a6826d89960eca2ed49de15d40dcc5",
+        "node": "ecs-zdz-pro-0020",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "gateway",
+        "count": 14,
+        "imageID": "deerflow.local/deer-flow-gateway@sha256:eeeb190145dd6677e0da372bbdf36ab207a6826d89960eca2ed49de15d40dcc5",
+        "node": "ecs-zdz-pro-0021",
+        "ready": true,
+        "terminating": false
+      },
+      {
+        "container": "gateway",
+        "count": 14,
+        "imageID": "deerflow.local/deer-flow-gateway@sha256:eeeb190145dd6677e0da372bbdf36ab207a6826d89960eca2ed49de15d40dcc5",
+        "node": "ecs-zdz-pro-0022",
+        "ready": true,
+        "terminating": false
+      }
+    ],
+    "schema": "portal-current-deployment-archive.v1",
+    "scope": "CURRENT_KUBERNETES_METADATA_AND_CONFIG_HASHES_NOT_ATOMIC_CLUSTER_SNAPSHOT",
+    "secret_data_read": false,
+    "services": [
+      {
+        "identity": {
+          "generation": null,
+          "name": "frontend",
+          "resourceVersion": "398871",
+          "uid": "cd9fe534-7eb2-46eb-8f06-976943ac640b"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 3000,
+            "protocol": "TCP",
+            "targetPort": 3000
+          }
+        ],
+        "selector": {
+          "app": "frontend"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "2b066e0a188377836aa12a0ddc0328739bc5378776217543457d12d3178f4894",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "gateway",
+          "resourceVersion": "11550282",
+          "uid": "20fe0df7-522b-4035-a109-6b25b7f1ce36"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 8001,
+            "protocol": "TCP",
+            "targetPort": 8001
+          }
+        ],
+        "selector": {
+          "app": "gateway"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "88283f3232c184ebee8a0b16ee69fc416b8cb12591bdd1e2f652327c5311e591",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "gateway-redis",
+          "resourceVersion": "17806589",
+          "uid": "558806e4-4514-4120-b00f-b9e9a15b8f8d"
+        },
+        "ports": [
+          {
+            "name": "redis",
+            "port": 6379,
+            "protocol": "TCP",
+            "targetPort": "redis"
+          }
+        ],
+        "selector": {
+          "app": "gateway-redis"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "7dc447c597c34d1a7e33da42c424e005fd2a48800c4b67e3fb6b6fa2245c3e0b",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "gateway-redis-headless",
+          "resourceVersion": "17806590",
+          "uid": "a4a41ec5-d006-4a1f-a156-124f56f00f3b"
+        },
+        "ports": [
+          {
+            "name": "redis",
+            "port": 6379,
+            "protocol": "TCP",
+            "targetPort": "redis"
+          }
+        ],
+        "selector": {
+          "app": "gateway-redis"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "80a2e63e31f041317f84b86dabeda02c492f5234fabf4b6ada4895729f79079b",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "gateway-run-dispatcher",
+          "resourceVersion": "17864279",
+          "uid": "4f6eada7-10b9-4650-a164-97a786b18a53"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 8004,
+            "protocol": "TCP",
+            "targetPort": 8004
+          }
+        ],
+        "selector": {
+          "app": "gateway-run-dispatcher"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "c8485bcc7edca1144ba9c06d9898570eb319f75c045a9d8783539fd13dc52263",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "nginx",
+          "resourceVersion": "20523361",
+          "uid": "968e2c68-6635-4e60-9eba-9b13ae10647c"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 2026,
+            "protocol": "TCP",
+            "targetPort": 2026
+          }
+        ],
+        "selector": {
+          "app": "nginx-security-heai-20261012-r1"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "4466eebc5928640ecee0982ed1b90131857897e1a7a59a8e7deee6381c1a8b67",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "ppt-master-runner",
+          "resourceVersion": "11549938",
+          "uid": "64ce1bb3-1676-4444-8021-4814fc61b901"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 8003,
+            "protocol": "TCP",
+            "targetPort": 8003
+          }
+        ],
+        "selector": {
+          "app": "ppt-master-runner"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "1996eb9038877e486bf35c690d1f3abab121f55ceb84782685a13b44f891b6ff",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "provisioner",
+          "resourceVersion": "398876",
+          "uid": "4e322e41-7eed-4299-85e8-2f7a945cd389"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 8002,
+            "protocol": "TCP",
+            "targetPort": 8002
+          }
+        ],
+        "selector": {
+          "app": "provisioner"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "57f9bbd15cfe1e3d684ab32293e83a71b53c5906cd01ede915e0c5fe8d5cf176",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "weknora-app",
+          "resourceVersion": "11654641",
+          "uid": "7b9252f0-5d02-4c05-9df5-dcff11e6f81f"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 8080,
+            "protocol": "TCP",
+            "targetPort": 8080
+          }
+        ],
+        "selector": {
+          "app": "weknora-app"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "ecef564d91b70b2a4f12043336809c99b169f6320aaf1ef827a456b982b3e9a9",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "weknora-docreader",
+          "resourceVersion": "398878",
+          "uid": "fe17efc3-7f6a-45b4-b4bd-54c51f75f24f"
+        },
+        "ports": [
+          {
+            "name": "grpc",
+            "port": 50051,
+            "protocol": "TCP",
+            "targetPort": 50051
+          }
+        ],
+        "selector": {
+          "app": "weknora-docreader"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "1e98af123229589aab1d31666cec1d87f9637b53e6dfb33761048b945ecd8c9a",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "weknora-frontend",
+          "resourceVersion": "398879",
+          "uid": "7b152d44-8b6f-4775-910d-f0445c20503a"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 80,
+            "protocol": "TCP",
+            "targetPort": 80
+          }
+        ],
+        "selector": {
+          "app": "weknora-frontend"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "f0f2db902e578bbb0a0802427741cf5613b0e032a1e14e9aee98cfa4cfb89c8d",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "weknora-neo4j",
+          "resourceVersion": "1521578",
+          "uid": "7e6a8610-6281-40e0-9ee8-30503941811b"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 7474,
+            "protocol": "TCP",
+            "targetPort": 7474
+          },
+          {
+            "name": "bolt",
+            "port": 7687,
+            "protocol": "TCP",
+            "targetPort": 7687
+          }
+        ],
+        "selector": {
+          "app": "weknora-neo4j"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "1d1d7b6f09377bd829aba393dfb5d4fb61b1c0335b20df7096da71c5c4726126",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "weknora-postgres",
+          "resourceVersion": "398882",
+          "uid": "1d7d7200-7976-4de7-b4c8-fd1396ad1e35"
+        },
+        "ports": [
+          {
+            "name": "postgres",
+            "port": 5432,
+            "protocol": "TCP",
+            "targetPort": 5432
+          }
+        ],
+        "selector": {
+          "app": "weknora-postgres"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "70f50ee7adf30d85e9eb826f27328bbcadc9378fc2b612789a1fdf583b96cffc",
+        "type": "ClusterIP"
+      },
+      {
+        "identity": {
+          "generation": null,
+          "name": "weknora-redis",
+          "resourceVersion": "398883",
+          "uid": "16bcfb40-3523-4dc3-b07a-f91e426b7095"
+        },
+        "ports": [
+          {
+            "name": "redis",
+            "port": 6379,
+            "protocol": "TCP",
+            "targetPort": 6379
+          }
+        ],
+        "selector": {
+          "app": "weknora-redis"
+        },
+        "sessionAffinity": "None",
+        "spec_sha256": "a12128fd57ecd67fb2d4dfbc08bbdef3a32d6cb893c3ed176b28e2ef39a860ab",
+        "type": "ClusterIP"
+      }
+    ],
+    "started_utc": "2026-10-22T11:03:58.664117+00:00",
+    "status": "CURRENT_METADATA_COLLECTED",
+    "workload_modified": false,
+    "workload_specs_stable": true,
+    "workloads": [
+      {
+        "affinity": {
+          "nodeAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "nodeSelectorTerms": [
+                {
+                  "matchExpressions": [
+                    {
+                      "key": "kubernetes.io/hostname",
+                      "operator": "In",
+                      "values": [
+                        "datax-02",
+                        "ecs-zdz-pro-0015"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "podAntiAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "labelSelector": {
+                  "matchLabels": {
+                    "app": "frontend"
+                  }
+                },
+                "matchLabelKeys": [
+                  "pod-template-hash"
+                ],
+                "topologyKey": "kubernetes.io/hostname"
+              }
+            ]
+          }
+        },
+        "containers": [
+          {
+            "args_present": false,
+            "command_present": false,
+            "env": [
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_FRONTEND_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_UNAUTHENTICATED_HOME_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_SSO_ONLY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_INTERNAL_GATEWAY_BASE_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NEXT_PUBLIC_STATIC_WEBSITE_ONLY"
+              },
+              {
+                "name": "HAINENG_MODEL_CALL_COUNT_URL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "HAINENG_MODEL_CALL_COUNT_URL",
+                    "name": "deer-flow-frontend-statistics-f73deca547b5"
+                  }
+                }
+              },
+              {
+                "name": "HAINENG_MODEL_CALL_COUNT_APP_ID",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "HAINENG_MODEL_CALL_COUNT_APP_ID",
+                    "name": "deer-flow-frontend-statistics-f73deca547b5"
+                  }
+                }
+              },
+              {
+                "name": "HAINENG_MODEL_CALL_COUNT_APP_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "HAINENG_MODEL_CALL_COUNT_APP_KEY",
+                    "name": "deer-flow-frontend-statistics-f73deca547b5"
+                  }
+                }
+              }
+            ],
+            "envFrom": [
+              {
+                "secretRef": {
+                  "name": "deer-flow-env"
+                }
+              }
+            ],
+            "image": "deerflow.local/deer-flow-frontend@sha256:ee145e6357e4f6b63003d786b7c6b0f28cf6bbe663e1b5589f92f7c829bb89e5",
+            "imagePullPolicy": "Never",
+            "name": "frontend",
+            "probe_kinds": {
+              "livenessProbe": [
+                "httpGet"
+              ],
+              "readinessProbe": [
+                "httpGet"
+              ],
+              "startupProbe": [
+                "httpGet"
+              ]
+            },
+            "resources": {
+              "limits": {
+                "cpu": "1",
+                "memory": "1Gi"
+              },
+              "requests": {
+                "cpu": "100m",
+                "memory": "256Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/app/frontend/public/demo/threads/1490ac9e-1573-479d-875c-bd5680f3ba66",
+                "name": "static-demo-assets",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "identity": {
+          "generation": 225,
+          "name": "frontend",
+          "resourceVersion": "23938889",
+          "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+        },
+        "initContainers": [],
+        "kind": "Deployment",
+        "nodeSelector": {},
+        "replicas": 2,
+        "serviceAccountName": null,
+        "spec_sha256": "1d3af5d2091bbb29fb4a45a3743acc03fbff9bf190c23c67b5bc43bb4fc37123",
+        "status": {
+          "availableReplicas": 2,
+          "currentRevision": null,
+          "observedGeneration": 225,
+          "readyReplicas": 2,
+          "replicas": 2,
+          "unavailableReplicas": null,
+          "updateRevision": null,
+          "updatedReplicas": 2
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoSchedule",
+            "key": "node.kubernetes.io/unschedulable",
+            "operator": "Exists"
+          }
+        ],
+        "volumes": [
+          {
+            "name": "static-demo-assets",
+            "projected": {
+              "defaultMode": 420,
+              "sources": [
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "thread.json",
+                        "path": "thread.json"
+                      },
+                      {
+                        "key": "deck.pptx",
+                        "path": "user-data/outputs/cnooc_new_energy_20260811.pptx"
+                      },
+                      {
+                        "key": "preview.html",
+                        "path": "user-data/outputs/cnooc_new_energy_20260811.preview.html"
+                      }
+                    ],
+                    "name": "deer-flow-demo-thread-core"
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "preview.pdf",
+                        "path": "user-data/outputs/cnooc_new_energy_20260811.preview.pdf"
+                      },
+                      {
+                        "key": "slide-1.png",
+                        "path": "user-data/outputs/cnooc_new_energy_20260811.preview/slide-1.png"
+                      },
+                      {
+                        "key": "slide-2.png",
+                        "path": "user-data/outputs/cnooc_new_energy_20260811.preview/slide-2.png"
+                      }
+                    ],
+                    "name": "deer-flow-demo-thread-preview-a"
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "slide-3.png",
+                        "path": "user-data/outputs/cnooc_new_energy_20260811.preview/slide-3.png"
+                      },
+                      {
+                        "key": "slide-4.png",
+                        "path": "user-data/outputs/cnooc_new_energy_20260811.preview/slide-4.png"
+                      },
+                      {
+                        "key": "slide-5.png",
+                        "path": "user-data/outputs/cnooc_new_energy_20260811.preview/slide-5.png"
+                      }
+                    ],
+                    "name": "deer-flow-demo-thread-preview-b"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "affinity": {
+          "nodeAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "nodeSelectorTerms": [
+                {
+                  "matchExpressions": [
+                    {
+                      "key": "kubernetes.io/hostname",
+                      "operator": "In",
+                      "values": [
+                        "ecs-zdz-pro-0018",
+                        "ecs-zdz-pro-0019",
+                        "ecs-zdz-pro-0020",
+                        "ecs-zdz-pro-0021",
+                        "ecs-zdz-pro-0022"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "containers": [
+          {
+            "args_present": true,
+            "command_present": true,
+            "env": [
+              {
+                "name": "FEISHU_APP_ID",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "FEISHU_APP_ID",
+                    "name": "deer-flow-feishu-channel"
+                  }
+                }
+              },
+              {
+                "name": "FEISHU_APP_SECRET",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "FEISHU_APP_SECRET",
+                    "name": "deer-flow-feishu-channel"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_IMAGE_GENERATION_API_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_VIDEO_GENERATION_API_URL"
+              },
+              {
+                "name": "DEERFLOW_IMAGE_GENERATION_TIMEOUT_SECONDS",
+                "numeric_capacity_value": "600"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_VIDEO_GENERATION_POLL_SECONDS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_SSO_ONLY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SSL_CERT_FILE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "REQUESTS_CA_BUNDLE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "CURL_CA_BUNDLE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NODE_EXTRA_CA_CERTS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NO_PROXY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "no_proxy"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "OPENSSL_CONF"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_BAILIAN_TLS_COMPAT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "TAVILY_TLS_COMPAT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_TLS_COMPAT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_ENTERPRISE_INTERNAL_MODELS_ONLY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_DEFAULT_EMBEDDING_MODEL_ID"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_DEFAULT_RERANK_MODEL_ID"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "CNOOC_EMBEDDING_DIMENSION"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "CNOOC_EMBEDDING_MRL_TRUNCATION_ENABLED"
+              },
+              {
+                "name": "WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY",
+                "numeric_capacity_value": "24"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRIES"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRY_SECONDS"
+              },
+              {
+                "name": "CNOOC_RETRIEVAL_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "CNOOC_RETRIEVAL_API_KEY",
+                    "name": "deer-flow-env"
+                  }
+                }
+              },
+              {
+                "name": "WEKNORA_INTERNAL_MODEL_RELAY_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "WEKNORA_INTERNAL_MODEL_RELAY_KEY",
+                    "name": "deer-flow-env"
+                  }
+                }
+              },
+              {
+                "name": "PPT_MASTER_RESPONSES_RELAY_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "PPT_MASTER_RESPONSES_RELAY_KEY",
+                    "name": "deer-flow-env"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_MASTER_DEEPSEEK_UPSTREAM_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_MASTER_DEEPSEEK_MODEL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_MASTER_DEEPSEEK_MAX_OUTPUT_TOKENS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_MASTER_DEEPSEEK_ATTEMPTS"
+              },
+              {
+                "name": "PPT_MASTER_DEEPSEEK_READ_TIMEOUT_SECONDS",
+                "numeric_capacity_value": "900"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "EMBEDDING_BASE_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "EMBEDDING_PROVIDER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_PRESENTATION_PARSER_ENGINE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_MINERU_ENDPOINT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_MINERU_AUTO_CONFIGURE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_MINERU_SCANNED_PDF_FALLBACK"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK"
+              },
+              {
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS",
+                "numeric_capacity_value": "570"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "CI"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "GATEWAY_PORT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_MASTER_RUNNER_INTERNAL_URL"
+              },
+              {
+                "name": "DATABASE_URL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "DATABASE_URL",
+                    "name": "deer-flow-postgres"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_PROJECT_ROOT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_HOME"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_CONFIG_PATH"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_EXTENSIONS_CONFIG_PATH"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_CHANNELS_LANGGRAPH_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_CHANNELS_GATEWAY_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_DB_HOST"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_DB_PORT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_DB_USER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_DB_NAME"
+              },
+              {
+                "name": "WEKNORA_DB_CONNECT_TIMEOUT_SECONDS",
+                "numeric_capacity_value": "3"
+              },
+              {
+                "name": "WEKNORA_DB_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "DB_PASSWORD",
+                    "name": "weknora-secret",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "LLM_MODEL_NAME"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "LLM_BASE_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "LLM_PROVIDER"
+              },
+              {
+                "name": "LLM_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "LLM_API_KEY",
+                    "name": "weknora-secret",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "EMBEDDING_MODEL_NAME"
+              },
+              {
+                "name": "EMBEDDING_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "EMBEDDING_API_KEY",
+                    "name": "weknora-secret",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "DeepSeek_V4_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "DeepSeek_V4_API_KEY",
+                    "name": "deer-flow-env",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "HTTP_PROXY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "HTTP_PROXY",
+                    "name": "deer-flow-env"
+                  }
+                }
+              },
+              {
+                "name": "HTTPS_PROXY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "HTTPS_PROXY",
+                    "name": "deer-flow-env"
+                  }
+                }
+              },
+              {
+                "name": "http_proxy",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "HTTP_PROXY",
+                    "name": "deer-flow-env"
+                  }
+                }
+              },
+              {
+                "name": "https_proxy",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "HTTPS_PROXY",
+                    "name": "deer-flow-env"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "QWEN_ASR_STREAM_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "QWEN_ASR_MODEL_NAME"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "QWEN_ASR_MAX_DURATION_SECONDS"
+              },
+              {
+                "name": "QWEN_ASR_FINAL_TIMEOUT_SECONDS",
+                "numeric_capacity_value": "30"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "QWEN_ASR_MAX_CONCURRENT_SESSIONS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "QWEN_ASR_MAX_AUDIO_BYTES"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "QWEN_ASR_MAX_FRAME_BYTES"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_CONNECTIONS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_KEEPALIVE_CONNECTIONS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_REQUIRE_PARSED_TEXT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_PDF_SECURITY_MODE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_PDF_SANITIZE_DPI"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_PDF_SANITIZE_MAX_PAGES"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_BROWSER_CA_BUNDLE"
+              },
+              {
+                "name": "DEER_FLOW_STREAM_BRIDGE_REDIS_URL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "DEER_FLOW_STREAM_BRIDGE_REDIS_URL",
+                    "name": "gateway-stream-bridge-redis"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MIN_SIZE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MAX_SIZE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_CHECKPOINTER_POSTGRES_POOL_CONCURRENT_CURSOR"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_FEISHU_DOMAIN"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_CONFIRMATION_TRANSPORT_ENABLED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_EMPLOYEE_FEATURED_PATH"
+              },
+              {
+                "name": "GLM_5_3_FLASH_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "GLM_5_3_FLASH_API_KEY",
+                    "name": "deer-flow-glm-5-3-flash-20261019-r1",
+                    "optional": false
+                  }
+                }
+              },
+              {
+                "name": "APPFORGE_DATA_QA_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "APPFORGE_DATA_QA_API_KEY",
+                    "name": "deer-flow-data-qa-2e0fd403b23a"
+                  }
+                }
+              }
+            ],
+            "envFrom": [
+              {
+                "secretRef": {
+                  "name": "deer-flow-env"
+                }
+              }
+            ],
+            "image": "deerflow.local/deer-flow-gateway@sha256:eeeb190145dd6677e0da372bbdf36ab207a6826d89960eca2ed49de15d40dcc5",
+            "imagePullPolicy": "Never",
+            "name": "gateway",
+            "probe_kinds": {
+              "livenessProbe": [
+                "httpGet"
+              ],
+              "readinessProbe": [
+                "httpGet"
+              ],
+              "startupProbe": [
+                "httpGet"
+              ]
+            },
+            "resources": {
+              "limits": {
+                "cpu": "4",
+                "memory": "4Gi"
+              },
+              "requests": {
+                "cpu": "2",
+                "memory": "3Gi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/etc/deerflow-ca",
+                "name": "enterprise-ca",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/etc/deerflow-openssl",
+                "name": "openssl-compat",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/app/backend/config.yaml",
+                "name": "config",
+                "readOnly": true,
+                "subPath": "config.yaml"
+              },
+              {
+                "mountPath": "/app/backend/extensions_config.json",
+                "name": "extensions-config",
+                "readOnly": true,
+                "subPath": "extensions_config.json"
+              },
+              {
+                "mountPath": "/app/backend/.deer-flow",
+                "name": "userdata",
+                "subPath": "deer-flow"
+              },
+              {
+                "mountPath": "/app/skills",
+                "name": "skills",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/dev/shm",
+                "name": "digitalemployee-browser-shm"
+              }
+            ]
+          }
+        ],
+        "identity": {
+          "generation": 382,
+          "name": "gateway",
+          "resourceVersion": "24751601",
+          "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+        },
+        "initContainers": [
+          {
+            "args_present": true,
+            "command_present": true,
+            "env": [
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED"
+              },
+              {
+                "name": "WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY",
+                "numeric_capacity_value": "24"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_MINERU_ENDPOINT"
+              },
+              {
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS",
+                "numeric_capacity_value": "570"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_CONNECTIONS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_KEEPALIVE_CONNECTIONS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_REQUIRE_PARSED_TEXT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_BROWSER_CA_BUNDLE"
+              }
+            ],
+            "envFrom": [],
+            "image": "deerflow.local/deer-flow-gateway:20260811-enterprise-arm64-rc15-consolidated2",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "seed-extensions-config",
+            "probe_kinds": {},
+            "resources": {},
+            "volumeMounts": [
+              {
+                "mountPath": "/seed/extensions_config.json",
+                "name": "extensions-config",
+                "readOnly": true,
+                "subPath": "extensions_config.json"
+              },
+              {
+                "mountPath": "/runtime-home",
+                "name": "userdata",
+                "subPath": "deer-flow"
+              }
+            ]
+          },
+          {
+            "args_present": false,
+            "command_present": true,
+            "env": [
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED"
+              },
+              {
+                "name": "WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY",
+                "numeric_capacity_value": "24"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_MINERU_ENDPOINT"
+              },
+              {
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS",
+                "numeric_capacity_value": "570"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_CONNECTIONS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_KEEPALIVE_CONNECTIONS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_REQUIRE_PARSED_TEXT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_BROWSER_CA_BUNDLE"
+              }
+            ],
+            "envFrom": [],
+            "image": "m.daocloud.io/docker.io/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "wait-for-skills",
+            "probe_kinds": {},
+            "resources": {},
+            "volumeMounts": [
+              {
+                "mountPath": "/app/skills",
+                "name": "skills",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "kind": "Deployment",
+        "nodeSelector": {
+          "workload": "gateway"
+        },
+        "replicas": 70,
+        "serviceAccountName": null,
+        "spec_sha256": "699119d2d3e7a2e30aad980d5c4f37560be9022b00059a2712b6512e4b3816ff",
+        "status": {
+          "availableReplicas": 70,
+          "currentRevision": null,
+          "observedGeneration": 382,
+          "readyReplicas": 70,
+          "replicas": 70,
+          "unavailableReplicas": null,
+          "updateRevision": null,
+          "updatedReplicas": 70
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoSchedule",
+            "key": "dedicated",
+            "operator": "Equal",
+            "value": "gateway"
+          }
+        ],
+        "volumes": [
+          {
+            "name": "enterprise-ca",
+            "secret": {
+              "defaultMode": 420,
+              "items": [
+                {
+                  "key": "ca-bundle.crt",
+                  "path": "ca-bundle.crt"
+                }
+              ],
+              "secretName": "deer-flow-enterprise-ca"
+            }
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "items": [
+                {
+                  "key": "openssl.cnf",
+                  "path": "openssl.cnf"
+                }
+              ],
+              "name": "deer-flow-gateway-openssl-compat"
+            },
+            "name": "openssl-compat"
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "name": "deer-flow-config-data-qa-glm-2e0fd403b23a"
+            },
+            "name": "config"
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "name": "deer-flow-extensions-config"
+            },
+            "name": "extensions-config"
+          },
+          {
+            "name": "userdata",
+            "persistentVolumeClaim": {
+              "claimName": "deer-flow-userdata-rwx-pvc"
+            }
+          },
+          {
+            "name": "skills",
+            "persistentVolumeClaim": {
+              "claimName": "deer-flow-skills-rwx-pvc",
+              "readOnly": true
+            }
+          },
+          {
+            "emptyDir": {
+              "medium": "Memory",
+              "sizeLimit": "512Mi"
+            },
+            "name": "digitalemployee-browser-shm"
+          }
+        ]
+      },
+      {
+        "affinity": {},
+        "containers": [
+          {
+            "args_present": true,
+            "command_present": true,
+            "env": [
+              {
+                "name": "DATABASE_URL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "DATABASE_URL",
+                    "name": "deer-flow-postgres"
+                  }
+                }
+              },
+              {
+                "name": "POD_NAMESPACE",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.namespace"
+                  }
+                }
+              }
+            ],
+            "envFrom": [],
+            "image": "deerflow.local/deer-flow-run-dispatcher:20261004-owner-cancel-r1",
+            "imagePullPolicy": "Never",
+            "name": "dispatcher",
+            "probe_kinds": {
+              "livenessProbe": [
+                "httpGet"
+              ],
+              "readinessProbe": [
+                "httpGet"
+              ]
+            },
+            "resources": {
+              "limits": {
+                "cpu": "1",
+                "memory": "512Mi"
+              },
+              "requests": {
+                "cpu": "250m",
+                "memory": "128Mi"
+              }
+            },
+            "volumeMounts": []
+          }
+        ],
+        "identity": {
+          "generation": 2,
+          "name": "gateway-run-dispatcher",
+          "resourceVersion": "19735414",
+          "uid": "f7e3f49e-e21b-4181-8c12-d76835ad21f7"
+        },
+        "initContainers": [],
+        "kind": "Deployment",
+        "nodeSelector": {
+          "kubernetes.io/hostname": "datax-01"
+        },
+        "replicas": 2,
+        "serviceAccountName": "gateway-run-dispatcher",
+        "spec_sha256": "2f948736d620d8de39cc8da504bc060319df2e6caa0a15cace8d1fdd9d47a714",
+        "status": {
+          "availableReplicas": 2,
+          "currentRevision": null,
+          "observedGeneration": 2,
+          "readyReplicas": 2,
+          "replicas": 2,
+          "unavailableReplicas": null,
+          "updateRevision": null,
+          "updatedReplicas": 2
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": "25%"
+          },
+          "type": "RollingUpdate"
+        },
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [],
+        "volumes": []
+      },
+      {
+        "affinity": {},
+        "containers": [
+          {
+            "args_present": true,
+            "command_present": true,
+            "env": [],
+            "envFrom": [],
+            "image": "m.daocloud.io/docker.io/library/nginx@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "nginx",
+            "probe_kinds": {
+              "livenessProbe": [
+                "httpGet"
+              ],
+              "readinessProbe": [
+                "httpGet"
+              ],
+              "startupProbe": [
+                "httpGet"
+              ]
+            },
+            "resources": {
+              "limits": {
+                "cpu": "2",
+                "memory": "1Gi"
+              },
+              "requests": {
+                "cpu": "1",
+                "memory": "512Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/etc/nginx/nginx.conf.template",
+                "name": "nginx-config",
+                "readOnly": true,
+                "subPath": "nginx.conf"
+              },
+              {
+                "mountPath": "/etc/nginx/tls",
+                "name": "nginx-tls",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "identity": {
+          "generation": 116,
+          "name": "nginx",
+          "resourceVersion": "20288516",
+          "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+        },
+        "initContainers": [],
+        "kind": "Deployment",
+        "nodeSelector": {
+          "kubernetes.io/hostname": "datax-01"
+        },
+        "replicas": 1,
+        "serviceAccountName": null,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "status": {
+          "availableReplicas": 1,
+          "currentRevision": null,
+          "observedGeneration": 116,
+          "readyReplicas": 1,
+          "replicas": 1,
+          "unavailableReplicas": null,
+          "updateRevision": null,
+          "updatedReplicas": 1
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "terminationGracePeriodSeconds": 720,
+        "tolerations": [],
+        "volumes": [
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "name": "deer-flow-nginx-hostguard-20261011-r1"
+            },
+            "name": "nginx-config"
+          },
+          {
+            "name": "nginx-tls",
+            "secret": {
+              "defaultMode": 420,
+              "secretName": "cnoocclaw-tls"
+            }
+          }
+        ]
+      },
+      {
+        "affinity": {},
+        "containers": [
+          {
+            "args_present": true,
+            "command_present": true,
+            "env": [
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UNIFIED_MODEL_CONFIG_REVISION"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_SSO_ONLY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SSL_CERT_FILE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "REQUESTS_CA_BUNDLE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "CURL_CA_BUNDLE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NODE_EXTRA_CA_CERTS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NO_PROXY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "no_proxy"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "OPENSSL_CONF"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "TAVILY_TLS_COMPAT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_TLS_COMPAT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "CI"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "GATEWAY_PORT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_RUNTIME_PROFILE"
+              },
+              {
+                "name": "DATABASE_URL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "DATABASE_URL",
+                    "name": "deer-flow-postgres"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_PROJECT_ROOT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_HOME"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_CONFIG_PATH"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEER_FLOW_EXTENSIONS_CONFIG_PATH"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "HTTP_PROXY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "HTTPS_PROXY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "http_proxy"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "https_proxy"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED"
+              }
+            ],
+            "envFrom": [
+              {
+                "secretRef": {
+                  "name": "deer-flow-env"
+                }
+              }
+            ],
+            "image": "deerflow.local/deer-flow-ppt-master-runner@sha256:8a853325c46a215c06d0ab77720aa3a8e48b06c98c60f2837c663867e704b0f0",
+            "imagePullPolicy": "Never",
+            "name": "ppt-master-runner",
+            "probe_kinds": {
+              "livenessProbe": [
+                "httpGet"
+              ],
+              "readinessProbe": [
+                "httpGet"
+              ],
+              "startupProbe": [
+                "httpGet"
+              ]
+            },
+            "resources": {
+              "limits": {
+                "cpu": "2",
+                "memory": "4Gi"
+              },
+              "requests": {
+                "cpu": "250m",
+                "memory": "1Gi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/etc/deerflow-ca",
+                "name": "enterprise-ca",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/etc/deerflow-openssl",
+                "name": "openssl-compat",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/app/backend/config.yaml",
+                "name": "config",
+                "readOnly": true,
+                "subPath": "config.yaml"
+              },
+              {
+                "mountPath": "/app/backend/extensions_config.json",
+                "name": "extensions-config",
+                "readOnly": true,
+                "subPath": "extensions_config.json"
+              },
+              {
+                "mountPath": "/app/backend/.deer-flow",
+                "name": "userdata",
+                "subPath": "deer-flow"
+              },
+              {
+                "mountPath": "/app/skills",
+                "name": "skills",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/app/backend/packages/harness/deerflow/persistence/migrations/versions/0018_scheduled_task_reliability.py",
+                "name": "ppt-runner-migration-compatibility",
+                "readOnly": true,
+                "subPath": "0018_scheduled_task_reliability.py"
+              },
+              {
+                "mountPath": "/app/backend/packages/harness/deerflow/persistence/migrations/versions/0019_digital_employee_agents.py",
+                "name": "ppt-runner-migration-compatibility",
+                "readOnly": true,
+                "subPath": "0019_digital_employee_agents.py"
+              },
+              {
+                "mountPath": "/app/backend/app/gateway/deps.py",
+                "name": "ppt-runner-migration-compatibility",
+                "readOnly": true,
+                "subPath": "deps.py"
+              },
+              {
+                "mountPath": "/app/backend/packages/harness/deerflow/community/aio_sandbox/aio_sandbox_provider.py",
+                "name": "ppt-runner-execution-lease-fd",
+                "readOnly": true,
+                "subPath": "aio_sandbox_provider.py"
+              }
+            ]
+          }
+        ],
+        "identity": {
+          "generation": 54,
+          "name": "ppt-master-runner",
+          "resourceVersion": "24008309",
+          "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+        },
+        "initContainers": [
+          {
+            "args_present": true,
+            "command_present": true,
+            "env": [
+              {
+                "name": "DATABASE_URL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "DATABASE_URL",
+                    "name": "deer-flow-postgres"
+                  }
+                }
+              }
+            ],
+            "envFrom": [],
+            "image": "deerflow.local/deer-flow-gateway:20260923-enterprise-arm64-rc15-ppt-master-v660-r15",
+            "imagePullPolicy": "Never",
+            "name": "wait-for-postgres",
+            "probe_kinds": {},
+            "resources": {
+              "limits": {
+                "cpu": "250m",
+                "memory": "256Mi"
+              },
+              "requests": {
+                "cpu": "10m",
+                "memory": "32Mi"
+              }
+            },
+            "volumeMounts": []
+          },
+          {
+            "args_present": false,
+            "command_present": true,
+            "env": [
+              {
+                "literal_value": "WITHHELD",
+                "name": "DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED"
+              }
+            ],
+            "envFrom": [],
+            "image": "m.daocloud.io/docker.io/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "wait-for-skills",
+            "probe_kinds": {},
+            "resources": {},
+            "volumeMounts": [
+              {
+                "mountPath": "/app/skills",
+                "name": "skills",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "kind": "Deployment",
+        "nodeSelector": {},
+        "replicas": 1,
+        "serviceAccountName": null,
+        "spec_sha256": "a1ba61f7c0339e23788b2ce8629ac5d90c0f71c8bf82cec6958b01c02ca31b94",
+        "status": {
+          "availableReplicas": 1,
+          "currentRevision": null,
+          "observedGeneration": 54,
+          "readyReplicas": 1,
+          "replicas": 1,
+          "unavailableReplicas": null,
+          "updateRevision": null,
+          "updatedReplicas": 1
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [],
+        "volumes": [
+          {
+            "name": "enterprise-ca",
+            "secret": {
+              "defaultMode": 420,
+              "items": [
+                {
+                  "key": "ca-bundle.crt",
+                  "path": "ca-bundle.crt"
+                }
+              ],
+              "secretName": "deer-flow-enterprise-ca"
+            }
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "items": [
+                {
+                  "key": "openssl.cnf",
+                  "path": "openssl.cnf"
+                }
+              ],
+              "name": "deer-flow-gateway-openssl-compat"
+            },
+            "name": "openssl-compat"
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "name": "deer-flow-config-ppt-runner-heartbeat-20261004-r1"
+            },
+            "name": "config"
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "name": "deer-flow-extensions-config"
+            },
+            "name": "extensions-config"
+          },
+          {
+            "name": "userdata",
+            "persistentVolumeClaim": {
+              "claimName": "deer-flow-userdata-rwx-pvc"
+            }
+          },
+          {
+            "name": "skills",
+            "persistentVolumeClaim": {
+              "claimName": "deer-flow-skills-rwx-pvc",
+              "readOnly": true
+            }
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "items": [
+                {
+                  "key": "0018_scheduled_task_reliability.py",
+                  "path": "0018_scheduled_task_reliability.py"
+                },
+                {
+                  "key": "0019_digital_employee_agents.py",
+                  "path": "0019_digital_employee_agents.py"
+                },
+                {
+                  "key": "deps.py",
+                  "path": "deps.py"
+                }
+              ],
+              "name": "ppt-runner-startup-safety-542a3c2ca306c7a2"
+            },
+            "name": "ppt-runner-migration-compatibility"
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "name": "ppt-runner-execution-lease-fd-9b703c4c17847f34"
+            },
+            "name": "ppt-runner-execution-lease-fd"
+          }
+        ]
+      },
+      {
+        "affinity": {
+          "nodeAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "nodeSelectorTerms": [
+                {
+                  "matchExpressions": [
+                    {
+                      "key": "kubernetes.io/hostname",
+                      "operator": "In",
+                      "values": [
+                        "datax-01",
+                        "datax-02"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "containers": [
+          {
+            "args_present": false,
+            "command_present": false,
+            "env": [
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_IMAGE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_EPHEMERAL_STORAGE_REQUEST"
+              },
+              {
+                "name": "SANDBOX_EPHEMERAL_STORAGE_LIMIT",
+                "numeric_capacity_value": "12Gi"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_SERVICE_TYPE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_MASTER_AGENT_HOST_ENABLED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_MASTER_AGENT_HOST_PORT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_MASTER_AGENT_ONLY_SECRET_ENV_KEYS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "CODEX_CONFIG_TOML"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "CODEX_MODEL_CATALOG_JSON"
+              },
+              {
+                "name": "SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS",
+                "numeric_capacity_value": "5"
+              },
+              {
+                "name": "SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS",
+                "numeric_capacity_value": "10"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD"
+              },
+              {
+                "name": "SANDBOX_READINESS_TIMEOUT_SECONDS",
+                "numeric_capacity_value": "10"
+              },
+              {
+                "name": "SANDBOX_LIVENESS_TIMEOUT_SECONDS",
+                "numeric_capacity_value": "10"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_CPU_REQUEST"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_MEMORY_REQUEST"
+              },
+              {
+                "name": "SANDBOX_CPU_LIMIT",
+                "numeric_capacity_value": "2"
+              },
+              {
+                "name": "SANDBOX_MEMORY_LIMIT",
+                "numeric_capacity_value": "4Gi"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_SECRET_ENV_KEYS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_PASSTHROUGH_ENV_KEYS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NO_PROXY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "no_proxy"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_CA_SECRET_NAME"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_CA_SECRET_KEY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_CA_MOUNT_PATH"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_OPENSSL_CONFIGMAP_NAME"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_OPENSSL_CONFIGMAP_KEY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_OPENSSL_MOUNT_PATH"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_TLS_COMPAT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "IMAGE_BACKEND"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "IMAGE_GENERATION_PROVIDER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "QWEN_BASE_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "QWEN_MODEL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_BASE_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_IMAGE_MODEL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "VIDEO_GENERATION_PROVIDER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_VIDEO_MODEL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_VIDEO_DURATION"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_VIDEO_RESOLUTION"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PODCAST_GENERATION_PROVIDER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_TTS_MODEL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_TTS_VOICE_MALE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_TTS_VOICE_FEMALE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "MUSIC_GENERATION_PROVIDER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_MUSIC_MODEL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_MUSIC_GENDER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DASHSCOPE_MUSIC_FORMAT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "K8S_NAMESPACE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "K8S_CREATE_NAMESPACE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SKILLS_PVC_NAME"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "USERDATA_PVC_NAME"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "KUBECONFIG_WAIT_SECONDS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_READINESS_INITIAL_DELAY_SECONDS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_READINESS_PERIOD_SECONDS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_READINESS_FAILURE_THRESHOLD"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_LIVENESS_PERIOD_SECONDS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_LIVENESS_FAILURE_THRESHOLD"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_ENV_SECRET_NAME"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DISABLE_BROWSER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DISABLE_MCP_BROWSER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_MASTER_AGENT_HOST_IMAGE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_MASTER_AGENT_CODEX_CONFIG_TOML"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PPT_MASTER_AGENT_CODEX_MODEL_CATALOG_JSON"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "QWEN_TTS_BASE_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SANDBOX_NODE_POOL"
+              }
+            ],
+            "envFrom": [
+              {
+                "secretRef": {
+                  "name": "deer-flow-env"
+                }
+              }
+            ],
+            "image": "deerflow.local/deer-flow-provisioner:20261005-prod-node-pool-r1",
+            "imagePullPolicy": "Never",
+            "name": "provisioner",
+            "probe_kinds": {
+              "livenessProbe": [
+                "httpGet"
+              ],
+              "readinessProbe": [
+                "httpGet"
+              ],
+              "startupProbe": [
+                "httpGet"
+              ]
+            },
+            "resources": {
+              "limits": {
+                "cpu": "1",
+                "memory": "1Gi"
+              },
+              "requests": {
+                "cpu": "250m",
+                "memory": "256Mi"
+              }
+            },
+            "volumeMounts": []
+          }
+        ],
+        "identity": {
+          "generation": 85,
+          "name": "provisioner",
+          "resourceVersion": "23991994",
+          "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+        },
+        "initContainers": [],
+        "kind": "Deployment",
+        "nodeSelector": {},
+        "replicas": 1,
+        "serviceAccountName": "deer-flow-provisioner",
+        "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+        "status": {
+          "availableReplicas": 1,
+          "currentRevision": null,
+          "observedGeneration": 85,
+          "readyReplicas": 1,
+          "replicas": 1,
+          "unavailableReplicas": null,
+          "updateRevision": null,
+          "updatedReplicas": 1
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": "25%"
+          },
+          "type": "RollingUpdate"
+        },
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [],
+        "volumes": []
+      },
+      {
+        "affinity": {
+          "nodeAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "nodeSelectorTerms": [
+                {
+                  "matchExpressions": [
+                    {
+                      "key": "kubernetes.io/hostname",
+                      "operator": "In",
+                      "values": [
+                        "datax-03",
+                        "ecs-zdz-pro-0008"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "podAntiAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "labelSelector": {
+                  "matchLabels": {
+                    "app": "weknora-app"
+                  }
+                },
+                "topologyKey": "kubernetes.io/hostname"
+              }
+            ]
+          }
+        },
+        "containers": [
+          {
+            "args_present": true,
+            "command_present": true,
+            "env": [
+              {
+                "literal_value": "WITHHELD",
+                "name": "AUTO_MIGRATE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "AUTO_RECOVER_DIRTY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_HOUSEKEEPING_ENABLED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_SANDBOX_DOCKER_ENABLED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DUCKDB_SKIP_EXTENSION_LOAD"
+              },
+              {
+                "name": "http_proxy",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "http_proxy",
+                    "name": "weknora-egress-proxy"
+                  }
+                }
+              },
+              {
+                "name": "https_proxy",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "https_proxy",
+                    "name": "weknora-egress-proxy"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SSL_CERT_FILE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "REQUESTS_CA_BUNDLE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "CURL_CA_BUNDLE"
+              },
+              {
+                "name": "HTTPS_PROXY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "HTTPS_PROXY",
+                    "name": "weknora-egress-proxy"
+                  }
+                }
+              },
+              {
+                "name": "HTTP_PROXY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "HTTP_PROXY",
+                    "name": "weknora-egress-proxy"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "EMBEDDING_BASE_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "EMBEDDING_PROVIDER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_PREFER_CNOOC_DEEPSEEK"
+              },
+              {
+                "name": "WEKNORA_INTERNAL_MODEL_RELAY_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "WEKNORA_INTERNAL_MODEL_RELAY_KEY",
+                    "name": "deer-flow-env"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SSRF_WHITELIST_EXTRA"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NO_PROXY"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "no_proxy"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "GIN_MODE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "LOG_LEVEL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "TZ"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_LANGUAGE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DISABLE_REGISTRATION"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_AUTH_DEFAULT_TENANT_MODE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_TENANT_ENABLE_RBAC"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_TENANT_MAX_OWNED_PER_USER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DB_DRIVER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DB_HOST"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DB_PORT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DB_USER"
+              },
+              {
+                "name": "DB_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "DB_PASSWORD",
+                    "name": "weknora-secret"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DB_NAME"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "RETRIEVE_DRIVER"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "STORAGE_TYPE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "LOCAL_STORAGE_BASE_DIR"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "STREAM_MANAGER_TYPE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "REDIS_ADDR"
+              },
+              {
+                "name": "REDIS_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "REDIS_PASSWORD",
+                    "name": "weknora-secret"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DOCREADER_ADDR"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DOCREADER_TRANSPORT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "ENABLE_GRAPH_RAG"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NEO4J_ENABLE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NEO4J_URI"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NEO4J_USERNAME"
+              },
+              {
+                "name": "NEO4J_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "NEO4J_PASSWORD",
+                    "name": "weknora-neo4j-secret"
+                  }
+                }
+              },
+              {
+                "name": "TENANT_AES_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "TENANT_AES_KEY",
+                    "name": "weknora-secret"
+                  }
+                }
+              },
+              {
+                "name": "SYSTEM_AES_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "SYSTEM_AES_KEY",
+                    "name": "weknora-secret"
+                  }
+                }
+              },
+              {
+                "name": "JWT_SECRET",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "SYSTEM_AES_KEY",
+                    "name": "weknora-secret"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "LLM_MODEL_NAME"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "LLM_BASE_URL"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "LLM_PROVIDER"
+              },
+              {
+                "name": "LLM_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "LLM_API_KEY",
+                    "name": "weknora-secret"
+                  }
+                }
+              },
+              {
+                "name": "DeepSeek_V4_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "DeepSeek_V4_API_KEY",
+                    "name": "deer-flow-env",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "EMBEDDING_MODEL_NAME"
+              },
+              {
+                "name": "EMBEDDING_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "EMBEDDING_API_KEY",
+                    "name": "weknora-secret"
+                  }
+                }
+              },
+              {
+                "name": "WEKNORA_ASYNQ_CORE_CONCURRENCY",
+                "numeric_capacity_value": "32"
+              },
+              {
+                "name": "WEKNORA_DOCREADER_CALL_TIMEOUT",
+                "numeric_capacity_value": "30m"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "WEKNORA_DOCUMENT_PROCESS_TIMEOUT"
+              },
+              {
+                "name": "WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY",
+                "numeric_capacity_value": "2"
+              },
+              {
+                "name": "WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY",
+                "numeric_capacity_value": "64"
+              },
+              {
+                "name": "WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY",
+                "numeric_capacity_value": "2"
+              },
+              {
+                "name": "WEKNORA_ASYNQ_SHARED_CONCURRENCY",
+                "numeric_capacity_value": "2"
+              },
+              {
+                "name": "MAX_FILE_SIZE_MB",
+                "numeric_capacity_value": "100"
+              },
+              {
+                "name": "WEKNORA_WIKI_ASYNQ_CONCURRENCY",
+                "numeric_capacity_value": "6"
+              },
+              {
+                "name": "WEKNORA_MODEL_MAX_CONCURRENCY",
+                "numeric_capacity_value": "64"
+              }
+            ],
+            "envFrom": [],
+            "image": "deerflow.local/weknora-app:20261016-native-glm-runtimefix-fc44d25744194ece",
+            "imagePullPolicy": "Never",
+            "name": "app",
+            "probe_kinds": {
+              "readinessProbe": [
+                "httpGet"
+              ]
+            },
+            "resources": {
+              "limits": {
+                "memory": "24Gi"
+              },
+              "requests": {
+                "cpu": "2",
+                "memory": "12Gi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/etc/deerflow-ca",
+                "name": "enterprise-ca",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/app/config/config.yaml",
+                "name": "config",
+                "readOnly": true,
+                "subPath": "config.yaml"
+              },
+              {
+                "mountPath": "/app/config/builtin_models.yaml",
+                "name": "config",
+                "readOnly": true,
+                "subPath": "builtin_models.yaml"
+              },
+              {
+                "mountPath": "/app/config/builtin_agents.yaml",
+                "name": "config",
+                "readOnly": true,
+                "subPath": "builtin_agents.yaml"
+              },
+              {
+                "mountPath": "/data/files",
+                "name": "data-files"
+              },
+              {
+                "mountPath": "/tmp/docreader",
+                "name": "docreader-tmp",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "identity": {
+          "generation": 82,
+          "name": "weknora-app",
+          "resourceVersion": "23554301",
+          "uid": "44aca5b9-8fc1-44d6-af61-37c6d62723d5"
+        },
+        "initContainers": [],
+        "kind": "Deployment",
+        "nodeSelector": {},
+        "replicas": 2,
+        "serviceAccountName": null,
+        "spec_sha256": "e7f481fc2b552098b8a8249beb2eb064212218cc48d5bbade2807446dc7ee83c",
+        "status": {
+          "availableReplicas": 2,
+          "currentRevision": null,
+          "observedGeneration": 82,
+          "readyReplicas": 2,
+          "replicas": 2,
+          "unavailableReplicas": null,
+          "updateRevision": null,
+          "updatedReplicas": 2
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 0,
+            "maxUnavailable": 1
+          },
+          "type": "RollingUpdate"
+        },
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoSchedule",
+            "key": "dedicated",
+            "operator": "Equal",
+            "value": "gateway-redis"
+          }
+        ],
+        "volumes": [
+          {
+            "name": "enterprise-ca",
+            "secret": {
+              "defaultMode": 420,
+              "items": [
+                {
+                  "key": "ca-bundle.crt",
+                  "path": "ca-bundle.crt"
+                }
+              ],
+              "secretName": "deer-flow-enterprise-ca"
+            }
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "name": "weknora-config-glm-20261017-r1"
+            },
+            "name": "config"
+          },
+          {
+            "name": "data-files",
+            "persistentVolumeClaim": {
+              "claimName": "weknora-data-files-rwx-datax03"
+            }
+          },
+          {
+            "name": "docreader-tmp",
+            "persistentVolumeClaim": {
+              "claimName": "weknora-docreader-tmp-rwx-datax03"
+            }
+          }
+        ]
+      },
+      {
+        "affinity": {},
+        "containers": [
+          {
+            "args_present": false,
+            "command_present": false,
+            "env": [
+              {
+                "name": "DOCREADER_EXTERNAL_HTTP_PROXY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "HTTP_PROXY",
+                    "name": "deer-flow-env"
+                  }
+                }
+              },
+              {
+                "name": "DOCREADER_EXTERNAL_HTTPS_PROXY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "HTTPS_PROXY",
+                    "name": "deer-flow-env"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "SSL_CERT_FILE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "REQUESTS_CA_BUNDLE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "CURL_CA_BUNDLE"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "PYTHONPATH"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "DOCREADER_IMAGE_OUTPUT_DIR"
+              },
+              {
+                "name": "DOCREADER_ODL_MAX_WORKERS",
+                "numeric_capacity_value": "1"
+              },
+              {
+                "name": "DOCREADER_MARKITDOWN_MAX_WORKERS",
+                "numeric_capacity_value": "1"
+              },
+              {
+                "name": "DOCREADER_PDF_RENDER_MAX_WORKERS",
+                "numeric_capacity_value": "1"
+              },
+              {
+                "name": "MAX_FILE_SIZE_MB",
+                "numeric_capacity_value": "100"
+              }
+            ],
+            "envFrom": [],
+            "image": "deerflow.local/weknora-docreader:0.8.0-official-arm64-20260915",
+            "imagePullPolicy": "Never",
+            "name": "docreader",
+            "probe_kinds": {},
+            "resources": {
+              "limits": {
+                "memory": "16Gi"
+              },
+              "requests": {
+                "cpu": "1",
+                "memory": "4Gi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/etc/deerflow-ca",
+                "name": "enterprise-ca",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/dev/shm",
+                "name": "browser-shm"
+              },
+              {
+                "mountPath": "/opt/deerflow-compat",
+                "name": "xlsx-compat",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/tmp/docreader",
+                "name": "tmp"
+              }
+            ]
+          }
+        ],
+        "identity": {
+          "generation": 20,
+          "name": "weknora-docreader",
+          "resourceVersion": "23534628",
+          "uid": "f6a96f1b-b0d2-4639-9db0-45028a65ad55"
+        },
+        "initContainers": [],
+        "kind": "Deployment",
+        "nodeSelector": {
+          "kubernetes.io/hostname": "datax-03"
+        },
+        "replicas": 1,
+        "serviceAccountName": null,
+        "spec_sha256": "1525000cef49ca04ffad4ea2e696ff48290c6da80f21e90212f0aa29343fa9f2",
+        "status": {
+          "availableReplicas": 1,
+          "currentRevision": null,
+          "observedGeneration": 20,
+          "readyReplicas": 1,
+          "replicas": 1,
+          "unavailableReplicas": null,
+          "updateRevision": null,
+          "updatedReplicas": 1
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": "25%"
+          },
+          "type": "RollingUpdate"
+        },
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [],
+        "volumes": [
+          {
+            "name": "enterprise-ca",
+            "secret": {
+              "defaultMode": 420,
+              "items": [
+                {
+                  "key": "ca-bundle.crt",
+                  "path": "ca-bundle.crt"
+                }
+              ],
+              "secretName": "deer-flow-enterprise-ca"
+            }
+          },
+          {
+            "emptyDir": {
+              "medium": "Memory",
+              "sizeLimit": "256Mi"
+            },
+            "name": "browser-shm"
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "name": "weknora-docreader-xlsx-compat"
+            },
+            "name": "xlsx-compat"
+          },
+          {
+            "name": "tmp",
+            "persistentVolumeClaim": {
+              "claimName": "weknora-docreader-tmp-rwx-datax03"
+            }
+          }
+        ]
+      },
+      {
+        "affinity": {},
+        "containers": [
+          {
+            "args_present": false,
+            "command_present": false,
+            "env": [
+              {
+                "name": "MAX_FILE_SIZE_MB",
+                "numeric_capacity_value": "100"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "APP_HOST"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "APP_PORT"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "APP_SCHEME"
+              }
+            ],
+            "envFrom": [],
+            "image": "deerflow.local/weknora-ui:preupload10-f25aea4dfb29-20261020062633",
+            "imagePullPolicy": "Never",
+            "name": "frontend",
+            "probe_kinds": {
+              "readinessProbe": [
+                "httpGet"
+              ],
+              "startupProbe": [
+                "httpGet"
+              ]
+            },
+            "resources": {},
+            "volumeMounts": [
+              {
+                "mountPath": "/usr/share/nginx/html",
+                "name": "weknora-ui-runtime"
+              }
+            ]
+          }
+        ],
+        "identity": {
+          "generation": 37,
+          "name": "weknora-frontend",
+          "resourceVersion": "23885757",
+          "uid": "e2d0c5f6-abfe-4ba7-ae17-1700bcd3e401"
+        },
+        "initContainers": [
+          {
+            "args_present": false,
+            "command_present": true,
+            "env": [],
+            "envFrom": [],
+            "image": "deerflow.local/weknora-ui:preupload10-f25aea4dfb29-20261020062633",
+            "imagePullPolicy": "Never",
+            "name": "patch-legacy-office-preview",
+            "probe_kinds": {},
+            "resources": {},
+            "volumeMounts": [
+              {
+                "mountPath": "/patched-ui",
+                "name": "weknora-ui-runtime"
+              },
+              {
+                "mountPath": "/opt/deerflow-weknora-patches",
+                "name": "weknora-v08-preview-patch",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "kind": "Deployment",
+        "nodeSelector": {
+          "kubernetes.io/hostname": "datax-03"
+        },
+        "replicas": 1,
+        "serviceAccountName": null,
+        "spec_sha256": "8b3bba8ca0cd30b84256f543b3bb0b066b3d2695e77720882e50af68c5bc7994",
+        "status": {
+          "availableReplicas": 1,
+          "currentRevision": null,
+          "observedGeneration": 37,
+          "readyReplicas": 1,
+          "replicas": 1,
+          "unavailableReplicas": null,
+          "updateRevision": null,
+          "updatedReplicas": 1
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": "25%"
+          },
+          "type": "RollingUpdate"
+        },
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [],
+        "volumes": [
+          {
+            "emptyDir": {},
+            "name": "weknora-ui-runtime"
+          },
+          {
+            "configMap": {
+              "defaultMode": 365,
+              "name": "weknora-v08-preview-patch"
+            },
+            "name": "weknora-v08-preview-patch"
+          }
+        ]
+      },
+      {
+        "affinity": {},
+        "containers": [
+          {
+            "args_present": true,
+            "command_present": true,
+            "env": [
+              {
+                "name": "REDIS_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "REDIS_PASSWORD",
+                    "name": "weknora-secret"
+                  }
+                }
+              }
+            ],
+            "envFrom": [],
+            "image": "m.daocloud.io/docker.io/library/redis@sha256:c9d92d840fd011c908f040592857c724ae6d877f2aba5c40ad963276507386b2",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "redis",
+            "probe_kinds": {},
+            "resources": {},
+            "volumeMounts": [
+              {
+                "mountPath": "/data",
+                "name": "data"
+              }
+            ]
+          }
+        ],
+        "identity": {
+          "generation": 3,
+          "name": "weknora-redis",
+          "resourceVersion": "23364215",
+          "uid": "fbc26279-786d-4530-9b70-dd801a94ae4f"
+        },
+        "initContainers": [],
+        "kind": "Deployment",
+        "nodeSelector": {},
+        "replicas": 1,
+        "serviceAccountName": null,
+        "spec_sha256": "d10d73fe4a12a6ddb6af947b37db30fcacd68fd17e03b9436c17c2f43488bf7b",
+        "status": {
+          "availableReplicas": 1,
+          "currentRevision": null,
+          "observedGeneration": 3,
+          "readyReplicas": 1,
+          "replicas": 1,
+          "unavailableReplicas": null,
+          "updateRevision": null,
+          "updatedReplicas": 1
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": "25%"
+          },
+          "type": "RollingUpdate"
+        },
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [],
+        "volumes": [
+          {
+            "name": "data",
+            "persistentVolumeClaim": {
+              "claimName": "weknora-redis-data"
+            }
+          }
+        ]
+      },
+      {
+        "affinity": {},
+        "containers": [
+          {
+            "args_present": false,
+            "command_present": true,
+            "env": [],
+            "envFrom": [],
+            "image": "m.daocloud.io/docker.io/library/redis@sha256:0637954999d01b7c9ce9167db2da50656e2590d3b884f1c600c5f63bb6e6773c",
+            "imagePullPolicy": "Never",
+            "name": "redis",
+            "probe_kinds": {
+              "livenessProbe": [
+                "tcpSocket"
+              ],
+              "readinessProbe": [
+                "exec"
+              ],
+              "startupProbe": [
+                "exec"
+              ]
+            },
+            "resources": {
+              "limits": {
+                "cpu": "4",
+                "memory": "24Gi"
+              },
+              "requests": {
+                "cpu": "1",
+                "memory": "8Gi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/data",
+                "name": "data"
+              },
+              {
+                "mountPath": "/etc/redis",
+                "name": "config",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/run/redis-secret",
+                "name": "auth",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/run/redis-runtime",
+                "name": "runtime"
+              }
+            ]
+          }
+        ],
+        "identity": {
+          "generation": 2,
+          "name": "gateway-redis",
+          "resourceVersion": "17823061",
+          "uid": "feb2f48e-df2b-4cce-8e2b-bba7a567a4b0"
+        },
+        "initContainers": [],
+        "kind": "StatefulSet",
+        "nodeSelector": {
+          "kubernetes.io/hostname": "ecs-zdz-pro-0008",
+          "workload": "gateway-redis"
+        },
+        "replicas": 1,
+        "serviceAccountName": null,
+        "spec_sha256": "2038b70a652af7a96277b55016ad0ede7f8d7a0fa96cd120b138ffd91ba22dda",
+        "status": {
+          "availableReplicas": 1,
+          "currentRevision": "gateway-redis-cf4f4c9f9",
+          "observedGeneration": 2,
+          "readyReplicas": 1,
+          "replicas": 1,
+          "unavailableReplicas": null,
+          "updateRevision": "gateway-redis-657cb899bb",
+          "updatedReplicas": 1
+        },
+        "strategy": {
+          "type": "OnDelete"
+        },
+        "terminationGracePeriodSeconds": 120,
+        "tolerations": [
+          {
+            "effect": "NoSchedule",
+            "key": "dedicated",
+            "operator": "Equal",
+            "value": "gateway-redis"
+          }
+        ],
+        "volumes": [
+          {
+            "name": "data",
+            "persistentVolumeClaim": {
+              "claimName": "gateway-redis-data"
+            }
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "name": "gateway-redis-config-backlog4096-r1"
+            },
+            "name": "config"
+          },
+          {
+            "name": "auth",
+            "secret": {
+              "defaultMode": 288,
+              "items": [
+                {
+                  "key": "password",
+                  "path": "password"
+                }
+              ],
+              "secretName": "gateway-redis-auth"
+            }
+          },
+          {
+            "emptyDir": {
+              "medium": "Memory",
+              "sizeLimit": "8Mi"
+            },
+            "name": "runtime"
+          }
+        ]
+      },
+      {
+        "affinity": {},
+        "containers": [
+          {
+            "args_present": false,
+            "command_present": false,
+            "env": [
+              {
+                "name": "DEERFLOW_NEO4J_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "NEO4J_PASSWORD",
+                    "name": "weknora-neo4j-secret"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NEO4J_AUTH"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NEO4J_PLUGINS"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NEO4J_apoc_export_file_enabled"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NEO4J_apoc_import_file_enabled"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NEO4J_apoc_import_file_use__neo4j__config"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NEO4J_server_memory_heap_initial__size"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NEO4J_server_memory_heap_max__size"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "NEO4J_server_memory_pagecache_size"
+              }
+            ],
+            "envFrom": [],
+            "image": "m.daocloud.io/docker.io/library/neo4j@sha256:155c8aad10d5c838bc3bbc476c0418779086547822acb214ec5e3d49ba336907",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "neo4j",
+            "probe_kinds": {
+              "readinessProbe": [
+                "tcpSocket"
+              ]
+            },
+            "resources": {
+              "limits": {
+                "cpu": "2",
+                "memory": "2Gi"
+              },
+              "requests": {
+                "cpu": "250m",
+                "memory": "768Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/data",
+                "name": "data"
+              }
+            ]
+          }
+        ],
+        "identity": {
+          "generation": 1,
+          "name": "weknora-neo4j",
+          "resourceVersion": "23364578",
+          "uid": "a10f68c4-643f-4d64-89f8-3a9047d48bdc"
+        },
+        "initContainers": [],
+        "kind": "StatefulSet",
+        "nodeSelector": {},
+        "replicas": 1,
+        "serviceAccountName": null,
+        "spec_sha256": "148daad93165a38d7cbe97ef04960559f4c0f4f49b8d5065e316f5b0a8750bf8",
+        "status": {
+          "availableReplicas": 1,
+          "currentRevision": "weknora-neo4j-648b44f688",
+          "observedGeneration": 1,
+          "readyReplicas": 1,
+          "replicas": 1,
+          "unavailableReplicas": null,
+          "updateRevision": "weknora-neo4j-648b44f688",
+          "updatedReplicas": 1
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "partition": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [],
+        "volumes": [
+          {
+            "name": "data",
+            "persistentVolumeClaim": {
+              "claimName": "weknora-neo4j-data"
+            }
+          }
+        ]
+      },
+      {
+        "affinity": {},
+        "containers": [
+          {
+            "args_present": true,
+            "command_present": false,
+            "env": [
+              {
+                "literal_value": "WITHHELD",
+                "name": "PGDATA"
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "POSTGRES_USER"
+              },
+              {
+                "name": "POSTGRES_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "DB_PASSWORD",
+                    "name": "weknora-secret"
+                  }
+                }
+              },
+              {
+                "literal_value": "WITHHELD",
+                "name": "POSTGRES_DB"
+              }
+            ],
+            "envFrom": [],
+            "image": "deerflow.local/weknora-postgres:pg16-search-arm64-20260722-1",
+            "imagePullPolicy": "Never",
+            "name": "postgres",
+            "probe_kinds": {
+              "readinessProbe": [
+                "exec"
+              ]
+            },
+            "resources": {},
+            "volumeMounts": [
+              {
+                "mountPath": "/var/lib/postgresql/data",
+                "name": "data"
+              }
+            ]
+          }
+        ],
+        "identity": {
+          "generation": 2,
+          "name": "weknora-postgres",
+          "resourceVersion": "13565024",
+          "uid": "f4e6cb59-6c84-4d07-badb-8f691964db21"
+        },
+        "initContainers": [],
+        "kind": "StatefulSet",
+        "nodeSelector": {},
+        "replicas": 1,
+        "serviceAccountName": null,
+        "spec_sha256": "5e355241729aafeca43acfda631ed71ed8962cd5e9f99c679e25ac7f6ffc0c4c",
+        "status": {
+          "availableReplicas": 1,
+          "currentRevision": "weknora-postgres-59745dfc57",
+          "observedGeneration": 2,
+          "readyReplicas": 1,
+          "replicas": 1,
+          "unavailableReplicas": null,
+          "updateRevision": "weknora-postgres-59745dfc57",
+          "updatedReplicas": 1
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "partition": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [],
+        "volumes": [
+          {
+            "name": "data",
+            "persistentVolumeClaim": {
+              "claimName": "weknora-postgres-data"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

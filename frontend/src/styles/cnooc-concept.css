@@ -4390,3 +4390,31 @@
     color: var(--cnooc-blue-dark);
   }
 }
+
+/* Keep the main-chat notice below mobile navigation in normal document flow. */
+@media (max-width: 47.999rem) {
+  .cnooc-main-chat-with-notice {
+    flex-direction: column;
+  }
+
+  .cnooc-main-chat-with-notice > .cnooc-chat-header {
+    position: relative !important;
+  }
+
+  .cnooc-main-chat-with-notice > .cnooc-chat-main {
+    height: auto;
+    flex: 1 1 0%;
+    padding-top: 0;
+  }
+
+  .cnooc-main-chat-with-notice .cnooc-welcome-stage {
+    top: 6px;
+  }
+}
+
+@media (min-width: 48rem) and (max-width: 64rem) and (max-height: 32rem) {
+  .cnooc-main-chat-with-notice .cnooc-composer-dock-welcome {
+    top: auto !important;
+    bottom: 0 !important;
+  }
+}

@@ -1,5 +1,12 @@
 # AGENTS.md
 
+Main chat pages display the complete non-confidential-system warning in red.
+On desktop it sits above the chat header; on mobile it follows the navigation
+and product-title row in normal flow and wraps without truncation. Keep it
+visible for both new and existing main chats, outside the scrolling transcript.
+The scoped mobile layout must leave the composer usable on narrow and short
+viewports and must not alter employee chats or other workspace modules.
+
 Portal navigation buttons use generated rounded blue 3D bitmaps containing their
 outbound arrow. Bundle the
 pre-sized transparent image data so it needs no image download or Next optimizer;

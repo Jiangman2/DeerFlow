@@ -46,6 +46,8 @@ export const zhCN: Translations = {
 
   // Common
   common: {
+    nonConfidentialNotice:
+      "本平台为非密信息系统，严禁处理、传输国家秘密、国家工作秘密，严禁输入涉密敏感信息",
     home: "首页",
     settings: "设置",
     delete: "删除",

@@ -1,0 +1,210 @@
+{
+  "mode": "built-in image_gen",
+  "reference": "public/images/action-image.png",
+  "referenceBounds": {
+    "left": 322,
+    "top": 313,
+    "width": 611,
+    "height": 609,
+    "canvasWidth": 1254,
+    "canvasHeight": 1254
+  },
+  "canvas": 192,
+  "visibleExtent": 94,
+  "alphaThreshold": 16,
+  "arrows": "Baked into generated bitmaps; more has no arrow",
+  "assets": [
+    {
+      "id": "ppt",
+      "generatedSource": "exec-b09884cb-e686-4fbb-aa1f-f22a94db78c0.png",
+      "pngSha256": "26a4979ea523cc8661e73437524f64dbdc54c0f095e9ba6b0c0c43c40f6ca354",
+      "originalBounds": {
+        "left": 302,
+        "top": 307,
+        "width": 650,
+        "height": 634,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-ppt.webp",
+      "webBytes": 3018,
+      "webSha256": "e2e2fcab9922ac26e938be96d5d37e9e6bd2587659dc0295d510951398bf6897",
+      "normalizedBounds": {
+        "left": 49,
+        "top": 50,
+        "width": 94,
+        "height": 92,
+        "canvasWidth": 192,
+        "canvasHeight": 192
+      }
+    },
+    {
+      "id": "proofread",
+      "generatedSource": "exec-1901fff1-869f-4994-b484-84ba4bfe415c.png",
+      "pngSha256": "3e55e3e28e504de7bc13908fb19eaa01ddea2b3470b9ec9375734f620e57ffb7",
+      "originalBounds": {
+        "left": 314,
+        "top": 281,
+        "width": 627,
+        "height": 700,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-proofread.webp",
+      "webBytes": 3206,
+      "webSha256": "14d093ebc027d7bc10e0e67ec22c1be5a1fb9b5265cd22a00e0b60f5088356ae",
+      "normalizedBounds": {
+        "left": 54,
+        "top": 49,
+        "width": 84,
+        "height": 94,
+        "canvasWidth": 192,
+        "canvasHeight": 192
+      }
+    },
+    {
+      "id": "translate",
+      "generatedSource": "exec-f802bf84-afcc-4103-9434-e92118d9afed.png",
+      "pngSha256": "9cf8f0a71ac868236c32aaf88e95e4f469dd8cf0eb40ae14ec7474f8c8c8773b",
+      "originalBounds": {
+        "left": 265,
+        "top": 315,
+        "width": 773,
+        "height": 642,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-translate.webp",
+      "webBytes": 3426,
+      "webSha256": "58fcaa527139f2c225d2500a906f7f65a39a8b09dbdf9d100aa49ea115f09d14",
+      "normalizedBounds": {
+        "left": 49,
+        "top": 57,
+        "width": 94,
+        "height": 78,
+        "canvasWidth": 192,
+        "canvasHeight": 192
+      }
+    },
+    {
+      "id": "liveTranscribe",
+      "generatedSource": "exec-6f0bce94-ccc1-4696-b374-9ef21de00782.png",
+      "pngSha256": "1ff878243771f8b8d8ba8c785924bd4e91be83e2536783195b6d028eb15dcf6d",
+      "originalBounds": {
+        "left": 298,
+        "top": 304,
+        "width": 658,
+        "height": 650,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-liveTranscribe.webp",
+      "webBytes": 3372,
+      "webSha256": "93bca4287a3dc661912df14e7defe8970fb9d990691fe4306325a7c8d734d6a4",
+      "normalizedBounds": {
+        "left": 49,
+        "top": 49,
+        "width": 94,
+        "height": 93,
+        "canvasWidth": 192,
+        "canvasHeight": 192
+      }
+    },
+    {
+      "id": "convert",
+      "generatedSource": "exec-266ebadb-76c7-4076-abd6-7a6d52fe34c0.png",
+      "pngSha256": "64f21eac915a5de4feffc4a27346991acf28d2d2bd6ed24ac02b3f37a76cb93d",
+      "originalBounds": {
+        "left": 303,
+        "top": 328,
+        "width": 669,
+        "height": 598,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-convert.webp",
+      "webBytes": 3270,
+      "webSha256": "171c307aa8b8febc065995a9d1babc03f9a7b712af4c89115509bedc7b75888b",
+      "normalizedBounds": {
+        "left": 49,
+        "top": 54,
+        "width": 94,
+        "height": 84,
+        "canvasWidth": 192,
+        "canvasHeight": 192
+      }
+    },
+    {
+      "id": "recordTranscribe",
+      "generatedSource": "exec-d2fb7c10-6792-4c54-ae04-df458e3e8d02.png",
+      "pngSha256": "81d02dc21ee98fe5641b047d6fe0479b281f7d892f3257db5e6af48da9cf14fe",
+      "originalBounds": {
+        "left": 290,
+        "top": 292,
+        "width": 674,
+        "height": 666,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-recordTranscribe.webp",
+      "webBytes": 3556,
+      "webSha256": "70b084dc0c59e8741f1a0b620c20219e8794c0ed25eb64b55332975bc9d53134",
+      "normalizedBounds": {
+        "left": 49,
+        "top": 49,
+        "width": 94,
+        "height": 93,
+        "canvasWidth": 192,
+        "canvasHeight": 192
+      }
+    },
+    {
+      "id": "speech",
+      "generatedSource": "exec-881549df-2f14-4b84-ada9-c355e1070632.png",
+      "pngSha256": "2184128e940cf9beb5bcb0a67d826140f2b1b7c895ebe369b9839876dddd1469",
+      "originalBounds": {
+        "left": 320,
+        "top": 312,
+        "width": 616,
+        "height": 613,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-speech.webp",
+      "webBytes": 3340,
+      "webSha256": "230760739fa05382164ac0072de0c0675a5704a7d39a32ed1ece793d715c01ec",
+      "normalizedBounds": {
+        "left": 49,
+        "top": 49,
+        "width": 94,
+        "height": 94,
+        "canvasWidth": 192,
+        "canvasHeight": 192
+      }
+    },
+    {
+      "id": "more",
+      "generatedSource": "exec-48ca76dd-7d8c-49c6-a1b2-8d4c67476c34.png",
+      "pngSha256": "1023374bcdcde421807110703e8df6116064138ce569a6989749f9b7436ce3e5",
+      "originalBounds": {
+        "left": 312,
+        "top": 335,
+        "width": 630,
+        "height": 616,
+        "canvasWidth": 1254,
+        "canvasHeight": 1254
+      },
+      "webFile": "public/images/portal-3d-20261019-more.webp",
+      "webBytes": 3618,
+      "webSha256": "35f2383ef5c1bbb04044eb6e2188bdc0149baf20057063da2ce95d16f1e0fb69",
+      "normalizedBounds": {
+        "left": 49,
+        "top": 50,
+        "width": 94,
+        "height": 92,
+        "canvasWidth": 192,
+        "canvasHeight": 192
+      }
+    }
+  ]
+}

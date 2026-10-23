@@ -1,4 +1,4 @@
-"""Two image-only compatibility rollouts. No production schema migration."""
+"""Resume proven no-op r2 with explicit task policy. Image-only rollout; no migration."""
 import argparse
 import copy
 import hashlib
@@ -12,16 +12,26 @@ import time
 EXPECTED = {}
 PRELOADS = []
 CHILD = ''
+NODE_GUARD = ''
 ACCEPTANCE = {'path': '/var/lib/portal-oa-compat-image-check-20261022-r1/REPORT.json', 'bytes': 2578,
               'sha256': '4da64e59998e89d00c1f61c5783fcf9805d0b20ad365057400f9daa94792f98e'}
-CONTROL = '/var/lib/portal-oa-compat-activation-20261022-r1'
+PRIOR_FAILURE = {'path': '/var/lib/portal-oa-compat-activation-20261022-r2/REPORT.json', 'bytes': 2671,
+                 'sha256': '4842725be3362a76e7745b83450b1d80f44f8c67b9875299c4dd09e92dfce55b'}
+REVIEWED_EXTRA_NODES = {
+    'ecs-zdz-pro-0000': '42686547-6db2-41b0-be47-ac75c6c070ff',
+    'ecs-zdz-pro-0005': 'e977432d-e039-4914-b0ab-0f9f871e36b5',
+    'ecs-zdz-pro-0008': '5eb3e2cf-053f-4158-b118-c3c3dde06d8f',
+}
+CONTROL = '/var/lib/portal-oa-compat-activation-20261022-r4'
 BASE = ['kubectl', '--kubeconfig=/etc/kubernetes/admin.conf', '--request-timeout=15s', '-n', 'deer-flow']
 FRONT = {'uid': 'bb0b3f6e-31f7-4073-8b76-7650ea5b96ee', 'generation': 225,
          'spec_sha256': '1d3af5d2091bbb29fb4a45a3743acc03fbff9bf190c23c67b5bc43bb4fc37123'}
 
 
 class Refused(Exception):
-    pass
+    def __init__(self, code, observation=None):
+        super().__init__(code)
+        self.observation = observation
 
 
 def require(ok, code):
@@ -89,14 +99,44 @@ def evidence():
                     and all(role[k] == 'PASS' for k in ('phase_a', 'phase_b', 'content_and_unpack', 'cri_visibility')), 'PRELOAD_IMAGE_CHANGED')
 
 
-def nodes_gate():
+def prior_failure_evidence():
+    p = Path(PRIOR_FAILURE['path'])
+    require(os.path.realpath(str(p)) == str(p), 'PRIOR_REPORT_SYMLINK')
+    fd = os.open(str(p), os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd, 'rb') as f:
+        s = os.fstat(f.fileno())
+        require(stat.S_ISREG(s.st_mode) and s.st_uid == 0 and s.st_nlink == 1
+                and s.st_size == PRIOR_FAILURE['bytes'], 'PRIOR_REPORT_METADATA')
+        raw = f.read(PRIOR_FAILURE['bytes'] + 1)
+    require(hashlib.sha256(raw).hexdigest() == PRIOR_FAILURE['sha256'], 'PRIOR_REPORT_HASH')
+    value = json.loads(raw)
+    require(value.get('schema') == 'portal-oa-compat-activation.v2'
+            and value.get('status') == 'INCOMPLETE' and value.get('error_code') == 'TASKS_STILL_ACTIVE'
+            and value.get('patches') == [] and value.get('runtime') == {}
+            and value.get('production_workload_mutation') is False
+            and value.get('node_coverage', {}).get('status') == 'ROLE_NODE_COVERAGE_ACCEPTED'
+            and value.get('schema_migration_requested') is False, 'PRIOR_REPORT_NOT_NOOP')
+    return dict(PRIOR_FAILURE, error_code='TASKS_STILL_ACTIVE', production_workload_mutation=False)
+
+
+def nodes_gate(deployments):
     nodes = command(['get', 'nodes', '-o', 'json'])['items']
     expected = {n: uid for p in EXPECTED.values() for n, uid in p['nodes'].items()}
-    require({n['metadata']['name'] for n in nodes} == set(expected), 'NODE_MATRIX_CHANGED')
+    reviewed = dict(expected, **REVIEWED_EXTRA_NODES)
+    names = {n['metadata']['name'] for n in nodes}
+    observation = {'observed_node_count': len(nodes), 'reviewed_node_count': len(reviewed),
+                   'missing_nodes': sorted(set(reviewed) - names), 'unexpected_nodes': sorted(names - set(reviewed))}
+    if names != set(reviewed):
+        raise Refused('REVIEWED_NODE_MATRIX_CHANGED', observation)
     for n in nodes:
-        conditions = {c['type']: c['status'] for c in n['status']['conditions']}
-        require(n['metadata']['uid'] == expected[n['metadata']['name']]
-                and conditions.get('Ready') == 'True' and conditions.get('DiskPressure') == 'False', 'NODE_NOT_ACCEPTED')
+        if n['metadata']['uid'] != reviewed[n['metadata']['name']]:
+            raise Refused('REVIEWED_NODE_UID_CHANGED', {'node': n['metadata']['name']})
+    guard = {'__name__': 'node_coverage_guard'}
+    exec(NODE_GUARD, guard)
+    try:
+        return guard['assess_nodes'](nodes, deployments, EXPECTED)
+    except guard['NodeGateRefused'] as exc:
+        raise Refused(str(exc), exc.observation)
 
 
 def configuration_refs(deployments):
@@ -180,8 +220,11 @@ def remote(pod, args):
 def database_gate(pod, drained):
     result = remote(pod, {'action': 'database'})
     require(result.get('revisions') == ['0020_ppt_confirmation'] and result.get('database_readonly') is True, 'DATABASE_BASELINE_CHANGED')
+    require(all(type(result.get(k)) is int and result[k] >= 0
+                for k in ('active_runs', 'active_oa_jobs', 'active_callback_leases')), 'TASK_COUNT_SHAPE')
     if drained:
-        require(result['active_runs'] == result['active_oa_jobs'] == 0, 'TASKS_STILL_ACTIVE')
+        if any(result[k] for k in ('active_runs', 'active_oa_jobs', 'active_callback_leases')):
+            raise Refused('TASKS_STILL_ACTIVE', result)
     return result
 
 
@@ -194,17 +237,34 @@ def endpoints(service_name, pods):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--activate-compatibility-once', action='store_true', required=True)
-    parser.add_argument('--tasks-drained', action='store_true', required=True)
-    parser.parse_args()
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--resume-compatibility-once', action='store_true')
+    mode.add_argument('--inspect-tasks-readonly', action='store_true')
+    task_policy = parser.add_mutually_exclusive_group()
+    task_policy.add_argument('--tasks-drained', action='store_true')
+    task_policy.add_argument('--allow-interrupt-active-tasks', action='store_true')
+    args = parser.parse_args()
+    if args.resume_compatibility_once and not (args.tasks_drained or args.allow_interrupt_active_tasks):
+        parser.error('--resume-compatibility-once requires an explicit task policy')
+    if args.inspect_tasks_readonly and (args.tasks_drained or args.allow_interrupt_active_tasks):
+        parser.error('read-only inspection does not accept a task policy')
     require(os.geteuid() == 0 and os.uname().nodename.split('.')[0] == 'datax-01', 'DATAX01_ROOT_REQUIRED')
+    prior = prior_failure_evidence()
     evidence()
-    os.mkdir(CONTROL, 0o700)
-    report = {'schema': 'portal-oa-compat-activation.v1', 'status': 'INCOMPLETE', 'patches': [], 'runtime': {},
-              'tasks_drained_operator_attested': True, 'automatic_retry': False, 'schema_migration_requested': False,
-              'provider_requests': 0, 'database_access': 'READONLY_INSPECTION_PLUS_ORDINARY_SERVICE_STARTUP',
+    if args.resume_compatibility_once:
+        require(not os.path.lexists(CONTROL), 'RESUME_ALREADY_CLAIMED')
+    claimed = False
+    report = {'schema': 'portal-oa-compat-activation.v4', 'status': 'INCOMPLETE', 'patches': [], 'runtime': {},
+              'prior_noop_failure': prior,
+              'tasks_drained_operator_attested': bool(args.tasks_drained), 'automatic_retry': False, 'schema_migration_requested': False,
+              'active_task_interruption_operator_authorized': bool(args.allow_interrupt_active_tasks),
+              'task_policy': 'ALLOW_ACTIVE_TASK_INTERRUPTION' if args.allow_interrupt_active_tasks else
+                             ('REQUIRE_TASKS_DRAINED' if args.tasks_drained else 'READONLY_INSPECTION'),
+              'provider_requests': 0, 'database_access': 'READONLY_INSPECTION', 'once_claimed': False,
               'production_workload_mutation': False, 'ready_for_oa_migration': False}
     def save():
+        if not claimed:
+            return
         with (Path(CONTROL) / 'REPORT.tmp').open('w', encoding='utf-8') as f:
             json.dump(report, f, sort_keys=True)
             f.write('\n'); f.flush(); os.fsync(f.fileno())
@@ -215,13 +275,26 @@ def main():
             plan(d, EXPECTED[name])
         front = command(['get', 'deployment', 'frontend', '-o', 'json'])
         require(binding(front) == FRONT and ready(front), 'FRONTEND_BASELINE_CHANGED')
+        report['node_coverage'] = nodes_gate(baseline)
+        gateway = baseline['gateway']
+        oldpods = pods_for(gateway, EXPECTED['gateway'], EXPECTED['gateway']['old_image'])
+        if args.inspect_tasks_readonly:
+            observation = remote(oldpods[0], {'action': 'tasks'})
+            require(observation.get('revisions') == ['0020_ppt_confirmation']
+                    and observation.get('database_readonly') is True, 'DATABASE_BASELINE_CHANGED')
+            final = command(['get', 'deployment', 'gateway', '-o', 'json'])
+            require(binding(final) == binding(gateway) and ready(final), 'DEPLOYMENT_CHANGED_DURING_INSPECTION')
+            require(identities(pods_for(final, EXPECTED['gateway'], EXPECTED['gateway']['old_image'])) == identities(oldpods),
+                    'CONTAINERS_CHANGED_DURING_INSPECTION')
+            report.update(status='TASKS_ACTIVE_NOT_DRAINED' if any(observation[k] for k in ('active_runs', 'active_oa_jobs', 'active_callback_leases'))
+                          else 'TASKS_DRAINED_AT_SAMPLE_ONLY', task_observation=observation,
+                          before={n: binding(d) for n, d in baseline.items()}, files_modified=False)
+            print(json.dumps({k: v for k, v in report.items() if k != 'runtime'}, sort_keys=True), flush=True)
+            return 0
         services = {n: command(['get', 'service', n, '-o', 'json']) for n in EXPECTED}
         config_refs = configuration_refs(baseline)
         config_metadata = configuration_metadata(config_refs)
-        nodes_gate()
-        gateway = baseline['gateway']
-        oldpods = pods_for(gateway, EXPECTED['gateway'], EXPECTED['gateway']['old_image'])
-        report['database_before'] = database_gate(oldpods[0], True)
+        report['database_before'] = database_gate(oldpods[0], not args.allow_interrupt_active_tasks)
         report['before'] = {n: binding(d) for n, d in baseline.items()}
         save()
         completed = {}
@@ -231,12 +304,17 @@ def main():
                 current = command(['get', 'deployment', other, '-o', 'json'])
                 require(binding(current) == completed.get(other, binding(baseline[other])) and ready(current), 'CONCURRENT_DEPLOYMENT_CHANGE')
             require(binding(command(['get', 'deployment', 'frontend', '-o', 'json'])) == FRONT, 'FRONTEND_CHANGED')
-            nodes_gate()
+            report['node_coverage'] = nodes_gate(baseline)
             require(configuration_metadata(config_refs) == config_metadata, 'CONFIGURATION_CHANGED')
-            report['last_drained_check'] = database_gate(oldpods[0], True)
+            report['last_task_check'] = database_gate(oldpods[0], not args.allow_interrupt_active_tasks)
             d = command(['get', 'deployment', name, '-o', 'json'])
             patch, expected = plan(d, pin)
+            if not claimed:
+                os.mkdir(CONTROL, 0o700)
+                claimed = True
+                report.update(once_claimed=True, database_access='READONLY_INSPECTION_PLUS_ORDINARY_SERVICE_STARTUP')
             attempt = {'deployment': name, 'before': binding(d), 'expected_spec_sha256': digest(expected),
+                       'active_task_observation': report['last_task_check'],
                        'patch_requested': True, 'patch_may_have_applied': True, 'acknowledged': False}
             report['patches'].append(attempt)
             report['production_workload_mutation'] = None
@@ -251,6 +329,9 @@ def main():
             while True:
                 current = command(['get', 'deployment', name, '-o', 'json'])
                 require(binding(current) == attempt['after'], 'DEPLOYMENT_CHANGED_DURING_ROLLOUT')
+                # Recheck the exclusion of non-preloaded nodes while replacements
+                # are being scheduled; a removed hard taint must stop acceptance.
+                report['node_coverage'] = nodes_gate(baseline)
                 if ready(current):
                     try:
                         pods = pods_for(current, pin, pin['candidate_image'])
@@ -286,17 +367,25 @@ def main():
             endpoints(name, pods_for(final, EXPECTED[name], EXPECTED[name]['candidate_image']))
             require(command(['get', 'service', name, '-o', 'json'])['spec'] == services[name]['spec'], 'SERVICE_SPEC_CHANGED')
         require(binding(command(['get', 'deployment', 'frontend', '-o', 'json'])) == FRONT, 'FRONTEND_CHANGED')
+        report['node_coverage'] = nodes_gate(baseline)
         require(configuration_metadata(config_refs) == config_metadata, 'CONFIGURATION_CHANGED')
         report.update(status='COMPATIBILITY_ROLLOUT_ACCEPTED_SCHEMA_UNCHANGED', after=completed,
                       frontend_preserved=True, configuration_metadata_preserved=True,
                       schema_revision='0020_ppt_confirmation', ready_for_oa_migration=False)
     except Exception as exc:
         report['error_code'] = str(exc) if isinstance(exc, Refused) else type(exc).__name__
+        if isinstance(exc, Refused) and exc.observation is not None:
+            report['task_observation' if str(exc) == 'TASKS_STILL_ACTIVE' else 'node_gate_failure'] = exc.observation
+        if str(exc) == 'TASKS_STILL_ACTIVE' and not claimed:
+            report['status'] = 'WAITING_FOR_TASKS_NO_MUTATION'
     save()
-    raw = (Path(CONTROL) / 'REPORT.json').read_bytes()
+    raw = (Path(CONTROL) / 'REPORT.json').read_bytes() if claimed else None
     summary = {k: v for k, v in report.items() if k != 'runtime'}
-    summary.update(runtime_accepted={n: len(v) for n, v in report['runtime'].items()}, report_path=CONTROL + '/REPORT.json',
-                   report_bytes=len(raw), report_sha256=hashlib.sha256(raw).hexdigest())
+    summary.update(runtime_accepted={n: len(v) for n, v in report['runtime'].items()},
+                   report_path=CONTROL + '/REPORT.json' if claimed else None,
+                   report_bytes=len(raw) if raw is not None else None,
+                   report_sha256=hashlib.sha256(raw).hexdigest() if raw is not None else None,
+                   preflight_retry_available=not claimed, files_modified=claimed)
     print(json.dumps(summary, sort_keys=True), flush=True)
     return 0 if report['status'] == 'COMPATIBILITY_ROLLOUT_ACCEPTED_SCHEMA_UNCHANGED' else 1
 
@@ -305,6 +394,8 @@ if __name__ == '__main__':
     try:
         code = main()
     except Exception as exc:
-        print(json.dumps({'status': 'INCOMPLETE', 'error_class': type(exc).__name__, 'automatic_retry': False}))
+        print(json.dumps({'status': 'INCOMPLETE', 'error_class': type(exc).__name__,
+                          'error_code': str(exc) if isinstance(exc, Refused) else type(exc).__name__,
+                          'automatic_retry': False}))
         code = 1
     raise SystemExit(code)

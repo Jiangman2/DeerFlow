@@ -35,6 +35,7 @@ export interface Translations {
 
   // Common
   common: {
+    nonConfidentialNotice: string;
     home: string;
     settings: string;
     delete: string;

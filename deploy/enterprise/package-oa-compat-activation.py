@@ -24,10 +24,13 @@ def build():
         expected[name]['nodes'] = {host: row['expected_node_uid'] for host, row in profile['nodes'].items()}
         expected[name]['port'] = 8001 if kind == 'gateway' else 8003
     child = (HERE / 'oa-compat-live-check.py').read_text(encoding='utf-8')
+    node_guard = (HERE / 'oa-compat-node-gate.py').read_text(encoding='utf-8')
+    ast.parse(node_guard, feature_version=(3, 7))
     source = (HERE / 'activate-oa-compat.py').read_text(encoding='utf-8')
     source = source.replace('EXPECTED = {}', 'EXPECTED = ' + repr(expected), 1)
     source = source.replace('PRELOADS = []', 'PRELOADS = ' + repr(receipts), 1)
     source = source.replace("CHILD = ''", 'CHILD = ' + repr(child), 1)
+    source = source.replace("NODE_GUARD = ''", 'NODE_GUARD = ' + repr(node_guard), 1)
     ast.parse(source, feature_version=(3, 7))
     return source
 

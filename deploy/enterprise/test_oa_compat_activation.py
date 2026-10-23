@@ -20,6 +20,13 @@ class Tests(unittest.TestCase):
         d = {'metadata': {'uid': pin['uid'], 'generation': pin['generation'], 'resourceVersion': '123'},
              'spec': {'replicas': 2 if name == 'gateway' else 1, 'selector': {'matchLabels': {'app': name}},
                       'template': {'spec': {'containers': [{'name': name, 'image': pin['old_image'], 'env': [{'name': 'KEEP', 'value': 'unchanged'}]}]}}}}
+        if name == 'gateway':
+            d['spec']['template']['spec'].update(
+                nodeSelector={'workload': 'gateway'},
+                affinity={'nodeAffinity': {'requiredDuringSchedulingIgnoredDuringExecution': {
+                    'nodeSelectorTerms': [{'matchExpressions': [{'key': 'kubernetes.io/hostname',
+                        'operator': 'In', 'values': sorted(pin['nodes'])}]}]}}},
+                tolerations=[{'key': 'dedicated', 'value': 'gateway', 'operator': 'Equal', 'effect': 'NoSchedule'}])
         d['status'] = {k: d['spec']['replicas'] for k in ('replicas', 'updatedReplicas', 'readyReplicas', 'availableReplicas')}
         d['status']['observedGeneration'] = pin['generation']
         pin['spec_sha256'] = self.n['digest'](d['spec'])
@@ -42,7 +49,7 @@ class Tests(unittest.TestCase):
             self.n['plan'](d, self.n['EXPECTED']['gateway'])
 
     def test_active_task_gate(self):
-        self.n['remote'] = lambda *a: {'status': 'PASS', 'revisions': ['0020_ppt_confirmation'], 'database_readonly': True, 'active_runs': 1, 'active_oa_jobs': 0}
+        self.n['remote'] = lambda *a: {'status': 'PASS', 'revisions': ['0020_ppt_confirmation'], 'database_readonly': True, 'active_runs': 1, 'active_oa_jobs': 0, 'active_callback_leases': 0}
         with self.assertRaisesRegex(self.n['Refused'], 'TASKS_STILL_ACTIVE'):
             self.n['database_gate']({}, True)
 
@@ -81,7 +88,7 @@ class Tests(unittest.TestCase):
                 n['evidence']()
 
     def test_missing_tasks_drained_flag_exits_before_action(self):
-        with patch('sys.argv', ['activate', '--activate-compatibility-once']), contextlib.redirect_stderr(io.StringIO()):
+        with patch('sys.argv', ['activate', '--resume-compatibility-once']), contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit):
                 self.n['main']()
 
@@ -117,7 +124,9 @@ class Tests(unittest.TestCase):
         self.assertTrue(all(s.startswith('SELECT ') for k, s in events if k == 'sql'))
         self.assertEqual(events[-1], ('closed', True))
 
-    def flow(self, active=False, patch_fail=False):
+    def flow(self, active=False, patch_fail=False, removed_taint=False, taint_removed_after_patch=False,
+             inspect=False, retry_when_drained=False, callback_active=False, race_before_first_patch=False,
+             allow_interruption=False):
         n = self.n
         state = {name: self.deployment(name) for name in n['EXPECTED']}
         front = {'metadata': {'uid': n['FRONT']['uid'], 'generation': n['FRONT']['generation']}, 'spec': {'replicas': 1},
@@ -125,6 +134,7 @@ class Tests(unittest.TestCase):
         n['FRONT']['spec_sha256'] = n['digest'](front['spec'])
         state['frontend'] = front
         patches = []
+        database_calls = []
         def pods(name):
             d = state[name]
             pin = n['EXPECTED'][name]
@@ -139,7 +149,22 @@ class Tests(unittest.TestCase):
             if args[:2] == ['get', 'service']:
                 return {'spec': {'selector': {'app': args[2]}}}
             if args[:2] == ['get', 'nodes']:
-                return {'items': [{'metadata': {'name': host, 'uid': uid}, 'status': {'conditions': [{'type': 'Ready', 'status': 'True'}, {'type': 'DiskPressure', 'status': 'False'}]}} for p in n['EXPECTED'].values() for host, uid in p['nodes'].items()]}
+                nodes = []
+                for name, pin in n['EXPECTED'].items():
+                    for host, uid in pin['nodes'].items():
+                        node = {'metadata': {'name': host, 'uid': uid, 'labels': {'kubernetes.io/hostname': host}},
+                                'spec': {}, 'status': {'conditions': [{'type': 'Ready', 'status': 'True'}, {'type': 'DiskPressure', 'status': 'False'}]}}
+                        if name == 'gateway':
+                            node['metadata']['labels']['workload'] = 'gateway'
+                            node['spec']['taints'] = [{'key': 'dedicated', 'value': 'gateway', 'effect': 'NoSchedule'}]
+                        nodes.append(node)
+                for host, uid in n['REVIEWED_EXTRA_NODES'].items():
+                    taints = [{'key': 'dedicated', 'value': 'gateway-redis', 'effect': 'NoSchedule'}] if host.endswith('0008') else [
+                        {'key': 'node.kubernetes.io/unschedulable', 'effect': 'NoSchedule'}]
+                    if (removed_taint or (taint_removed_after_patch and patches)) and host.endswith('0008'):
+                        taints = []
+                    nodes.append({'metadata': {'name': host, 'uid': uid}, 'spec': {'taints': taints}})
+                return {'items': nodes}
             if args[:2] in (['get', 'replicasets'], ['get', 'pods'], ['get', 'endpointslices']):
                 name = args[3].split('=')[1]
                 if args[1] == 'replicasets':
@@ -149,8 +174,11 @@ class Tests(unittest.TestCase):
                 return {'items': [{'endpoints': [{'targetRef': {'uid': p['metadata']['uid']}, 'conditions': {'ready': True}} for p in pods(name)]}]}
             if args[0] == 'exec':
                 payload = json.loads(args[-1])
-                if payload['action'] == 'database':
-                    return {'status': 'PASS', 'revisions': ['0020_ppt_confirmation'], 'database_readonly': True, 'active_runs': int(active), 'active_oa_jobs': 0}
+                if payload['action'] in ('database', 'tasks'):
+                    database_calls.append(payload['action'])
+                    racing = race_before_first_patch and len(database_calls) > 1
+                    return {'status': 'PASS', 'revisions': ['0020_ppt_confirmation'], 'database_readonly': True,
+                            'active_runs': int(active or racing), 'active_oa_jobs': 0, 'active_callback_leases': int(callback_active)}
                 return {'status': 'PASS', 'sources': payload['pin']['sources']}
             if args[0] == 'patch':
                 name = args[2]
@@ -166,10 +194,26 @@ class Tests(unittest.TestCase):
             raise AssertionError(args)
         n['command'] = command
         n['evidence'] = lambda: None
-        with tempfile.TemporaryDirectory() as directory, patch.object(n['os'], 'uname', return_value=SimpleNamespace(nodename='datax-01')), patch('sys.argv', ['activate', '--activate-compatibility-once', '--tasks-drained']), contextlib.redirect_stdout(io.StringIO()):
+        n['prior_failure_evidence'] = lambda: {'status': 'SYNTHETIC_NOOP_PRIOR'}
+        argv = ['activate', '--inspect-tasks-readonly'] if inspect else ['activate', '--resume-compatibility-once', '--tasks-drained']
+        if allow_interruption:
+            argv[-1] = '--allow-interrupt-active-tasks'
+        output = io.StringIO()
+        with tempfile.TemporaryDirectory() as directory, patch.object(n['os'], 'uname', return_value=SimpleNamespace(nodename='datax-01')), patch('sys.argv', argv), contextlib.redirect_stdout(output):
             n['CONTROL'] = directory + '/activation'
             code = n['main']()
-            report = json.loads(Path(n['CONTROL'], 'REPORT.json').read_text())
+            report = json.loads(output.getvalue().splitlines()[-1])
+            self.assertEqual(Path(n['CONTROL']).exists(), report['once_claimed'])
+            if retry_when_drained:
+                self.assertFalse(report['once_claimed'])
+                self.assertEqual(patches, [])
+                active = False
+                output.truncate(0)
+                output.seek(0)
+                code = n['main']()
+                report = json.loads(output.getvalue().splitlines()[-1])
+            if report['once_claimed']:
+                report['runtime'] = json.loads(Path(n['CONTROL'], 'REPORT.json').read_text())['runtime']
         return code, patches, report
 
     def test_complete_rollout_sequence_and_receipts(self):
@@ -186,6 +230,69 @@ class Tests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(patches, [])
         self.assertEqual(report['error_code'], 'TASKS_STILL_ACTIVE')
+        self.assertEqual(report['task_observation']['active_runs'], 1)
+        self.assertFalse(report['once_claimed'])
+        self.assertIsNone(report['report_path'])
+
+    def test_same_r3_can_be_used_after_readonly_task_gate_clears(self):
+        code, patches, report = self.flow(active=True, retry_when_drained=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(patches, ['ppt-master-runner', 'gateway'])
+        self.assertTrue(report['once_claimed'])
+
+    def test_new_task_at_final_prepatch_check_does_not_consume_once(self):
+        code, patches, report = self.flow(race_before_first_patch=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(patches, [])
+        self.assertFalse(report['once_claimed'])
+        self.assertEqual(report['task_observation']['active_runs'], 1)
+
+    def test_live_callback_lease_blocks_rollout(self):
+        code, patches, report = self.flow(callback_active=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(patches, [])
+        self.assertEqual(report['task_observation']['active_callback_leases'], 1)
+
+    def test_inspection_with_active_tasks_does_not_claim_or_patch(self):
+        code, patches, report = self.flow(active=True, inspect=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(patches, [])
+        self.assertEqual(report['status'], 'TASKS_ACTIVE_NOT_DRAINED')
+        self.assertFalse(report['once_claimed'])
+        self.assertFalse(report['files_modified'])
+
+    def test_inspection_without_tasks_is_only_point_in_time(self):
+        code, patches, report = self.flow(inspect=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(patches, [])
+        self.assertEqual(report['status'], 'TASKS_DRAINED_AT_SAMPLE_ONLY')
+        self.assertFalse(report['ready_for_oa_migration'])
+        self.assertFalse(report['once_claimed'])
+
+    def test_explicit_interruption_authority_records_tasks_and_updates_both_roles(self):
+        code, patches, report = self.flow(active=True, callback_active=True, allow_interruption=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(patches, ['ppt-master-runner', 'gateway'])
+        self.assertFalse(report['tasks_drained_operator_attested'])
+        self.assertTrue(report['active_task_interruption_operator_authorized'])
+        self.assertEqual(report['task_policy'], 'ALLOW_ACTIVE_TASK_INTERRUPTION')
+        self.assertEqual(report['database_before']['active_runs'], 1)
+        self.assertEqual(report['database_after']['active_callback_leases'], 1)
+        self.assertTrue(all(p['active_task_observation']['active_runs'] == 1 for p in report['patches']))
+        self.assertFalse(report['schema_migration_requested'])
+
+    def test_interruption_authority_does_not_skip_node_coverage(self):
+        code, patches, report = self.flow(active=True, allow_interruption=True, removed_taint=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(patches, [])
+        self.assertEqual(report['error_code'], 'SCHEDULABLE_NODE_NOT_PRELOADED')
+
+    def test_interruption_authority_does_not_retry_uncertain_patch(self):
+        code, patches, report = self.flow(active=True, allow_interruption=True, patch_fail=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(patches, ['ppt-master-runner'])
+        self.assertTrue(report['patches'][0]['patch_may_have_applied'])
+        self.assertFalse(report['patches'][0]['acknowledged'])
 
     def test_uncertain_first_patch_stops_second_deployment(self):
         code, patches, report = self.flow(patch_fail=True)
@@ -193,6 +300,67 @@ class Tests(unittest.TestCase):
         self.assertEqual(patches, ['ppt-master-runner'])
         self.assertTrue(report['patches'][0]['patch_may_have_applied'])
         self.assertFalse(report['patches'][0]['acknowledged'])
+
+    def test_newly_schedulable_redis_node_refuses_before_any_patch(self):
+        code, patches, report = self.flow(removed_taint=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(patches, [])
+        self.assertEqual(report['error_code'], 'SCHEDULABLE_NODE_NOT_PRELOADED')
+        self.assertEqual(report['node_gate_failure']['role_matrix']['ppt-master-runner']['uncovered_nodes'],
+                         ['ecs-zdz-pro-0008'])
+
+    def test_removed_taint_during_runner_rollout_stops_gateway_patch(self):
+        code, patches, report = self.flow(taint_removed_after_patch=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(patches, ['ppt-master-runner'])
+        self.assertTrue(report['production_workload_mutation'])
+        self.assertEqual(report['error_code'], 'SCHEDULABLE_NODE_NOT_PRELOADED')
+
+    def test_existing_r4_control_is_not_reused_or_overwritten(self):
+        n = self.n
+        n['prior_failure_evidence'] = lambda: {'status': 'SYNTHETIC_NOOP_PRIOR'}
+        n['evidence'] = lambda: None
+        n['command'] = lambda *a, **k: self.fail('no cluster command expected')
+        with tempfile.TemporaryDirectory() as directory, patch.object(n['os'], 'uname', return_value=SimpleNamespace(nodename='datax-01')), patch('sys.argv', ['activate', '--resume-compatibility-once', '--tasks-drained']):
+            n['CONTROL'] = directory + '/activation'
+            Path(n['CONTROL']).mkdir()
+            report = Path(n['CONTROL']) / 'REPORT.json'
+            report.write_bytes(b'previous-r4-receipt')
+            with self.assertRaisesRegex(n['Refused'], 'RESUME_ALREADY_CLAIMED'):
+                n['main']()
+            self.assertEqual(report.read_bytes(), b'previous-r4-receipt')
+
+    def prior_report(self):
+        return json.loads(Path(__file__).with_name('oa-compat-activation-field-20261022-r2.json').read_text())
+
+    def test_exact_noop_prior_report_is_preserved(self):
+        raw = (json.dumps(self.prior_report(), sort_keys=True) + '\n').encode()
+        self.assertEqual(len(raw), self.n['PRIOR_FAILURE']['bytes'])
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), self.n['PRIOR_FAILURE']['sha256'])
+        with tempfile.TemporaryDirectory() as directory:
+            p = Path(directory) / 'REPORT.json'
+            p.write_bytes(raw)
+            self.n['PRIOR_FAILURE']['path'] = str(p)
+            before = p.stat()
+            result = self.n['prior_failure_evidence']()
+            self.assertFalse(result['production_workload_mutation'])
+            self.assertEqual(p.read_bytes(), raw)
+            self.assertEqual(p.stat().st_mtime_ns, before.st_mtime_ns)
+
+    def test_changed_or_uncertain_prior_report_refused(self):
+        for mode in ('hash', 'write'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                v = self.prior_report()
+                v['patches'] = [{'patch_may_have_applied': True}]
+                raw = (json.dumps(v, sort_keys=True) + '\n').encode()
+                p = Path(directory) / 'REPORT.json'
+                p.write_bytes(raw)
+                self.n['PRIOR_FAILURE']['path'] = str(p)
+                self.n['PRIOR_FAILURE']['bytes'] = len(raw)
+                if mode == 'write':
+                    self.n['PRIOR_FAILURE']['sha256'] = hashlib.sha256(raw).hexdigest()
+                with self.assertRaisesRegex(self.n['Refused'], 'PRIOR_REPORT_HASH|PRIOR_REPORT_NOT_NOOP'):
+                    self.n['prior_failure_evidence']()
 
 
 if __name__ == '__main__':

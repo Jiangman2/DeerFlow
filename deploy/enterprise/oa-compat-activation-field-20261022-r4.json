@@ -1,0 +1,276 @@
+{
+  "schema": "portal-oa-compat-activation-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_SUMMARY_NOT_DIRECT_CLUSTER_READ",
+  "source_attachment_sha256": "a4dcfa5f5525730391a8a4ae69aca1643b49729dce50d2d4e13f5abaddaa507e",
+  "private_full_report_locally_available": false,
+  "observation": {
+    "active_task_interruption_operator_authorized": true,
+    "after": {
+      "gateway": {
+        "generation": 383,
+        "spec_sha256": "5b4b2868c2d2a7a9cebf990aa9bf55f7defb6528f8fb2e1b9da319a163bec63f",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "ppt-master-runner": {
+        "generation": 55,
+        "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      }
+    },
+    "automatic_retry": false,
+    "before": {
+      "gateway": {
+        "generation": 382,
+        "spec_sha256": "699119d2d3e7a2e30aad980d5c4f37560be9022b00059a2712b6512e4b3816ff",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "ppt-master-runner": {
+        "generation": 54,
+        "spec_sha256": "a1ba61f7c0339e23788b2ce8629ac5d90c0f71c8bf82cec6958b01c02ca31b94",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      }
+    },
+    "configuration_metadata_preserved": true,
+    "database_access": "READONLY_INSPECTION_PLUS_ORDINARY_SERVICE_STARTUP",
+    "database_after": {
+      "active_callback_leases": 0,
+      "active_oa_jobs": 0,
+      "active_runs": 3,
+      "database_readonly": true,
+      "revisions": [
+        "0020_ppt_confirmation"
+      ],
+      "schema_migrated": false,
+      "status": "PASS"
+    },
+    "database_before": {
+      "active_callback_leases": 0,
+      "active_oa_jobs": 0,
+      "active_runs": 3,
+      "database_readonly": true,
+      "revisions": [
+        "0020_ppt_confirmation"
+      ],
+      "schema_migrated": false,
+      "status": "PASS"
+    },
+    "files_modified": true,
+    "frontend_preserved": true,
+    "last_task_check": {
+      "active_callback_leases": 0,
+      "active_oa_jobs": 0,
+      "active_runs": 3,
+      "database_readonly": true,
+      "revisions": [
+        "0020_ppt_confirmation"
+      ],
+      "schema_migrated": false,
+      "status": "PASS"
+    },
+    "node_coverage": {
+      "additional_nodes": [
+        "ecs-zdz-pro-0000",
+        "ecs-zdz-pro-0005",
+        "ecs-zdz-pro-0008"
+      ],
+      "missing_pinned_nodes": [],
+      "observed_node_count": 18,
+      "preloaded_node_count": 15,
+      "role_matrix": {
+        "gateway": {
+          "excluded_nodes": {
+            "datax-01": [
+              "required_node_affinity"
+            ],
+            "datax-02": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "datax-03": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0000": [
+              "node_selector",
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0005": [
+              "node_selector",
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0008": [
+              "node_selector",
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0011": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0012": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0013": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0014": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0015": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0016": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0017": [
+              "node_selector",
+              "required_node_affinity"
+            ]
+          },
+          "potential_nodes": [
+            "ecs-zdz-pro-0018",
+            "ecs-zdz-pro-0019",
+            "ecs-zdz-pro-0020",
+            "ecs-zdz-pro-0021",
+            "ecs-zdz-pro-0022"
+          ],
+          "uncovered_nodes": []
+        },
+        "ppt-master-runner": {
+          "excluded_nodes": {
+            "ecs-zdz-pro-0000": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0005": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0008": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0018": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0019": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0020": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0021": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0022": [
+              "untolerated_hard_taint"
+            ]
+          },
+          "potential_nodes": [
+            "datax-01",
+            "datax-02",
+            "datax-03",
+            "ecs-zdz-pro-0011",
+            "ecs-zdz-pro-0012",
+            "ecs-zdz-pro-0013",
+            "ecs-zdz-pro-0014",
+            "ecs-zdz-pro-0015",
+            "ecs-zdz-pro-0016",
+            "ecs-zdz-pro-0017"
+          ],
+          "uncovered_nodes": []
+        }
+      },
+      "status": "ROLE_NODE_COVERAGE_ACCEPTED",
+      "uid_mismatches": [],
+      "unhealthy_pinned_nodes": []
+    },
+    "once_claimed": true,
+    "patches": [
+      {
+        "acknowledged": true,
+        "active_task_observation": {
+          "active_callback_leases": 0,
+          "active_oa_jobs": 0,
+          "active_runs": 3,
+          "database_readonly": true,
+          "revisions": [
+            "0020_ppt_confirmation"
+          ],
+          "schema_migrated": false,
+          "status": "PASS"
+        },
+        "after": {
+          "generation": 55,
+          "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd",
+          "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+        },
+        "before": {
+          "generation": 54,
+          "spec_sha256": "a1ba61f7c0339e23788b2ce8629ac5d90c0f71c8bf82cec6958b01c02ca31b94",
+          "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+        },
+        "deployment": "ppt-master-runner",
+        "expected_spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd",
+        "patch_may_have_applied": true,
+        "patch_requested": true
+      },
+      {
+        "acknowledged": true,
+        "active_task_observation": {
+          "active_callback_leases": 0,
+          "active_oa_jobs": 0,
+          "active_runs": 3,
+          "database_readonly": true,
+          "revisions": [
+            "0020_ppt_confirmation"
+          ],
+          "schema_migrated": false,
+          "status": "PASS"
+        },
+        "after": {
+          "generation": 383,
+          "spec_sha256": "5b4b2868c2d2a7a9cebf990aa9bf55f7defb6528f8fb2e1b9da319a163bec63f",
+          "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+        },
+        "before": {
+          "generation": 382,
+          "spec_sha256": "699119d2d3e7a2e30aad980d5c4f37560be9022b00059a2712b6512e4b3816ff",
+          "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+        },
+        "deployment": "gateway",
+        "expected_spec_sha256": "5b4b2868c2d2a7a9cebf990aa9bf55f7defb6528f8fb2e1b9da319a163bec63f",
+        "patch_may_have_applied": true,
+        "patch_requested": true
+      }
+    ],
+    "preflight_retry_available": false,
+    "prior_noop_failure": {
+      "bytes": 2671,
+      "error_code": "TASKS_STILL_ACTIVE",
+      "path": "/var/lib/portal-oa-compat-activation-20261022-r2/REPORT.json",
+      "production_workload_mutation": false,
+      "sha256": "4842725be3362a76e7745b83450b1d80f44f8c67b9875299c4dd09e92dfce55b"
+    },
+    "production_workload_mutation": true,
+    "provider_requests": 0,
+    "ready_for_oa_migration": false,
+    "report_bytes": 35310,
+    "report_path": "/var/lib/portal-oa-compat-activation-20261022-r4/REPORT.json",
+    "report_sha256": "623d1c0b3154c5b203d68a866337df57ed8d749ef4798a7ad10996ee1ee4e9af",
+    "runtime_accepted": {
+      "gateway": 70,
+      "ppt-master-runner": 1
+    },
+    "schema": "portal-oa-compat-activation.v4",
+    "schema_migration_requested": false,
+    "schema_revision": "0020_ppt_confirmation",
+    "status": "COMPATIBILITY_ROLLOUT_ACCEPTED_SCHEMA_UNCHANGED",
+    "task_policy": "ALLOW_ACTIVE_TASK_INTERRUPTION",
+    "tasks_drained_operator_attested": false
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schema": "portal-oa-enable-operator-observation.v1",
+  "evidence_source": "operator_pasted_output_not_live_cluster_read",
+  "reported_status": "INCOMPLETE",
+  "reported_exitcode": 1,
+  "error_code": "CALLBACK_HTTPS_HEAD_NOT_ACCEPTED",
+  "error_class": "Refused",
+  "callback_preflight": [
+    {
+      "pod": "gateway-d9ddb8b55-29zc7",
+      "transport": {
+        "error_class": "ConnectError",
+        "head_requests": 1,
+        "raw_error_exported": false,
+        "status": "INCOMPLETE"
+      }
+    }
+  ],
+  "once_claimed": false,
+  "patch_request_count": 0,
+  "patch_may_have_applied": false,
+  "patch_acknowledged": false,
+  "production_workload_mutation": false,
+  "credentials_exported": false,
+  "business_callback_requests_by_tool": 0,
+  "provider_requests": 0,
+  "job_submissions": 0,
+  "reported_intent_flag_ordinary_worker_callbacks_enabled_by_rollout": true,
+  "interpretation": "The r1 intent flag is not evidence of enablement. No patch was requested; transport cause remains unclassified."
+}

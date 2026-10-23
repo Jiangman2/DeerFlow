@@ -1,5 +1,11 @@
 # OA schema compatibility activation preparation
 
+Historical preparation record. The operator subsequently attempted r1; it
+refused before mutation because the cluster contains 18 nodes while the
+preload matrix contains 15. See
+`oa-compat-activation-resume-20261022-r2.md` for the preserved failure receipt
+and the r2 continuation; do not rerun r1.
+
 The operator reports that tasks are still running and requests preparation only.
 No activation or production schema migration was executed while preparing this
 package. Do not run the activation until the operator confirms the task window.

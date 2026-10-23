@@ -65,3 +65,45 @@ subtests), including real-SDK live/final usage observation, provider 503 without
 retry, changed endpoint refusal, redaction and no-request preflight. The host
 controller targets Python 3.7; the embedded observer runs in Gateway Python.
 Production deployment remains on hold.
+
+## Authorized combined frontend release
+
+The operator subsequently confirmed with the GLM service team that this endpoint
+returns a final usage summary rather than live token counters. This is an
+operator-reported provider contract, not a captured production response trace.
+The waiting/received/final UI therefore remains the intended behavior; no
+estimated counters or backend usage-setting changes are required.
+
+The operator authorized including this display correction with Data QA progress
+after the ongoing Gateway feature rollout completes. The previously preloaded
+Frontend `15d1327740e688faf0617d1d8fb9f662618a963624ba7280a6d0efb54ed70475`
+does not contain this correction and must not be described as the combined
+candidate. A new source snapshot applies only commit
+`1c74cfe3a37a9d85cf38bdde4e002c5f722adf26`'s five frontend runtime files and its
+component tests to that qualified build context. It retains the Data QA code
+and all other source bytes. Source provenance is recorded in
+`deploy/enterprise/data-qa-token-frontend-source-20261022-r1.json`.
+
+The combined source passed 25 token-usage tests and 6 Data QA progress tests;
+targeted ESLint also passed. The new image must separately complete build,
+runtime and OCI qualification, then be preloaded on both frontend nodes.
+Activation remains ordered after the accepted Gateway receipt, because the
+currently running Gateway activator verifies that Frontend stays unchanged.
+The frontend-only correction neither enables OA v2 nor modifies provider usage
+collection, billing, database schema or GLM request configuration.
+
+## Runtime deployment accepted 2026-10-23
+
+The combined image
+`sha256:b6c17e31ebcadb3c514fd2c3f87752e0eb84ee3e28ccc921366bac6a0bf91cd5`
+completed build/runtime/OCI qualification, both node preloads and the
+receipt-bound frontend cutover. The operator reports Frontend generation 226
+with both Pods passing immutable-source and HTTP JavaScript verification;
+Gateway 384, Runner 55 and other service specs/configuration are preserved.
+Evidence: `deploy/enterprise/data-qa-token-frontend-activation-field-20261023-r1.json`.
+
+Authenticated browser acceptance remains pending: after refreshing the page,
+a GLM reply without live usage should show the waiting label, then display
+the provider's summary once returned. A Data QA question should display live
+progress before the final answer. Do not describe this as real-time token
+counting or a completed production business test.
