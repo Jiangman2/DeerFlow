@@ -1,8 +1,8 @@
 # 单独开启 OA v2 多文件，回调保持关闭
 
-状态：2026-10-23 已收到更新提交成功、等待滚动超时的回执，尚未完成全部副本运行验收。用户随后提供的只读状态为 Gateway 386、已更新 51/70、就绪和可用均为 70、总副本 71、终止中 1；没有暂停，Progressing 为 True。不要将此状态登记为全量启用成功。用户曾考虑暂停，随后明确决定继续更新。本工具保持回调关闭，不访问回调地址。
+状态：2026-10-23 已收到只读续验成功回执 `OA_V2_MULTI_RUNTIME_ACCEPTED_CALLBACK_DISABLED`。Gateway 386 的全部 70 个副本均已更新、就绪、可用，终止中副本为 0；逐副本源码和配置核验通过，两个节点的鉴权回环检查通过。v2 多文件已开启，回调仍关闭，其他部署保持不变。完整操作员回执见 `oa-v2-multi-runtime-accepted-field-20261023.json`。真实 OA 业务任务联调仍未验收。
 
-将 `enable-portal-oa-v2-multi-only-20261023-r1.py` 复制到 datax-01 `/home/cnooc/` 后执行：
+以下是已经完成的启用命令，仅供发布追溯，不要重跑：
 
 ```bash
 sudo python3 -I -B -u /home/cnooc/enable-portal-oa-v2-multi-only-20261023-r1.py --enable-oa-v2-multi-only-once --allow-active-task-interruption
@@ -30,6 +30,8 @@ OA 方提交多文件任务时须在原 multipart 请求中加入 `result_protoc
 ## 滚动观察超时后的只读续验
 
 原工具只发出一次更新，并已通过读回确认。其 1800 秒观察期限到达不取消 Kubernetes 滚动，也不会自动重试或回滚。现场摘要见 `oa-v2-multi-timeout-observation-20261023.json`；服务器原始完整报告仍保留在原目录，8,717 字节，SHA-256 `d656711cd54e0f4aaa1f31703d7b05fe63494246518ebf363e508479986e8270`。
+
+滚动观察先记录到 51/70，之后只读核验返回 64/70，最终完成 70/70。原超时报告继续保留，不将其改写为成功；成功结论由后续只读运行验收回执单独证明。用户曾考虑暂停，随后明确决定继续；最终部署 `paused=false`。
 
 部署完成后，使用 `verify-portal-oa-v2-multi-after-timeout-20261023-r1.py --verify-current-readonly` 续验。单文件由 `package-oa-v2-multi-after-timeout.py` 构建，绑定原超时报告与 Gateway 386 的完整 spec 摘要。包仅包含只读查询及运行验证函数，不包含原启用入口或更新函数；不保存或覆盖服务器文件，不更改工作负载，不调用模型、业务提交或 OA 回调。
 
