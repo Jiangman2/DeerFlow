@@ -845,6 +845,64 @@ def wisequery_query_tool(runtime: Runtime, query: str) -> str:
 
 
 
+@tool("datalake_smart_query_tool", parse_docstring=True)
+def datalake_smart_query_tool(runtime: Runtime, query: str) -> str:
+    """查询海洋石油业务数据。
+
+    使用 Lake Search 接口检索业务数据，例如平台数量、平台信息等。
+
+    Args:
+        query: 用户提出的完整自然语言问题。
+    """
+    try:
+        # 测试阶段暂时使用固定 Token
+        token = "请在本地替换为你的测试Token"
+
+        payload = json.dumps(
+            {"query": query},
+            ensure_ascii=False,
+        )
+
+        result = subprocess.run(
+            [
+                "curl",
+                "--noproxy", "*",
+                "-sS",
+                "--max-time", "30",
+                "-X", "POST",
+                "http://10.77.80.3:8020/v1/query-service/lake/search",
+                "-H", f"Authorization: Bearer {token}",
+                "-H", "Content-Type: application/json",
+                "-d", payload,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=35,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return json.dumps({
+                "status": "error",
+                "message": "Lake Search 接口请求失败",
+                "detail": result.stderr[:2000],
+            }, ensure_ascii=False)
+
+        if not result.stdout.strip():
+            return "请求成功，但接口返回内容为空。"
+
+        try:
+            data = json.loads(result.stdout)
+            return json.dumps(data, ensure_ascii=False, indent=2)
+        except json.JSONDecodeError:
+            return result.stdout[:5000]
+
+    except subprocess.TimeoutExpired:
+        return "请求失败：Lake Search 接口调用超时。"
+
+    except Exception as exc:
+        return f"执行异常：{type(exc).__name__}: {exc}"
+
 #路由
 @tool
 def route_datalake_tool(question: str) -> dict:
@@ -868,7 +926,8 @@ def route_datalake_tool(question: str) -> dict:
         "datalake_detail_qa",
         "datalake_md_search_tool",
         "wisequery_query_tool"
-     }
+        "datalake_smart_query_tool",
+    }
 
     payload = {
         "model": "typesafe/jev-1.13",
@@ -893,9 +952,13 @@ def route_datalake_tool(question: str) -> dict:
                         "从企业 DataLake 中检索叙事性井工程证据。"
                         "用于文档、报告、井史、地质、完井及其他叙述性问题。"
                     ),
+                    "datalake_smart_query_tool": (
+                        "检索企业数据湖中的井工程文档、报告、井史、地质及完井资料，返回排序后的来源信息和附件。 模型需自行分析总结、引用来源，证据不足时说明不确定性；工具不生成最终答案。 "
+                        "表字段和记录列表使用 detail QA；指标、排名、比率及总量使用 metrics QA。 参数 query：用户完整的数据湖资料检索问题。中海油有多少平台"
+                    ),
                     "wisequery_query_tool": (
-                        "企业数据湖的自然语言问答入口，一次性完成「生成执行计划 + 执行」两步并返回最终结果。接收自然语言问题（question），按 channel_hint 或路由策略自动分流到合适的后端通道（Cube 指标/属性、明细 SQL 或通用取数）。result 直接给出答案；include_plan=true 时额外附带本次执行的计划。若返回 status 非 ready（如需要澄清/反问），应按其中的澄清内容继续追问"
-                        "XX井的井别。"
+                        "企业数据湖的自然语言问答入口，一次性完成「生成执行计划 + 执行」两步并返回最终结果。接收自然语言问题（question），按 channel_hint 或路由策略自动分流到合适的后端通道（Cube 指标/属性、明细 SQL 或通用取数）。"
+                        "result 直接给出答案；include_plan=true 时额外附带本次执行的计划。若返回 status 非 ready（如需要澄清/反问），应按其中的澄清内容继续追问.XX井的井别。"
                     ),
                 },
             }
