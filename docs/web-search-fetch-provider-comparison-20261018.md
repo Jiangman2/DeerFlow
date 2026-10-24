@@ -4,6 +4,8 @@
 
 实测进展更新（2026-10-19）：最新三家 Search / Fetch 与真实 Agent 对比见[增强版复测报告](search-fetch-enhanced-retest-20261018.md)；PDF 失败边界及用户提供的官方 Harness 复测见[专项诊断](deepseek-pdf-fetch-diagnostic-20261019.md)。本文原有价格与功能核对日期仍为 2026-10-18，本次只补充实测证据，不表示重新核对了价格。
 
+工程更新（2026-10-24）：新增可选[统一路由适配器](web-provider-routing-20261024.md)，支持 DeepSeek 优先、Tavily/Exa 失败回退及显式 PDF 路由。此前“没有自动回退”的说明是原单供应商配置机制；只有切换到新 `web_router` 工具后才启用路由。默认配置未切换，旧实测统计未重跑。
+
 ## 1. 建议
 
 三家都能够组成“搜索发现 → 正文阅读”链路。建议保留 Tavily 为现有基线，补齐 DeepSeek 双工具，以 Exa 为另一组候选；先按部署配置选择 Search 与 Fetch，再根据评测决定默认组合。第一阶段不引入按问题自动路由或静默跨供应商回退。
@@ -99,7 +101,7 @@ DeepSeek Search 与 Fetch 当前分别为账号级 5 QPS，需分别限速。另
 
 代码依据：[`get_available_tools`](../backend/packages/harness/deerflow/tools/tools.py) 先按工具组筛选并加载配置，再按工具对象的 `.name` 保留首项；[`AppConfig._build_name_indexes` 与 `get_tool_config`](../backend/packages/harness/deerflow/config/app_config.py) 用 `setdefault` 保留首个同名配置。正常情况下应让配置名、工具名一致，并为 Search 和 Fetch 各保留一个有效配置。重复条目不是供应商候选池，也不构成失败备用列表；不要借不同工具组中的同名条目实现路由，因为参数查询仍按全局同名配置首项进行。
 
-本次三家对比脚本为每个供应商分别构造独立 AppConfig 后执行，未在同一 Agent 中同时启用三个同名实现。若后续实现多供应商路由或可选回退，需要新增明确的选择、凭据隔离、预算及调用来源记录机制；它不是当前已有行为。这里描述的是 DeerFlow 的配置机制，不是官方 DeepSeek Harness 的 provider 注册机制。
+本次三家对比脚本为每个供应商分别构造独立 AppConfig 后执行，未在同一 Agent 中同时启用三个同名实现。这里描述的是原单供应商配置机制，不是官方 DeepSeek Harness 的 provider 注册机制。2026-10-24 新增的 `web_router` 在一个注册工具内部执行顺序选择、独立凭据读取、预算及来源记录；它不改变同名配置取首项规则，启用时仍须禁用其他同名实现，详见[路由说明](web-provider-routing-20261024.md)。
 
 分别使用 TAVILY_API_KEY、DEEPSEEK_API_KEY、EXA_API_KEY；运行时 Secret 注入，不写字面密钥。每个工具独立读取 api_key、timeout、结果/正文预算等配置。代理和 CA 按现有企业部署显式配置，保持证书链及主机名验证。
 
