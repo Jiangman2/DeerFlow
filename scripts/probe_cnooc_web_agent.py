@@ -161,6 +161,7 @@ def collect(
                 "redaction": "known credentials, signed URLs, session identifiers and reasoning fields; review business text before sharing",
             }
         )
+        stage = "connect"
         try:
             module.enableTrace(False)
             sock = module.create_connection(
@@ -172,8 +173,10 @@ def collect(
                     "check_hostname": True,
                 },
             )
+            stage = "send"
             sock.settimeout(max(0.001, deadline - time.monotonic()))
             sock.send(json.dumps(request, ensure_ascii=False))
+            stage = "receive"
             for seq in range(1, max_frames + 1):
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
@@ -233,7 +236,16 @@ def collect(
             return 2
         except Exception as exc:
             # Exception messages can contain the signed connection URL.
-            write({"event": "stop", "error_class": type(exc).__name__})
+            failure = {
+                "event": "stop",
+                "error_class": type(exc).__name__,
+                "stage": stage,
+                "elapsed_ms": round((time.monotonic() - started) * 1000),
+            }
+            status = getattr(exc, "status_code", None)
+            if stage == "connect" and type(status) is int and 100 <= status <= 599:
+                failure["handshake_http_status"] = status
+            write(failure)
             return 2
         finally:
             if sock is not None:
@@ -330,6 +342,43 @@ def self_test():
                 and "hidden reasoning" not in text
             )
             assert all(json.loads(line) for line in text.splitlines())
+
+        class HandshakeRejected(Exception):
+            status_code = 403
+
+        def reject_connection(*args, **kwargs):
+            raise HandshakeRejected(
+                "signed URL and offline-secret must never be logged"
+            )
+
+        rejection_file = Path(directory) / "handshake-rejected.jsonl"
+        module = SimpleNamespace(
+            create_connection=reject_connection, enableTrace=lambda _: None
+        )
+        assert (
+            collect(
+                module,
+                "offline-app",
+                "offline-secret",
+                "offline-body",
+                "public query",
+                False,
+                rejection_file,
+                10,
+            )
+            == 2
+        )
+        rejection_text = rejection_file.read_text(encoding="utf-8")
+        rejection = json.loads(rejection_text.splitlines()[-1])
+        assert (
+            rejection["stage"] == "connect"
+            and rejection["handshake_http_status"] == 403
+        )
+        assert (
+            rejection["elapsed_ms"] >= 0
+            and "offline-secret" not in rejection_text
+            and "must never be logged" not in rejection_text
+        )
         assert scrub(
             {"netSearch": '{"token":"hidden-token","url":"https://example.com"}'}, ()
         ) == {"netSearch": '{"token": "[REDACTED]", "url": "https://example.com"}'}
