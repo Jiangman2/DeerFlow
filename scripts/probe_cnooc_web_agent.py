@@ -110,7 +110,16 @@ def scrub(value, secrets, depth=0):
 
 
 def collect(
-    module, app_id, secret, body_id, query, deepseek, output, timeout, ca_file=None
+    module,
+    app_id,
+    secret,
+    body_id,
+    query,
+    deepseek,
+    output,
+    timeout,
+    ca_file=None,
+    max_frames=5000,
 ):
     url, secrets = signed_url(app_id, secret, body_id)
     started = time.monotonic()
@@ -148,6 +157,7 @@ def collect(
                 "endpoint": ENDPOINT,
                 "request": request,
                 "timeout_seconds": timeout,
+                "max_frames": max_frames,
                 "redaction": "known credentials, signed URLs, session identifiers and reasoning fields; review business text before sharing",
             }
         )
@@ -164,7 +174,7 @@ def collect(
             )
             sock.settimeout(max(0.001, deadline - time.monotonic()))
             sock.send(json.dumps(request, ensure_ascii=False))
-            for seq in range(1, 501):
+            for seq in range(1, max_frames + 1):
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise TimeoutError
@@ -219,7 +229,7 @@ def collect(
                         }
                     )
                     return 0
-            write({"event": "stop", "reason": "500_frame_limit"})
+            write({"event": "stop", "reason": "frame_limit", "limit": max_frames})
             return 2
         except Exception as exc:
             # Exception messages can contain the signed connection URL.
@@ -282,6 +292,11 @@ def self_test():
             ([{"payload": {"text": "missing header"}}], 2),
             ([{"header": {"code": "0", "status": 2}}], 2),
             ([{"header": {"code": 0, "status": 1}}], 2),
+            (
+                [{"header": {"code": 0, "status": 1}}] * 500
+                + [{"header": {"code": 0, "status": 2}}],
+                0,
+            ),
         ]
         for index, (frames, expected) in enumerate(cases):
             sock = Socket([json.dumps(f) for f in frames])
@@ -340,6 +355,12 @@ def main():
         help="Use the task chain's modelFlag=true; not a search-provider selector",
     )
     parser.add_argument("--timeout", type=int, default=60)
+    parser.add_argument(
+        "--max-frames",
+        type=int,
+        default=5000,
+        help="Maximum received data messages (1-20000, default 5000)",
+    )
     parser.add_argument("--ca-file", help="Optional trusted enterprise CA bundle")
     parser.add_argument(
         "--output",
@@ -357,9 +378,10 @@ def main():
         or not args.body_id
         or not args.query.strip()
         or not 1 <= args.timeout <= 300
+        or not 1 <= args.max_frames <= 20000
     ):
         parser.error(
-            "Require app-id, body-id, a nonblank query, and timeout between 1 and 300 seconds"
+            "Require app-id, body-id, a nonblank query, timeout 1-300 seconds, and max-frames 1-20000"
         )
     try:
         import websocket
@@ -390,6 +412,7 @@ def main():
             args.output,
             args.timeout,
             args.ca_file,
+            max_frames=args.max_frames,
         )
     except Exception as exc:
         print(
