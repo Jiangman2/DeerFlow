@@ -1,0 +1,131 @@
+{
+  "schema": "portal-weknora-company-enrollment-field.v1",
+  "evidence": "OPERATOR_PROVIDED_TERMINAL_LOG_FINAL_JSON",
+  "source_attachment": {
+    "name": "log(22).txt",
+    "bytes": 25330,
+    "sha256": "f1fe3c04cc0a18519b631c41db1738ea8cd38f1ade980f4b673b7f06b3b1bb24"
+  },
+  "observation": {
+    "auto_enrollment_deployed": false,
+    "automatic_retry": false,
+    "credentials_exported": false,
+    "database_direct_writes": 0,
+    "elapsed_seconds": 2191.381,
+    "last_progress": {
+      "pass": 3,
+      "phase": "FRESH_PAGED_INVENTORY"
+    },
+    "membership_mutation_may_have_applied": true,
+    "observation": {
+      "account_roles_changed": false,
+      "accounts_created": 0,
+      "auto_enrollment_deployed": false,
+      "automatic_retry": false,
+      "batches_verified": 214,
+      "business_qa_acceptance_pending": true,
+      "concurrent_elevated_preserved": 0,
+      "concurrent_viewers_preserved": 0,
+      "confirmed_viewer_memberships": 8410,
+      "credentials_exported": false,
+      "database_direct_writes": 0,
+      "deadline_seconds": 7200,
+      "documents_read": false,
+      "initial_inventory": {
+        "candidate_inventory_sha256": "e5d333489d870f08660c5467dde45dc4ceb1a272fafd67d8c538c4b463c4a9a6",
+        "counts": {
+          "ambiguous_native_identity": 0,
+          "eligible_platform_users": 84742,
+          "existing_elevated_membership_users_preserved": 0,
+          "existing_viewer_users": 1,
+          "multiple_owned_workspaces": 0,
+          "native_identity_not_ordinary_active": 0,
+          "no_owned_workspace": 0,
+          "not_yet_provisioned": 76333,
+          "platform_admins_preserved": 6,
+          "users_to_enroll": 8408
+        },
+        "credentials_exported": false,
+        "database_readonly": true,
+        "membership_grants": 0,
+        "scope": "ACTIVE_SETUP_COMPLETE_PLATFORM_ACCOUNTS_AND_OWNED_DEFAULT_WORKSPACES",
+        "status": "READONLY_MEMBERSHIP_INVENTORY_NOT_ENROLLED",
+        "user_list_exported": false,
+        "workspace_memberships_to_add": 8408
+      },
+      "knowledge_base_id": "bd83e659-9d9c-429a-acf1-ead01037cfa1",
+      "last_http_status": 200,
+      "latest_inventory": {
+        "candidate_inventory_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "counts": {
+          "ambiguous_native_identity": 0,
+          "eligible_platform_users": 84742,
+          "existing_elevated_membership_users_preserved": 0,
+          "existing_viewer_users": 8411,
+          "multiple_owned_workspaces": 0,
+          "native_identity_not_ordinary_active": 0,
+          "no_owned_workspace": 0,
+          "not_yet_provisioned": 76331,
+          "platform_admins_preserved": 6,
+          "users_to_enroll": 0
+        },
+        "credentials_exported": false,
+        "database_readonly": true,
+        "membership_grants": 0,
+        "scope": "ACTIVE_SETUP_COMPLETE_PLATFORM_ACCOUNTS_AND_OWNED_DEFAULT_WORKSPACES",
+        "status": "READONLY_MEMBERSHIP_INVENTORY_NOT_ENROLLED",
+        "user_list_exported": false,
+        "workspace_memberships_to_add": 0
+      },
+      "latest_space_settings": {
+        "member_limit": 0,
+        "member_unit": "NATIVE_TENANT_WORKSPACE",
+        "require_approval": false,
+        "searchable": true,
+        "unlimited": true
+      },
+      "login_requests": 2,
+      "matches_prior_readonly_inventory": false,
+      "maximum_in_flight": 2,
+      "maximum_membership_posts": 10000,
+      "maximum_post_starts_per_second": 4,
+      "membership_mutation_may_have_applied": true,
+      "membership_post_requests": 8410,
+      "organization_id": "b9cfbf7f-7281-4f62-a72b-6a22379efe60",
+      "phase": "COMPLETE",
+      "post_responses_unconfirmed": 0,
+      "provider_requests": 0,
+      "remaining_workspace_memberships": 0,
+      "schema": "portal-weknora-company-bulk-enrollment.v1",
+      "status": "BULK_VIEWER_ENROLLMENT_ACCEPTED_AUTO_ENROLLMENT_NOT_DEPLOYED",
+      "uncertain_posts_resolved_by_readback": 0,
+      "user_list_exported": false,
+      "workload_modified": false
+    },
+    "once_claimed": true,
+    "prior_receipts": [
+      {
+        "bytes": 1461,
+        "path": "/var/lib/portal-weknora-company-bootstrap-20261024-r1/REPORT.json",
+        "sha256": "876963431324e6fc146aad8de65fbb19eadeabf93a69fcf1a5f6f7b9a6151879"
+      },
+      {
+        "bytes": 2305,
+        "path": "/var/lib/portal-weknora-company-viewer-canary-20261024-r1/REPORT.json",
+        "sha256": "19eea1a4ea765974f3f5053763257119f8c269bfca0ab18f513e3a728ad26307"
+      }
+    ],
+    "production_workload_mutation": false,
+    "provider_requests": 0,
+    "report_bytes": 3768,
+    "report_path": "/var/lib/portal-weknora-company-bulk-enrollment-20261024-r1/REPORT.json",
+    "report_sha256": "502c7e55d6595a67f7d0233b8bae4e016cdc1aa7b905d8968a226d1db4b53a00",
+    "sample": {
+      "pod": "gateway-75c6db56c8-288bp",
+      "uid": "a7d1bbb9-fa4c-4578-8f5c-1782b937300f"
+    },
+    "schema": "portal-weknora-company-bulk-enrollment-host.v1",
+    "status": "BULK_VIEWER_ENROLLMENT_ACCEPTED_AUTO_ENROLLMENT_NOT_DEPLOYED",
+    "user_list_exported": false
+  }
+}

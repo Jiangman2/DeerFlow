@@ -1,0 +1,32 @@
+{
+  "schema": "portal-mobile-notice-removal-frontend-activation-package.v1",
+  "artifact": {
+    "path": "C:/Users/15285/Downloads/activate-portal-frontend-mobile-notice-removal-20261024-r1.py",
+    "bytes": 79291,
+    "sha256": "953501d3928298f2be015d1d9d08937efb40ebe87e5d6a4e8d710581ef80ee95"
+  },
+  "argument": "--activate-frontend-mobile-notice-removal-once",
+  "execution_host": "datax-01",
+  "expected_frontend_generation": 227,
+  "expected_frontend_uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee",
+  "candidate_manifest": "sha256:0af4bb16a0924a02f6cfcb927c137642329b5831d01a5eded8c4f61ee8ad43f7",
+  "preload_field_evidence": "mobile-notice-removal-frontend-preloads-field-20261024-r1.json",
+  "preload_evidence_origin": "OPERATOR_PASTED_SUMMARIES_NOT_DIRECT_NODE_READ",
+  "actual_generated_script_unit_checks": {"passed": 15, "failed": 0},
+  "linux_validation": {
+    "python": "3.7.17",
+    "network": "none",
+    "checks": [
+      "exact_file_pin",
+      "host_and_embedded_code_load",
+      "real_preload_binding",
+      "frontend_227_base",
+      "candidate_manifest",
+      "wrong_host_refused_before_mutation"
+    ],
+    "status": "GENERATED_ACTIVATOR_LINUX37_ACCEPTED"
+  },
+  "frontend_deployed": false,
+  "production_activation_receipt_pending": true,
+  "browser_acceptance_pending": true
+}

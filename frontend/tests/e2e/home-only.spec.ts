@@ -80,6 +80,11 @@ for (const width of [1440, 390]) {
       await expect(popup).toHaveURL(tool.href);
       expect(await popup.evaluate(() => window.opener === null)).toBe(true);
       await popup.close();
+      // Complete dismissal before another link reopens the same menu.
+      await page.bringToFront();
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("portal-tools-menu")).toBeHidden();
+      await expect(page.getByTestId("ppt-generation-menu")).toBeHidden();
       await expect(input).toHaveValue("保留外链点击前的草稿");
       await expect(page).toHaveURL(/\/workspace\/chats\/new$/);
     }
@@ -153,9 +158,16 @@ for (const { width, height } of [
         1,
       );
     }
-    if (width >= 768) {
-      for (const box of await actions.all())
-        await expect(box).toBeInViewport({ ratio: 1 });
+    // The released rail scrolls horizontally when its seven actions do not
+    // fit, including a desktop viewport reduced by the sidebar or zoom.
+    // Each control must remain fully reachable, not simultaneously onscreen.
+    for (const action of await actions.all()) {
+      // Match the rail's start-aligned scroll snap; centering an item can
+      // snap to its neighbour and leave the requested control clipped.
+      await action.evaluate((element) =>
+        element.scrollIntoView({ block: "nearest", inline: "start" }),
+      );
+      await expect(action).toBeInViewport({ ratio: 1 });
     }
     await expect(rail.getByTestId("portal-tool-ppt")).toHaveCount(0);
     await page.getByTestId("portal-tools-trigger").click();
@@ -255,8 +267,14 @@ for (const { width, height } of [
     await expect(popup).toHaveURL(PPT_ASSISTANT_TOOL.href);
     await popup.close();
     await expect(input).toHaveValue("保留这份草稿");
+    // Popup closure and Radix's menu exit animation finish independently.
+    // Return focus and establish a closed menu before opening it again.
+    await page.bringToFront();
+    await page.keyboard.press("Escape");
+    await expect(pptMenu).toBeHidden();
     await page.getByTestId("ppt-generation-menu-trigger").click();
-    await page.getByTestId("ppt-route-generate").click();
+    await expect(pptMenu).toBeVisible();
+    await pptMenu.getByTestId("ppt-route-generate").click();
     await expect(input).toHaveValue(/^\/ppt-master /);
     await expect(page).toHaveURL(/\/workspace\/chats\/new$/);
     expect(

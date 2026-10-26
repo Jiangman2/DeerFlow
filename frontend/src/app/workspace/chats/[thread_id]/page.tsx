@@ -433,8 +433,10 @@ export default function ChatPage() {
                 <ExportTrigger threadId={threadId} />
                 <ArtifactTrigger />
               </div>
+              {isWelcomeMode && (
+                <NonConfidentialNotice className="cnooc-welcome-notice absolute top-full right-0 left-0 hidden md:block" />
+              )}
             </header>
-            <NonConfidentialNotice className="md:hidden" />
             <main
               className={cn(
                 "cnooc-chat-main flex min-h-0 max-w-full grow flex-col",
@@ -448,7 +450,7 @@ export default function ChatPage() {
               )}
               <div className="flex min-h-0 flex-1 justify-center">
                 <MessageList
-                  className={cn("size-full", !isWelcomeMode && "pt-10")}
+                  className={cn("size-full", !isWelcomeMode && "md:pt-10")}
                   testId="main-message-list"
                   threadId={threadId}
                   thread={thread}

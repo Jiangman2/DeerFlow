@@ -1,0 +1,15 @@
+{
+  "schema": "portal-weknora-company-members-field.v2",
+  "evidence": "USER_SUPPLIED_COMPLETE_HOST_RECEIPT",
+  "status": "INCOMPLETE",
+  "phase": "PLATFORM_COUNT",
+  "error_code": "INVENTORY_USER_LIMIT_EXCEEDED",
+  "active_setup_complete_platform_accounts": 84748,
+  "script_platform_account_cap": 30000,
+  "current_space_limit_reached_by_this_inspection": false,
+  "current_space_limit_rechecked": false,
+  "membership_grants": 0,
+  "login_requests": 0,
+  "database_modified": false,
+  "workload_modified": false
+}

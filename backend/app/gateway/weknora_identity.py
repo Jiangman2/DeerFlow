@@ -24,6 +24,7 @@ from typing import Any
 import httpx
 from fastapi import HTTPException
 
+from app.gateway.weknora_company_knowledge import ensure_company_knowledge_access
 from deerflow.config import get_app_config
 
 logger = logging.getLogger(__name__)
@@ -814,6 +815,11 @@ async def _create_weknora_session(user: Any) -> WeKnoraSession:
         raise HTTPException(status_code=502, detail="Unexpected WeKnora login response shape.")
     session = _normalise_login_response(data)
     session = await sync_weknora_role(user, session)
+    await ensure_company_knowledge_access(
+        session,
+        weknora_endpoint,
+        administrator=str(getattr(user, "system_role", "user") or "user").lower() == "admin",
+    )
     await ensure_weknora_default_models()
     await ensure_weknora_default_mineru(session)
     await ensure_weknora_default_web_search(session)

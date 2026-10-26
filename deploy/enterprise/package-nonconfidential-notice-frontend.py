@@ -35,7 +35,10 @@ def pin(raw):
     return {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
 
 
-def build(qualified, output):
+def build(qualified, output, *, tag=TAG, release='nonconfidential-notice',
+          revision='20261023-r2', extra_protected=None):
+    assert release in ('nonconfidential-notice', 'mobile-notice-removal', 'mobile-chat-spacing', 'chat-notice-layout')
+    archive_name = 'frontend.' + release + '.full.oci.tar'
     raw = (qualified / 'RESULT.json').read_bytes()
     record = json.loads(raw)
     assert record['status'] == 'LOCAL_RUNTIME_AND_OCI_ACCEPTED_NOT_DEPLOYED'
@@ -44,7 +47,7 @@ def build(qualified, output):
     archive = qualified / 'frontend.oci.tar'
     transport = {'bytes': archive.stat().st_size, 'sha256': base.sha_file(archive)}
     assert transport == {k: record['export'][k] for k in ('bytes', 'sha256')}
-    assert record['image']['tag'] == TAG
+    assert record['image']['tag'] == tag
     with tarfile.open(archive, 'r:') as tar:
         index = json.load(tar.extractfile('index.json'))
         assert len(index['manifests']) == 1
@@ -71,9 +74,10 @@ def build(qualified, output):
         protected = dict(module.PROTECTED)
         protected.update({'deerflow.local/deer-flow-frontend:20261022-data-qa-token-r1': OLD,
                           'deerflow.local/deer-flow-frontend@' + OLD: OLD})
+        protected.update(extra_protected or {})
         values = {'TRANSPORT_PIN': transport, 'MANIFEST': md, 'CONFIG': cd,
-                  'TAG': TAG, 'INPUT': '/home/cnooc/' + ARCHIVE,
-                  'CONTROL': ('/mnt/data/' if role == '0015' else '/var/lib/') + 'portal-frontend-nonconfidential-notice-preload-20261023-r2',
+                  'TAG': tag, 'INPUT': '/home/cnooc/' + archive_name,
+                  'CONTROL': ('/mnt/data/' if role == '0015' else '/var/lib/') + 'portal-frontend-' + release + '-preload-' + revision,
                   'DESCRIPTORS': manifest['layers'], 'CACHED_DESCRIPTORS': [],
                   'FINAL_CHAIN': chain, 'PROTECTED': protected}
         for key, value in values.items():
@@ -85,22 +89,22 @@ def build(qualified, output):
             prepared = candidate.inspect_archive(stream.fileno(), importer, time.monotonic())
         budget = {key: prepared[key] for key in ('manifest', 'chains', 'blob_sizes', 'layer_stats')}
         source = legacy.replace(source, 'EARLY_BUDGET', 'EARLY_BUDGET = ' + repr(budget))
-        source = base.replace_once(source, "['--preload-frontend-data-qa-token-once']", "['--preload-frontend-nonconfidential-notice-once']")
+        source = base.replace_once(source, "['--preload-frontend-data-qa-token-once']", repr(['--preload-frontend-' + release + '-once']))
         ast.parse(source, feature_version=(3, 7))
         sources[role] = source
     output.mkdir(exist_ok=False)
-    with archive.open('rb') as src, (output / ARCHIVE).open('xb') as dst:
+    with archive.open('rb') as src, (output / archive_name).open('xb') as dst:
         shutil.copyfileobj(src, dst, length=1024*1024)
-    assert base.sha_file(output / ARCHIVE) == transport['sha256']
+    assert base.sha_file(output / archive_name) == transport['sha256']
     scripts = {}
     for role, source in sources.items():
-        name = 'preload-portal-frontend-nonconfidential-notice-' + role + '-20261023-r2.py'
+        name = 'preload-portal-frontend-' + release + '-' + role + '-' + revision + '.py'
         content = source.encode('utf-8')
         (output / name).write_bytes(content)
         scripts[role] = dict(pin(content), file=name, hostname=PINS[role][0],
                              expected_node_uid=PINS[role][1], prior_script_sha256=PINS[role][2])
-    result = {'schema': 'portal-nonconfidential-notice-frontend-package.v1', 'manifest': md, 'config': cd,
-              'tag': TAG, 'archive': ARCHIVE, 'transport': transport, 'scripts': scripts,
+    result = {'schema': 'portal-' + release + '-frontend-package.v1', 'manifest': md, 'config': cd,
+              'tag': tag, 'archive': archive_name, 'transport': transport, 'scripts': scripts,
               'qualification_pin': pin(raw), 'source_change_sha256': record['source_change_sha256'],
               'archive_blob_and_diffid_validation': 'PASS', 'exact_host_binding': True,
               'capacity_checked_before_once_claim': True, 'frontend_deployed': False,

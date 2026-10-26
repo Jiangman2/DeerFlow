@@ -13,9 +13,10 @@ import subprocess
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[2]
-LOCK = 'deploy/enterprise/production-source-lock-20261023.json'
+LOCK = 'deploy/enterprise/production-source-lock-20261026.json'
 RUNNER = 'release/production-source-20261022/ppt-master-runner/'
 FORMAT_BASELINE = 'release/production-source-20261023/gateway-format-baseline/'
+TEST_BASELINE = 'release/production-source-20261026/frontend-test-baseline/'
 
 
 def syntax_fingerprint(raw, *, import_order=False):
@@ -35,16 +36,72 @@ def syntax_fingerprint(raw, *, import_order=False):
     return ast.dump(tree, include_attributes=False)
 
 
-def verify(ref=None):
+def qualification_source(read, lock, name):
+    """Preserve sealed test inputs while auditing later CI-only corrections."""
+    raw = read(name)
+    override = lock.get('qualification_test_overrides', {}).get(name)
+    if override is None:
+        return raw
+    assert name.startswith('frontend/tests/e2e/') and name.endswith('.spec.ts'), 'TEST_OVERRIDE_OUTSIDE_E2E'
+    assert override['baseline_path'] == TEST_BASELINE + name, 'TEST_BASELINE_PATH_MISMATCH'
+    baseline = read(override['baseline_path']).replace(b'\r\n', b'\n')
+    assert hashlib.sha256(baseline).hexdigest() == lock['source_sets']['frontend'][name], 'SEALED_TEST_BASELINE_CHANGED'
+    assert hashlib.sha256(raw.replace(b'\r\n', b'\n')).hexdigest() == override['current_sha256'], 'QUALIFICATION_TEST_CHANGED'
+    return baseline
+
+
+def verify_runtime_patch(read, lock):
+    """Bind archived runtime bytes to the independently collected ConfigMap hash."""
+    patch = lock.get('runtime_patch')
+    if not patch:
+        return None
+    for path, expected in patch['files'].items():
+        assert hashlib.sha256(read(path).replace(b'\r\n', b'\n')).hexdigest() == expected, (path, 'RUNTIME_ARCHIVE_CHANGED')
+    data = {name: read(patch['archive_prefix'] + name).decode('utf-8').replace('\r\n', '\n')
+            for name in patch['payload_files']}
+    digest = lambda value: hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()).hexdigest()
+    assert digest(data) == patch['payload_sha256'], 'RUNTIME_PAYLOAD_CHANGED'
+    assert digest({'data': data, 'binaryData': {}}) == patch['configmap']['content_sha256'], 'RUNTIME_CONFIGMAP_MISMATCH'
+    for path, expected in patch['qualified_source_files'].items():
+        assert hashlib.sha256(read(path).replace(b'\r\n', b'\n')).hexdigest() == expected, (path, 'MEMBER_UI_SOURCE_CHANGED')
+    record = lock['current_observation']
+    raw = read(record['path']).replace(b'\r\n', b'\n')
+    assert hashlib.sha256(raw).hexdigest() == record['sha256'], 'CURRENT_OBSERVATION_CHANGED'
+    observation = json.loads(raw)['observation']
+    assert observation['status'] == 'CURRENT_METADATA_COLLECTED' and observation['workload_specs_stable'], 'UNSTABLE_OBSERVATION'
+    observed_cm = next(c for c in observation['configmaps'] if c['identity']['name'] == patch['configmap']['identity']['name'])
+    assert observed_cm == patch['configmap'], 'OBSERVED_CONFIGMAP_CHANGED'
+    workloads = {w['identity']['name']: w for w in observation['workloads']}
+    for name, expected in record['bindings'].items():
+        actual = workloads[name]
+        assert all(actual['identity'][key] == expected[key] for key in ('uid', 'generation')), (name, 'WORKLOAD_IDENTITY_MISMATCH')
+        assert actual['spec_sha256'] == expected['spec_sha256'], (name, 'WORKLOAD_SPEC_MISMATCH')
+        images = [c['image'] for c in actual['containers']]
+        assert images == expected['images'], (name, 'WORKLOAD_IMAGE_MISMATCH')
+        if name in lock['images']:
+            assert lock['images'][name] in images, (name, 'RELEASE_IMAGE_MISMATCH')
+    return {'component': 'weknora-member-ui-overlay', 'files': len(patch['files']),
+            'configmap_hash': 'PASS', 'source_files': len(patch['qualified_source_files']),
+            'observation_bindings': 'PASS', 'full_base_image_source_mapping': 'NOT_PROVEN'}
+
+
+def verify(ref=None, lock_path=LOCK):
     archived = None
     if ref:
+        selected_lock = json.loads(subprocess.check_output(['git', 'show', ref + ':' + lock_path], cwd=ROOT))
+        extra = []
+        if selected_lock.get('runtime_patch'):
+            extra = [selected_lock['runtime_patch']['archive_prefix'],
+                     *selected_lock['runtime_patch']['qualified_source_files'], selected_lock['current_observation']['path']]
+        extra += [row['baseline_path'] for row in selected_lock.get('qualification_test_overrides', {}).values()]
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
-            'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, LOCK], cwd=ROOT)
+            'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
     read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
-    lock = json.loads(read(LOCK))
+    lock = json.loads(read(lock_path))
     normalizations = lock.get('format_normalizations', {})
+    assert set(lock.get('qualification_test_overrides', {})) <= set(lock['source_sets']['frontend']), 'UNKNOWN_QUALIFICATION_TEST'
     results = []
     for component, expected in lock['source_sets'].items():
         prefix = RUNNER if component == 'ppt-master-runner' else ''
@@ -59,7 +116,7 @@ def verify(ref=None):
             if actual != set(expected):
                 raise AssertionError((component, 'SOURCE_SET_MISMATCH', sorted(actual ^ set(expected))))
         for name, digest in expected.items():
-            raw = read(prefix + name)
+            raw = qualification_source(read, lock, name) if component == 'frontend' else read(prefix + name)
             normalization = normalizations.get(name) if component == 'gateway' else None
             if normalization:
                 original = read(FORMAT_BASELINE + name).replace(b'\r\n', b'\n')
@@ -82,11 +139,17 @@ def verify(ref=None):
                 ast.parse(raw, filename=name)
         results.append({'component': component, 'files': len(expected), 'hashes': 'PASS',
                         'format_normalized': len(normalizations) if component == 'gateway' else 0})
-    return {'status': 'RELEASE_SOURCE_VERIFIED', 'git_ref': ref, 'results': results,
+    patch_result = verify_runtime_patch(read, lock)
+    if patch_result:
+        results.append(patch_result)
+    return {'status': 'RELEASE_SOURCE_VERIFIED', 'git_ref': ref, 'lock_file': lock_path, 'results': results,
+            'post_release_test_only_corrections': len(lock.get('qualification_test_overrides', {})),
             'scope': lock['scope'], 'production_modified': False}
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--ref', help='Verify a committed Git tree, e.g. HEAD')
-    print(json.dumps(verify(parser.parse_args().ref), ensure_ascii=False))
+    parser.add_argument('--lock', default=LOCK, help='Repository-relative source lock; use the matching historical lock with an older ref')
+    args = parser.parse_args()
+    print(json.dumps(verify(args.ref, args.lock), ensure_ascii=False))

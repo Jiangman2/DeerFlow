@@ -1,0 +1,66 @@
+{
+  "status": "SOURCE_FIX_QUALIFIED_NOT_DEPLOYED",
+  "production_mutation": false,
+  "production_image_observed": "deerflow.local/weknora-ui:admin-upload-r2-4ccbd940db0c-20261022103101",
+  "production_generation_observed": 38,
+  "production_module": {
+    "name": "OrganizationList-A-11TnnH.legacy-office-r6.js",
+    "sha256": "f1fe525c2b9384c723e26c84ef7a78705ae12baa5d4d30c512f1a695a6ebccd2",
+    "eager_full_roster_and_v_show_observed": true
+  },
+  "base_commit": "59f7c5382ebaac8d8b881b95f5a8c9ec5bde18df",
+  "files": [
+    {
+      "path": "vendor/weknora-ui-20260913-r5/frontend/src/views/organization/OrganizationSettingsModal.vue",
+      "baseline_lf_sha256": "8c48dcddf39aefb81ccbcdf975635f3c1c6c0ae7e4be999f63cac999ad548409",
+      "candidate_lf_sha256": "e20b0fa7374e2143558829a07a94f9b63435f532939054b9341df070abc88dec"
+    },
+    {
+      "path": "vendor/weknora-ui-20260913-r5/frontend/src/stores/organization.ts",
+      "baseline_lf_sha256": "23b42ae22a4f13d90efd24cfb44b8a17dd9c113880fc05ac961ec7395845ffdc",
+      "candidate_lf_sha256": "9305f7e56fa3d371c8372ccf480fd928a1f4b9bbeb608dd637fa91c07c4adbc8"
+    },
+    {
+      "path": "vendor/weknora-ui-20260913-r5/frontend/src/views/organization/memberPage.ts",
+      "baseline_lf_sha256": null,
+      "candidate_lf_sha256": "ba6aab8fcfd3520544369e44fca5da7c159ae2c25db07eaef219c6d479a6519b"
+    },
+    {
+      "path": "vendor/weknora-ui-20260913-r5/frontend/src/views/organization/memberPage.test.ts",
+      "baseline_lf_sha256": null,
+      "candidate_lf_sha256": "149eb12d869378266fd4d22065de6ba61cfd3ba701591e3a7f686f41fd837f73"
+    }
+  ],
+  "patch_sha256": "e17dcfbbd6d7bcb202beb879a1d2df4adc82dc749c75805ef8963dec8e25234c",
+  "validation": {
+    "focused_tests_passed": 11,
+    "type_check": "PASS",
+    "vite_build": "PASS",
+    "git_apply_and_source_hashes": "PASS",
+    "browser": "Playwright Chromium local synthetic fixtures",
+    "browser_reason": "Browser plugin not available",
+    "viewport": [
+      1440,
+      1000
+    ],
+    "synthetic_members": [
+      8417,
+      84748
+    ],
+    "max_rows_options": [
+      20,
+      50,
+      100
+    ],
+    "page_size_20_and_100": "PASS",
+    "search_last_and_empty": "PASS",
+    "close_release": "PASS",
+    "late_response_after_close": "PASS",
+    "console_errors": 0
+  },
+  "limitations": [
+    "Existing members endpoint still returns full roster when the member tab is opened.",
+    "Production browser acceptance and rollout are pending.",
+    "Do not replace the existing full UI distribution from this source-only patch; preserve all existing enterprise overlays."
+  ]
+}
