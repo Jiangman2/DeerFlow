@@ -28,7 +28,7 @@ from deerflow.persistence.bootstrap import bootstrap_schema
 pytestmark = pytest.mark.asyncio
 
 
-HEAD = "0021_oa_result_sets"
+HEAD = "0022_work_integration_state"
 CONFIRMATION_TABLES = frozenset({"ppt_confirmation_tasks", "ppt_confirmation_gates"})
 
 

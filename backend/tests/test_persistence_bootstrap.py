@@ -48,7 +48,7 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0021_oa_result_sets"
+HEAD = "0022_work_integration_state"
 BASELINE = "0001_baseline"
 PRE_CONFIRMATION_HEAD = "0019_digital_employee_agents"
 CONFIRMATION_TABLES = frozenset({"ppt_confirmation_tasks", "ppt_confirmation_gates"})
@@ -427,7 +427,7 @@ async def test_pre_confirmation_versioned_database_preserves_users_and_creates_n
         for _ in range(2):
             await bootstrap_schema(engine, backend="sqlite")
             assert await _alembic_version(engine) == HEAD
-            assert await _table_names(engine) == before | CONFIRMATION_TABLES
+            assert await _table_names(engine) == before | CONFIRMATION_TABLES | {"work_integration_records"}
             async with engine.connect() as conn:
                 row = (await conn.execute(sa.text("SELECT id, email, system_role, token_version FROM users"))).one()
             assert tuple(row) == ("historical-user", "history@example.invalid", "user", 7)
