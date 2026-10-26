@@ -5,8 +5,18 @@ The 2026-10-26 production reconciliation is recorded in
 lock is `deploy/enterprise/production-source-lock-20261026.json`; it binds the
 accepted Gateway 387, Frontend 229 and Runner 55 sources to the fresh operator
 snapshot and the exact WeKnora Frontend 39 ConfigMap payload. The colleague's
-full WeKnora base-image source mapping remains unproven. Preserve its image and
+full WeKnora UI base-image source mapping remains unproven. Preserve its image and
 the archived runtime overlay; do not rebuild the old vendor tree as a substitute.
+
+The deployed WeKnora backend native GLM sources are separately sealed in
+`deploy/enterprise/weknora-native-glm-source-lock-20261026.json`; see
+`docs/weknora-native-glm-production-source-20261026.md`. Run
+`python deploy/enterprise/verify-weknora-native-glm-source.py --ref HEAD` to check
+all 1,999 historical build source files and the operator-supplied binary receipt.
+The six GLM files and eleven factory lines must not be dropped again. Keep the
+historical inventory immutable; intentional future changes need new provenance.
+This backend restoration does not establish the colleague's UI base provenance
+or authorize rerunning archived build/activation tools against production.
 
 The latest verified production source sets are Gateway 387, Frontend 229 and
 PPT Runner 55. The backend evidence is documented in
