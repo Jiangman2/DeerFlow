@@ -157,7 +157,11 @@ for (const { width, height } of [
     // fit, including a desktop viewport reduced by the sidebar or zoom.
     // Each control must remain fully reachable, not simultaneously onscreen.
     for (const action of await actions.all()) {
-      await action.scrollIntoViewIfNeeded();
+      // Match the rail's start-aligned scroll snap; centering an item can
+      // snap to its neighbour and leave the requested control clipped.
+      await action.evaluate((element) =>
+        element.scrollIntoView({ block: "nearest", inline: "start" }),
+      );
       await expect(action).toBeInViewport({ ratio: 1 });
     }
     await expect(rail.getByTestId("portal-tool-ppt")).toHaveCount(0);
@@ -258,10 +262,12 @@ for (const { width, height } of [
     await expect(popup).toHaveURL(PPT_ASSISTANT_TOOL.href);
     await popup.close();
     await expect(input).toHaveValue("保留这份草稿");
-    // An external link can leave the menu open when its popup closes.
-    if (!(await pptMenu.isVisible())) {
-      await page.getByTestId("ppt-generation-menu-trigger").click();
-    }
+    // Popup closure and Radix's menu exit animation finish independently.
+    // Return focus and establish a closed menu before opening it again.
+    await page.bringToFront();
+    await page.keyboard.press("Escape");
+    await expect(pptMenu).toBeHidden();
+    await page.getByTestId("ppt-generation-menu-trigger").click();
     await expect(pptMenu).toBeVisible();
     await pptMenu.getByTestId("ppt-route-generate").click();
     await expect(input).toHaveValue(/^\/ppt-master /);

@@ -2352,7 +2352,7 @@
     },
     "frontend/tests/e2e/home-only.spec.ts": {
       "baseline_path": "release/production-source-20261026/frontend-test-baseline/frontend/tests/e2e/home-only.spec.ts",
-      "current_sha256": "6184e209d4e367ddc652693edb20d31b94469620ba93cfc8f8d7d7e4bec6c54c",
+      "current_sha256": "acae193be647b997a1379f89be587459e4a6d28e51f99e193ee1cd61a0f2dcba",
       "reason": "Check all horizontally scrollable actions for reachability and preserve an already open menu after popup return."
     },
     "frontend/tests/e2e/cnooc-concept-layout.spec.ts": {
