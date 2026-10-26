@@ -1,0 +1,203 @@
+{
+  "schema": "portal-weknora-company-preloads-field.v1",
+  "evidence": "USER_SUPPLIED_HOST_RESULTS_AND_0021_READONLY_SAVED_REPORT",
+  "attachment_sha256": "6ba557e9c487cb304b6d29bb9cae750b0a434326196429d7cf0a526a9bca683f",
+  "accepted_nodes": 5,
+  "installed_image_acceptance_pending": true,
+  "production_deployed": false,
+  "auto_enrollment_enabled": false,
+  "bulk_enrollment_status": "RUNNING_OUTCOME_NOT_RECEIVED",
+  "observations": [
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-weknora-company-report-3__62b_9/REPORT.json",
+      "elapsed_seconds": 6.88,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "0243d097-3ee7-4abc-899a-319e57934eee",
+      "hostname": "ecs-zdz-pro-0018",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "51a05c0ffc1140679ffb96e55a7d9f8d",
+      "query_count": 141,
+      "ready_for_rollout": false,
+      "report_bytes": 79156,
+      "report_sha256": "0df3a30ab73946708d28bfeec3fc29f2d905e61f9909117d25736b2db19c973f",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "deerflow.local/deer-flow-gateway:20261024-weknora-company-r1-ba642b5484ad",
+            "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30"
+          ],
+          "config_digest": "sha256:24130f3eab90edef2a3a9ee90ebc751d80c5168dff6ac3d028f7dd8dcc3c6ec7",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "deerflow.local/deer-flow-gateway:20261024-weknora-company-r1-ba642b5484ad",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-weknora-company-preload.v1",
+      "status": "COMPLETE_GATEWAY_WEKNORA_COMPANY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-weknora-company-report-6or00er1/REPORT.json",
+      "elapsed_seconds": 5.957,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "e23480a1-041d-4767-b6cb-e8b93d456ac1",
+      "hostname": "ecs-zdz-pro-0019",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "2010ad34110e44ccb266154ad908059c",
+      "query_count": 141,
+      "ready_for_rollout": false,
+      "report_bytes": 79157,
+      "report_sha256": "126843bdc60489dd00961adb6eb29b4cb0f53466384c272125e2e25edc9e30d4",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "deerflow.local/deer-flow-gateway:20261024-weknora-company-r1-ba642b5484ad",
+            "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30"
+          ],
+          "config_digest": "sha256:24130f3eab90edef2a3a9ee90ebc751d80c5168dff6ac3d028f7dd8dcc3c6ec7",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "deerflow.local/deer-flow-gateway:20261024-weknora-company-r1-ba642b5484ad",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-weknora-company-preload.v1",
+      "status": "COMPLETE_GATEWAY_WEKNORA_COMPANY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-weknora-company-report-nrpzvrcu/REPORT.json",
+      "elapsed_seconds": 5.549,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "d43ad71d-b5e1-49fc-a93f-3cb0aee6a6e2",
+      "hostname": "ecs-zdz-pro-0020",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "b55bd969a5e841c0934c4ae5a68202d1",
+      "query_count": 141,
+      "ready_for_rollout": false,
+      "report_bytes": 79157,
+      "report_sha256": "336122c8c413338d3925cc93e88aa2b74b921b5f3f4d6ff0fdbe91546ce75a60",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "deerflow.local/deer-flow-gateway:20261024-weknora-company-r1-ba642b5484ad",
+            "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30"
+          ],
+          "config_digest": "sha256:24130f3eab90edef2a3a9ee90ebc751d80c5168dff6ac3d028f7dd8dcc3c6ec7",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "deerflow.local/deer-flow-gateway:20261024-weknora-company-r1-ba642b5484ad",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-weknora-company-preload.v1",
+      "status": "COMPLETE_GATEWAY_WEKNORA_COMPANY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "error_code": null,
+      "expected_node_uid": "181f267d-e653-4fa8-9e1f-d0138454f079",
+      "hostname": "ecs-zdz-pro-0021",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "aaf143c435e2486f83142244ec17640f",
+      "read_only": true,
+      "report_bytes": 79157,
+      "report_path": "/var/lib/portal-gateway-weknora-company-node-20261024-r1/REPORT.json",
+      "report_sha256": "fe642e52448964a2e90a0cf84455eeb3a6c46a70332b4ed640751877d6618bc3",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "deerflow.local/deer-flow-gateway:20261024-weknora-company-r1-ba642b5484ad",
+            "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30"
+          ],
+          "config_digest": "sha256:24130f3eab90edef2a3a9ee90ebc751d80c5168dff6ac3d028f7dd8dcc3c6ec7",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "deerflow.local/deer-flow-gateway:20261024-weknora-company-r1-ba642b5484ad",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-weknora-company-preload.v1",
+      "status": "COMPLETE_GATEWAY_WEKNORA_COMPANY_PRELOAD_REVIEW_REQUIRED"
+    },
+    {
+      "automatic_retry": false,
+      "download_report": "/var/lib/portal-gateway-weknora-company-report-m61gzq8q/REPORT.json",
+      "elapsed_seconds": 6.057,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "0f1fa57f-f37f-42ed-a296-047295f17856",
+      "hostname": "ecs-zdz-pro-0022",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "node_preload_passed": true,
+      "old_references_preserved": true,
+      "operation": "71c69a7370b84c74b51853da215adfbf",
+      "query_count": 141,
+      "ready_for_rollout": false,
+      "report_bytes": 79158,
+      "report_sha256": "3d5823ee29559cc07bde4cac4b343015b1a62b0cf57c65f6b931f5e074e7c8e6",
+      "roles": [
+        {
+          "canonical_names_created": [
+            "deerflow.local/deer-flow-gateway:20261024-weknora-company-r1-ba642b5484ad",
+            "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30"
+          ],
+          "config_digest": "sha256:24130f3eab90edef2a3a9ee90ebc751d80c5168dff6ac3d028f7dd8dcc3c6ec7",
+          "content_and_unpack": "PASS",
+          "cri_visibility": "PASS",
+          "manifest_digest": "sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+          "phase_a": "PASS",
+          "phase_b": "PASS",
+          "role": "gateway-forward",
+          "status": "IMPORTED_COMPLETE",
+          "tag": "deerflow.local/deer-flow-gateway:20261024-weknora-company-r1-ba642b5484ad",
+          "temporary_reference_retained": true
+        }
+      ],
+      "schema": "portal-gateway-weknora-company-preload.v1",
+      "status": "COMPLETE_GATEWAY_WEKNORA_COMPANY_PRELOAD_REVIEW_REQUIRED"
+    }
+  ]
+}

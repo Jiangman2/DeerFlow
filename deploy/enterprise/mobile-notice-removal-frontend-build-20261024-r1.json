@@ -1,0 +1,69 @@
+{
+  "source_change_sha256": "57252f53b5964bb5d1329e7d0c1f01ef48fed04acad023e01ac49c49e92370af",
+  "source": "C:\\Users\\15285\\.codex\\tmp\\frontend-mobile-notice-removal-20261024-r1a\\source",
+  "production_writes": 0,
+  "images_pushed": false,
+  "ready_for_rollout": false,
+  "build_seconds": 620.8,
+  "image": {
+    "tag": "deerflow.local/deer-flow-frontend:20261024-mobile-notice-removal-r1",
+    "id": "sha256:0af4bb16a0924a02f6cfcb927c137642329b5831d01a5eded8c4f61ee8ad43f7",
+    "bytes": 127298246,
+    "layers": 11
+  },
+  "fresh_runtime": {
+    "pinned_base_prefix": "PASS",
+    "base_layers": 4,
+    "added_layers": 7,
+    "previous_application_image_used": false
+  },
+  "runtime": {
+    "layout": {
+      "standalone_layout": "PASS",
+      "files": 2840,
+      "bytes": 131958442,
+      "symlinks": 35,
+      "assets_checked": true,
+      "build_id_sha256": "365a76acf567748167724d96548a759df2549fe3b4fcdad00d426e1d41f69c49",
+      "routes_sha256": "9b19f00490aaa2b8ffb5d056901e9ba959518b38b1365a3ea1290c0f689647f9",
+      "runtime_http": "NOT_TESTED",
+      "production_acceptance": "NOT_TESTED"
+    },
+    "http": {
+      "local_http": "PASS",
+      "runtime_env": "PASS",
+      "sso_redirect": "SYNTHETIC_PASS",
+      "static_assets": [
+        ".js",
+        ".css"
+      ],
+      "unauthenticated_launch_status": 401,
+      "production_sso": "NOT_TESTED",
+      "gateway": "NOT_TESTED",
+      "models": "NOT_REQUESTED"
+    },
+    "bounded_startup_observations": [
+      {
+        "returncode": 1
+      },
+      {
+        "returncode": 1
+      },
+      {
+        "returncode": 0
+      }
+    ]
+  },
+  "export_seconds": 100.03,
+  "export": {
+    "archive": "C:\\Users\\15285\\.codex\\tmp\\frontend-mobile-notice-removal-20261024-r1a\\build\\frontend.oci.tar",
+    "sha256": "76dec78d40d44524ef88fcfb98b8f790596bfa02606d5af5553e32e6c67abebd",
+    "bytes": 127313408,
+    "layers": 11,
+    "compressed_layer_bytes": 127286954,
+    "uncompressed_layer_bytes": 301997056,
+    "exact_qualified_layers": "PASS",
+    "blob_and_diffid_hashes": "PASS"
+  },
+  "status": "LOCAL_RUNTIME_AND_OCI_ACCEPTED_NOT_DEPLOYED"
+}

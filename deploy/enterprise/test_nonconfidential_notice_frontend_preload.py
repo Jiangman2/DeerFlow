@@ -18,6 +18,10 @@ spec = importlib.util.spec_from_file_location('prior_tests', HERE / 'test_data_q
 prior = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(prior)
 record = json.loads((PACKAGE / 'PACKAGE.json').read_text(encoding='utf-8'))
+RELEASE = record['schema'][len('portal-'):-len('-frontend-package.v1')]
+assert RELEASE in ('nonconfidential-notice', 'mobile-notice-removal', 'mobile-chat-spacing', 'chat-notice-layout')
+FLAG = '--preload-frontend-' + RELEASE + '-once'
+REVISION = record['tag'].rsplit(':', 1)[1].replace('-' + RELEASE, '')
 prior.PACKAGE = PACKAGE
 prior.builder.ARCHIVE = record['archive']
 prior.builder.TRANSPORT = record['transport']
@@ -39,14 +43,18 @@ class Tests(prior.Tests):
             self.assertEqual(module.NODES, {host: uid})
             self.assertIn('sha256:ee145e6357e4f6b63003d786b7c6b0f28cf6bbe663e1b5589f92f7c829bb89e5', module.PROTECTED.values())
             self.assertIn('sha256:b6c17e31ebcadb3c514fd2c3f87752e0eb84ee3e28ccc921366bac6a0bf91cd5', module.PROTECTED.values())
-            self.assertTrue(module.CONTROL.endswith('portal-frontend-nonconfidential-notice-preload-20261023-r2'))
+            self.assertTrue(module.CONTROL.endswith('portal-frontend-' + RELEASE + '-preload-' + REVISION))
+            if RELEASE in ('mobile-notice-removal', 'mobile-chat-spacing', 'chat-notice-layout'):
+                self.assertIn('sha256:b37036e9b226f8605e3da98d9f81cb072fc30da29cb5b972702c5ed6ec535638', module.PROTECTED.values())
+            if RELEASE in ('mobile-chat-spacing', 'chat-notice-layout'):
+                self.assertIn('sha256:0af4bb16a0924a02f6cfcb927c137642329b5831d01a5eded8c4f61ee8ad43f7', module.PROTECTED.values())
             self.assertEqual(module.TAG, record['tag'])
 
     def test_native_import_and_budget_code_unchanged(self):
         for role in record['scripts']:
             older = (PRIOR / ('preload-portal-frontend-data-qa-token-' + role + '-20261022-r1.py')).read_text(encoding='utf-8')
             newer = (PACKAGE / record['scripts'][role]['file']).read_text(encoding='utf-8')
-            newer = newer.replace('--preload-frontend-nonconfidential-notice-once', '--preload-frontend-data-qa-token-once')
+            newer = newer.replace(FLAG, '--preload-frontend-data-qa-token-once')
             def functions(source):
                 return {node.name: ast.dump(node, include_attributes=False) for node in ast.parse(source).body
                         if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
@@ -66,7 +74,7 @@ class Tests(prior.Tests):
             stack.enter_context(patch.object(module.os, 'geteuid', return_value=0, create=True))
             stack.enter_context(patch.object(module.os, 'name', 'posix'))
             stack.enter_context(patch.object(module.sys, 'flags', SimpleNamespace(isolated=1, dont_write_bytecode=1)))
-            stack.enter_context(patch.object(module.sys, 'argv', ['preload', '--preload-frontend-nonconfidential-notice-once']))
+            stack.enter_context(patch.object(module.sys, 'argv', ['preload', FLAG]))
             tools = stack.enter_context(patch.object(module.shutil, 'which', return_value='/usr/bin/tool'))
             stack.enter_context(patch.object(module, 'load_inputs', return_value=(importer, resource, SimpleNamespace())))
             stack.enter_context(patch.object(module, 'trusted_directory', return_value=123))

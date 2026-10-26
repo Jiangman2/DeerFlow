@@ -1,0 +1,61 @@
+{
+  "schema": "portal-weknora-company-admin-enrollment-package.v1",
+  "status": "QUALIFIED_PACKAGE_NOT_EXECUTED_IN_PRODUCTION",
+  "script": "enroll-portal-weknora-company-admins-20261025-r1.py",
+  "bytes": 34973,
+  "sha256": "1a0a74624608b43ec2e9155d7e53e5624db704c12ad7512ebbf1260c3b283b56",
+  "script_sources": {
+    "deploy/enterprise/enroll-weknora-company-admins-child.py": "262b79d8d135c118ebd9a74c0083e569a3b3da06f563842685606a379ebfe0d7",
+    "deploy/enterprise/package-weknora-company-admin-enrollment.py": "a8c7f00ae7305cf295de7d95434a857c5ef4de27c7229924a83230784717583e",
+    "deploy/enterprise/enroll-weknora-company-members-child.py": "47c612eef2da57eaad439e54dd0b1b316fe0e7dae430cdf082388c589686791f",
+    "deploy/enterprise/enroll-weknora-company-members-host.py": "6c5b3509340a0fe7aa24270097230e13fd78bc5969ad7b38f643ee5c3e3802ba",
+    "deploy/enterprise/bootstrap-weknora-company-knowledge-child.py": "1ae2c599d2fce80aca7409f23ea2928d3d0ce358b91f3a195aedabbfe4d13827",
+    "deploy/enterprise/inspect-weknora-company-members-host.py": "e7a532dc378b3e2e2eefcbadf78f220f00ac80d4a98d80b6cb34bb7c2880739c",
+    "deploy/enterprise/weknora-company-activation-field-20261024-r1.json": "bbead2ec0e0a20429a3ffb74c461526affd3336368c3f48b081fe3bc2f3693ef",
+    "deploy/enterprise/weknora-company-activation-package-20261024-r1.json": "ba7de17434900eabb534dc09dc0cf5ea2e4ade4ee4ddc34d1629e01510eee42d",
+    "deploy/enterprise/weknora-company-preload-build-20261024-r1.json": "64fcf8c0ad55a3d0bc97d557cadb22b7b3c73ade0d6ff357eff276a0db3f7200",
+    "backend/tests/test_weknora_company_admin_enrollment.py": "9517438faf01b81c01a504f25162682a353541b80f4b959407bddea0c656d2b5",
+    "deploy/enterprise/test_weknora_company_admin_enrollment_linux.py": "d58346d72c4def1b32495bc36ccf85290ff9fa2b6d30e2ec5c342ed0efcea137",
+    "deploy/enterprise/test_weknora_company_admin_enrollment_postgres.py": "31609d480aa6fbe6158c2c59a2716c727e3e4387e259f36d3cad0d43d0e19ea3"
+  },
+  "gateway_baseline": {
+    "generation": 387,
+    "spec_sha256": "82e248a2fb9f55f9e5426ee8787f42f98f2c3190a2a4c0b66c04aa934b79d64c",
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+  },
+  "activation_receipt": {
+    "path": "/var/lib/portal-weknora-company-activation-20261024-r1/REPORT.json",
+    "bytes": 42134,
+    "sha256": "ab4b4c72b4b132d8588853f52c23e04171a52e27b1256ea727d840c4432602a1"
+  },
+  "organization_id": "b9cfbf7f-7281-4f62-a72b-6a22379efe60",
+  "knowledge_base_id": "bd83e659-9d9c-429a-acf1-ead01037cfa1",
+  "scope": "CURRENT_ACTIVE_SETUP_COMPLETE_PLATFORM_ADMINS_OWNED_DEFAULT_WORKSPACES",
+  "missing_membership_role": "viewer",
+  "existing_roles_preserved": [
+    "admin",
+    "editor",
+    "viewer"
+  ],
+  "platform_and_native_admin_flags_written": false,
+  "maximum_admin_accounts": 32,
+  "maximum_membership_posts": 32,
+  "automatic_retry": false,
+  "local_regression_tests_passed": 24,
+  "linux_python37_tests_passed": 8,
+  "ruff": "PASS",
+  "synthetic_postgres": {
+    "status": "SYNTHETIC_POSTGRES_ADMIN_COMPLETION_ACCEPTED",
+    "selected_admins": 6,
+    "simulated_membership_posts": 2,
+    "manual_editor_preserved": true,
+    "lost_reply_readback_accepted": true,
+    "repeat_extra_posts": 0,
+    "platform_and_native_flags_unchanged": true,
+    "production_access": false,
+    "temporary_container_removed": true
+  },
+  "production_memberships_changed_by_local_work": false,
+  "production_workload_modified": false,
+  "production_acceptance_pending": true
+}

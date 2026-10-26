@@ -1,0 +1,15 @@
+{
+  "schema": "portal-weknora-company-image-check-qualification.v1",
+  "host_python": "Linux Python 3.7.17",
+  "host_tests_passed": 12,
+  "local_child_python": "Windows Python 3.12.13 isolated -I -B",
+  "local_child_checks_passed": 13,
+  "changed_source_refused": true,
+  "ruff": "PASS",
+  "script_bytes": 26130,
+  "script_sha256": "6ee2748603115d449da2da39f5cc8aa2c3bf743b90c56e5d96f21526f5b8b12f",
+  "production_database_access": false,
+  "membership_grants": 0,
+  "installed_image_acceptance_pending": true,
+  "production_deployed": false
+}

@@ -1,0 +1,72 @@
+{
+  "schema": "portal-weknora-company-activation-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_FINAL_SUMMARY_NOT_DIRECT_SERVER_READ",
+  "observation": {
+    "acceptance_receipts": {
+      "bulk": {
+        "bytes": 3768,
+        "path": "/var/lib/portal-weknora-company-bulk-enrollment-20261024-r1/REPORT.json",
+        "sha256": "502c7e55d6595a67f7d0233b8bae4e016cdc1aa7b905d8968a226d1db4b53a00"
+      },
+      "image": {
+        "bytes": 1834,
+        "path": "/var/lib/portal-weknora-company-image-check-20261024-r1/REPORT.json",
+        "sha256": "e034af228dd8c0b01f6ae3f6b778effb9b59fb7f10ab03c69ef56c4040b79570"
+      }
+    },
+    "accepted_pods": 70,
+    "active_task_interruption_operator_authorized": true,
+    "auto_enrollment_deployed": true,
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "browser_acceptance_pending": true,
+    "configuration_metadata_preserved": true,
+    "credentials_exported": false,
+    "environment_override": [
+      {"name": "WEKNORA_COMPANY_KB_ENABLED", "value": "true"},
+      {"name": "WEKNORA_COMPANY_KB_ORGANIZATION_IDS", "value": "[\"b9cfbf7f-7281-4f62-a72b-6a22379efe60\"]"}
+    ],
+    "knowledge_qa_business_acceptance_pending": true,
+    "last_rollout_counts": {"readyReplicas": 70, "replicas": 70, "terminatingReplicas": 1, "updatedReplicas": 70},
+    "membership_grants_by_tool": 0,
+    "once_claimed": true,
+    "ordinary_sso_auto_enrollment_enabled_by_rollout": true,
+    "other_deployments_preserved": true,
+    "patch_acknowledged_by_readback": true,
+    "patch_command_acknowledged": true,
+    "patch_may_have_applied": true,
+    "patch_request_count": 1,
+    "patch_requested": true,
+    "planned_gateway": {
+      "generation": 387,
+      "spec_sha256": "82e248a2fb9f55f9e5426ee8787f42f98f2c3190a2a4c0b66c04aa934b79d64c",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "production_workload_mutation": true,
+    "provider_requests": 0,
+    "report_bytes": 42134,
+    "report_path": "/var/lib/portal-weknora-company-activation-20261024-r1/REPORT.json",
+    "report_sha256": "ab4b4c72b4b132d8588853f52c23e04171a52e27b1256ea727d840c4432602a1",
+    "runtime_accepted": true,
+    "schema": "portal-weknora-company-activation.v1",
+    "schema_migration_requested": false,
+    "status": "WEKNORA_COMPANY_AUTO_ENROLLMENT_RUNTIME_ACCEPTED_BROWSER_PENDING",
+    "task_observation": {
+      "active_callback_leases": 0,
+      "active_oa_jobs": 0,
+      "active_runs": 4,
+      "database_readonly": true,
+      "revisions": ["0021_oa_result_sets"],
+      "schema_migrated": false,
+      "status": "PASS"
+    },
+    "tasks_drained_operator_attested": false
+  },
+  "interpretation": {
+    "last_rollout_counts": "LAST_PERIODIC_PROGRESS_SAMPLE_NOT_FINAL_DEPLOYMENT_COUNTS",
+    "acceptance_basis": "PACKAGED_TOOL_SUCCESS_REQUIRES_READY_DEPLOYMENT_ALL_70_SOURCE_CONFIG_HEALTH_CHECKS_AND_FINAL_READBACK",
+    "full_server_report_fetched": false,
+    "browser_acceptance_pending": true,
+    "knowledge_qa_business_acceptance_pending": true
+  }
+}

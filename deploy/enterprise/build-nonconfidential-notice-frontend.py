@@ -50,7 +50,7 @@ def qualify(image_id, platform, out):
             slim.capture(['docker', 'rm', '-f', cid])  # Only this local synthetic fixture.
 
 
-def build(prepared):
+def build(prepared, tag='deerflow.local/deer-flow-frontend:20261023-nonconfidential-notice-r2'):
     record_raw = (prepared / 'SOURCE-CHANGE.json').read_bytes()
     record = json.loads(record_raw)
     source = Path(record['source'])
@@ -62,7 +62,7 @@ def build(prepared):
     out.mkdir()
     args = SimpleNamespace(
         node_image='node@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402',
-        tag='deerflow.local/deer-flow-frontend:20261023-nonconfidential-notice-r2',
+        tag=tag,
         platform='linux/arm64', builder='desktop-linux', gateway_url='http://gateway:8001',
         app_version='', npm_registry='', enterprise_ca=None, enterprise_proxy=None)
     result = {'source_change_sha256': slim.sha(record_raw), 'source': str(source),
@@ -91,4 +91,6 @@ def build(prepared):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--prepared', type=Path, required=True)
-    build(parser.parse_args().prepared)
+    parser.add_argument('--tag', default='deerflow.local/deer-flow-frontend:20261023-nonconfidential-notice-r2')
+    args = parser.parse_args()
+    build(args.prepared, args.tag)

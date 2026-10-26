@@ -1,10 +1,15 @@
 # AGENTS.md
 
-Main chat pages display the complete non-confidential-system warning in red.
-Desktop places it above the chat header; mobile places it below the navigation
-and product-title row, in normal flow, with full wrapping. Keep it visible for
-both new and existing main chats without covering the composer. The released
-source inventory is pinned in `deploy/enterprise/production-source-lock-20261023.json`.
+The main new-chat welcome page displays the complete non-confidential-system
+warning in red below the first branding/navigation row on desktop (`md` and
+wider). Bind it to the page's visual `isWelcomeMode`: submission immediately
+removes the warning without waiting for the new thread response. Existing chats
+must have neither the warning nor its reserved top space. Mobile does not
+display the warning or reserve space for it. Keep the composer usable. The released
+source inventory is pinned in `deploy/enterprise/production-source-lock-20261024.json`.
+On mobile, the main chat header occupies normal document flow; the message
+scroll area must not reserve another header-sized top offset. Keep that offset
+desktop-only while its header remains positioned above the message list.
 
 Haineng home footer has four counters. Fetch existing signed Haineng usage and
 authenticated `/api/home/statistics` independently every minute; one failing

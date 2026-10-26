@@ -1,0 +1,31 @@
+{
+  "schema": "production-alignment-validation.v1",
+  "scope": "Local pre-PR checks; GitHub checks are recorded against the PR head, not presumed here",
+  "production_modified": false,
+  "checks": {
+    "release_source_and_runtime_overlay": "PASS",
+    "gateway_source_files": 583,
+    "runner_source_files": 551,
+    "frontend_build_input_files": 940,
+    "runtime_archive_files": 10,
+    "weknora_overlay_matches_observed_configmap": true,
+    "backend_ruff_check": "PASS",
+    "backend_ruff_format": "PASS_1142_FILES",
+    "company_knowledge_backend_tests": "PASS_175_TESTS",
+    "runtime_overlay_integrity_tests": "PASS_8_TESTS",
+    "frontend_lint_and_typecheck": "PASS",
+    "frontend_modified_file_prettier": "PASS",
+    "frontend_full_tests": {
+      "passed": 1154,
+      "failed": 1,
+      "failure": "Windows Node child-process startup exceeded 30 seconds in http-identification.test.ts",
+      "isolated_repeat": "PASS_1_TEST_WITHOUT_CODE_CHANGES",
+      "linux_ci_required_before_merge": true
+    }
+  },
+  "evidence_limits": [
+    "Production metadata is the operator transcript sampled on 2026-10-26, not a direct cluster read by the archive process.",
+    "The preserved colleague WeKnora base image has no complete build-source mapping; the deployed member UI overlay is exactly archived and hash-verified.",
+    "No production rollout, membership write, certificate replacement or business request was performed by these checks."
+  ]
+}
