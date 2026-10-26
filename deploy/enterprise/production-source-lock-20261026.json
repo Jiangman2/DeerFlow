@@ -2092,7 +2092,7 @@
   "scope": {
     "gateway": "583 production Python source records: Gateway 386 inventory plus the accepted two-file company knowledge overlay; 13 formatting-only derivatives retain original bytes and AST verification, including 2 explicitly reordered import blocks",
     "ppt-master-runner": "Python snapshot: prior observed inventory plus 2 verified compatibility overlay files",
-    "frontend": "complete sealed frontend build input inventory",
+    "frontend": "940 sealed build input records; four archived E2E test inputs have explicitly audited post-release CI corrections. Runtime source bytes remain unchanged.",
     "weknora": "Preserved colleague base image; exact member UI ConfigMap payload matches 2026-10-26 cluster snapshot, source patch and sealed installer archived. Full colleague image build mapping remains unproven."
   },
   "production_modified": false,
@@ -2343,5 +2343,27 @@
       "vendor/weknora-ui-20260913-r5/frontend/src/views/organization/memberPage.test.ts": "149eb12d869378266fd4d22065de6ba61cfd3ba701591e3a7f686f41fd837f73"
     },
     "scope": "Exact deployed member UI overlay on the preserved colleague image; not a proof of full base image source mapping."
+  },
+  "qualification_test_overrides": {
+    "frontend/tests/e2e/chat-thread-init-ordering.spec.ts": {
+      "baseline_path": "release/production-source-20261026/frontend-test-baseline/frontend/tests/e2e/chat-thread-init-ordering.spec.ts",
+      "current_sha256": "c09dabd9f108448c6ba1b73e93aed3f8f6e291a2cdd9397783dbe4dcbe83dcb0",
+      "reason": "Successful explicit thread creation, rather than stream initiation, is the read-safety boundary."
+    },
+    "frontend/tests/e2e/home-only.spec.ts": {
+      "baseline_path": "release/production-source-20261026/frontend-test-baseline/frontend/tests/e2e/home-only.spec.ts",
+      "current_sha256": "6184e209d4e367ddc652693edb20d31b94469620ba93cfc8f8d7d7e4bec6c54c",
+      "reason": "Check all horizontally scrollable actions for reachability and preserve an already open menu after popup return."
+    },
+    "frontend/tests/e2e/cnooc-concept-layout.spec.ts": {
+      "baseline_path": "release/production-source-20261026/frontend-test-baseline/frontend/tests/e2e/cnooc-concept-layout.spec.ts",
+      "current_sha256": "c6e4c71e8efd982230ad27f46fce91f2def8e364f9c341c72058bdb53456cb3e",
+      "reason": "Check scrollable action reachability while retaining viewport and document overflow assertions."
+    },
+    "frontend/tests/e2e/haineng-portal-integration.spec.ts": {
+      "baseline_path": "release/production-source-20261026/frontend-test-baseline/frontend/tests/e2e/haineng-portal-integration.spec.ts",
+      "current_sha256": "b0ee62e1a39f290e3ced7cb0d6736b3f3a9d1b24dabaa744cd7dce2b30a5561c",
+      "reason": "Assert the released production Agent Square URL instead of the development URL."
+    }
   }
 }

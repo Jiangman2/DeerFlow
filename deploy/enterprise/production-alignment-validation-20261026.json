@@ -27,5 +27,24 @@
     "Production metadata is the operator transcript sampled on 2026-10-26, not a direct cluster read by the archive process.",
     "The preserved colleague WeKnora base image has no complete build-source mapping; the deployed member UI overlay is exactly archived and hash-verified.",
     "No production rollout, membership write, certificate replacement or business request was performed by these checks."
-  ]
+  ],
+  "first_ci": {
+    "head": "65ffcdc44568990694cee2cb835bb5c3593c41f2",
+    "frontend_unit_tests": "PASS",
+    "backend_lint_and_provenance": "PASS",
+    "frontend_format_lint_types_build": "PASS",
+    "backend_unit_tests": "11 failures and 9 errors from missing optional asyncpg; 9980 passed",
+    "e2e": "Two shards failed on historical thread-order, development-URL and simultaneous-scroll-rail assertions; two shards passed",
+    "corrections": "Install locked postgres extra for backend unit CI; four E2E-only corrections with original sealed inputs archived",
+    "application_runtime_changes": false,
+    "rerun_required": true
+  },
+  "additional_local_checks": {
+    "source_and_runtime_patch_after_test_corrections": "PASS",
+    "provenance_guard_tests": "18_PASS",
+    "member_ui_rollout_boundary_tests": "10_PASS",
+    "tls_linux_diagnostic_tests": "32_PASS",
+    "tls_windows_attempt": "Unsupported POSIX signal/path/OpenSSL environment; rerun under Linux passed",
+    "company_activation_synthetic": "11_PASS_7_POSIX_ONLY_SKIPPED_ON_WINDOWS"
+  }
 }

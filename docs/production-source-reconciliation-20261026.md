@@ -82,3 +82,19 @@ python deploy/enterprise/verify-release-source-20261023.py --ref HEAD
 测试与 GitHub CI 的本轮结果记录在
 `deploy/enterprise/production-alignment-validation-20261026.json`。
 这次归档不触发服务滚动，也不声明真实知识问答、OA 回调或 TLS 故障已完成验收。
+
+## 归档后的 CI 资格修正
+
+首次 PR CI 的后端失败均来自新企业测试导入 PostgreSQL 可选驱动，而默认
+CI 只安装了通用依赖。全量单测任务改用锁定依赖的 `--extra postgres`；
+生产依赖、应用源码和测试断言不变。
+
+四份前端 E2E 测试仍使用历史约定：智能体广场的开发域名、要求横向可滚动
+快捷栏的全部按钮同时处于视口，以及以流请求开始替代已成功的显式线程创建。
+修正后分别检查生产域名、每个按钮滚动后完整可达和创建成功前禁止读取；
+保留页面不溢出、输入内容、菜单与实际交互断言。
+
+这四份文件也在旧构建输入清单中，因此原字节单独封存于
+`release/production-source-20261026/frontend-test-baseline/`。来源校验同时检查
+封存版本与原生产摘要，以及现测试版本与明确的资格修正摘要。该例外仅接受
+`frontend/tests/e2e/*.spec.ts`，不能用于应用源码。镜像对应的运行源码不变。

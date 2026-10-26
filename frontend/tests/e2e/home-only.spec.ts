@@ -153,9 +153,12 @@ for (const { width, height } of [
         1,
       );
     }
-    if (width >= 768) {
-      for (const box of await actions.all())
-        await expect(box).toBeInViewport({ ratio: 1 });
+    // The released rail scrolls horizontally when its seven actions do not
+    // fit, including a desktop viewport reduced by the sidebar or zoom.
+    // Each control must remain fully reachable, not simultaneously onscreen.
+    for (const action of await actions.all()) {
+      await action.scrollIntoViewIfNeeded();
+      await expect(action).toBeInViewport({ ratio: 1 });
     }
     await expect(rail.getByTestId("portal-tool-ppt")).toHaveCount(0);
     await page.getByTestId("portal-tools-trigger").click();
@@ -255,8 +258,12 @@ for (const { width, height } of [
     await expect(popup).toHaveURL(PPT_ASSISTANT_TOOL.href);
     await popup.close();
     await expect(input).toHaveValue("保留这份草稿");
-    await page.getByTestId("ppt-generation-menu-trigger").click();
-    await page.getByTestId("ppt-route-generate").click();
+    // An external link can leave the menu open when its popup closes.
+    if (!(await pptMenu.isVisible())) {
+      await page.getByTestId("ppt-generation-menu-trigger").click();
+    }
+    await expect(pptMenu).toBeVisible();
+    await pptMenu.getByTestId("ppt-route-generate").click();
     await expect(input).toHaveValue(/^\/ppt-master /);
     await expect(page).toHaveURL(/\/workspace\/chats\/new$/);
     expect(

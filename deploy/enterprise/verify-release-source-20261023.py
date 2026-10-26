@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 LOCK = 'deploy/enterprise/production-source-lock-20261026.json'
 RUNNER = 'release/production-source-20261022/ppt-master-runner/'
 FORMAT_BASELINE = 'release/production-source-20261023/gateway-format-baseline/'
+TEST_BASELINE = 'release/production-source-20261026/frontend-test-baseline/'
 
 
 def syntax_fingerprint(raw, *, import_order=False):
@@ -33,6 +34,20 @@ def syntax_fingerprint(raw, *, import_order=False):
             tree.body[start:end] = sorted(tree.body[start:end], key=ast.dump)
             start = end
     return ast.dump(tree, include_attributes=False)
+
+
+def qualification_source(read, lock, name):
+    """Preserve sealed test inputs while auditing later CI-only corrections."""
+    raw = read(name)
+    override = lock.get('qualification_test_overrides', {}).get(name)
+    if override is None:
+        return raw
+    assert name.startswith('frontend/tests/e2e/') and name.endswith('.spec.ts'), 'TEST_OVERRIDE_OUTSIDE_E2E'
+    assert override['baseline_path'] == TEST_BASELINE + name, 'TEST_BASELINE_PATH_MISMATCH'
+    baseline = read(override['baseline_path']).replace(b'\r\n', b'\n')
+    assert hashlib.sha256(baseline).hexdigest() == lock['source_sets']['frontend'][name], 'SEALED_TEST_BASELINE_CHANGED'
+    assert hashlib.sha256(raw.replace(b'\r\n', b'\n')).hexdigest() == override['current_sha256'], 'QUALIFICATION_TEST_CHANGED'
+    return baseline
 
 
 def verify_runtime_patch(read, lock):
@@ -78,6 +93,7 @@ def verify(ref=None, lock_path=LOCK):
         if selected_lock.get('runtime_patch'):
             extra = [selected_lock['runtime_patch']['archive_prefix'],
                      *selected_lock['runtime_patch']['qualified_source_files'], selected_lock['current_observation']['path']]
+        extra += [row['baseline_path'] for row in selected_lock.get('qualification_test_overrides', {}).values()]
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
@@ -85,6 +101,7 @@ def verify(ref=None, lock_path=LOCK):
     read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
     lock = json.loads(read(lock_path))
     normalizations = lock.get('format_normalizations', {})
+    assert set(lock.get('qualification_test_overrides', {})) <= set(lock['source_sets']['frontend']), 'UNKNOWN_QUALIFICATION_TEST'
     results = []
     for component, expected in lock['source_sets'].items():
         prefix = RUNNER if component == 'ppt-master-runner' else ''
@@ -99,7 +116,7 @@ def verify(ref=None, lock_path=LOCK):
             if actual != set(expected):
                 raise AssertionError((component, 'SOURCE_SET_MISMATCH', sorted(actual ^ set(expected))))
         for name, digest in expected.items():
-            raw = read(prefix + name)
+            raw = qualification_source(read, lock, name) if component == 'frontend' else read(prefix + name)
             normalization = normalizations.get(name) if component == 'gateway' else None
             if normalization:
                 original = read(FORMAT_BASELINE + name).replace(b'\r\n', b'\n')
@@ -126,6 +143,7 @@ def verify(ref=None, lock_path=LOCK):
     if patch_result:
         results.append(patch_result)
     return {'status': 'RELEASE_SOURCE_VERIFIED', 'git_ref': ref, 'lock_file': lock_path, 'results': results,
+            'post_release_test_only_corrections': len(lock.get('qualification_test_overrides', {})),
             'scope': lock['scope'], 'production_modified': False}
 
 

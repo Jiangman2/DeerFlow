@@ -50,3 +50,24 @@ def test_runtime_archive_refuses_independent_evidence_drift(evidence, kind):
         lock["images"]["gateway"] = "unrelated-image"
     with pytest.raises(AssertionError):
         VERIFIER.verify_runtime_patch(files.__getitem__, lock)
+
+
+@pytest.mark.parametrize("drift", [None, "current", "baseline", "runtime_path"])
+def test_ci_test_corrections_preserve_the_sealed_input_and_cannot_exempt_runtime(drift):
+    lock = json.loads((ROOT / "deploy/enterprise/production-source-lock-20261026.json").read_text())
+    name, override = next(iter(lock["qualification_test_overrides"].items()))
+    files = {path: (ROOT / path).read_bytes() for path in (name, override["baseline_path"])}
+    if drift == "current":
+        files[name] += b"// changed\n"
+    elif drift == "baseline":
+        files[override["baseline_path"]] += b"// changed\n"
+    elif drift == "runtime_path":
+        runtime = "frontend/src/app/page.tsx"
+        files[runtime] = files[name]
+        lock["qualification_test_overrides"][runtime] = override
+        name = runtime
+    if drift:
+        with pytest.raises(AssertionError):
+            VERIFIER.qualification_source(files.__getitem__, lock, name)
+    else:
+        assert VERIFIER.qualification_source(files.__getitem__, lock, name) == files[override["baseline_path"]].replace(b"\r\n", b"\n")
