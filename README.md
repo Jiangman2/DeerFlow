@@ -39,6 +39,11 @@ rebuild limits are documented in
 [`release/production-build-alignment-20260928/README.md`](release/production-build-alignment-20260928/README.md).
 The captured WeKnora UI 0.8.0 source and two-stage production candidate build
 are under [`vendor/weknora-ui-20260913-r5/`](vendor/weknora-ui-20260913-r5/).
+The deployed WeKnora backend's native GLM sources, build inputs and verified
+program digest are recorded in the
+[2026-10-26 source restoration](docs/weknora-native-glm-production-source-20261026.md).
+Its dedicated CI checks the 1,999-file historical inventory; this archive does
+not deploy a new image or change production configuration.
 
 English | [中文](./README_zh.md) | [日本語](./README_ja.md) | [Français](./README_fr.md) | [Русский](./README_ru.md)
 

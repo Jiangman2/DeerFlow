@@ -1,0 +1,52 @@
+name: WeKnora Native GLM Provenance
+
+on:
+  pull_request:
+    branches: ['codex/enterprise-consolidation-20260716']
+  push:
+    branches: ['codex/enterprise-consolidation-20260716']
+
+permissions:
+  contents: read
+
+jobs:
+  source-and-build-records:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify committed historical sources and operator receipt
+        run: python deploy/enterprise/verify-weknora-native-glm-source.py --ref HEAD
+      - name: Verify failure cases
+        run: python -B -m unittest discover -s deploy/enterprise -p test_weknora_native_glm_source.py -v
+      - name: Exercise archived build guards with synthetic fixtures
+        # Root ownership is part of the original offline builder's contract.
+        # These tests use temporary fixtures; no cluster or provider access.
+        run: |
+          sudo env PYTHONPATH="$GITHUB_WORKSPACE/release/production-build-alignment-20260928/r4-build" \
+            "$(command -v python)" -B -m unittest discover \
+            -s release/mineru-provider-switch-20261014/glm-native -p 'test_*.py' -v
+
+  vlm-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: vendor/weknora-app-20260912
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.8'
+          cache-dependency-path: vendor/weknora-app-20260912/go.sum
+      - name: Test native GLM selection, streaming and SSRF behavior
+        env:
+          CGO_ENABLED: '1'
+          GOEXPERIMENT: nodwarf5
+        run: |
+          go test -mod=readonly -p 2 -count=1 -timeout 180s ./internal/models/vlm
+          go test -mod=readonly -p 2 -count=1 -timeout 120s ./internal/utils -run '^TestNewSSRFSafeTransportConfiguresProxyResolver$'
+          go vet -mod=readonly -p 2 ./internal/models/vlm ./cmd/glm-vlm-probe

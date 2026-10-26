@@ -1,0 +1,59 @@
+{
+  "builder": {
+    "archive_sha256": "2737dc0c6a5be2c85025fdd2b05c508ea0e51647511f68ce5b9e341b5fafff69",
+    "config_digest": "sha256:5649722a935c0dd8b543f301053da62b1a9024fc35740193fba2526eacafad07",
+    "image": "weknora-glm-builder:1.26.8-bookworm-arm64",
+    "index_digest": "sha256:dc9ad6c05acc7a88e5b71bde60a5fe3bd4b9f0db209011711b464107438a8107",
+    "manifest_digest": "sha256:581f0292073059289b736d46d572ba4c515e0b511f8645963e0b0adf232680a1",
+    "platform": "linux/arm64/v8",
+    "qualification": "IDENTITY_PINNED_NOT_EXECUTED",
+    "repository": "library/golang",
+    "source_revision": "f47489bcbda87966b421340c536f39a34d00b45f",
+    "source_url": "https://raw.githubusercontent.com/docker-library/golang/f47489bcbda87966b421340c536f39a34d00b45f/1.26/bookworm/Dockerfile",
+    "tag": "1.26.8-bookworm"
+  },
+  "context_sha256": "0fe0c953f10926b0587feea3a47e260947e5691a836990ae4a2535c7f0b80838",
+  "frozen_infra_sha256": {
+    "bounded_runc.py": "a7dd7cff01f9694fb7d0445b74d8b7f3bb4a613f7c715e451e330295bb63d86e",
+    "build_resources.py": "378327517d5ccb637320c2dcd8013547cab0d859b04b816d52592aecee39b7dc",
+    "isolated_buildkit.py": "ca418744821545ea3072507518abdaed6671723b1b2b25ceb72085c4d2089f91",
+    "layer_graph.py": "9c24478f46c3233418819e018581939ccbaabfb135395db224e563c2f0b0b2aa",
+    "prepare_oci.py": "f9ad7608377c65d184fb8c1dfb602d4af4753359a254a3d66ab66fad9543f988",
+    "resource_canary.py": "ae1e64759100f9b8d5b989c79afa462bbba0dd19aa2a1e8ba45eb067add6a110",
+    "stage_base.py": "d8741958564e1b726861a91373e508ebc1e91a874056857569c95c94d1220b9e",
+    "verify_built_image.py": "0ef209115736781281c80bdcf60d25225275beb07140d092d7e79ecc2d16d399",
+    "verify_oci_base.py": "8e0cf0c2e7b02762c206473006a35fafdddf827ceb844ec06e6bf4fbda5a5eb0"
+  },
+  "production_baseline": {
+    "container_id": "containerd://8cfe3a38b2bf36f76091ea9534be15108a631c48ac38068f59b406920c89a810",
+    "deployment_uid": "44aca5b9-8fc1-44d6-af61-37c6d62723d5",
+    "generation": 68,
+    "image": "deerflow.local/weknora-app:0.8.0-enterprise-proxy1-anydoc1-arm64-20260912",
+    "image_id": "sha256:93d6900e88edcd1b5f389c5756f849b34f5051d832a72b0bc17b0af86c709194",
+    "node": "datax-03",
+    "pod": "weknora-app-f6fb87c6d-gqtf5",
+    "pod_uid": "d64b460f-b27e-4a6f-afde-c5583b7d0455",
+    "restarts": 0,
+    "spec_sha256": "a68a260e4a0d7b4f245c99c0c551012608aaa527e50acb235438eec02406ad72"
+  },
+  "production_writes": 0,
+  "provider_requests": 0,
+  "ready_for_rollout": false,
+  "runtime_base": {
+    "archive_bytes": 624964608,
+    "archive_sha256": "d5bc9a5235a99d2d37218cc0b20a65ad650ce44d0764c2bdf6fb2cefab7943d7",
+    "compressed_layer_bytes": 624931352,
+    "config_digest": "sha256:93d6900e88edcd1b5f389c5756f849b34f5051d832a72b0bc17b0af86c709194",
+    "export_report_sha256": "173b6facbb42d00df9be07ff1865a2834c31a86b1347d5231b5b190e0229ab6c",
+    "image": "deerflow.local/weknora-app:0.8.0-enterprise-proxy1-anydoc1-arm64-20260912",
+    "layers": 20,
+    "manifest_digest": "sha256:579198308537bd130e9daa79173a3ae56897cdd520abc58d88df1efe043095ef",
+    "operator_observed_arch": "aarch64",
+    "operator_observed_glibc": "2.36",
+    "operator_observed_os": "Debian GNU/Linux 12 (bookworm)",
+    "platform": "linux/arm64",
+    "transfer_report_sha256": "fa41d554d44bd76c84fa7f403a8c444202f3c1ff1b40df24b458440c29e55935",
+    "uncompressed_layer_bytes": 1910406144
+  },
+  "scope": "WEKNORA_NATIVE_GLM_BUILD_ONLY"
+}
