@@ -47,7 +47,8 @@
     "tls_windows_attempt": "Unsupported POSIX signal/path/OpenSSL environment; rerun under Linux passed",
     "company_activation_synthetic": "11_PASS_7_POSIX_ONLY_SKIPPED_ON_WINDOWS",
     "frontend_home_e2e": "11_PASS_ALL_NINE_VIEWPORTS",
-    "frontend_other_three_corrected_e2e_files": "9_PASS"
+    "frontend_other_three_corrected_e2e_files": "9_PASS",
+    "popup_lifecycle_repetition": "6_PASS_THREE_REPEATS_EACH_DESKTOP_AND_MOBILE"
   },
   "second_ci": {
     "head": "dcd36da36b524790189bbfd7fa99c6b08f91405f",
@@ -55,6 +56,13 @@
     "frontend_unit_lint_types_build": "PASS",
     "e2e_shards_1_3_4": "PASS",
     "e2e_shard_2": "Follow-up corrects scroll-snap alignment and asynchronous menu dismissal, all 11 local home tests pass",
+    "application_runtime_changes": false,
+    "final_head_ci_required": true
+  },
+  "third_ci": {
+    "head": "5979b5c16a6954cff87c9d1da8c0139ce6bd7cf3",
+    "all_checks": "PASS",
+    "e2e_shard_2": "58 passed plus 2 passed on retry; the two sequential-popup cases had the same dismissal race and now explicitly await menu closure",
     "application_runtime_changes": false,
     "final_head_ci_required": true
   }

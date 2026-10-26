@@ -80,6 +80,11 @@ for (const width of [1440, 390]) {
       await expect(popup).toHaveURL(tool.href);
       expect(await popup.evaluate(() => window.opener === null)).toBe(true);
       await popup.close();
+      // Complete dismissal before another link reopens the same menu.
+      await page.bringToFront();
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("portal-tools-menu")).toBeHidden();
+      await expect(page.getByTestId("ppt-generation-menu")).toBeHidden();
       await expect(input).toHaveValue("保留外链点击前的草稿");
       await expect(page).toHaveURL(/\/workspace\/chats\/new$/);
     }
