@@ -7,7 +7,7 @@
       "expected_output": "生成通过 final 校验的 DOCX，使用真实项目名称，覆盖工信部15个栏目，不出现“高技术船舶科研专项”或占位符。",
       "files": ["examples/cases/miit-complete.json"],
       "assertions": [
-        "DOCX 包结构有效且包含项目名称",
+        "DOCX 包结构有效且包含项目名称，全文字体为黑色",
         "包含国家工信部项目的15个栏目",
         "不包含示例项目名或待补充占位符",
         "报审959万元、审减17万元、审定942万元勾稽一致"
@@ -20,7 +20,7 @@
       "files": ["examples/cases/group-company-complete.json"],
       "assertions": [
         "有限公司项目使用不含税口径",
-        "九个集团项目栏目齐全",
+        "九个集团项目栏目齐全，全文字体为黑色",
         "资金来源和费用预算均合计800万元"
       ]
     },

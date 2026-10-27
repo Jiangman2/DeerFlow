@@ -651,14 +651,8 @@ def import_group_company_workbook(
                         project_end_year=end_year,
                     )
                 )
-    _check_equal(
-        issues,
-        "ANNUAL_APPROVED_TOTAL_MISMATCH",
-        "E16:E19",
-        _sum_present([Decimal(str(item["amount"])) if item["amount"] is not None else None for item in annual]),
-        approved_total,
-        "各年度批准额合计必须等于批准概算额",
-    )
+    # The contract estimate and annual appropriations are independent approvals.
+    # Preserve both amounts; only reconcile each row's sources and actual spending.
     _check_equal(
         issues,
         "ANNUAL_SPENT_TOTAL_MISMATCH",

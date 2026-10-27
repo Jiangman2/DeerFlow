@@ -16,6 +16,30 @@ XML_NS = _URI_SCHEME + "www.w3.org/XML/1998/namespace"
 W = f"{{{W_NS}}}"
 NS = {"w": W_NS}
 
+# Original body-paragraph slots in the fingerprinted group-company template.
+# Only these category narratives may be omitted; summary/detail tables stay intact.
+EXPENSE_NARRATIVE_PARAGRAPHS = {
+    101: "equipment_software",
+    102: "materials_energy",
+    103: "external_testing",
+    104: "commissioned_research",
+    106: "publication_ip",
+    107: "travel_meeting_cooperation",
+    108: "consulting_labor",
+    109: "other",
+}
+BALANCE_NARRATIVE_PARAGRAPHS = {
+    114: "equipment_software",
+    115: "materials_energy",
+    116: "external_testing",
+    117: "commissioned_research",
+    118: "publication_ip",
+    119: "travel_meeting_cooperation",
+    120: "consulting_labor",
+    121: "other",
+}
+COMMISSIONED_RATIO_PARAGRAPH = 105
+
 
 def _set_text(container: etree._Element, value: Any) -> None:
     text = "" if value is None else str(value)
@@ -96,10 +120,32 @@ def _source_summary(case: dict[str, Any], field: str = "approved") -> str:
     )
 
 
-def _expense_sentence(item: dict[str, Any]) -> str:
+def _effective_approved_budget(item: dict[str, Any]) -> Any:
     adjusted = item.get("adjusted_budget")
-    if adjusted is None:
-        adjusted = item.get("budget")
+    return item.get("budget") if adjusted is None else adjusted
+
+
+def zero_budget_narrative_paragraph_indices(case: dict[str, Any]) -> tuple[int, ...]:
+    """Return the exact original slots omitted for explicitly zero approved amounts.
+
+    This shares the displayed amount's basis: adjusted budget, falling back to the
+    original budget only when no adjusted amount is present. Missing is not zero.
+    Fidelity checks can apply this same allowlist to the untouched template.
+    """
+    omitted: list[int] = []
+    for index, code in {
+        **EXPENSE_NARRATIVE_PARAGRAPHS,
+        **BALANCE_NARRATIVE_PARAGRAPHS,
+        COMMISSIONED_RATIO_PARAGRAPH: "commissioned_research",
+    }.items():
+        budget = _effective_approved_budget(_expense(case, code))
+        if budget is not None and budget != "" and Decimal(str(budget)) == 0:
+            omitted.append(index)
+    return tuple(sorted(omitted))
+
+
+def _expense_sentence(item: dict[str, Any]) -> str:
+    adjusted = _effective_approved_budget(item)
     sentence = (
         f"{item.get('name', '')}：批复概预算{_money(adjusted, True)}，"
         f"实际支出{_money(item.get('recognized'), True)}，"
@@ -272,10 +318,15 @@ def _fill_cover_and_narrative(
     annual_text = "、".join(
         f"{item.get('year')}年下达{_money(item.get('amount'), True)}" for item in annual
     )
+    annual_total = (
+        sum((Decimal(str(item["amount"])) for item in annual), Decimal("0"))
+        if annual and all(item.get("amount") not in (None, "") for item in annual)
+        else None
+    )
     _set_paragraph(
         paragraphs,
         92,
-        f"{entity_label}分年实际下达预算总额{_money(get_path(case, 'funding.approved_total'), True)}；{annual_text}。",
+        f"{entity_label}分年实际下达预算总额{_money(annual_total, True)}；{annual_text}。",
     )
     included = [item for item in expenses if item.get("include_in_total", True)]
     direct_spent = sum(
@@ -309,16 +360,7 @@ def _fill_cover_and_narrative(
         if any(source.get("spent") is not None for source in sources)
         else "",
     )
-    for index, code in {
-        101: "equipment_software",
-        102: "materials_energy",
-        103: "external_testing",
-        104: "commissioned_research",
-        106: "publication_ip",
-        107: "travel_meeting_cooperation",
-        108: "consulting_labor",
-        109: "other",
-    }.items():
+    for index, code in EXPENSE_NARRATIVE_PARAGRAPHS.items():
         _set_paragraph(paragraphs, index, _expense_sentence(_expense(case, code)))
     commissioned = _expense(case, "commissioned_research")
     ratio = (
@@ -328,7 +370,7 @@ def _fill_cover_and_narrative(
     )
     _set_paragraph(
         paragraphs,
-        105,
+        COMMISSIONED_RATIO_PARAGRAPH,
         f"外委研究费占直接经费总支出的比例为{_percent(ratio)}。",
     )
     _set_paragraph(
@@ -336,16 +378,7 @@ def _fill_cover_and_narrative(
         113,
         f"截至决算报告编制日，本项目概预算结余共计{_money(totals.get('balance'), True)}，各项预算结余情况说明如下：",
     )
-    for index, code in {
-        114: "equipment_software",
-        115: "materials_energy",
-        116: "external_testing",
-        117: "commissioned_research",
-        118: "publication_ip",
-        119: "travel_meeting_cooperation",
-        120: "consulting_labor",
-        121: "other",
-    }.items():
+    for index, code in BALANCE_NARRATIVE_PARAGRAPHS.items():
         item = _expense(case, code)
         _set_paragraph(
             paragraphs,
@@ -476,3 +509,11 @@ def fill_group_template(
     _fill_cover_and_narrative(case, paragraphs, mode)
     _fill_summary_tables(case, tables)
     _fill_detail_totals(case, tables)
+    # Remove complete paragraphs only after all fixed slots have been populated.
+    # Clearing their text would retain the unwanted blank lines in Word.
+    for index in zero_budget_narrative_paragraph_indices(case):
+        paragraph = paragraphs[index]
+        parent = paragraph.getparent()
+        if parent is None:
+            raise ValueError(f"集团公司模板零预算段落槽位已被移除：{index}")
+        parent.remove(paragraph)
