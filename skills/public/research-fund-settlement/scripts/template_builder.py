@@ -1,9 +1,8 @@
 """Template-preserving DOCX generation for research fund settlement reports.
 
-Each output starts from the matching reference DOCX.  Only visible text slots and
-the update-fields setting are changed; styles, section geometry, tables, headers,
-footers, drawings, numbering, relationships, and all opaque package parts remain
-source-derived.
+Each output starts from the matching reference DOCX. Visible text slots, black
+font colors and the update-fields setting may change; geometry, font families,
+tables, fields, relationships and all opaque parts remain source-derived.
 """
 
 from __future__ import annotations
@@ -20,6 +19,7 @@ from typing import Any, Iterable
 from lxml import etree
 
 from report_model import get_path
+from text_color import black_text_findings, black_text_part, strip_font_color_for_structure
 
 
 SCHEME = "http"
@@ -1009,7 +1009,10 @@ def build_template_docx(
                 for info in archive.infolist():
                     target.writestr(
                         info,
-                        replacement.get(info.filename, archive.read(info.filename)),
+                        black_text_part(
+                            info.filename,
+                            replacement.get(info.filename, archive.read(info.filename)),
+                        ),
                     )
             temp_path.replace(output)
         finally:
@@ -1020,6 +1023,7 @@ def build_template_docx(
 
 def _document_structure_signature(data: bytes) -> str:
     root = etree.fromstring(data)
+    strip_font_color_for_structure(root)
     for run in root.xpath("//w:r", namespaces=NS):
         for child in list(run):
             if child.tag in {f"{W}t", f"{W}delText"}:
@@ -1047,13 +1051,14 @@ def inspect_template_fidelity(docx_path: str | Path, profile: str) -> dict[str, 
                     }
                 )
             for name in sorted(reference_names & actual_names - EDITABLE_PARTS):
-                if reference.read(name) != actual.read(name):
+                if black_text_part(name, reference.read(name)) != actual.read(name):
                     findings.append(
                         {
                             "code": "PRESERVED_PART_CHANGED",
                             "message": f"未授权变更模板部件：{name}",
                         }
                     )
+            findings.extend(black_text_findings(actual))
             if _document_structure_signature(
                 reference.read("word/document.xml")
             ) != _document_structure_signature(actual.read("word/document.xml")):
@@ -1075,6 +1080,6 @@ def inspect_template_fidelity(docx_path: str | Path, profile: str) -> dict[str, 
         "status": "PASS" if not findings else "FAIL",
         "template": source.name,
         "template_sha256": TEMPLATES.get(profile, {}).get("sha256"),
-        "preserved_parts": "all except word/document.xml text and word/settings.xml updateFields",
+        "preserved_parts": "all except body text, explicit black font colors and settings updateFields",
         "findings": findings,
     }

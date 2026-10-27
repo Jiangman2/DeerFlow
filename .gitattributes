@@ -41,3 +41,6 @@ Makefile text eol=lf
 *.mov binary
 *.woff binary
 *.woff2 binary
+
+# Preserve original operator receipts and delivered script byte hashes.
+release/production-source-20261027/research-fund-settlement/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

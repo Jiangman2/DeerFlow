@@ -1148,7 +1148,7 @@ def inspect_docx(docx_path: str | Path, case: dict[str, Any]) -> dict[str, Any]:
     path = Path(docx_path)
     findings: list[dict[str, str]] = []
     fidelity = (
-        inspect_group_fidelity(path)
+        inspect_group_fidelity(path, case)
         if case.get("profile") == "group_company"
         else inspect_template_fidelity(path, str(case.get("profile") or ""))
     )

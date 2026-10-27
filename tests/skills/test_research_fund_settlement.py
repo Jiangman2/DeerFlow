@@ -27,6 +27,7 @@ def _load_module(name: str, path: Path):
 sys.path.insert(0, str(SCRIPTS))
 report_model = _load_module("research_fund_report_model", SCRIPTS / "report_model.py")
 docx_builder = _load_module("research_fund_docx_builder", SCRIPTS / "docx_builder.py")
+from text_color import black_text_part  # noqa: E402
 
 
 def _case(name: str) -> dict:
@@ -148,7 +149,8 @@ def test_outputs_preserve_each_reference_template_layout(tmp_path: Path):
         with zipfile.ZipFile(template) as reference, zipfile.ZipFile(output) as actual:
             assert set(reference.namelist()) == set(actual.namelist())
             for part in set(reference.namelist()) - editable_parts:
-                assert reference.read(part) == actual.read(part), part
+                # Only deterministic black font colors may change these parts.
+                assert black_text_part(part, reference.read(part)) == actual.read(part), part
 
             reference_root = ET.fromstring(reference.read("word/document.xml"))
             actual_root = ET.fromstring(actual.read("word/document.xml"))

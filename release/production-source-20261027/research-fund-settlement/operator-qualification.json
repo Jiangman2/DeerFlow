@@ -1,0 +1,31 @@
+{
+  "schema": "research-fund-update-local-qualification.v1",
+  "status": "LOCAL_CHECKS_ACCEPTED_PRODUCTION_EXECUTION_PENDING",
+  "operator_script": {
+    "path": "C:\\Users\\15285\\Downloads\\update-portal-research-fund-skill-20261027-r1.py",
+    "bytes": 745553,
+    "sha256": "895602fccdc80cc1d18912fe742253409776d991cfc2f567e6fca30b2d019ed9"
+  },
+  "host_transaction_tests": {
+    "passed": 11,
+    "failed": 0,
+    "real_synthetic_cli_checks_within_stage": 9,
+    "covered_failures": [
+      "source_drift",
+      "candidate_drift",
+      "backup_drift",
+      "archive_traversal",
+      "archive_symlink",
+      "failed_second_rename_restores_name",
+      "applied_second_rename_lost_reply_readback_no_replay"
+    ]
+  },
+  "python37_syntax": "PASS",
+  "linux37_execution": "NOT_RUN_DOCKER_UNAVAILABLE",
+  "previous_test_failure": {
+    "cause": "Windows child stdout encoding was not explicitly UTF-8",
+    "fixed": "CLI subprocess now uses -X utf8",
+    "retry_passed": true
+  },
+  "production_skill_modified": false
+}
