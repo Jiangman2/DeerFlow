@@ -1,0 +1,11 @@
+{
+  "schema": "research-fund-maintenance-cleanup-operator-receipt.v1",
+  "source": "operator terminal output in current conversation",
+  "command": "sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf --request-timeout=15s -n deer-flow delete pod fund-skill-maint-a991a551af52 --wait=false --ignore-not-found=true",
+  "stdout": "pod \"fund-skill-maint-a991a551af52\" deleted from deer-flow namespace",
+  "delete_command_acknowledged": true,
+  "pod_absence_readback_verified": false,
+  "skill_republished": false,
+  "original_update_report_sha256": "1fbbdcb5a75baa8253729274abb08345c34991542df4b58d23e3ea805540bf55",
+  "production_business_acceptance_pending": true
+}
