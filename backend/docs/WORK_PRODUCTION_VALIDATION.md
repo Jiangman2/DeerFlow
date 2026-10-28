@@ -1,6 +1,10 @@
 # Work 生产整改候选验证记录 · 2026-10-21
 
-## 2026-10-26：基于最新 0716 的 PR 候选（当前记录）
+> 本文保留早期候选的验证历史。2026-10-28 的基线、渠道修复及验证边界见
+> [WORK_VALIDATION_20261028.md](WORK_VALIDATION_20261028.md)，上线分工见
+> [WORK_RELEASE_CHECKLIST.md](WORK_RELEASE_CHECKLIST.md)。历史测试数量不代表后续提交。
+
+## 2026-10-26：基于当时 0716 的 PR 候选
 
 - 基线为 `59f7c5382ebaac8d8b881b95f5a8c9ec5bde18df`，只迁入原 Work 提交
   `df3584b568f2d76e9c9eede6884a3e3d003f11bd` 及必要的生产基线适配。
