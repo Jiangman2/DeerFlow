@@ -6,6 +6,14 @@
   "base_lock_sha256": "668b92d9c6c03abc65b3b7d0fe26fb05e7827011690d84925cc2cf7746c124fe",
   "purpose": "Work OAuth document/calendar candidate; accepted production evidence remains unchanged",
   "changes": {
+    "backend/app/channels/runtime_config_store.py": {
+      "base_sha256": "1ad7926afea1f85821b8430e2d428463e32fd376a6d5716e35c5bbe2a83cc9a7",
+      "candidate_sha256": "c471038878b40cc0970aab5c9c1b9c79509654e6bb98a380e71dbb70c0348f97"
+    },
+    "backend/app/integrations/work/coordinator.py": {
+      "base_sha256": null,
+      "candidate_sha256": "16f942e5bb9cf0431410e228c5411fac1247abf1ac5f625d999018c42d8d0a61"
+    },
     "backend/app/channels/feishu_transport.py": {
       "base_sha256": null,
       "candidate_sha256": "337d590bd754d8cfcefd69e5145c0aa4898b3d9add608f9ed922665ebfaf32ae"
@@ -20,7 +28,7 @@
     },
     "backend/app/channels/service.py": {
       "base_sha256": "8026c30cb3a31ed9045c4f512a02c056af28dafd61cb909d12cb64bd0fd7a744",
-      "candidate_sha256": "a2401b9166bdb4e76007c6ea2317d7ecba8d775d0d0256e4bf8bdff98f0d62c3"
+      "candidate_sha256": "d648d4942f4d9ce7a2bd33027f2129235954cdac4c6bfd5601f285ddfc66112d"
     },
     "backend/app/channels/work_documents.py": {
       "base_sha256": null,
@@ -84,7 +92,7 @@
     },
     "backend/app/integrations/work/receiver.py": {
       "base_sha256": null,
-      "candidate_sha256": "48fac2c1aa436f7e779ae3384abf4dc76ebe3eeeea1a2bde57c132e692a10380"
+      "candidate_sha256": "dc365bdec3ef3cc3ae7e427771d88b25626ab4ad11bcf731caf3f128729c2658"
     },
     "backend/app/integrations/work/scopes.py": {
       "base_sha256": null,

@@ -5758,7 +5758,9 @@ class TestChannelService:
 
         service = ChannelService.from_app_config(app_config)
 
-        assert "feishu" not in service._config
+        assert service._config["feishu"]["enabled"] is False
+        assert service._config["feishu"]["_runtime_disabled"] is True
+        assert "app_secret" not in service._config["feishu"]
 
     def test_start_retries_configured_channel_until_ready(self, monkeypatch):
         from app.channels.service import ChannelService

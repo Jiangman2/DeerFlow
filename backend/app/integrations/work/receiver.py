@@ -6,7 +6,6 @@ and dispatch rechecks the lease, so a stale worker cannot process new messages.
 """
 
 import asyncio
-import hmac
 import logging
 import os
 import secrets
@@ -62,20 +61,15 @@ class WorkReceiver:
                 await asyncio.sleep(5)
                 if not self.service._running:
                     return
-                latest = await asyncio.to_thread(self.service._load_channel_config, "feishu")
-                if not latest or any(not hmac.compare_digest(str(latest.get(k, "")), str(self.config.get(k, ""))) for k in ("app_id", "app_secret", "domain", "enabled")):
-                    # A separate task owns stop/restart; never cancel ourselves
-                    # halfway through joining the old SDK worker.
-                    asyncio.create_task(self.service.restart_channel("feishu", reload_config=False))
-                    return
                 if self.owns:
                     record = await self.store.acquire("receiver", self.holder, ttl=60)
                     if not record:
                         self.owns = False
-                        asyncio.create_task(self.service.restart_channel("feishu", reload_config=False))
                         return
                     failure = getattr(self.channel, "_ws_failure", None)
-                    await self.store.change("lease", "receiver", record, value={"holder": self.holder, "connected": self.channel.transport_connected, "business_code": failure.business_code if failure else None}, ttl=60)
+                    if not await self.store.change("lease", "receiver", record, value={"holder": self.holder, "connected": self.channel.transport_connected, "business_code": failure.business_code if failure else None}, ttl=60):
+                        self.owns = False
+                        return
                 else:
                     record = await self.store.read("lease", "receiver")
                     self.channel.config["_work_receiver_ready"] = bool(record and record.value.get("connected"))
@@ -84,19 +78,25 @@ class WorkReceiver:
                     code = record.value.get("business_code") if record else None
                     self.channel._ws_failure = HandshakeFailure(business_code=code) if type(code) is int else None
                     if not record:
-                        asyncio.create_task(self.service.restart_channel("feishu", reload_config=False))
                         return
         except asyncio.CancelledError:
             raise
         except Exception:
             logger.error("work_receiver stage=lease_or_config_unavailable")
             self.owns = False
-            # Closing the receiver is mandatory on loss of lease authority.
-            asyncio.create_task(self.service.restart_channel("feishu", reload_config=False))
+        finally:
+            coordinator = getattr(self.service, "_work_coordinator", None)
+            if coordinator and not self.closed:
+                coordinator.wake()
 
     async def close(self):
         self.closed = True
         if self.task:
             self.task.cancel()
             await asyncio.gather(self.task, return_exceptions=True)
-        await self.store.release("receiver", self.holder)
+        try:
+            await self.store.release("receiver", self.holder)
+        except Exception:
+            # Socket stop/join precedes this. SQL unavailability must not abort
+            # local cleanup; the fenced lease expires and is never force-deleted.
+            logger.warning("work_receiver stage=lease_release_deferred")

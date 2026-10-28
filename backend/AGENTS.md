@@ -2082,6 +2082,13 @@ retry after uncertain writes. Retain existing typed operation restrictions.
 Reconfiguration closes/rebuilds the integration without deleting user bindings.
 Shared receiver leases permit one WebSocket and HTTP-only standby senders;
 recheck lease before bind/dispatch, and release only after the SDK thread joins.
+Persistent Work also owns a service-level coordinator independent of receiver
+tasks and browser readiness calls. Preserve explicit shared disable tombstones
+through environment defaults, strict reads for automatic startup, lifecycle-lock
+serialization, jittered bounded retries and stop-before-replace. Lease-release
+failure after socket cleanup defers to expiry; socket/thread cleanup failure
+must still retain the worker. Cover startup SQL failure, disable/re-enable,
+credential changes and recovery with `test_work_coordinator.py`.
 Do not claim deployment/real Work acceptance from the isolated regression suite.
 The production owner allowlist is an optional document/calendar capability gate,
 never a channel binding policy. Explicitly empty means no extra owner filter;
