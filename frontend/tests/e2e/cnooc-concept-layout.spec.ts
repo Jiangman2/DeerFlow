@@ -1140,11 +1140,25 @@ test.describe("CNOOC concept layout", () => {
         geometry.viewportHeight + 1,
       );
       expect(geometry.actionBoxes).toHaveLength(7);
-      for (const action of geometry.actionBoxes) {
-        expect(action.left).toBeGreaterThanOrEqual(0);
-        expect(action.right).toBeLessThanOrEqual(geometry.viewportWidth + 1);
-        expect(action.top).toBeGreaterThanOrEqual(geometry.composerBottom - 1);
-        expect(action.bottom).toBeLessThanOrEqual(geometry.viewportHeight + 1);
+      // A narrow desktop uses the same bounded horizontal rail as mobile.
+      // Validate every action after scrolling it into view, while retaining
+      // the page/composer bounds checks so document overflow cannot hide here.
+      const actions = page
+        .getByTestId("welcome-suggestion-rail")
+        .locator('[data-slot="suggestion-item"] > :is(button, a)');
+      for (const action of await actions.all()) {
+        await action.scrollIntoViewIfNeeded();
+        await expect(action).toBeInViewport({ ratio: 1 });
+        const box = await action.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(
+          geometry.viewportWidth + 1,
+        );
+        expect(box!.y).toBeGreaterThanOrEqual(geometry.composerBottom - 1);
+        expect(box!.y + box!.height).toBeLessThanOrEqual(
+          geometry.viewportHeight + 1,
+        );
       }
       expect(geometry.documentWidth).toBeLessThanOrEqual(
         geometry.viewportWidth + 1,

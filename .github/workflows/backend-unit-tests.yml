@@ -33,7 +33,7 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: uv sync --group dev
+        run: uv sync --locked --group dev --extra postgres
 
       - name: Run unit tests of backend
         working-directory: backend

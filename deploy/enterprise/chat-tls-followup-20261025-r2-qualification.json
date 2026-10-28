@@ -1,0 +1,35 @@
+{
+  "schema": "portal-chat-tls-followup-qualification.v2",
+  "script": "inspect-portal-chat-tls-20261025-r2.py",
+  "script_bytes": 30484,
+  "script_sha256": "5f30de3d745af6228f04095b6f6c19864467fa0bd0eec1f9602a849822acfd6e",
+  "prior_server_report_sha256": "067ab54c04f511ae3b839ff1a4aa9cbba6439550036aa2fcc249530ea06084fc",
+  "r1_findings": {
+    "gateway_inventory": 70,
+    "gateway_configuration_groups": 1,
+    "r1_head_requests_attempted": 0,
+    "r1_probe_skips": 15,
+    "r1_network_accepted": false,
+    "custom_bundle_pem_certificates": 144,
+    "expired_certificates": 14,
+    "expired_certificate_as_incident_cause": "NOT_PROVEN",
+    "incident_tool_events": 32,
+    "incident_tls_matches": 0,
+    "raw_exception_absence_does_not_disprove_failure": true
+  },
+  "local_tests": {
+    "runtime_passed": 9,
+    "host_python37_passed": 3,
+    "real_local_authenticated_connect_tls_fixture": "PASS",
+    "external_network": "disabled"
+  },
+  "maximum_head_requests": 10,
+  "production_execution": "PENDING_OPERATOR",
+  "production_mutation": false,
+  "sources": {
+    "inspect-chat-tls-followup-child.py": "2a5bf78300b5c4fb7af869444afcd281ca17e218534c62e4a4c77189bc8f8493",
+    "inspect-chat-tls-followup-host.py": "82e24659a7396fd4ddbccd9235c8c54861d238e370e99a96e465013a2e35cb50",
+    "test_chat_tls_followup.py": "c8cf99e094f51eb69b44c286b6cec2c6238559e478bbfad9f072baf473d97915",
+    "test_chat_tls_followup_host.py": "fe8cbd50bc001167c7513adacf9c77cad8c82ba52d158a93cf5e263fc57824e5"
+  }
+}

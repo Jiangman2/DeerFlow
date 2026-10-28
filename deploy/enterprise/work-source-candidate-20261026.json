@@ -1,9 +1,9 @@
 {
   "schema": "production-source-candidate.v1",
   "status": "NOT_DEPLOYED",
-  "base_commit": "59f7c5382ebaac8d8b881b95f5a8c9ec5bde18df",
+  "base_commit": "3c81ad487cf4dba7f3b46754f4fcc0fd9a08f88a",
   "original_work_commit": "df3584b568f2d76e9c9eede6884a3e3d003f11bd",
-  "base_lock_sha256": "668b92d9c6c03abc65b3b7d0fe26fb05e7827011690d84925cc2cf7746c124fe",
+  "base_lock_sha256": "648ee3a2c3aa68c737e8ca0aed2760606d332ecda3023bc078871df632e0da06",
   "purpose": "Work OAuth document/calendar candidate; accepted production evidence remains unchanged",
   "changes": {
     "backend/app/channels/runtime_config_store.py": {

@@ -1,0 +1,20 @@
+{
+  "schema": "portal-weknora-company-bootstrap-field.v1",
+  "evidence": "USER_SUPPLIED_COMPLETE_HOST_RECEIPT",
+  "status": "ADMIN_RESOURCES_CREATED_AUTO_ENROLLMENT_NOT_DEPLOYED",
+  "administrator_email": "jiangman2@cnooc.com.cn",
+  "knowledge_base_id": "bd83e659-9d9c-429a-acf1-ead01037cfa1",
+  "knowledge_base_name": "中国海油制度知识库",
+  "organization_id": "b9cfbf7f-7281-4f62-a72b-6a22379efe60",
+  "organization_name": "中国海油全员制度共享空间",
+  "owner_tenant_id": "10000",
+  "viewer_share_verified": true,
+  "resource_write_requests": 4,
+  "documents_uploaded": 0,
+  "provider_requests": 0,
+  "gateway_restarted": false,
+  "auto_enrollment_enabled": false,
+  "report_path": "/var/lib/portal-weknora-company-bootstrap-20261024-r1/REPORT.json",
+  "report_bytes": 1461,
+  "report_sha256": "876963431324e6fc146aad8de65fbb19eadeabf93a69fcf1a5f6f7b9a6151879"
+}

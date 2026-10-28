@@ -1,0 +1,73 @@
+{
+  "qualification": "PARTIAL_INPUT_IDENTITIES_NOT_BUILD_APPROVAL",
+  "runtime_base": {
+    "image": "deerflow.local/weknora-app:0.8.0-enterprise-proxy1-anydoc1-arm64-20260912",
+    "platform": "linux/arm64",
+    "manifest_digest": "sha256:579198308537bd130e9daa79173a3ae56897cdd520abc58d88df1efe043095ef",
+    "config_digest": "sha256:93d6900e88edcd1b5f389c5756f849b34f5051d832a72b0bc17b0af86c709194",
+    "archive_sha256": "d5bc9a5235a99d2d37218cc0b20a65ad650ce44d0764c2bdf6fb2cefab7943d7",
+    "archive_bytes": 624964608,
+    "export_report_sha256": "173b6facbb42d00df9be07ff1865a2834c31a86b1347d5231b5b190e0229ab6c",
+    "layers": 20,
+    "compressed_layer_bytes": 624931352,
+    "uncompressed_layer_bytes": 1910406144,
+    "transfer_report_sha256": "fa41d554d44bd76c84fa7f403a8c444202f3c1ff1b40df24b458440c29e55935",
+    "operator_observed_os": "Debian GNU/Linux 12 (bookworm)",
+    "operator_observed_arch": "aarch64",
+    "operator_observed_glibc": "2.36"
+  },
+  "builder": {
+    "repository": "library/golang",
+    "tag": "1.26.8-bookworm",
+    "index_digest": "sha256:dc9ad6c05acc7a88e5b71bde60a5fe3bd4b9f0db209011711b464107438a8107",
+    "manifest_digest": "sha256:581f0292073059289b736d46d572ba4c515e0b511f8645963e0b0adf232680a1",
+    "config_digest": "sha256:5649722a935c0dd8b543f301053da62b1a9024fc35740193fba2526eacafad07",
+    "platform": "linux/arm64/v8",
+    "source_revision": "f47489bcbda87966b421340c536f39a34d00b45f",
+    "source_url": "https://raw.githubusercontent.com/docker-library/golang/f47489bcbda87966b421340c536f39a34d00b45f/1.26/bookworm/Dockerfile",
+    "qualification": "IDENTITY_PINNED_NOT_EXECUTED"
+  },
+  "anydoc": {
+    "version": "0.1.9",
+    "url": "https://static.crates.io/crates/anydoc/anydoc-0.1.9.crate",
+    "sha256": "93a8b0dbecf79be9329111093b493d256db2a573ed3f1cc827c96bdbbe32a936",
+    "bytes": 183823,
+    "metadata_source": "https://crates.io/api/v1/crates/anydoc/0.1.9",
+    "patch": "Export document_to_markdown using the existing exact one-line project patch; no other crate edits.",
+    "lib_rs_before_sha256": "5be6847bf3f63721dae2c3c70f6770e3054a3482e2d9b9b9b48fa7ce830b3e44",
+    "lib_rs_after_sha256": "fc421fd943329590ebcd2441cb10a2dff2ac68e9516104eca1f95f3298a8b323"
+  },
+  "rust_components": [
+    {"component": "rustc", "version": "1.99.1", "url": "https://static.rust-lang.org/dist/2026-10-15/rustc-1.99.1-aarch64-unknown-linux-gnu.tar.xz", "sha256": "acdcdfe09ae1f103aa9a2b7f88903a9588bc2e99288af10e6fbf5514e2e49f25"},
+    {"component": "cargo", "version": "1.99.1", "url": "https://static.rust-lang.org/dist/2026-10-15/cargo-1.99.1-aarch64-unknown-linux-gnu.tar.xz", "sha256": "5156832e0c1254e9b49a79edabdc6d4c35f32f8fc1cf3ca700f268ff96087ab0"},
+    {"component": "rust-std", "version": "1.99.1", "url": "https://static.rust-lang.org/dist/2026-10-15/rust-std-1.99.1-aarch64-unknown-linux-gnu.tar.xz", "sha256": "e25668477083d6a9ddb87b9beb9c00742225f38233ccb4bfba3afa7a07427f52"}
+  ],
+  "go": {
+    "version": "go1.26.8",
+    "url": "https://go.dev/dl/go1.26.8.linux-arm64.tar.gz",
+    "sha256": "211ffced9dcb9633a55eac6364816ec0ddd951389a740e88fa8b3337971bdda0",
+    "bytes": 63811405,
+    "metadata_source": "https://go.dev/dl/?mode=json&include=all",
+    "artifact_downloaded_or_executed": false
+  },
+  "rust_candidate": {
+    "version": "1.99.1",
+    "url": "https://static.rust-lang.org/dist/2026-10-15/rust-1.99.1-aarch64-unknown-linux-gnu.tar.xz",
+    "sha256": "a48fb1e853be56ce9b8e2751f5464dbd5e16440cd81e237920f3a5e7e806333e",
+    "metadata_source": "https://static.rust-lang.org/dist/channel-rust-stable.toml",
+    "manifest_date": "2026-10-15",
+    "artifact_downloaded_or_executed": false,
+    "anydoc_compilation": "NOT_TESTED"
+  },
+  "remaining": [
+    "VERIFY_BUILDER_SYSTEM_DEPENDENCIES_AND_CGO_ABI_IN_EXACT_RUNTIME",
+    "VERIFY_TOOLCHAIN_ARCHIVE_BYTES",
+    "VERIFY_ANYDOC_0_1_9_CRATE_AND_PATCH_HASH",
+    "COMPLETE_CONTEXT_AND_LOCKED_DEPENDENCIES",
+    "FULL_LINUX_VLM_TESTS_ANYDOC_BUILD_AND_NATIVE_PROBE"
+  ],
+  "host_toolchains_installation": "NOT_REQUESTED",
+  "production_model_changed": false,
+  "ready_for_build": false,
+  "ready_for_rollout": false
+}

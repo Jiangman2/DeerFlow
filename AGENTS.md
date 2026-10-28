@@ -1,10 +1,39 @@
 # AGENTS.md
 
-The latest verified production source sets (Gateway 386, Frontend 227 and
-PPT Runner 55) are documented in `docs/production-source-reconciliation-20261023.md`.
-Gateway 386 retains the Gateway 385 image and adds explicit OA overrides:
+The 2026-10-26 production reconciliation is recorded in
+`docs/production-source-reconciliation-20261026.md`. The current default source
+lock is `deploy/enterprise/production-source-lock-20261026.json`; it binds the
+accepted Gateway 387, Frontend 229 and Runner 55 sources to the fresh operator
+snapshot and the exact WeKnora Frontend 39 ConfigMap payload. The colleague's
+full WeKnora UI base-image source mapping remains unproven. Preserve its image and
+the archived runtime overlay; do not rebuild the old vendor tree as a substitute.
+
+The deployed WeKnora backend native GLM sources are separately sealed in
+`deploy/enterprise/weknora-native-glm-source-lock-20261026.json`; see
+`docs/weknora-native-glm-production-source-20261026.md`. Run
+`python deploy/enterprise/verify-weknora-native-glm-source.py --ref HEAD` to check
+all 1,999 historical build source files and the operator-supplied binary receipt.
+The six GLM files and eleven factory lines must not be dropped again. Keep the
+historical inventory immutable; intentional future changes need new provenance.
+This backend restoration does not establish the colleague's UI base provenance
+or authorize rerunning archived build/activation tools against production.
+
+The latest verified production source sets are Gateway 387, Frontend 229 and
+PPT Runner 55. The backend evidence is documented in
+`docs/production-source-reconciliation-20261023.md`; the Frontend 229 receipt and
+sealed build inputs are recorded in
+`deploy/enterprise/chat-notice-layout-frontend-20261024-r1.md` and
+`deploy/enterprise/production-source-lock-20261024.json`. Production browser
+acceptance for this frontend rollout is still pending. Gateway 387 enables
+company knowledge auto-enrollment using the two-file overlay documented in
+`docs/weknora-company-knowledge.md`; all 70 Pods passed source/config/health
+checks in the operator receipt
+`deploy/enterprise/weknora-company-activation-field-20261024-r1.json`.
+Browser and real knowledge Q&A acceptance remain pending. The prior Gateway
+386 source lock is preserved separately for historical reconciliation.
+Gateway 387 preserves the explicit OA overrides introduced in Gateway 386:
 `OA_POLICY_FLOW_MULTI_RESULT_ENABLED=true` and `OA_POLICY_FLOW_CALLBACK_ENABLED=false`.
-All 70 replicas passed the readonly verification recorded in
+The prior OA rollout's 70 replicas passed the readonly verification recorded in
 `deploy/enterprise/oa-v2-multi-runtime-accepted-field-20261023.json`; OA business
 acceptance is still pending. Do not rerun historical activation commands.
 Run `python deploy/enterprise/verify-release-source-20261023.py --ref HEAD`

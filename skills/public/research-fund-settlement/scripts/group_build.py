@@ -10,7 +10,8 @@ from typing import Any
 
 from lxml import etree
 
-from group_template import NS, W, fill_group_template
+from group_template import NS, W, fill_group_template, zero_budget_narrative_paragraph_indices
+from text_color import black_text_findings, black_text_part, strip_font_color_for_structure
 from template_builder import (
     EDITABLE_PARTS,
     TEMPLATES,
@@ -61,7 +62,10 @@ def build_group_docx(
                 for info in archive.infolist():
                     target.writestr(
                         info,
-                        replacement.get(info.filename, archive.read(info.filename)),
+                        black_text_part(
+                            info.filename,
+                            replacement.get(info.filename, archive.read(info.filename)),
+                        ),
                     )
             temp_path.replace(output)
         finally:
@@ -70,8 +74,13 @@ def build_group_docx(
     return output
 
 
-def _normalized_structure_signature(data: bytes) -> str:
+def _normalized_structure_signature(data: bytes, omitted_indices: tuple[int, ...] = ()) -> str:
     root = etree.fromstring(data)
+    paragraphs = _body_paragraphs(root)
+    for index in omitted_indices:
+        paragraph = paragraphs[index]
+        paragraph.getparent().remove(paragraph)
+    strip_font_color_for_structure(root)
     tables = _body_tables(root)
     if len(tables) > 1:
         rows = tables[1].xpath("./w:tr", namespaces=NS)
@@ -88,7 +97,7 @@ def _normalized_structure_signature(data: bytes) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
-def inspect_group_fidelity(docx_path: str | Path) -> dict[str, Any]:
+def inspect_group_fidelity(docx_path: str | Path, case: dict[str, Any] | None = None) -> dict[str, Any]:
     profile = "group_company"
     output = Path(docx_path)
     source = template_path(profile)
@@ -106,20 +115,22 @@ def inspect_group_fidelity(docx_path: str | Path) -> dict[str, Any]:
                     }
                 )
             for name in sorted(reference_names & actual_names - EDITABLE_PARTS):
-                if reference.read(name) != actual.read(name):
+                if black_text_part(name, reference.read(name)) != actual.read(name):
                     findings.append(
                         {
                             "code": "PRESERVED_PART_CHANGED",
                             "message": f"未授权变更模板部件：{name}",
                         }
                     )
+            findings.extend(black_text_findings(actual))
             if _normalized_structure_signature(
-                reference.read("word/document.xml")
+                reference.read("word/document.xml"),
+                zero_budget_narrative_paragraph_indices(case or {}),
             ) != _normalized_structure_signature(actual.read("word/document.xml")):
                 findings.append(
                     {
                         "code": "DOCUMENT_STRUCTURE_CHANGED",
-                        "message": "文档结构偏离正式模板允许的文本替换和年度行扩展范围",
+                        "message": "文档结构偏离允许的文本替换、黑色字体、零预算说明删除和年度行扩展范围",
                     }
                 )
     except (
@@ -135,8 +146,8 @@ def inspect_group_fidelity(docx_path: str | Path) -> dict[str, Any]:
         "template": source.name,
         "template_sha256": TEMPLATES[profile]["sha256"],
         "preserved_parts": (
-            "all except word/document.xml text, cloned annual rows, "
-            "and word/settings.xml updateFields"
+            "all except body text, case-selected zero-budget narrative paragraphs, "
+            "cloned annual rows, explicit black font colors and settings updateFields"
         ),
         "findings": findings,
     }

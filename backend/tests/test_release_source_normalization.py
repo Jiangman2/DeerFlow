@@ -69,7 +69,7 @@ def test_candidate_manifest_rejects_incorrect_parent_hash_and_outside_paths():
 
 @pytest.mark.parametrize("tamper", [None, "changed_source", "unlisted_source", "missing_manifest"])
 def test_candidate_verification_rejects_undeclared_or_changed_source(tmp_path, monkeypatch, tamper):
-    lock = {"source_sets": {"gateway": {"backend/app/example.py": "a" * 64}}, "format_normalizations": {}, "scope": {"test": "synthetic"}}
+    lock = {"source_sets": {"gateway": {"backend/app/example.py": "a" * 64}, "frontend": {}}, "format_normalizations": {}, "scope": {"test": "synthetic"}}
     lock_raw = json.dumps(lock).encode()
     manifest = {
         "schema": "production-source-candidate.v1",

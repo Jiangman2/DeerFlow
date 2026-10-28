@@ -1,0 +1,85 @@
+{
+  "schema": "portal-weknora-company-image-check-field.v1",
+  "evidence": "OPERATOR_PASTED_RESULT_IMAGE_LINK_UNWRAPPED",
+  "observation": {
+    "automatic_retry": false,
+    "checks": [
+      {
+        "deployment": "gateway",
+        "job": "portal-wk-company-check-4214e93398f7",
+        "job_conditions": [
+          {
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "SuccessCriteriaMet"
+          },
+          {
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "job_uid": "5175913b-047d-4196-a3b1-636fed0d99ed",
+        "observation": {
+          "business_acceptance_pending": true,
+          "candidate_only_in_job": true,
+          "checks": [
+            "installed_sources_and_real_import",
+            "disabled_no_requests",
+            "self_token_consumer_workspace_viewer",
+            "existing_viewer_no_duplicate_join",
+            "selected_spaces_only",
+            "private_approval_capped_rejected",
+            "elevated_permissions_never_demoted",
+            "nonviewer_share_rejected",
+            "lost_join_reply_readback_no_repost",
+            "admin_bypass_retained",
+            "bounded_redacted_transport",
+            "sso_hook_failure_not_cached",
+            "sso_success_cached"
+          ],
+          "membership_grants": 0,
+          "production_configuration_used": false,
+          "production_database_access": false,
+          "provider_requests": 0,
+          "ready_for_rollout": false,
+          "real_http_requests": 0,
+          "simulated_http_requests": 29,
+          "status": "INSTALLED_WEKNORA_COMPANY_IMAGE_ACCEPTED"
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+                "waiting_reason": null
+              }
+            ],
+            "name": "portal-wk-company-check-4214e93398f7-9rh6r",
+            "phase": "Succeeded",
+            "uid": "b4d86a1f-1590-40fd-acdf-8ea2a665ba0d"
+          }
+        ],
+        "status": "PASS"
+      }
+    ],
+    "membership_grants": 0,
+    "production_database_access": false,
+    "production_workload_modified": false,
+    "provider_requests": 0,
+    "ready_for_rollout": false,
+    "report_bytes": 1834,
+    "report_path": "/var/lib/portal-weknora-company-image-check-20261024-r1/REPORT.json",
+    "report_sha256": "e034af228dd8c0b01f6ae3f6b778effb9b59fb7f10ab03c69ef56c4040b79570",
+    "schema": "portal-weknora-company-installed-image.v1",
+    "schema_migrated": false,
+    "status": "WEKNORA_COMPANY_IMAGE_ACCEPTED_NOT_DEPLOYED",
+    "temporary_jobs_created": [
+      {
+        "creation_requested": true,
+        "name": "portal-wk-company-check-4214e93398f7"
+      }
+    ]
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "source_change_sha256": "6eb6793f9a15f34d6fff08aad5a11d896dcb6095c81640edea7a4110dd691b5a",
+  "source": "C:\\Users\\15285\\.codex\\tmp\\frontend-mobile-chat-spacing-20261024-r1\\source",
+  "production_writes": 0,
+  "images_pushed": false,
+  "ready_for_rollout": false,
+  "build_seconds": 300.03,
+  "image": {
+    "tag": "deerflow.local/deer-flow-frontend:20261024-mobile-chat-spacing-r1",
+    "id": "sha256:92897ad16c6c31f9c396bb59e17bb033ca5318affe08376c94dd19aab19cefd2",
+    "bytes": 127294949,
+    "layers": 11
+  },
+  "fresh_runtime": {
+    "pinned_base_prefix": "PASS",
+    "base_layers": 4,
+    "added_layers": 7,
+    "previous_application_image_used": false
+  },
+  "runtime": {
+    "layout": {
+      "standalone_layout": "PASS",
+      "files": 2840,
+      "bytes": 131958495,
+      "symlinks": 35,
+      "assets_checked": true,
+      "build_id_sha256": "b8a4e38561f341f31f5d80bff3611effbb8b1af7b22abbac1fda9dc6081500b9",
+      "routes_sha256": "9b19f00490aaa2b8ffb5d056901e9ba959518b38b1365a3ea1290c0f689647f9",
+      "runtime_http": "NOT_TESTED",
+      "production_acceptance": "NOT_TESTED"
+    },
+    "http": {
+      "local_http": "PASS",
+      "runtime_env": "PASS",
+      "sso_redirect": "SYNTHETIC_PASS",
+      "static_assets": [
+        ".js",
+        ".css"
+      ],
+      "unauthenticated_launch_status": 401,
+      "production_sso": "NOT_TESTED",
+      "gateway": "NOT_TESTED",
+      "models": "NOT_REQUESTED"
+    },
+    "bounded_startup_observations": [
+      {
+        "returncode": 1
+      },
+      {
+        "returncode": 0
+      }
+    ]
+  },
+  "export_seconds": 100.03,
+  "export": {
+    "archive": "C:\\Users\\15285\\.codex\\tmp\\frontend-mobile-chat-spacing-20261024-r1\\build\\frontend.oci.tar",
+    "sha256": "df1a8694fa5aeac98a9152adcae05688bd8a87fb00b7f61534b47cb7e1fc1e4f",
+    "bytes": 127309312,
+    "layers": 11,
+    "compressed_layer_bytes": 127283656,
+    "uncompressed_layer_bytes": 301997056,
+    "exact_qualified_layers": "PASS",
+    "blob_and_diffid_hashes": "PASS"
+  },
+  "status": "LOCAL_RUNTIME_AND_OCI_ACCEPTED_NOT_DEPLOYED"
+}

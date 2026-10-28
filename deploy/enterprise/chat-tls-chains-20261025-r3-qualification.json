@@ -1,0 +1,30 @@
+{
+  "schema": "chat-tls-chain-tool-local-qualification.v1",
+  "production_execution_pending": true,
+  "production_modified": false,
+  "tests": {
+    "gateway_python_real_local_tls": {
+      "passed": 10,
+      "external_network": "disabled"
+    },
+    "linux_python_3_7_controller": {
+      "passed": 3,
+      "kubernetes": "synthetic"
+    }
+  },
+  "tool": {
+    "path": "C:\\Users\\15285\\Downloads\\inspect-portal-chat-tls-20261025-r3.py",
+    "bytes": 32990,
+    "sha256": "7f9373c9afd6536dfca28ea1cd65e394929fa1a6486e423a8cecc2291e98fff2"
+  },
+  "maximum_connections": 8,
+  "maximum_origin_http_requests": 0,
+  "client_private_key_used": false,
+  "certificate_verification_disabled": false,
+  "sources": {
+    "inspect-chat-tls-chain-child.py": "e33c6535e04b87d3841a8e5880a2e87093eac877d418c0841ca23c6dd1c8b908",
+    "inspect-chat-tls-chain-host.py": "674d32198a9c363dd9f83d0e03d152ed207bd382bf5fe4773d705834b5cf62f7",
+    "test_chat_tls_chains.py": "91c476302f71dc90348140f4f931069620af122aa9cd14908ae627eb1bb9a2de",
+    "test_chat_tls_chain_host.py": "36ab813de72d11498e2f797569adfef092e6d038a78642e68dda3c128ee71fd2"
+  }
+}

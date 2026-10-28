@@ -1,0 +1,45 @@
+{
+  "schema": "portal-chat-notice-layout-frontend-activation-package.v1",
+  "artifact": {
+    "path": "C:/Users/15285/Downloads/activate-portal-frontend-chat-notice-layout-20261024-r1.py",
+    "bytes": 79269,
+    "sha256": "613a1b384fc76a6a28ae509f4b8c5d6900de7c554d91321da33964d3e42a05a5"
+  },
+  "argument": "--activate-frontend-chat-notice-layout-once",
+  "execution_host": "datax-01",
+  "expected_frontend_generation": 228,
+  "expected_frontend_uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee",
+  "expected_frontend_spec_sha256": "2949a3564a7de10eb3630e82bfaa62c1829664b86be35f566abe6ddab304ddf1",
+  "candidate_manifest": "sha256:cf701f067e050f014dc4e0178252070fa22806fddc8c4a085c51049451352298",
+  "preload_field_evidence": "chat-notice-layout-frontend-preloads-field-20261024-r1.json",
+  "preload_evidence_origin": "OPERATOR_PASTED_SUMMARIES_NOT_DIRECT_NODE_READ",
+  "actual_generated_script_unit_checks": {
+    "windows": {
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0
+    },
+    "linux_python37": {
+      "passed": 14,
+      "failed": 0,
+      "skipped": 1,
+      "skipped_check": "Node runtime probe; verified on Windows, no Node installed in Python-only container"
+    }
+  },
+  "linux_validation": {
+    "python": "3.7.17",
+    "network": "none",
+    "checks": [
+      "exact_file_pin",
+      "host_and_embedded_code_load",
+      "real_preload_binding",
+      "frontend_228_base",
+      "candidate_manifest_and_config",
+      "wrong_host_refused_before_mutation"
+    ],
+    "status": "GENERATED_ACTIVATOR_LINUX37_ACCEPTED"
+  },
+  "frontend_deployed": false,
+  "production_activation_receipt_pending": true,
+  "browser_acceptance_pending": true
+}

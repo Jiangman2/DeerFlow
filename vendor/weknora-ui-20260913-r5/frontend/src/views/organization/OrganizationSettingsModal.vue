@@ -295,7 +295,7 @@
                 </div>
 
                 <!-- 成员管理 -->
-                <div v-show="currentSection === 'members'" class="section">
+                <div v-if="currentSection === 'members'" class="section">
                   <div class="section-header">
                     <div class="section-header-row">
                       <div class="section-header-titlewrap">
@@ -457,7 +457,7 @@
                         : $t('organization.noMembers')" />
                     </div>
                     <div v-else class="data-table-shell members-table-shell">
-                      <t-table row-key="id" :data="filteredMembers" :columns="memberColumns" size="medium" hover
+                      <t-table row-key="id" :data="pagedMembers" :columns="memberColumns" size="medium" hover
                         stripe :loading="membersLoading">
                         <template #member="{ row }">
                           <div class="member-cell">
@@ -496,6 +496,11 @@
                           </t-popconfirm>
                         </template>
                       </t-table>
+                      <div class="members-pagination">
+                        <t-pagination v-model="memberPage" v-model:page-size="memberPageSize"
+                          :total="filteredMembers.length" :page-size-options="[20, 50, 100]" size="small"
+                          show-jumper show-page-number show-page-size @change="scrollContentToTop" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -837,6 +842,7 @@ import {
 } from '@/api/organization'
 import { useOrganizationStore } from '@/stores/organization'
 import { useAuthStore } from '@/stores/auth'
+import { memberPageWindow } from './memberPage'
 import SpaceAvatar from '@/components/SpaceAvatar.vue'
 import agentIconSrc from '@/assets/img/agent.svg'
 import agentIconActiveSrc from '@/assets/img/agent-green.svg'
@@ -876,6 +882,8 @@ const reviewingRequestId = ref<string | null>(null)
 const sharesLoading = ref(false)
 const membersLoading = ref(false)
 const memberSearchQuery = ref('')
+const memberPage = ref(1)
+const memberPageSize = ref(20)
 const submitting = ref(false)
 const refreshingCode = ref(false)
 const inviteCode = ref('')
@@ -1209,13 +1217,25 @@ function agentMcpScopeLabel(share: AgentShareResponse): string {
 }
 
 const filteredMembers = computed(() => {
-  const query = memberSearchQuery.value.toLowerCase()
+  const query = memberSearchQuery.value.trim().toLowerCase()
   if (!query) return members.value
   return members.value.filter((m) =>
     (m.tenant_name || '').toLowerCase().includes(query) ||
     (m.username || '').toLowerCase().includes(query) ||
     (m.email || '').toLowerCase().includes(query)
   )
+})
+
+// Slice before passing data to TDesign: hidden or off-page member controls
+// must never be mounted, even when the legacy API returns the whole roster.
+const memberWindow = computed(() => memberPageWindow(filteredMembers.value.length, memberPage.value, memberPageSize.value))
+const pagedMembers = computed(() => filteredMembers.value.slice(memberWindow.value.start, memberWindow.value.end))
+
+watch([memberSearchQuery, memberPageSize], () => {
+  memberPage.value = 1
+})
+watch(memberWindow, (window) => {
+  memberPage.value = window.page
 })
 
 const filteredJoinRequests = computed(() => {
@@ -1304,9 +1324,10 @@ const handleClose = () => {
 
 const fetchOrgDetail = async () => {
   if (!props.orgId) return
+  const orgId = props.orgId
   try {
-    const res = await getOrganization(props.orgId)
-    if (!props.visible) return
+    const res = await getOrganization(orgId)
+    if (!props.visible || props.orgId !== orgId) return
     if (res.success && res.data) {
       orgStore.setCurrentOrganization(res.data)
       const validity = res.data.invite_code_validity_days
@@ -1850,6 +1871,8 @@ watch(() => props.visible, (newVal) => {
     void scrollContentToTop()
     currentSection.value = 'basic'
     memberSearchQuery.value = ''
+    memberPage.value = 1
+    memberPageSize.value = 20
     joinRequestSearchQuery.value = ''
     approvePopupRequestId.value = null
     joinRequests.value = []
@@ -1867,22 +1890,33 @@ watch(() => props.visible, (newVal) => {
         sharedKnowledgeBases.value = []
       }
       fetchOrgDetail()
-      fetchMembers()
       fetchSharedKBs()
     }
   } else {
     unlockBackgroundScroll()
+    orgStore.clearCurrentOrganizationContext()
   }
 }, { immediate: true })
 
 watch(() => props.orgId, () => {
   if (props.visible) {
     void scrollContentToTop()
+    currentSection.value = 'basic'
+    memberSearchQuery.value = ''
+    memberPage.value = 1
+    orgStore.clearCurrentOrganizationContext()
+    if (props.orgId && !isCreateMode.value) {
+      fetchOrgDetail()
+      fetchSharedKBs()
+    }
   }
 })
 
 watch(currentSection, (section) => {
   void scrollContentToTop()
+  if (section === 'members' && props.visible && props.orgId) {
+    fetchMembers()
+  }
   if (section === 'joinRequests' && props.orgId) {
     fetchJoinRequests()
   }
@@ -1890,6 +1924,7 @@ watch(currentSection, (section) => {
 
 onBeforeUnmount(() => {
   unlockBackgroundScroll()
+  orgStore.clearCurrentOrganizationContext()
 })
 
 watch(addMemberPopupVisible, (visible) => {
@@ -2845,6 +2880,11 @@ watch(addMemberPopupVisible, (visible) => {
     overflow: visible !important;
     max-height: none !important;
   }
+}
+
+.members-pagination {
+  padding: 16px 0;
+  overflow-x: auto;
 }
 
 .permissions-compact {

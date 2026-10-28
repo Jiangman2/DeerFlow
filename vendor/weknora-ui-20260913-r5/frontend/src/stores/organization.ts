@@ -61,6 +61,7 @@ export const useOrganizationStore = defineStore('organization', () => {
   const organizations = ref<Organization[]>([])
   const currentOrganization = ref<Organization | null>(null)
   const currentMembers = ref<OrganizationMember[]>([])
+  let membersRequestId = 0
   const sharedKnowledgeBases = ref<SharedKnowledgeBase[]>([])
   const sharedAgents = ref<SharedAgentInfo[]>([])
   const searchableOrganizations = ref<SearchableOrganizationItem[]>([])
@@ -384,10 +385,14 @@ export const useOrganizationStore = defineStore('organization', () => {
    * Fetch members of an organization
    */
   async function fetchMembers(orgId: string) {
+    const requestId = ++membersRequestId
     loading.value = true
     error.value = null
     try {
       const response = await listMembers(orgId)
+      // A closed modal or another space must not retain this roster or have
+      // its newer members replaced by a late response from the previous one.
+      if (requestId !== membersRequestId) return []
       if (response.success && response.data) {
         currentMembers.value = response.data.members
         return response.data.members
@@ -788,6 +793,7 @@ export const useOrganizationStore = defineStore('organization', () => {
   }
 
   function clearCurrentOrganizationContext() {
+    membersRequestId += 1
     currentOrganization.value = null
     currentMembers.value = []
   }
@@ -825,6 +831,7 @@ export const useOrganizationStore = defineStore('organization', () => {
    * Clear all state
    */
   function clearState() {
+    membersRequestId += 1
     organizations.value = []
     currentOrganization.value = null
     currentMembers.value = []

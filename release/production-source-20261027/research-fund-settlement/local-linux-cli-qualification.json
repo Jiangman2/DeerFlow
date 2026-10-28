@@ -1,0 +1,74 @@
+{
+  "status": "LOCAL_LINUX_CLI_ACCEPTED_NOT_DEPLOYED",
+  "checks": [
+    {
+      "profile": "group-company",
+      "action": "check",
+      "exitcode": 0,
+      "status": "PASS",
+      "stderr_bytes": 0
+    },
+    {
+      "profile": "group-company",
+      "action": "build",
+      "exitcode": 0,
+      "status": "PASS",
+      "stderr_bytes": 0
+    },
+    {
+      "profile": "group-company",
+      "action": "inspect",
+      "exitcode": 0,
+      "status": "PASS",
+      "stderr_bytes": 0
+    },
+    {
+      "profile": "national-science",
+      "action": "check",
+      "exitcode": 0,
+      "status": "PASS",
+      "stderr_bytes": 0
+    },
+    {
+      "profile": "national-science",
+      "action": "build",
+      "exitcode": 0,
+      "status": "PASS",
+      "stderr_bytes": 0
+    },
+    {
+      "profile": "national-science",
+      "action": "inspect",
+      "exitcode": 0,
+      "status": "PASS",
+      "stderr_bytes": 0
+    },
+    {
+      "profile": "miit",
+      "action": "check",
+      "exitcode": 0,
+      "status": "PASS",
+      "stderr_bytes": 0
+    },
+    {
+      "profile": "miit",
+      "action": "build",
+      "exitcode": 0,
+      "status": "PASS",
+      "stderr_bytes": 0
+    },
+    {
+      "profile": "miit",
+      "action": "inspect",
+      "exitcode": 0,
+      "status": "PASS",
+      "stderr_bytes": 0
+    }
+  ],
+  "candidate_tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+  "python": "3.10.12",
+  "synthetic_files_cleaned": true,
+  "network_enabled": false,
+  "production_access": false,
+  "production_runtime_acceptance_pending": true
+}

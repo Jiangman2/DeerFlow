@@ -83,6 +83,6 @@ test("homepage shows Haineng links, model usage and contact details", async ({
   }
   await expect(agentSquare).toHaveAttribute(
     "href",
-    "https://ai-dev.cnooc.com.cn/#/inferencePlatform/hyAppSquare",
+    "https://ai.cnooc.com.cn/#/inferencePlatform/hyAppSquare",
   );
 });

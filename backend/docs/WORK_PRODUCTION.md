@@ -3,12 +3,13 @@
 ## 本次边界
 
 新增生产配置、Gateway 浏览器回调、共享加密状态和迁移 `0022_work_integration_state`。
-2026-10-26 已适配最新 0716 基线：现有 `0020_ppt_confirmation`、`0021_oa_result_sets`
+2026-10-28 已整合 0716 基线 `3c81ad48`：现有 `0020_ppt_confirmation`、`0021_oa_result_sets`
 保持原样，Work 接在 0021 后，不能照抄 10 月 22 日旧候选的迁移编号。
 **代码候选，不代表已发布、已获得生产权限或已通过真实生产机器人验收。**
 功能仍默认关闭。默认 profile 是 `production`；UAT 必须显式选择。
 文档删除/分享、日程删除、参会邀请和会议室操作仍未开放，不因 broad scope 授权而解禁。
 分工、发布顺序及验收门槛见 [WORK_RELEASE_CHECKLIST.md](WORK_RELEASE_CHECKLIST.md)。
+本轮回归、三实例故障测试及其证明边界见 [WORK_VALIDATION_20261028.md](WORK_VALIDATION_20261028.md)。
 
 ## 正式回调地址（交 ITC 登记）
 

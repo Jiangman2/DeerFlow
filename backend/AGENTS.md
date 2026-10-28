@@ -1894,6 +1894,17 @@ See [docs/summarization.md](docs/summarization.md) for details.
 
 ### WeKnora identity bridge
 
+The optional company-knowledge policy in `weknora_company_knowledge.py` is
+disabled by default. Explicitly allowlist organization IDs in operator environment;
+join only native discoverable, approval-free, unlimited organizations as
+viewer using the caller's own token and consumer tenant. Verify native membership
+and read-only shares before caching SSO. Empty spaces and newly shared KBs need
+no individual KB allowlist. Do not borrow admin credentials,
+demote existing maintainers, or change native RBAC. Administrators bypass this
+enrollment so misconfiguration cannot prevent maintenance. See
+`../docs/weknora-company-knowledge.md`; candidate tests do not prove the deployed
+WeKnora version implements this API contract.
+
 `app/gateway/weknora_identity.py` provisions or reuses a WeKnora account with
 the DeerFlow user's email and a deterministic service-managed credential. Each
 successful SSO login mirrors DeerFlow `system_role=admin` to WeKnora's

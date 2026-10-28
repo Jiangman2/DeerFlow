@@ -1,0 +1,19 @@
+{
+  "schema": "portal-weknora-company-members-package.v3",
+  "status": "LOCAL_QUALIFIED_FIELD_INVENTORY_PENDING",
+  "artifact": "inspect-portal-weknora-company-members-20261024-r3.py",
+  "bytes": 22437,
+  "sha256": "b886ead3f4fd97071dbb5577e3831a8bed7ac0075aee221455f24c0e2407860d",
+  "unit_checks_passed": 38,
+  "postgres_fixture": {
+    "production_database_access": false,
+    "status": "PAGED_POSTGRES_FIXTURE_ACCEPTED",
+    "platform_accounts": 84748,
+    "platform_pages": 85,
+    "native_cursor_pages": 2,
+    "classified_workspaces_to_add": 1194,
+    "membership_grants": 0
+  },
+  "production_workload_mutation": false,
+  "membership_grants": 0
+}

@@ -1,0 +1,40 @@
+{
+  "schema": "portal-mobile-chat-spacing-frontend-package.v1",
+  "manifest": "sha256:92897ad16c6c31f9c396bb59e17bb033ca5318affe08376c94dd19aab19cefd2",
+  "config": "sha256:d3f25eb76579c5288f96facd0f4410476f2b5f181894b7e7e8be68b071a96cea",
+  "tag": "deerflow.local/deer-flow-frontend:20261024-mobile-chat-spacing-r1",
+  "archive": "frontend.mobile-chat-spacing.full.oci.tar",
+  "transport": {
+    "bytes": 127309312,
+    "sha256": "df1a8694fa5aeac98a9152adcae05688bd8a87fb00b7f61534b47cb7e1fc1e4f"
+  },
+  "scripts": {
+    "0015": {
+      "bytes": 86625,
+      "sha256": "a9a30865d9a31b8c5b207d421285202fa7d1093520e08575e3af6dfef3d4dbf6",
+      "file": "preload-portal-frontend-mobile-chat-spacing-0015-20261024-r1.py",
+      "hostname": "ecs-zdz-pro-0015",
+      "expected_node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+      "prior_script_sha256": "a5ad93252657ecbb76b769f23e8fc429607f4ed42600ac9496037dc39b2484c9"
+    },
+    "datax02": {
+      "bytes": 88210,
+      "sha256": "4ebff047dcfb4574591d0f376e8106e2d1849adf9d089cf6148dcdc33944f82e",
+      "file": "preload-portal-frontend-mobile-chat-spacing-datax02-20261024-r1.py",
+      "hostname": "datax-02",
+      "expected_node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+      "prior_script_sha256": "a7bec72489e12c76a78fa44420d3c5e404d003b43476284c0e31a5899ea50b23"
+    }
+  },
+  "qualification_pin": {
+    "bytes": 2072,
+    "sha256": "08df778213d08f61cb6bd00b2f449f6783868c60e8522189b43c47129fd2d7b9"
+  },
+  "source_change_sha256": "6eb6793f9a15f34d6fff08aad5a11d896dcb6095c81640edea7a4110dd691b5a",
+  "archive_blob_and_diffid_validation": "PASS",
+  "exact_host_binding": true,
+  "capacity_checked_before_once_claim": true,
+  "frontend_deployed": false,
+  "ready_for_rollout": false,
+  "fresh_node_uid_check_required_at_activation": true
+}

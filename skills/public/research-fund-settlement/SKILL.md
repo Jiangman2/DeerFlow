@@ -42,7 +42,7 @@ allowed-tools:
 只读参考资产：[集团公司正式报告模板](assets/reference-examples/group-company-example.docx)、[集团公司标准输入表](assets/reference-examples/group-company-standard-input.xlsx)、[填报规则工作簿](assets/reference-examples/field-rules-demo.xlsx)、[国家科技项目示例](assets/reference-examples/national-science-example.docx)、[国家工信部项目示例](assets/reference-examples/miit-example.docx)。
 
 确定性入口是 [scripts/report_cli.py](scripts/report_cli.py)。只执行它，不要阅读或改写其内部实现。
-[scripts/template_builder.py](scripts/template_builder.py)、[scripts/docx_builder.py](scripts/docx_builder.py)、[scripts/report_model.py](scripts/report_model.py)、[scripts/standard_input.py](scripts/standard_input.py)、[scripts/group_build.py](scripts/group_build.py) 和 [scripts/group_template.py](scripts/group_template.py) 是 CLI 内部调用的校验、导入、模板原位填充和保真检查实现，不作为模型直接执行入口。
+[scripts/template_builder.py](scripts/template_builder.py)、[scripts/docx_builder.py](scripts/docx_builder.py)、[scripts/report_model.py](scripts/report_model.py)、[scripts/standard_input.py](scripts/standard_input.py)、[scripts/group_build.py](scripts/group_build.py)、[scripts/group_template.py](scripts/group_template.py) 和 [scripts/text_color.py](scripts/text_color.py) 是 CLI 内部调用的校验、导入、模板原位填充和保真检查实现，不作为模型直接执行入口。
 
 ## 标准工作流
 
@@ -115,6 +115,8 @@ allowed-tools:
 
 生成器按项目类型复制对应示例 DOCX，仅替换合同中定义的数据槽位。必须保持示例原有的页面尺寸、分节、页边距、字体字号、段落格式、表格结构与边框、页眉页脚、页码、目录、书签和其他版式部件。不得套用通用封面、通用目录或统一浅蓝表格样式。
 
+全文字体统一为黑色（包括封面、标题、正文、表格、目录及页眉页脚），不得保留模板的红色、蓝色或主题字体色。集团公司报告在“支出明细项及结构总体说明”和“资金结余及原因”中删除批复概预算明确为零的科目说明及其附属说明，不留下空段落；未知金额不按零处理，其他章节和表格仍保留完整数据。附录2的批准概算额与各年度批准额之和允许不同，分别据实填列，不要求用户调平；其他资金来源、支出、结余和附录间勾稽继续校验。
+
 ### 5. 结构复核与交付
 
     python "$SKILL_DIR/scripts/report_cli.py" inspect \
@@ -125,7 +127,7 @@ allowed-tools:
 
 - `check --mode final` 成功；
 - `inspect` 成功，项目名称和全部选定栏目存在；
-- `inspect` 中的 `template_fidelity.status` 为 `PASS`，未编辑 OOXML 部件与示例逐字节一致，正文结构签名一致；
+- `inspect` 中的 `template_fidelity.status` 为 `PASS`：仅允许数据槽位、黑色字体、按数据删除的零预算说明段落、年度行扩展和字段更新设置发生变化，其他部件与结构保真；
 - 报告中的汇总金额与明细、资金来源、审计结果一致；
 - 没有示例项目名、占位符或无来源结论；
 - 调用 `present_files` 发布 DOCX。平台会在沙箱中用 LibreOffice 生成并发布同名预览 PDF；预览失败时不要声称交付成功。
