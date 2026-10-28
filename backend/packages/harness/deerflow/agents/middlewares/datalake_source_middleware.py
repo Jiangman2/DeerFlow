@@ -21,6 +21,9 @@ def _context(runtime):
     return value if isinstance(value, dict) else {}
 
 
+SOURCE_STOP_HINT = "当前数据湖查询已停止：请求的工具不适用于受限的数据获取阶段，不能通过外部搜索、浏览器或 Bash 替代数据湖查询。请补充查询条件或明确提出独立的本地处理任务。"
+
+
 class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
     state_schema = DataLakeSourceState
 
@@ -34,17 +37,57 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
     async def abefore_agent(self, state, runtime):
         return self._update(state, runtime)
 
+    @hook_config(can_jump_to=["end"])
     def after_model(self, state, runtime):
-        return self._update(state, runtime)
+        return self._after(state, runtime)
 
+    @hook_config(can_jump_to=["end"])
     async def aafter_model(self, state, runtime):
-        return self._update(state, runtime)
+        return self._after(state, runtime)
+
+    def _stop(self, scope, *, access, last=None):
+        scope = {**scope, "status": "waiting_access" if access else "source_blocked"}
+        kwargs = dict(last.additional_kwargs) if last is not None else {}
+        for key in ("tool_calls", "function_call", "reasoning_content"):
+            kwargs.pop(key, None)
+        kwargs.update(deerflow_terminal_stop=True, deerflow_waiting_for_user=True, waiting_reason="datalake_access_required" if access else "datalake_external_fallback_forbidden")
+        message = AIMessage(
+            id=(last.id if last is not None else None) or f"datalake-stop-{scope['run_key']}",
+            content=ACCESS_HINT if access else SOURCE_STOP_HINT,
+            additional_kwargs=kwargs,
+            response_metadata={"finish_reason": "stop"},
+        )
+        return {STATE_KEY: scope, "messages": [message], "jump_to": "end"}
+
+    def _after(self, state, runtime):
+        scope = query_scope(state, _context(runtime))
+        messages = state.get("messages") or []
+        last = messages[-1] if messages and isinstance(messages[-1], AIMessage) else None
+        calls = last.tool_calls if last is not None else []
+        # Inspect the entire proposed batch before any parallel tool can run.
+        # A tool's query text alone is not durable task authority for later runs.
+        if not scope["required"] and any(self._query_attempt(call) for call in calls):
+            scope = {**scope, "required": True, "origin": "tool_query"}
+        if scope["required"]:
+            if _context(runtime).get("datalake_enabled") is not True:
+                return self._stop(scope, access=True, last=last)
+            if any(call.get("name") not in ALLOWED_TOOLS for call in calls):
+                return self._stop(scope, access=False, last=last)
+        return {STATE_KEY: scope}
+
+    @staticmethod
+    def _query_attempt(call):
+        args = call.get("args") or {}
+        query = args.get("query") if isinstance(args, dict) else None
+        return isinstance(query, str) and explicit_data_question(query)
 
     def _before(self, state, runtime):
         scope = query_scope(state, _context(runtime))
         update = {STATE_KEY: scope}
         if scope["required"] and _context(runtime).get("datalake_enabled") is not True:
-            update.update(messages=[AIMessage(content=ACCESS_HINT)], jump_to="end")
+            return self._stop(scope, access=True)
+        if scope["required"] and scope.get("status") == "source_blocked":
+            return self._stop(scope, access=False)
         return update
 
     @hook_config(can_jump_to=["end"])
@@ -65,6 +108,7 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
             "即使没有可见的数据湖工具，也不得把这类问题转去外部查询。"
             "未开启/无权限、结果为空、报错或超时均不是更换数据来源的授权。"
             "无法确定数据来源时先澄清；普通公开知识问题不因此受限。"
+            "引用报错、解释权限按钮或排查代码不等于请求查询数据湖；不要因为历史出现权限提示就拒绝普通任务。"
             f"当前数据湖授权状态：{'已开启' if enabled else '未开启'}。"
         )
         if scope["required"]:
@@ -84,9 +128,9 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
     def _blocked(self, request):
         scope = query_scope(request.state, _context(request.runtime))
         name = request.tool_call.get("name")
-        args = request.tool_call.get("args") or {}
-        query = args.get("query") if isinstance(args, dict) else None
-        if name in DATA_TOOLS or (isinstance(query, str) and explicit_data_question(query)):
+        if name in DATA_TOOLS or self._query_attempt(request.tool_call):
+            if not scope["required"]:
+                scope["origin"] = "data_tool" if name in DATA_TOOLS else "tool_query"
             scope["required"] = True
         if not scope["required"]:
             return None
@@ -99,6 +143,9 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
             name=name,
             status="error",
         )
+        scope["status"] = "waiting_access" if not authorized else "source_blocked"
+        # Do not jump from an individual parallel tool: let the batch settle its
+        # paired ToolMessages, then before_model ends without another model call.
         return Command(update={STATE_KEY: scope, "messages": [result]})
 
     def wrap_tool_call(self, request, handler):
