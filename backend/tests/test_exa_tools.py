@@ -257,4 +257,6 @@ class TestWebFetchTool:
 
         # "# Long Page\n\n" is 14 chars, content truncated to 4096
         content_after_header = result.split("\n\n", 1)[1]
-        assert len(content_after_header) == 4096
+        body, marker = content_after_header.split("\n\n", 1)
+        assert len(body) == 4096
+        assert marker == "[Content truncated to 4096 characters]"

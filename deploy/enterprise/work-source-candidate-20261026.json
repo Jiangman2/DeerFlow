@@ -4,7 +4,7 @@
   "base_commit": "fb5744e93602280bff62f4603186642b1fba6b18",
   "original_work_commit": "df3584b568f2d76e9c9eede6884a3e3d003f11bd",
   "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
-  "purpose": "Work routing plus restored sequential-stage candidate and Data Lake orchestration compatibility; NOT_DEPLOYED",
+  "purpose": "Work, restored staged execution, Data Lake controls and optional search/fetch providers; NOT_DEPLOYED",
   "changes": {
     "backend/app/channels/runtime_config_store.py": {
       "base_sha256": "1ad7926afea1f85821b8430e2d428463e32fd376a6d5716e35c5bbe2a83cc9a7",
@@ -149,6 +149,47 @@
     "backend/packages/harness/deerflow/runtime/datalake_policy.py": {
       "base_sha256": "776308756f95750613f2af246f3c73c15f3b4e0293c2b9822cbbc91257da6009",
       "candidate_sha256": "8ebb566b863e4f8294471396c7491f5159e4e55cbe245f4a31535155f6dee19e"
+    },
+    "backend/packages/harness/deerflow/community/deepseek/__init__.py": {
+      "base_sha256": null,
+      "candidate_sha256": "81fd9daa4d621422fba950783f495aec8d053b7d7ef7e9427f59e6f0beebf342"
+    },
+    "backend/packages/harness/deerflow/community/deepseek/errors.py": {
+      "base_sha256": null,
+      "candidate_sha256": "4f6495cdbb2e6c7b89a6fa5bff6293a977935e3feb7da1409483742d70eeba7a"
+    },
+    "backend/packages/harness/deerflow/community/deepseek/tools.py": {
+      "base_sha256": null,
+      "candidate_sha256": "88c46312a48db653196e19fd9ee4175ec7320a42eb5e9c8280be43ba3de669b0"
+    },
+    "backend/packages/harness/deerflow/community/exa/tools.py": {
+      "base_sha256": "894d11d23dd8c4f804f9b5214d94d643618fa9b20aa737edfe5f49508e3871f2",
+      "candidate_sha256": "fb14cb2686e8cf8b1152cd22cb3739999a60dc54f61b13d4d08ded01f32418c2"
+    },
+    "backend/packages/harness/deerflow/community/tavily/tools.py": {
+      "base_sha256": "990967ef654db706183253f6505f526268c5681bbafbded16e37a0140e976576",
+      "candidate_sha256": "722d7518c0d54ee30c69cfd24d0c51f39e3bede56ef70e58bd7b8c20509b6b1f"
+    },
+    "backend/packages/harness/deerflow/community/url_safety.py": {
+      "base_sha256": "bca002bc8b60149928cf50f09f2d76f323a5f9709330e01ae99359caea94a5cf",
+      "candidate_sha256": "cb314cd99f3b67bd2ae67c135f480fa29e4ea3835d6749c15dccd1e5415f6565"
+    },
+    "backend/packages/harness/deerflow/community/web_fetch_output.py": {
+      "base_sha256": null,
+      "candidate_sha256": "d08001f89ec212b71d952e9bf0c07c40162e729470cf20c49b7eea01a8e06b46"
+    },
+    "backend/packages/harness/deerflow/community/web_router/__init__.py": {
+      "base_sha256": null,
+      "candidate_sha256": "14b77e1d8779434e6908de2df5ade4a7f0f168799e404b0404ba2de08f17d20f"
+    },
+    "backend/packages/harness/deerflow/community/web_router/providers.py": {
+      "base_sha256": null,
+      "candidate_sha256": "ce25eda22bac716dfa150680a9e83df56d971e114d91bd9e26fab8e2478e7319"
+    },
+    "backend/packages/harness/deerflow/community/web_router/tools.py": {
+      "base_sha256": null,
+      "candidate_sha256": "c976d350d38a0ee1de0eb8fda96104da355f927d56238f67858a03762d67137e"
     }
-  }
+  },
+  "search_fetch_commit": "bc7d1a4a645c8c7bd2183fb62292e1c1094b0ac2"
 }
