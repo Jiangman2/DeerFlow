@@ -1,6 +1,8 @@
-"""Fixed-host JSON clients for the router; no SDK retries or proxy inheritance."""
+"""Fixed-host JSON clients with verified TLS and operator-controlled proxy use."""
 
 import json
+import os
+import ssl
 import time
 
 import httpx
@@ -25,11 +27,26 @@ class ProviderFailure(Exception):
         self.stop = stop
 
 
+def _transport_options():
+    # This option belongs to the deployment operator, never model tool arguments.
+    # Internal model/relay clients keep their independent direct-only policies.
+    trust = os.environ.get("DEER_FLOW_WEB_ROUTER_TRUST_ENV", "false").strip().lower()
+    if trust not in {"true", "false"}:
+        raise ProviderFailure("CONFIG_ERROR", stop=True)
+    ca_file = next((os.environ[name].strip() for name in ("REQUESTS_CA_BUNDLE", "SSL_CERT_FILE", "CURL_CA_BUNDLE") if os.environ.get(name, "").strip()), None)
+    try:
+        verify = ssl.create_default_context(cafile=ca_file) if ca_file else True
+    except (OSError, ValueError):
+        # An invalid declared CA must not silently fall back to another trust root.
+        raise ProviderFailure("CONFIG_ERROR", stop=True) from None
+    return {"verify": verify, "trust_env": trust == "true", "follow_redirects": False}
+
+
 async def _request(provider, kind, key, payload, timeout):
     headers = {"x-api-key" if provider == "exa" else "Authorization": key if provider == "exa" else f"Bearer {key}"}
     started = time.monotonic()
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=min(timeout, 8)), trust_env=False, follow_redirects=False) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=min(timeout, 8)), **_transport_options()) as client:
             async with client.stream("POST", ENDPOINTS[provider][1 if kind == "fetch" else 0], headers=headers, json=payload) as response:
                 status = response.status_code
                 if status != 200:

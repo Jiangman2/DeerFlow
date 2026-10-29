@@ -184,11 +184,11 @@
     },
     "backend/packages/harness/deerflow/community/web_router/providers.py": {
       "base_sha256": null,
-      "candidate_sha256": "ce25eda22bac716dfa150680a9e83df56d971e114d91bd9e26fab8e2478e7319"
+      "candidate_sha256": "2161e4159a79b765240ff99b2103b1b7a712d53ba8643783dbecd4bbaaa0a5eb"
     },
     "backend/packages/harness/deerflow/community/web_router/tools.py": {
       "base_sha256": null,
-      "candidate_sha256": "c976d350d38a0ee1de0eb8fda96104da355f927d56238f67858a03762d67137e"
+      "candidate_sha256": "7c4783c005006cc48557c0000385bdf8fda593a84fb3b9fb5fc60005a8be8e53"
     }
   },
   "search_fetch_commit": "bc7d1a4a645c8c7bd2183fb62292e1c1094b0ac2"

@@ -136,7 +136,7 @@ async def _aroute(kind, value, runtime=None):
             # An event-loop timer may wake within its clock resolution. Once the
             # shared-budget timer has expired, a positive monotonic remainder
             # must not permit another paid dispatch.
-            shared_deadline_expired = isinstance(exc, TimeoutError) and remaining <= settings.timeout
+            shared_deadline_expired = isinstance(exc, TimeoutError) and (settings.total_timeout <= settings.timeout or remaining <= settings.timeout)
             if isinstance(exc, TimeoutError):
                 exc = providers.ProviderFailure("TIMEOUT")
             attempt = {"provider": provider, "outcome": "failed", "error_code": exc.code, "elapsed_s": round(time.monotonic() - started, 3)}
