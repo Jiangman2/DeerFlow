@@ -186,6 +186,9 @@ export interface Translations {
 
   // Input Box
   inputBox: {
+    modelPickerTitle: string;
+    currentModel: string;
+    noMatchingModels: string;
     placeholder: string;
     createSkillPrompt: string;
     addAttachments: string;
@@ -213,6 +216,9 @@ export interface Translations {
     newShopCartLoading: string;
     newShopCartEmpty: string;
     newShopCartRefresh: string;
+    newShopCartSearch: string;
+    newShopCartNoMatches: string;
+    newShopCartClearSelection: string;
     newShopCartLoadFailed: string;
     newShopCartComplete: string;
     newShopCartProcessing: string;
@@ -402,6 +408,7 @@ export interface Translations {
       reuseNoticeDescription: string;
     };
     filters: {
+      clear: string;
       label: string;
       allStatuses: string;
       enabled: string;
@@ -414,6 +421,12 @@ export interface Translations {
       interval: string;
     };
     detail: {
+      retry: string;
+      loading: string;
+      loadFailureDescription: string;
+      refreshFailed: string;
+      noMatchesTitle: string;
+      noMatchesDescription: string;
       contextMode: string;
       agent: string;
       thread: string;
@@ -500,6 +513,7 @@ export interface Translations {
     title: string;
     description: string;
     newAgent: string;
+    createAgent: string;
     emptyTitle: string;
     emptyDescription: string;
     featureDisabledTitle: string;
@@ -775,6 +789,8 @@ export interface Translations {
 
   // Uploads
   uploads: {
+    attachment: string;
+    removeAttachment: string;
     uploading: string;
     uploadingFiles: string;
     limitsHint: (
@@ -983,6 +999,19 @@ export interface Translations {
     };
     account: {
       profileTitle: string;
+      currentAccount: string;
+      displayName: string;
+      organization: string;
+      adminRole: string;
+      userRole: string;
+      usageTitle: string;
+      totalTokens: string;
+      inputTokens: string;
+      outputTokens: string;
+      unclassifiedTokens: string;
+      usageUnavailable: string;
+      retryUsage: string;
+      usageScope: string;
       email: string;
       role: string;
       changePasswordTitle: string;

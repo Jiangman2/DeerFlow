@@ -137,7 +137,7 @@ function UserRow({
         disabled={busy || isCurrentUser}
         onValueChange={(value) => onRoleChange(value as ManagedUserRole)}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full" aria-label={`${item.email} 的角色`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -254,10 +254,7 @@ export function UserManagementSettingsPage() {
   };
 
   return (
-    <SettingsSection
-      title="用户管理"
-      description="管理员可以创建用户、分配角色、禁用账号、重置密码和清理用户数据。"
-    >
+    <SettingsSection title="用户管理">
       <div className="space-y-6">
         <TemporaryPasswordNotice
           password={temporaryPassword}
@@ -265,48 +262,61 @@ export function UserManagementSettingsPage() {
         />
 
         <form
-          className="grid gap-3 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px_auto]"
+          className="grid items-end gap-3 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px_auto]"
           onSubmit={(event) => {
             event.preventDefault();
             void createUser();
           }}
         >
-          <Input
-            type="email"
-            placeholder="邮箱"
-            value={form.email}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, email: event.target.value }))
-            }
-          />
-          <Input
-            type="password"
-            placeholder="初始密码，留空自动生成"
-            value={form.password}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                password: event.target.value,
-              }))
-            }
-          />
-          <Select
-            value={form.system_role}
-            onValueChange={(value) =>
-              setForm((current) => ({
-                ...current,
-                system_role: value as ManagedUserRole,
-              }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="user">用户</SelectItem>
-              <SelectItem value="admin">管理员</SelectItem>
-            </SelectContent>
-          </Select>
+          <label className="block min-w-0 space-y-1.5 text-sm font-medium">
+            <span>邮箱</span>
+            <Input
+              type="email"
+              placeholder="邮箱"
+              value={form.email}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  email: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <label className="block min-w-0 space-y-1.5 text-sm font-medium">
+            <span>初始密码</span>
+            <Input
+              type="password"
+              autoComplete="new-password"
+              placeholder="初始密码，留空自动生成"
+              value={form.password}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  password: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <div className="min-w-0 space-y-1.5 text-sm font-medium">
+            <span aria-hidden="true">角色</span>
+            <Select
+              value={form.system_role}
+              onValueChange={(value) =>
+                setForm((current) => ({
+                  ...current,
+                  system_role: value as ManagedUserRole,
+                }))
+              }
+            >
+              <SelectTrigger className="w-full" aria-label="新用户角色">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">用户</SelectItem>
+                <SelectItem value="admin">管理员</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button type="submit" disabled={busy}>
             {createMutation.isPending ? (
               <LoaderCircleIcon className="animate-spin" />
@@ -318,11 +328,12 @@ export function UserManagementSettingsPage() {
         </form>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="relative min-w-64 flex-1">
+          <div className="relative w-full min-w-0 basis-full sm:min-w-64 sm:flex-1">
             <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
             <Input
               className="pl-9"
               placeholder="搜索邮箱"
+              aria-label="搜索邮箱"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />

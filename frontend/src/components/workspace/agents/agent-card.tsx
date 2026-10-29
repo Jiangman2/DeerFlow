@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  BotIcon,
   ExternalLinkIcon,
   EyeIcon,
   FlameIcon,
@@ -13,10 +12,9 @@ import {
   Undo2Icon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,10 +43,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
-  getDefaultExpertAvatar,
-  getExpertAvatarById,
-  getStoredExpertAvatarId,
-  recordExternalAgentClick,
+  recordSquareEmployeeLaunch,
   resolveExternalAgentLaunchHref,
   useDeleteAgent,
   usePublishAgent,
@@ -57,6 +52,8 @@ import {
 import type { Agent } from "@/core/agents";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
+
+import { DigitalEmployeeAvatar } from "./digital-employee-avatar";
 
 interface AgentCardProps {
   agent: Agent;
@@ -67,41 +64,7 @@ interface AgentCardProps {
   onEdit?: (agent: Agent) => void;
   onToggleHot?: (agent: Agent) => void;
   hotPending?: boolean;
-}
-
-function DigitalEmployeeAvatar({
-  agent,
-  className,
-}: {
-  agent: Agent;
-  className?: string;
-}) {
-  const [storedAvatarId, setStoredAvatarId] = useState<string>();
-  useEffect(() => {
-    setStoredAvatarId(getStoredExpertAvatarId(agent.name));
-  }, [agent.name]);
-  const preset =
-    getExpertAvatarById(agent.avatar_id ?? storedAvatarId) ??
-    getDefaultExpertAvatar(agent);
-  const accessibleName = agent.display_name?.trim();
-
-  return (
-    <Avatar
-      className={cn(
-        "bg-primary/5 ring-background shrink-0 rounded-full border-2 border-white shadow-sm ring-1 ring-blue-100 dark:border-slate-800 dark:ring-slate-700",
-        className,
-      )}
-    >
-      <AvatarImage
-        src={agent.avatar_url ?? preset.src}
-        alt={accessibleName?.length ? accessibleName : agent.name}
-        className="rounded-full object-cover"
-      />
-      <AvatarFallback className="rounded-full bg-blue-50 text-blue-700">
-        <BotIcon aria-hidden="true" />
-      </AvatarFallback>
-    </Avatar>
-  );
+  trackSquareLaunch?: boolean;
 }
 
 export function AgentCard({
@@ -113,6 +76,7 @@ export function AgentCard({
   onEdit,
   onToggleHot,
   hotPending,
+  trackSquareLaunch = false,
 }: AgentCardProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -137,12 +101,13 @@ export function AgentCard({
     ...(agent.model ? [agent.model] : []),
   ].filter((value, index, values) => values.indexOf(value) === index);
 
-  function recordExternalClick() {
-    if (!externalUrl) return;
-    void recordExternalAgentClick(agent.name).catch(() => undefined);
+  function recordLaunch() {
+    if (trackSquareLaunch)
+      void recordSquareEmployeeLaunch(agent).catch(() => undefined);
   }
 
   function handleChat() {
+    recordLaunch();
     router.push(
       `/workspace/agents/${encodeURIComponent(agent.name)}/chats/new`,
     );
@@ -178,12 +143,16 @@ export function AgentCard({
   }
 
   const primaryAction = externalHref ? (
-    <Button asChild size="sm" className="h-8 shrink-0 rounded-lg px-3">
+    <Button
+      asChild
+      size="sm"
+      className="h-11 flex-1 rounded-lg px-3 sm:h-8 sm:flex-none"
+    >
       <a
         href={externalHref}
         target="_blank"
         rel="noreferrer"
-        onClick={recordExternalClick}
+        onClick={recordLaunch}
       >
         <ExternalLinkIcon data-icon="inline-start" />
         {t.agents.openExternal}
@@ -192,7 +161,7 @@ export function AgentCard({
   ) : (
     <Button
       size="sm"
-      className="h-8 shrink-0 rounded-lg px-3"
+      className="h-11 flex-1 rounded-lg px-3 sm:h-8 sm:flex-none"
       onClick={handleChat}
     >
       <MessageSquareIcon data-icon="inline-start" />
@@ -206,11 +175,11 @@ export function AgentCard({
         data-testid="digital-employee-card"
         className="bg-card hover:border-primary/45 hover:shadow-primary/5 group flex min-w-0 flex-col gap-3 rounded-xl border p-3.5 shadow-sm transition-[border-color,box-shadow] duration-200 sm:flex-row sm:items-center sm:gap-4 sm:px-4 sm:py-3"
       >
-        <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+        <div className="grid min-w-0 flex-1 grid-cols-[56px_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 sm:flex sm:gap-3">
           <DigitalEmployeeAvatar agent={agent} className="size-14 sm:size-16" />
-          <div className="min-w-0 flex-1">
+          <div className="contents sm:block sm:min-w-0 sm:flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              <h2 className="max-w-full truncate text-sm font-semibold tracking-tight sm:text-[15px]">
+              <h2 className="line-clamp-2 w-full max-w-full text-[15px] leading-5 font-semibold tracking-tight break-words sm:line-clamp-1 sm:w-auto">
                 {displayName}
               </h2>
               <Badge
@@ -236,16 +205,11 @@ export function AgentCard({
                 </span>
               ) : null}
             </div>
-            {agent.display_name && agent.display_name !== agent.name ? (
-              <p className="text-muted-foreground mt-0.5 truncate text-[11px]">
-                {agent.name}
-              </p>
-            ) : null}
-            <p className="text-muted-foreground mt-1 line-clamp-1 text-xs leading-5 sm:text-[13px]">
+            <p className="text-muted-foreground col-span-2 line-clamp-2 text-[13px] leading-5 sm:mt-1 sm:line-clamp-1">
               {agent.description || t.agents.noDescription}
             </p>
             {capabilityLabels.length > 0 ? (
-              <div className="mt-1.5 flex min-w-0 gap-1 overflow-hidden">
+              <div className="col-span-2 flex min-w-0 gap-1 overflow-hidden sm:mt-1.5">
                 {capabilityLabels.slice(0, 4).map((label) => (
                   <Badge
                     key={label}
@@ -265,7 +229,7 @@ export function AgentCard({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-1.5 pl-[4.25rem] sm:pl-0">
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t pt-3 sm:gap-1.5 sm:border-0 sm:pt-0">
           {primaryAction}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -273,7 +237,7 @@ export function AgentCard({
                 size="icon-sm"
                 variant="ghost"
                 aria-label={t.agents.more}
-                className="rounded-lg"
+                className="size-11 rounded-lg sm:size-8"
               >
                 <MoreHorizontalIcon />
               </Button>
@@ -339,7 +303,9 @@ export function AgentCard({
         <SheetContent className="w-full gap-0 sm:max-w-md">
           <SheetHeader>
             <SheetTitle>{t.agents.profileTitle}</SheetTitle>
-            <SheetDescription>{t.agents.profileDescription}</SheetDescription>
+            <SheetDescription className="sr-only">
+              {t.agents.profileDescription}
+            </SheetDescription>
           </SheetHeader>
           <div className="app-scroll-region flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-4">
             <div className="flex items-center gap-4">

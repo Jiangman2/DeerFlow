@@ -4,13 +4,14 @@ import { MessageSquareTextIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useI18n } from "@/core/i18n/hooks";
 
 import { Tooltip } from "../tooltip";
 
 import { useMaybeSidecar } from "./context";
 
-export function SidecarTrigger() {
+export function SidecarTrigger({ inMenu = false }: { inMenu?: boolean }) {
   const { t } = useI18n();
   const sidecar = useMaybeSidecar();
   const [isReconciling, setIsReconciling] = useState(false);
@@ -42,6 +43,20 @@ export function SidecarTrigger() {
       setIsReconciling(false);
     }
   };
+
+  if (inMenu) {
+    return (
+      <DropdownMenuItem
+        disabled={isReconciling}
+        onSelect={() => {
+          void handleClick();
+        }}
+      >
+        <MessageSquareTextIcon />
+        {label}
+      </DropdownMenuItem>
+    );
+  }
 
   return (
     <Tooltip content={label}>

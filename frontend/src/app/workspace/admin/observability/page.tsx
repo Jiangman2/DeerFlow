@@ -1079,9 +1079,6 @@ export default function ObservabilityPage() {
             <h1 className="text-2xl font-semibold text-slate-950">
               运维监控与审计
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              指标、日志、链路追踪与管理操作审计汇总
-            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {[1, 24, 168].map((value) => (

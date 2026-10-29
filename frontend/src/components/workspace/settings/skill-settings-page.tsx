@@ -37,10 +37,7 @@ export function SkillSettingsPage({ onClose }: { onClose?: () => void } = {}) {
   const adminRequired =
     error instanceof SkillRequestError && error.isAdminRequired;
   return (
-    <SettingsSection
-      title={t.settings.skills.title}
-      description={t.settings.skills.description}
-    >
+    <SettingsSection title={t.settings.skills.title}>
       {isLoading ? (
         <div className="text-muted-foreground text-sm">{t.common.loading}</div>
       ) : adminRequired ? (

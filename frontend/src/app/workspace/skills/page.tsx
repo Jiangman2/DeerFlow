@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
+import { ModulePageTitle } from "@/components/workspace/module-page-title";
 import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
 import {
@@ -95,7 +96,7 @@ function SkillCenterNavButton({
       aria-current={active ? "page" : undefined}
       onClick={onClick}
       className={cn(
-        "focus-visible:ring-ring/50 flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+        "cnooc-skill-nav-item focus-visible:ring-ring/50 flex h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none md:h-9",
         active
           ? "bg-primary text-primary-foreground shadow-primary/15 shadow-sm"
           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
@@ -196,7 +197,7 @@ function SkillHubWorkspaceMenu({
           type="button"
           aria-label={managementView ? "管理中心" : "技能工作台"}
           className={cn(
-            "focus-visible:ring-ring/50 flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+            "focus-visible:ring-ring/50 flex h-11 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none md:h-9",
             active
               ? "bg-primary text-primary-foreground shadow-primary/15 shadow-sm"
               : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
@@ -207,7 +208,7 @@ function SkillHubWorkspaceMenu({
           ) : (
             <LayoutDashboardIcon className="size-4" />
           )}
-          <span className={cn(compact && "hidden min-[360px]:inline")}>
+          <span className={compact ? "hidden min-[380px]:inline" : undefined}>
             {managementView ? "管理中心" : "工作台"}
           </span>
           <ChevronDownIcon className="size-3.5" />
@@ -215,7 +216,7 @@ function SkillHubWorkspaceMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align={compact ? "end" : "start"}
-        className="max-h-[calc(100dvh-5rem)] w-56 overflow-y-auto overscroll-contain"
+        className="cnooc-skill-management-menu max-h-[calc(100dvh-5rem)] w-56 overflow-y-auto overscroll-contain"
       >
         <DropdownMenuLabel>个人工作台</DropdownMenuLabel>
         {item({
@@ -383,7 +384,7 @@ function MySkillsPanel({
   const staticWebsite = env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true";
 
   return (
-    <section className="app-scroll-region h-full overflow-y-auto px-3 py-5 md:px-6 md:py-7">
+    <section className="cnooc-my-skills app-scroll-region h-full overflow-y-auto px-3 py-5 md:px-6 md:py-7">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -444,7 +445,7 @@ function MySkillsPanel({
               return (
                 <article
                   key={item.name}
-                  className="border-border/80 flex flex-col gap-3 border-b p-4 last:border-b-0 sm:flex-row sm:items-center"
+                  className="cnooc-personal-skill border-border/80 flex flex-col gap-3 border-b p-4 last:border-b-0 sm:flex-row sm:items-center"
                 >
                   <span className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-lg">
                     {installation ? (
@@ -456,7 +457,7 @@ function MySkillsPanel({
 
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <h3 className="text-foreground truncate text-sm font-semibold">
+                      <h3 className="text-foreground min-w-0 text-sm font-semibold wrap-anywhere sm:truncate">
                         {item.name}
                       </h3>
                       <span
@@ -475,7 +476,7 @@ function MySkillsPanel({
                     </p>
                   </div>
 
-                  <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
+                  <div className="cnooc-personal-skill-actions flex shrink-0 flex-wrap items-center justify-between gap-2 sm:justify-end">
                     <label
                       className="text-muted-foreground flex h-9 items-center gap-2 text-xs font-medium"
                       title={
@@ -569,9 +570,9 @@ function SkillRuntimeBar({
       : `升级到 v${detail.version}`;
 
   return (
-    <section className="border-border/80 bg-card relative z-20 shrink-0 border-b px-3 py-2.5 md:px-5">
+    <section className="cnooc-skill-runtime border-border/80 bg-card relative z-20 shrink-0 border-b px-3 py-2.5 md:px-5">
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-2.5">
-        <div className="mr-auto min-w-0">
+        <div className="mr-auto max-w-full min-w-0 basis-full md:basis-auto">
           <div className="flex items-center gap-2">
             <h2 className="text-foreground truncate text-sm font-semibold">
               {detail.displayName}
@@ -1178,26 +1179,19 @@ export default function SkillCenterPage() {
   }
 
   return (
-    <main className="app-scroll-region bg-background relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-      <header className="border-border/80 bg-card/95 relative z-30 shrink-0 border-b px-3 py-3 shadow-[0_1px_0_rgba(15,55,92,0.03)] backdrop-blur md:px-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="hidden min-w-0 shrink-0 items-center gap-3 lg:flex">
-            <span className="bg-primary text-primary-foreground shadow-primary/20 flex size-10 items-center justify-center rounded-xl shadow-sm">
-              <PackageSearchIcon className="size-5" />
-            </span>
-            <div className="min-w-0">
-              <h1 className="text-foreground truncate text-base font-semibold">
-                {t.sidebar.skillCenter}
-              </h1>
-              <p className="text-muted-foreground truncate text-xs">
-                发现并管理岗位专家可用技能
-              </p>
-            </div>
+    <main className="cnooc-skill-center app-scroll-region bg-background relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+      <header className="cnooc-skill-header border-border/80 bg-card/95 relative z-30 shrink-0 border-b px-3 py-3 shadow-[0_1px_0_rgba(15,55,92,0.03)] backdrop-blur md:px-5">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 lg:flex-nowrap">
+          <div className="flex min-w-0 flex-1 items-center lg:flex-none">
+            <ModulePageTitle
+              icon={PackageSearchIcon}
+              title={t.sidebar.skillCenter}
+            />
           </div>
 
           <nav
             aria-label="技能中心导航"
-            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] lg:ml-3 [&::-webkit-scrollbar]:hidden"
+            className="order-last flex min-w-0 basis-full items-center gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] lg:order-none lg:ml-3 lg:flex-1 lg:basis-auto [&::-webkit-scrollbar]:hidden"
           >
             {PERSONAL_NAV_ITEMS.slice(0, 1).map((item) => (
               <SkillCenterNavButton
@@ -1232,7 +1226,7 @@ export default function SkillCenterPage() {
               />
             ))}
 
-            <div className="hidden md:block">
+            <div className="hidden shrink-0 lg:block">
               <SkillHubWorkspaceMenu
                 access={access}
                 user={skillHubUser}
@@ -1248,7 +1242,7 @@ export default function SkillCenterPage() {
               管理员视图
             </span>
           ) : null}
-          <div className="shrink-0 md:hidden">
+          <div className="shrink-0 lg:hidden">
             <SkillHubWorkspaceMenu
               access={access}
               user={skillHubUser}
@@ -1259,7 +1253,7 @@ export default function SkillCenterPage() {
             />
           </div>
           {sidebarInitialized ? (
-            <SidebarTrigger className="bg-card size-9 shrink-0 border shadow-sm md:hidden" />
+            <SidebarTrigger className="bg-card size-11 shrink-0 border shadow-sm md:hidden" />
           ) : null}
         </div>
       </header>

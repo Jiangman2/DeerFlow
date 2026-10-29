@@ -1,0 +1,46 @@
+{
+  "schema": "portal-combined-validation-delivery.v1",
+  "production_deployed": false,
+  "ready_for_rollout": false,
+  "delivered_tools": {
+    "installed": {
+      "file": "verify-portal-combined-installed-images-20261028-r1.py",
+      "bytes": 205254,
+      "sha256": "ad61a2b45698f2dc270b8a854b73f74e99e404c9dc84f388699bcabaf43bd102"
+    },
+    "provider": {
+      "file": "verify-portal-combined-v41-20261028-r1.py",
+      "bytes": 19446,
+      "sha256": "43cacccb71a4a1751340b5ac98846ffd863b42d34274f7e3f20c2b9364f80be9"
+    },
+    "storage": {
+      "file": "verify-portal-combined-storage-20261028-r1.py",
+      "bytes": 21791,
+      "sha256": "66a37ae2a84365a2e24806336d471134ad532c6675f62676b3334befb5773659"
+    },
+    "provider_error_diagnostic": {
+      "file": "diagnose-portal-combined-v41-20261028-r1.py",
+      "bytes": 15911,
+      "sha256": "636eb282c4d43fb99da0e2c0517ccd577ec4f704ffca35d032a000822929890e"
+    }
+  },
+  "provider_error_diagnostic_validation": {
+    "local_tests_passed": 8,
+    "local_tests_failed": 0,
+    "network_during_tests": "synthetic httpx MockTransport only",
+    "linux_python37_entry_guard": "PASS_WRONG_HOST_BEFORE_OPERATIONS",
+    "linux_full_http_test_suite_run": false,
+    "maximum_additional_provider_requests": 1,
+    "field_result_pending": true
+  },
+  "field_results_reference": "FIELD-VALIDATION.json",
+  "prior_qualification_reference": "../competition-data-boundary-20261028-r1/QA.json",
+  "prior_qualification_is_not_full_green_ci": true,
+  "paused_work_update_included": false,
+  "do_not_repeat": [
+    "completed seven-node preloads",
+    "accepted installed-image check",
+    "accepted cross-node store check",
+    "once-claimed initial provider check"
+  ]
+}

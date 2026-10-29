@@ -49,8 +49,14 @@ test("homepage shows Haineng links, model usage and contact details", async ({
   await expect(page.getByText("sh_tyznt@cnooc.com.cn")).toBeVisible();
   await expect(page.getByText("sh_ai@cnooc.com.cn")).toBeVisible();
   await expect(page.locator(".cnooc-home-contact-details > div")).toHaveCount(
-    3,
+    4,
   );
+  await expect(
+    page.getByRole("link", { name: "010-84521314", exact: true }),
+  ).toHaveAttribute("href", "tel:01084521314");
+  await expect(
+    page.getByRole("link", { name: "13520340738", exact: true }),
+  ).toHaveAttribute("href", "tel:13520340738");
   await expect(page.getByText("8:30 ～ 17:30")).toBeVisible();
   await expect(
     page.locator(".cnooc-home-contact-card-header a"),

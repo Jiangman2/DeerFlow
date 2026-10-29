@@ -123,12 +123,9 @@ export function SettingsDialog(props: SettingsDialogProps) {
         >
           <DialogHeader className="shrink-0 gap-1 pr-8 text-left">
             <DialogTitle>{t.settings.title}</DialogTitle>
-            <p className="text-muted-foreground text-sm">
-              {t.settings.description}
-            </p>
           </DialogHeader>
           <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden md:grid-cols-[220px_minmax(0,1fr)] md:grid-rows-1 md:gap-4">
-            <nav className="app-scroll-region bg-sidebar min-w-0 overflow-x-auto overflow-y-hidden rounded-lg border p-2 md:min-h-0 md:overflow-x-hidden md:overflow-y-auto">
+            <nav className="cnooc-settings-navigation app-scroll-region bg-sidebar min-w-0 overflow-x-auto overflow-y-hidden rounded-lg border p-2 md:min-h-0 md:overflow-x-hidden md:overflow-y-auto">
               <ul className="flex w-max min-w-full gap-1 md:block md:w-auto md:min-w-0 md:space-y-1 md:pr-1">
                 {sections.map(({ id, label, icon: Icon }) => {
                   const active = activeSection === id;
@@ -136,9 +133,10 @@ export function SettingsDialog(props: SettingsDialogProps) {
                     <li key={id}>
                       <button
                         type="button"
+                        aria-current={active ? "page" : undefined}
                         onClick={() => setActiveSection(id as SettingsSection)}
                         className={cn(
-                          "flex min-h-10 shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors md:w-full md:gap-3",
+                          "flex min-h-11 shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors md:w-full md:gap-3",
                           active
                             ? "bg-primary text-primary-foreground shadow-sm"
                             : "text-muted-foreground hover:bg-muted hover:text-foreground",

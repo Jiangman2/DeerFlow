@@ -40,8 +40,8 @@ export async function WorkspaceContent({
             {
               // Keep the shadcn layout gap in lockstep with the branded rail.
               // The visible frame is inset inside these reserved widths.
-              "--sidebar-width": "19rem",
-              "--sidebar-width-icon": "7rem",
+              "--sidebar-width": "clamp(15.5rem, 18vw, 18rem)",
+              "--sidebar-width-icon": "clamp(6.5rem, 6.1vw, 7.25rem)",
             } as React.CSSProperties
           }
         >

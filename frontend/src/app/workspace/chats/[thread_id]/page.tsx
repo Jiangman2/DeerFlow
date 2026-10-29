@@ -9,15 +9,13 @@ import { toast } from "sonner";
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { useSidebar } from "@/components/ui/sidebar";
 import { AnnouncementNotificationButton } from "@/components/workspace/announcement-banner";
-import { ArtifactTrigger } from "@/components/workspace/artifacts";
-import { BrowserTrigger } from "@/components/workspace/browser-view";
+import { ChatSecondaryActions } from "@/components/workspace/chat-secondary-actions";
 import {
   ChatBox,
   notifyThreadChatRouteChange,
   useSpecificChatMode,
   useThreadChat,
 } from "@/components/workspace/chats";
-import { ExportTrigger } from "@/components/workspace/export-trigger";
 import { GoalStatus } from "@/components/workspace/goal-status";
 import { HainengHomeFooter } from "@/components/workspace/haineng-home-footer";
 import {
@@ -36,11 +34,7 @@ import {
   resolveAgentMode,
 } from "@/components/workspace/mode-selector";
 import { NonConfidentialNotice } from "@/components/workspace/non-confidential-notice";
-import {
-  SidecarProvider,
-  SidecarTrigger,
-} from "@/components/workspace/sidecar";
-import { ThreadScheduledTasksLink } from "@/components/workspace/thread-scheduled-tasks-link";
+import { SidecarProvider } from "@/components/workspace/sidecar";
 import { ThreadTitle } from "@/components/workspace/thread-title";
 import { TodoList } from "@/components/workspace/todo-list";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
@@ -337,7 +331,10 @@ export default function ChatPage() {
             !isNewThread && (isStaticDemo || Boolean(threadMetadata.data))
           }
         >
-          <div className="cnooc-main-chat-with-notice relative flex size-full min-h-0 justify-between">
+          <div
+            className="cnooc-main-chat-with-notice relative flex size-full min-h-0 justify-between"
+            data-mobile-home={isWelcomeMode ? "true" : undefined}
+          >
             <header
               className={cn(
                 "cnooc-chat-header absolute top-0 right-0 left-0 z-40 flex h-12 min-w-0 shrink-0 items-center gap-1 overflow-hidden px-2 sm:gap-2 sm:px-4",
@@ -391,16 +388,13 @@ export default function ChatPage() {
               )}
               <div
                 className={cn(
-                  "flex min-w-0 flex-1 items-center text-sm font-medium",
+                  "cnooc-thread-heading flex min-w-0 flex-1 items-center text-sm font-medium",
                   isWelcomeMode && "cnooc-welcome-thread-title",
                 )}
               >
                 <ThreadTitle threadId={threadId} thread={thread} />
               </div>
               <div className="cnooc-header-actions flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-2">
-                {!isAdminReview && !isNewThread && (
-                  <ThreadScheduledTasksLink threadId={threadId} />
-                )}
                 {isWelcomeMode && (
                   <a
                     aria-label={t.welcome.hainengPortal}
@@ -428,10 +422,14 @@ export default function ChatPage() {
                 />
                 {isWelcomeMode && <AnnouncementNotificationButton />}
                 {isWelcomeMode && <UserGuideButton />}
-                {!isAdminReview && <SidecarTrigger />}
-                {browserEnabled && <BrowserTrigger />}
-                <ExportTrigger threadId={threadId} />
-                <ArtifactTrigger />
+                {!isWelcomeMode && (
+                  <ChatSecondaryActions
+                    threadId={threadId}
+                    browserEnabled={browserEnabled}
+                    showScheduledTasks={!isAdminReview && !isNewThread}
+                    allowSidecar={!isAdminReview}
+                  />
+                )}
               </div>
               {isWelcomeMode && (
                 <NonConfidentialNotice className="cnooc-welcome-notice absolute top-full right-0 left-0 hidden md:block" />

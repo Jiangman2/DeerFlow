@@ -76,7 +76,9 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 850 });
     await page.goto("/workspace/chats/new");
     await page.locator(".cnooc-model-selector:visible").click();
-    await page.getByRole("option").filter({ hasText: "GLM-5.3-Flash" }).click();
+    await page
+      .getByRole("menuitemradio", { name: "GLM-5.3-Flash", exact: true })
+      .click();
     await expect(page.locator(".cnooc-model-selector:visible")).toContainText(
       "GLM-5.3-Flash",
     );
@@ -264,7 +266,7 @@ for (const { width, height } of [
       await expect(link).toHaveAttribute("target", "_blank");
       await expect(link).toHaveAttribute("rel", "noopener noreferrer");
       const canvas = link.locator(".cnooc-portal-artwork");
-      const centered = await link.evaluate((element) => {
+      const alignment = await link.evaluate((element) => {
         const button = element.getBoundingClientRect();
         const content = [...element.children]
           .filter((child) => !child.classList.contains("sr-only"))
@@ -274,17 +276,22 @@ for (const { width, height } of [
         const top = Math.min(...content.map((box) => box.top));
         const bottom = Math.max(...content.map((box) => box.bottom));
         return {
-          x: (left + right - button.left - button.right) / 2,
+          leftInset: left - button.left,
+          paddingLeft: parseFloat(getComputedStyle(element).paddingLeft),
+          right: right - button.right,
           y: (top + bottom - button.top - button.bottom) / 2,
         };
       });
-      expect(Math.abs(centered.x)).toBeLessThanOrEqual(1);
-      expect(Math.abs(centered.y)).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(alignment.leftInset - alignment.paddingLeft),
+      ).toBeLessThanOrEqual(1);
+      expect(alignment.right).toBeLessThanOrEqual(0);
+      expect(Math.abs(alignment.y)).toBeLessThanOrEqual(1);
       expect(
         await canvas.evaluate(
           (element) => element.getBoundingClientRect().width,
         ),
-      ).toBe(originalSize);
+      ).toBe(22);
       await expect(link.locator("img")).toBeVisible();
       await expect(link.locator("img")).toHaveAttribute(
         "src",
@@ -313,7 +320,18 @@ for (const { width, height } of [
     expect(bounds?.x).toBeGreaterThanOrEqual(0);
     expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(width);
     expect(bounds?.width).toBeLessThanOrEqual(320);
-    expect(bounds?.height).toBeLessThanOrEqual(160);
+    // The released More/PPT menus use four stacked touch-sized rows.
+    expect(bounds?.height).toBeLessThanOrEqual(320);
+    const rows = await menu.getByRole("menuitem").all();
+    for (let index = 0; index < rows.length; index++) {
+      const row = await rows[index]!.boundingBox();
+      expect(row!.height).toBeGreaterThanOrEqual(44);
+      if (index > 0) {
+        const previous = await rows[index - 1]!.boundingBox();
+        expect(row!.y).toBeGreaterThanOrEqual(previous!.y + previous!.height);
+        expect(Math.abs(row!.x - previous!.x)).toBeLessThanOrEqual(1);
+      }
+    }
     expect(bounds?.y).toBeGreaterThanOrEqual(0);
     expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(
       height,

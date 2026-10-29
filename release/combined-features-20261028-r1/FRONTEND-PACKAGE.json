@@ -1,0 +1,40 @@
+{
+  "schema": "portal-combined-features-frontend-package.v1",
+  "manifest": "sha256:99a1da37496816a6abb0524587069cdf59dcec1bea4d5cc94c58f57c7817bbb2",
+  "config": "sha256:3d74a9749c57799195ffd104f5b0bd51ef8256e7d6b73a1c47661f905a29d78c",
+  "tag": "deerflow.local/deer-flow-frontend:20261028-combined-features-r1",
+  "archive": "frontend.combined-features.full.oci.tar",
+  "transport": {
+    "bytes": 127393792,
+    "sha256": "7706fdd9e2e0f5a4e42c1782d47047e7a6afe6c7941feb2f0b1e5c80321da5b4"
+  },
+  "scripts": {
+    "0015": {
+      "bytes": 87268,
+      "sha256": "c54b784d06297e8152ec50dbafda5eefa11055a22f6ca6c8c65a4a21e4951cba",
+      "file": "preload-portal-frontend-combined-features-0015-20261028-r1.py",
+      "hostname": "ecs-zdz-pro-0015",
+      "expected_node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+      "prior_script_sha256": "a5ad93252657ecbb76b769f23e8fc429607f4ed42600ac9496037dc39b2484c9"
+    },
+    "datax02": {
+      "bytes": 88853,
+      "sha256": "48d3fee292dffcb4676a1ce7ded929f1a159cb9d31e922c7d8536f8725e0be30",
+      "file": "preload-portal-frontend-combined-features-datax02-20261028-r1.py",
+      "hostname": "datax-02",
+      "expected_node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+      "prior_script_sha256": "a7bec72489e12c76a78fa44420d3c5e404d003b43476284c0e31a5899ea50b23"
+    }
+  },
+  "qualification_pin": {
+    "bytes": 2015,
+    "sha256": "e34efc0c634117a036a1fe323fc49e78054f18a397346236555037cf8d1ee092"
+  },
+  "source_change_sha256": "1087240d465ff5fd337afcc5937f0cfe429ae9c2818f2b94b60d1ee775ee3c41",
+  "archive_blob_and_diffid_validation": "PASS",
+  "exact_host_binding": true,
+  "capacity_checked_before_once_claim": true,
+  "frontend_deployed": false,
+  "ready_for_rollout": false,
+  "fresh_node_uid_check_required_at_activation": true
+}

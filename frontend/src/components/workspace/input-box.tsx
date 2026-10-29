@@ -37,7 +37,6 @@ import {
   PromptInputActionMenuContent,
   PromptInputActionMenuItem,
   PromptInputActionMenuTrigger,
-  PromptInputAttachment,
   PromptInputAttachments,
   PromptInputButton,
   PromptInputFooter,
@@ -63,6 +62,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { ChatModelPicker } from "@/components/workspace/chat-model-picker";
+import { ComposerAttachment } from "@/components/workspace/composer-attachment";
+import type { AgentStarterPrompt } from "@/core/agents/starter-prompts";
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 import { useI18n } from "@/core/i18n/hooks";
@@ -95,18 +97,11 @@ import {
   GatewayVoiceSession,
   type VoiceGatewaySupportReason,
 } from "@/core/voice-input/gateway-transcription";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { isIMEComposing } from "@/lib/ime";
 import { cn } from "@/lib/utils";
 
-import {
-  ModelSelector,
-  ModelSelectorContent,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
-  ModelSelectorName,
-  ModelSelectorTrigger,
-} from "../ai-elements/model-selector";
+import { ModelSelectorName } from "../ai-elements/model-selector";
 import { Suggestion, Suggestions } from "../ai-elements/suggestion";
 import {
   DropdownMenu,
@@ -278,6 +273,7 @@ export function InputBox({
   context,
   extraHeader,
   isWelcomeMode,
+  welcomeSuggestions,
   isNewThread: _isNewThread = false,
   threadId,
   initialValue,
@@ -299,6 +295,7 @@ export function InputBox({
    * decoupled from "the backend has created the thread" — see issue #2746.
    */
   isWelcomeMode?: boolean;
+  welcomeSuggestions?: AgentStarterPrompt[];
   /** Server-thread creation state, not the visual welcome mode. */
   isNewThread?: boolean;
   threadId: string;
@@ -313,6 +310,7 @@ export function InputBox({
   onStop?: () => void;
 }) {
   const { locale, t } = useI18n();
+  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
@@ -444,6 +442,24 @@ export function InputBox({
   const lastGeneratedForAiIdRef = useRef<string | null>(null);
   const wasStreamingRef = useRef(false);
   const messagesRef = useRef(thread.messages);
+
+  // Older enterprise browsers do not support CSS field-sizing. Keep the
+  // compact mobile editor growing with its real content in those browsers too.
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    if (!isMobile || isWelcomeMode) {
+      textarea.style.removeProperty("height");
+      return;
+    }
+    const resize = () => {
+      textarea.style.height = "0px";
+      textarea.style.height = `${Math.min(144, Math.max(24, textarea.scrollHeight))}px`;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, [isMobile, isWelcomeMode, selectedSlashSkill, textInput.value]);
 
   const abortVoiceInput = useCallback(() => {
     voiceSessionRef.current?.abort();
@@ -1965,7 +1981,10 @@ export function InputBox({
           <PromptInputAttachments className="contents p-0">
             {(attachment) => (
               <div className="cnooc-composer-attachment-chip max-w-60">
-                <PromptInputAttachment data={attachment} />
+                <ComposerAttachment
+                  data={attachment}
+                  disabled={composerLocked}
+                />
               </div>
             )}
           </PromptInputAttachments>
@@ -2060,6 +2079,7 @@ export function InputBox({
               onFocus={() => setTextareaFocused(true)}
               onKeyDown={handlePromptTextareaKeyDown}
               ref={textareaRef}
+              rows={1}
             />
           )}
         </div>
@@ -2103,17 +2123,16 @@ export function InputBox({
             />
             {!isWelcomeMode && voiceInputControl}
             {!isWelcomeMode && polishInputControl}
-            <ModeSelector
-              className={cn(
-                "cnooc-tool-mode",
-                isWelcomeMode ? "hidden sm:inline-flex" : undefined,
-              )}
-              disabled={composerLocked}
-              mode={context.mode}
-              supportsThinking={supportThinking}
-              thinkingAlwaysOn={selectedModel?.thinking_always_on}
-              onSelect={handleModeSelect}
-            />
+            {!isMobile && (
+              <ModeSelector
+                className="cnooc-tool-mode"
+                disabled={composerLocked}
+                mode={context.mode}
+                supportsThinking={supportThinking}
+                thinkingAlwaysOn={selectedModel?.thinking_always_on}
+                onSelect={handleModeSelect}
+              />
+            )}
             {supportReasoningEffort && context.mode !== "flash" && (
               <PromptInputActionMenu>
                 <PromptInputActionMenuTrigger
@@ -2235,53 +2254,43 @@ export function InputBox({
             )}
           </PromptInputTools>
           <PromptInputTools className="cnooc-model-tools min-w-0 shrink-0 justify-end">
+            {isMobile && (
+              <ModeSelector
+                className={cn(
+                  "cnooc-tool-mode",
+                  isWelcomeMode ? "hidden sm:inline-flex" : undefined,
+                )}
+                disabled={composerLocked}
+                mode={context.mode}
+                supportsThinking={supportThinking}
+                thinkingAlwaysOn={selectedModel?.thinking_always_on}
+                onSelect={handleModeSelect}
+              />
+            )}
             {isWelcomeMode && voiceInputControl}
             {isWelcomeMode && polishInputControl}
-            <ModelSelector
+            <ChatModelPicker
+              models={models}
+              selectedName={selectedModel?.name}
+              onSelect={handleModelSelect}
               open={modelDialogOpen}
               onOpenChange={setModelDialogOpen}
             >
-              <ModelSelectorTrigger asChild>
-                <PromptInputButton
-                  className="cnooc-model-selector min-w-0 px-2!"
-                  disabled={composerLocked}
-                >
-                  <div className="cnooc-model-label flex min-w-0 flex-col items-start text-left">
-                    <ModelSelectorName className="cnooc-model-name font-normal">
-                      {selectedModel?.display_name ?? "DeepSeek-V4-Flash"}
-                    </ModelSelectorName>
-                  </div>
-                  <ChevronDownIcon
-                    aria-hidden="true"
-                    className="cnooc-model-chevron"
-                  />
-                </PromptInputButton>
-              </ModelSelectorTrigger>
-              <ModelSelectorContent>
-                <ModelSelectorInput placeholder={t.inputBox.searchModels} />
-                <ModelSelectorList>
-                  {models.map((m) => (
-                    <ModelSelectorItem
-                      key={m.name}
-                      value={m.name}
-                      onSelect={() => handleModelSelect(m.name)}
-                    >
-                      <div className="flex min-w-0 flex-1 flex-col">
-                        <ModelSelectorName>{m.display_name}</ModelSelectorName>
-                        <span className="text-muted-foreground truncate text-[10px]">
-                          {m.model}
-                        </span>
-                      </div>
-                      {m.name === context.model_name ? (
-                        <CheckIcon className="ml-auto size-4" />
-                      ) : (
-                        <div className="ml-auto size-4" />
-                      )}
-                    </ModelSelectorItem>
-                  ))}
-                </ModelSelectorList>
-              </ModelSelectorContent>
-            </ModelSelector>
+              <PromptInputButton
+                className="cnooc-model-selector min-w-0 px-2!"
+                disabled={composerLocked}
+              >
+                <div className="cnooc-model-label flex min-w-0 flex-col items-start text-left">
+                  <ModelSelectorName className="cnooc-model-name font-normal">
+                    {selectedModel?.display_name ?? "DeepSeek-V4-Flash"}
+                  </ModelSelectorName>
+                </div>
+                <ChevronDownIcon
+                  aria-hidden="true"
+                  className="cnooc-model-chevron"
+                />
+              </PromptInputButton>
+            </ChatModelPicker>
             <PromptInputSubmit
               className="cnooc-submit rounded-full"
               disabled={composerLocked}
@@ -2316,7 +2325,10 @@ export function InputBox({
             className="cnooc-welcome-actions mobile-scroll-rail h-11 min-w-0 overflow-x-auto [&>[data-slot='scroll-area']]:h-full [&>[data-slot='scroll-area']]:w-full"
             data-testid="welcome-suggestion-rail"
           >
-            <SuggestionList onSelectPlaceholder={onSelectPlaceholder} />
+            <SuggestionList
+              onSelectPlaceholder={onSelectPlaceholder}
+              taskSuggestions={welcomeSuggestions}
+            />
           </div>
         )}
 
@@ -2405,8 +2417,10 @@ function QuickActionArtwork({
 
 function SuggestionList({
   onSelectPlaceholder,
+  taskSuggestions,
 }: {
   onSelectPlaceholder: (newText: string) => void;
+  taskSuggestions?: AgentStarterPrompt[];
 }) {
   const { t } = useI18n();
   const { textInput } = usePromptInputController();
@@ -2418,6 +2432,26 @@ function SuggestionList({
     },
     [textInput, onSelectPlaceholder],
   );
+  if (taskSuggestions) {
+    return (
+      <div
+        className="cnooc-agent-starter-prompts"
+        data-testid="agent-starter-prompts"
+      >
+        {taskSuggestions.map((suggestion) => (
+          <Button
+            key={suggestion.label}
+            type="button"
+            variant="outline"
+            onClick={() => handleSuggestionClick(suggestion.prompt)}
+          >
+            <SparklesIcon aria-hidden="true" className="size-4" />
+            {suggestion.label}
+          </Button>
+        ))}
+      </div>
+    );
+  }
   return (
     <Suggestions className="w-max max-w-none min-w-full flex-nowrap justify-start px-1 sm:w-fit sm:max-w-full sm:min-w-0 sm:flex-wrap sm:justify-center sm:px-0 [&>span]:max-w-none [&>span]:shrink-0">
       {t.inputBox.suggestions.map((suggestion, suggestionIndex) =>
@@ -2438,28 +2472,31 @@ function SuggestionList({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="center"
-              className="cnooc-portal-menu w-80 max-w-[calc(100vw-2rem)]"
+              className="cnooc-portal-menu"
               data-testid="ppt-generation-menu"
               collisionPadding={12}
+              side="top"
               sideOffset={8}
             >
-              <DropdownMenuLabel className="text-muted-foreground text-xs">
+              <DropdownMenuLabel className="cnooc-portal-menu-title">
                 {t.inputBox.pptRouteMenuTitle}
               </DropdownMenuLabel>
-              <DropdownMenuGroup>
+              <DropdownMenuGroup className="cnooc-portal-menu-list">
                 {t.inputBox.pptRouteSuggestions.map((route) => (
                   <DropdownMenuItem
                     key={route.id}
-                    className="items-start gap-3 py-2.5"
+                    className="cnooc-portal-menu-item"
                     data-testid={`ppt-route-${route.id}`}
                     onClick={() => handleSuggestionClick(route.prompt)}
                   >
-                    <route.icon className="mt-0.5 size-4 shrink-0" />
+                    <span className="cnooc-portal-menu-icon" aria-hidden="true">
+                      <route.icon />
+                    </span>
                     <span className="min-w-0">
-                      <span className="block text-sm font-medium">
+                      <span className="cnooc-portal-menu-label">
                         {route.suggestion}
                       </span>
-                      <span className="text-muted-foreground mt-0.5 block text-xs leading-5 whitespace-normal">
+                      <span className="cnooc-portal-menu-description">
                         {route.description}
                       </span>
                     </span>
@@ -2467,7 +2504,7 @@ function SuggestionList({
                 ))}
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuGroup>
+              <DropdownMenuGroup className="cnooc-portal-menu-list">
                 <PortalToolMenuItem tool={PPT_ASSISTANT_TOOL} />
               </DropdownMenuGroup>
             </DropdownMenuContent>

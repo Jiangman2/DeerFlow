@@ -291,7 +291,8 @@ test.describe("CNOOC concept layout", () => {
         color: getComputedStyle(button).color,
         fontSize: getComputedStyle(button).fontSize,
       }));
-      expect(style.color).toBe(modelControlStyle.color);
+      // Inactive toolbar controls share the released body tone.
+      expect(style.color).toBe("rgb(82, 101, 121)");
       expect(Number.parseFloat(style.fontSize)).toBeGreaterThanOrEqual(14);
       expect(Number.parseFloat(style.fontSize)).toBeLessThanOrEqual(
         Number.parseFloat(modelControlStyle.fontSize),
@@ -354,16 +355,14 @@ test.describe("CNOOC concept layout", () => {
       }),
     );
     for (const step of menuVerticalSteps.slice(0, 4)) {
-      // At this 1440x900 viewport the existing compact desktop media rule
-      // uses 66px entries with at least an 8px gap; separate menu groups
-      // add their own padding. Wide-screen 80px entries do not apply here.
-      expect(step).toBeGreaterThanOrEqual(66 + 8);
+      // Released compact rail: 62px entries separated by a 4px gap.
+      expect(step).toBe(62 + 4);
     }
     for (let index = 0; index < count; index += 1) {
       const button = menuButtons.nth(index);
       const buttonBox = await button.boundingBox();
       expect(buttonBox).not.toBeNull();
-      expect(buttonBox!.height).toBe(66);
+      expect(buttonBox!.height).toBe(62);
       const center = buttonBox!.x + buttonBox!.width / 2;
       const sidebarBox = await collapsedSidebar.boundingBox();
       expect(sidebarBox).not.toBeNull();
@@ -656,7 +655,7 @@ test.describe("CNOOC concept layout", () => {
     });
     await file.click();
     await expect(trigger).toHaveAttribute("data-selected-count", "0");
-    await expect(page.getByTestId("knowledge-scope-clear")).toBeHidden();
+    await expect(page.getByTestId("knowledge-scope-clear")).toBeDisabled();
     await file.click();
     await expect(trigger).toHaveAttribute("data-selected-count", "1");
 
@@ -980,6 +979,13 @@ test.describe("CNOOC concept layout", () => {
     expect(modelSelectorBox!.width).toBeLessThanOrEqual(180);
 
     await page.getByTestId("portal-tools-trigger").click();
+    await page.getByTestId("portal-tools-menu").evaluate(async (element) => {
+      await Promise.all(
+        element
+          .getAnimations({ subtree: true })
+          .map((animation) => animation.finished),
+      );
+    });
     const mobileMoreTriggerStyle = await page
       .getByTestId("portal-tools-trigger")
       .evaluate((button) => ({
@@ -1147,7 +1153,10 @@ test.describe("CNOOC concept layout", () => {
         .getByTestId("welcome-suggestion-rail")
         .locator('[data-slot="suggestion-item"] > :is(button, a)');
       for (const action of await actions.all()) {
-        await action.scrollIntoViewIfNeeded();
+        // Match the rail's start-aligned scroll snap rather than centering.
+        await action.evaluate((element) =>
+          element.scrollIntoView({ block: "nearest", inline: "start" }),
+        );
         await expect(action).toBeInViewport({ ratio: 1 });
         const box = await action.boundingBox();
         expect(box).not.toBeNull();

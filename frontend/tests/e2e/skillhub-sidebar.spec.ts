@@ -303,14 +303,43 @@ test("Skill Center bootstraps the native account before protected content", asyn
 }) => {
   const requestEvents: string[] = [];
   await mockAuthenticatedSkillHub(page, [], undefined, requestEvents);
+  let releaseBootstrap!: () => void;
+  const bootstrapGate = new Promise<void>((resolve) => {
+    releaseBootstrap = resolve;
+  });
+  await page.route(
+    "**/platform/skillhub/api/v1/auth/session/bootstrap",
+    async (route) => {
+      requestEvents.push(`bootstrap:${route.request().method()}`);
+      await bootstrapGate;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: 0,
+          data: {
+            userId: "skill-admin",
+            displayName: "Skill Administrator",
+            platformRoles: [],
+            canChangePassword: true,
+          },
+        }),
+      });
+    },
+  );
 
   await page.goto("/workspace/skills");
+  await expect.poll(() => requestEvents).toContain("bootstrap:POST");
+  await expect(page.getByTestId("skillhub-workspace-frame")).toHaveCount(0);
+  expect(requestEvents.some((event) => event.startsWith("frame:"))).toBe(false);
+  releaseBootstrap();
   await expect(page.getByTestId("skillhub-workspace-frame")).toBeVisible({
     timeout: 15_000,
   });
 
   expect(requestEvents[0]).toBe("bootstrap:POST");
-  expect(requestEvents).toContain("me:GET");
+  // The authenticated bootstrap already returns the native user and roles.
+  // A redundant /auth/me request is not required before showing the frame.
   expect(
     requestEvents.findIndex((event) => event.startsWith("frame:")),
   ).toBeGreaterThan(
@@ -438,7 +467,11 @@ test("embedded native role selector remains scrollable inside the user dialog", 
 
 test("Skill Center shows the current user's complete custom skill library", async ({
   page,
+  baseURL,
 }) => {
+  await page
+    .context()
+    .addCookies([{ name: "locale", value: "zh-CN", url: baseURL! }]);
   await mockAuthenticatedSkillHub(
     page,
     [],
@@ -483,6 +516,16 @@ test("Skill Center shows the current user's complete custom skill library", asyn
   ).toHaveCount(0);
   await expect(page.getByRole("button", { name: "新建技能" })).toBeVisible();
   await expect(page.getByTestId("skillhub-workspace-frame")).toBeHidden();
+  const title = await page.locator(".cnooc-skill-header > div").boundingBox();
+  const body = await page.locator(".cnooc-my-skills > div").boundingBox();
+  expect(Math.abs(title!.x - body!.x)).toBeLessThan(1);
+  expect(Math.abs(title!.width - body!.width)).toBeLessThan(1);
+  if (process.env.FEATURE_QA_OUTPUT_DIR) {
+    await page.screenshot({
+      path: `${process.env.FEATURE_QA_OUTPUT_DIR}/desktop-skill-library-alignment.png`,
+      animations: "disabled",
+    });
+  }
 });
 
 test("Skill Center keeps a mobile navigation escape hatch", async ({

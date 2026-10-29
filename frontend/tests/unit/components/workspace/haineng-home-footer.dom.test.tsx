@@ -51,11 +51,16 @@ test("shows four independent counters and the updated contact/group details", as
   );
   expect(screen.getByText("通用智能体：")).toBeTruthy();
   expect(screen.getByText("人工智能平台：")).toBeTruthy();
+  expect(screen.getByText("010-84521314").getAttribute("href")).toBe(
+    "tel:01084521314",
+  );
+  expect(screen.getByText("13520340738").getAttribute("href")).toBe(
+    "tel:13520340738",
+  );
   expect(screen.getByText("意见反馈").getAttribute("href")).toContain(
     "mailto:sh_tyznt@cnooc.com.cn?subject=",
   );
   for (const label of [
-    "客服电话",
     "客服邮箱",
     "业务负责人",
     "运维负责人",

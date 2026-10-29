@@ -214,6 +214,9 @@ export const enUS: Translations = {
 
   // Input Box
   inputBox: {
+    modelPickerTitle: "Choose a model",
+    currentModel: "Current model",
+    noMatchingModels: "No matching models",
     placeholder: "How can I assist you today?",
     createSkillPrompt:
       "We're going to build a new skill step by step with `skill-creator`. To start, what do you want this skill to do?",
@@ -249,6 +252,9 @@ export const enUS: Translations = {
     newShopCartLoading: "Loading Data Lake files...",
     newShopCartEmpty: "No files in the Data Lake",
     newShopCartRefresh: "Refresh",
+    newShopCartSearch: "Search file names",
+    newShopCartNoMatches: "No matching files. Try another keyword.",
+    newShopCartClearSelection: "Clear selection",
     newShopCartLoadFailed: "Failed to load Data Lake files. Please retry.",
     newShopCartComplete: "Ready",
     newShopCartProcessing: "Processing",
@@ -544,6 +550,7 @@ export const enUS: Translations = {
         "If this thread has an active run at the scheduled time, DeerFlow queues this occurrence and starts it when the thread is available. It fails if the configured queue wait limit is exceeded.",
     },
     filters: {
+      clear: "Clear filters",
       label: "Filters",
       allStatuses: "All statuses",
       enabled: "Enabled",
@@ -556,6 +563,13 @@ export const enUS: Translations = {
       interval: "Interval",
     },
     detail: {
+      retry: "Reload",
+      loading: "Loading scheduled tasks…",
+      loadFailureDescription: "Tasks could not be retrieved. Please try again.",
+      refreshFailed: "Refresh failed. Previously loaded tasks are still shown.",
+      noMatchesTitle: "No tasks match these filters",
+      noMatchesDescription:
+        "Clear the filters to see all tasks in the current view.",
       contextMode: "Context mode",
       thread: "Thread",
       lastThread: "Last thread",
@@ -657,6 +671,7 @@ export const enUS: Translations = {
     description:
       "Discover and manage digital employees with dedicated roles, knowledge, and capabilities.",
     newAgent: "New Digital Employee",
+    createAgent: "Create employee",
     emptyTitle: "No digital employees yet",
     emptyDescription:
       "Create your first digital employee with a dedicated role and capabilities.",
@@ -969,6 +984,8 @@ export const enUS: Translations = {
 
   // Subtasks
   uploads: {
+    attachment: "Attachment",
+    removeAttachment: "Remove attachment",
     uploading: "Uploading...",
     uploadingFiles: "Uploading files, please wait...",
     limitsHint: (maxFiles: number, maxFileSize: string, maxTotalSize: string) =>
@@ -1195,6 +1212,20 @@ export const enUS: Translations = {
       disableNotification: "Disable notification",
     },
     account: {
+      currentAccount: "Current account",
+      displayName: "Name",
+      organization: "Organization",
+      adminRole: "Administrator",
+      userRole: "User",
+      usageTitle: "Usage",
+      totalTokens: "Total tokens used",
+      inputTokens: "Input tokens",
+      outputTokens: "Output tokens",
+      unclassifiedTokens: "Unclassified historical tokens",
+      usageUnavailable: "Usage unavailable",
+      retryUsage: "Refresh usage",
+      usageScope:
+        "Model tokens recorded by this platform for your account, including active tasks. Unreported external usage is excluded.",
       profileTitle: "Profile",
       email: "Email",
       role: "Role",

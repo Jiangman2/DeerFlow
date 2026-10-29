@@ -35,7 +35,9 @@ import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../ui/dropdown-menu";
@@ -260,7 +262,8 @@ export function ShopCartAttachmentButton({
             <PromptInputButton
               className={cn(
                 "gap-1 px-2!",
-                dataLakeEnabled && "border-[#6d5dfc]/40 bg-[#f4f2ff]",
+                dataLakeEnabled &&
+                  "border-primary bg-accent text-accent-foreground",
                 className,
               )}
               data-active={dataLakeEnabled}
@@ -280,31 +283,38 @@ export function ShopCartAttachmentButton({
             </PromptInputButton>
           </DropdownMenuTrigger>
         </Tooltip>
-        <DropdownMenuContent align="start">
-          {dataLakeEnabled ? (
-            <>
+        <DropdownMenuContent
+          align="start"
+          sideOffset={8}
+          className="cnooc-material-menu"
+        >
+          <DropdownMenuLabel>{t.inputBox.shopCart}</DropdownMenuLabel>
+          <DropdownMenuGroup>
+            {dataLakeEnabled ? (
+              <>
+                <DropdownMenuItem
+                  disabled={authorizing}
+                  onSelect={() => authorizeDataLake("files")}
+                >
+                  <ListIcon />
+                  {t.inputBox.dataLakeFileList}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => updateDataLakeEnabled(false)}>
+                  <DatabaseZapIcon />
+                  {t.inputBox.disableDataLake}
+                </DropdownMenuItem>
+              </>
+            ) : (
               <DropdownMenuItem
                 disabled={authorizing}
-                onSelect={() => authorizeDataLake("files")}
+                onSelect={() => updateDataLakeEnabled(true)}
               >
-                <ListIcon />
-                {t.inputBox.dataLakeFileList}
+                <DatabaseIcon />
+                {t.inputBox.enableDataLake}
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => updateDataLakeEnabled(false)}>
-                <DatabaseZapIcon />
-                {t.inputBox.disableDataLake}
-              </DropdownMenuItem>
-            </>
-          ) : (
-            <DropdownMenuItem
-              disabled={authorizing}
-              onSelect={() => updateDataLakeEnabled(true)}
-            >
-              <DatabaseIcon />
-              {t.inputBox.enableDataLake}
-            </DropdownMenuItem>
-          )}
+            )}
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog

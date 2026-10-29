@@ -1,6 +1,6 @@
 "use client";
 
-import { ArchiveRestore } from "lucide-react";
+import { ArchiveRestore, MessageSquareText, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -94,6 +94,7 @@ export default function ChatsPage() {
           className="flex size-full flex-col"
         >
           <header className="cnooc-list-search mx-auto flex w-full max-w-(--container-width-md) shrink-0 flex-col gap-3 px-3 pt-4 sm:px-4 sm:pt-8">
+            <h1 className="cnooc-page-heading">{t.pages.chats}</h1>
             {!staticWebsite ? (
               <TabsList aria-label={t.pages.chats}>
                 <TabsTrigger value="active">{t.chats.activeChats}</TabsTrigger>
@@ -102,14 +103,20 @@ export default function ChatsPage() {
                 </TabsTrigger>
               </TabsList>
             ) : null}
-            <Input
-              type="search"
-              className="cnooc-search-input h-11 w-full max-w-(--container-width-md) text-base sm:h-12 sm:text-xl"
-              placeholder={t.chats.searchChats}
-              autoFocus
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-slate-400"
+                aria-hidden="true"
+              />
+              <Input
+                type="search"
+                className="cnooc-search-input h-12 w-full max-w-(--container-width-md) pl-11 text-base"
+                aria-label={t.chats.searchChats}
+                placeholder={t.chats.searchChats}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
           </header>
           <main className="min-h-0 flex-1">
             <ScrollArea className="app-scroll-region size-full py-2 sm:py-4">
@@ -123,26 +130,30 @@ export default function ChatsPage() {
                   </div>
                 ) : null}
                 {!isLoading && !isError && filteredThreads.length === 0 ? (
-                  <p
+                  <div
                     role="status"
-                    className="text-muted-foreground p-8 text-center"
+                    className="cnooc-list-empty text-muted-foreground p-8 text-center"
                   >
+                    <MessageSquareText
+                      className="mx-auto mb-3 size-7 text-slate-400"
+                      aria-hidden="true"
+                    />
                     {isSearching
                       ? t.chats.noMatchingChats
                       : archived
                         ? t.chats.noArchivedChats
                         : t.chats.noActiveChats}
-                  </p>
+                  </div>
                 ) : null}
                 {filteredThreads.map((thread) => {
                   const channelSource = channelSourceOfThread(thread);
                   return (
                     <div
                       key={thread.thread_id}
-                      className="flex items-center gap-2 border-b"
+                      className="cnooc-thread-row flex items-center gap-2"
                     >
                       <Link
-                        className="min-w-0 flex-1"
+                        className="min-w-0 flex-1 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
                         href={pathOfThread(thread)}
                       >
                         <div className="flex flex-col gap-2 p-4">

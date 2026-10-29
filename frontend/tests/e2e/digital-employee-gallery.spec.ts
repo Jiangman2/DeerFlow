@@ -76,7 +76,23 @@ test("digital employee directory filters compact rows on desktop and mobile", as
 
   const cards = page.getByTestId("digital-employee-card");
   const pagination = page.getByTestId("digital-employee-pagination");
-  await expect(cards).toHaveCount(6);
+  const slot = page.getByTestId("employee-card-slot");
+  await expect(slot).toBeVisible();
+  const expectedPageSize = await slot.evaluate((element) =>
+    Math.max(
+      1,
+      Math.floor(
+        (element.clientHeight + 10) /
+          (Math.max(112, parseFloat(getComputedStyle(element).fontSize) * 7) +
+            10),
+      ),
+    ),
+  );
+  await expect(slot).toHaveAttribute(
+    "data-page-size",
+    String(expectedPageSize),
+  );
+  await expect(cards).toHaveCount(expectedPageSize);
   await expect(pagination).toBeVisible();
   const categoryToggle = page.getByTestId("business-domain-toggle").first();
   const categoryDirectory = page
@@ -112,13 +128,13 @@ test("digital employee directory filters compact rows on desktop and mobile", as
   await categoryToggle.click();
   await expect(categoryDirectory).toBeHidden();
   await pagination.getByRole("button", { name: /Next|下一页/i }).click();
-  await expect(cards).toHaveCount(6);
+  await expect(cards).toHaveCount(expectedPageSize);
 
   await page
     .getByRole("tab", { name: /My digital employees|我的数字员工/i })
     .click();
 
-  await expect(cards).toHaveCount(6);
+  await expect(cards).toHaveCount(expectedPageSize);
   await expect(pagination).toBeVisible();
   await expect(
     pagination.getByRole("button", { name: /Page 1|第 1 页/i }),
@@ -136,7 +152,7 @@ test("digital employee directory filters compact rows on desktop and mobile", as
   await expect(cards).toContainText("HSE Safety Reviewer");
   await expect(pagination).toBeHidden();
   await search.fill("");
-  await expect(cards).toHaveCount(6);
+  await expect(cards).toHaveCount(expectedPageSize);
 
   const popularTags = page.getByTestId("popular-tag-filter").first();
   await expect(popularTags.getByTestId("popular-tag-option")).toHaveCount(8);
@@ -144,7 +160,9 @@ test("digital employee directory filters compact rows on desktop and mobile", as
   await expect(popularTags.getByTestId("popular-tag-option")).toHaveCount(12);
 
   await categoryToggle.click();
-  const desktopFilterPanel = page.getByTestId("desktop-filter-panel");
+  const desktopFilterPanel = page
+    .getByTestId("desktop-filter-panel")
+    .locator(":scope > .app-scroll-region");
   const desktopFilterMetrics = await desktopFilterPanel.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
     const bounds = element.getBoundingClientRect();

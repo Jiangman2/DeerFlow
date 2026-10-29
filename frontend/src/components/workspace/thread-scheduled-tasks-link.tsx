@@ -2,13 +2,30 @@ import { CalendarClock } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useI18n } from "@/core/i18n/hooks";
 
-export function ThreadScheduledTasksLink({ threadId }: { threadId?: string }) {
+export function ThreadScheduledTasksLink({
+  threadId,
+  inMenu = false,
+}: {
+  threadId?: string;
+  inMenu?: boolean;
+}) {
   const { t } = useI18n();
   const href = threadId
     ? `/workspace/scheduled-tasks?thread_id=${encodeURIComponent(threadId)}`
     : "/workspace/scheduled-tasks";
+  if (inMenu) {
+    return (
+      <DropdownMenuItem asChild>
+        <Link href={href}>
+          <CalendarClock />
+          {t.sidebar.scheduledTasks}
+        </Link>
+      </DropdownMenuItem>
+    );
+  }
   return (
     <Button
       variant="outline"

@@ -145,7 +145,7 @@ def test_disabled_data_lake_context_rejects_before_configuration_or_network(cont
                 result = json.loads(module._invoke_tool(tool_name, "问题", runtime))
 
     assert result == {
-        "error": "请先点击数据湖按钮开启权限，然后重新发送这个问题。我不会使用外部查询替代数据湖查询。",
+        "error": "请先点击数据湖按钮开启权限后再查询。可以继续处理已有的本地文件；不会使用外部查询替代数据湖查询。",
         "code": "datalake_disabled",
         "retryable": False,
     }

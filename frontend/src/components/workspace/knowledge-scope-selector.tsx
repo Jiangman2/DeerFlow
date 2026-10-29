@@ -23,9 +23,11 @@ import {
 import { toast } from "sonner";
 
 import { PromptInputButton } from "@/components/ai-elements/prompt-input";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -102,8 +104,8 @@ function SelectedMark({ selected }: { selected: boolean }) {
       className={cn(
         "flex size-4 shrink-0 items-center justify-center rounded border",
         selected
-          ? "border-[#5f85df] bg-[#5f85df] text-white"
-          : "border-[#c8d3e3] bg-white",
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-input bg-background",
       )}
     >
       {selected && <CheckIcon className="size-3" />}
@@ -131,7 +133,7 @@ function ResourceRow({
       aria-checked={selected}
       className={cn(
         "min-h-11 w-full max-w-full min-w-0 cursor-pointer items-start gap-2.5 overflow-hidden rounded-lg border border-transparent px-2.5 py-2",
-        selected && "border-[#aac0ef] bg-[#edf4ff] text-[#285fc8]",
+        selected && "border-primary bg-accent text-accent-foreground",
       )}
       data-testid={testId}
       onSelect={(event) => {
@@ -140,7 +142,7 @@ function ResourceRow({
       }}
       role="menuitemcheckbox"
     >
-      <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-[#f1f5fb] text-[#587092]">
+      <span className="bg-muted text-muted-foreground mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md">
         {icon}
       </span>
       <span className="min-w-0 flex-1 overflow-hidden">
@@ -187,7 +189,7 @@ function GroupEntry({
         onSelect();
       }}
     >
-      <span className="flex size-7 items-center justify-center rounded-lg bg-[#eef4fd] text-[#4f70ad]">
+      <span className="bg-muted text-muted-foreground flex size-7 items-center justify-center rounded-lg">
         {icon}
       </span>
       <span className="flex-1 text-sm font-medium">{label}</span>
@@ -544,7 +546,7 @@ export function KnowledgeScopeSelector<T>({
           className={cn(
             "min-w-0 gap-1.5 px-2!",
             selectedItems.length > 0 &&
-              "border-[#79a2ef]! bg-[#edf4ff]! text-[#2c67d2]!",
+              "border-primary bg-accent text-accent-foreground",
             className,
           )}
           data-active={selectedItems.length > 0}
@@ -557,7 +559,7 @@ export function KnowledgeScopeSelector<T>({
           <span className="text-xs font-normal whitespace-nowrap">知识库</span>
           {selectedItems.length > 0 && (
             <span
-              className="cnooc-knowledge-scope-count flex min-w-4 items-center justify-center rounded-full bg-[#4f76d9] px-1 text-[10px] leading-4 font-semibold text-white"
+              className="cnooc-knowledge-scope-count bg-primary text-primary-foreground flex min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-4 font-semibold"
               data-testid="knowledge-scope-count"
             >
               {selectedItems.length}
@@ -567,7 +569,8 @@ export function KnowledgeScopeSelector<T>({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="flex min-h-0 w-[min(20rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-xl border-[#ccd8e9] p-0 shadow-xl"
+        className="cnooc-knowledge-menu flex min-h-0 w-[min(24rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border-[#ccd8e9] p-0 shadow-xl"
+        collisionPadding={12}
         data-testid="knowledge-scope-menu"
         side="top"
         sideOffset={8}
@@ -577,9 +580,25 @@ export function KnowledgeScopeSelector<T>({
         }}
       >
         <div
-          className="shrink-0 border-b p-2"
+          className="cnooc-knowledge-menu-header shrink-0 border-b p-3"
           onKeyDown={(event) => event.stopPropagation()}
         >
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-col gap-1">
+              <p className="text-sm font-semibold">选择知识范围</p>
+              <p className="text-muted-foreground text-xs">
+                可多选知识库、标签或文件
+              </p>
+            </div>
+            <Button
+              aria-label="关闭知识范围"
+              size="icon"
+              variant="ghost"
+              onClick={() => setOpen(false)}
+            >
+              <XIcon />
+            </Button>
+          </div>
           <div className="relative">
             <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
             <Input
@@ -596,7 +615,7 @@ export function KnowledgeScopeSelector<T>({
           className="max-h-96 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain"
           data-testid="knowledge-scope-list"
         >
-          <div className="space-y-0.5 p-1.5">
+          <DropdownMenuGroup className="flex flex-col gap-1 p-2">
             {!showFlatResults && group === "root" && (
               <>
                 <GroupEntry
@@ -729,15 +748,17 @@ export function KnowledgeScopeSelector<T>({
                   暂无可用文件
                 </div>
               )}
-          </div>
+          </DropdownMenuGroup>
         </div>
-        {selectedItems.length > 0 && (
-          <div className="flex shrink-0 items-center justify-between border-t bg-[#f8fafc] px-3 py-2 text-xs">
-            <span className="font-medium text-[#315fcf]">
-              已选择 {selectedItems.length} 项
-            </span>
-            <button
-              className="text-muted-foreground hover:text-foreground"
+        <div className="cnooc-knowledge-menu-footer flex shrink-0 items-center justify-between gap-2 border-t bg-[#f8fafc] px-3 py-2 text-xs">
+          <span className="font-medium text-[#315fcf]">
+            已选择 {selectedItems.length} / {MAX_WEKNORA_SCOPE_ITEMS} 项
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={selectedItems.length === 0}
               data-testid="knowledge-scope-clear"
               onClick={() => {
                 commitScope(context, [], onContextChange);
@@ -746,9 +767,12 @@ export function KnowledgeScopeSelector<T>({
               type="button"
             >
               清空
-            </button>
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
+              完成
+            </Button>
           </div>
-        )}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

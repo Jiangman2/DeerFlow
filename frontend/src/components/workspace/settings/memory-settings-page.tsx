@@ -533,10 +533,7 @@ export function MemorySettingsPage() {
 
   return (
     <>
-      <SettingsSection
-        title={t.settings.memory.title}
-        description={t.settings.memory.description}
-      >
+      <SettingsSection title={t.settings.memory.title}>
         <div className="text-muted-foreground mb-4 rounded-lg border border-dashed px-4 py-3 text-sm leading-6">
           {t.settings.memory.updateBehaviorHint}
         </div>
@@ -753,7 +750,7 @@ export function MemorySettingsPage() {
       </SettingsSection>
 
       <Dialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-        <DialogContent>
+        <DialogContent className="cnooc-detail-dialog cnooc-memory-dialog">
           <DialogHeader>
             <DialogTitle>{clearAllConfirmTitle}</DialogTitle>
             <DialogDescription>{clearAllConfirmDescription}</DialogDescription>
@@ -787,7 +784,10 @@ export function MemorySettingsPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent
+          className="cnooc-detail-dialog cnooc-memory-dialog"
+          aria-describedby={undefined}
+        >
           <DialogHeader>
             <DialogTitle>
               {factToEdit ? editFactTitle : addFactTitle}
@@ -897,7 +897,7 @@ export function MemorySettingsPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="cnooc-detail-dialog cnooc-memory-dialog">
           <DialogHeader>
             <DialogTitle>{factDeleteConfirmTitle}</DialogTitle>
             <DialogDescription>
@@ -941,7 +941,7 @@ export function MemorySettingsPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="cnooc-detail-dialog cnooc-memory-dialog">
           <DialogHeader>
             <DialogTitle>{t.settings.memory.importConfirmTitle}</DialogTitle>
             <DialogDescription>

@@ -1,7 +1,22 @@
 # AGENTS.md
 
-The 2026-10-26 production reconciliation is recorded in
-`docs/production-source-reconciliation-20261026.md`. The current default source
+## Current production baseline (2026-10-29)
+
+Gateway 389 and Frontend 231 supersede the historical 387/229 baseline described
+below. Runner 55 remains unchanged. The current lock is
+`deploy/enterprise/production-source-lock-20261029.json`; run
+`python deploy/enterprise/verify-production-baseline-20261029.py --ref HEAD`
+with Python 3.12+. See `docs/production-source-reconciliation-20261029.md`.
+Keep all historical inventories immutable. The V4.1 adapter is shipped but its
+model is disabled; retain the existing default and exclude the paused Work
+update. Browser/business acceptance remains open. The operator confirmed that
+the image-generation incident was resolved on the model-service side. Do not
+confuse source alignment with a new deployment or rerun
+archived activation tools. WeKnora native GLM and member-UI provenance rules
+below still apply, including the unproven colleague UI base-image provenance.
+
+The historical 2026-10-26 production reconciliation is recorded in
+`docs/production-source-reconciliation-20261026.md`. Its source
 lock is `deploy/enterprise/production-source-lock-20261026.json`; it binds the
 accepted Gateway 387, Frontend 229 and Runner 55 sources to the fresh operator
 snapshot and the exact WeKnora Frontend 39 ConfigMap payload. The colleague's
@@ -18,7 +33,7 @@ historical inventory immutable; intentional future changes need new provenance.
 This backend restoration does not establish the colleague's UI base provenance
 or authorize rerunning archived build/activation tools against production.
 
-The latest verified production source sets are Gateway 387, Frontend 229 and
+The historical October 26 verified source sets are Gateway 387, Frontend 229 and
 PPT Runner 55. The backend evidence is documented in
 `docs/production-source-reconciliation-20261023.md`; the Frontend 229 receipt and
 sealed build inputs are recorded in

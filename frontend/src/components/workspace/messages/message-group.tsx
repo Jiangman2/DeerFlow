@@ -331,7 +331,10 @@ export function MessageGroup({
         />
       ))}
       <ChainOfThought
-        className={cn("w-full gap-2 rounded-lg border p-0.5", className)}
+        className={cn(
+          "cnooc-answer-process w-full gap-2 rounded-lg border p-0.5",
+          className,
+        )}
         open={true}
       >
         {collapsibleAboveLastToolCallSteps.length > 0 && (

@@ -61,10 +61,7 @@ export function PortalQuickAction({ tool }: { tool: PortalTool }) {
 export function PortalToolMenuItem({ tool }: { tool: PortalTool }) {
   const { t } = useI18n();
   return (
-    <DropdownMenuItem
-      asChild
-      className="min-h-12 min-w-0 justify-center gap-1 rounded-lg px-1 py-0.5 text-center"
-    >
+    <DropdownMenuItem asChild className="cnooc-portal-menu-item">
       <a
         href={tool.href}
         target="_blank"
@@ -72,8 +69,10 @@ export function PortalToolMenuItem({ tool }: { tool: PortalTool }) {
         title={t.common.openInNewWindow}
         data-testid={`portal-tool-${tool.id}`}
       >
-        <PortalArtwork id={tool.id} />
-        <span className="min-w-0 text-xs leading-4 text-balance whitespace-normal">
+        <span className="cnooc-portal-menu-icon" aria-hidden="true">
+          <PortalArtwork id={tool.id} />
+        </span>
+        <span className="cnooc-portal-menu-label">
           {t.portalTools[tool.id]}
         </span>
         <span className="sr-only">{t.common.openInNewWindow}</span>
@@ -98,18 +97,18 @@ export function PortalToolsMenu() {
         </Suggestion>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        align="end"
+        align="center"
         side="top"
         sideOffset={8}
         collisionPadding={12}
-        className="cnooc-portal-menu w-80 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl p-1.5"
+        className="cnooc-portal-menu cnooc-portal-menu-compact"
         data-testid="portal-tools-menu"
       >
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="px-2 py-1 text-xs font-medium">
+          <DropdownMenuLabel className="cnooc-portal-menu-title">
             {t.portalTools.title}
           </DropdownMenuLabel>
-          <DropdownMenuGroup className="grid grid-cols-2 gap-x-1 gap-y-0.5">
+          <DropdownMenuGroup className="cnooc-portal-menu-list">
             {PORTAL_MORE_TOOLS.map((tool) => (
               <PortalToolMenuItem key={tool.id} tool={tool} />
             ))}

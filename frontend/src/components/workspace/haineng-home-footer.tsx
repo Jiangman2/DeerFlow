@@ -125,6 +125,14 @@ export function HainengHomeFooter() {
                 </dd>
               </div>
               <div>
+                <dt>{t.welcome.supportPhone}：</dt>
+                <dd className="cnooc-home-contact-phones">
+                  <a href="tel:01084521314">010-84521314</a>
+                  <span>，</span>
+                  <a href="tel:13520340738">13520340738</a>
+                </dd>
+              </div>
+              <div>
                 <dt>{t.welcome.serviceHours}：</dt>
                 <dd>8:30 ～ 17:30</dd>
               </div>

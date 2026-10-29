@@ -213,42 +213,42 @@ export function sanitizeSkillHubVisibleText(value: string) {
 
 const SKILLHUB_EMBED_CSS = `
   :root {
-    --background: 210 50% 97% !important;
-    --foreground: 211 38% 24% !important;
+    --background: 216 33% 97% !important;
+    --foreground: 211 41% 21% !important;
     --card: 0 0% 100% !important;
     --card-foreground: 211 38% 24% !important;
     --popover: 0 0% 100% !important;
     --popover-foreground: 211 38% 24% !important;
-    --primary: 210 100% 37% !important;
+    --primary: 205 100% 35% !important;
     --primary-foreground: 0 0% 100% !important;
     --secondary: 211 64% 95% !important;
     --secondary-foreground: 211 62% 31% !important;
     --muted: 210 40% 95% !important;
-    --muted-foreground: 211 19% 45% !important;
+    --muted-foreground: 211 19% 40% !important;
     --accent: 211 65% 92% !important;
     --accent-foreground: 211 71% 34% !important;
-    --border: 210 34% 86% !important;
-    --input: 210 31% 79% !important;
+    --border: 212 32% 90% !important;
+    --input: 211 28% 79% !important;
     --ring: 210 79% 46% !important;
     --radius: 0.75rem !important;
     --surface-glass: 210 50% 98% !important;
     --glow-primary: 210 100% 37% !important;
     --glow-accent: 204 73% 48% !important;
-    --brand-start: #005fbc !important;
-    --brand-end: #1687c9 !important;
-    --brand-gradient: linear-gradient(135deg, #005fbc 0%, #1687c9 100%) !important;
+    --brand-start: #0067b1 !important;
+    --brand-end: #0067b1 !important;
+    --brand-gradient: linear-gradient(135deg, #0067b1 0%, #0067b1 100%) !important;
     --text-secondary: 211 28% 36% !important;
     --text-muted: 211 19% 45% !important;
     --text-placeholder: 211 14% 63% !important;
     --border-card: 210 34% 89% !important;
-    --bg-page: #f5f9fd !important;
+    --bg-page: #f5f7fa !important;
   }
 
   html,
   body,
   #root {
     min-height: 100%;
-    background: #f5f9fd !important;
+    background: #f5f7fa !important;
   }
 
   body,
@@ -273,17 +273,21 @@ const SKILLHUB_EMBED_CSS = `
 
   body > #root > div {
     min-height: 100vh !important;
-    background: #f5f9fd !important;
+    background: #f5f7fa !important;
   }
 
   body > #root > div > main {
-    padding-top: 1.25rem !important;
-    padding-bottom: 2rem !important;
+    padding: 24px !important;
+  }
+
+  body > #root > div > main > .mx-auto.w-full {
+    max-width: none !important;
   }
 
   body > #root > div > main h1 {
-    font-size: clamp(1.5rem, 2.5vw, 2rem) !important;
-    line-height: 1.2 !important;
+    font-size: 24px !important;
+    line-height: 1.4 !important;
+    font-weight: 650 !important;
   }
 
   [data-deerflow-shell-only="true"] {
@@ -296,80 +300,61 @@ const SKILLHUB_EMBED_CSS = `
    * those non-destructive accents here so embedded pages read as one product.
    * Destructive/error controls intentionally retain their red warning color.
    */
-  [class*="bg-emerald-"],
-  [class*="bg-green-"],
-  [class*="bg-teal-"],
   [class*="bg-indigo-"],
   [class*="bg-violet-"],
   [class*="bg-purple-"] {
-    background-color: rgba(0, 95, 188, 0.1) !important;
+    background-color: rgba(0, 103, 177, 0.1) !important;
   }
 
-  [class*="text-emerald-"],
-  [class*="text-green-"],
-  [class*="text-teal-"],
   [class*="text-indigo-"],
   [class*="text-violet-"],
   [class*="text-purple-"] {
-    color: #005fbc !important;
+    color: #0067b1 !important;
   }
 
-  [class*="border-emerald-"],
-  [class*="border-green-"],
-  [class*="border-teal-"],
   [class*="border-indigo-"],
   [class*="border-violet-"],
   [class*="border-purple-"] {
-    border-color: rgba(0, 95, 188, 0.24) !important;
+    border-color: rgba(0, 103, 177, 0.24) !important;
   }
 
-  [class*="from-emerald-"],
-  [class*="from-green-"],
-  [class*="from-teal-"],
   [class*="from-indigo-"],
   [class*="from-violet-"],
   [class*="from-purple-"] {
-    --tw-gradient-from: #005fbc var(--tw-gradient-from-position) !important;
-    --tw-gradient-to: rgba(0, 95, 188, 0) var(--tw-gradient-to-position) !important;
+    --tw-gradient-from: #0067b1 var(--tw-gradient-from-position) !important;
+    --tw-gradient-to: rgba(0, 103, 177, 0) var(--tw-gradient-to-position) !important;
   }
 
-  [class*="via-emerald-"],
-  [class*="via-green-"],
-  [class*="via-teal-"],
   [class*="via-indigo-"],
   [class*="via-violet-"],
   [class*="via-purple-"] {
-    --tw-gradient-via: #0b73c5 var(--tw-gradient-via-position) !important;
+    --tw-gradient-via: #0067b1 var(--tw-gradient-via-position) !important;
   }
 
-  [class*="to-emerald-"],
-  [class*="to-green-"],
-  [class*="to-teal-"],
   [class*="to-indigo-"],
   [class*="to-violet-"],
   [class*="to-purple-"] {
-    --tw-gradient-to: #1687c9 var(--tw-gradient-to-position) !important;
+    --tw-gradient-to: #0067b1 var(--tw-gradient-to-position) !important;
   }
 
-  .badge-soft-green,
   .badge-soft-blue,
   .badge-soft-purple {
-    border-color: rgba(0, 95, 188, 0.22) !important;
-    background: rgba(0, 95, 188, 0.09) !important;
-    color: #005fbc !important;
+    border-color: rgba(0, 103, 177, 0.22) !important;
+    background: rgba(0, 103, 177, 0.09) !important;
+    color: #0067b1 !important;
   }
 
   button[class*="border-border"][class*="bg-transparent"],
   button[class*="border-border"][class*="bg-background"],
   [role="button"][class*="border-border"][class*="bg-transparent"] {
-    border-color: rgba(0, 95, 188, 0.22) !important;
-    color: #005fbc !important;
+    border-color: rgba(0, 103, 177, 0.22) !important;
+    color: #0067b1 !important;
   }
 
   [data-state="active"],
   [aria-selected="true"],
   [aria-current="page"] {
-    --tw-ring-color: rgba(0, 95, 188, 0.32) !important;
+    --tw-ring-color: rgba(0, 103, 177, 0.32) !important;
   }
 
   input:focus,
@@ -378,13 +363,33 @@ const SKILLHUB_EMBED_CSS = `
   select:focus-visible,
   textarea:focus,
   textarea:focus-visible {
-    border-color: rgba(0, 95, 188, 0.62) !important;
-    box-shadow: 0 0 0 3px rgba(0, 95, 188, 0.12) !important;
+    border-color: rgba(0, 103, 177, 0.62) !important;
+    box-shadow: 0 0 0 3px rgba(0, 103, 177, 0.12) !important;
   }
 
   .text-brand-gradient {
     background-image: var(--brand-gradient) !important;
   }
+
+  /* Accent is a surface token; namespace labels need its readable foreground. */
+  .text-accent { color: #005592 !important; }
+  button:not([role="switch"]):not([role="checkbox"]),
+  [role="combobox"] {
+    min-height: 36px;
+    border-radius: 10px !important;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: none !important;
+  }
+  button[class*="bg-primary"] {
+    background: #0067b1 !important;
+    color: #ffffff !important;
+  }
+  button[class*="bg-primary"]:hover:not(:disabled) { background: #005592 !important; }
+  button:focus-visible, a:focus-visible {
+    outline: 2px solid #0067b1; outline-offset: 2px;
+  }
+  a[class*="rounded-2xl"] { border-radius: 12px !important; box-shadow: none !important; }
 
   /*
    * Native SkillHub intentionally keeps Radix Select inside its Dialog so the
@@ -413,7 +418,29 @@ const SKILLHUB_EMBED_CSS = `
   }
 
   ::selection {
-    background: rgba(0, 95, 188, 0.2);
+    background: rgba(0, 103, 177, 0.2);
+  }
+
+  @media (max-width: 767px) {
+    html, body, #root { min-width: 0 !important; }
+    body > #root > div > main {
+      min-width: 0; padding: 16px 16px 24px !important;
+    }
+    body > #root > div > main h1 { font-size: 22px !important; }
+    input, select, textarea { font-size: 16px !important; }
+    button:not([role="switch"]):not([role="checkbox"]),
+    [role="combobox"], [role="tab"], [role="menuitem"] { min-height: 44px; }
+    [role="dialog"] {
+      width: calc(100vw - 24px) !important;
+      max-width: calc(100vw - 24px) !important;
+      max-height: calc(100vh - 24px);
+      max-height: calc(100dvh - 24px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    [role="tablist"] { max-width: 100%; overflow-x: auto; justify-content: flex-start; }
+    pre { max-width: 100%; overflow-x: auto; }
+    h1, h2, h3 { overflow-wrap: anywhere; }
   }
 `;
 

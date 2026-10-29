@@ -24,11 +24,13 @@ from app.gateway.routers import (
     browser,
     channel_connections,
     channels,
+    competition_usage,
     console,
     convert,
     dashboard,
     data_lake_auth,
     datalake,
+    employee_analytics,
     employee_directory,
     features,
     feedback,
@@ -609,6 +611,8 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     # Agents API is mounted at /api/agents
     app.include_router(agents.router)
     app.include_router(employee_directory.router)
+    app.include_router(employee_analytics.router)
+    app.include_router(competition_usage.router)
 
     # Suggestions API is mounted at /api/threads/{thread_id}/suggestions
     app.include_router(suggestions.router)

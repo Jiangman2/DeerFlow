@@ -253,6 +253,17 @@ test.describe("mobile WebView workspace", () => {
         clientWidth: element.clientWidth,
         scrollWidth: element.scrollWidth,
         flexWrap: getComputedStyle(element).flexWrap,
+        left: element.getBoundingClientRect().left,
+        right: element.getBoundingClientRect().right,
+        buttons: [...element.querySelectorAll("button")].map((button) => {
+          const box = button.getBoundingClientRect();
+          return {
+            left: box.left,
+            right: box.right,
+            top: box.top,
+            height: box.height,
+          };
+        }),
       })),
       suggestionViewport.evaluate((element) => ({
         clientWidth: element.clientWidth,
@@ -263,7 +274,19 @@ test.describe("mobile WebView workspace", () => {
     expect(composerBox).not.toBeNull();
     expect(composerBox!.height).toBeLessThan(190);
     expect(toolMetrics.flexWrap).toBe("nowrap");
-    expect(toolMetrics.scrollWidth).toBeGreaterThan(toolMetrics.clientWidth);
+    // The refined three-button row fits this viewport; do not require overflow.
+    expect(toolMetrics.scrollWidth).toBeLessThanOrEqual(
+      toolMetrics.clientWidth + 1,
+    );
+    expect(toolMetrics.buttons).toHaveLength(3);
+    for (const button of toolMetrics.buttons) {
+      expect(button.left).toBeGreaterThanOrEqual(toolMetrics.left - 1);
+      expect(button.right).toBeLessThanOrEqual(toolMetrics.right + 1);
+      expect(button.height).toBeGreaterThanOrEqual(32);
+      expect(
+        Math.abs(button.top - toolMetrics.buttons[0]!.top),
+      ).toBeLessThanOrEqual(1);
+    }
     expect(suggestionMetrics.scrollWidth).toBeGreaterThan(
       suggestionMetrics.clientWidth,
     );
@@ -435,7 +458,9 @@ test.describe("mobile WebView workspace", () => {
     await page.goto("/workspace/knowledge", { waitUntil: "domcontentloaded" });
     const frame = page.getByTestId("weknora-workspace-frame");
     await expect(frame).toBeVisible({ timeout: 15_000 });
-    const trigger = mobileNavigationTrigger(page);
+    const trigger = page.getByRole("button", {
+      name: /Platform menu|平台导航/,
+    });
     await expect(trigger).toHaveCount(1);
     await trigger.click();
     await expect(
@@ -461,6 +486,7 @@ test.describe("mobile WebView workspace", () => {
     await page.goto(`/workspace/chats/${MOCK_THREAD_ID}`, {
       waitUntil: "domcontentloaded",
     });
+    await page.getByTestId("chat-more-trigger").click();
     await page.getByTestId("artifact-trigger").click();
     const sheet = page.locator("[data-slot='sheet-content']");
     await expect(sheet).toBeVisible();
@@ -509,7 +535,9 @@ test.describe("mobile WebView workspace", () => {
 
     await page.goto("/workspace/chats", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("searchbox")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("Mobile history item")).toBeVisible();
+    await expect(page.getByText("Mobile history item")).toBeVisible({
+      timeout: 15_000,
+    });
     await expectNoPageOverflow(page, 320);
 
     await page.goto("/workspace/agents", { waitUntil: "domcontentloaded" });

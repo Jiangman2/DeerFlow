@@ -52,7 +52,7 @@ export function WorkspaceSidebar({
         <SidebarContent className="mx-1 rounded-md border border-transparent bg-transparent group-data-[collapsible=icon]:mx-0">
           <WorkspaceNavChatList />
           <WorkspaceChannelsList />
-          {isSidebarOpen && <RecentChatList />}
+          {(isSidebarOpen || isMobile) && <RecentChatList />}
         </SidebarContent>
         <SidebarFooter className="mx-1 rounded-md border border-transparent bg-transparent group-data-[collapsible=icon]:mx-0">
           <WorkspaceNavMenu />

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeftIcon,
   CalendarClockIcon,
+  ChevronDownIcon,
   ClockIcon,
   CopyIcon,
   HelpCircleIcon,
@@ -39,6 +40,8 @@ import {
 } from "@/components/ui/select";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
+import { ModulePageTitle } from "@/components/workspace/module-page-title";
+import { ScheduledTaskListFeedback } from "@/components/workspace/scheduled-task-list-feedback";
 import {
   ScheduledTaskScheduleInput,
   type ScheduleValue,
@@ -140,8 +143,8 @@ export default function ScheduledTasksPage() {
     enabled: !agentsApiLoading && agentsApiEnabled,
     retry: false,
   });
-  const data = threadId ? threadTasksQuery.data : allTasksQuery.data;
-  const queryError = threadId ? threadTasksQuery.error : allTasksQuery.error;
+  const tasksQuery = threadId ? threadTasksQuery : allTasksQuery;
+  const { data, error: queryError } = tasksQuery;
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [contextMode, setContextMode] = useState<
@@ -168,6 +171,7 @@ export default function ScheduledTasksPage() {
   >("all");
   const [formError, setFormError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [recipesOpen, setRecipesOpen] = useState(false);
   const [adviceOpen, setAdviceOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -453,21 +457,16 @@ export default function ScheduledTasksPage() {
           )}
         >
           <header className="cnooc-page-heading flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-2">
-              <SidebarTrigger className="mt-0.5 -ml-2 shrink-0 md:hidden" />
-              <div className="min-w-0">
-                <h1 className="text-2xl font-semibold">
-                  {createOpen ? st.create.title : t.sidebar.scheduledTasks}
-                </h1>
-                <p className="text-muted-foreground mt-1 text-sm">
-                  {createOpen
-                    ? st.create.description
-                    : st.detail.emptyDescription}
-                </p>
-              </div>
+            <div className="flex min-h-11 shrink-0 items-center gap-2">
+              <SidebarTrigger className="-ml-2 shrink-0 md:hidden" />
+              <ModulePageTitle
+                icon={CalendarClockIcon}
+                title={createOpen ? st.create.title : t.sidebar.scheduledTasks}
+              />
             </div>
             <Button
               size="sm"
+              className="ml-auto shrink-0"
               variant={createOpen ? "outline" : "default"}
               onClick={() => setCreateOpen((value) => !value)}
             >
@@ -493,9 +492,26 @@ export default function ScheduledTasksPage() {
                   data-testid="schedule-recipes"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-sm font-medium">
+                    <div className="hidden text-sm font-medium md:block">
                       {st.recipes.label}
                     </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="px-1 md:hidden"
+                      aria-expanded={recipesOpen}
+                      aria-controls="schedule-recipe-options"
+                      onClick={() => setRecipesOpen((open) => !open)}
+                    >
+                      {st.recipes.label}
+                      <ChevronDownIcon
+                        className={cn(
+                          "size-4 transition-transform",
+                          recipesOpen && "rotate-180",
+                        )}
+                      />
+                    </Button>
                     <Button
                       type="button"
                       variant="outline"
@@ -506,13 +522,22 @@ export default function ScheduledTasksPage() {
                       {st.create.adviceTitle}
                     </Button>
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div
+                    id="schedule-recipe-options"
+                    className={cn(
+                      "mt-2 flex-wrap items-center gap-2 md:flex",
+                      recipesOpen ? "flex" : "hidden",
+                    )}
+                  >
                     {RECIPES.map((recipe) => (
                       <Button
                         key={recipe.id}
                         variant="outline"
                         size="sm"
-                        onClick={() => applyRecipe(recipe)}
+                        onClick={() => {
+                          applyRecipe(recipe);
+                          setRecipesOpen(false);
+                        }}
                       >
                         <span aria-hidden>{recipe.icon}</span>
                         {st.recipes[recipe.titleKey].title}
@@ -546,32 +571,53 @@ export default function ScheduledTasksPage() {
                     </div>
                     {contextMode === "reuse_thread" && (
                       <>
-                        <Input
-                          value={targetThreadId}
-                          onChange={(event) =>
-                            setTargetThreadId(event.target.value)
-                          }
-                          placeholder={st.context.threadIdPlaceholder}
-                        />
+                        <label
+                          className="grid gap-1.5 text-sm font-medium"
+                          htmlFor="scheduled-task-thread"
+                        >
+                          {st.context.threadIdPlaceholder}
+                          <Input
+                            id="scheduled-task-thread"
+                            value={targetThreadId}
+                            onChange={(event) =>
+                              setTargetThreadId(event.target.value)
+                            }
+                            placeholder={st.context.threadIdPlaceholder}
+                          />
+                        </label>
                         <ReuseThreadNotice
                           title={st.context.reuseNoticeTitle}
                           description={st.context.reuseNoticeDescription}
                         />
                       </>
                     )}
-                    <Input
-                      className="h-10"
-                      value={title}
-                      onChange={(event) => setTitle(event.target.value)}
-                      placeholder={st.create.taskTitle}
-                    />
-                    <Textarea
-                      className="min-h-24 resize-none"
-                      rows={4}
-                      value={prompt}
-                      onChange={(event) => setPrompt(event.target.value)}
-                      placeholder={st.create.prompt}
-                    />
+                    <label
+                      className="grid gap-1.5 text-sm font-medium"
+                      htmlFor="scheduled-task-title"
+                    >
+                      {st.create.taskTitle}
+                      <Input
+                        id="scheduled-task-title"
+                        className="h-10"
+                        value={title}
+                        onChange={(event) => setTitle(event.target.value)}
+                        placeholder={st.create.taskTitle}
+                      />
+                    </label>
+                    <label
+                      className="grid gap-1.5 text-sm font-medium"
+                      htmlFor="scheduled-task-prompt"
+                    >
+                      {st.create.prompt}
+                      <Textarea
+                        id="scheduled-task-prompt"
+                        className="min-h-24 resize-none"
+                        rows={4}
+                        value={prompt}
+                        onChange={(event) => setPrompt(event.target.value)}
+                        placeholder={st.create.prompt}
+                      />
+                    </label>
                     <div className="grid gap-1.5">
                       <label
                         className="text-sm font-medium"
@@ -722,21 +768,31 @@ export default function ScheduledTasksPage() {
                   {st.detail.filteredByThread.replace("{id}", threadId)}
                 </div>
               )}
-              {queryError ? (
+              {queryError && data !== undefined ? (
                 <div
-                  className="text-destructive text-sm"
+                  role="alert"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
                   data-testid="scheduled-task-load-error"
                 >
-                  {st.detail.loadFailed}: {queryError.message}
+                  <span>{st.detail.refreshFailed}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={tasksQuery.isFetching}
+                    onClick={() => void tasksQuery.refetch()}
+                  >
+                    {st.detail.retry}
+                  </Button>
                 </div>
               ) : null}
-              <div className="flex flex-wrap items-center gap-2 rounded-md border bg-white p-3 shadow-sm">
+              <div className="cnooc-schedule-filters flex flex-wrap items-center gap-2 rounded-md border bg-white p-3 shadow-sm">
                 <div className="text-muted-foreground mr-2 flex items-center gap-2 text-sm font-medium">
                   <ListFilterIcon className="size-4" />
                   {st.filters.label}
                 </div>
                 <Button
                   variant={statusFilter === "all" ? "default" : "outline"}
+                  aria-pressed={statusFilter === "all"}
                   size="sm"
                   onClick={() => setStatusFilter("all")}
                 >
@@ -744,6 +800,7 @@ export default function ScheduledTasksPage() {
                 </Button>
                 <Button
                   variant={statusFilter === "enabled" ? "default" : "outline"}
+                  aria-pressed={statusFilter === "enabled"}
                   size="sm"
                   onClick={() => setStatusFilter("enabled")}
                 >
@@ -751,6 +808,7 @@ export default function ScheduledTasksPage() {
                 </Button>
                 <Button
                   variant={statusFilter === "paused" ? "default" : "outline"}
+                  aria-pressed={statusFilter === "paused"}
                   size="sm"
                   onClick={() => setStatusFilter("paused")}
                 >
@@ -758,6 +816,7 @@ export default function ScheduledTasksPage() {
                 </Button>
                 <Button
                   variant={statusFilter === "completed" ? "default" : "outline"}
+                  aria-pressed={statusFilter === "completed"}
                   size="sm"
                   onClick={() => setStatusFilter("completed")}
                 >
@@ -765,6 +824,7 @@ export default function ScheduledTasksPage() {
                 </Button>
                 <Button
                   variant={statusFilter === "failed" ? "default" : "outline"}
+                  aria-pressed={statusFilter === "failed"}
                   size="sm"
                   onClick={() => setStatusFilter("failed")}
                 >
@@ -772,6 +832,7 @@ export default function ScheduledTasksPage() {
                 </Button>
                 <Button
                   variant={typeFilter === "all" ? "default" : "outline"}
+                  aria-pressed={typeFilter === "all"}
                   size="sm"
                   onClick={() => setTypeFilter("all")}
                 >
@@ -779,6 +840,7 @@ export default function ScheduledTasksPage() {
                 </Button>
                 <Button
                   variant={typeFilter === "cron" ? "default" : "outline"}
+                  aria-pressed={typeFilter === "cron"}
                   size="sm"
                   onClick={() => setTypeFilter("cron")}
                 >
@@ -786,6 +848,7 @@ export default function ScheduledTasksPage() {
                 </Button>
                 <Button
                   variant={typeFilter === "once" ? "default" : "outline"}
+                  aria-pressed={typeFilter === "once"}
                   size="sm"
                   onClick={() => setTypeFilter("once")}
                 >
@@ -793,6 +856,7 @@ export default function ScheduledTasksPage() {
                 </Button>
                 <Button
                   variant={typeFilter === "interval" ? "default" : "outline"}
+                  aria-pressed={typeFilter === "interval"}
                   size="sm"
                   onClick={() => setTypeFilter("interval")}
                 >
@@ -800,29 +864,18 @@ export default function ScheduledTasksPage() {
                 </Button>
               </div>
               {filteredData.length === 0 ? (
-                <div
-                  data-testid="scheduled-task-list"
-                  className="flex min-h-0 flex-1 items-center justify-center rounded-md border border-dashed bg-white/75 p-10 text-center shadow-sm"
-                >
-                  <div className="max-w-md">
-                    <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-blue-50 text-blue-700">
-                      <CalendarClockIcon className="size-6" />
-                    </div>
-                    <div className="mt-4 text-lg font-semibold">
-                      {st.detail.emptyTitle}
-                    </div>
-                    <div className="text-muted-foreground mt-2 text-sm leading-6">
-                      {st.detail.emptyDescription}
-                    </div>
-                    <Button
-                      className="mt-5"
-                      onClick={() => setCreateOpen(true)}
-                    >
-                      <PlusIcon className="size-4" />
-                      {st.create.title}
-                    </Button>
-                  </div>
-                </div>
+                <ScheduledTaskListFeedback
+                  hasData={data !== undefined}
+                  failed={Boolean(queryError)}
+                  fetching={tasksQuery.isFetching}
+                  filtered={statusFilter !== "all" || typeFilter !== "all"}
+                  onRetry={() => void tasksQuery.refetch()}
+                  onClear={() => {
+                    setStatusFilter("all");
+                    setTypeFilter("all");
+                  }}
+                  onCreate={() => setCreateOpen(true)}
+                />
               ) : (
                 <div
                   data-testid="scheduled-task-list"
@@ -833,20 +886,19 @@ export default function ScheduledTasksPage() {
                       <div
                         key={task.id}
                         data-testid={`scheduled-task-item-${task.id}`}
-                        className="group hover:border-primary/35 relative flex min-h-56 flex-col overflow-hidden rounded-md border bg-gradient-to-br from-white to-slate-50/70 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-900/5"
+                        className="cnooc-schedule-card group relative flex min-h-56 flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-colors"
                       >
-                        <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-500/45 via-transparent to-cyan-400/30" />
                         <button
                           type="button"
                           onClick={() => openTaskDetail(task)}
-                          className="flex flex-1 flex-col p-3.5 text-left"
+                          className="flex flex-1 flex-col p-4 text-left"
                         >
                           <div className="flex min-w-0 items-start gap-3">
                             <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-700 ring-1 ring-blue-200/70 transition-transform duration-300 group-hover:scale-105">
                               <CalendarClockIcon className="size-5" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="line-clamp-1 text-base leading-6 font-semibold">
+                              <div className="line-clamp-2 text-base leading-6 font-semibold wrap-anywhere">
                                 {task.title}
                               </div>
                               <div className="text-muted-foreground mt-1 text-sm">
@@ -892,7 +944,7 @@ export default function ScheduledTasksPage() {
                           </div>
                         </button>
 
-                        <div className="mt-auto flex items-center justify-between gap-2 border-t bg-white/80 px-3 py-2.5">
+                        <div className="cnooc-schedule-actions mt-auto flex items-center justify-between gap-2 border-t bg-white/80 px-3 py-2.5">
                           <Button
                             size="sm"
                             className="flex-1"
@@ -1181,17 +1233,31 @@ export default function ScheduledTasksPage() {
 
               {editing ? (
                 <div className="grid gap-3 rounded-md border p-4">
-                  <Input
-                    value={editTitle}
-                    onChange={(event) => setEditTitle(event.target.value)}
-                    placeholder={st.edit.titlePlaceholder}
-                  />
-                  <Textarea
-                    rows={5}
-                    value={editPrompt}
-                    onChange={(event) => setEditPrompt(event.target.value)}
-                    placeholder={st.edit.promptPlaceholder}
-                  />
+                  <label
+                    className="grid gap-1.5 text-sm font-medium"
+                    htmlFor="scheduled-task-edit-title"
+                  >
+                    {st.create.taskTitle}
+                    <Input
+                      id="scheduled-task-edit-title"
+                      value={editTitle}
+                      onChange={(event) => setEditTitle(event.target.value)}
+                      placeholder={st.edit.titlePlaceholder}
+                    />
+                  </label>
+                  <label
+                    className="grid gap-1.5 text-sm font-medium"
+                    htmlFor="scheduled-task-edit-prompt"
+                  >
+                    {st.create.prompt}
+                    <Textarea
+                      id="scheduled-task-edit-prompt"
+                      rows={5}
+                      value={editPrompt}
+                      onChange={(event) => setEditPrompt(event.target.value)}
+                      placeholder={st.edit.promptPlaceholder}
+                    />
+                  </label>
                   <div className="grid gap-1.5">
                     <label
                       className="text-sm font-medium"

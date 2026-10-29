@@ -23,6 +23,8 @@ rs.mock("@/components/ai-elements/prompt-input", () => ({
 rs.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenu: "div",
   DropdownMenuContent: "div",
+  DropdownMenuGroup: "div",
+  DropdownMenuLabel: "div",
   DropdownMenuItem: ({
     children,
     onSelect,
@@ -197,9 +199,13 @@ describe("Data Lake authorization feedback", () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith("Authorization timed out"),
     );
-    expect(screen.getByText("Data Lake").closest("button")?.disabled).toBe(
-      false,
-    );
+    expect(
+      screen
+        .getByRole("button", {
+          name: /^Data Lake$/,
+        })
+        .hasAttribute("disabled"),
+    ).toBe(false);
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
