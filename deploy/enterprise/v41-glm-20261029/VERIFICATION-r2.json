@@ -1,0 +1,29 @@
+{
+  "schema": "portal-v41-glm-verification-delivery.v2",
+  "status": "READER_R2_LOCAL_ACCEPTED_SERVER_VERIFICATION_PENDING",
+  "production_modified": false,
+  "model_probe_changed": false,
+  "shared_once_claim_with_r1": true,
+  "v41_enabled": false,
+  "maximum_provider_requests": 7,
+  "r2_tests_passed": 22,
+  "real_kubectl_synthetic_large_pod_list_test": "PASS",
+  "syntax_python37": "PASS",
+  "linux_runtime_validation_performed": false,
+  "prior_operator_result": {
+    "error_code": "OUTPUT_BOUND",
+    "once_claimed": false,
+    "provider_requests_may_have_occurred": false,
+    "exact_failed_command_not_recorded_by_r1": true
+  },
+  "sources": {
+    "host_r2.py": "ffa0b6e03e05aceb62e2ea38e595a8f1c90f495d2b27425b597ed30ac99b1736",
+    "package_r2.py": "62d9f68dce0e956e174c26e0d2b7db1d7ce8935812e1da5a7a6e732bfa62e812",
+    "test_reader_r2.py": "633e39fb48801f41274c8b438d5d5ab6c17dda7a13664658886bc0bf583c2cf7"
+  },
+  "delivery": {
+    "filename": "verify-portal-v41-glm-key-20261029-r2.py",
+    "bytes": 30901,
+    "sha256": "91aa1ea88bc35efd96d5d1276415e28513ca1a867457c0be5bd4cc554d2c26e7"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "portal-v41-glm-verification-delivery.v1",
+  "status": "LOCAL_CHECKED_SERVER_VERIFICATION_PENDING",
+  "operator_credential_correction_date": "2026-10-29",
+  "credential_reference": "GLM_5_3_FLASH_API_KEY",
+  "prior_assumption_reference": "DeepSeek_V4_API_KEY",
+  "gateway_generation": 389,
+  "runtime_source_changed": false,
+  "historical_evidence_changed": false,
+  "production_modified": false,
+  "v41_enabled": false,
+  "default_model_changed": false,
+  "maximum_provider_requests": 7,
+  "local_tests_passed": 39,
+  "host_and_child_python37_syntax_checked": true,
+  "linux_runtime_validation_performed": false,
+  "sources": {
+    "child.py": "0fc6e5192f7c8e4553ad6ba1077a464babf0589f250e1debe993ef42db24f02e",
+    "host.py": "f35dda37b1c2ff373bb542d81e45392ba5636f2c6e75194567d68cbfec1811b5",
+    "package.py": "3a01213731de21099d9fd1639f9f4a1fe6a7eb865dff950edded5b648960c35a",
+    "model.yaml": "f2a250c6b18f7c37383c09a4035ad037f2f34397d72115daa731eafa8a8cc6a1",
+    "test_verification.py": "2a774fdfede3cac51eaf2ad0441ad1e88555070ec7234dbf6fc6394978ab5417"
+  },
+  "delivery": {
+    "filename": "verify-portal-v41-glm-key-20261029-r1.py",
+    "bytes": 27053,
+    "sha256": "075647b53d4e6a8df53b8b88cf599a712ecd947c9d21222d7a6ad7f34deb4f5d"
+  }
+}

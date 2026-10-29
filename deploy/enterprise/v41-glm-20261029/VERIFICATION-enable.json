@@ -1,0 +1,49 @@
+{
+  "schema": "portal-v41-glm-activation-local-qualification.v1",
+  "date": "2026-10-29",
+  "status": "LOCAL_ACTIVATION_TOOL_CHECKED_PRODUCTION_NOT_EXECUTED",
+  "delivery": {
+    "filename": "activate-portal-v41-glm-20261029-r1.py",
+    "bytes": 37960,
+    "sha256": "c668636ab74fa066d3a5805880307e2ef6364d3cb17a4a4c1d25f9954fbca391"
+  },
+  "source_file_sha256": {
+    "enable_host.py": "756cfc85f7a0531221ebf0eeefb7c4551c760156a18accea4d4d716233a69f64",
+    "enable_child.py": "98d7f7ff05581d6c16d8080982f58587d63ea9bcb19d9ea100d4fb341eb7ead1",
+    "host_r2.py": "ffa0b6e03e05aceb62e2ea38e595a8f1c90f495d2b27425b597ed30ac99b1736",
+    "model.yaml": "f2a250c6b18f7c37383c09a4035ad037f2f34397d72115daa731eafa8a8cc6a1",
+    "package_enable.py": "c08b48c0348cb2724d7272697e4777727fc4ea5f1c1d428971d6090412f9ad25"
+  },
+  "windows_python312_pytest": {
+    "file": "test_enable.py", "passed": 35, "failed": 0,
+    "includes": [
+      "yaml_append_semantics_and_existing_default_preserved",
+      "real_model_factory_both_thinking_modes_without_external_network",
+      "immutable_config_clone_and_single_field_compare_and_swap",
+      "uncertain_patch_readback_without_repost",
+      "seventy_replica_complete_flow_simulation",
+      "admission_and_last_pod_failures_not_accepted",
+      "endpoint_set_and_protected_resource_checks",
+      "packaged_python37_syntax_and_wrong_host_guard"
+    ]
+  },
+  "linux_python3717_unittest": {
+    "file": "test_enable_linux37.py", "passed": 7, "failed": 0,
+    "network": "none", "container_rootfs": "read-only", "test_mount": "read-only",
+    "includes": [
+      "actual_python37_compile",
+      "wrong_host_before_claim",
+      "real_process_output_bound",
+      "real_process_timeout",
+      "root_only_journal_and_fsync",
+      "receipt_symlink_rejected",
+      "receipt_digest_required"
+    ]
+  },
+  "delivered_entry_wrong_host_check": "PASS",
+  "production_api_calls_by_local_tests": 0,
+  "provider_requests_by_local_tests": 0,
+  "production_activation_executed": false,
+  "runtime_model_validation_on_all_production_pods": "PENDING_OPERATOR_EXECUTION",
+  "browser_acceptance": "PENDING"
+}
