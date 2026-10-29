@@ -1,0 +1,24 @@
+{
+  "schema": "portal-combined-diagnosis-field-summary.v1",
+  "evidence_origin": "Operator-pasted JSON; full original receipt retained on datax-01",
+  "status": "READONLY_PARTIAL_ROLLOUT_DIAGNOSIS_COLLECTED",
+  "report": {
+    "path": "/var/lib/portal-combined-activation-diagnosis-20261029-r1/eed53dd84a60415faaacc521fe04da38.json",
+    "bytes": 54567,
+    "sha256": "4301990df2a032d5f64fe92c1b5e4b585041023a5d5e26582c6b68b0d78148de"
+  },
+  "gateway": {"generation": 389, "desired": 70, "ready": 70, "updated": 70, "available": 70, "terminating": 0, "endpoints": 70, "stable": true},
+  "frontend": {"generation": 230, "desired": 2, "ready": 2, "updated": 2, "available": 2, "terminating": 0, "endpoints": 2, "stable": true, "candidate_not_deployed": true},
+  "prior_verified_gateway_identities_unchanged": 17,
+  "current_targeted_gateway_probes": {"passed": 3, "failed": 0, "source_and_new_tavily_environment_verified": true},
+  "abnormal_pods": {"gateway": [], "frontend": []},
+  "changed_deployment_bindings": [],
+  "changed_configuration_bindings": [],
+  "changed_service_bindings": [],
+  "seven_preloaded_nodes": "Ready, no DiskPressure, MemoryPressure or PIDPressure",
+  "original_failure_reproduced": false,
+  "original_failure_root_cause": "UNDETERMINED_ORIGINAL_COMMAND_DETAIL_NOT_RECORDED",
+  "full_runtime_acceptance": false,
+  "workload_modified": false,
+  "provider_requests": 0
+}

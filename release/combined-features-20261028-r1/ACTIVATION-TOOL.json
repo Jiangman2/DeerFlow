@@ -1,0 +1,46 @@
+{
+  "schema": "portal-combined-activation-delivery.v1",
+  "status": "LOCAL_CHECKS_PASSED_OPERATOR_EXECUTION_PENDING",
+  "production_deployed_by_this_record": false,
+  "delivery": {
+    "filename": "activate-portal-combined-features-20261028-r1.py",
+    "bytes": 223147,
+    "sha256": "19c3024033ddd42c6cb2317c9aa2ad0b7ad44d687cd26cf8ea76c1addf5b5471",
+    "host": "datax-01",
+    "command": "sudo python3 -I -B -u /home/cnooc/activate-portal-combined-features-20261028-r1.py --activate-combined-features-once --allow-active-task-interruption"
+  },
+  "scope": {
+    "rollout_order": ["gateway", "frontend"],
+    "gateway_before_generation": 388,
+    "frontend_before_generation": 230,
+    "gateway_image": "deerflow.local/deer-flow-gateway@sha256:a879d9a0688099417a10d301fb41fa78664cb32d62b17a15ec1f435b943a19d4",
+    "frontend_image": "deerflow.local/deer-flow-frontend@sha256:99a1da37496816a6abb0524587069cdf59dcec1bea4d5cc94c58f57c7817bbb2",
+    "active_task_interruption_operator_authorized": true,
+    "v41_enablement": "DEFERRED_BY_OPERATOR",
+    "model_configuration_changed": false,
+    "work_update_included": false,
+    "schema_migration_requested": false,
+    "runner_rollout_requested": false,
+    "nginx_rollout_requested": false,
+    "provider_requests": 0,
+    "tavily_secret_already_updated": true,
+    "tavily_runtime_verification": "Compare expected in-memory digest with each of 70 new Gateway container environments; never export credential or key digest",
+    "tavily_provider_business_acceptance": "NOT_PERFORMED_BY_TOOL"
+  },
+  "validation": {
+    "windows_activation_tests": {"passed": 12, "failed": 0, "skipped": 0},
+    "linux_python_3_7_delivered_activation_tests": {"passed": 12, "failed": 0, "skipped": 0},
+    "live_child_synthetic_tests": {"passed": 16, "failed": 0},
+    "frontend_probe_windows_tests": {"passed": 10, "failed": 0},
+    "frontend_probe_linux_python_3_7_tests": {"passed": 5, "failed": 0, "skipped": 5, "skip_reason": "Node absent from minimal Python host image; Node tests passed on Windows"},
+    "actual_local_arm64_frontend_image": {"isolated": true, "network": "none", "read_only": true, "uid": 1000, "source_pins_verified": 13},
+    "packaged_sources_match_delivery": true,
+    "source_sets": {"old_gateway": 583, "candidate_gateway": 588},
+    "candidate_source_tree_matches_child_scanner": true,
+    "final_acceptance_rechecks_both_deployments_stable_and_exact_verified_container_identities": true,
+    "lost_patch_reply_readback_without_repost": true,
+    "image_only_full_spec_uid_resource_version_compare_and_swap": true
+  },
+  "acceptance_pending": ["operator execution", "server runtime receipt", "external HTTPS and browser business acceptance"],
+  "failure_handling": "Stop with receipt and last phase; no automatic retry or rollback; preserve candidate and old images. Do not rerun after once claim."
+}

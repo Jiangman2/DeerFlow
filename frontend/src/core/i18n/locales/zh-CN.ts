@@ -208,6 +208,9 @@ export const zhCN: Translations = {
 
   // Input Box
   inputBox: {
+    modelPickerTitle: "选择模型",
+    currentModel: "当前模型",
+    noMatchingModels: "未找到匹配模型",
     placeholder: "随心输入",
     createSkillPrompt:
       "我们一起用 skill-creator 技能来创建一个技能吧。先问问我希望这个技能能做什么。",
@@ -239,6 +242,9 @@ export const zhCN: Translations = {
     newShopCartLoading: "正在加载数据湖文件...",
     newShopCartEmpty: "数据湖暂无文件",
     newShopCartRefresh: "刷新",
+    newShopCartSearch: "搜索文件名称",
+    newShopCartNoMatches: "未找到匹配的文件，请尝试其他关键词",
+    newShopCartClearSelection: "清空选择",
     newShopCartLoadFailed: "数据湖文件列表加载失败，请重试",
     newShopCartComplete: "可下载",
     newShopCartProcessing: "处理中",
@@ -508,6 +514,7 @@ export const zhCN: Translations = {
         "如果触发时该线程正在运行，DeerFlow 会将本次执行排队，并在线程空闲后启动；超过配置的最长等待时间后会标记为失败。",
     },
     filters: {
+      clear: "清除筛选",
       label: "筛选",
       allStatuses: "全部状态",
       enabled: "已启用",
@@ -520,6 +527,12 @@ export const zhCN: Translations = {
       interval: "间隔",
     },
     detail: {
+      retry: "重新加载",
+      loading: "正在加载定时任务…",
+      loadFailureDescription: "暂时无法获取任务，请重新加载。",
+      refreshFailed: "刷新失败，当前仍显示上次加载的任务。",
+      noMatchesTitle: "没有符合筛选条件的任务",
+      noMatchesDescription: "可以清除筛选，查看当前范围内的全部任务。",
       contextMode: "上下文模式",
       thread: "线程",
       lastThread: "上个线程",
@@ -619,6 +632,7 @@ export const zhCN: Translations = {
     title: "数字员工",
     description: "发现和管理具备专属职责、知识与能力的数字员工。",
     newAgent: "新建数字员工",
+    createAgent: "创建数字员工",
     emptyTitle: "还没有数字员工",
     emptyDescription: "创建你的第一位数字员工，设置专属职责和能力。",
     featureDisabledTitle: "数字员工功能未启用",
@@ -913,6 +927,8 @@ export const zhCN: Translations = {
   },
 
   uploads: {
+    attachment: "附件",
+    removeAttachment: "移除附件",
     uploading: "上传中...",
     uploadingFiles: "文件上传中，请稍候...",
     limitsHint: (maxFiles: number, maxFileSize: string, maxTotalSize: string) =>
@@ -1132,6 +1148,20 @@ export const zhCN: Translations = {
     },
     account: {
       profileTitle: "个人信息",
+      currentAccount: "当前账号",
+      displayName: "姓名",
+      organization: "所属单位",
+      adminRole: "管理员",
+      userRole: "用户",
+      usageTitle: "使用情况",
+      totalTokens: "累计使用 Token",
+      inputTokens: "输入 Token",
+      outputTokens: "输出 Token",
+      unclassifiedTokens: "历史未分类 Token",
+      usageUnavailable: "用量暂不可用",
+      retryUsage: "重新获取用量",
+      usageScope:
+        "统计本账号在平台已记录的模型 Token，包含进行中的任务；外部系统未回传的用量不计入。",
       email: "邮箱",
       role: "角色",
       ssoProvider: "SSO",

@@ -1,0 +1,31 @@
+{
+  "schema": "portal-combined-scope-update.v1",
+  "evidence_origin": "Direct operator instructions and pasted field JSON; server receipt bytes remain on datax-01",
+  "production_deployed": false,
+  "v41_enablement": "DEFERRED_BY_OPERATOR",
+  "current_model_configuration_and_default": "PRESERVE_UNCHANGED",
+  "active_task_interruption_authorized": true,
+  "tavily_key_replacement_requested_before_rollout": true,
+  "credential_included_in_this_record": false,
+  "v41_diagnostic": {
+    "status": "V41_ERROR_DIAGNOSIS_RECORDED_NOT_ACCEPTED",
+    "report": {
+      "path": "/var/lib/portal-combined-v41-error-check-20261028-r1/REPORT.json",
+      "bytes": 1944,
+      "sha256": "c7024241e7582e5d1e57aa20cd7f8f7bc71c6258fe930c3738b306d68d252335"
+    },
+    "http_status": 402,
+    "error_categories": ["payment_required"],
+    "categories_are_message_hints_not_verified_root_cause": true,
+    "provider_requests": 1,
+    "response_bytes": 163,
+    "response_sha256": "79ef826552e6895b4a473e63ddfa34a42e67ccc9c96a6b67a0424dec6afe20b6",
+    "request_started_at_utc": "2026-10-28T13:56:49Z",
+    "model_capabilities_accepted": false
+  },
+  "supersedes": "FIELD-VALIDATION.json remaining_acceptance requirement for V4.1 as a prerequisite for the non-V4.1 batch only",
+  "accepted_checks_not_to_repeat": ["seven node preloads", "two installed Gateway checks (251 tests each)", "cross-node competition store verification"],
+  "paused_work_update_included": false,
+  "database_migration_requested": false,
+  "runner_rollout_requested": false
+}

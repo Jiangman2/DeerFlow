@@ -209,6 +209,8 @@ const ChatBox: React.FC<ChatBoxProps> = ({
             <Button
               size="icon-sm"
               variant="ghost"
+              className="size-11 md:size-8"
+              aria-label={t.common.close}
               onClick={() => {
                 setArtifactsOpen(false);
               }}
@@ -247,6 +249,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     artifacts,
     setArtifactsOpen,
     t.common.artifacts,
+    t.common.close,
     t.common.noArtifactSelected,
     t.common.selectArtifactToView,
   ]);

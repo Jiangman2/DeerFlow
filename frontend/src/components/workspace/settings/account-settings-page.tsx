@@ -10,6 +10,7 @@ import { useAuth } from "@/core/auth/AuthProvider";
 import { parseAuthError } from "@/core/auth/types";
 import { useI18n } from "@/core/i18n/hooks";
 
+import { AccountUsageCard } from "./account-usage-card";
 import { SettingsSection } from "./settings-section";
 
 export function AccountSettingsPage() {
@@ -73,16 +74,38 @@ export function AccountSettingsPage() {
     <div className="space-y-8">
       <SettingsSection title={t.settings.account.profileTitle}>
         <div className="space-y-2">
-          <div className="grid grid-cols-[max-content_max-content] items-center gap-4">
+          <div className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)] items-center gap-4">
+            <span className="text-muted-foreground text-sm">
+              {t.settings.account.displayName}
+            </span>
+            <span className="text-sm font-medium break-words">
+              {user?.display_name?.trim() ? user.display_name : "—"}
+            </span>
+            {user?.organization_name ? (
+              <>
+                <span className="text-muted-foreground text-sm">
+                  {t.settings.account.organization}
+                </span>
+                <span className="text-sm font-medium break-words">
+                  {user.organization_name}
+                </span>
+              </>
+            ) : null}
             <span className="text-muted-foreground text-sm">
               {t.settings.account.email}
             </span>
-            <span className="text-sm font-medium">{user?.email ?? "—"}</span>
+            <span className="text-sm font-medium break-all">
+              {user?.email ?? "—"}
+            </span>
             <span className="text-muted-foreground text-sm">
               {t.settings.account.role}
             </span>
             <span className="text-sm font-medium capitalize">
-              {user?.system_role ?? "—"}
+              {user?.system_role === "admin"
+                ? t.settings.account.adminRole
+                : user
+                  ? t.settings.account.userRole
+                  : "—"}
             </span>
             {isSsoUser && (
               <>
@@ -97,38 +120,58 @@ export function AccountSettingsPage() {
           </div>
         </div>
       </SettingsSection>
+      <SettingsSection title={t.settings.account.usageTitle}>
+        <AccountUsageCard />
+      </SettingsSection>
 
       {!isSsoUser ? (
-        <SettingsSection
-          title={t.settings.account.changePasswordTitle}
-          description={t.settings.account.changePasswordDescription}
-        >
+        <SettingsSection title={t.settings.account.changePasswordTitle}>
           <form onSubmit={handleChangePassword} className="max-w-sm space-y-3">
-            <Input
-              type="password"
-              placeholder={t.settings.account.currentPassword}
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-            />
-            <Input
-              type="password"
-              placeholder={t.settings.account.newPassword}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-            <Input
-              type="password"
-              placeholder={t.settings.account.confirmNewPassword}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            {message && <p className="text-sm text-green-500">{message}</p>}
+            <label className="block space-y-1.5 text-sm font-medium">
+              <span>{t.settings.account.currentPassword}</span>
+              <Input
+                type="password"
+                autoComplete="current-password"
+                placeholder={t.settings.account.currentPassword}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+              />
+            </label>
+            <label className="block space-y-1.5 text-sm font-medium">
+              <span>{t.settings.account.newPassword}</span>
+              <Input
+                type="password"
+                autoComplete="new-password"
+                placeholder={t.settings.account.newPassword}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+            </label>
+            <label className="block space-y-1.5 text-sm font-medium">
+              <span>{t.settings.account.confirmNewPassword}</span>
+              <Input
+                type="password"
+                autoComplete="new-password"
+                placeholder={t.settings.account.confirmNewPassword}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+            </label>
+            {error && (
+              <p role="alert" className="text-sm text-red-600">
+                {error}
+              </p>
+            )}
+            {message && (
+              <p role="status" className="text-sm text-green-700">
+                {message}
+              </p>
+            )}
             <Button
               type="submit"
               variant="outline"

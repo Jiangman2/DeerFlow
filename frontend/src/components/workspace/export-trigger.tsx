@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useI18n } from "@/core/i18n/hooks";
@@ -21,7 +25,13 @@ import type { AgentThread } from "@/core/threads/types";
 import { useThread } from "./messages/context";
 import { Tooltip } from "./tooltip";
 
-export function ExportTrigger({ threadId }: { threadId: string }) {
+export function ExportTrigger({
+  threadId,
+  inMenu = false,
+}: {
+  threadId: string;
+  inMenu?: boolean;
+}) {
   const { t } = useI18n();
   const { thread } = useThread();
 
@@ -53,6 +63,30 @@ export function ExportTrigger({ threadId }: { threadId: string }) {
     return null;
   }
 
+  const formats = (
+    <DropdownMenuGroup>
+      <DropdownMenuItem onSelect={() => handleExport("markdown")}>
+        <FileText className="text-muted-foreground" />
+        <span>{t.common.exportAsMarkdown}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => handleExport("json")}>
+        <FileJson className="text-muted-foreground" />
+        <span>{t.common.exportAsJSON}</span>
+      </DropdownMenuItem>
+    </DropdownMenuGroup>
+  );
+  if (inMenu) {
+    return (
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <Download />
+          {t.common.export}
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent>{formats}</DropdownMenuSubContent>
+      </DropdownMenuSub>
+    );
+  }
+
   return (
     <DropdownMenu>
       <Tooltip content={t.common.export}>
@@ -67,16 +101,7 @@ export function ExportTrigger({ threadId }: { threadId: string }) {
           </Button>
         </DropdownMenuTrigger>
       </Tooltip>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => handleExport("markdown")}>
-          <FileText className="text-muted-foreground" />
-          <span>{t.common.exportAsMarkdown}</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => handleExport("json")}>
-          <FileJson className="text-muted-foreground" />
-          <span>{t.common.exportAsJSON}</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
+      <DropdownMenuContent align="end">{formats}</DropdownMenuContent>
     </DropdownMenu>
   );
 }

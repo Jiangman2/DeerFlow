@@ -437,6 +437,7 @@ export default function NewAgentPage() {
         <Button
           variant="ghost"
           size="icon-sm"
+          aria-label={t.agents.backToGallery}
           onClick={() => router.push("/workspace/agents")}
         >
           <ArrowLeftIcon aria-hidden="true" />
@@ -491,10 +492,12 @@ export default function NewAgentPage() {
             data-testid="agent-create-dialog"
             className="cnooc-agent-builder-name-card bg-card flex h-full max-h-[48rem] min-h-0 w-full max-w-3xl flex-col overflow-hidden rounded-2xl border shadow-sm"
           >
-            <div className="flex shrink-0 flex-col gap-3 px-4 pt-4 pb-3 text-center sm:px-8 sm:pt-6 sm:pb-4">
-              <AgentNameIcon />
+            <div className="cnooc-agent-name-intro flex shrink-0 flex-col gap-2 px-4 py-3 text-center sm:gap-3 sm:px-8 sm:pt-6 sm:pb-4">
+              <div className="hidden md:block">
+                <AgentNameIcon />
+              </div>
               <div className="flex flex-col gap-1">
-                <h2 className="text-xl font-semibold">
+                <h2 className="text-lg font-semibold sm:text-xl">
                   {t.agents.nameStepTitle}
                 </h2>
                 <p className="text-muted-foreground text-sm">
@@ -507,7 +510,7 @@ export default function NewAgentPage() {
               data-testid="agent-create-scroll-region"
               className="app-scroll-region min-h-0 flex-1 overflow-y-auto border-y px-4 py-4 sm:px-8"
             >
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4 sm:gap-6">
                 <section
                   className="flex flex-col gap-3"
                   aria-labelledby="expert-avatar-label"
@@ -590,7 +593,20 @@ export default function NewAgentPage() {
                 </section>
 
                 <div className="flex flex-col gap-3">
+                  <label
+                    htmlFor="agent-display-name"
+                    className="text-sm font-medium"
+                  >
+                    {t.agents.displayName}
+                  </label>
                   <Input
+                    id="agent-display-name"
+                    aria-invalid={Boolean(nameError)}
+                    aria-describedby={
+                      nameError
+                        ? "agent-name-error agent-name-count"
+                        : "agent-name-count"
+                    }
                     autoFocus
                     maxLength={64}
                     placeholder={t.agents.nameStepPlaceholder}
@@ -602,11 +618,20 @@ export default function NewAgentPage() {
                     onKeyDown={handleNameKeyDown}
                     className={cn(nameError && "border-destructive")}
                   />
-                  <p className="text-muted-foreground text-right text-xs">
+                  <p
+                    id="agent-name-count"
+                    className="text-muted-foreground text-right text-xs"
+                  >
                     {nameInput.length}/64
                   </p>
                   {nameError ? (
-                    <p className="text-destructive text-sm">{nameError}</p>
+                    <p
+                      id="agent-name-error"
+                      role="alert"
+                      className="text-destructive text-sm"
+                    >
+                      {nameError}
+                    </p>
                   ) : null}
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="grid gap-1.5 sm:col-span-2">
@@ -620,10 +645,15 @@ export default function NewAgentPage() {
                       />
                     </div>
                     <div className="grid gap-1.5 sm:col-span-2">
-                      <label className="text-left text-sm font-medium">
+                      <label
+                        htmlFor="agent-description"
+                        className="text-left text-sm font-medium"
+                      >
                         {t.agents.descriptionLabel}
                       </label>
                       <Textarea
+                        id="agent-description"
+                        aria-describedby="agent-description-count"
                         maxLength={500}
                         placeholder={t.agents.descriptionPlaceholder}
                         rows={2}
@@ -632,7 +662,10 @@ export default function NewAgentPage() {
                           setDescriptionInput(event.target.value)
                         }
                       />
-                      <p className="text-muted-foreground text-right text-xs">
+                      <p
+                        id="agent-description-count"
+                        className="text-muted-foreground text-right text-xs"
+                      >
                         {descriptionInput.length}/500
                       </p>
                     </div>
@@ -668,7 +701,7 @@ export default function NewAgentPage() {
               </div>
             </div>
 
-            <div className="bg-card shrink-0 px-4 py-3 sm:px-8 sm:py-4">
+            <div className="cnooc-agent-name-footer bg-card shrink-0 px-4 py-3 sm:px-8 sm:py-4">
               <Button
                 className="w-full"
                 onClick={() => void handleConfirmName()}

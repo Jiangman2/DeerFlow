@@ -1,15 +1,9 @@
-import { DownloadIcon, LoaderIcon, PackageIcon } from "lucide-react";
+import { DownloadIcon, EyeIcon, LoaderIcon, PackageIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardAction, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   filterUserVisibleArtifacts,
   urlOfArtifact,
@@ -90,57 +84,88 @@ export function ArtifactFileList({
   );
 
   return (
-    <ul className={cn("flex w-full flex-col gap-4", className)}>
+    <ul
+      className={cn(
+        "cnooc-artifact-files flex w-full flex-col gap-3",
+        className,
+      )}
+    >
       {visibleFiles.map((file) => (
-        <Card
-          key={file}
-          data-artifact-filepath={file}
-          className="relative cursor-pointer p-3"
-          onClick={() => handleClick(file)}
-        >
-          <CardHeader className="grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 pr-2 pl-1">
-            <CardTitle className="relative min-w-0 pl-8 leading-tight [overflow-wrap:anywhere] break-words">
-              <div className="min-w-0">{getFileName(file)}</div>
-              <div className="absolute top-2 -left-0.5">
-                {getFileIcon(file, "size-6")}
-              </div>
-            </CardTitle>
-            <CardDescription className="min-w-0 pl-8 text-xs">
-              {getFileExtensionDisplayName(file)} file
-            </CardDescription>
-            <CardAction className="row-span-1 self-center">
-              {file.endsWith(".skill") && isAdmin && (
+        <li key={file} className="min-w-0">
+          <Card
+            data-artifact-filepath={file}
+            className="cnooc-artifact-card relative cursor-pointer p-0"
+            onClick={() => handleClick(file)}
+          >
+            <CardHeader className="cnooc-artifact-card-header gap-2 p-4">
+              <CardTitle className="cnooc-artifact-summary flex min-w-0 items-center gap-3 leading-relaxed">
+                <span className="cnooc-artifact-icon flex size-10 shrink-0 items-center justify-center rounded-lg">
+                  {getFileIcon(file, "size-5")}
+                </span>
+                <span className="min-w-0">
+                  <span
+                    className="cnooc-artifact-name block min-w-0 [overflow-wrap:anywhere]"
+                    title={getFileName(file)}
+                  >
+                    {getFileName(file)}
+                  </span>
+                  <span className="cnooc-artifact-kind text-muted-foreground block text-xs font-normal">
+                    {getFileExtensionDisplayName(file)}
+                  </span>
+                </span>
+              </CardTitle>
+              <CardAction className="cnooc-artifact-actions flex w-full min-w-0 flex-wrap items-center justify-end gap-1">
                 <Button
                   variant="ghost"
-                  disabled={installingFile === file}
-                  onClick={(e) => handleInstallSkill(e, file)}
+                  size="sm"
+                  aria-label={`${t.common.preview} ${getFileName(file)}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleClick(file);
+                  }}
                 >
-                  {installingFile === file ? (
-                    <LoaderIcon className="size-4 animate-spin" />
-                  ) : (
-                    <PackageIcon className="size-4" />
-                  )}
-                  {t.common.install}
+                  <EyeIcon />
+                  <span className="cnooc-artifact-action-label">
+                    {t.common.preview}
+                  </span>
                 </Button>
-              )}
-              <Button variant="ghost" asChild>
-                <a
-                  href={urlOfArtifact({
-                    filepath: file,
-                    threadId: threadId,
-                    download: true,
-                  })}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <DownloadIcon className="size-4" />
-                  {t.common.download}
-                </a>
-              </Button>
-            </CardAction>
-          </CardHeader>
-        </Card>
+                {file.endsWith(".skill") && isAdmin && (
+                  <Button
+                    variant="ghost"
+                    disabled={installingFile === file}
+                    onClick={(e) => handleInstallSkill(e, file)}
+                  >
+                    {installingFile === file ? (
+                      <LoaderIcon className="size-4 animate-spin" />
+                    ) : (
+                      <PackageIcon className="size-4" />
+                    )}
+                    {t.common.install}
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" asChild>
+                  <a
+                    href={urlOfArtifact({
+                      filepath: file,
+                      threadId: threadId,
+                      download: true,
+                    })}
+                    aria-label={`${t.common.download} ${getFileName(file)}`}
+                    title={t.common.download}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <DownloadIcon className="size-4" />
+                    <span className="cnooc-artifact-action-label">
+                      {t.common.download}
+                    </span>
+                  </a>
+                </Button>
+              </CardAction>
+            </CardHeader>
+          </Card>
+        </li>
       ))}
     </ul>
   );

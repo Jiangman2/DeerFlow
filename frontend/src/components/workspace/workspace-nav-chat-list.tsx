@@ -6,6 +6,7 @@ import {
   CalendarClock,
   ExternalLinkIcon,
   MessagesSquare,
+  MessageSquarePlus,
   PackageSearchIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -68,8 +69,22 @@ export function WorkspaceNavChatList() {
     };
   }, []);
   return (
-    <SidebarGroup className="pt-1">
+    <SidebarGroup className="cnooc-primary-navigation pt-0">
       <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            isActive={pathname === "/workspace/chats/new"}
+            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary data-[active=true]:shadow-sm [&>svg]:text-current"
+            asChild
+          >
+            <Link href="/workspace/chats/new" onClick={closeMobileSidebar}>
+              <span aria-hidden="true" className="cnooc-sidebar-icon-tile">
+                <MessageSquarePlus />
+              </span>
+              <span>{t.sidebar.newChat}</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
         <SidebarMenuItem>
           <SidebarMenuButton
             isActive={pathname === "/workspace/chats"}

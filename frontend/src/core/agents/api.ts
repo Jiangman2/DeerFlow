@@ -10,6 +10,21 @@ import type {
 
 const BACKEND_UNAVAILABLE_STATUSES = new Set([502, 503, 504]);
 
+export async function recordSquareEmployeeLaunch(agent: Agent): Promise<void> {
+  const source = agent.external_url ? "external" : agent.source;
+  if (!source || source === "personal" || !agent.hot_identity) return;
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/employee-directory/${source}/${encodeURIComponent(agent.name)}/click`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({ expected_identity: agent.hot_identity }),
+    },
+  );
+  if (!response.ok) throw new Error("Employee launch could not be recorded");
+}
+
 export class AgentNameCheckError extends Error {
   constructor(
     message: string,

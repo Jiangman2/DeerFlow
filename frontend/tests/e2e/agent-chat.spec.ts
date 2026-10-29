@@ -192,7 +192,7 @@ test.describe("Agent chat", () => {
       page.locator('[data-testid="expert-avatar-option"][aria-pressed="true"]'),
     ).toHaveCount(1);
     await page
-      .getByRole("textbox", { name: /monthly-report-expert|月报/i })
+      .getByRole("textbox", { name: /Display name|显示名称/i })
       .fill("builder-layout-agent");
     await page.getByRole("button", { name: /Continue|继续/i }).click();
 
@@ -298,6 +298,7 @@ test.describe("Agent chat", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/workspace/agents/test-agent/chats/${MOCK_THREAD_ID}`);
+    await page.getByTestId("chat-more-trigger").click();
     await expect(newChatButton).toBeVisible();
     await newChatButton.click();
     await expect(page).toHaveURL(
@@ -323,14 +324,18 @@ test.describe("Agent chat", () => {
     ).toHaveCount(2);
     await expect(page.getByText(/%E6%9C%88/)).toHaveCount(0);
 
-    const welcomeIcon = page.locator(".cnooc-agent-welcome-icon", {
-      has: page.locator("svg.lucide-bot"),
-    });
+    const welcomeIcon = page.locator(".cnooc-agent-welcome-icon");
     await expect(welcomeIcon).toBeVisible();
-    await expect(welcomeIcon.locator("span.bg-primary.opacity-10")).toHaveCount(
-      1,
+    await expect(welcomeIcon.locator("img")).toHaveAttribute(
+      "src",
+      /\/images\/digital-employees\/cartoon\//,
     );
-    await expect(welcomeIcon).not.toHaveClass(/bg-primary\/10/);
+    await expect(
+      page.locator(".cnooc-agent-header-avatar img"),
+    ).toHaveAttribute(
+      "src",
+      (await welcomeIcon.locator("img").getAttribute("src"))!,
+    );
   });
 
   test("custom agent welcome reuses the responsive CNOOC composition", async ({
@@ -360,8 +365,9 @@ test.describe("Agent chat", () => {
     expect(composerBox).not.toBeNull();
     expect(railBox).not.toBeNull();
     expect(welcomeBox!.y + welcomeBox!.height).toBeLessThan(composerBox!.y);
-    expect(composerBox!.width).toBeGreaterThanOrEqual(1000);
-    expect(railBox!.width).toBeLessThan(composerBox!.width);
+    expect(composerBox!.width).toBeGreaterThanOrEqual(900);
+    expect(composerBox!.width).toBeLessThanOrEqual(960);
+    expect(railBox!.width).toBeLessThanOrEqual(composerBox!.width);
     expect(
       Math.abs(
         composerBox!.x +

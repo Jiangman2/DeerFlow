@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import {
   Archive,
   Download,
@@ -65,7 +64,6 @@ import {
   usePinThread,
   useRenameThread,
 } from "@/core/threads/hooks";
-import { loadStaticDemoThreads } from "@/core/threads/static-demo";
 import type { AgentThread, AgentThreadState } from "@/core/threads/types";
 import {
   channelSourceOfThread,
@@ -95,34 +93,12 @@ export function RecentChatList() {
     archived:
       env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ? undefined : false,
   });
-  const { data: staticDemoThreads } = useQuery({
-    queryKey: ["static-demo-threads"],
-    queryFn: () => loadStaticDemoThreads(),
-    enabled: env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true",
-    staleTime: Number.POSITIVE_INFINITY,
-  });
   const threads = useMemo(() => {
-    const liveThreads = infiniteThreads?.pages.flat() ?? [];
-    if (env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true") {
-      return liveThreads;
-    }
-    const demoIds = new Set(
-      (staticDemoThreads ?? []).map((thread) => thread.thread_id),
-    );
-    return [
-      ...(staticDemoThreads ?? []),
-      ...liveThreads.filter((thread) => !demoIds.has(thread.thread_id)),
-    ];
-  }, [infiniteThreads, staticDemoThreads]);
-  const displayedThreads = useMemo(() => {
-    const demoThreads = threads.filter(
-      (thread) => thread.metadata?.demo === true,
-    );
-    const liveThreads = threads.filter(
+    return (infiniteThreads?.pages.flat() ?? []).filter(
       (thread) => thread.metadata?.demo !== true,
     );
-    return [...demoThreads, ...sortPinnedThreads(liveThreads)];
-  }, [threads]);
+  }, [infiniteThreads]);
+  const displayedThreads = useMemo(() => sortPinnedThreads(threads), [threads]);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -244,22 +220,14 @@ export function RecentChatList() {
           <SidebarMenu>
             <div className="flex w-full flex-col gap-1">
               {displayedThreads.map((thread, index) => {
-                const previousThread = displayedThreads[index - 1];
-                const isDemoThread = thread.metadata?.demo === true;
-                const showDemoLabel =
-                  isDemoThread &&
-                  (index === 0 || previousThread?.metadata?.demo !== true);
-                const showRecentLabel =
-                  !isDemoThread &&
-                  (index === 0 || previousThread?.metadata?.demo === true);
                 const isActive = pathOfThread(thread) === pathname;
                 const channelSource = channelSourceOfThread(thread);
                 const pinned = isThreadPinned(thread);
                 return (
                   <Fragment key={thread.thread_id}>
-                    {(showDemoLabel || showRecentLabel) && (
+                    {index === 0 && (
                       <div className="text-muted-foreground/70 mt-3 mb-1 px-2 text-[11px] font-medium tracking-wide first:mt-0">
-                        {showDemoLabel ? "演示对话" : "最近对话"}
+                        最近对话
                       </div>
                     )}
                     <SidebarMenuItem className="group/side-menu-item">
@@ -381,8 +349,8 @@ export function RecentChatList() {
                                 onSelect={() =>
                                   requestDelete({
                                     thread,
-                                    // The display list puts static demos and pinned chats
-                                    // first; neither identifies the newest live chat.
+                                    // Pinned display order does not identify the
+                                    // newest live chat in the original query order.
                                     recentThreadId: threads.find(
                                       (candidate) =>
                                         candidate.metadata?.demo !== true,

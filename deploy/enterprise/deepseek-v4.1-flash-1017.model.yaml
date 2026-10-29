@@ -1,0 +1,25 @@
+# Append this entry to models; preserve the existing first/default model.
+# Reuse the existing V4 Secret/env reference. Never paste its value here.
+name: deepseek-v4.1-flash-1017
+display_name: DeepSeek-V4.1-Flash-1017
+use: deerflow.models.cnooc_deepseek_v41:CnoocDeepSeekV41Chat
+model: DeepSeek-V4.1-Flash-1017
+base_url: https://aiapi.cnooc.com.cn/DeepSeek-V4.1-Flash-1017/FNC-01
+api_key: $DeepSeek_V4_API_KEY
+use_responses_api: false
+supports_vision: true
+supports_thinking: true
+supports_reasoning_effort: true
+when_thinking_disabled:
+  extra_body:
+    thinking:
+      type: disabled
+when_thinking_enabled:
+  extra_body:
+    thinking:
+      type: enabled
+streaming: true
+stream_usage: true
+stream_chunk_timeout: 180
+timeout: 180
+max_retries: 0

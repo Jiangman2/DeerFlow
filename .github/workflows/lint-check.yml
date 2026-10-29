@@ -37,7 +37,7 @@ jobs:
         run: make lint
 
       - name: Verify production source provenance
-        run: python deploy/enterprise/verify-release-source-20261023.py
+        run: python deploy/enterprise/verify-production-baseline-20261029.py
 
   lint-frontend:
     runs-on: ubuntu-latest

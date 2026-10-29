@@ -11,15 +11,18 @@ export function SettingsSection({
   description?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const hasHeader = Boolean(title) || Boolean(description);
   return (
-    <section className={cn(className)}>
-      <header className="space-y-2">
-        <div className="text-lg font-semibold">{title}</div>
-        {description && (
-          <div className="text-muted-foreground text-sm">{description}</div>
-        )}
-      </header>
-      <main className="mt-4">{children}</main>
+    <section className={cn("cnooc-settings-section", className)}>
+      {hasHeader && (
+        <header className="space-y-2">
+          <h2 className="text-lg font-semibold">{title}</h2>
+          {description && (
+            <div className="text-muted-foreground text-sm">{description}</div>
+          )}
+        </header>
+      )}
+      <div className={hasHeader ? "mt-5" : undefined}>{children}</div>
     </section>
   );
 }

@@ -30,6 +30,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { CompetitionDisplaySettings } from "@/components/workspace/dashboard/competition-display-settings";
+import {
+  EmployeeClicksPanel,
+  FeedbackActorsPanel,
+} from "@/components/workspace/dashboard/employee-activity-panels";
 import {
   useDashboardFailures,
   useDashboardKnowledge,
@@ -48,8 +53,6 @@ import {
   refreshDashboardQueries,
   type DashboardFilters,
   type DashboardRunRankingItem,
-  type ExternalAgentClickItem,
-  type ExternalPlatformClickSummary,
   type FeedbackSummary,
   type KnowledgeUsageSummary,
   type RecentFailureItem,
@@ -101,13 +104,13 @@ function AccountIdentity({
   return (
     <div className="min-w-0 space-y-0.5">
       <div
-        className="truncate font-medium text-slate-800"
+        className="font-medium break-words text-slate-800 md:truncate"
         title={distinctName ?? "未采集"}
       >
         姓名：{distinctName ?? "未采集"}
       </div>
       <div
-        className="truncate text-slate-500"
+        className="break-all text-slate-500 md:truncate"
         title={normalizedEmail ?? fallback}
       >
         登录账号：{normalizedEmail ?? fallback}
@@ -561,230 +564,6 @@ function RankingPagination({
   );
 }
 
-function ExternalAgentClicks({ items }: { items: ExternalAgentClickItem[] }) {
-  const names = [
-    "专业文档解析专家",
-    "地震数据提频专家",
-    "专业报告校审专家",
-    "自动数采专家",
-    "前期研究报告编写专家",
-  ];
-  const counts = new Map(items.map((item) => [item.name, item]));
-  const max = Math.max(1, ...items.map((item) => item.clicks));
-  return (
-    <div className="space-y-3">
-      {names.map((name) => {
-        const item = counts.get(name);
-        const clicks = item?.clicks ?? 0;
-        return (
-          <div key={name} className="space-y-1.5">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="truncate text-slate-700">{name}</span>
-              <span className="shrink-0 font-semibold text-cyan-700">
-                {clicks} 次
-              </span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full"
-                style={dashboardBarStyle(clicks, max)}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-const EXTERNAL_TREND_COLORS = [
-  "#0369a1",
-  "#0891b2",
-  "#0d9488",
-  "#2563eb",
-  "#4f46e5",
-];
-
-function ExternalPlatformClicks({
-  summary,
-}: {
-  summary?: ExternalPlatformClickSummary;
-}) {
-  const [scope, setScope] = useState<"today" | "all">("today");
-  if (!summary) {
-    return (
-      <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">
-        <CardContent className="pt-6">
-          <EmptyState label="正在加载外部智能体点击统计" />
-        </CardContent>
-      </Card>
-    );
-  }
-  if (!summary.available) {
-    return (
-      <Card className="min-w-0 rounded-xl border-amber-200 bg-amber-50 shadow-sm">
-        <CardContent className="pt-6">
-          <EmptyState
-            label={summary.error ?? "外部智能体历史点击汇总正在准备"}
-          />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const isToday = scope === "today";
-  const maxTrend = Math.max(1, ...Object.values(summary.trend.series).flat());
-  const sourceDetail = (
-    item: ExternalPlatformClickSummary["agents"][number],
-    field: "today_users" | "total_users" | "today_clicks" | "total_clicks",
-  ) =>
-    item.by_source
-      .map((source) => `${source.source.replace("平台", "")} ${source[field]}`)
-      .join(" · ");
-
-  return (
-    <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">
-      <CardHeader className="gap-3">
-        <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-base">
-          <span className="flex items-center gap-2">
-            <ExternalLinkIcon className="size-4 text-cyan-700" />
-            外部智能体点击（海能+协同）
-          </span>
-          <span className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
-            <Button
-              size="sm"
-              className="h-7 px-3"
-              variant={isToday ? "default" : "ghost"}
-              onClick={() => setScope("today")}
-            >
-              今日
-            </Button>
-            <Button
-              size="sm"
-              className="h-7 px-3"
-              variant={!isToday ? "default" : "ghost"}
-              onClick={() => setScope("all")}
-            >
-              全部
-            </Button>
-          </span>
-        </CardTitle>
-        <p className="text-xs leading-5 text-slate-500">
-          今日按北京时间统计；全部为历史累计。下方趋势固定展示最近 30
-          个自然日，不受页面顶部时间范围影响。同一来源内用户去重，不同来源分别计数。
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs text-slate-500">
-              <tr>
-                <th className="px-4 py-3 font-medium">智能体</th>
-                <th className="px-4 py-3 text-right font-medium">
-                  {isToday ? "今日活跃用户" : "累计用户"}
-                </th>
-                <th className="px-4 py-3 text-right font-medium">
-                  {isToday ? "今日点击" : "累计点击"}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {summary.agents.map((item) => {
-                const userField = isToday ? "today_users" : "total_users";
-                const clickField = isToday ? "today_clicks" : "total_clicks";
-                return (
-                  <tr key={item.name} className="bg-white">
-                    <td className="px-4 py-3 font-medium text-slate-800">
-                      {item.name}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="font-semibold text-cyan-700">
-                        {item[userField]}
-                      </div>
-                      <div className="mt-0.5 text-xs text-slate-400">
-                        {sourceDetail(item, userField)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="font-semibold text-slate-800">
-                        {item[clickField]}
-                      </div>
-                      <div className="mt-0.5 text-xs text-slate-400">
-                        {sourceDetail(item, clickField)}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        <div>
-          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-800">
-                近 30 天每日活跃用户
-              </h3>
-              <p className="mt-1 text-xs text-slate-400">
-                每行采用同一刻度，便于比较不同智能体的活跃程度。
-              </p>
-            </div>
-            <span className="text-xs text-slate-400">
-              {summary.trend.dates[0]} 至{" "}
-              {summary.trend.dates[summary.trend.dates.length - 1]}
-            </span>
-          </div>
-          <div className="space-y-4 overflow-x-auto pb-2">
-            {summary.agents.map((item, agentIndex) => {
-              const values = summary.trend.series[item.name] ?? [];
-              return (
-                <div key={item.name} className="min-w-[760px]">
-                  <div className="mb-1.5 flex items-center justify-between gap-4 text-xs">
-                    <span className="font-medium text-slate-600">
-                      {item.name}
-                    </span>
-                    <span className="text-slate-400">
-                      30 天合计 {values.reduce((sum, value) => sum + value, 0)}{" "}
-                      人次
-                    </span>
-                  </div>
-                  <div
-                    className="grid h-14 items-end gap-1 rounded-md bg-slate-50 px-2 pt-2"
-                    style={{
-                      gridTemplateColumns: `repeat(${Math.max(1, values.length)}, minmax(6px, 1fr))`,
-                    }}
-                  >
-                    {values.map((value, index) => (
-                      <div
-                        key={`${summary.trend.dates[index]}-${index}`}
-                        className="min-h-0 rounded-t-sm"
-                        title={`${summary.trend.dates[index]}：${value} 人`}
-                        style={{
-                          height:
-                            value > 0
-                              ? `${Math.max(8, (value / maxTrend) * 100)}%`
-                              : "2px",
-                          backgroundColor:
-                            value > 0
-                              ? EXTERNAL_TREND_COLORS[
-                                  agentIndex % EXTERNAL_TREND_COLORS.length
-                                ]
-                              : "#e2e8f0",
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function UsagePair({
   label,
   current,
@@ -982,7 +761,12 @@ function KnowledgeUsagePanel({ summary }: { summary?: KnowledgeUsageSummary }) {
           <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
             知识库明细
           </div>
-          <div className="max-h-96 overflow-auto">
+          <div
+            className="cnooc-table-scroll max-h-96 overflow-auto"
+            role="region"
+            aria-label="知识库明细"
+            tabIndex={0}
+          >
             <table className="w-full min-w-[680px] text-left text-xs">
               <thead className="sticky top-0 bg-slate-50 text-slate-500">
                 <tr>
@@ -1079,7 +863,12 @@ function KnowledgeUsagePanel({ summary }: { summary?: KnowledgeUsageSummary }) {
             />
           </div>
           <div className="min-w-0 overflow-hidden rounded-lg border">
-            <div className="max-h-96 overflow-auto">
+            <div
+              className="cnooc-table-scroll max-h-96 overflow-auto"
+              role="region"
+              aria-label="共享空间使用情况"
+              tabIndex={0}
+            >
               <table className="w-full min-w-[1100px] text-left text-xs">
                 <thead className="sticky top-0 bg-slate-50 text-slate-500">
                   <tr>
@@ -1152,7 +941,12 @@ function KnowledgeUsagePanel({ summary }: { summary?: KnowledgeUsageSummary }) {
           <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
             知识库使用排行
           </div>
-          <div className="max-h-80 overflow-auto">
+          <div
+            className="cnooc-table-scroll max-h-80 overflow-auto"
+            role="region"
+            aria-label="知识库使用排行"
+            tabIndex={0}
+          >
             <table className="w-full min-w-[620px] text-left text-xs">
               <thead className="sticky top-0 bg-slate-50 text-slate-500">
                 <tr>
@@ -1252,7 +1046,12 @@ function ScheduledTaskUsagePanel({
           />
         </div>
         <div className="min-w-0 overflow-hidden rounded-lg border">
-          <div className="max-h-80 overflow-auto">
+          <div
+            className="cnooc-table-scroll max-h-80 overflow-auto"
+            role="region"
+            aria-label="定时任务使用情况"
+            tabIndex={0}
+          >
             <table className="w-full min-w-[780px] text-left text-xs">
               <thead className="sticky top-0 bg-slate-50 text-slate-500">
                 <tr>
@@ -1447,8 +1246,62 @@ function FailedRuns({
           />
         ) : (
           <div className="space-y-3">
-            <div className="max-h-[26rem] overflow-x-hidden overflow-y-auto rounded-lg border">
-              <table className="w-full table-fixed text-left text-xs">
+            <div className="space-y-3 md:hidden">
+              {rows.map((row) => (
+                <article
+                  key={row.run_id}
+                  className="min-w-0 space-y-3 rounded-lg border p-3 text-sm [overflow-wrap:anywhere]"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                    <time dateTime={row.updated_at}>
+                      {shortTime(row.updated_at)}
+                    </time>
+                    <span>耗时 {duration(row.duration_ms)}</span>
+                  </div>
+                  <AccountIdentity
+                    name={row.display_name}
+                    email={row.email}
+                    fallback={row.user_id ?? "未识别"}
+                  />
+                  <div className="flex flex-wrap items-start justify-between gap-2 text-xs text-slate-600">
+                    <span className="min-w-0 flex-1">
+                      {row.model_name ?? "未记录模型"}
+                    </span>
+                    <span className="shrink-0 rounded-md bg-red-50 px-2 py-1 text-red-700">
+                      {row.status}
+                    </span>
+                  </div>
+                  <p className="line-clamp-3 rounded-md bg-red-50/60 p-3 leading-relaxed text-red-800">
+                    {row.error ?? row.status}
+                  </p>
+                  <p className="text-xs text-slate-500">Run：{row.run_id}</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11 flex-1"
+                      onClick={() => setSelectedFailure(row)}
+                    >
+                      查看错误详情
+                    </Button>
+                    {row.can_open && row.chat_url ? (
+                      <Link
+                        className="inline-flex min-h-11 items-center gap-1 text-cyan-700"
+                        href={row.chat_url}
+                      >
+                        查看原对话 <ExternalLinkIcon className="size-3" />
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-slate-400">
+                        原对话不可用
+                      </span>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="hidden max-h-[26rem] overflow-auto rounded-lg border md:block">
+              <table className="w-full min-w-[680px] table-fixed text-left text-xs">
                 <colgroup>
                   <col className="w-[15%]" />
                   <col className="w-[22%]" />
@@ -1543,8 +1396,8 @@ function FailedRuns({
           if (!open) setSelectedFailure(null);
         }}
       >
-        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-5xl">
-          <DialogHeader>
+        <DialogContent className="cnooc-detail-dialog flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-5xl">
+          <DialogHeader className="shrink-0 pr-8 text-left">
             <DialogTitle>失败运行错误详情</DialogTitle>
             <DialogDescription>
               只读展示运行错误、节点、工具调用与事件记录，不会修改或重试该任务。
@@ -1557,13 +1410,15 @@ function FailedRuns({
               label={`错误诊断加载失败：${diagnosticsQuery.error.message}`}
             />
           ) : diagnosticsQuery.data && selectedFailure ? (
-            <div className="space-y-5 text-sm">
-              <div className="grid gap-3 rounded-lg border bg-slate-50 p-4 sm:grid-cols-2 xl:grid-cols-4">
-                <AccountIdentity
-                  name={selectedFailure.display_name}
-                  email={selectedFailure.email}
-                  fallback={selectedFailure.user_id ?? "未识别"}
-                />
+            <div className="min-h-0 min-w-0 space-y-5 overflow-y-auto overscroll-contain pr-1 text-sm [overflow-wrap:anywhere]">
+              <div className="grid grid-cols-2 gap-3 rounded-lg border bg-slate-50 p-4 xl:grid-cols-4">
+                <div className="col-span-2 min-w-0 xl:col-span-1">
+                  <AccountIdentity
+                    name={selectedFailure.display_name}
+                    email={selectedFailure.email}
+                    fallback={selectedFailure.user_id ?? "未识别"}
+                  />
+                </div>
                 {[
                   ["状态", diagnosticsQuery.data.status],
                   ["模型", diagnosticsQuery.data.model ?? "未记录"],
@@ -1582,7 +1437,7 @@ function FailedRuns({
                   <div key={label} className="min-w-0">
                     <div className="text-xs text-slate-500">{label}</div>
                     <div
-                      className="mt-1 truncate font-medium text-slate-800"
+                      className="mt-1 font-medium break-words text-slate-800"
                       title={String(value)}
                     >
                       {value}
@@ -1808,6 +1663,11 @@ export default function DashboardPage() {
     Boolean(summary) && !summaryQuery.isFetching,
   );
   const headlineCounts = dashboardHeadlineCounts(summary?.overview);
+  const activityReportsReady =
+    summaryQuery.isFetched &&
+    !summaryQuery.isFetching &&
+    (summaryQuery.isError ||
+      (rankingsQuery.isFetched && !rankingsQuery.isFetching));
 
   const handleRefresh = async () => {
     setIsManualRefreshing(true);
@@ -1824,14 +1684,12 @@ export default function DashboardPage() {
     return `${shortTime(summary.window.start_at)} - ${shortTime(summary.window.end_at)}`;
   }, [summary]);
   return (
-    <main className="app-scroll-region min-h-full w-full max-w-full overflow-x-hidden overflow-y-auto bg-[radial-gradient(circle_at_top_left,#e0f2fe_0,transparent_28%),linear-gradient(to_bottom,#f8fafc,#eef2f7)] px-3 py-4 text-slate-950 sm:px-6 sm:py-6">
+    <main className="cnooc-admin-dashboard app-scroll-region min-h-full w-full max-w-full overflow-x-hidden overflow-y-auto bg-slate-50 px-3 py-4 text-slate-950 sm:px-6 sm:py-6">
       <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-6">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
+          <div className="flex w-full min-w-0 items-center justify-between gap-3">
             <h1 className="text-2xl font-semibold tracking-normal">业务看板</h1>
-            <p className="mt-1 max-w-full text-sm break-words text-slate-500">
-              {windowLabel}，展示业务价值、用户活跃和运行质量。
-            </p>
+            <CompetitionDisplaySettings />
           </div>
           <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto lg:shrink-0">
             {[1, 24, 168].map((value) => (
@@ -2029,6 +1887,11 @@ export default function DashboardPage() {
         </div>
 
         <FeedbackPanel summary={summary?.feedback} />
+        <FeedbackActorsPanel
+          key={`actors:${filters.hours}:${filters.start_at}:${filters.end_at}`}
+          filters={filters}
+          enabled={activityReportsReady}
+        />
 
         {knowledgeQuery.isError ? null : (
           <KnowledgeUsagePanel summary={knowledgeQuery.data} />
@@ -2053,24 +1916,11 @@ export default function DashboardPage() {
               <UserRanking items={summary?.user_usage ?? []} />
             </CardContent>
           </Card>
-          <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">
-            <CardHeader>
-              <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
-                <span className="flex items-center gap-2">
-                  <ExternalLinkIcon className="size-4 text-cyan-700" />
-                  外部智能体点击
-                </span>
-                <span className="text-xs font-normal text-slate-500">
-                  所选区间
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ExternalAgentClicks
-                items={summary?.external_agent_clicks ?? []}
-              />
-            </CardContent>
-          </Card>
+          <EmployeeClicksPanel
+            key={`clicks:${filters.hours}:${filters.start_at}:${filters.end_at}`}
+            filters={filters}
+            enabled={activityReportsReady}
+          />
         </div>
 
         <RegisteredUserSessions />
@@ -2098,10 +1948,6 @@ export default function DashboardPage() {
             onPageChange={setFailurePage}
           />
         </div>
-
-        <ExternalPlatformClicks
-          summary={summary?.external_platform_agent_clicks}
-        />
       </div>
     </main>
   );

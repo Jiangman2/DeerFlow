@@ -40,6 +40,7 @@ test.describe("UI polish mobile regressions", () => {
     });
 
     await page.goto(`/workspace/chats/${MOCK_THREAD_ID}`);
+    await page.getByTestId("chat-more-trigger").click();
     await page.getByTestId("artifact-trigger").click();
 
     await expect(

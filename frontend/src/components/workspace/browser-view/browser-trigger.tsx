@@ -1,6 +1,7 @@
 import { MonitorIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Tooltip } from "@/components/workspace/tooltip";
 import { useI18n } from "@/core/i18n/hooks";
 
@@ -8,7 +9,7 @@ import { useMaybeSidecar } from "../sidecar/context";
 
 import { useMaybeBrowserView } from "./context";
 
-export const BrowserTrigger = () => {
+export const BrowserTrigger = ({ inMenu = false }: { inMenu?: boolean }) => {
   const { t } = useI18n();
   const browserView = useMaybeBrowserView();
   const sidecar = useMaybeSidecar();
@@ -18,6 +19,23 @@ export const BrowserTrigger = () => {
   }
   const browserVisible = browserView.open && !sidecar?.open;
   const label = browserVisible ? t.common.close : t.common.showBrowser;
+  const toggle = () => {
+    if (browserVisible) {
+      browserView.close();
+      return;
+    }
+    sidecar?.close();
+    browserView.openPanel();
+  };
+
+  if (inMenu) {
+    return (
+      <DropdownMenuItem onSelect={toggle}>
+        <MonitorIcon />
+        {label}
+      </DropdownMenuItem>
+    );
+  }
 
   return (
     <Tooltip content={label}>
@@ -28,14 +46,7 @@ export const BrowserTrigger = () => {
         size="icon"
         type="button"
         variant={browserVisible ? "secondary" : "ghost"}
-        onClick={() => {
-          if (browserVisible) {
-            browserView.close();
-            return;
-          }
-          sidecar?.close();
-          browserView.openPanel();
-        }}
+        onClick={toggle}
       >
         <MonitorIcon />
       </Button>

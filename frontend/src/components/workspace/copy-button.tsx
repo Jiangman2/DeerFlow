@@ -36,6 +36,9 @@ export function CopyButton({
         size="icon-sm"
         type="button"
         variant="ghost"
+        aria-label={
+          copied ? t.clipboard.copiedToClipboard : t.clipboard.copyToClipboard
+        }
         onClick={handleCopy}
         {...props}
       >

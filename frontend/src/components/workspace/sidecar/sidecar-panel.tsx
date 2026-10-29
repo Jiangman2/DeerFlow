@@ -47,6 +47,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import { ChatModelPicker } from "@/components/workspace/chat-model-picker";
 import { useI18n } from "@/core/i18n/hooks";
 import {
   buildHumanInputResponseText,
@@ -79,15 +80,7 @@ import {
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
-import {
-  ModelSelector,
-  ModelSelectorContent,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
-  ModelSelectorName,
-  ModelSelectorTrigger,
-} from "../../ai-elements/model-selector";
+import { ModelSelectorName } from "../../ai-elements/model-selector";
 import { MessageList, MESSAGE_LIST_DEFAULT_PADDING_BOTTOM } from "../messages";
 import { useThread as useParentThread } from "../messages/context";
 import { ModeHoverGuide } from "../mode-hover-guide";
@@ -653,7 +646,6 @@ export function SidecarPanel({ className }: { className?: string }) {
               <PromptInputTools className="min-w-0 justify-end">
                 <SidecarModelSelector
                   className="max-w-40 min-w-0 sm:max-w-56 @max-[240px]:hidden"
-                  context={sidecar.context}
                   models={models}
                   open={modelDialogOpen}
                   selectedModel={selectedModel}
@@ -925,7 +917,6 @@ function SidecarModeMenu({
 
 function SidecarModelSelector({
   className,
-  context,
   models,
   open,
   selectedModel,
@@ -933,54 +924,31 @@ function SidecarModelSelector({
   onOpenChange,
 }: {
   className?: string;
-  context: ThreadStreamOptions["context"];
   models: Model[];
   open: boolean;
   selectedModel?: Model;
   onModelSelect: (modelName: string) => void;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { t } = useI18n();
-
   if (!selectedModel) {
     return null;
   }
 
   return (
-    <ModelSelector open={open} onOpenChange={onOpenChange}>
-      <ModelSelectorTrigger asChild>
-        <PromptInputButton className={cn("min-w-0 px-2!", className)}>
-          <div className="flex min-w-0 flex-col items-start text-left">
-            <ModelSelectorName className="truncate text-xs font-normal">
-              {selectedModel.display_name}
-            </ModelSelectorName>
-          </div>
-        </PromptInputButton>
-      </ModelSelectorTrigger>
-      <ModelSelectorContent>
-        <ModelSelectorInput placeholder={t.inputBox.searchModels} />
-        <ModelSelectorList>
-          {models.map((model) => (
-            <ModelSelectorItem
-              key={model.name}
-              value={model.name}
-              onSelect={() => onModelSelect(model.name)}
-            >
-              <div className="flex min-w-0 flex-1 flex-col">
-                <ModelSelectorName>{model.display_name}</ModelSelectorName>
-                <span className="text-muted-foreground truncate text-[10px]">
-                  {model.model}
-                </span>
-              </div>
-              {model.name === context.model_name ? (
-                <CheckIcon className="ml-auto size-4" />
-              ) : (
-                <div className="ml-auto size-4" />
-              )}
-            </ModelSelectorItem>
-          ))}
-        </ModelSelectorList>
-      </ModelSelectorContent>
-    </ModelSelector>
+    <ChatModelPicker
+      models={models}
+      selectedName={selectedModel.name}
+      open={open}
+      onOpenChange={onOpenChange}
+      onSelect={onModelSelect}
+    >
+      <PromptInputButton className={cn("min-w-0 px-2!", className)}>
+        <div className="flex min-w-0 flex-col items-start text-left">
+          <ModelSelectorName className="truncate text-xs font-normal">
+            {selectedModel.display_name}
+          </ModelSelectorName>
+        </div>
+      </PromptInputButton>
+    </ChatModelPicker>
   );
 }

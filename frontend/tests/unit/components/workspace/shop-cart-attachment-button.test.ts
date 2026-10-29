@@ -22,6 +22,8 @@ rs.mock("@/components/ai-elements/prompt-input", () => ({
 rs.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenu: "div",
   DropdownMenuContent: "div",
+  DropdownMenuGroup: "div",
+  DropdownMenuLabel: "div",
   DropdownMenuItem: rs.fn(
     ({ children }: { children: React.ReactNode }) => children,
   ),
@@ -100,7 +102,7 @@ describe("ShopCartAttachmentButton", () => {
     expect(html).toContain("Data Lake file list");
     expect(html).toContain("Do not use Data Lake");
     expect(html).toContain("new-shop-cart-dialog");
-    expect(html).toContain("border-[#6d5dfc]/40 bg-[#f4f2ff]");
+    expect(html).toContain('data-active="true"');
   });
 
   it("hides the file list and dialog when Data Lake is disabled", () => {

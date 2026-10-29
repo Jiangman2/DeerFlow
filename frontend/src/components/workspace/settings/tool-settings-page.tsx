@@ -22,10 +22,7 @@ export function ToolSettingsPage() {
   const adminRequired =
     error instanceof MCPConfigRequestError && error.isAdminRequired;
   return (
-    <SettingsSection
-      title={t.settings.tools.title}
-      description={t.settings.tools.description}
-    >
+    <SettingsSection title={t.settings.tools.title}>
       {isLoading ? (
         <div className="text-muted-foreground text-sm">{t.common.loading}</div>
       ) : adminRequired ? (

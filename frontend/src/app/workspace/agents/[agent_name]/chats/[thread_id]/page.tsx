@@ -1,21 +1,18 @@
 "use client";
 
-import { BotIcon, PlusSquare } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
-import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { AgentWelcome } from "@/components/workspace/agent-welcome";
-import { ArtifactTrigger } from "@/components/workspace/artifacts";
-import { BrowserTrigger } from "@/components/workspace/browser-view";
+import { DigitalEmployeeAvatar } from "@/components/workspace/agents/digital-employee-avatar";
+import { ChatSecondaryActions } from "@/components/workspace/chat-secondary-actions";
 import {
   ChatBox,
   notifyThreadChatRouteChange,
   useThreadChat,
 } from "@/components/workspace/chats";
-import { ExportTrigger } from "@/components/workspace/export-trigger";
 import { GoalStatus } from "@/components/workspace/goal-status";
 import {
   InputBox,
@@ -26,16 +23,13 @@ import {
   MESSAGE_LIST_DEFAULT_PADDING_BOTTOM,
 } from "@/components/workspace/messages";
 import { ThreadContext } from "@/components/workspace/messages/context";
-import {
-  SidecarProvider,
-  SidecarTrigger,
-} from "@/components/workspace/sidecar";
+import { SidecarProvider } from "@/components/workspace/sidecar";
 import { ThreadTitle } from "@/components/workspace/thread-title";
 import { TodoList } from "@/components/workspace/todo-list";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
-import { Tooltip } from "@/components/workspace/tooltip";
 import { useActiveGoal } from "@/components/workspace/use-active-goal";
 import { decodeAgentNameRouteParam, useAgent } from "@/core/agents";
+import { getAgentStarterPrompts } from "@/core/agents/starter-prompts";
 import { useBrowserControlEnabled } from "@/core/features";
 import { useI18n } from "@/core/i18n/hooks";
 import {
@@ -59,7 +53,7 @@ import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
 export default function AgentChatPage() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const router = useRouter();
 
   const { agent_name: agentNameParam } = useParams<{
@@ -75,6 +69,14 @@ export default function AgentChatPage() {
   );
 
   const { agent } = useAgent(agentName);
+  const welcomeSuggestions = useMemo(
+    () => getAgentStarterPrompts(agent, locale),
+    [agent, locale],
+  );
+  const configuredName = agent?.display_name?.trim();
+  const displayName = configuredName?.length
+    ? configuredName
+    : (agent?.name ?? agentName);
 
   const { threadId, setThreadId, isNewThread, setIsNewThread, isMock } =
     useThreadChat();
@@ -269,7 +271,10 @@ export default function AgentChatPage() {
             !isNewThread && Boolean(threadMetadata.data)
           }
         >
-          <div className="relative flex size-full min-h-0 justify-between">
+          <div
+            className="cnooc-agent-chat-page relative flex size-full min-h-0 justify-between"
+            data-welcome={isWelcomeMode}
+          >
             <header
               className={cn(
                 "cnooc-chat-header absolute top-0 right-0 left-0 z-40 flex h-12 min-w-0 shrink-0 items-center gap-1 overflow-hidden px-2 sm:gap-2 sm:px-4",
@@ -282,41 +287,24 @@ export default function AgentChatPage() {
               <SidebarTrigger className="md:hidden" />
               {/* Agent badge */}
               <div className="cnooc-agent-header-badge flex min-w-0 shrink-0 items-center gap-1 rounded-md border p-1 sm:gap-1.5 sm:px-2 sm:py-1">
-                <BotIcon className="text-primary h-3.5 w-3.5" />
-                <span className="max-w-36 truncate text-xs font-medium sm:max-w-none">
-                  {agent?.name ?? agentName}
+                <DigitalEmployeeAvatar
+                  agent={agent ?? { name: agentName }}
+                  className="cnooc-agent-header-avatar size-7"
+                />
+                <span className="cnooc-agent-header-name max-w-36 truncate text-xs font-medium sm:max-w-none">
+                  {displayName}
                 </span>
               </div>
 
               <div
                 className={cn(
-                  "flex min-w-0 flex-1 items-center text-sm font-medium",
+                  "cnooc-agent-thread-title flex min-w-0 flex-1 items-center text-sm font-medium",
                   isWelcomeMode && "cnooc-welcome-thread-title",
                 )}
               >
                 <ThreadTitle threadId={threadId} thread={thread} />
               </div>
               <div className="cnooc-header-actions flex min-w-0 shrink-0 items-center gap-0.5 sm:mr-4 sm:gap-1">
-                {!isNewThread ? (
-                  <Tooltip content={t.agents.newChat}>
-                    <Button
-                      className="size-8 px-0 sm:h-8 sm:w-auto sm:px-3"
-                      data-testid="agent-new-chat-button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        router.push(
-                          `/workspace/agents/${agentRouteName}/chats/new`,
-                        );
-                      }}
-                    >
-                      <PlusSquare />
-                      <span className="hidden sm:inline">
-                        {t.agents.newChat}
-                      </span>
-                    </Button>
-                  </Tooltip>
-                ) : null}
                 <TokenUsageIndicator
                   threadId={isNewThread ? undefined : threadId}
                   backendUsage={backendTokenUsage}
@@ -328,10 +316,13 @@ export default function AgentChatPage() {
                     setLocalSettings("tokenUsage", preferences)
                   }
                 />
-                <SidecarTrigger />
-                {browserEnabled && <BrowserTrigger />}
-                <ExportTrigger threadId={threadId} />
-                <ArtifactTrigger />
+                {!isWelcomeMode && (
+                  <ChatSecondaryActions
+                    threadId={threadId}
+                    browserEnabled={browserEnabled}
+                    newChatHref={`/workspace/agents/${agentRouteName}/chats/new`}
+                  />
+                )}
               </div>
             </header>
 
@@ -346,9 +337,9 @@ export default function AgentChatPage() {
                   <AgentWelcome agent={agent} agentName={agentName} />
                 </div>
               )}
-              <div className="flex min-h-0 flex-1 justify-center">
+              <div className="cnooc-agent-message-region flex min-h-0 flex-1 justify-center">
                 <MessageList
-                  className={cn("size-full", !isWelcomeMode && "pt-10")}
+                  className={cn("size-full", !isWelcomeMode && "md:pt-10")}
                   testId="main-message-list"
                   threadId={threadId}
                   thread={thread}
@@ -415,6 +406,7 @@ export default function AgentChatPage() {
                   )}
 
                   <InputBox
+                    welcomeSuggestions={welcomeSuggestions}
                     className={cn(
                       "bg-background/5 w-full",
                       isWelcomeMode && "cnooc-welcome-composer",

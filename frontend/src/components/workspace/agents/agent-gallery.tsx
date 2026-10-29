@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/sheet";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ModulePageTitle } from "@/components/workspace/module-page-title";
 import {
   AgentsApiDisabledError,
   SHARED_EXTERNAL_AGENTS,
@@ -48,6 +49,7 @@ import {
 import type { Agent, DigitalEmployeeCategory } from "@/core/agents";
 import { applyEmployeeMetadata } from "@/core/agents/employee-directory";
 import { useEmployeeDirectory } from "@/core/agents/employee-directory-hooks";
+import { galleryPageSize } from "@/core/agents/gallery-page-size";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +58,6 @@ import { BusinessDomainBadge } from "./business-domain-badge";
 import { DigitalEmployeeSettingsDialog } from "./digital-employee-settings-dialog";
 
 type GalleryTab = "square" | "mine";
-const PAGE_SIZE = 6;
 const POPULAR_TAG_PREVIEW_COUNT = 8;
 const MAX_POPULAR_TAGS = 24;
 
@@ -304,7 +305,30 @@ export function AgentGallery() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const [listSlot, setListSlot] = useState<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!listSlot) return;
+    const media = window.matchMedia("(min-width: 1024px)");
+    const measure = () => {
+      const fontSize = parseFloat(getComputedStyle(listSlot).fontSize) || 16;
+      const next = galleryPageSize(
+        listSlot.clientHeight,
+        media.matches,
+        Math.max(112, fontSize * 7),
+      );
+      setPageSize(next);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(listSlot);
+    media.addEventListener("change", measure);
+    measure();
+    return () => {
+      observer.disconnect();
+      media.removeEventListener("change", measure);
+    };
+  }, [listSlot]);
   const agentsApiDisabled = error instanceof AgentsApiDisabledError;
   const teamAgentsApiDisabled = teamError instanceof AgentsApiDisabledError;
   const sharedAgentNames = new Set(
@@ -331,11 +355,11 @@ export function AgentGallery() {
     categoryNames,
     tags: [...selectedTags],
   });
-  const totalPages = Math.max(1, Math.ceil(filteredAgents.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredAgents.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const visibleAgents = filteredAgents.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
   const paginationItems = getPaginationItems(currentPage, totalPages);
   const activeFilterCount =
@@ -347,7 +371,7 @@ export function AgentGallery() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, selectedCategory, selectedTags, tab, hotOnly]);
+  }, [query, selectedCategory, selectedTags, tab, hotOnly, pageSize]);
 
   function goToPage(nextPage: number) {
     setPage(Math.min(Math.max(nextPage, 1), totalPages));
@@ -414,28 +438,21 @@ export function AgentGallery() {
 
   return (
     <div className="cnooc-agents-page flex size-full min-w-0 flex-col">
-      <header className="cnooc-page-heading border-b px-4 py-3 sm:px-6 sm:py-4">
+      <header className="cnooc-page-heading px-4 pt-3 pb-1 sm:px-6 sm:pt-4 sm:pb-1">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
-          <div className="flex min-w-0 items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-2">
-              <SidebarTrigger className="mt-0.5 -ml-2 shrink-0 md:hidden" />
-              <div className="min-w-0">
-                <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-                  {t.agents.title}
-                </h1>
-                <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
-                  {t.agents.description}
-                </p>
-              </div>
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+            <div className="flex min-h-11 shrink-0 items-center gap-2">
+              <SidebarTrigger className="-ml-2 shrink-0 md:hidden" />
+              <ModulePageTitle icon={BotIcon} title={t.agents.title} />
             </div>
             <Button
               onClick={() => router.push("/workspace/agents/new")}
               size="sm"
-              className="shrink-0 rounded-lg"
+              className="ml-auto shrink-0 rounded-lg"
             >
               <PlusIcon data-icon="inline-start" />
               <span className="hidden sm:inline">{t.agents.newAgent}</span>
-              <span className="sm:hidden">{t.common.create}</span>
+              <span className="sm:hidden">{t.agents.createAgent}</span>
             </Button>
           </div>
 
@@ -486,17 +503,22 @@ export function AgentGallery() {
 
       <main
         ref={contentRef}
-        className="cnooc-page-content app-scroll-region min-h-0 flex-1 overflow-y-auto bg-slate-50/55 px-3 py-4 sm:px-6 sm:py-5 dark:bg-slate-950/30"
+        className="cnooc-page-content app-scroll-region min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6 sm:py-5 lg:overflow-hidden"
       >
-        <div className="mx-auto grid w-full max-w-6xl min-w-0 gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <div className="mx-auto grid w-full max-w-6xl min-w-0 gap-5 lg:h-full lg:min-h-0 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-stretch">
           <aside
             data-testid="desktop-filter-panel"
-            className="app-scroll-region bg-card sticky top-0 hidden max-h-[calc(100dvh-11rem)] self-start overflow-y-auto rounded-xl border p-3.5 shadow-sm [scrollbar-gutter:stable] lg:block"
+            className="bg-card relative hidden min-h-0 overflow-hidden rounded-xl border shadow-sm lg:block"
           >
-            {filterPanel}
+            <div className="app-scroll-region absolute inset-0 overflow-y-auto p-3.5 [scrollbar-gutter:stable]">
+              {filterPanel}
+            </div>
           </aside>
 
-          <section className="min-w-0">
+          <section
+            className="min-w-0 lg:flex lg:min-h-0 lg:flex-col"
+            data-testid="employee-list-panel"
+          >
             {tab === "square" && directory.isError ? (
               <div role="alert" className="mb-3 rounded-lg border p-3 text-sm">
                 <p>{t.employeeDiscovery.loadError}</p>
@@ -510,7 +532,7 @@ export function AgentGallery() {
                 </Button>
               </div>
             ) : null}
-            <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
               <p className="text-muted-foreground text-xs">
                 {t.agents.resultCount.replace(
                   "{count}",
@@ -576,59 +598,71 @@ export function AgentGallery() {
                 }
               />
             ) : (
-              <div className="grid gap-2.5">
-                {visibleAgents.map((agent) => (
-                  <AgentCard
-                    key={`${agent.source ?? tab}:${agent.name}`}
-                    agent={agent}
-                    hotPending={directory.update.isPending}
-                    onToggleHot={
-                      tab === "square" &&
-                      directory.isAdmin &&
-                      directory.isSuccess &&
-                      !!agent.hot_identity &&
-                      !directory.isError
-                        ? (selected) => {
-                            directory.update.mutate(selected, {
-                              onSuccess: () =>
-                                toast.success(t.employeeDiscovery.saved),
-                              onError: (error) =>
-                                toast.error(
-                                  error.message === "conflict"
-                                    ? t.employeeDiscovery.conflict
-                                    : t.employeeDiscovery.saveError,
-                                ),
-                            });
-                          }
-                        : undefined
-                    }
-                    categoryLabel={
-                      agent.category_id
-                        ? categoryById.get(agent.category_id)
-                        : undefined
-                    }
-                    showPublish={tab === "mine"}
-                    showDelete={tab === "mine"}
-                    onEdit={tab === "mine" ? setEditingAgent : undefined}
-                    showUnpublish={
-                      tab === "square" &&
-                      !teamAgentsApiDisabled &&
-                      agent.external_url == null &&
-                      agent.published_by_current_user === true
-                    }
-                  />
-                ))}
+              <div className="min-h-0 lg:flex lg:flex-1 lg:flex-col">
+                <div
+                  ref={setListSlot}
+                  data-testid="employee-card-slot"
+                  data-page-size={pageSize}
+                  className="grid gap-2.5 lg:min-h-0 lg:flex-1 lg:[grid-template-rows:repeat(var(--employee-page-size),minmax(104px,1fr))] lg:overflow-y-auto"
+                  style={
+                    { "--employee-page-size": pageSize } as React.CSSProperties
+                  }
+                >
+                  {visibleAgents.map((agent) => (
+                    <AgentCard
+                      key={`${agent.source ?? tab}:${agent.name}`}
+                      agent={agent}
+                      trackSquareLaunch={tab === "square"}
+                      hotPending={directory.update.isPending}
+                      onToggleHot={
+                        tab === "square" &&
+                        directory.isAdmin &&
+                        directory.isSuccess &&
+                        !!agent.hot_identity &&
+                        !directory.isError
+                          ? (selected) => {
+                              directory.update.mutate(selected, {
+                                onSuccess: () =>
+                                  toast.success(t.employeeDiscovery.saved),
+                                onError: (error) =>
+                                  toast.error(
+                                    error.message === "conflict"
+                                      ? t.employeeDiscovery.conflict
+                                      : t.employeeDiscovery.saveError,
+                                  ),
+                              });
+                            }
+                          : undefined
+                      }
+                      categoryLabel={
+                        agent.category_id
+                          ? categoryById.get(agent.category_id)
+                          : undefined
+                      }
+                      showPublish={tab === "mine"}
+                      showDelete={tab === "mine"}
+                      onEdit={tab === "mine" ? setEditingAgent : undefined}
+                      showUnpublish={
+                        tab === "square" &&
+                        !teamAgentsApiDisabled &&
+                        agent.external_url == null &&
+                        agent.published_by_current_user === true
+                      }
+                    />
+                  ))}
+                </div>
                 {totalPages > 1 ? (
                   <nav
                     aria-label={t.agents.paginationNavigation}
                     data-testid="digital-employee-pagination"
-                    className="mt-3 flex flex-wrap items-center justify-center gap-1.5"
+                    className="mt-3 flex shrink-0 flex-wrap items-center justify-center gap-1.5"
                   >
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       disabled={currentPage === 1}
+                      aria-label={t.agents.previousPage}
                       onClick={() => goToPage(currentPage - 1)}
                     >
                       <ChevronLeftIcon aria-hidden="true" />
@@ -669,6 +703,7 @@ export function AgentGallery() {
                       variant="outline"
                       size="sm"
                       disabled={currentPage === totalPages}
+                      aria-label={t.agents.nextPage}
                       onClick={() => goToPage(currentPage + 1)}
                     >
                       <span className="hidden sm:inline">

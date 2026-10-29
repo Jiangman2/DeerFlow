@@ -1,27 +1,16 @@
 "use client";
 
-import { MessageSquarePlus } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { brand } from "@/brand";
 import { BrandLogo } from "@/components/brand/brand-logo";
-import {
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarTrigger,
-  useSidebar,
-} from "@/components/ui/sidebar";
-import { useI18n } from "@/core/i18n/hooks";
+import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
 export function WorkspaceHeader({ className }: { className?: string }) {
-  const { t } = useI18n();
-  const { state, isMobile, setOpenMobile } = useSidebar();
-  const pathname = usePathname();
+  const { state, isMobile } = useSidebar();
   const [suppressCollapsedHover, setSuppressCollapsedHover] = useState(false);
   const releasePointerFocus = (event: React.MouseEvent<HTMLButtonElement>) => {
     // After a pointer-triggered collapse the control moves into the collapsed
@@ -53,10 +42,10 @@ export function WorkspaceHeader({ className }: { className?: string }) {
             <BrandLogo
               variant="mark"
               priority
-              className="cnooc-collapsed-brand-mark block size-7 -translate-y-px object-contain group-hover/workspace-header:hidden"
+              className="cnooc-collapsed-brand-mark block size-7 -translate-y-px object-contain"
             />
             <SidebarTrigger
-              className="cnooc-collapsed-brand-trigger hidden group-hover/workspace-header:flex"
+              className="cnooc-collapsed-brand-trigger"
               onClick={releasePointerFocus}
             />
           </div>
@@ -75,27 +64,6 @@ export function WorkspaceHeader({ className }: { className?: string }) {
           </div>
         )}
       </div>
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            isActive={pathname === "/workspace/chats/new"}
-            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary data-[active=true]:shadow-sm [&>svg]:text-current"
-            asChild
-          >
-            <Link
-              href="/workspace/chats/new"
-              onClick={() => {
-                if (isMobile) setOpenMobile(false);
-              }}
-            >
-              <span aria-hidden="true" className="cnooc-sidebar-icon-tile">
-                <MessageSquarePlus size={16} />
-              </span>
-              <span>{t.sidebar.newChat}</span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
     </>
   );
 }

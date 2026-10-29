@@ -1,0 +1,35 @@
+{
+  "schema": "portal-combined-tavily-key-field-summary.v1",
+  "evidence_origin": "Operator-pasted JSON; original receipt retained on server",
+  "status": "TAVILY_SECRET_UPDATED_GATEWAY_ROLLOUT_PENDING",
+  "report": {
+    "path": "/var/lib/portal-combined-tavily-key-20261028-r1/REPORT.json",
+    "bytes": 2706,
+    "sha256": "ef3f55bcd138566c401b819edab0557df17f0638c05126bcf0175100a814e95d"
+  },
+  "secret_name": "deer-flow-env",
+  "secret_item": "TAVILY_API_KEY",
+  "secret_uid": "e04430c4-8cad-457d-a2f3-3583fa5e29ba",
+  "secret_resource_version": "27358267",
+  "secret_patch_requests": 1,
+  "secret_readback_accepted": true,
+  "other_secret_fields_preserved": true,
+  "protected_deployments_preserved": true,
+  "gateway_nodes_checked": 2,
+  "provider_requests": 0,
+  "workload_modified": false,
+  "configuration_modified": true,
+  "v41_enabled": false,
+  "default_model_changed": false,
+  "previous_key_retained_locally_root_only": true,
+  "credential_values_exported": false,
+  "running_pods_keep_their_existing_environment": true,
+  "gateway_rollout_required": true,
+  "stored_weknora_provider_keys_modified": false,
+  "v41_diagnostic_repeat": {
+    "error_code": "ONCE_ALREADY_CLAIMED",
+    "new_provider_requests": 0,
+    "workload_modified": false,
+    "prior_402_diagnostic_receipt_preserved": true
+  }
+}

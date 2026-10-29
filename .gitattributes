@@ -44,3 +44,6 @@ Makefile text eol=lf
 
 # Preserve original operator receipts and delivered script byte hashes.
 release/production-source-20261027/research-fund-settlement/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve the sealed combined-release receipts and historical tooling byte-for-byte.
+release/combined-features-20261028-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

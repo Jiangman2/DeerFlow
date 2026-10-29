@@ -16,7 +16,7 @@ import logging
 from datetime import UTC, datetime, time, timedelta
 from typing import NamedTuple
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
@@ -111,6 +111,16 @@ class ConsoleUsageResponse(BaseModel):
     total_runs: int
     total_cost: float | None = Field(default=None, description="Estimated spend for the window; null when no pricing is configured")
     currency: str | None = Field(default=None, description="Display currency taken from the first configured pricing entry")
+
+
+class AccountTokenSummary(BaseModel):
+    scope: str = "current_user_recorded_platform_runs"
+    total_tokens: int
+    input_tokens: int
+    output_tokens: int
+    unclassified_tokens: int
+    run_count: int
+    recorded_since: datetime | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -259,6 +269,38 @@ def _run_cost(
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+
+@router.get("/token-summary", response_model=AccountTokenSummary)
+@require_permission("runs", "read")
+async def account_token_summary(request: Request, response: Response) -> AccountTokenSummary:
+    """One SQL aggregate for the caller's lifetime recorded usage, never global."""
+    user_id = await get_current_user(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authenticated user required")
+    sf = _session_factory_or_503()
+    async with sf() as session:
+        row = (
+            await session.execute(
+                select(
+                    func.coalesce(func.sum(RunRow.total_tokens), 0),
+                    func.coalesce(func.sum(RunRow.total_input_tokens), 0),
+                    func.coalesce(func.sum(RunRow.total_output_tokens), 0),
+                    func.count(),
+                    func.min(RunRow.created_at),
+                ).where(RunRow.user_id == user_id)
+            )
+        ).one()
+    total, inputs, outputs, runs = (max(0, int(value or 0)) for value in row[:4])
+    response.headers["Cache-Control"] = "no-store"
+    return AccountTokenSummary(
+        total_tokens=total,
+        input_tokens=inputs,
+        output_tokens=outputs,
+        unclassified_tokens=max(0, total - inputs - outputs),
+        run_count=runs,
+        recorded_since=_as_utc(row[4]),
+    )
 
 
 @router.get(

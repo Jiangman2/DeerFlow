@@ -61,10 +61,7 @@ export function AppearanceSettingsPage() {
 
   return (
     <div className="space-y-8">
-      <SettingsSection
-        title={t.settings.appearance.themeTitle}
-        description={t.settings.appearance.themeDescription}
-      >
+      <SettingsSection title={t.settings.appearance.themeTitle}>
         <div className="grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-3">
           {themeOptions.map((option) => (
             <ThemePreviewCard
@@ -83,10 +80,7 @@ export function AppearanceSettingsPage() {
 
       <Separator />
 
-      <SettingsSection
-        title={t.settings.appearance.languageTitle}
-        description={t.settings.appearance.languageDescription}
-      >
+      <SettingsSection title={t.settings.appearance.languageTitle}>
         <Select
           value={locale}
           onValueChange={(value) => {

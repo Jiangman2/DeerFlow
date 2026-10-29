@@ -10,6 +10,8 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +29,7 @@ import {
 import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
 
+import { AccountUsageCard } from "./settings/account-usage-card";
 import { useWorkspaceSettingsDialog } from "./settings/workspace-settings-dialog-provider";
 
 function NavMenuButtonContent({
@@ -54,10 +57,14 @@ function NavMenuButtonContent({
 export function WorkspaceNavMenu() {
   const [mounted, setMounted] = useState(false);
   const { open: isSidebarOpen, isMobile, setOpenMobile } = useSidebar();
+  const showFullLabel = isMobile || isSidebarOpen;
   const { openSettings } = useWorkspaceSettingsDialog();
   const { user } = useAuth();
   const { t } = useI18n();
   const isAdmin = user?.system_role === "admin";
+  const displayName = user?.display_name?.trim()
+    ? user.display_name
+    : (user?.email ?? "—");
 
   useEffect(() => {
     setMounted(true);
@@ -88,18 +95,63 @@ export function WorkspaceNavMenu() {
                   size="lg"
                   className="hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent data-[state=open]:text-primary data-[state=open]:shadow-sm"
                 >
-                  <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
+                  <NavMenuButtonContent isSidebarOpen={showFullLabel} t={t} />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 className="cnooc-settings-menu"
-                data-collapsed={!isSidebarOpen}
+                data-collapsed={!showFullLabel}
                 data-mobile={isMobile || undefined}
                 align={isMobile ? "start" : "end"}
                 side={isMobile ? "top" : isSidebarOpen ? "top" : "right"}
                 sideOffset={isMobile ? 12 : 8}
                 collisionPadding={isMobile ? 16 : 8}
               >
+                {user ? (
+                  <div
+                    className="flex flex-col gap-3 px-2 py-3"
+                    data-testid="current-account-menu"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Avatar aria-hidden="true" className="size-9">
+                        <AvatarFallback>
+                          {displayName.slice(0, 1).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="truncate text-sm font-medium"
+                          title={displayName}
+                        >
+                          {displayName}
+                        </p>
+                        <p
+                          className="text-muted-foreground mt-0.5 truncate text-xs"
+                          title={user.email}
+                        >
+                          {user.email}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-muted-foreground flex min-w-0 items-center justify-between gap-2 text-xs">
+                      <span
+                        className="truncate"
+                        title={user.organization_name ?? undefined}
+                      >
+                        {user.organization_name?.trim()
+                          ? user.organization_name
+                          : t.settings.account.currentAccount}
+                      </span>
+                      <Badge variant="secondary">
+                        {isAdmin
+                          ? t.settings.account.adminRole
+                          : t.settings.account.userRole}
+                      </Badge>
+                    </div>
+                    <AccountUsageCard compact />
+                  </div>
+                ) : null}
+                <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   {isAdmin && (
                     <>
@@ -133,7 +185,7 @@ export function WorkspaceNavMenu() {
               size="lg"
               className="hover:bg-sidebar-accent pointer-events-none"
             >
-              <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
+              <NavMenuButtonContent isSidebarOpen={showFullLabel} t={t} />
             </SidebarMenuButton>
           )}
         </SidebarMenuItem>

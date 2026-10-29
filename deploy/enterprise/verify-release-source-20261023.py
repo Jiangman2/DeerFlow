@@ -42,9 +42,15 @@ def qualification_source(read, lock, name):
     override = lock.get('qualification_test_overrides', {}).get(name)
     if override is None:
         return raw
-    assert name.startswith('frontend/tests/e2e/') and name.endswith('.spec.ts'), 'TEST_OVERRIDE_OUTSIDE_E2E'
-    assert override['baseline_path'] == TEST_BASELINE + name, 'TEST_BASELINE_PATH_MISMATCH'
-    baseline = read(override['baseline_path']).replace(b'\r\n', b'\n')
+    allowed_test = (name.startswith('frontend/tests/e2e/') and name.endswith('.spec.ts')) or (
+        name.startswith('frontend/tests/unit/') and name.endswith(('.test.ts', '.test.tsx')))
+    assert allowed_test, 'TEST_OVERRIDE_OUTSIDE_TESTS'
+    test_prefix = lock.get('qualification_test_baseline_prefix', TEST_BASELINE)
+    assert test_prefix in (TEST_BASELINE, 'release/combined-features-20261028-r1/qualification/source/'), 'TEST_BASELINE_PREFIX'
+    assert override['baseline_path'] == test_prefix + name, 'TEST_BASELINE_PATH_MISMATCH'
+    baseline = read(override['baseline_path'])
+    if hashlib.sha256(baseline).hexdigest() != lock['source_sets']['frontend'][name]:
+        baseline = baseline.replace(b'\r\n', b'\n')
     assert hashlib.sha256(baseline).hexdigest() == lock['source_sets']['frontend'][name], 'SEALED_TEST_BASELINE_CHANGED'
     assert hashlib.sha256(raw.replace(b'\r\n', b'\n')).hexdigest() == override['current_sha256'], 'QUALIFICATION_TEST_CHANGED'
     return baseline
@@ -94,6 +100,7 @@ def verify(ref=None, lock_path=LOCK):
             extra = [selected_lock['runtime_patch']['archive_prefix'],
                      *selected_lock['runtime_patch']['qualified_source_files'], selected_lock['current_observation']['path']]
         extra += [row['baseline_path'] for row in selected_lock.get('qualification_test_overrides', {}).values()]
+        extra += [row['baseline_path'] for row in selected_lock.get('line_ending_normalizations', {}).values()]
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
@@ -117,6 +124,16 @@ def verify(ref=None, lock_path=LOCK):
                 raise AssertionError((component, 'SOURCE_SET_MISMATCH', sorted(actual ^ set(expected))))
         for name, digest in expected.items():
             raw = qualification_source(read, lock, name) if component == 'frontend' else read(prefix + name)
+            newline = lock.get('line_ending_normalizations', {}).get(name) if component == 'frontend' else None
+            if newline:
+                # Preserve the original CRLF build input while verifying Git's LF
+                # representation byte-for-byte after only newline conversion.
+                original = read(newline['baseline_path'])
+                original.decode('utf-8')
+                assert hashlib.sha256(original).hexdigest() == digest, (name, 'NEWLINE_BASELINE_CHANGED')
+                assert raw.replace(b'\r\n', b'\n') == original.replace(b'\r\n', b'\n'), (name, 'NEWLINE_CONTENT_CHANGED')
+                assert hashlib.sha256(raw.replace(b'\r\n', b'\n')).hexdigest() == newline['lf_sha256'], (name, 'NEWLINE_HASH_CHANGED')
+                raw = original
             normalization = normalizations.get(name) if component == 'gateway' else None
             if normalization:
                 original = read(FORMAT_BASELINE + name).replace(b'\r\n', b'\n')

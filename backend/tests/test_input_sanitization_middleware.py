@@ -269,6 +269,20 @@ _EXEMPT_BLOCK_TAGS = {
     # Documentation artifact: appears only in this middleware's own explanatory
     # comment describing the tag pattern, not emitted into any prompt.
     "tag",
+    # local_data_tool writes these standard SVG/OOXML elements to document
+    # files, not to framework-authority prompts. Their user-controlled text is
+    # XML-escaped by that exporter. Keep scanning the module for any future
+    # authority tags rather than exempting the whole file from this guard.
+    "c",
+    "is",
+    "row",
+    "sheets",
+    "svg",
+    "t",
+    "text",
+    "v",
+    "workbook",
+    "worksheet",
 }
 
 
