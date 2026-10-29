@@ -1,0 +1,15 @@
+{
+  "schema": "portal-alloy-offline-recovery-field.v1",
+  "status": "ALLOY_EXISTING_POD_READY_IMAGE_RECOVERED",
+  "operator_supplied_report_path": "/var/lib/portal-alloy-image-recovery-20261028-r1/REPORT.json",
+  "operator_supplied_report_sha256": "29b501ef6274f63c20dfee138be6c09e4df0138e94c8b5bf9820bca081511f5a",
+  "pod_uid": "6305d4cf-b74e-4b41-9e0b-74cae1b8b2a3",
+  "image_id": "sha256:8b089d2834ca96f22974b0ea75528dbd3806c1bf38d67faa4483c72a2e5cab1e",
+  "daemonset_spec_preserved": true,
+  "protected_deployment_specs_preserved": true,
+  "old_image_references_preserved": true,
+  "image_import_requests": 1,
+  "workload_patch_requests": 0,
+  "pod_delete_requests": 0,
+  "runtime_accepted": true
+}

@@ -1,0 +1,12 @@
+{
+  "schema": "portal-0015-auth-log-relocation-tool-checks.v1",
+  "python": "3.7.17",
+  "tests_passed": 12,
+  "tests_failed": 0,
+  "native_logrotate_integration": true,
+  "security_attribute_tests": "user namespace fixture; actual security.kysec verified by mandatory on-host empty probes before rotation",
+  "bytes": 18588,
+  "sha256": "c4bb6ad4c5b39bb646f207c4c00e7d4ccd7e03067311f4c49f51d23cbd14e546",
+  "production_executed": false,
+  "actual_entry_wrong_host_guard": "PASS"
+}

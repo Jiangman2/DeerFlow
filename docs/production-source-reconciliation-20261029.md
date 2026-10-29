@@ -106,3 +106,13 @@ The operator subsequently confirmed that the problem was on the model-service
 side, had been resolved, and required no further investigation. That resolution
 is operator-confirmed, not a new inference test performed by this reconciliation.
 No image-generation code change is included in this production baseline.
+
+## Completed operations supplement
+
+The follow-up [operations archive](../release/production-ops-20261028/README.md)
+retains the installed 0015 auth.log policy, completed image-reference recoveries
+and archive transfers, and the historical Frontend 230 activation/source records.
+Its independent verifier checks the original bytes and operator-receipt bindings.
+It changes no application source or deployment and does not expand the WeKnora
+provenance claim. The auth.log policy was installed only on 0015; its first
+scheduled-run receipt remains unconfirmed.

@@ -1,0 +1,128 @@
+{
+  "schema": "portal-0015-offline-relocation-plan.v1",
+  "evidence_origin": "OPERATOR_PASTED_METADATA_NOT_DIRECT_NODE_READ",
+  "host": "ecs-zdz-pro-0015",
+  "source_device": 64771,
+  "destination_device": 64785,
+  "plan": [
+    {
+      "path": "/home/cnooc/deerflow-frontend-preload-f0598482e2de4d05/frontend-image.tar",
+      "bytes": 5934652928,
+      "allocated_bytes": 5934657536,
+      "device": 64771,
+      "inode": 1855795,
+      "mtime_ns": 1791434166003538578
+    },
+    {
+      "path": "/home/cnooc/deerflow-sandbox-preload0015-I4vyfkAY/sandbox-required-arm64.oci.tar",
+      "bytes": 5337633792,
+      "allocated_bytes": 5337640960,
+      "device": 64771,
+      "inode": 1970493,
+      "mtime_ns": 1791177604838712967
+    },
+    {
+      "path": "/home/cnooc/runner.candidate.oci.tar",
+      "bytes": 976393728,
+      "allocated_bytes": 976400384,
+      "device": 64771,
+      "inode": 1855807,
+      "mtime_ns": 1792276752267943083
+    },
+    {
+      "path": "/home/cnooc/frontend.chat-notice-layout.full.oci.tar",
+      "bytes": 127322112,
+      "allocated_bytes": 127332352,
+      "device": 64771,
+      "inode": 1855839,
+      "mtime_ns": 1792816979007487510
+    },
+    {
+      "path": "/home/cnooc/frontend.data-qa-progress.full.oci.tar",
+      "bytes": 127319040,
+      "allocated_bytes": 127324160,
+      "device": 64771,
+      "inode": 1855832,
+      "mtime_ns": 1792682905079276840
+    },
+    {
+      "path": "/home/cnooc/frontend.data-qa-token.full.oci.tar",
+      "bytes": 127319040,
+      "allocated_bytes": 127324160,
+      "device": 64771,
+      "inode": 1855819,
+      "mtime_ns": 1792708669269701606
+    },
+    {
+      "path": "/home/cnooc/frontend.nonconfidential-notice.full.oci.tar",
+      "bytes": 127313408,
+      "allocated_bytes": 127320064,
+      "device": 64771,
+      "inode": 1855835,
+      "mtime_ns": 1792728273958217754
+    },
+    {
+      "path": "/home/cnooc/frontend.mobile-notice-removal.full.oci.tar",
+      "bytes": 127313408,
+      "allocated_bytes": 127320064,
+      "device": 64771,
+      "inode": 1855834,
+      "mtime_ns": 1792810972044390055
+    },
+    {
+      "path": "/home/cnooc/frontend.oci.tar",
+      "bytes": 124756992,
+      "allocated_bytes": 124760064,
+      "device": 64771,
+      "inode": 1855805,
+      "mtime_ns": 1792275405183332338
+    },
+    {
+      "path": "/home/cnooc/k8s-bootstrap-images.tar",
+      "bytes": 65925632,
+      "allocated_bytes": 65929216,
+      "device": 64771,
+      "inode": 1855678,
+      "mtime_ns": 1789131051215776337
+    },
+    {
+      "path": "/home/cnooc/frontend.employee-roster.delta.oci.tar",
+      "bytes": 64276480,
+      "allocated_bytes": 64282624,
+      "device": 64771,
+      "inode": 1855825,
+      "mtime_ns": 1792488807825735459
+    },
+    {
+      "path": "/home/cnooc/frontend.ppt-ordinary.delta.oci.tar",
+      "bytes": 64276480,
+      "allocated_bytes": 64282624,
+      "device": 64771,
+      "inode": 1855820,
+      "mtime_ns": 1792415328869341493
+    },
+    {
+      "path": "/home/cnooc/frontend.haineng-brand.delta.oci.tar",
+      "bytes": 64276480,
+      "allocated_bytes": 64282624,
+      "device": 64771,
+      "inode": 1855823,
+      "mtime_ns": 1792461523388907567
+    },
+    {
+      "path": "/home/cnooc/frontend.portal-ui.public-skill.delta.oci.tar",
+      "bytes": 64266240,
+      "allocated_bytes": 64270336,
+      "device": 64771,
+      "inode": 1855818,
+      "mtime_ns": 1792403912188633977
+    }
+  ],
+  "excluded_current_package": "/home/cnooc/frontend.frontend-polish.full.oci.tar",
+  "current_package_sha256": "585687518dd1ae86a71be39e6d5d8b967d1c1099f5fb54e0a46078f197ab128a",
+  "source_available_bytes": 5167693824,
+  "destination_available_bytes": 878264385536,
+  "expected_reclaimed_bytes": 13333127168,
+  "potential_root_available_bytes": 18500820992,
+  "not_yet_executed": true
+}

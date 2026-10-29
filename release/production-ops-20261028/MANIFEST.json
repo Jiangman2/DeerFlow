@@ -1,0 +1,305 @@
+{
+  "schema": "production-ops-archive.v1",
+  "application_base_commit": "3587193b8f6c009cae34a6d0339fbd97e831a873",
+  "application_source_lock": "deploy/enterprise/production-source-lock-20261029.json",
+  "purpose": "Archive already installed host maintenance and completed operational recoveries; no production execution.",
+  "installed_scope": "ecs-zdz-pro-0015 auth.log policy only; Datax-01 installation was declined",
+  "weknora_provenance_work_included": false,
+  "work_update_included": false,
+  "files": [
+    {
+      "path": "historical/portal-auth-log-policy-0015-20261028-r1.py",
+      "bytes": 17814,
+      "sha256": "681fad9083e59c5c814c12f52e8467b1a93f52273ef5ce66e329500d9abfe917",
+      "origin": "deploy/enterprise/portal-auth-log-policy-0015-20261028-r1.py"
+    },
+    {
+      "path": "historical/package-0015-auth-log-policy-20261028.py",
+      "bytes": 1008,
+      "sha256": "b20504b77fff36ac69ccb0c306486d076f006e553cbbe4ecbc9f936e46ae2d7a",
+      "origin": "deploy/enterprise/package-0015-auth-log-policy-20261028.py"
+    },
+    {
+      "path": "historical/rotate-relocate-portal-0015-auth-log-20261028-r1.py",
+      "bytes": 18588,
+      "sha256": "c4bb6ad4c5b39bb646f207c4c00e7d4ccd7e03067311f4c49f51d23cbd14e546",
+      "origin": "deploy/enterprise/rotate-relocate-portal-0015-auth-log-20261028-r1.py"
+    },
+    {
+      "path": "historical/verify-portal-0015-auth-log-rotation-20261028-r1.py",
+      "bytes": 5666,
+      "sha256": "bb28512b01a5eca46c96b26dd5e4f26ac6c50b025cfe676a8cbc5b58d9d69821",
+      "origin": "deploy/enterprise/verify-portal-0015-auth-log-rotation-20261028-r1.py"
+    },
+    {
+      "path": "historical/0015-auth-log-policy-install-field-20261028-r1.json",
+      "bytes": 961,
+      "sha256": "f5fc6b95850f60761314e12621b04d90c75278ff6a4d2565a27d66d30d65ec8f",
+      "origin": "deploy/enterprise/0015-auth-log-policy-install-field-20261028-r1.json"
+    },
+    {
+      "path": "historical/0015-auth-log-policy-tool-checks-20261028-r1.json",
+      "bytes": 477,
+      "sha256": "c0e6407610f2e5cca852c94f5245a7ce650134513ff26eea48771dc1f255e89f",
+      "origin": "deploy/enterprise/0015-auth-log-policy-tool-checks-20261028-r1.json"
+    },
+    {
+      "path": "historical/0015-auth-log-permanent-policy-20261028-r1.md",
+      "bytes": 5595,
+      "sha256": "4798725b1f0138c5bd4aebd626409c2b957af2fac7ab5b005b000d60fa20cdda",
+      "origin": "deploy/enterprise/0015-auth-log-permanent-policy-20261028-r1.md"
+    },
+    {
+      "path": "historical/0015-auth-log-relocation-field-20261028-r1.json",
+      "bytes": 1572,
+      "sha256": "abb96cdf7a2a1751fa92613154c3d0e9758583c68646d95ecfbf744c40d8ff37",
+      "origin": "deploy/enterprise/0015-auth-log-relocation-field-20261028-r1.json"
+    },
+    {
+      "path": "historical/0015-auth-log-relocation-tool-checks-20261028-r1.json",
+      "bytes": 493,
+      "sha256": "5a07546576a762c3a43a8d6ceddecbd14b5f07d7c31dcbf7dcedbe4c711f7cff",
+      "origin": "deploy/enterprise/0015-auth-log-relocation-tool-checks-20261028-r1.json"
+    },
+    {
+      "path": "historical/0015-auth-log-rotation-dryrun-field-20261028-r1.json",
+      "bytes": 1684,
+      "sha256": "485b895ae1baa4186b3094847fa0e66ce252b98280c805651539c48d224fc6f2",
+      "origin": "deploy/enterprise/0015-auth-log-rotation-dryrun-field-20261028-r1.json"
+    },
+    {
+      "path": "historical/0015-auth-log-dryrun-tool-checks-20261028-r1.json",
+      "bytes": 341,
+      "sha256": "798492cef5aa8780047ca3da9561dd1ff33292b4e4d171c12365466b3615a0ac",
+      "origin": "deploy/enterprise/0015-auth-log-dryrun-tool-checks-20261028-r1.json"
+    },
+    {
+      "path": "historical/0015-auth-log-rotation-relocation-20261028-r1.md",
+      "bytes": 3165,
+      "sha256": "3fbb7b851a7b7fe1fa73ccb741dc5210a2f964d20433ae4148b4bfc0696081bf",
+      "origin": "deploy/enterprise/0015-auth-log-rotation-relocation-20261028-r1.md"
+    },
+    {
+      "path": "historical/post-auth-log-relocation-health-field-20261028.json",
+      "bytes": 992,
+      "sha256": "4c61725bfa35f00181dc26baabdfb0f9cc87ef5b0142f9fdb14d27314a377652",
+      "origin": "deploy/enterprise/post-auth-log-relocation-health-field-20261028.json"
+    },
+    {
+      "path": "historical/test_0015_auth_log_policy_20261028.py",
+      "bytes": 12312,
+      "sha256": "5e713b5b6dabfd41e82be85fb30d9d38595029ac02c4add2edb5f1b50385c901",
+      "origin": "deploy/enterprise/test_0015_auth_log_policy_20261028.py"
+    },
+    {
+      "path": "historical/test_0015_auth_log_relocation_20261028.py",
+      "bytes": 9397,
+      "sha256": "c1277983273526b7b49ced130b8a3726c2b5aefc632d2488e9eb905f0ce533e9",
+      "origin": "deploy/enterprise/test_0015_auth_log_relocation_20261028.py"
+    },
+    {
+      "path": "historical/test_0015_auth_log_rotation_dryrun_20261028.py",
+      "bytes": 3035,
+      "sha256": "3c792914bfb0ab8e0d0c27a2cfe6b4866674327ee02c72d97dd6bf053fc68673",
+      "origin": "deploy/enterprise/test_0015_auth_log_rotation_dryrun_20261028.py"
+    },
+    {
+      "path": "historical/restore-portal-dispatcher-image-reference-20261028-r1.py",
+      "bytes": 10756,
+      "sha256": "951116eded36a272e2a510f66490d534bfc6ca8b1ca74e2aa6cf6acd705113e9",
+      "origin": "deploy/enterprise/restore-portal-dispatcher-image-reference-20261028-r1.py"
+    },
+    {
+      "path": "historical/restore-portal-skillhub-image-references-20261028-r1.py",
+      "bytes": 13193,
+      "sha256": "569e2f77e6bfd92fad370959bf93902d5f3631e17ed24bc9fa21b614a7893513",
+      "origin": "deploy/enterprise/restore-portal-skillhub-image-references-20261028-r1.py"
+    },
+    {
+      "path": "historical/restore-portal-alloy-offline-image-20261028-r1.py",
+      "bytes": 13730,
+      "sha256": "76b81e1404d03327882caf8212c31490e19b9f46800b28a6098e48de5ffd6c16",
+      "origin": "deploy/enterprise/restore-portal-alloy-offline-image-20261028-r1.py"
+    },
+    {
+      "path": "historical/package-portal-alloy-recovery-20261028-r1.py",
+      "bytes": 3994,
+      "sha256": "56d1290b70dff11e67a8954730dc38cba6a1bd9e2676beaa066c610ad02952fd",
+      "origin": "deploy/enterprise/package-portal-alloy-recovery-20261028-r1.py"
+    },
+    {
+      "path": "historical/alloy-recovery-field-20261028-r1.json",
+      "bytes": 718,
+      "sha256": "bf6ad130d6927a4fa8e2c958065bc9b362a8b5a29d75821f85f73d13b3a7083b",
+      "origin": "deploy/enterprise/alloy-recovery-field-20261028-r1.json"
+    },
+    {
+      "path": "historical/alloy-recovery-package-20261028-r1.json",
+      "bytes": 1408,
+      "sha256": "576f88b0e643cdf9724afc6cf64ae7d6df5a57277b143fe1c6452498b4e335a7",
+      "origin": "deploy/enterprise/alloy-recovery-package-20261028-r1.json"
+    },
+    {
+      "path": "historical/alloy-recovery-and-health-followup-20261028.md",
+      "bytes": 4815,
+      "sha256": "a47f18f8043fd29fe5028741ca85749b76b22972f606357e71d66fe15023bc7b",
+      "origin": "deploy/enterprise/alloy-recovery-and-health-followup-20261028.md"
+    },
+    {
+      "path": "historical/test_dispatcher_reference_recovery.py",
+      "bytes": 4540,
+      "sha256": "5c7c1dcb5ae6af805ec5d864845637237e8a3c14e8396dcd30ae523a1ef78bf0",
+      "origin": "deploy/enterprise/test_dispatcher_reference_recovery.py"
+    },
+    {
+      "path": "historical/test_skillhub_reference_recovery.py",
+      "bytes": 7326,
+      "sha256": "157232007bea91af704b75b79fd7528d4a0a9d5e0efaa7c72d319ce2b47ea8bb",
+      "origin": "deploy/enterprise/test_skillhub_reference_recovery.py"
+    },
+    {
+      "path": "historical/test_alloy_offline_recovery.py",
+      "bytes": 9210,
+      "sha256": "760a0d8609d24837db7147777d491f048b125f21faeb8d17c5ba4ed99e088ff2",
+      "origin": "deploy/enterprise/test_alloy_offline_recovery.py"
+    },
+    {
+      "path": "historical/relocate-portal-datax01-offline-archives-20261028-r2.py",
+      "bytes": 28846,
+      "sha256": "0890d5e04fb227d57c297a2c81a73ad1e9e9a6a91cd7fcec9dbe35b8b7735676",
+      "origin": "deploy/enterprise/relocate-portal-datax01-offline-archives-20261028-r2.py"
+    },
+    {
+      "path": "historical/relocate-portal-datax01-offline-archives-20261028-r3.py",
+      "bytes": 32693,
+      "sha256": "f0c1610a8846dec2e7073d4ac3020736fdf58a3d51206f409d4abd5dd28f6f4a",
+      "origin": "deploy/enterprise/relocate-portal-datax01-offline-archives-20261028-r3.py"
+    },
+    {
+      "path": "historical/datax01-offline-archive-relocation-field-20261028-r2.json",
+      "bytes": 1432,
+      "sha256": "15df8a2e2d45810d58764a973b85c50cc7631c2c28e5253925ffaf9273b07c3a",
+      "origin": "deploy/enterprise/datax01-offline-archive-relocation-field-20261028-r2.json"
+    },
+    {
+      "path": "historical/datax01-offline-archive-relocation-field-20261028-r3.json",
+      "bytes": 1327,
+      "sha256": "8b2644d8ca935dfb493f52f7a0cdc4b3e30ed3e8d0f3c474752da0d0e435afb7",
+      "origin": "deploy/enterprise/datax01-offline-archive-relocation-field-20261028-r3.json"
+    },
+    {
+      "path": "historical/datax01-offline-archive-plan-20261028-r1.json",
+      "bytes": 14357,
+      "sha256": "6e3179d9f3e42a94ac5c73d92bb111c9368057b924ed24bf992908b89d0834d9",
+      "origin": "deploy/enterprise/datax01-offline-archive-plan-20261028-r1.json"
+    },
+    {
+      "path": "historical/datax01-offline-archive-relocation-20261028-r2.md",
+      "bytes": 4022,
+      "sha256": "628024c1a26e4ef003d0cdbf8c4f7a04819cc8da7da0532802b092ed47b02308",
+      "origin": "deploy/enterprise/datax01-offline-archive-relocation-20261028-r2.md"
+    },
+    {
+      "path": "historical/datax01-retained-cleanup-followup-20261028.md",
+      "bytes": 3807,
+      "sha256": "bf7240f15a90c397942cb1c5ca8cc78bfd422f45b56c9eeafd03c59be5dd7319",
+      "origin": "deploy/enterprise/datax01-retained-cleanup-followup-20261028.md"
+    },
+    {
+      "path": "historical/test_datax01_archive_relocation_r2.py",
+      "bytes": 11624,
+      "sha256": "9143e1776fad2ec7d56386feeb07c48a981f727eac420973b0cf4c223b32a430",
+      "origin": "deploy/enterprise/test_datax01_archive_relocation_r2.py"
+    },
+    {
+      "path": "historical/test_datax01_archive_relocation_r3.py",
+      "bytes": 12848,
+      "sha256": "9d19f297bfc20d04cbf3bf363d65d215d59bb3793d5ee14a65647531f72605ed",
+      "origin": "deploy/enterprise/test_datax01_archive_relocation_r3.py"
+    },
+    {
+      "path": "historical/relocate-portal-0015-offline-archives-20261028-r1.py",
+      "bytes": 22172,
+      "sha256": "6d6d0b802216c31e83b6227494ffef34b48ac1d32da3c17f6637284982fd75cc",
+      "origin": "deploy/enterprise/relocate-portal-0015-offline-archives-20261028-r1.py"
+    },
+    {
+      "path": "historical/0015-offline-archive-relocation-field-20261028-r1.json",
+      "bytes": 10987,
+      "sha256": "2a194942752d66a9a823ab114e110de89d6ad72d24723890b3eeaa94497cb149",
+      "origin": "deploy/enterprise/0015-offline-archive-relocation-field-20261028-r1.json"
+    },
+    {
+      "path": "historical/0015-offline-archive-plan-20261028-r1.json",
+      "bytes": 3817,
+      "sha256": "93feeab3accdc3cd9a43d0c139c404b2459d5eeaecf0ac198a247413823e8e11",
+      "origin": "deploy/enterprise/0015-offline-archive-plan-20261028-r1.json"
+    },
+    {
+      "path": "historical/0015-offline-archive-tool-checks-20261028-r1.json",
+      "bytes": 348,
+      "sha256": "092879c1a6a494f712b4319a340fab531e5b6cdaabf4475f71c9e6fc8b18ef11",
+      "origin": "deploy/enterprise/0015-offline-archive-tool-checks-20261028-r1.json"
+    },
+    {
+      "path": "historical/0015-offline-archive-relocation-20261028-r1.md",
+      "bytes": 2160,
+      "sha256": "5009e5632ea0e3669d3b92ca8395fbed0ae675329a488dffa528bb4a31ad93dc",
+      "origin": "deploy/enterprise/0015-offline-archive-relocation-20261028-r1.md"
+    },
+    {
+      "path": "historical/test_0015_archive_relocation_20261028.py",
+      "bytes": 11927,
+      "sha256": "7f60603342dbb61b7880ba0079fd9e78c56d6f8a1fb9a00c64903dd97c60a7f7",
+      "origin": "deploy/enterprise/test_0015_archive_relocation_20261028.py"
+    },
+    {
+      "path": "historical/frontend-polish-activation-field-20261028-r2.json",
+      "bytes": 9235,
+      "sha256": "83fa25977d8d894f44bbd25c5f473b39fc33a792ad137f10298861cd16aa8736",
+      "origin": "deploy/enterprise/frontend-polish-activation-field-20261028-r2.json"
+    },
+    {
+      "path": "historical/frontend-polish-preloads-field-20261028-r1.json",
+      "bytes": 4620,
+      "sha256": "ee8197491388dde1474882f3a62b5ab3beed7e078e79767af8ba2c29ecc86b33",
+      "origin": "deploy/enterprise/frontend-polish-preloads-field-20261028-r1.json"
+    },
+    {
+      "path": "historical/frontend-production-source-lock-20261028.json",
+      "bytes": 181942,
+      "sha256": "4e9305e91a41ee98d9e3c1540e972b98d42ad3b529989334976459924a9d8b17",
+      "origin": "deploy/enterprise/frontend-production-source-lock-20261028.json"
+    },
+    {
+      "path": "historical/frontend-polish-activation-noop-field-20261028-r1.json",
+      "bytes": 992,
+      "sha256": "9e416349a33f6737c8f3d598771474b70e835d6ae217e6da3624639023be5567",
+      "origin": "deploy/enterprise/frontend-polish-activation-noop-field-20261028-r1.json"
+    },
+    {
+      "path": "historical/frontend-polish-baseline-field-20261028.json",
+      "bytes": 811,
+      "sha256": "cb1ca52a7f1480c3d6e074e8992a0a84585c6d7729e2de7ecb569344e2cbd06e",
+      "origin": "deploy/enterprise/frontend-polish-baseline-field-20261028.json"
+    },
+    {
+      "path": "delivered/install-portal-0015-auth-log-policy-20261028-r1.py",
+      "bytes": 37184,
+      "sha256": "4b42db64116b0436e70abc9ccf8eb01888dfd957e863e9453927fceb4e5730f3",
+      "origin": "operator-delivered installer; hash matches historical qualification record"
+    },
+    {
+      "path": "evidence/skillhub-recovery-field.json",
+      "bytes": 855,
+      "sha256": "f7a252568f774098bba90d7f41cafd4a1fe02b275ac33cf82e09e641f72dbafe",
+      "origin": "operator attachment a37e0de2-2c6a-4fe7-aec8-80df6b1b6663; allowlisted fields only"
+    },
+    {
+      "path": "evidence/dispatcher-recovery-field.json",
+      "bytes": 1254,
+      "sha256": "9b3f31302eda11316d2facb2ceac3d1b742ea5588eb66dc082ba005abf1564c9",
+      "origin": "operator conversation; explicit projection, no fabricated raw receipt"
+    }
+  ]
+}
