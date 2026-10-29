@@ -52,6 +52,10 @@ line endings; their original bytes are archived under `source-line-endings/`,
 and the verifier permits only their exact LF representation in Git. This does
 not permit runtime logic changes. Historical locks remain immutable.
 
+Two unit tests received Prettier-only layout corrections. Their original sealed
+inputs are preserved in `qualification/source/`, and the source lock pins the
+corrected test hashes separately; these exceptions do not cover runtime files.
+
 Build, preload, validation, partial activation, diagnosis and final resume
 receipts are retained in the release directory. Earlier `NOT_DEPLOYED` statuses
 describe those earlier stages; the final runtime receipt is authoritative for
@@ -87,9 +91,10 @@ The combined rollout's preservation receipt establishes its unchanged scope.
 
 External HTTPS/browser acceptance, authenticated dashboard checks, publication
 of the competition roster and actual Tavily search remain separate business
-acceptance. The image-generation incident is also under investigation: the
-operator's October 29 read-only report found repeated `generate_image` timeouts
-dating back to October 27, with matching configuration and successful TCP
-connections in one sampled Pod on each of five Gateway nodes. It does not prove
-successful inference or a root cause. No speculative image-generation fix is
-included in this production baseline.
+acceptance. The October 29 read-only image-generation report found repeated
+`generate_image` timeouts dating back to October 27, with matching configuration
+and successful TCP connections in one sampled Pod on each of five Gateway nodes.
+The operator subsequently confirmed that the problem was on the model-service
+side, had been resolved, and required no further investigation. That resolution
+is operator-confirmed, not a new inference test performed by this reconciliation.
+No image-generation code change is included in this production baseline.
