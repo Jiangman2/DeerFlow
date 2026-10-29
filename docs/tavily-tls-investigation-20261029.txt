@@ -1,0 +1,108 @@
+Tavily TLS 故障调查（2026-10-29）
+
+部署范围修正：实际部署为 k8s/local-pvc。企业五节点回执仅为历史背景，
+不能作为本次部署的运行时证据，亦不能据此优先认定为企业出口间歇故障。
+local-pvc 的 Gateway 显式清空 HTTP(S) 代理及三个 CA 环境变量，覆盖镜像
+原有 CA 路径。默认 Tavily 模式使用 Requests 的 certifi 信任库。
+如果当前网络经过 VPN、HTTPS 检查代理或安全软件，宿主机信任的签发者可能
+不受 Pod 内信任。应优先比较实际信任库与返回证书链，底层诱因尚未确认。
+Gateway 未显式清空 TAVILY_TLS_COMPAT 和 ALL_PROXY/all_proxy，实际值仍需读取。
+可选 qwen3.7-dashscope-proxy-test-patch.yaml 会恢复 Gateway 全局代理，
+影响 Tavily，但不同时配置 CA；尚无证据证明应用过该补丁。
+
+Bash 命令（仓库根目录；Pod 重建后替换名称）：
+set -o pipefail
+kubectl -n deer-flow exec -i gateway-7469f8d95d-qdljj -c gateway -- \
+  /app/backend/.venv/bin/python - < scripts/inspect-tavily-pod-tls.py \
+  | tee tavily-pod-tls-result.txt
+
+需要 kubectl 当前 context 指向该集群。保留 TLS 校验，不发送 Tavily Key，
+不执行搜索；仅创建自动清理的 Pod 内临时证书文件。
+
+范围与结论
+调查用户提供的 gateway-7469f8d95d-qdljj/gateway 在北京时间
+2026-10-29 09:25:48 的 web_search 异常。仅分析日志、当前源码、部署声明和历史现场回执；
+没有更改应用代码、生产配置、证书或部署，没有调用实际搜索 API。
+
+已确认的直接原因：Gateway 向 api.tavily.com:443 发起 /search 请求时，
+TLS 校验无法把对端证书连接到本次客户端信任的签发者，报
+CERTIFICATE_VERIFY_FAILED / unable to get local issuer certificate。
+本次失败发生在取得 HTTP 业务响应之前；日志不支持归因为 API Key、搜索参数或额度。
+
+底层诱因尚未唯一确认。优先核查 local-pvc 清空 CA 配置后，信任库与实际
+网络返回证书链是否匹配，同时核查新 Pod 的环境变量和运行源码是否发生漂移。
+不能仅凭这段日志认定企业代理替换了证书，也不能认定 Tavily 服务端缺少某张证书。
+
+调用路径与对象关系
+web_search_tool -> _get_tavily_client -> TavilyClient.search
+ -> requests.Session.post -> urllib3 -> TLS 证书链校验 -> SSLError
+ -> ToolErrorHandlingMiddleware 记录异常并转换成工具错误消息。
+
+每次工具调用创建 TavilyClient；兼容模式下持有专用 requests.Session，
+Session 的 HTTPS Adapter 持有 SSLContext，并将其传给直接池和代理池。
+环境 CA 文件 -> SSLContext 信任库；环境代理 -> Session 实际出站路径。
+因此，“挂载了 CA”和“本次返回证书能被该 CA 验证”是两个需要分别核查的事实。
+
+源码证据
+backend/packages/harness/deerflow/community/tavily/tools.py
+- 33–56 行：仅 TAVILY_TLS_COMPAT 为真时构建专用会话；依次选取存在的
+  REQUESTS_CA_BUNDLE、SSL_CERT_FILE、CURL_CA_BUNDLE 文件。
+- 51–52 行：创建启用证书验证的上下文，设置 DEFAULT:@SECLEVEL=1。
+  该兼容设置不会补全缺失的 CA，也不会关闭证书链或主机名验证。
+- 24–26 行：代理连接池同样使用该上下文。
+- 83 行：日志中的实际失败点 client.search(query, max_results=max_results)。
+- 108 行：web_fetch 同样使用该客户端路径，可能受相同环境问题影响；本次日志仅证明搜索失败。
+
+k8s/enterprise/runtime-patches.yaml（不适用于本次部署）第 235 行起声明三个 CA 变量均指向
+/etc/deerflow-ca/ca-bundle.crt，并启用 TAVILY_TLS_COMPAT；代理来自企业 Secret。
+这是本地部署意图，不能当作 10 月 29 日故障 Pod 的实测配置。
+该文件在本次调查前已有未提交修改，本次未修改它。
+
+历史场景证据（不能替代本次现场）
+deploy/enterprise/chat-tls-observation-20261025-r2.json：
+- 五个 Gateway 节点通过生产 Tavily TLS 上下文各做一次 Tavily HEAD 探测。
+- ecs-zdz-pro-0019 失败，底层 SSLCertVerificationError.verify_code=20；
+  其他四节点 TLS 通过并收到 HTTP 405。这里 405 仅说明 HEAD 不被接受，
+  不证明搜索业务成功。
+- 使用已配置且带认证的出口代理，没有发送搜索 API Key。
+
+deploy/enterprise/chat-tls-observation-20261025-r3.json：
+- 未修改生产配置，之前失败的 ecs-zdz-pro-0019 后续四次代理 TLS 握手全部通过。
+- 对照节点两次 Tavily 代理握手也通过；另有两次其他域名的直连握手，合计 8/8。
+- 成功采样看到 *.tavily.com -> Amazon RSA 2048 M01 -> Amazon Root CA 1
+  的公开证书链。不能把成功连接的链视作失败连接当时呈现的链。
+
+以上证据支持历史问题具有间歇性，弱化“所有副本持续缺少同一 CA”的解释；
+但不能排除本次新 Pod 自身配置有变化。当前错误 Pod 的 ReplicaSet 哈希
+7469f8d95d 与历史回执 6548cb9956 不同，不能直接套用历史运行时结论。
+
+验证及限制
+本地既有测试 backend/tests/test_tavily_tools.py：4 passed。
+覆盖兼容开关、CA 选择/兼容上下文、专用 Session 传入客户端、搜索工具参数契约。
+这些为模拟测试，不证明当前生产网络可用。
+第一次测试因默认临时目录无法创建而出现夹具错误，改用工作区独立临时目录后全部通过。
+进程结束出现 pyreadline3 控制台析构提示，退出码为 0，不影响上述测试结果。
+
+本机 kubectl 没有 current-context；到已知运维主机 10.77.79.131 的 SSH
+连接返回 Permission denied。因此未能读取故障 Pod 的节点、CA 摘要和失败连接证书链。
+未运行历史激活、迁移或生产探测脚本。
+
+尚未深入的外部边界
+Tavily SDK：日志证明使用 Session.post；未取得故障 Pod 内安装包进行逐行核验。
+出口代理：已知历史路由及代理认证存在；未取得失败请求的出口设备日志。
+运行时 CA：历史回执可核验；本次新 Pod 的实际内容未取得。
+
+建议的下一步（只读取证）
+1. 在故障 Pod 与一正常 Pod 对比镜像摘要、Tavily 源码摘要、实际 TLS 开关、
+   三个 CA 路径、挂载内容摘要和 CA 集合；代理信息只输出脱敏地址与是否配置。
+2. 使用相同应用 TLS 上下文和实际代理，小批量、有超时地进行握手采样，
+   同时记录节点、UTC 时间、验证错误码、证书链主题/签发者/指纹。
+   不发送 Tavily Key，不执行搜索，不关闭证书验证。
+3. 若 CA 不一致，修复受影响副本的正确挂载/配置；若 CA 相同但返回链不同，
+   关联出口代理后端及中间证书配置；若稳定缺少某个签发者，核实 CA 来源后修复完整信任链。
+4. 改善诊断应优先记录脱敏的 CA 摘要、客户端配置及底层 verify_code，
+   而不是增加无差别重试。Max retries exceeded 文本本身不能证明实际进行了多次重试。
+
+参考：Requests 官方 SSL 验证与 CA 环境变量说明
+https://requests.readthedocs.io/en/latest/user/advanced/#ssl-cert-verification
+REQUESTS_CA_BUNDLE 可指定信任库，CURL_CA_BUNDLE 为其后备；禁用验证不是修复。
