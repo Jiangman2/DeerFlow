@@ -355,6 +355,7 @@ def merge_skill_workflow(
 
 
 class ThreadState(AgentState):
+    staged_execution: NotRequired[dict | None]
     sandbox: SandboxStateField
     thread_data: NotRequired[ThreadDataState | None]
     title: NotRequired[str | None]

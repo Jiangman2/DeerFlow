@@ -323,6 +323,17 @@ def build_middlewares(
     # receipts, and resume pointer across run boundaries and compaction.
     middlewares.append(SkillWorkflowMiddleware())
 
+    # Receipt capture must precede history compaction; enforcement is appended
+    # after completion recovery below (after_model hooks execute in reverse).
+    cfg = _get_runtime_config(config)
+    stage_controller = None
+    stage_config = resolved_app_config.staged_execution
+    if stage_config.enabled and stage_config.thread_ids and cfg.get("thinking_enabled", True) is not False:
+        from deerflow.agents.middlewares.staged_execution_middleware import StagedExecutionMiddleware, StageReceiptCaptureMiddleware
+
+        stage_controller = StagedExecutionMiddleware(stage_config)
+        middlewares.append(StageReceiptCaptureMiddleware(stage_controller))
+
     # Capture completed task delegations and loaded skill files before
     # summarization can compact them, then inject durable context channels
     # (summary + ledger + skills) into model calls.
@@ -341,7 +352,6 @@ def build_middlewares(
         middlewares.append(summarization_middleware)
 
     # Add TodoList middleware if plan mode is enabled
-    cfg = _get_runtime_config(config)
     is_plan_mode = cfg.get("is_plan_mode", False)
     todo_list_middleware = _create_todo_list_middleware(is_plan_mode)
     if todo_list_middleware is not None:
@@ -434,6 +444,12 @@ def build_middlewares(
     # Repair native or model-truncated WeKnora citations from current-turn
     # structured reference metadata before the final response is persisted.
     middlewares.append(WeKnoraCitationMiddleware())
+
+    # Opt-in ordinary-agent experiment. Never change thinking/plan/subagent flags
+    # or install this on the isolated PPT relay graph. Reverse after_model order
+    # puts its terminal marker ahead of generic completion-recovery middleware.
+    if stage_controller is not None:
+        middlewares.append(stage_controller)
 
     # SafetyFinishReasonMiddleware — suppress tool execution when the provider
     # safety-terminated the response. Registered after the terminal-response

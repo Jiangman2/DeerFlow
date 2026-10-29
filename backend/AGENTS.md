@@ -1,5 +1,20 @@
 # AGENTS.md
 
+## Sequential-stage canary
+
+`StagedExecutionMiddleware` is default off with an exact server-owned thread
+allowlist. It must not promote Flash/Thinking/Pro to Ultra or create subagents.
+It defers to active/waiting/blocked Skill workflows and Slash activation.
+Checkpoint stage goals, short model-reported results, receipt IDs and bounded
+call counters; never raw reasoning, credentials or tool output. Only a lone
+stage-control tool may mutate the stage checkpoint. Reject mixed batches before
+any tool runs. Counters survive stage changes and explicit user continuations;
+terminal model-output stops are never automatically retried. Stage receipts
+are NOT semantic acceptance: the original artifact/Skill/OA validators still
+own completion. Register its after-model guard before generic completion
+recovery (reverse middleware order). See `docs/staged-execution.md` and the
+compiled sync/async synthetic tests in `tests/test_staged_execution.py`.
+
 ## Combined Gateway release: OA / DNS / XLSX (2026-10-16)
 
 The additional runtime change is the exact lazy XLSX conversion shim from

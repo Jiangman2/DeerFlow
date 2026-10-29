@@ -1,5 +1,16 @@
 # DeerFlow Backend
 
+### Sequential-stage candidate (default off)
+
+An exact-thread, server-configured canary can expose checkpointed sequential
+stages to ordinary thinking-enabled lead runs. Simple answers do not require
+a planning call; independent delegation keeps the existing `task` tool and
+mode permissions. Stage changes require successful tool receipts, cannot share
+a batch with business tools, and retain a total call ceiling across stages and
+explicit continuations. This does not prove business acceptance or prevent all
+single-call reasoning exhaustion. No production configuration is enabled by
+this change. See [candidate boundaries and tests](docs/staged-execution.md).
+
 ### Combined Gateway repair (2026-10-16)
 
 The OA streaming / bounded DNS candidate also includes the Gateway XLSX

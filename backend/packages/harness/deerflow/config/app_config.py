@@ -35,6 +35,7 @@ from deerflow.config.scheduler_config import SchedulerConfig
 from deerflow.config.skill_evolution_config import SkillEvolutionConfig
 from deerflow.config.skill_scan_config import SkillScanConfig
 from deerflow.config.skills_config import SkillsConfig
+from deerflow.config.staged_execution_config import StagedExecutionConfig
 from deerflow.config.stream_bridge_config import StreamBridgeConfig, load_stream_bridge_config_from_dict
 from deerflow.config.subagents_config import SubagentsAppConfig, load_subagents_config_from_dict
 from deerflow.config.suggestions_config import SuggestionsConfig
@@ -144,6 +145,7 @@ class AppConfig(BaseModel):
     )
     token_usage: TokenUsageConfig = Field(default_factory=TokenUsageConfig, description="Token usage tracking configuration")
     token_budget: TokenBudgetConfig = Field(default_factory=TokenBudgetConfig, description="Token Budget tracking and limits configuration.")
+    staged_execution: StagedExecutionConfig = Field(default_factory=StagedExecutionConfig, description="Default-off sequential-stage canary; server-owned exact thread allowlist and bounded model-call budgets.")
     max_recursion_limit: int = Field(
         default=2000,
         ge=1,

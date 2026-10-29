@@ -67,6 +67,16 @@ token_budget:
   warn_threshold: 0.8           # Warn at 80% of the budget
   hard_stop_threshold: 1.0      # Force stop at 100% of the budget
 
+# Default-off sequential-stage experiment. Exact server-side canary allowlist;
+# an empty list enables no threads. Does not change mode, reasoning limits,
+# subagent permissions or Skill-owned workflows. See backend/docs/staged-execution.md.
+staged_execution:
+  enabled: false
+  thread_ids: []
+  max_stages: 6
+  max_stage_model_calls: 6
+  max_total_model_calls: 24
+
 # ============================================================================
 # Recursion Limit — Hard ceiling for a client-supplied run recursion_limit
 # ============================================================================
