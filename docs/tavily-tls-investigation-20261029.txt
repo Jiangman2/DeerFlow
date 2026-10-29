@@ -1,5 +1,42 @@
 Tavily TLS 故障调查（2026-10-29）
 
+最新现场结果（以本节为准）
+用户提供 tavily-pod-tls-result.txt，采样 Pod 与原始报错 Pod 相同：
+gateway-7469f8d95d-qdljj。文件未包含采样时间，不能将其视为原始报错时刻的记录。
+实测 TAVILY_TLS_COMPAT=true；三个 CA 变量均为
+/etc/deerflow-ca/ca-bundle.crt，文件存在，SHA256 均为：
+84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af。
+源码 SHA256 为：
+990967ef654db706183253f6505f526268c5681bbafbded16e37a0140e976576。
+实际 HTTP(S) 代理为带认证的 http://10.68.211.1:8080；ALL_PROXY/all_proxy 为空。
+effective_route=proxy；hostname_verification=True；verify_mode=2；security_level=1。
+OpenSSL 一次握手退出码为 0，Verify return code: 0 (ok)，收到三张证书：
+1. *.tavily.com，签发者 Amazon RSA 2048 M01；
+2. Amazon RSA 2048 M01，签发者 Amazon Root CA 1；
+3. Amazon Root CA 1，签发者 Starfield Services Root Certificate Authority - G2。
+本次叶证书指纹与历史成功采样一致，CA 文件摘要也与历史回执一致。
+
+修正结论：虽然用户使用 k8s/local-pvc 部署入口，实际 Pod 已存在额外配置覆盖。
+本报告先前基于默认清单提出的“清空 CA 后使用默认信任库”假设不适用于该实测 Pod。
+本次连接没有观察到企业签发者替换 Tavily 证书，也未复现原始验证错误。
+结合历史失败后成功的证据，间歇性差异仍值得排查；但不能据单次成功握手定位
+出口设备、缺失证书或断定服务已恢复。OpenSSL 探测不是原始 Requests 调用，
+两者的验证策略及实现差异尚未排除。下一步应使用原应用 Requests 会话做少量、
+有间隔且有超时的 HEAD 探测，保留脱敏异常链/verify_code，并对照同期证书链采样。
+不应据此直接加证书、升级依赖或关闭验证。
+
+PowerShell 命令（开发机仓库根目录；替换 SSH 地址和当前故障 Pod）：
+$sshTarget = "用户名@线上服务器"
+$podName = "gateway-7469f8d95d-qdljj"
+$remoteCommand = "kubectl -n deer-flow exec -i $podName -c gateway -- /app/backend/.venv/bin/python -u -"
+Get-Content -Raw -Encoding UTF8 .\scripts\inspect-tavily-pod-tls.py |
+    ssh -T -o ConnectTimeout=10 $sshTarget $remoteCommand |
+    Tee-Object -FilePath .\tavily-pod-tls-result.txt
+if ($LASTEXITCODE -ne 0) { throw "远程检查失败，退出码：$LASTEXITCODE" }
+
+以下保留调查过程和历史背景；涉及“尚未读取当前 Pod”的表述是初始调查限制，
+当前配置已由上述用户提供结果补充，但原始失败连接的证书链仍未取得。
+
 部署范围修正：实际部署为 k8s/local-pvc。企业五节点回执仅为历史背景，
 不能作为本次部署的运行时证据，亦不能据此优先认定为企业出口间歇故障。
 local-pvc 的 Gateway 显式清空 HTTP(S) 代理及三个 CA 环境变量，覆盖镜像
@@ -34,8 +71,8 @@ TLS 校验无法把对端证书连接到本次客户端信任的签发者，报
 CERTIFICATE_VERIFY_FAILED / unable to get local issuer certificate。
 本次失败发生在取得 HTTP 业务响应之前；日志不支持归因为 API Key、搜索参数或额度。
 
-底层诱因尚未唯一确认。优先核查 local-pvc 清空 CA 配置后，信任库与实际
-网络返回证书链是否匹配，同时核查新 Pod 的环境变量和运行源码是否发生漂移。
+底层诱因尚未唯一确认。实际 Pod 已配置 CA 和代理，单次 OpenSSL 校验成功；
+仍需复现原 Requests 调用的失败并核对当时返回的证书链。
 不能仅凭这段日志认定企业代理替换了证书，也不能认定 Tavily 服务端缺少某张证书。
 
 调用路径与对象关系
