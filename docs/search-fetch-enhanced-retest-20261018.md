@@ -2,6 +2,8 @@
 
 日期：2026-10-18。分支：`codex/search-fetch-comparison`。
 
+2026-10-29 路由器验收更新：见[本机 Docker 实际验收](web-router-live-results-20261029.md)。DeepSeek 正常搜索/HTML、PDF 自动路由、Search / Fetch 回退 Tavily 和 Exa 已有真实通过证据；首轮 6/8，更新 DeepSeek 凭据后补验 2/2，合计 10 次工具执行、19 次供应商请求。本报告以下表格仍是 2026-10-18 单供应商路径的原始测量，不将两轮历史或新路由结果混算。
+
 本轮验证[DeepSeek 适配器增强](deepseek-search-adapter-enhancements-20261018.md)后的真实调用，历史对照为[统一云端 URL 校验后的复测](search-fetch-cloud-url-retest-20261018.md)。没有切换生产默认工具、提交或部署。
 
 2026-10-19 更新：已补充 [PDF 边界诊断及官方 Harness 复测](deepseek-pdf-fetch-diagnostic-20261019.md)。用户提供的官方 Harness 云端 Fetch 结果与本仓一致：相同 PDF URL 返回 API 404、对应 HTML 成功；PDF request_id 为 `6173e34c-1cae-4c02-9d96-301de65c155c`。此前 Harness 的非公网 DNS 拦截属于另一测试路径，不计入云端 API 对照。这些补充不改变本文 2026-10-18 的样本数、耗时及 Token 统计。
