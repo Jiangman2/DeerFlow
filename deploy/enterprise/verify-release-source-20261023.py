@@ -144,7 +144,7 @@ def verify(ref=None, lock_path=LOCK):
         if component != 'frontend':
             roots = [prefix + 'backend/app/', prefix + 'backend/packages/harness/']
             if archived is not None:
-                actual = {n.removeprefix(prefix) for n in archived
+                actual = {(n[len(prefix):] if n.startswith(prefix) else n) for n in archived
                           if n.endswith('.py') and any(n.startswith(r) for r in roots)}
             else:
                 actual = {p.relative_to(ROOT / prefix).as_posix() for r in roots
