@@ -1,0 +1,35 @@
+{
+  "schema": "portal-datax01-offline-archive-operator-receipt.v2",
+  "attachment_sha256": "3411f1d5411732ad1d8613da954fbeeb310ae15b197f2dcf84b489c299aabe69",
+  "operator_summary": {
+    "after_root_available_bytes": 67976716288,
+    "automatic_retry": false,
+    "before_root_available_bytes": 50534113280,
+    "business_files_selected": false,
+    "containerd_commands": 0,
+    "database_access": false,
+    "destination": "/opt/portal-offline-archives-20261028-r2",
+    "discovery_skips": [],
+    "elapsed_seconds": 1628.002,
+    "error_counts": {},
+    "estimated_root_reclaimed_bytes": 17477685248,
+    "log_files_selected": false,
+    "original_paths_preserved_as_symlinks": true,
+    "planned": 61,
+    "prior_noop_receipt": {
+      "path": "/opt/portal-offline-archives-20261028-r1/REPORT.json",
+      "relocated": 0,
+      "sha256": "7321d078df1148f9ca26a649f033c187444b07ae32efd6ab521c3a391c6cb3ac"
+    },
+    "processed": 61,
+    "relocated": 61,
+    "report_path": "/opt/portal-offline-archives-20261028-r2/REPORT.json",
+    "report_sha256": "d4282c5256a00369054d59949b8b59788bb7b78c4833c7f59e6cd4d322317e10",
+    "retained_archives_must_not_be_deleted": true,
+    "schema": "portal-datax01-offline-archive-relocation.v2",
+    "service_restart_requests": 0,
+    "skipped_or_incomplete": 0,
+    "status": "ARCHIVES_RELOCATED_REVIEW_REQUIRED"
+  },
+  "detailed_results_received": false
+}

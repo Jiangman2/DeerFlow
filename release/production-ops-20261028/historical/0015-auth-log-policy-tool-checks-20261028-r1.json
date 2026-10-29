@@ -1,0 +1,13 @@
+{
+  "schema": "portal-0015-auth-policy-tool-checks.v1",
+  "bytes": 37184,
+  "sha256": "4b42db64116b0436e70abc9ccf8eb01888dfd957e863e9453927fceb4e5730f3",
+  "python": "3.7.17",
+  "tests_passed": 12,
+  "tests_failed": 0,
+  "native_logrotate_integration": true,
+  "network_during_tests": "none",
+  "base_transfer_sha256": "c4bb6ad4c5b39bb646f207c4c00e7d4ccd7e03067311f4c49f51d23cbd14e546",
+  "actual_entry_wrong_host_guard": "PASS",
+  "production_installed": false
+}

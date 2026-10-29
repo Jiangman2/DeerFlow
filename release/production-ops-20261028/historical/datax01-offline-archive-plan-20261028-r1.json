@@ -1,0 +1,475 @@
+{
+  "schema": "portal-datax01-offline-archive-plan.v1",
+  "inventory_attachment_sha256": "03e12d555f5835b20cd8c5635eb7f46927783490405c1a1d2c2acdb4ba979839",
+  "filesystems": [
+    {
+      "available_bytes": 50537635840,
+      "available_inodes": 98709476,
+      "capacity_bytes": 316482899968,
+      "device": 64512,
+      "path": "/",
+      "total_inodes": 104780080
+    },
+    {
+      "available_bytes": 50537635840,
+      "available_inodes": 98709476,
+      "capacity_bytes": 316482899968,
+      "device": 64512,
+      "path": "/var/lib/containerd",
+      "total_inodes": 104780080
+    },
+    {
+      "available_bytes": 50537635840,
+      "available_inodes": 98709476,
+      "capacity_bytes": 316482899968,
+      "device": 64512,
+      "path": "/var/lib/kubelet",
+      "total_inodes": 104780080
+    },
+    {
+      "available_bytes": 50537635840,
+      "available_inodes": 98709476,
+      "capacity_bytes": 316482899968,
+      "device": 64512,
+      "path": "/home/cnooc",
+      "total_inodes": 104780080
+    },
+    {
+      "available_bytes": 967876620288,
+      "available_inodes": 295516411,
+      "capacity_bytes": 3219650514944,
+      "device": 64785,
+      "path": "/opt",
+      "total_inodes": 314572544
+    }
+  ],
+  "pinned_archive_count": 51,
+  "pinned_archive_bytes": 10480298018,
+  "pinned_archives": [
+    {
+      "path": "/home/cnooc/portal-ppt-native-preload-20261017-r1/runner.candidate.oci.tar",
+      "device": 64512,
+      "inode": 549813491,
+      "bytes": 976393728,
+      "mtime_ns": 1792232915769597305,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/portal-ppt-native-preload-20261017-r1/runner-rollback-compatible.candidate.oci.tar",
+      "device": 64512,
+      "inode": 549813492,
+      "bytes": 976332288,
+      "mtime_ns": 1792232920469608212,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/ppt-retained-gateway-58a50175-20261020/gateway.oci.tar",
+      "device": 64512,
+      "inode": 245062689,
+      "bytes": 870492672,
+      "mtime_ns": 1792499086803695043,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/portal-ppt-native-preload-20261017-r1/gateway.candidate.oci.tar",
+      "device": 64512,
+      "inode": 549813489,
+      "bytes": 870471168,
+      "mtime_ns": 1792232904789571826,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/portal-ppt-native-preload-20261017-r1/gateway-rollback-compatible.candidate.oci.tar",
+      "device": 64512,
+      "inode": 549813490,
+      "bytes": 870313472,
+      "mtime_ns": 1792232909009581619,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/output-recovery-r3-05900f6102e0/gateway.oci.tar",
+      "device": 64512,
+      "inode": 380524596,
+      "bytes": 869703680,
+      "mtime_ns": 1791982345159249840,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-glm-offline-build-20261016-r1.tar.gz",
+      "device": 64512,
+      "inode": 42703330,
+      "bytes": 773435535,
+      "mtime_ns": 1792142857699122254,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deer-flow-skills-20260901-enterprise-arm64-rc15-researchfund1.oci.tar",
+      "device": 64512,
+      "inode": 33613910,
+      "bytes": 207321600,
+      "mtime_ns": 1788255732927498067,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/chromium-linux-arm64-1223.zip",
+      "device": 64512,
+      "inode": 33611276,
+      "bytes": 194706293,
+      "mtime_ns": 1792542943766729755,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/browser-r7-package-24C5PVGO/chromium-linux-arm64-1223.zip",
+      "device": 64512,
+      "inode": 345623790,
+      "bytes": 194706293,
+      "mtime_ns": 1792548097108864732,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/browser-cdp-r6-r3-kp9r8Du8/chromium-linux-arm64-1223.zip",
+      "device": 64512,
+      "inode": 239155669,
+      "bytes": 194706293,
+      "mtime_ns": 1792545983743899090,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/browser-cdp-r6-r2-PewxHb0a/chromium-linux-arm64-1223.zip",
+      "device": 64512,
+      "inode": 149246810,
+      "bytes": 194706293,
+      "mtime_ns": 1792545546402862141,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/browser-cdp-r6-MIS2ZLvK/chromium-linux-arm64-1223.zip",
+      "device": 64512,
+      "inode": 5688303,
+      "bytes": 194706293,
+      "mtime_ns": 1792543760628642335,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/browser-version-r5-r2-Pv4Uu8Fm/chromium-linux-arm64-1223.zip",
+      "device": 64512,
+      "inode": 774897315,
+      "bytes": 194706293,
+      "mtime_ns": 1792543166567251402,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/browser-version-r5-8JWzIB78/chromium-linux-arm64-1223.zip",
+      "device": 64512,
+      "inode": 674218931,
+      "bytes": 194706293,
+      "mtime_ns": 1792542947156737692,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-conversation-file-parsing-20260921-r7.tar.gz",
+      "device": 64512,
+      "inode": 35797511,
+      "bytes": 126333130,
+      "mtime_ns": 1789959944256485137,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-conversation-file-parsing-20260921-r8.tar.gz",
+      "device": 64512,
+      "inode": 35012516,
+      "bytes": 126333530,
+      "mtime_ns": 1789963428274769625,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-conversation-file-parsing-20260921-r10.tar.gz",
+      "device": 64512,
+      "inode": 33617315,
+      "bytes": 126292068,
+      "mtime_ns": 1789986030108453790,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-conversation-file-parsing-20260921-r9.tar.gz",
+      "device": 64512,
+      "inode": 35797484,
+      "bytes": 126289069,
+      "mtime_ns": 1789964370647005104,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-conversation-file-parsing-20260921-r11.tar.gz",
+      "device": 64512,
+      "inode": 34751421,
+      "bytes": 126232541,
+      "mtime_ns": 1789989766957273528,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/ppt-retained-frontend-ee145e63-20261020/frontend.oci.tar",
+      "device": 64512,
+      "inode": 208100769,
+      "bytes": 125340160,
+      "mtime_ns": 1792498960863397794,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/portal-ppt-native-preload-20261017-r1/frontend.oci.tar",
+      "device": 64512,
+      "inode": 549813488,
+      "bytes": 124756992,
+      "mtime_ns": 1792232900649562220,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/production-source-supplement-r7-20260928T062128Z.tar.gz",
+      "device": 64512,
+      "inode": 40446687,
+      "bytes": 114910510,
+      "mtime_ns": 1790576581735148129,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-rc15-skillhubsession1-20260908.tar.gz",
+      "device": 64512,
+      "inode": 35334807,
+      "bytes": 111625819,
+      "mtime_ns": 1788851260417096854,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-rc15-roleexpertskillhub1-offline1-20260906.tar.gz",
+      "device": 64512,
+      "inode": 35326106,
+      "bytes": 111618621,
+      "mtime_ns": 1788692159007924500,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-rc15-roleexpertskillhub1-serverfix1-20260906.tar.gz",
+      "device": 64512,
+      "inode": 35038749,
+      "bytes": 111478470,
+      "mtime_ns": 1788679647618221654,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-rc15-skillhubsession2-20260908.tar.gz",
+      "device": 64512,
+      "inode": 33617176,
+      "bytes": 111474023,
+      "mtime_ns": 1788866193190870615,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/provisioner.same-version.oci.tar",
+      "device": 64512,
+      "inode": 41144583,
+      "bytes": 73379840,
+      "mtime_ns": 1792317777058512868,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-ppt-master-v660-20260922-r6.tar.gz",
+      "device": 64512,
+      "inode": 39742905,
+      "bytes": 67794163,
+      "mtime_ns": 1790059459070455865,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-ppt-master-v660-20260922-r7.tar.gz",
+      "device": 64512,
+      "inode": 34798182,
+      "bytes": 67592371,
+      "mtime_ns": 1790070183125355917,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-ppt-master-v660-20260922-r8.tar.gz",
+      "device": 64512,
+      "inode": 34798603,
+      "bytes": 67591384,
+      "mtime_ns": 1790071663978800402,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/k8s-bootstrap-images.tar",
+      "device": 64512,
+      "inode": 35828123,
+      "bytes": 65925632,
+      "mtime_ns": 1789125109118598171,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-ppt-master-v660-20260922-r5.tar.gz",
+      "device": 64512,
+      "inode": 39729971,
+      "bytes": 64648067,
+      "mtime_ns": 1790056839474408330,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-ppt-master-v660-20260922-r4.tar.gz",
+      "device": 64512,
+      "inode": 39728817,
+      "bytes": 64646878,
+      "mtime_ns": 1790055259200743003,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/deerflow-ppt-master-v660-20260922-r3.tar.gz",
+      "device": 64512,
+      "inode": 35014858,
+      "bytes": 64407724,
+      "mtime_ns": 1790052566674488616,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/production-external-source-r8-20260928T080436Z.tar.gz",
+      "device": 64512,
+      "inode": 40446692,
+      "bytes": 60333309,
+      "mtime_ns": 1790582689200251043,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-v08-anydoc-stage1-20260912-r1.tar.gz",
+      "device": 64512,
+      "inode": 39577993,
+      "bytes": 46685042,
+      "mtime_ns": 1789301431969918084,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-v08-ui-stage1-20260913-r5.tar(1).gz",
+      "device": 64512,
+      "inode": 41103160,
+      "bytes": 46680081,
+      "mtime_ns": 1789297260950561003,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-v08-ui-stage1-20260913-r5.tar.gz",
+      "device": 64512,
+      "inode": 40939714,
+      "bytes": 46680081,
+      "mtime_ns": 1789297261680562640,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-v08-image-stage-20260908-r1.tar.gz",
+      "device": 64512,
+      "inode": 35331165,
+      "bytes": 46677504,
+      "mtime_ns": 1788871642453450461,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-v08-image-stage-20260908-r2.tar.gz",
+      "device": 64512,
+      "inode": 34741628,
+      "bytes": 46677822,
+      "mtime_ns": 1788873781198369885,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-v08-image-stage-20260908-r3.tar.gz",
+      "device": 64512,
+      "inode": 40889751,
+      "bytes": 46677995,
+      "mtime_ns": 1788916656777102107,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-v08-ui-stage1-20260913-r1.tar.gz",
+      "device": 64512,
+      "inode": 35832771,
+      "bytes": 46675407,
+      "mtime_ns": 1789273102496683906,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-v08-ui-stage1-20260913-r2.tar.gz",
+      "device": 64512,
+      "inode": 35827818,
+      "bytes": 46675866,
+      "mtime_ns": 1789287549318985097,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-v08-ui-stage1-20260913-r3.tar.gz",
+      "device": 64512,
+      "inode": 35332873,
+      "bytes": 46676194,
+      "mtime_ns": 1789288037300084266,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-v08-ui-stage1-20260913-r4.tar.gz",
+      "device": 64512,
+      "inode": 36016667,
+      "bytes": 46677673,
+      "mtime_ns": 1789289164762621793,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-ui-r5-build-materials-20260928.tar.gz",
+      "device": 64512,
+      "inode": 40446660,
+      "bytes": 46671323,
+      "mtime_ns": 1790588149033519465,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-v08-sandbox-stage3-gvisor-canary-20260917-r1.tar.gz",
+      "device": 64512,
+      "inode": 34741610,
+      "bytes": 40612263,
+      "mtime_ns": 1789623021996413719,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/portal-ppt-refresh-20261017-r2-tDrkKzjp/EVIDENCE.tar.gz",
+      "device": 64512,
+      "inode": 781180702,
+      "bytes": 37363374,
+      "mtime_ns": 1792215602299495859,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/weknora-ui-0.8.0-enterprise-sso1-r4-arm64-20260913.oci.tar",
+      "device": 64512,
+      "inode": 39578000,
+      "bytes": 37210112,
+      "mtime_ns": 1789290046604590746,
+      "uid": 1000
+    },
+    {
+      "path": "/home/cnooc/frontend-diagnosis-05882c2d-3pZvtk/frontend-05882c2d-source.zip",
+      "device": 64512,
+      "inode": 380547083,
+      "bytes": 35244786,
+      "mtime_ns": 1792051752734247946,
+      "uid": 1000
+    }
+  ],
+  "additional_observed_package_directories": [
+    "/home/cnooc/deerflow-digital-domains-skillruntime12-images",
+    "/home/cnooc/deerflow-digital-employee-domains-r10-images-20260917",
+    "/home/cnooc/deerflow-media-generation1-images-20260918",
+    "/home/cnooc/digital-employee-domains-r7-images-20260917",
+    "/home/cnooc/digitalemployee-promptfix1-images-20260915",
+    "/home/cnooc/digitalemployee-ui2-r1-images-20260914",
+    "/home/cnooc/digitalemployee1-r7-gateway-20260914",
+    "/home/cnooc/model-output-recovery-20261014-candidate-r2",
+    "/home/cnooc/model-output-recovery-20261014-candidate-r3",
+    "/home/cnooc/weknora-v08-sandbox-images-20260917"
+  ],
+  "additional_scope": "Direct regular archive files only; fresh metadata pin, 48-hour mtime/ctime age, minimum 32 MiB; no recursive scanning.",
+  "operation": "Copy to separate /opt filesystem; verify SHA256 and metadata; atomic original-path symlink replacement. Retain all archive contents.",
+  "production_executed": false,
+  "script_sha256": "0259b59a3d86acc642256691c9b7b7f56dfa097ffb20709d7a4e8616b384cd75",
+  "linux_python37_tests_passed": 18
+}

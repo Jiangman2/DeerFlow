@@ -1,0 +1,39 @@
+{
+  "evidence_origin": "OPERATOR_ATTACHED_STDOUT_NOT_DIRECT_NODE_READ",
+  "attachment_sha256": "be8eefa99b8b23f6227c8416fbd7e546dd2f140d3638d21411c2f9b9500432a9",
+  "observation": {
+    "actual_root_free_increase_bytes": 5454757888,
+    "automatic_retry": false,
+    "bytes": 5456342972,
+    "container_runtime_commands": 0,
+    "credentials_exported": false,
+    "destination": "/mnt/data/portal-auth-log-archive-0015-20261028-r1/auth.log.20261028-r1",
+    "elapsed_seconds": 490.04,
+    "estimated_reclaimed_bytes": 5456351232,
+    "log_content_exported": false,
+    "logger_reopen_accepted": true,
+    "old_root_copy_removed": true,
+    "once_claimed": true,
+    "permanent_rotation_policy_installed": false,
+    "report_bytes": 1013,
+    "report_path": "/mnt/data/portal-auth-log-archive-0015-20261028-r1/REPORT.json",
+    "report_sha256": "3ba110937068b73d50991b60fe417197c37823af4d3370f9f13f12bd90f78d90",
+    "root_available_after": 23942234112,
+    "root_available_before": 18487476224,
+    "rotation_command_returncode": 0,
+    "rotation_requests": 1,
+    "schema": "portal-0015-auth-log-relocation.v1",
+    "security_attribute_probe": {
+      "status": "PASS",
+      "xattr_names": [
+        "security.kysec"
+      ]
+    },
+    "security_attributes_preserved": true,
+    "service_restart_requests": 0,
+    "service_signal_requests": 1,
+    "sha256": "57610773cb324e17f5107d7f3858d87227520e18931f4706f28cd9a4254bbeea",
+    "status": "AUTH_LOG_ROTATED_ARCHIVED_VERIFIED_ROOT_RELEASED",
+    "workload_patch_requests": 0
+  }
+}

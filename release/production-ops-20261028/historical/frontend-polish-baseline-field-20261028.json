@@ -1,0 +1,20 @@
+{
+  "schema": "portal-frontend-polish-baseline-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_KUBECTL_OUTPUT_NOT_DIRECT_CLUSTER_READ",
+  "observed_date": "2026-10-28",
+  "frontend": {
+    "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee",
+    "generation": 229,
+    "observed_generation": 229,
+    "desired": 2,
+    "updated": 2,
+    "ready": 2,
+    "image": "deerflow.local/deer-flow-frontend@sha256:cf701f067e050f014dc4e0178252070fa22806fddc8c4a085c51049451352298"
+  },
+  "pods": [
+    {"name": "frontend-7d95f7dbd9-4fgwf", "node": "ecs-zdz-pro-0015", "ready": true, "phase": "Running", "restarts": 0},
+    {"name": "frontend-7d95f7dbd9-wpxfz", "node": "datax-02", "ready": true, "phase": "Running", "restarts": 0}
+  ],
+  "deployment_modified": false,
+  "node_uids_require_fresh_recheck_before_rollout": true
+}
