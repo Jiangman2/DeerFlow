@@ -93,10 +93,16 @@ for (const viewport of [
       },
     );
     await page.goto(`/workspace/chats/${MOCK_THREAD_ID}`);
-    await expect(page.getByTestId("browser-trigger")).toBeVisible({
-      timeout: 60000,
-    });
-    await page.getByTestId("browser-trigger").click();
+    // Mobile secondary actions are reached through the released More menu.
+    if (viewport.width < 768) {
+      await page.getByTestId("chat-more-trigger").click();
+      await page
+        .getByRole("menuitem", { name: "查看浏览器", exact: true })
+        .click();
+    } else {
+      await expect(page.getByTestId("browser-trigger")).toBeVisible();
+      await page.getByTestId("browser-trigger").click();
+    }
     const section = page.getByRole("region", { name: "人工登录" });
     await expect(section).toBeVisible();
     await expect(

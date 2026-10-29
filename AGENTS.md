@@ -9,8 +9,9 @@ below. Runner 55 remains unchanged. The current lock is
 with Python 3.12+. See `docs/production-source-reconciliation-20261029.md`.
 Keep all historical inventories immutable. The V4.1 adapter is shipped but its
 model is disabled; retain the existing default and exclude the paused Work
-update. Browser/business acceptance and the image-generation timeout incident
-remain open. Do not confuse source alignment with a new deployment or rerun
+update. Browser/business acceptance remains open. The operator confirmed that
+the image-generation incident was resolved on the model-service side. Do not
+confuse source alignment with a new deployment or rerun
 archived activation tools. WeKnora native GLM and member-UI provenance rules
 below still apply, including the unproven colleague UI base-image provenance.
 

@@ -531,6 +531,7 @@ test.describe("Artifact preview stability", () => {
     await page.goto(`/workspace/chats/${PRESENTED_PPTX_THREAD_ID}`);
     const pptxLink = page.getByRole("link", {
       name: PRESENTED_PPTX_FILENAME,
+      exact: true,
     });
     await expect(pptxLink).toBeVisible({ timeout: 15_000 });
     await expect(pptxLink).toHaveAttribute("href", "#artifacts");
@@ -642,7 +643,9 @@ test.describe("Artifact preview stability", () => {
         decodeURIComponent(new URL(request.url()).pathname) ===
           `/api/threads/${PRESENTED_PDF_THREAD_ID}/artifact-previews/pdf${PRESENTED_PDF_PATH}`,
     );
-    await page.getByRole("link", { name: "普通任务报告_20260819.pdf" }).click();
+    await page
+      .getByRole("link", { name: "普通任务报告_20260819.pdf", exact: true })
+      .click();
 
     const artifactsPanel = page.locator("#artifacts");
     const previewFrame = artifactsPanel.locator(
@@ -729,7 +732,7 @@ test.describe("Artifact preview stability", () => {
     );
     await page.goto(`/workspace/chats/${PRESENTED_DOCX_THREAD_ID}`);
     await page
-      .getByRole("link", { name: "勘探分析报告_20260820.docx" })
+      .getByRole("link", { name: "勘探分析报告_20260820.docx", exact: true })
       .click();
 
     const artifactsPanel = page.locator("#artifacts");
@@ -792,7 +795,7 @@ test.describe("Artifact preview stability", () => {
 
     await page.goto(`/workspace/chats/${staleThreadId}`);
     await page
-      .getByRole("link", { name: "历史汇报_20260805_120000.pptx" })
+      .getByRole("link", { name: "历史汇报_20260805_120000.pptx", exact: true })
       .click();
 
     const artifactsPanel = page.locator("#artifacts");
@@ -871,7 +874,9 @@ test.describe("Artifact preview stability", () => {
           `/api/threads/${transientThreadId}/artifact-previews/pdf${transientPreview}`,
     );
     await page.goto(`/workspace/chats/${transientThreadId}`);
-    await page.getByRole("link", { name: "transient-report.pptx" }).click();
+    await page
+      .getByRole("link", { name: "transient-report.pptx", exact: true })
+      .click();
 
     const previewFrame = page
       .locator("#artifacts")

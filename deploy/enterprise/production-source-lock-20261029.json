@@ -2233,7 +2233,15 @@
     "release/combined-features-20261028-r1/historical-tooling/verify-combined-live-child.py": "a4439a4d9d4545db2aa2ec4c80dbaf8517b8f71800df4be5d3f872382da7e8b4",
     "release/combined-features-20261028-r1/historical-tooling/verify-combined-storage-child.py": "2253ad840a27cf409894d38d872c6cc3b27e4408ddab12c6f56cd856982b521d",
     "release/combined-features-20261028-r1/historical-tooling/verify-combined-storage-host.py": "0bed26f90e3716d629fd8aeaf2c45ea0b9ce8d530893d3fef0927b3b980d1c8d",
-    "release/combined-features-20261028-r1/qualification/TEST-BUNDLE.json": "6540a410b029ba5eb1ceae221e5b88acae676f7f3f168fbdb7d85ec8bf4da53e"
+    "release/combined-features-20261028-r1/qualification/TEST-BUNDLE.json": "6540a410b029ba5eb1ceae221e5b88acae676f7f3f168fbdb7d85ec8bf4da53e",
+    "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/artifact-preview.spec.ts": "cb21cac3472c6a6223f573c606a6ae2c09d26ec1f8bd52645bf59f1f66642aaa",
+    "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/browser-manual-login.spec.ts": "3079f9d66dce0ebb6cdc0a776b716d24dd555a72ec37bd25397f038731ba7cef",
+    "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/cnooc-concept-layout.spec.ts": "c6e4c71e8efd982230ad27f46fce91f2def8e364f9c341c72058bdb53456cb3e",
+    "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/digital-employee-gallery.spec.ts": "ef7885348db805d42bd192d834989f8ed55126c04f65547929baf5937180482b",
+    "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/haineng-portal-integration.spec.ts": "b0ee62e1a39f290e3ced7cb0d6736b3f3a9d1b24dabaa744cd7dce2b30a5561c",
+    "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/home-only.spec.ts": "80bf875a154e7c669d7b10d84fce587940926ff4382d104a4876d038e4b82b02",
+    "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/model-square-account.spec.ts": "ac35d242a335dee1a59deaa045495f4981e7d19b0023d2b1e8399947ce8d7a71",
+    "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/portal-hotfix.spec.ts": "151c6d832f80c62ab6cb5880d8a213c6d2ed2971660d6d97c3499c245e4e52f3"
   },
   "line_ending_normalizations": {
     "frontend/src/components/workspace/messages/message-token-usage.tsx": {
@@ -2260,6 +2268,46 @@
       "baseline_path": "release/combined-features-20261028-r1/qualification/source/frontend/tests/unit/core/agents/square-launch.test.ts",
       "current_sha256": "6c5abd1da0c67a602b1685e875856a92519a8e12ff470aeafaff18d279753834",
       "reason": "Prettier layout only; original sealed qualification input retained"
+    },
+    "frontend/tests/e2e/artifact-preview.spec.ts": {
+      "baseline_path": "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/artifact-preview.spec.ts",
+      "current_sha256": "9dce05392ae0da10907f58815e0204b77029064241c8fe48adad00bff5c13818",
+      "reason": "Use exact artifact-link names to distinguish the released accessible Download links without weakening PDF/Office preview assertions."
+    },
+    "frontend/tests/e2e/browser-manual-login.spec.ts": {
+      "baseline_path": "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/browser-manual-login.spec.ts",
+      "current_sha256": "33991301819020bc9aa84b5bbc107654d0f1275f770e4b4463dbb9184d7b951d",
+      "reason": "Follow the released mobile More menu before exercising the same manual-login controls and session isolation."
+    },
+    "frontend/tests/e2e/cnooc-concept-layout.spec.ts": {
+      "baseline_path": "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/cnooc-concept-layout.spec.ts",
+      "current_sha256": "f93cd5a751c2c6be43d7b43af7b032d678b2a8d7ed6721ecdef8670666feaed0",
+      "reason": "Match released inactive control tones and disabled empty-scope clear; wait for menu animation and use start-aligned scroll snap while retaining full viewport assertions."
+    },
+    "frontend/tests/e2e/digital-employee-gallery.spec.ts": {
+      "baseline_path": "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/digital-employee-gallery.spec.ts",
+      "current_sha256": "05c4982f293b2e41c6ee01146a8d329a214198bf346a957a76635c1b1da4ae83",
+      "reason": "Verify the released viewport-sized page count and the actual inner filter scroller, retaining pagination/filter/mobile coverage."
+    },
+    "frontend/tests/e2e/haineng-portal-integration.spec.ts": {
+      "baseline_path": "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/haineng-portal-integration.spec.ts",
+      "current_sha256": "31517f6cfcf6c373d87241b6e2bbe23579c83b1e6b559c4535391fa50bf82b9d",
+      "reason": "Verify the released fourth contact row and both customer-service telephone links."
+    },
+    "frontend/tests/e2e/home-only.spec.ts": {
+      "baseline_path": "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/home-only.spec.ts",
+      "current_sha256": "a8cd0a951e33a867ed1dc6421a5ba875e0568fa6686c1f4a968c9973f69b4e7c",
+      "reason": "Verify the released stacked More-menu rows and viewport bounds instead of the retired two-column menu height."
+    },
+    "frontend/tests/e2e/model-square-account.spec.ts": {
+      "baseline_path": "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/model-square-account.spec.ts",
+      "current_sha256": "9c81de254a21a8403fe6502a7e1fc0dc052384cabbf200084ae62d48451afcfd",
+      "reason": "Poll the unchanged 36px gap after sidebar resize transition rather than measuring an intermediate frame."
+    },
+    "frontend/tests/e2e/portal-hotfix.spec.ts": {
+      "baseline_path": "release/combined-features-20261028-r1/qualification/source/frontend/tests/e2e/portal-hotfix.spec.ts",
+      "current_sha256": "cc70437475c54129f0e3563781ba712a25df12d19d30e1946b09f568f38e9db5",
+      "reason": "Match released radio model options and stacked left-aligned More menu; preserve selection payload, link isolation, draft and viewport assertions"
     }
   }
 }

@@ -214,7 +214,7 @@ for (const { width, height } of [
         await canvas.evaluate(
           (element) => element.getBoundingClientRect().width,
         ),
-      ).toBe(originalSize);
+      ).toBe(22);
       await expect(link.locator("img")).toBeVisible();
       await expect(link.locator("img")).toHaveAttribute(
         "src",
@@ -226,7 +226,18 @@ for (const { width, height } of [
     expect(bounds?.x).toBeGreaterThanOrEqual(0);
     expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(width);
     expect(bounds?.width).toBeLessThanOrEqual(320);
-    expect(bounds?.height).toBeLessThanOrEqual(160);
+    // The released More/PPT menus use four stacked touch-sized rows.
+    expect(bounds?.height).toBeLessThanOrEqual(320);
+    const rows = await menu.getByRole("menuitem").all();
+    for (let index = 0; index < rows.length; index++) {
+      const row = await rows[index]!.boundingBox();
+      expect(row!.height).toBeGreaterThanOrEqual(44);
+      if (index > 0) {
+        const previous = await rows[index - 1]!.boundingBox();
+        expect(row!.y).toBeGreaterThanOrEqual(previous!.y + previous!.height);
+        expect(Math.abs(row!.x - previous!.x)).toBeLessThanOrEqual(1);
+      }
+    }
     expect(bounds?.y).toBeGreaterThanOrEqual(0);
     expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(
       height,

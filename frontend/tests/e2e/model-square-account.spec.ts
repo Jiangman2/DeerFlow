@@ -263,13 +263,18 @@ test("desktop shell keeps a fixed module gap and fits short/tall viewports", asy
         ),
       );
     sizes.push(Number(await slot.getAttribute("data-page-size")));
-    const frame = await page
-      .locator('[data-slot="sidebar-inner"]')
-      .boundingBox();
-    const title = await page
-      .locator(".cnooc-agents-page > header > div")
-      .boundingBox();
-    expect(Math.abs(title!.x - frame!.x - frame!.width - 36)).toBeLessThan(2);
+    // Resizing also transitions the adaptive sidebar; assert its settled gap.
+    await expect
+      .poll(async () => {
+        const frame = await page
+          .locator('[data-slot="sidebar-inner"]')
+          .boundingBox();
+        const title = await page
+          .locator(".cnooc-agents-page > header > div")
+          .boundingBox();
+        return Math.abs(title!.x - frame!.x - frame!.width - 36);
+      })
+      .toBeLessThan(2);
     expect(
       await slot.evaluate((e) => e.scrollHeight - e.clientHeight),
     ).toBeLessThanOrEqual(1);

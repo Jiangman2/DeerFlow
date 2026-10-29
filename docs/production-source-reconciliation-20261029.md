@@ -56,6 +56,14 @@ Two unit tests received Prettier-only layout corrections. Their original sealed
 inputs are preserved in `qualification/source/`, and the source lock pins the
 corrected test hashes separately; these exceptions do not cover runtime files.
 
+Eight E2E specifications also retain their sealed originals and separately
+pinned CI corrections. They follow the deployed mobile More menu, distinguish
+preview links from accessible download links, include the telephone contact row,
+follow the model selector radio-menu semantics,
+and verify adaptive pagination and stacked menu rows. Layout measurements wait
+for sidebar/menu transitions and respect the rail's start-aligned scroll snap;
+the full viewport, preview, authentication and interaction assertions remain.
+
 Build, preload, validation, partial activation, diagnosis and final resume
 receipts are retained in the release directory. Earlier `NOT_DEPLOYED` statuses
 describe those earlier stages; the final runtime receipt is authoritative for
