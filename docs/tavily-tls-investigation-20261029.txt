@@ -10,14 +10,19 @@ Gateway 未显式清空 TAVILY_TLS_COMPAT 和 ALL_PROXY/all_proxy，实际值仍
 可选 qwen3.7-dashscope-proxy-test-patch.yaml 会恢复 Gateway 全局代理，
 影响 Tavily，但不同时配置 CA；尚无证据证明应用过该补丁。
 
-Bash 命令（仓库根目录；Pod 重建后替换名称）：
-set -o pipefail
-kubectl -n deer-flow exec -i gateway-7469f8d95d-qdljj -c gateway -- \
-  /app/backend/.venv/bin/python - < scripts/inspect-tavily-pod-tls.py \
-  | tee tavily-pod-tls-result.txt
+Bash 命令（开发机仓库根目录；替换 SSH 地址，Pod 重建后替换名称）：
+bash scripts/check-tavily-pod-tls-via-ssh.sh \
+  用户名@线上服务器 gateway-7469f8d95d-qdljj \
+  --output tavily-pod-tls-result.txt
 
-需要 kubectl 当前 context 指向该集群。保留 TLS 校验，不发送 Tavily Key，
-不执行搜索；仅创建自动清理的 Pod 内临时证书文件。
+脚本在开发机读取 Python 探针，经 SSH 标准输入交给线上 kubectl，再传入 Pod，
+线上服务器无需仓库或 Python，也不落盘脚本。结果保存在开发机。
+线上 SSH 用户需要可用的 kubectl context 及 Pod exec 权限。
+如果线上必须使用 sudo kubectl，增加 --sudo-kubectl；该选项使用 sudo -n，
+需要已有免交互权限，否则明确失败，不能用交互 sudo 消耗探针标准输入。
+普通 SSH 登录可使用已有密钥、SSH 配置或终端密码提示，不关闭主机密钥校验。
+保留 TLS 校验，不发送 Tavily Key，不执行搜索；仅创建自动清理的 Pod 内临时证书文件。
+脚本执行成功只表示完成取证；实际 TLS 是否通过应查看 openssl_exit 和证书验证结果。
 
 范围与结论
 调查用户提供的 gateway-7469f8d95d-qdljj/gateway 在北京时间

@@ -1,4 +1,9 @@
-"""Run via kubectl exec -i ... -- python -; no application API credentials sent."""
+"""Pod-side probe, streamed by check-tavily-pod-tls-via-ssh.sh from a dev checkout.
+
+The SSH server needs no repository: kubectl passes this source to Pod Python stdin.
+No application API credentials are sent. TLS findings are printed in the report;
+a completed probe is not itself a successful TLS verification.
+"""
 import ast
 import hashlib
 import os
