@@ -65,6 +65,14 @@ graphs need rebuilding. Run-context fields cannot enable the server gate.
 
 ## Enforcement and limits
 
+Data Lake source enforcement permits the two stage checkpoint controls as
+orchestration operations. Their registration and execution remain gated by the
+stage controller's server configuration, exact thread allowlist, Skill ownership
+and budgets. This exception does not enable Data Lake access, Bash, browsers,
+external retrieval, or any other tool. Query authorization and local-processing
+restrictions remain owned by DataLakeSourceMiddleware. Combined sync/async graph
+regressions are in `tests/test_staged_datalake_coexistence.py`.
+
 - At most 2–8 stages, 1–12 lead model invocations per stage and 1–64 total
   invocations for an adopted plan (defaults 6/6/24). Planning, transition and
   final-synthesis calls count. Provider retries and hidden tokens are not this

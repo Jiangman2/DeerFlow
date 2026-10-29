@@ -14,7 +14,11 @@ STATE_KEY = "datalake_query_scope"
 ACCESS_HINT = "请先点击数据湖按钮开启权限后再查询。可以继续处理已有的本地文件；不会使用外部查询替代数据湖查询。"
 SOURCE_HINT = "企业数据只能从获准的数据湖来源获取。查询失败或为空须如实说明；可用 process_local_data 处理已获准的结果或当前对话上传文件，不能改用外部来源、任意脚本或编造数据。"
 LOCAL_TOOLS = frozenset({"ask_clarification", "think", "write_todos", "read_file", "write_file", "str_replace", "ls", "glob", "grep", "view_image", "present_files", "task", "process_local_data"})
-ALLOWED_TOOLS = DATA_TOOLS | LOCAL_TOOLS
+# These controls only record stage checkpoints. Their own controller still
+# enforces the server canary, Skill ownership, receipts and budgets; they grant
+# no data access and cannot execute code or make external requests.
+STAGE_CONTROL_TOOLS = frozenset({"start_execution_stages", "advance_execution_stage"})
+ALLOWED_TOOLS = DATA_TOOLS | LOCAL_TOOLS | STAGE_CONTROL_TOOLS
 _QUERY = re.compile(r"查询|查一下|查下|查找|检索|统计|汇总|筛选|调取|提取|排名|列出|找出|获取|问数|有哪些|是多少|有多少|最大|最小|最高|最低|\b(?:query|retrieve|search|fetch)\b", re.I)
 _SOURCE = re.compile(r"数据湖|data\s*lake|(?:内部|企业|公司)(?:数据库|数据表)|(?:内部|企业内部|公司内部)业务数据", re.I)
 _EXPLANATION = re.compile(r"^(?:请|帮我|能否|麻烦|一下|\s)*(?:介绍|解释|讲解|说明|分析.*(?:代码|报错|故障)|调试|修复|审查|讨论|什么是|为什么)|(?:是什么|代码如何|工具怎么|报错原因|故障原因|查询原理)", re.I)

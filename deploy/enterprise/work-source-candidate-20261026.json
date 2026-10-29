@@ -4,7 +4,7 @@
   "base_commit": "fb5744e93602280bff62f4603186642b1fba6b18",
   "original_work_commit": "df3584b568f2d76e9c9eede6884a3e3d003f11bd",
   "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
-  "purpose": "Work task routing fixes on the 2026-10-29 production source baseline; NOT_DEPLOYED",
+  "purpose": "Work routing plus restored sequential-stage candidate and Data Lake orchestration compatibility; NOT_DEPLOYED",
   "changes": {
     "backend/app/channels/runtime_config_store.py": {
       "base_sha256": "1ad7926afea1f85821b8430e2d428463e32fd376a6d5716e35c5bbe2a83cc9a7",
@@ -125,6 +125,30 @@
     "backend/app/integrations/work/routing.py": {
       "base_sha256": null,
       "candidate_sha256": "2cd39ac64ec83680df8b7a0b3cbff250d3079c3e51f71a9c2712703676e2fa4c"
+    },
+    "backend/packages/harness/deerflow/agents/lead_agent/agent.py": {
+      "base_sha256": "bb4ce246562ea20c2351545e2471745ae43d86bf3ec3f0333ac8fbbe3e87a039",
+      "candidate_sha256": "078ff823a2fa43f361bb88d5e891874912c50d340ff4bf3e0ebcc4e76816a665"
+    },
+    "backend/packages/harness/deerflow/agents/thread_state.py": {
+      "base_sha256": "4d0687d89283fa6879632973ac10a3cc5ac08613597b8c7c82eff2086b294687",
+      "candidate_sha256": "1b3cef668b0dca59ceec6f880316458e7fe88a79a7e019130084c636b99b7d6d"
+    },
+    "backend/packages/harness/deerflow/config/app_config.py": {
+      "base_sha256": "8a4bda9fc1000ea300ab267bd303efd284766e776eb2038923612d4f8cf32479",
+      "candidate_sha256": "71989c70f8956b3876c707750f2f7edbff09671b454ab107b07b0337afd1264a"
+    },
+    "backend/packages/harness/deerflow/agents/middlewares/staged_execution_middleware.py": {
+      "base_sha256": null,
+      "candidate_sha256": "94d55bbe3ff40fd34720a18aab043c140fa916d92b4cf4fe26222f5ec21c12ad"
+    },
+    "backend/packages/harness/deerflow/config/staged_execution_config.py": {
+      "base_sha256": null,
+      "candidate_sha256": "64ace9fe3c07f26401af9b15b835c59439814d9f49f98bb0447b643a5ae24353"
+    },
+    "backend/packages/harness/deerflow/runtime/datalake_policy.py": {
+      "base_sha256": "776308756f95750613f2af246f3c73c15f3b4e0293c2b9822cbbc91257da6009",
+      "candidate_sha256": "8ebb566b863e4f8294471396c7491f5159e4e55cbe245f4a31535155f6dee19e"
     }
   }
 }
