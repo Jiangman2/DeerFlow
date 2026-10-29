@@ -200,6 +200,26 @@ class EdgeSecurityTests(unittest.TestCase):
             self.assertIsNone(receipt["forwarded"])
             self.assertIsNone(receipt["forwarded_port"])
 
+    def test_work_oauth_routes_preserve_header_security_without_logging_query(self):
+        for instance in self.instances:
+            for host in CORPORATE_HOSTS:
+                for suffix in ("authorize", "callback"):
+                    path = "/api/integrations/work/oauth/" + suffix + "?code=synthetic-work-secret&state=synthetic-state"
+                    with self.subTest(config=instance.relative, host=host, path=suffix):
+                        status, headers, body = instance.request("GET", path, {
+                            "Host": host, "Forwarded": "host=attacker.example",
+                            "X-Forwarded-Host": "attacker.example", "X-Forwarded-Port": "9999"})
+                        self.assertEqual(status, 200)
+                        self.assertNotIn("x-powered-by", headers)
+                        self.assertNotIn("x-aspnet-version", headers)
+                        self.assertNotIn("x-aspnetmvc-version", headers)
+                        receipt = json.loads(body)
+                        self.assertEqual(receipt["forwarded_host"], host)
+                        self.assertIsNone(receipt["forwarded"])
+                        self.assertIsNone(receipt["forwarded_port"])
+            for log in (Path(instance.directory.name) / "logs").glob("*.log"):
+                self.assertNotIn("synthetic-work-secret", log.read_text())
+
     def test_absolute_uri_cannot_override_valid_host(self):
         for instance in self.instances:
             for host in CORPORATE_HOSTS:

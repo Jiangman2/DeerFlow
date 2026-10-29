@@ -35,6 +35,18 @@ no-progress searches while preserving evidence, clarification and Skill gates.
 See [model-output incident recovery](docs/model-output-recovery.md) for scope,
 adapter-local thresholds, regression commands, and rollout limitations.
 
+Work document/calendar integration is opt-in. `app/integrations/work/` separates
+sender-bound authorization, typed capabilities and model planning. Production
+uses encrypted shared SQL state; writes require owner-bound preview confirmation
+and read-back verification. Tokens never reach models, Skills or the browser.
+See [production setup and rollout](docs/WORK_PRODUCTION.md) and the
+[release checklist](docs/WORK_RELEASE_CHECKLIST.md). Local UAT remains available.
+
+The Work receiver closes SDK sockets/tasks on removal or reconfiguration and
+serializes channel lifecycle changes. Availability reflects handshake health,
+not merely a live thread. Work quota error `1000040350` also requires checking
+old receivers; signed WebSocket URLs remain redacted in logs.
+
 Batch fourteen repairs active TUI quit, reserved-command handling, contentless
 message extraction, WeChat batch failure/cancellation handling and diff totals.
 WeChat now attempts remaining messages after a bad attachment and advances its
@@ -825,3 +837,56 @@ No database upgrade, downgrade, table deletion, push or deployment is performed
 by source candidate preparation. This candidate supersedes catalogue-only tree
 345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
 Previous broader-tree test results are historical, not acceptance of this tree.
+
+## Local UAT Work calendar consent (2026-10-21)
+
+Production hardening and administrator/UI credential precedence are documented in
+[WORK_PRODUCTION.md](docs/WORK_PRODUCTION.md). The production profile adds the
+Gateway HTTPS callback and shared encrypted SQL state (migration 0022, after the
+existing PPT 0020 and OA 0021 revisions), remains
+opt-in, and retains the local UAT profile below. It has not been deployed to production.
+See [the release checklist](docs/WORK_RELEASE_CHECKLIST.md) for source/deployment/ITC
+responsibilities. The optional owner filter gates only Work document/calendar
+capabilities, not channel binding or ordinary chat; leave it explicitly empty for
+a full production rollout. Shared-database Runner images need the Work migration
+and ORM registration too; the narrow production overlay preserves its dedicated Agent.
+
+The 2026-10-26 PR is based on 0716 commit `59f7c538`. The Runner overlay now uses
+the accepted 2026-10-23 Runner 55, not historical R3. The original production
+source lock/snapshots remain unchanged; `work-source-candidate-20261026.json`
+records exact undeployed Gateway deltas. Provenance checks distinguish candidate
+verification from evidence of deployment.
+
+The default-off local UAT integration requests `calendar:calendar:readonly` and
+`calendar:calendar` together on first calendar use, matching the actual Work
+permission catalogue rather than fine-grained names in newer API templates.
+It checks both returned scopes on the original user's token and reuses complete
+consent; document requests continue to request only `docx:document`. ITC must
+enable and publish the corresponding user-identity permissions on the UAT app.
+Older write-only tokens require a new OAuth flow, not channel rebinding. Calendar
+writes still require an explicit sender-bound preview confirmation; no deletion,
+invitations or room bookings are enabled, despite the broad provider write scope.
+See [WORK_DOCUMENTS_UAT.md](docs/WORK_DOCUMENTS_UAT.md).
+
+Local UAT calendar requests now use a semantic intent followed by server-side
+target resolution, rather than asking the model for a complete executable event.
+Query by date/time/original title, choose explicitly from numbered ambiguous
+results, and preview changes to title, description or times. Title-only changes
+preserve times/description and send only the changed field. Relative shifts move
+both boundaries; a missing duration/end-time policy prompts a question. Candidate
+facts and up to four clarification turns expire after ten minutes and are isolated
+by the complete authenticated principal. Editing remains limited to the user's
+own non-recurring timed events without other attendees; all-day events are readable
+but not editable. Deletion remains disabled. UAT memory mode clears personal
+OAuth grants/previews on restart; production and UAT SQL mode retain unexpired
+shared state with the same key/configuration. Persisted channel bindings are not cleared.
+
+Read-only calendar intents accept absent, empty or `null` changes. They reject
+actual mutation fields; create/update still require a non-null changes object.
+Validation diagnostics record only controlled field names/category/attempt, never
+raw model output, user values or credentials.
+
+
+### Work task routing (2026-10-29)
+
+Ordinary document writing, uploaded attachments and calendar explanations stay in normal chat. Work document operations require an approved Work link, an explicit `/work` request, or a relevant existing document reference. Calendar operations need an actionable request; pending questions accept bounded time/duration replies instead of capturing every message. An unrelated new topic clears follow-up context, including shared SQL context. Explicit Work requests with attachments report the unsupported input rather than silently discarding it. Ambiguous Work follow-ups should use `/work`. Existing personal authorization and write confirmation remain required.

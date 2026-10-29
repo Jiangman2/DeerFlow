@@ -64,6 +64,9 @@ def _resolve_service_url(config: dict[str, Any], config_key: str, env_key: str, 
 def _merge_channel_connection_runtime_config(channels_config: dict[str, Any], app_config: AppConfig) -> None:
     connection_config = getattr(app_config, "channel_connections", None)
     merge_runtime_channel_configs(channels_config, connection_config)
+    from app.integrations.work.config import apply_work_credential_defaults
+
+    apply_work_credential_defaults(channels_config)
 
 
 def _make_connection_repo(connection_config: ChannelConnectionsConfig | None):
@@ -120,6 +123,9 @@ class ChannelService:
         self._config = config
         self._running = False
         self._readiness_locks: dict[str, asyncio.Lock] = {}
+        self._work_receivers: dict[str, Any] = {}
+        self._work_coordinator = None
+        self._work_config_epoch = 0
 
     @classmethod
     def from_app_config(cls, app_config: AppConfig | None = None) -> ChannelService:
@@ -154,6 +160,14 @@ class ChannelService:
         ready_status = await self.ensure_ready_channels(attempts=2)
         ready_count = sum(1 for ready in ready_status.values() if ready)
         logger.info("ChannelService started with %d/%d ready channels", ready_count, len(ready_status))
+        from app.integrations.work.config import WorkSettings
+
+        settings = WorkSettings.from_env()
+        if settings.enabled and settings.persistent:
+            from app.integrations.work.coordinator import WorkChannelCoordinator
+
+            self._work_coordinator = WorkChannelCoordinator(self)
+            self._work_coordinator.start()
 
     async def ensure_ready_channels(self, *, attempts: int = 1) -> dict[str, bool]:
         """Start or restart enabled configured channels that are not ready."""
@@ -185,13 +199,13 @@ class ChannelService:
             logger.warning("ChannelService is not running; cannot ensure channel readiness")
             return False
 
-        if config is not None:
-            self._config[name] = dict(config)
-
         # Serialize per channel: readiness is polled from request handlers, so
         # concurrent calls must not stop/start the same channel worker twice.
         lock = self._readiness_locks.setdefault(name, asyncio.Lock())
         async with lock:
+            if config is not None:
+                self._config[name] = dict(config)
+                self._work_config_epoch += 1
             channel_config = self._config.get(name)
             if not channel_config or not isinstance(channel_config, dict):
                 logger.warning("No config for requested channel")
@@ -205,9 +219,10 @@ class ChannelService:
 
             if channel is not None:
                 try:
-                    await channel.stop()
+                    await self._stop_channel(name, channel)
                 except Exception:
                     logger.exception("Error stopping non-running channel before readiness retry")
+                    return False
                 self._channels.pop(name, None)
 
             max_attempts = max(1, attempts)
@@ -216,17 +231,27 @@ class ChannelService:
                     logger.info("Retrying channel startup after readiness check")
                 if await self._start_channel(name, channel_config):
                     return True
+                if name in self._channels:
+                    # Failed cleanup still owns a worker; never retry over it.
+                    return False
             return False
 
     async def stop(self) -> None:
         """Stop all channels and the manager."""
+        self._running = False
+        if self._work_coordinator:
+            await self._work_coordinator.close()
+            self._work_coordinator = None
         for name, channel in list(self._channels.items()):
             try:
-                await channel.stop()
+                async with self._readiness_locks.setdefault(name, asyncio.Lock()):
+                    channel = self._channels.get(name)
+                    if channel is not None:
+                        await self._stop_channel(name, channel)
+                        self._channels.pop(name, None)
                 logger.info("Channel stopped")
             except Exception:
                 logger.exception("Error stopping channel")
-        self._channels.clear()
 
         await self.manager.stop()
         self._running = False
@@ -244,28 +269,68 @@ class ChannelService:
         Falls back to the cached ``self._config`` when config loading fails.
         """
         try:
-            from deerflow.config.app_config import get_app_config
-
-            app_config = get_app_config()
-            extra = app_config.model_extra or {}
-            channels_config = dict(extra.get("channels") or {})
-            _merge_channel_connection_runtime_config(channels_config, app_config)
-            channel_config = channels_config.get(name)
+            channel_config = self._read_channel_config(name)
             if isinstance(channel_config, dict):
                 # Update the cached config so get_status() stays consistent.
                 self._config[name] = channel_config
                 return channel_config
+            self._config.pop(name, None)
+            return None
         except Exception:
             logger.exception("Failed to reload config for channel %s, using cached version", name)
         return self._config.get(name)
 
+    def _read_channel_config(self, name):
+        """Pure authoritative read; errors and explicit absence stay distinct."""
+        from deerflow.config.app_config import get_app_config
+
+        app_config = get_app_config()
+        channels_config = dict((app_config.model_extra or {}).get("channels") or {})
+        _merge_channel_connection_runtime_config(channels_config, app_config)
+        return channels_config.get(name)
+
+    async def _reconcile_work_channel(self):
+        """Apply shared desired state using the same lock as UI and restarts."""
+        epoch = self._work_config_epoch
+        config = await asyncio.to_thread(self._read_channel_config, "feishu")
+        async with self._readiness_locks.setdefault("feishu", asyncio.Lock()):
+            if not self._running or epoch != self._work_config_epoch:
+                return True
+            desired = dict(config) if isinstance(config, dict) else {"enabled": False}
+            previous = self._config.get("feishu")
+            self._config["feishu"] = desired
+            channel = self._channels.get("feishu")
+            receiver = self._work_receivers.get("feishu")
+            if not desired.get("enabled"):
+                await self._invalidate_work_integration("feishu")
+                if channel is not None:
+                    await self._stop_channel("feishu", channel)
+                    self._channels.pop("feishu", None)
+                return True
+            healthy = bool(receiver and not receiver.closed and receiver.task and not receiver.task.done())
+            if channel is not None and channel.is_running and healthy and receiver.config == desired:
+                return True
+            # Failed socket cleanup must retain the old worker even if cached
+            # desired config already advanced on a previous attempt.
+            if channel is not None or previous != desired:
+                return await self._restart_channel_locked("feishu", reload_config=False)
+            return await self._start_channel("feishu", desired)
+
     async def restart_channel(self, name: str, *, reload_config: bool = True) -> bool:
         """Restart a specific channel. Returns True if successful."""
+        lock = self._readiness_locks.setdefault(name, asyncio.Lock())
+        async with lock:
+            return await self._restart_channel_locked(name, reload_config=reload_config)
+
+    async def _restart_channel_locked(self, name: str, *, reload_config: bool) -> bool:
+        """Share the readiness lock with reconfiguration/removal requests."""
+        await self._invalidate_work_integration(name)
         if name in self._channels:
             try:
-                await self._channels[name].stop()
+                await self._stop_channel(name, self._channels[name])
             except Exception:
                 logger.exception("Error stopping channel for restart")
+                return False
             del self._channels[name]
 
         if reload_config:
@@ -286,27 +351,62 @@ class ChannelService:
 
     async def configure_channel(self, name: str, config: dict[str, Any]) -> bool:
         """Apply runtime config for a channel and restart it if the service is running."""
-        self._config[name] = dict(config)
-        if not self._running:
-            return True
+        if name == "feishu":
+            from app.integrations.work.config import apply_work_credential_defaults
+
+            selected = {name: dict(config)}
+            apply_work_credential_defaults(selected)
+            config = selected[name]
         # The caller just supplied the authoritative config (e.g. credentials
         # entered in the browser that are never written to config.yaml) — a
         # file reload here would clobber it with the stale on-disk entry.
-        return await self.restart_channel(name, reload_config=False)
+        async with self._readiness_locks.setdefault(name, asyncio.Lock()):
+            self._config[name] = dict(config)
+            self._work_config_epoch += 1
+            if not self._running:
+                return True
+            return await self._restart_channel_locked(name, reload_config=False)
 
     async def remove_channel(self, name: str) -> bool:
         """Remove runtime config for a channel and stop it if currently running."""
+        lock = self._readiness_locks.setdefault(name, asyncio.Lock())
+        async with lock:
+            return await self._remove_channel_locked(name)
+
+    async def _remove_channel_locked(self, name: str) -> bool:
+        self._work_config_epoch += 1
+        await self._invalidate_work_integration(name)
         self._config.pop(name, None)
-        channel = self._channels.pop(name, None)
+        channel = self._channels.get(name)
         if channel is None:
             return True
         try:
-            await channel.stop()
+            await self._stop_channel(name, channel)
+            self._channels.pop(name, None)
             logger.info("Channel stopped and removed")
             return True
         except Exception:
             logger.exception("Error stopping channel for removal")
             return False
+
+    async def _invalidate_work_integration(self, name):
+        if name != "feishu":
+            return
+        lock = getattr(self.manager, "_work_service_lock", None)
+        if lock is None:
+            lock = self.manager._work_service_lock = asyncio.Lock()
+        async with lock:
+            old = self.manager._work_documents
+            self.manager._work_documents = None
+            if old is not None:
+                await old.close()
+
+    async def _stop_channel(self, name, channel):
+        await channel.stop()
+        receiver = self._work_receivers.pop(name, None)
+        if receiver:
+            # Do not release the lease until the SDK thread has really joined.
+            await receiver.close()
 
     async def _start_channel(self, name: str, config: dict[str, Any]) -> bool:
         """Instantiate and start a single channel."""
@@ -323,24 +423,41 @@ class ChannelService:
             logger.exception("Failed to import channel class")
             return False
 
+        channel = None
         try:
             config = dict(config)
+            if name == "feishu":
+                from app.integrations.work.receiver import WorkReceiver
+
+                receiver = await WorkReceiver.prepare(self, config)
+                if receiver:
+                    self._work_receivers[name] = receiver
+                    config = receiver.channel_config(config)
             config["channel_store"] = self.store
             if self._connection_repo is not None:
                 config["connection_repo"] = self._connection_repo
             channel = channel_cls(bus=self.bus, config=config)
             self._channels[name] = channel
             await channel.start()
-            if not channel.is_running:
-                self._channels.pop(name, None)
-                logger.error("Channel did not enter a running state after start()")
-                return False
-            logger.info("Channel started")
-            return True
+            if channel.is_running:
+                if name in self._work_receivers:
+                    self._work_receivers[name].start(channel)
+                logger.info("Channel started")
+                return True
+            logger.error("Channel did not enter a running state after start()")
         except Exception:
-            self._channels.pop(name, None)
             logger.exception("Failed to start channel")
-            return False
+        if channel is not None:
+            try:
+                await self._stop_channel(name, channel)
+            except Exception:
+                logger.exception("Failed to clean up channel startup; retaining worker to prevent duplicates")
+                return False
+        self._channels.pop(name, None)
+        receiver = self._work_receivers.pop(name, None)
+        if receiver:
+            await receiver.close()
+        return False
 
     def get_status(self) -> dict[str, Any]:
         """Return status information for all channels."""
@@ -353,6 +470,11 @@ class ChannelService:
                 "enabled": enabled,
                 "running": running,
             }
+            channel = self._channels.get(name)
+            if channel is not None and isinstance(getattr(channel, "transport_connected", None), bool):
+                channels_status[name]["connected"] = channel.transport_connected
+                failure = getattr(channel, "_ws_failure", None)
+                channels_status[name]["transport_business_code"] = failure.business_code if failure else None
         return {
             "service_running": self._running,
             "channels": channels_status,

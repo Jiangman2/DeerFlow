@@ -100,6 +100,10 @@ def verify(ref=None):
                   runtime_accepted=True, browser_and_business_acceptance_pending=True,
                   v41_enabled=False, work_update_included=False,
                   evidence_files_verified=len(evidence), production_modified=False)
+    if result.get('candidate'):
+        result.update(status='CANDIDATE_ON_PRODUCTION_BASELINE_VERIFIED', runtime_accepted=False,
+                      production_baseline_runtime_accepted=True, work_update_included=True,
+                      candidate_deployed=False)
     return result
 
 

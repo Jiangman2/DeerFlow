@@ -163,7 +163,12 @@ def merge_runtime_channel_configs(
         if not _provider_enabled(channel_connections_config, provider):
             continue
         if _runtime_channel_disconnected(runtime_config):
-            channels_config.pop(provider, None)
+            if provider == "feishu":
+                # Preserve authoritative Work disable across credential defaults
+                # and cross-Pod reloads; absence is not an enabled fallback.
+                channels_config[provider] = dict(runtime_config)
+            else:
+                channels_config.pop(provider, None)
             continue
         existing = channels_config.get(provider)
         merged = dict(existing) if isinstance(existing, dict) else {}

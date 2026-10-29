@@ -2074,3 +2074,129 @@ No database upgrade, downgrade, table deletion, push or deployment is performed
 by source candidate preparation. This candidate supersedes catalogue-only tree
 345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
 Previous broader-tree test results are historical, not acceptance of this tree.
+
+## Local UAT Work document OAuth (2026-10-15)
+
+Production hardening (2026-10-21) supersedes the prototype-only restrictions
+below when the operator explicitly enables `DEER_FLOW_WORK_ENABLED` with the
+production profile. See `docs/WORK_PRODUCTION.md`. Keep default-off activation,
+production default profile, explicit UAT test owners and legacy loopback relay.
+Administrator-saved channel credentials remain authoritative; profile env vars
+only bootstrap an unconfigured channel. Use exact allowlisted browser routes,
+server-configured redirect/API/doc origins, one-use state/browser binding and
+original sender verification. Do not expose query credentials in any proxy or
+ASGI access log. Production requires shared encrypted SQL state and migration
+0022; never fall back to plaintext or memory on missing key/database. Keep
+owner-bound AEAD, versioned CAS (including delete/recreate ABA protection),
+cross-worker one-shot execution, minimal durable receipts/audit and no blind
+retry after uncertain writes. Retain existing typed operation restrictions.
+Reconfiguration closes/rebuilds the integration without deleting user bindings.
+Shared receiver leases permit one WebSocket and HTTP-only standby senders;
+recheck lease before bind/dispatch, and release only after the SDK thread joins.
+Persistent Work also owns a service-level coordinator independent of receiver
+tasks and browser readiness calls. Preserve explicit shared disable tombstones
+through environment defaults, strict reads for automatic startup, lifecycle-lock
+serialization, jittered bounded retries and stop-before-replace. Lease-release
+failure after socket cleanup defers to expiry; socket/thread cleanup failure
+must still retain the worker. Cover startup SQL failure, disable/re-enable,
+credential changes and recovery with `test_work_coordinator.py`.
+Do not claim deployment/real Work acceptance from the isolated regression suite.
+The production owner allowlist is an optional document/calendar capability gate,
+never a channel binding policy. Explicitly empty means no extra owner filter;
+do not inherit the legacy developer list during a full rollout. Preserve per-user
+binding/OAuth/resource checks and UAT's explicit developer admission.
+Every shared-database bootstrap consumer must be compatible with migration 0022. The
+dedicated Runner's narrow `Dockerfile.production-work-overlay` copies the canonical
+revision, Work ORM and model registration; test both versioned upgrades and fresh
+metadata before stamping head. Keep the locked dedicated Agent unchanged and
+publish a new image tag/digest; the old lock is base evidence, not output identity.
+
+See `docs/WORK_DOCUMENTS_UAT.md`. Preserve default-off operation and exact UAT
+app/API/doc-host plus explicit owner allowlists. `app/integrations/work/` now
+separates auth/token isolation, typed capabilities and model orchestration;
+`app/channels/work_documents.py` is only a compatibility shim. The manager hook
+runs only after its original bound-identity gate. Re-read the persisted binding
+and compare OAuth open_id to the original sender before any document access.
+Never expose tokens to prompts, Skills, sandboxes, logs, files or browser pages.
+The dedicated Bearer-authenticated `/api/webhooks/work-documents/oauth-relay`
+uses the existing webhook auth/CSRF boundary, with bounded request parsing and
+no query-string codes. The loopback-only browser relay is a local development
+helper, not a production callback. No schema migration or automatic token
+refresh is part of this prototype. The model may propose a validated Action but
+cannot select a principal/token/URL or execute a write. Writes require an exact
+sender-bound, expiring HMAC-protected preview confirmation, latest-target checks
+and readback; uncertain results must never be blindly retried. Retain private
+UAT-only admission and the lack of persistent Agent runs. IM SDK redeliveries
+must be deduped before placeholder side effects. Do not claim production rollout
+or real robot acceptance based only on simulated API/outbound tests.
+
+Channel removal/reconfiguration must stop the SDK reconnect/receive tasks, close
+the socket and join its owning thread before replacing a Work receiver. Share
+the readiness lock with restart/removal and retain a worker if cleanup fails.
+Distinguish running retry threads from actual transport health; keep handshake
+diagnostics numeric and redact signed endpoint query strings. Preserve
+`test_feishu_transport.py` regressions. Work error 1000040350 is an application
+long-connection limit, not evidence of user count or invalid local binding codes.
+
+Calendar consent uses `calendar:calendar:readonly` plus `calendar:calendar`, as
+listed in the actual Work permission catalogue. Do not substitute fine-grained
+calendar scopes appearing only in API templates; OAuth 20043 was observed after
+requesting those names. The write scope is broad, but typed capabilities must
+still reject deletion, invitations, room booking and ACL changes. Validate both
+requested scopes on the same principal-bound token before
+installing consent. Keep per-API requirements separate from the consent bundle;
+write preview/execution must also preflight discovery/readback permissions.
+On Work 99991679 revoke only the failed grant for that principal, never a newer
+grant installed while the request was pending. Preserve partial-consent,
+cross-user, no-write-before-confirm and grant-replacement regressions. ITC must
+enable and publish user-identity scopes before real UAT reauthorization works.
+
+Calendar language planning is now a non-executable `CalendarIntent`, resolved in
+`app/integrations/work/calendar.py` before constructing the strict execution
+`Action`. Do not require users/models to invent event IDs or unchanged fields.
+Use complete bounded pagination before choosing an update target, preserve list
+order for numbered choices, and fetch/validate the selected event under the same
+principal's current token. Never select the first ambiguous match. Locator facts
+and clarification history are principal-scoped/TTL-bounded, not global memory.
+Serialize planning per principal. Model JSON gets at most one bounded format
+repair; no raw failed output/exception values in logs or repair prompts. Model
+input cannot set `expected_event` or `update_fields`. The resolver snapshots the
+old event, preserves omitted fields and supplies a changed-field whitelist;
+preview checks that unchanged fields agree, confirmation rechecks the live
+snapshot, PATCH sends only changed fields, and readback verifies the full expected
+title/description/time. Keep the documented non-atomic provider race limitation.
+Only a verified self organizer attendee is permitted, never other users/groups/
+resources; recurrence, all-day editing and deletion remain blocked. Preserve
+`test_work_calendar.py` and existing OAuth/transport tests. A new provider
+operation still needs one reviewed typed adapter/policy/test set; natural-language
+variants must not become per-sentence backend branches. The wider capability
+registry remains a design direction, not implemented generic HTTP execution.
+
+For calendar queries, absent changes, an empty object and explicit `null` all
+mean no mutation. Normalize null only for `calendar_query` and reject nonempty
+mutation fields on a query. Never generalize this into accepting null write
+plans or dropping arbitrary fields/identity metadata. Query the complete stated
+day rather than implicitly reusing a previous selected event. Cover the exact
+Chinese dated-query input and prior-candidate context in regressions. Schema
+repair diagnostics may include only allowlisted field names and fixed category/
+attempt metadata, never unknown field names, raw output or validation values.
+
+## Work PR against current 0716 baseline (2026-10-26)
+
+Work uses revision 0022 after the unchanged PPT 0020 and OA 0021 revisions.
+The narrow Runner overlay uses accepted Runner 55 from the 2026-10-23 source
+lock, adds OA/Work schema metadata and migrations, and preserves its Agent.
+Keep all production lock entries, sealed snapshots and unrelated sources intact.
+The explicit `work-source-candidate-20261026.json` records parent and candidate
+hashes for each intended Gateway source change. The provenance verifier must
+label that result CANDIDATE_SOURCE_VERIFIED/NOT_DEPLOYED, never production
+acceptance; undeclared source changes and candidate hash drift remain failures.
+OAuth proxy additions must retain the latest forwarded-header sanitization and
+framework-header suppression in every location. No production command is run
+while preparing this candidate. Validate isolated PostgreSQL upgrade from 0021,
+old schema/data preservation, one migration head, and Runner fresh/upgrade paths.
+
+
+### Work routing boundary
+
+`app/integrations/work/routing.py` owns conservative channel admission. A `None` route returns the original message and attachments to the normal channel pipeline without checking the Work rollout allowlist. Work is not inferred from generic document/calendar nouns or an outstanding clarification alone. Persistent topic exit removes the versioned principal context so another worker cannot restore a stale task. Keep routing separate from OAuth authority and confirmed write execution. Regress with `tests/test_work_routing_boundary.py`, `test_work_documents.py`, `test_work_calendar.py`, and `test_work_capabilities.py`.

@@ -204,6 +204,16 @@ spec:
           env:
             - name: DEER_FLOW_SSO_ONLY
               value: "true"
+            # Credentials remain editable in Settings -> Channels. These are
+            # profile defaults, not an override of the saved administrator config.
+            - name: DEER_FLOW_WORK_PROFILE
+              value: "production"
+            - name: DEER_FLOW_WORK_DOCS_UAT_ENABLED
+              value: "false"
+            - name: DEER_FLOW_WORK_PRODUCTION_CALLBACK_URL
+              value: "https://cnoocclaw.cnooc.com.cn/api/integrations/work/oauth/callback"
+            - name: DEER_FLOW_WORK_PRODUCTION_DOCUMENT_HOST
+              value: "hnwork.w.cnooc.com.cn"
             - name: DEER_FLOW_DASHBOARD_DATABASE_URL
               valueFrom:
                 secretKeyRef:
