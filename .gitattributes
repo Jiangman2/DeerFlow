@@ -47,3 +47,6 @@ release/production-source-20261027/research-fund-settlement/** -text whitespace=
 
 # Preserve the sealed combined-release receipts and historical tooling byte-for-byte.
 release/combined-features-20261028-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve the V4.1 operator-tool sources and qualification receipt byte hashes.
+deploy/enterprise/v41-glm-20261029/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

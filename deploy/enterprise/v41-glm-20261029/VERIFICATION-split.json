@@ -1,0 +1,36 @@
+{
+  "schema": "portal-v41-glm-split-local-qualification.v1",
+  "date": "2026-10-29",
+  "status": "SPLIT_TOOLS_CHECKED_PRODUCTION_NOT_EXECUTED",
+  "reason": "Operator requested configuration preparation now and Gateway rollout later",
+  "deliveries": {
+    "prepare": {
+      "filename": "prepare-portal-v41-glm-config-20261029-r1.py",
+      "bytes": 37089,
+      "sha256": "3a16a3d1cbdd399a027ef18cf93c8d9f97230d0fa2264abad4c06ee346b12668"
+    },
+    "rollout": {
+      "filename": "rollout-portal-v41-glm-config-20261029-r1.py",
+      "bytes": 45215,
+      "sha256": "8b10c42d80516489aa82bbb2457d16cbf4c0c5f1f341c6c3f400ec6d8cfc015f"
+    }
+  },
+  "new_source_sha256": {
+    "split_host.py": "e3e7f7e401af175750c1dc063723696372345e4381bd3dfa75d82f589ab3e682",
+    "package_split.py": "6adcb6ac271434c5aab7ea27c16a7904c6760845a601f03b6c8e952803986a04",
+    "test_split.py": "ff10304ea6db1a69509f4d44e846078d6467f59948959f85a9c80ec1aebf03b4"
+  },
+  "test_file": "test_split.py",
+  "tested_packaged_executables": true,
+  "windows_python312": {"passed": 14, "skipped": 1, "failed": 0},
+  "linux_python3717": {"passed": 15, "skipped": 0, "failed": 0, "network": "none", "rootfs": "read-only"},
+  "preparation_gateway_mutation_implementation_absent": true,
+  "preparation_workload_command_guard": "PASS",
+  "deferred_rollout_fresh_resource_version": "PASS",
+  "deferred_rollout_baseline_drift_rejected": true,
+  "synthetic_accepted_replicas": 70,
+  "production_requests_by_tests": 0,
+  "production_preparation_executed": false,
+  "production_rollout_executed": false,
+  "default_model_changed": false
+}
