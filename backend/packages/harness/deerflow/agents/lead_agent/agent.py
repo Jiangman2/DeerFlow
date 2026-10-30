@@ -328,10 +328,13 @@ def build_middlewares(
     cfg = _get_runtime_config(config)
     stage_controller = None
     stage_config = resolved_app_config.staged_execution
-    if stage_config.enabled and stage_config.thread_ids and cfg.get("thinking_enabled", True) is not False:
+    from deerflow.config.staged_agent_scope import resolve_staged_team_agent
+
+    stage_agent = resolve_staged_team_agent(stage_config, agent_name, user_id=user_id, app_config=resolved_app_config)
+    if stage_config.enabled and (stage_agent or (stage_config.thread_ids and cfg.get("thinking_enabled", True) is not False)):
         from deerflow.agents.middlewares.staged_execution_middleware import StagedExecutionMiddleware, StageReceiptCaptureMiddleware
 
-        stage_controller = StagedExecutionMiddleware(stage_config)
+        stage_controller = StagedExecutionMiddleware(stage_config, agent_target=stage_agent)
         middlewares.append(StageReceiptCaptureMiddleware(stage_controller))
 
     # Capture completed task delegations and loaded skill files before

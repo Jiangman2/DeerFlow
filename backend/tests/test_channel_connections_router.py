@@ -574,7 +574,7 @@ def test_connect_existing_binding_code_channels_return_command_and_persist_state
         assert body["mode"] == "binding_code"
         assert body["url"] is None
         assert len(body["code"]) >= 22
-        assert body["instruction"] == f"请向{ENTERPRISE_PRODUCT_NAME}的{expected_display_name}机器人发送 /connect {body['code']}。"
+        assert body["instruction"] == f"请向{ENTERPRISE_PRODUCT_NAME}的{expected_display_name}机器人发送 /connect {body['code']}" + ("" if provider == "feishu" else "。")
 
         async def count_states(provider=provider):
             return await repo.count_oauth_states(owner_user_id=str(_user().id), provider=provider)

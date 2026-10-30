@@ -36,7 +36,7 @@ class UsageSummary(BaseModel):
     updated_at: datetime
 
 
-def _authorize(request: Request) -> dict[str, str]:
+def _authorize(request: Request) -> dict[str, str] | None:
     expected = os.getenv("COMPETITION_USAGE_API_KEY", "")
     if len(expected) < 32:
         raise HTTPException(503, "competition_feed_not_configured")
@@ -45,6 +45,9 @@ def _authorize(request: Request) -> dict[str, str]:
     scheme, _, supplied = header.partition(" ")
     if scheme.lower() != "bearer" or not supplied or not hmac.compare_digest(supplied.encode(), expected.encode()):
         raise HTTPException(401, "invalid_competition_credential", headers={"WWW-Authenticate": "Bearer"})
+    # Operator-owned mode; authentication above always remains mandatory.
+    if os.getenv("COMPETITION_USAGE_ALL_PUBLISHED_ENABLED", "").strip().lower() == "true":
+        return None
     raw = os.getenv("COMPETITION_USAGE_AGENTS_JSON", "{}")
     try:
         if len(raw.encode()) > 32768:
@@ -62,8 +65,8 @@ def _authorize(request: Request) -> dict[str, str]:
 @router.get("/api/competition/agent-usage", response_model=UsageSummary)
 async def agent_usage(request: Request, response: Response, name: str = Query(..., min_length=1, max_length=128)) -> UsageSummary:
     aliases = _authorize(request)
-    identity = aliases.get(name)
-    if identity is None:
+    identity = aliases.get(name) if aliases is not None else None
+    if aliases is not None and identity is None:
         raise HTTPException(404, "competition_agent_not_configured")
     # A name is an operator-agreed alias for one stable publisher identity.
     # Never guess among same-name employees or return withdrawn/private entries.
@@ -73,12 +76,20 @@ async def agent_usage(request: Request, response: Response, name: str = Query(..
     except Exception:
         raise HTTPException(503, "competition_statistics_unavailable") from None
 
-    entries = [entry for entry in roster if entry.selection_key == identity]
+    if aliases is None:
+        entries = [entry for entry in roster if analytics._label(entry) == name]
+        if not entries:
+            raise HTTPException(404, "competition_agent_not_published")
+        if len(entries) != 1:
+            raise HTTPException(409, "competition_agent_name_ambiguous")
+        identity = entries[0].selection_key
+    else:
+        entries = [entry for entry in roster if entry.selection_key == identity]
     if len(entries) != 1:
         raise HTTPException(409, "competition_agent_no_longer_available")
     now = _now()
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    fingerprint = hashlib.sha256(json.dumps(aliases, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    fingerprint = hashlib.sha256(json.dumps([aliases, identity, entries[0].token], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
     key = (fingerprint, name)
     response.headers["Cache-Control"] = "no-store"
     try:

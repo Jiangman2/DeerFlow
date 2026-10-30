@@ -2220,3 +2220,9 @@ old schema/data preservation, one migration head, and Runner fresh/upgrade paths
 ### Scoped search TLS compatibility
 
 `community/web_router/providers.py` owns the operator-only `DEER_FLOW_WEB_ROUTER_TLS_SECURITY_LEVEL` switch. Keep the existing TLS policy by default; level 1 requires trusted environment proxy configuration and an explicit CA bundle. Never disable hostname/chain verification or change model/relay SSL contexts. Cover this boundary in `tests/test_web_router_tls_security_level.py`. For rebuilding and retiring the temporary ConfigMap code overlay, follow `docs/search-router-tls-compatibility.md` at repository root; update the candidate source manifest, never historical production locks.
+
+
+### Team-agent staged execution
+
+`staged_execution.team_agents` is an operator-owned allowlist of exact team-agent internal names. The factory resolves the actual file/database storage scope; personal agents with the same name are excluded. Browser and OA runs share this gate. Agent-target eligibility does not depend on the thinking toggle. Stage checkpoints remain per thread and are reset when the resolved stage target changes. Skill-owned workflows retain priority; simple tasks may still execute directly. This enables stage orchestration, not a guarantee that every policy document is staged. Work (Feishu) connection instructions end at the code without a trailing Chinese period; other channels retain their existing wording.
+`COMPETITION_USAGE_ALL_PUBLISHED_ENABLED=true` permits the authenticated usage feed to resolve all current published employees dynamically. API-key checks always apply; withdrawn/private entries are excluded, duplicate display names return 409, and the cache is bound to identity and publication. The public competition display is unchanged.

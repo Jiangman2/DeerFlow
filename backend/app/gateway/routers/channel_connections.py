@@ -365,7 +365,7 @@ def _connect_instruction(provider: str, code: str) -> str:
     meta = _PROVIDER_META.get(provider)
     if meta is None:
         raise HTTPException(status_code=404, detail="Unknown channel provider")
-    return f"请向{ENTERPRISE_PRODUCT_NAME}的{meta['display_name']}机器人发送 /connect {code}。"
+    return f"请向{ENTERPRISE_PRODUCT_NAME}的{meta['display_name']}机器人发送 /connect {code}" + ("" if provider == "feishu" else "。")
 
 
 def _connect_url(config: ChannelConnectionsConfig, provider: str, code: str) -> str | None:

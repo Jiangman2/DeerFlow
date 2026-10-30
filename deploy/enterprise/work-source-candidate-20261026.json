@@ -44,7 +44,7 @@
     },
     "backend/app/gateway/routers/channel_connections.py": {
       "base_sha256": "a3802b11806f1e5266c6b1edaa47445f8dddc4385039b5b9bb609c8e4b943790",
-      "candidate_sha256": "fbe8cdd07a012917325837aff812c7d2203208fa8931ddf05fa8db32b0ae46e9"
+      "candidate_sha256": "15ca8ca2ce737ad8b459a976664cf7668a962ee65cdc62c4b72bec56c083936b"
     },
     "backend/app/gateway/routers/work_documents.py": {
       "base_sha256": null,
@@ -128,7 +128,7 @@
     },
     "backend/packages/harness/deerflow/agents/lead_agent/agent.py": {
       "base_sha256": "bb4ce246562ea20c2351545e2471745ae43d86bf3ec3f0333ac8fbbe3e87a039",
-      "candidate_sha256": "078ff823a2fa43f361bb88d5e891874912c50d340ff4bf3e0ebcc4e76816a665"
+      "candidate_sha256": "1a5cbe048777f9498a0ce086c156d571ea7399ced2e83b34bb660eb32f54cd30"
     },
     "backend/packages/harness/deerflow/agents/thread_state.py": {
       "base_sha256": "4d0687d89283fa6879632973ac10a3cc5ac08613597b8c7c82eff2086b294687",
@@ -140,11 +140,11 @@
     },
     "backend/packages/harness/deerflow/agents/middlewares/staged_execution_middleware.py": {
       "base_sha256": null,
-      "candidate_sha256": "94d55bbe3ff40fd34720a18aab043c140fa916d92b4cf4fe26222f5ec21c12ad"
+      "candidate_sha256": "44923be4d27c67b6aabb1de3f329904195c8236c28aebaf9f8237ff7fab822af"
     },
     "backend/packages/harness/deerflow/config/staged_execution_config.py": {
       "base_sha256": null,
-      "candidate_sha256": "64ace9fe3c07f26401af9b15b835c59439814d9f49f98bb0447b643a5ae24353"
+      "candidate_sha256": "060f60aba2eddbc8fda9b2be3a7be73fd216d6567875a57b2124b7a9032465b9"
     },
     "backend/packages/harness/deerflow/runtime/datalake_policy.py": {
       "base_sha256": "776308756f95750613f2af246f3c73c15f3b4e0293c2b9822cbbc91257da6009",
@@ -189,6 +189,14 @@
     "backend/packages/harness/deerflow/community/web_router/tools.py": {
       "base_sha256": null,
       "candidate_sha256": "7c4783c005006cc48557c0000385bdf8fda593a84fb3b9fb5fc60005a8be8e53"
+    },
+    "backend/app/gateway/routers/competition_usage.py": {
+      "base_sha256": "8d3603d1e9923a363a63413b78e71c14fcfa677f3154cb6364f5941d9f2e3dfa",
+      "candidate_sha256": "1923d1d4fc7e496e576437e2e2a20fbc806815a248041029dfd21bf699a1f21b"
+    },
+    "backend/packages/harness/deerflow/config/staged_agent_scope.py": {
+      "base_sha256": null,
+      "candidate_sha256": "9455f0b49e958f6ea7f9a091b1261518e547ad0c1ac175be19bea1b705d716e9"
     }
   },
   "search_fetch_commit": "bc7d1a4a645c8c7bd2183fb62292e1c1094b0ac2"

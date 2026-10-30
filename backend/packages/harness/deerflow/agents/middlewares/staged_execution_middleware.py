@@ -92,8 +92,10 @@ def _terminal(message):
 class StagedExecutionMiddleware(AgentMiddleware[StageState]):
     state_schema = StageState
 
-    def __init__(self, config: StagedExecutionConfig):
+    def __init__(self, config: StagedExecutionConfig, *, agent_target: str | None = None):
         self.config = config.model_copy(deep=True)
+        # Supplied only by the factory after resolving the actual team-agent scope.
+        self.agent_target = agent_target if agent_target in self.config.team_agents else None
 
         @tool
         def start_execution_stages(stages: list[StageDefinition], runtime: StageToolRuntime) -> Command:
@@ -118,7 +120,7 @@ class StagedExecutionMiddleware(AgentMiddleware[StageState]):
 
     def _eligible(self, state, runtime):
         ctx = getattr(runtime, "context", None) or {}
-        return bool(self.config.enabled and ctx.get("run_id") and ctx.get("thread_id") in self.config.thread_ids and not self._skill_owned(state))
+        return bool(self.config.enabled and ctx.get("run_id") and ctx.get("thread_id") and (self.agent_target is not None or ctx.get("thread_id") in self.config.thread_ids) and not self._skill_owned(state))
 
     def _supersede(self, state):
         plan = state.get("staged_execution") or {}
@@ -131,6 +133,8 @@ class StagedExecutionMiddleware(AgentMiddleware[StageState]):
             return self._supersede(state)
         run_id = runtime.context["run_id"]
         previous = state.get("staged_execution") or {}
+        if previous.get("agent_target") != self.agent_target:
+            previous = {}
         if previous.get("run_id") == run_id:
             return None
         user = _last_user(state.get("messages", []))
@@ -143,6 +147,7 @@ class StagedExecutionMiddleware(AgentMiddleware[StageState]):
             # it does NOT grant more budget or replay a tool automatically.
         else:
             plan = dict(run_id=run_id, owner_message_id=user.id if user else None, stages=[], current_stage=0, completed=[], receipts={}, model_calls=0, stage_calls=0, errors=0, status="direct", stop_reason="")
+        plan["agent_target"] = self.agent_target
         return {"staged_execution": plan}
 
     async def abefore_agent(self, state, runtime):
