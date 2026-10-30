@@ -33,9 +33,20 @@ def _transport_options():
     trust = os.environ.get("DEER_FLOW_WEB_ROUTER_TRUST_ENV", "false").strip().lower()
     if trust not in {"true", "false"}:
         raise ProviderFailure("CONFIG_ERROR", stop=True)
+    level = os.environ.get("DEER_FLOW_WEB_ROUTER_TLS_SECURITY_LEVEL", "2").strip()
+    if level not in {"1", "2"}:
+        raise ProviderFailure("CONFIG_ERROR", stop=True)
     ca_file = next((os.environ[name].strip() for name in ("REQUESTS_CA_BUNDLE", "SSL_CERT_FILE", "CURL_CA_BUNDLE") if os.environ.get(name, "").strip()), None)
+    # Temporary operator opt-in for verified enterprise proxy certificates.
+    # Never weaken the global SSL context or unrelated model/relay clients.
+    if level == "1" and (trust != "true" or not ca_file):
+        raise ProviderFailure("CONFIG_ERROR", stop=True)
     try:
         verify = ssl.create_default_context(cafile=ca_file) if ca_file else True
+        if level == "1":
+            verify.set_ciphers("DEFAULT:@SECLEVEL=1")
+            if not verify.check_hostname or verify.verify_mode != ssl.CERT_REQUIRED:
+                raise ProviderFailure("CONFIG_ERROR", stop=True)
     except (OSError, ValueError):
         # An invalid declared CA must not silently fall back to another trust root.
         raise ProviderFailure("CONFIG_ERROR", stop=True) from None

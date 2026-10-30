@@ -2215,3 +2215,8 @@ old schema/data preservation, one migration head, and Runner fresh/upgrade paths
 ### Work routing boundary
 
 `app/integrations/work/routing.py` owns conservative channel admission. A `None` route returns the original message and attachments to the normal channel pipeline without checking the Work rollout allowlist. Work is not inferred from generic document/calendar nouns or an outstanding clarification alone. Persistent topic exit removes the versioned principal context so another worker cannot restore a stale task. Keep routing separate from OAuth authority and confirmed write execution. Regress with `tests/test_work_routing_boundary.py`, `test_work_documents.py`, `test_work_calendar.py`, and `test_work_capabilities.py`.
+
+
+### Scoped search TLS compatibility
+
+`community/web_router/providers.py` owns the operator-only `DEER_FLOW_WEB_ROUTER_TLS_SECURITY_LEVEL` switch. Keep the existing TLS policy by default; level 1 requires trusted environment proxy configuration and an explicit CA bundle. Never disable hostname/chain verification or change model/relay SSL contexts. Cover this boundary in `tests/test_web_router_tls_security_level.py`. For rebuilding and retiring the temporary ConfigMap code overlay, follow `docs/search-router-tls-compatibility.md` at repository root; update the candidate source manifest, never historical production locks.

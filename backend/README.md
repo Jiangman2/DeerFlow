@@ -901,3 +901,8 @@ raw model output, user values or credentials.
 ### Work task routing (2026-10-29)
 
 Ordinary document writing, uploaded attachments and calendar explanations stay in normal chat. Work document operations require an approved Work link, an explicit `/work` request, or a relevant existing document reference. Calendar operations need an actionable request; pending questions accept bounded time/duration replies instead of capturing every message. An unrelated new topic clears follow-up context, including shared SQL context. Explicit Work requests with attachments report the unsupported input rather than silently discarding it. Ambiguous Work follow-ups should use `/work`. Existing personal authorization and write confirmation remain required.
+
+
+### Search router enterprise TLS compatibility
+
+See [the TLS deployment guide](../docs/search-router-tls-compatibility.md) for the operator-only `DEER_FLOW_WEB_ROUTER_TLS_SECURITY_LEVEL=1` compatibility option. Preserve explicit enterprise CA and hostname verification; the option does not fix missing issuer certificates.

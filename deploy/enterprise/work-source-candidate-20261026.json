@@ -184,7 +184,7 @@
     },
     "backend/packages/harness/deerflow/community/web_router/providers.py": {
       "base_sha256": null,
-      "candidate_sha256": "2161e4159a79b765240ff99b2103b1b7a712d53ba8643783dbecd4bbaaa0a5eb"
+      "candidate_sha256": "f0ac1b0289bb68f6a5999853459ab86d386ccb053aacffa799df9f8a06cf5193"
     },
     "backend/packages/harness/deerflow/community/web_router/tools.py": {
       "base_sha256": null,
