@@ -636,6 +636,9 @@ async def run_agent(
                 snapshot_capture_failed = True
                 logger.warning("Could not capture pre-run checkpoint snapshot for run %s", run_id, exc_info=True)
 
+        if journal is not None and checkpointer is not None and not snapshot_capture_failed:
+            journal.set_pre_existing_message_ids(pre_existing_message_ids)
+
         # 2. Publish metadata — useStream needs both run_id AND thread_id
         await bridge.publish(
             run_id,

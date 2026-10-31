@@ -197,6 +197,14 @@
     "backend/packages/harness/deerflow/config/staged_agent_scope.py": {
       "base_sha256": null,
       "candidate_sha256": "9455f0b49e958f6ea7f9a091b1261518e547ad0c1ac175be19bea1b705d716e9"
+    },
+    "backend/packages/harness/deerflow/runtime/journal.py": {
+      "base_sha256": "d8a6f48e57046d014c0ea9e9397ac308ea03fc05ce09130757e58be5a49fcdaf",
+      "candidate_sha256": "c5f03d378e3a1ca3128d7d0380f01f1a7309ba8fbc399ca92a31c879cc109618"
+    },
+    "backend/packages/harness/deerflow/runtime/runs/worker.py": {
+      "base_sha256": "36e2811708abae4cd6bc69b58edaededeaad35675cf2755692bf6ffad62b3eaa",
+      "candidate_sha256": "3d68400f0ba0c60aa1c63e9f771df10e33549a6660ba948f1b17071443a91c1c"
     }
   },
   "search_fetch_commit": "bc7d1a4a645c8c7bd2183fb62292e1c1094b0ac2"

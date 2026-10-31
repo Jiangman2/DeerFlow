@@ -125,8 +125,24 @@ class RunJournal(InterruptedJournalMethods, BaseCallbackHandler):
         # resolved at start time so internal summarization/title completions
         # cannot be journaled as user-visible lead-agent messages.
         self._llm_callers_by_run_id: dict[str, str] = {}
+        self._pre_existing_ai_ids: frozenset[str] | None = None
+        self._current_lead_ai_ids: set[str] = set()
         self._current_run_tool_call_names: dict[str, str] = {}
         self._persisted_tool_message_identities: set[str] = set()
+
+    def set_pre_existing_message_ids(self, message_ids: set[str]) -> None:
+        """Bind the trusted pre-run checkpoint boundary before graph execution."""
+        self._pre_existing_ai_ids = frozenset(message_ids)
+
+    def _owns_final_ai_message(self, message: AIMessage) -> bool:
+        message_id = message.id
+        if not isinstance(message_id, str) or not message_id:
+            return False
+        if self._pre_existing_ai_ids is not None:
+            return message_id not in self._pre_existing_ai_ids
+        # Standalone journals or a failed checkpoint read have no complete
+        # boundary. Reconcile only identities observed on this lead callback.
+        return message_id in self._current_lead_ai_ids
 
     # -- Lifecycle callbacks --
 
@@ -279,6 +295,8 @@ class RunJournal(InterruptedJournalMethods, BaseCallbackHandler):
             self._remember_current_run_tool_calls(message, caller=caller)
             if caller == "lead_agent" and isinstance(message, AIMessage):
                 self._last_lead_ai_message = message
+                if isinstance(message.id, str) and message.id:
+                    self._current_lead_ai_ids.add(message.id)
 
             # Latency
             start = self._llm_start_times.pop(rid, None)
@@ -299,6 +317,22 @@ class RunJournal(InterruptedJournalMethods, BaseCallbackHandler):
                     self._llm_error_fallback_message = reason.strip()
                 elif fallback_text:
                     self._llm_error_fallback_message = fallback_text[:2000]
+
+            # A bounded warning survives when optional timing logs are off.
+            # Do not print prompts, reasoning, credentials, endpoint URLs, or
+            # provider-supplied error text. This observes SDK callback output,
+            # not the raw provider SSE stream.
+            if caller == "lead_agent" and isinstance(message, AIMessage):
+                response_meta = message.response_metadata or {}
+                finish = response_meta.get("finish_reason")
+                tool_intent = bool(message.tool_calls or message.invalid_tool_calls or additional_kwargs.get("tool_calls") or additional_kwargs.get("function_call"))
+                if not self._message_text(message).strip() and not tool_intent and finish != "tool_calls" and finish != "function_call":
+                    reasoning = additional_kwargs.get("reasoning_content")
+                    logger.warning(
+                        "LLM_EMPTY_RESPONSE thread_id=%s run_id=%s langchain_run_id=%s latency_ms=%s finish_present=%s usage_present=%s reasoning_chars=%s",
+                        self.thread_id, self.run_id, rid, latency_ms,
+                        bool(finish), bool(usage_dict), len(reasoning) if isinstance(reasoning, str) else 0,
+                    )
 
             # Resolve call index
             call_index = self._llm_call_index
@@ -467,8 +501,10 @@ class RunJournal(InterruptedJournalMethods, BaseCallbackHandler):
         for message in reversed(self._final_output_messages(outputs)):
             if not isinstance(message, AIMessage):
                 continue
-            if (message.additional_kwargs or {}).get("deerflow_error_fallback") is not True:
+            if not self._owns_final_ai_message(message):
                 continue
+            if (message.additional_kwargs or {}).get("deerflow_error_fallback") is not True:
+                return
             self._put(
                 event_type="llm.ai.response",
                 category="message",

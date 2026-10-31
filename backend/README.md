@@ -912,3 +912,13 @@ See [the TLS deployment guide](../docs/search-router-tls-compatibility.md) for t
 
 `staged_execution.team_agents` is an operator-owned allowlist of exact team-agent internal names. The factory resolves the actual file/database storage scope; personal agents with the same name are excluded. Browser and OA runs share this gate. Agent-target eligibility does not depend on the thinking toggle. Stage checkpoints remain per thread and are reset when the resolved stage target changes. Skill-owned workflows retain priority; simple tasks may still execute directly. This enables stage orchestration, not a guarantee that every policy document is staged. Work (Feishu) connection instructions end at the code without a trailing Chinese period; other channels retain their existing wording.
 `COMPETITION_USAGE_ALL_PUBLISHED_ENABLED=true` permits the authenticated usage feed to resolve all current published employees dynamically. API-key checks always apply; withdrawn/private entries are excluded, duplicate display names return 409, and the cache is bound to identity and publication. The public competition display is unchanged.
+
+
+### Run journal error scope
+
+Gateway binds the pre-run checkpoint message IDs to RunJournal. Final error
+reconciliation excludes prior-run IDs; without a trusted checkpoint boundary,
+only current lead-model callback IDs qualify. Current middleware-generated
+failures remain visible. LLM_EMPTY_RESPONSE warnings contain only IDs, latency,
+and field-presence/count metadata; they do not diagnose raw SSE termination
+or imply successful tool/business completion. Existing retries are unchanged.
