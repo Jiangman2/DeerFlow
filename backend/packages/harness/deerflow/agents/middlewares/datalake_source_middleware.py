@@ -60,6 +60,9 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
         enabled = _context(request.runtime).get("datalake_enabled") is True
         instruction = (
             "数据湖查询规则：先判断用户是否在查询企业数据湖中的业务数据、记录或文档。"
+            "用户不必说出‘数据湖’或‘数据湖查询’。例如‘天津公司有多少气田’是主数据问答，"
+            "公司/油气田/区块/井的数量、清单、归属，以及产量、指标、明细，统一使用 datalake_data_qa。"
+            "井史、报告、地质/完井等非结构化资料内容检索使用 datalake_smart_qa。"
             "若明确需要数据湖工具，必须使用 datalake_data_qa 或 datalake_smart_qa；"
             "权限未开启时直接提示用户：请先点击数据湖按钮开启权限。"
             "即使没有可见的数据湖工具，也不得把这类问题转去外部查询。"
@@ -103,7 +106,7 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
             code = "datalake_external_fallback_forbidden"
         if code is None:
             return None
-        hint = ACCESS_HINT if code == "datalake_access_required" else "当前任务没有要求查询数据湖，请继续原本的写作或本地文件处理。" if code == "datalake_not_requested" else SOURCE_HINT
+        hint = ACCESS_HINT if code == "datalake_access_required" else "当前提问未明确要获取企业业务事实或资料；请继续原任务，或简短澄清查询对象和所需信息，无需要求用户补说‘数据湖’。" if code == "datalake_not_requested" else SOURCE_HINT
         logger.info("DataLake tool denied code=%s trigger=%s phase=%s", code, scope["trigger"], scope["phase"])
         result = ToolMessage(
             content=json.dumps({"code": code, "error": hint, "retryable": False, "next_step": "local_processing_or_clarification"}, ensure_ascii=False),

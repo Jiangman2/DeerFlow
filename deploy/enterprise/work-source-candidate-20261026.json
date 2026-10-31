@@ -148,7 +148,7 @@
     },
     "backend/packages/harness/deerflow/runtime/datalake_policy.py": {
       "base_sha256": "776308756f95750613f2af246f3c73c15f3b4e0293c2b9822cbbc91257da6009",
-      "candidate_sha256": "8ebb566b863e4f8294471396c7491f5159e4e55cbe245f4a31535155f6dee19e"
+      "candidate_sha256": "48f3ce41d1bb9f255c753fc2189a2a7751e5b93a60ee93f1ba5b67afc637c310"
     },
     "backend/packages/harness/deerflow/community/deepseek/__init__.py": {
       "base_sha256": null,
@@ -205,6 +205,14 @@
     "backend/packages/harness/deerflow/runtime/runs/worker.py": {
       "base_sha256": "36e2811708abae4cd6bc69b58edaededeaad35675cf2755692bf6ffad62b3eaa",
       "candidate_sha256": "3d68400f0ba0c60aa1c63e9f771df10e33549a6660ba948f1b17071443a91c1c"
+    },
+    "backend/packages/harness/deerflow/agents/middlewares/datalake_source_middleware.py": {
+      "base_sha256": "72280aebc0c42a271e74d5626c407c856495e29d64ad7232b67842d284e510d2",
+      "candidate_sha256": "47fd8404d7ffe40f227202dea3addea815e86a9a4afb3987837d0b140980e2cb"
+    },
+    "backend/packages/harness/deerflow/community/appforge/tools.py": {
+      "base_sha256": "45919fdad0e5fe0fb18fa19cb0e2ea620c7b7ce07d1cb17486b8e0a8a2d31398",
+      "candidate_sha256": "02e7ba0ce62a38e2d92624837db075e0db1e4da3729a177c29fba0e9b5bf132a"
     }
   },
   "search_fetch_commit": "bc7d1a4a645c8c7bd2183fb62292e1c1094b0ac2"
