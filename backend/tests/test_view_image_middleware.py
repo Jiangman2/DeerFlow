@@ -28,7 +28,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from deerflow.agents.middlewares.view_image_middleware import ViewImageMiddleware
 
 
-def _view_image_call(call_id: str = "call_1", path: str = "/mnt/user-data/uploads/img.png") -> dict:
+def _view_image_call(call_id: str = "call_1", path: str = "/img.png") -> dict:
     return {"name": "view_image", "id": call_id, "args": {"image_path": path}}
 
 
@@ -130,7 +130,7 @@ class TestAllToolsCompleted:
         )
         messages = [
             assistant,
-            ToolMessage(content="ok", tool_call_id="c1"),
+            ToolMessage(content="Successfully read image", tool_call_id="c1"),
             ToolMessage(content="ok", tool_call_id="c2"),
         ]
         assert mw._all_tools_completed(messages, assistant) is True
@@ -141,7 +141,7 @@ class TestAllToolsCompleted:
             content="",
             tool_calls=[_view_image_call("c1"), _view_image_call("c2", "/p2.png")],
         )
-        messages = [assistant, ToolMessage(content="ok", tool_call_id="c1")]
+        messages = [assistant, ToolMessage(content="Successfully read image", tool_call_id="c1")]
         assert mw._all_tools_completed(messages, assistant) is False
 
     def test_returns_false_when_assistant_not_in_messages(self):
@@ -323,7 +323,7 @@ class TestShouldInjectImageMessage:
         assistant = AIMessage(content="", tool_calls=[_view_image_call("c1")])
         img_meta = _make_viewed_image(tmp_path)
         state = {
-            "messages": [assistant, ToolMessage(content="ok", tool_call_id="c1")],
+            "messages": [assistant, ToolMessage(content="Successfully read image", tool_call_id="c1")],
             "viewed_images": {"/img.png": img_meta},
         }
         assert mw._should_inject_image_message(state) is True
@@ -338,7 +338,7 @@ class TestShouldInjectImageMessage:
         state = {
             "messages": [
                 assistant,
-                ToolMessage(content="ok", tool_call_id="c1"),
+                ToolMessage(content="Successfully read image", tool_call_id="c1"),
                 already_injected,
             ],
             "viewed_images": {"/img.png": img_meta},
@@ -367,7 +367,7 @@ class TestShouldInjectImageMessage:
         state = {
             "messages": [
                 assistant,
-                ToolMessage(content="ok", tool_call_id="c1"),
+                ToolMessage(content="Successfully read image", tool_call_id="c1"),
                 already_injected,
             ],
             "viewed_images": viewed_images,
@@ -384,7 +384,7 @@ class TestShouldInjectImageMessage:
         state = {
             "messages": [
                 assistant,
-                ToolMessage(content="ok", tool_call_id="c1"),
+                ToolMessage(content="Successfully read image", tool_call_id="c1"),
                 legacy,
             ],
             "viewed_images": {"/img.png": img_meta},
@@ -403,7 +403,7 @@ class TestInjectImageMessage:
         assistant = AIMessage(content="", tool_calls=[_view_image_call("c1")])
         img_meta = _make_viewed_image(tmp_path)
         state = {
-            "messages": [assistant, ToolMessage(content="ok", tool_call_id="c1")],
+            "messages": [assistant, ToolMessage(content="Successfully read image", tool_call_id="c1")],
             "viewed_images": {"/img.png": img_meta},
         }
 
@@ -433,7 +433,7 @@ class TestBeforeModel:
         assistant = AIMessage(content="", tool_calls=[_view_image_call("c1")])
         img_meta = _make_viewed_image(tmp_path)
         state = {
-            "messages": [assistant, ToolMessage(content="ok", tool_call_id="c1")],
+            "messages": [assistant, ToolMessage(content="Successfully read image", tool_call_id="c1")],
             "viewed_images": {"/img.png": img_meta},
         }
         result = mw.before_model(state, _runtime())
@@ -446,7 +446,7 @@ class TestBeforeModel:
         assistant = AIMessage(content="", tool_calls=[_view_image_call("c1")])
         img_meta = _make_viewed_image(tmp_path)
         state = {
-            "messages": [assistant, ToolMessage(content="ok", tool_call_id="c1")],
+            "messages": [assistant, ToolMessage(content="Successfully read image", tool_call_id="c1")],
             "viewed_images": {"/img.png": img_meta},
         }
         result = await mw.abefore_model(state, _runtime())

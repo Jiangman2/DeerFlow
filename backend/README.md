@@ -933,3 +933,12 @@ empty success. LLM_INCOMPLETE_STREAM warnings report HTTP status, EOF/[DONE],
 frame counts, content lengths and thread/run identifiers without response bodies.
 This candidate retains the natural DataLake routing change. Source tests and
 simulated SSE do not replace installed-image QA or live conversation acceptance.
+
+### Current-batch view_image injection
+
+ViewImageMiddleware must select only the latest assistant batch's successful
+view_image receipts and validated metadata. Never replay the cumulative
+image registry on each new view, or reuse old metadata after a failed read.
+Keep explicit re-views, replay deduplication and existing file boundaries.
+Injected HumanMessage image payloads remain checkpointed; the registry itself
+is metadata-only. See docs/view-image-current-batch.md at repository root.

@@ -2250,3 +2250,12 @@ contain only IDs, status, boundary and counters, never SSE bodies or credentials
 This closes a reproduced acceptance gap; it is not proof of the production
 provider's original failure mechanism or of live business acceptance. Verify
 the private SDK decoder seam against the server's installed dependencies.
+
+### Current-batch view_image injection
+
+ViewImageMiddleware must select only the latest assistant batch's successful
+view_image receipts and validated metadata. Never replay the cumulative
+image registry on each new view, or reuse old metadata after a failed read.
+Keep explicit re-views, replay deduplication and existing file boundaries.
+Injected HumanMessage image payloads remain checkpointed; the registry itself
+is metadata-only. See docs/view-image-current-batch.md at repository root.

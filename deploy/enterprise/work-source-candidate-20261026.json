@@ -221,6 +221,10 @@
     "backend/packages/harness/deerflow/models/cnooc_stream_guard.py": {
       "base_sha256": null,
       "candidate_sha256": "a7500ca5f4bd206d23395b59a1cc1d08fe1b464ccae8f3e8ae222db5d8802a2a"
+    },
+    "backend/packages/harness/deerflow/agents/middlewares/view_image_middleware.py": {
+      "base_sha256": "7b3770a881b46a8216baaa9838fcb68be200f70fb406071159390411634c6150",
+      "candidate_sha256": "da0f5b9320d39041c65c0b16ecbe709a822ff5a57e03765c60b778da36184d5f"
     }
   },
   "search_fetch_commit": "bc7d1a4a645c8c7bd2183fb62292e1c1094b0ac2"

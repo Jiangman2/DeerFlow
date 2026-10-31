@@ -31,8 +31,9 @@ class ViewImageMiddleware(AgentMiddleware[ViewImageMiddlewareState]):
     1. Runs before each LLM call
     2. Checks if the last assistant message contains view_image tool calls
     3. Verifies all tool calls in that message have been completed (have corresponding ToolMessages)
-    4. If conditions are met, creates a human message with all viewed image details (including base64 data)
-    5. Adds the message to state so the LLM can see and analyze the images
+    4. Selects successful view_image results from that assistant tool batch only
+    5. Creates a human message with those images (including base64 data)
+    6. Adds the message to state so the LLM can see and analyze the images
 
     This enables the LLM to automatically receive and analyze images that were loaded via view_image tool,
     without requiring explicit user prompts to describe the images.
@@ -127,14 +128,41 @@ class ViewImageMiddleware(AgentMiddleware[ViewImageMiddlewareState]):
         except OSError:
             return None
 
+    def _current_viewed_images(self, state: ViewImageMiddlewareState) -> dict:
+        """Select validated metadata for successful reads in the latest tool batch.
+
+        The registry is cumulative across turns. Never render that entire registry:
+        each new image would otherwise replay every earlier image into history.
+        Legacy view_image failures have status="success", so require the tool's
+        exact successful receipt as well as its status. Arguments select metadata
+        only; they must never become a direct filesystem read path.
+        """
+        messages = state.get("messages", [])
+        assistant = self._get_last_assistant_message(messages)
+        if assistant is None:
+            return {}
+        results = {message.tool_call_id: message for message in messages[messages.index(assistant) + 1 :] if isinstance(message, ToolMessage)}
+        registry = state.get("viewed_images") or {}
+        selected = {}
+        for call in assistant.tool_calls:
+            if call.get("name") != "view_image":
+                continue
+            result = results.get(call.get("id"))
+            if result is None or result.status != "success" or result.content != "Successfully read image":
+                continue
+            args = call.get("args")
+            path = args.get("image_path") if isinstance(args, dict) else None
+            if isinstance(path, str) and isinstance(registry.get(path), dict):
+                selected[path] = registry[path]
+        return selected
+
     def _create_image_details_message(self, state: ViewImageMiddlewareState) -> list[str | dict]:
-        """Create a formatted message with all viewed image details.
+        """Render the selected image metadata into content blocks.
 
         Reads image files from disk on-demand and encodes them as base64
-        for the model. The base64 data is NOT persisted in state -- only
-        lightweight metadata (path, mime_type, size) is stored in
-        ``viewed_images``, avoiding large duplicate payloads across every
-        checkpoint (see #4138).
+        for the model. ``viewed_images`` stores lightweight metadata only, but
+        the resulting HumanMessage does contain image data and is checkpointed.
+        Callers must filter the registry to the current successful tool batch.
 
         Args:
             state: Current state containing viewed_images
@@ -223,8 +251,10 @@ class ViewImageMiddleware(AgentMiddleware[ViewImageMiddlewareState]):
         if not self._should_inject_image_message(state):
             return None
 
-        # Create the image details message with text and image content
-        image_content = self._create_image_details_message(state)
+        selected = self._current_viewed_images(state)
+        if not selected:
+            return None
+        image_content = self._create_image_details_message({"viewed_images": selected})
 
         # Create a new human message with mixed content (text + images). This is
         # internal context for the model only, so hide it from the chat UI and IM
@@ -270,9 +300,12 @@ class ViewImageMiddleware(AgentMiddleware[ViewImageMiddlewareState]):
         """
         if not self._should_inject_image_message(state):
             return None
+        selected = self._current_viewed_images(state)
+        if not selected:
+            return None
         # Image reads + base64 encoding can be slow (up to 20MB), so offload
         # the blocking work to a thread rather than stalling the event loop.
-        image_content = await asyncio.to_thread(self._create_image_details_message, state)
+        image_content = await asyncio.to_thread(self._create_image_details_message, {"viewed_images": selected})
         human_msg = HumanMessage(content=image_content, additional_kwargs={"hide_from_ui": True})
         logger.debug("Injecting image details message with images before LLM call")
         return {"messages": [human_msg]}
