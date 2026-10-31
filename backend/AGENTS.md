@@ -2236,3 +2236,17 @@ only current lead-model callback IDs qualify. Current middleware-generated
 failures remain visible. LLM_EMPTY_RESPONSE warnings contain only IDs, latency,
 and field-presence/count metadata; they do not diagnose raw SSE termination
 or imply successful tool/business completion. Existing retries are unchanged.
+
+### V4.1 incomplete stream boundary
+
+CnoocDeepSeekV41Chat installs a response-local SSE decoder wrapper before the
+SDK consumes [DONE]. Use the SDK's parser; never patch shared clients/classes.
+Require a nonempty finish_reason on choice 0 before accepting EOF or [DONE].
+Usage is optional, and a terminal EOF without [DONE] remains compatible.
+Incomplete responses raise OpenAICompatibleResponseError(INCOMPLETE_STREAM),
+which reuses the existing two-attempt provider retry budget; do not enlarge it.
+Cancellation and provider business errors retain their own paths. Diagnostics
+contain only IDs, status, boundary and counters, never SSE bodies or credentials.
+This closes a reproduced acceptance gap; it is not proof of the production
+provider's original failure mechanism or of live business acceptance. Verify
+the private SDK decoder seam against the server's installed dependencies.

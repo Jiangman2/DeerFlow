@@ -213,6 +213,14 @@
     "backend/packages/harness/deerflow/community/appforge/tools.py": {
       "base_sha256": "45919fdad0e5fe0fb18fa19cb0e2ea620c7b7ce07d1cb17486b8e0a8a2d31398",
       "candidate_sha256": "02e7ba0ce62a38e2d92624837db075e0db1e4da3729a177c29fba0e9b5bf132a"
+    },
+    "backend/packages/harness/deerflow/models/cnooc_deepseek_v41.py": {
+      "base_sha256": "a79d5b0e8a117223ca8b04e23e8bf6b36f737b32f43ea62c747c9193629b5930",
+      "candidate_sha256": "ffce531177710ff166d97ca17a013675fd209d7b22dc0c2ea062d99e34c93445"
+    },
+    "backend/packages/harness/deerflow/models/cnooc_stream_guard.py": {
+      "base_sha256": null,
+      "candidate_sha256": "a7500ca5f4bd206d23395b59a1cc1d08fe1b464ccae8f3e8ae222db5d8802a2a"
     }
   },
   "search_fetch_commit": "bc7d1a4a645c8c7bd2183fb62292e1c1094b0ac2"

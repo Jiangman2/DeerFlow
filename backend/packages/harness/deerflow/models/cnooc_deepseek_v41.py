@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from deerflow.models.robust_openai import RobustChatOpenAI
+from deerflow.models.cnooc_stream_guard import install_cnooc_stream_guard
 
 ENDPOINT = "https://aiapi.cnooc.com.cn/DeepSeek-V4.1-Flash-1017/FNC-01"
 
@@ -26,6 +27,9 @@ async def _aroute(request: httpx.Request) -> None:
 
 
 class CnoocDeepSeekV41Chat(RobustChatOpenAI):
+    def _prepare_provider_stream(self, response: Any) -> None:
+        install_cnooc_stream_guard(response)
+
     def __init__(self, *, transport: Any = None, async_transport: Any = None, **kwargs: Any) -> None:
         if any(key in kwargs for key in ("http_client", "http_async_client", "tls_verify", "trust_env")):
             raise ValueError("DeepSeek V4.1 requires its managed verified transports")

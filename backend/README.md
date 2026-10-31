@@ -922,3 +922,14 @@ only current lead-model callback IDs qualify. Current middleware-generated
 failures remain visible. LLM_EMPTY_RESPONSE warnings contain only IDs, latency,
 and field-presence/count metadata; they do not diagnose raw SSE termination
 or imply successful tool/business completion. Existing retries are unchanged.
+
+### V4.1 incomplete stream boundary
+
+V4.1 streams that end without a terminal finish_reason are treated as incomplete
+model requests. Gateway retries through its existing bounded provider policy;
+completed tool results are retained and this mechanism does not re-execute tools.
+On repeated failure it returns a visible provider error instead of accepting an
+empty success. LLM_INCOMPLETE_STREAM warnings report HTTP status, EOF/[DONE],
+frame counts, content lengths and thread/run identifiers without response bodies.
+This candidate retains the natural DataLake routing change. Source tests and
+simulated SSE do not replace installed-image QA or live conversation acceptance.
