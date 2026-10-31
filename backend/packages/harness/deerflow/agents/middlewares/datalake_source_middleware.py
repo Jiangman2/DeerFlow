@@ -10,7 +10,7 @@ from langchain.agents.middleware.types import hook_config
 from langchain_core.messages import SystemMessage, ToolMessage
 from langgraph.types import Command
 
-from deerflow.runtime.datalake_policy import ACCESS_HINT, ALLOWED_TOOLS, DATA_TOOLS, SOURCE_HINT, STATE_KEY, explicit_data_question, merge_query_scope, query_scope
+from deerflow.runtime.datalake_policy import ACCESS_HINT, ALLOWED_TOOLS, DATA_TOOLS, SOURCE_HINT, STATE_KEY, merge_query_scope, query_scope
 
 logger = logging.getLogger(__name__)
 
@@ -59,13 +59,17 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
         scope = query_scope(request.state, _context(request.runtime))
         enabled = _context(request.runtime).get("datalake_enabled") is True
         instruction = (
-            "数据湖查询规则：先判断用户是否在查询企业数据湖中的业务数据、记录或文档。"
-            "用户不必说出‘数据湖’或‘数据湖查询’。例如‘天津公司有多少气田’是主数据问答，"
+            "根据用户完整问题和上下文，自主判断是否需要查询企业业务事实、记录或文档，并选择合适工具。"
+            "工具可用性只取决于服务端授权，不以关键词或句式判断；示例不是触发条件或白名单。"
+            "用户不必说出‘数据湖’或‘数据湖查询’；‘是什么’与‘是多少’不会改变查询资格。例如‘天津公司有多少气田’是主数据问答，"
             "公司/油气田/区块/井的数量、清单、归属，以及产量、指标、明细，统一使用 datalake_data_qa。"
             "井史、报告、地质/完井等非结构化资料内容检索使用 datalake_smart_qa。"
-            "若明确需要数据湖工具，必须使用 datalake_data_qa 或 datalake_smart_qa；"
+            "涉及具体井的套管程序、井身结构等事实时，按信息需求选择上述工具，必要时结合表格与井史文档。"
+            "省略式追问结合对话上下文理解，缺少必要对象才澄清。不要用未经检索的推断代替具体业务记录。"
+            "需要企业业务数据时使用 datalake_data_qa 或 datalake_smart_qa；"
             "权限未开启时直接提示用户：请先点击数据湖按钮开启权限。"
-            "即使没有可见的数据湖工具，也不得把这类问题转去外部查询。"
+            "未授权时不得把企业查询转去外部来源。已授权却缺少工具属于配置/运行问题，不要声称用户没开权限。"
+            "区分权限拒绝、工具未配置、空结果、上游故障和超时，按实际回执说明，不要一律要求重新开权限。"
             "未开启/无权限、结果为空、报错或超时均不是更换数据来源的授权。"
             "无法确定数据来源时先澄清；普通公开知识问题不因此受限。"
             f"当前数据湖授权状态：{'已开启' if enabled else '未开启'}。"
@@ -79,7 +83,7 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
         allowed = []
         for tool in request.tools:
             name = tool.get("name") if isinstance(tool, dict) else getattr(tool, "name", None)
-            if name in DATA_TOOLS and (not enabled or not scope["required"]):
+            if name in DATA_TOOLS and (not enabled or name not in {"datalake_data_qa", "datalake_smart_qa"}):
                 continue
             if not scope["required"] or name in ALLOWED_TOOLS:
                 allowed.append(tool)
@@ -94,19 +98,15 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
     def _blocked(self, request):
         scope = query_scope(request.state, _context(request.runtime))
         name = request.tool_call.get("name")
-        args = request.tool_call.get("args") or {}
-        query = args.get("query") if isinstance(args, dict) else None
         authorized = _context(request.runtime).get("datalake_enabled") is True
         code = None
         if name in DATA_TOOLS and not authorized:
             code = "datalake_access_required"
-        elif name in DATA_TOOLS and not scope["required"]:
-            code = "datalake_not_requested"
-        elif name not in ALLOWED_TOOLS and (scope["required"] or isinstance(query, str) and explicit_data_question(query)):
+        elif name not in ALLOWED_TOOLS and scope["required"]:
             code = "datalake_external_fallback_forbidden"
         if code is None:
             return None
-        hint = ACCESS_HINT if code == "datalake_access_required" else "当前提问未明确要获取企业业务事实或资料；请继续原任务，或简短澄清查询对象和所需信息，无需要求用户补说‘数据湖’。" if code == "datalake_not_requested" else SOURCE_HINT
+        hint = ACCESS_HINT if code == "datalake_access_required" else SOURCE_HINT
         logger.info("DataLake tool denied code=%s trigger=%s phase=%s", code, scope["trigger"], scope["phase"])
         result = ToolMessage(
             content=json.dumps({"code": code, "error": hint, "retryable": False, "next_step": "local_processing_or_clarification"}, ensure_ascii=False),

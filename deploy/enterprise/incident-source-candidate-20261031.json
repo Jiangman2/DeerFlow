@@ -49,11 +49,19 @@
       },
       "backend/packages/harness/deerflow/runtime/datalake_policy.py": {
         "base_sha256": "48f3ce41d1bb9f255c753fc2189a2a7751e5b93a60ee93f1ba5b67afc637c310",
-        "candidate_sha256": "8d041938558306d88dc87c6f302dc5162ac065868249b6c60bcda96f3799b184"
+        "candidate_sha256": "bf548db225e1ef69c168d145bbee53afa6a30717b6c703140c6e90467e1cfa38"
       },
       "backend/packages/harness/deerflow/models/cnooc_deepseek_v41.py": {
         "base_sha256": "ffce531177710ff166d97ca17a013675fd209d7b22dc0c2ea062d99e34c93445",
         "candidate_sha256": "3a73559348b11b4de7ffde4ad9533a00d65b8528bfd57663c9d1a9b07e66b96d"
+      },
+      "backend/packages/harness/deerflow/agents/middlewares/datalake_source_middleware.py": {
+        "base_sha256": "47fd8404d7ffe40f227202dea3addea815e86a9a4afb3987837d0b140980e2cb",
+        "candidate_sha256": "25f4e37ffd7011949318657584a0c3a352ae414c44a6b4a37f173f535af702b1"
+      },
+      "backend/packages/harness/deerflow/community/appforge/tools.py": {
+        "base_sha256": "02e7ba0ce62a38e2d92624837db075e0db1e4da3729a177c29fba0e9b5bf132a",
+        "candidate_sha256": "2cc6a990353127739c0a8f12028bd09a7e75ab3aca89a21118579a2ecbba621d"
       }
     },
     "frontend": {
@@ -111,5 +119,6 @@
       }
     }
   },
-  "integrated_branch_head": "78d86d4932a2ec7f764dca997cbf43d82adb7398"
+  "integrated_branch_head": "78d86d4932a2ec7f764dca997cbf43d82adb7398",
+  "model_routing_parent_commit": "af811f2d6964823a9c80bb88ffc4a995e3846475"
 }

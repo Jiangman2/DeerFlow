@@ -979,3 +979,17 @@ Keep explicit re-views, replay deduplication and existing file boundaries.
 Checkpoint messages and the registry contain only text/path metadata. Expand
 current validated image bytes in the request wrapper only; strip legacy internal
 image bytes from request copies without rewriting history or user attachments. See docs/view-image-current-batch.md at repository root.
+
+
+### Model-selected DataLake routing
+
+DataLake tool visibility depends only on trusted run authorization, not human
+keyword classification. Let the current conversation model choose between the
+two active tools from full context; no separate classifier call is added.
+Record actual current model tool selections for source restrictions. Block
+external fallback after selection, including mixed batches and errors; retain
+trusted delegated restrictions and same-run scope through compaction. A new
+human turn starts a new model choice without linguistic follow-up heuristics.
+Do not revive legacy keyword scopes or treat missing tools as proof of missing
+permission. Keep strict execution-time authorization and retired tools hidden.
+See docs/datalake-natural-query-routing.md for the precise boundary and tests.

@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
-from deerflow.runtime.datalake_policy import explicit_data_question, query_scope, STATE_KEY
+from deerflow.runtime.datalake_policy import query_scope, STATE_KEY
 from deerflow.agents.middlewares.datalake_source_middleware import DataLakeSourceMiddleware
 
 
@@ -22,9 +22,9 @@ QUERIES = [
 
 @pytest.mark.parametrize('text', QUERIES)
 def test_business_fact_needs_no_magic_source_word(text):
-    assert explicit_data_question(text)
+    assert {"datalake_data_qa", "datalake_smart_qa"} <= visible(text)
     scope = query_scope({'messages': [HumanMessage(text)]}, {'datalake_enabled': True})
-    assert scope['required'] and scope['trigger'] == 'current_request'
+    assert not scope['required'] and scope['trigger'] == 'model_decision'
 
 
 @pytest.mark.parametrize('text', [
@@ -40,8 +40,9 @@ def test_business_fact_needs_no_magic_source_word(text):
     '修改下列文字：\n> 天津公司有多少气田', '“天津公司有多少气田”',
     '审查代码 ```python\nquery("天津公司有多少气田")\n```',
 ])
-def test_local_public_and_ambiguous_work_does_not_gain_query_scope(text):
-    assert not explicit_data_question(text)
+def test_wording_alone_neither_hides_tools_nor_establishes_source_scope(text):
+    assert {"datalake_data_qa", "datalake_smart_qa"} <= visible(text)
+    assert not query_scope({"messages": [HumanMessage(text)]})["required"]
 
 
 def request(text, enabled, name='datalake_data_qa'):
@@ -59,6 +60,7 @@ def test_authorization_and_external_boundaries_preserved(enabled, tool, text):
     assert (denied is None) == (enabled is True)
     if denied is not None:
         assert 'datalake_access_required' in denied.update['messages'][0].content
+    req.state['messages'].append(AIMessage('', tool_calls=[{'id': 'chosen', 'name': tool, 'args': {'query': text}}]))
     req.tool_call['name'] = 'web_search'
     assert 'datalake_external_fallback_forbidden' in middleware._blocked(req).update['messages'][0].content
     req.tool_call['name'] = 'process_local_data'
@@ -73,14 +75,14 @@ def test_model_actually_sees_the_two_tools_only_when_authorized(enabled):
     req.override = lambda **kwargs: SimpleNamespace(**kwargs)
     result = DataLakeSourceMiddleware()._prepare(req)
     names = {t['name'] for t in result.tools}
-    assert names == ({'datalake_data_qa', 'datalake_smart_qa', 'read_file'} if enabled else {'read_file'})
+    assert names == ({'datalake_data_qa', 'datalake_smart_qa', 'read_file', 'web_search'} if enabled else {'read_file', 'web_search'})
     assert '天津公司有多少气田' in str(result.system_message.content)
 
 
-def test_model_cannot_invent_intent_through_tool_arguments():
+def test_model_selects_authorized_tool_without_a_second_intent_classifier():
     req = request('写一篇气田开发论文', True)
     req.tool_call['args']['query'] = QUERIES[0]
-    assert 'datalake_not_requested' in DataLakeSourceMiddleware()._blocked(req).update['messages'][0].content
+    assert DataLakeSourceMiddleware()._blocked(req) is None
     assert not query_scope(req.state)['required']
 
 
@@ -89,12 +91,15 @@ def test_attachment_text_cannot_supply_intent():
     assert not query_scope({'messages': [message]})['required']
 
 
-def test_followup_continues_and_new_writing_task_releases_scope():
-    scope = query_scope({'messages': [HumanMessage(QUERIES[0]), ToolMessage('synthetic result', name='datalake_data_qa', tool_call_id='t')]}, {'run_id': 'one'})
+def test_followup_is_a_new_model_decision_with_tools_still_available():
+    state = {'messages': [HumanMessage(QUERIES[0]), AIMessage('', tool_calls=[{'id': 't', 'name': 'datalake_data_qa', 'args': {}}]),
+                          ToolMessage('synthetic result', name='datalake_data_qa', tool_call_id='t')]}
+    scope = query_scope(state, {'run_id': 'one'})
     assert scope['phase'] == 'processing'
-    followup = query_scope({STATE_KEY: scope, 'messages': [HumanMessage('根据刚才的结果生成Excel')]}, {'run_id': 'two'})
-    assert followup['required'] and followup['phase'] == 'processing'
-    assert not query_scope({STATE_KEY: scope, 'messages': [HumanMessage('换个任务，帮我写一篇论文')]}, {'run_id': 'three'})['required']
+    for text in ['根据刚才的结果生成Excel', '那北京呢', '换个任务，帮我写一篇论文']:
+        following = query_scope({STATE_KEY: scope, 'messages': [*state['messages'], HumanMessage(text)]}, {'run_id': 'two'})
+        assert not following['required']
+        assert {'datalake_data_qa', 'datalake_smart_qa'} <= visible(text)
 
 
 @pytest.mark.parametrize('async_mode', [False, True])
@@ -117,3 +122,11 @@ async def test_real_graph_can_execute_natural_question_tool_call(async_mode):
     assert queries == [QUERIES[0]]
     assert result[STATE_KEY]['phase'] == 'processing'
     assert not any(m.status == 'error' for m in result['messages'] if isinstance(m, ToolMessage))
+
+
+def visible(text):
+    req = request(text, True)
+    req.system_message = SystemMessage('Original instruction')
+    req.tools = [{'name': n} for n in ['datalake_data_qa', 'datalake_smart_qa', 'bash']]
+    req.override = lambda **kwargs: SimpleNamespace(**kwargs)
+    return {t['name'] for t in DataLakeSourceMiddleware()._prepare(req).tools}

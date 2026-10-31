@@ -725,7 +725,8 @@ def datalake_smart_qa_tool(runtime: Runtime, query: str) -> str:
     narrative questions. Use datalake_data_qa for table fields, record lists,
     named KPIs, plans, actuals, rankings, rates, or totals.
     Users need not name DataLake: "查 NB27-1-1 的井史" or "检索某油田的完井报告"
-    is sufficient query intent when access is enabled. Uploaded-file-only
+    are examples, not a keyword whitelist. Infer the retrieval need from the full
+    conversation, including casing programs and wellbore structure questions. Uploaded-file-only
     analysis and general explanations are not retrieval requests.
 
     This tool returns ranked source chunks only. Analyze and summarize those
@@ -755,6 +756,8 @@ def datalake_data_qa_tool(runtime: Runtime, query: str) -> str:
     统一负责主数据问答、产量、指标和明细问答，包括公司/油气田/区块/井
     的数量、清单、归属关系。用户无需明确说“数据湖”：例如“天津公司有多少气田”
     “某油田上个月产量是多少”“列出某平台的生产明细”，均属于本工具范围。
+    这些例子不构成关键词白名单。根据完整上下文判断，支持“是什么”“是多少”
+    以及省略式追问；具体井的套管程序等属性可先查询，缺少记录时结合文档检索。
     仍须当前运行的数据湖访问授权；仅分析上传文件不需要调用本工具。
     也适用于表字段、记录明细与列表、井/平台/油气田属性、筛选、统计汇总、
     指标、排名、比较、比率及时间序列问题。保留完整问题中的时间范围、

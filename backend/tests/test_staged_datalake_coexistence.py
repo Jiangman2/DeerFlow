@@ -16,7 +16,7 @@ from deerflow.agents.middlewares.staged_execution_middleware import StagedExecut
 @pytest.mark.parametrize("name", ["start_execution_stages", "advance_execution_stage"])
 def test_stage_bookkeeping_is_not_an_external_data_source(name, authorized):
     state = {"messages": [HumanMessage("从数据湖查询产量并生成报告")]}
-    runtime = SimpleNamespace(context={"datalake_enabled": authorized})
+    runtime = SimpleNamespace(context={"datalake_enabled": authorized, "datalake_query_only": True})
     guard = DataLakeSourceMiddleware()
     request = SimpleNamespace(state=state, runtime=runtime, tool_call={"name": name, "id": "t", "args": {}})
     assert guard._blocked(request) is None
@@ -51,7 +51,7 @@ async def test_actual_combined_graph_preserves_stage_tools_and_completes(async_m
     ]
     graph = create_agent(ObservedModel(responses=responses), tools=[read_file], context_schema=dict, middleware=[DataLakeSourceMiddleware(), StagedExecutionMiddleware(config())])
     args = {"messages": [HumanMessage("从数据湖查询产量并整理结果", id="u")]}
-    kwargs = {"context": {"run_id": "r1", "thread_id": "synthetic", "datalake_enabled": True}}
+    kwargs = {"context": {"run_id": "r1", "thread_id": "synthetic", "datalake_enabled": True, "datalake_query_only": True}}
     result = await graph.ainvoke(args, **kwargs) if async_mode else graph.invoke(args, **kwargs)
     assert all({"start_execution_stages", "advance_execution_stage"} <= names for names in visible_tools)
     assert result["staged_execution"]["status"] == "completed"
