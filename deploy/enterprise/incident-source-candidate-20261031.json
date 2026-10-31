@@ -1,0 +1,102 @@
+{
+  "schema": "incident-source-candidate.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "22aa3dfc8718e674c0bd41b9262b3f9893d16a9e",
+  "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
+  "parent_candidate_sha256": "874f7a064b4934329c7947953b9ed034b4021a69a77cfb7ece03e66cf80a2b25",
+  "scope": "Bounded dashboard diagnostics, month-range query batching, retained-date bounds and loading feedback, stale channel mapping recovery, transient host image context. No deployment or migration.",
+  "changes": {
+    "gateway": {
+      "backend/app/channels/manager.py": {
+        "base_sha256": "cdafc0b44f1c071a14d53a92a94869b001e15b594617ebd342488ab1d07cdc44",
+        "candidate_sha256": "7f1046ef4fd71d126f6e3efe7a9d39267b4c5bbd9375c8d9c94699da7907e737"
+      },
+      "backend/app/gateway/routers/dashboard.py": {
+        "base_sha256": "3225ccbaf7110f2f1c4c9bfde807c1951032222fb90a5cac146f29dbf0bdfa57",
+        "candidate_sha256": "c2b20a26ec88c57a06956dc92bb37ee809e40186674178d86ae422ba570d2076"
+      },
+      "backend/app/gateway/routers/observability.py": {
+        "base_sha256": "c4cb37ec6e7d631e0507e8fd2a5e07d26f8c5c6180b547645da7632fe03e4c3e",
+        "candidate_sha256": "90bda5d56c5b6f61566be61d2ae6b73e3632d156e077d0b8f49820ed9fe13aeb"
+      },
+      "backend/packages/harness/deerflow/agents/middlewares/view_image_middleware.py": {
+        "base_sha256": "7b3770a881b46a8216baaa9838fcb68be200f70fb406071159390411634c6150",
+        "candidate_sha256": "48053abb54ab3dd2eb323c18d42644d618081f286d300ebe16f7b3516c7dc8fb"
+      },
+      "backend/packages/harness/deerflow/persistence/channel_connections/recovery.py": {
+        "base_sha256": null,
+        "candidate_sha256": "0244271359faccb9f182eceffa6d4ba4614001a774551259ef3e5076ccd974f0"
+      },
+      "backend/packages/harness/deerflow/persistence/observability/preview.py": {
+        "base_sha256": null,
+        "candidate_sha256": "2724342a9d98f23aff5a72e8cd8b7771d192802766e86aa618c49d2eca359d01"
+      },
+      "backend/packages/harness/deerflow/persistence/observability/sql.py": {
+        "base_sha256": "c3000a9d242b2e3f5956c223fa0ad0a068da229e92b2a56211b05cd5dca5788e",
+        "candidate_sha256": "3cb12e2b00b0e6aaed2a4e9845cf2219dcf54af1bb5bb75a4ba8de736b74574c"
+      },
+      "backend/packages/harness/deerflow/runtime/journal.py": {
+        "base_sha256": "d8a6f48e57046d014c0ea9e9397ac308ea03fc05ce09130757e58be5a49fcdaf",
+        "candidate_sha256": "641d5ce2ee43909688afce1a2216b0faf02991bf67195e73cb10b80b73629b8d"
+      },
+      "backend/packages/harness/deerflow/runtime/lifecycle_preview.py": {
+        "base_sha256": null,
+        "candidate_sha256": "2b9b932702956714159d56fe33bb5bf047bd819cd30adaf2e612e226a982411c"
+      }
+    },
+    "frontend": {
+      "frontend/AGENTS.md": {
+        "base_sha256": null,
+        "candidate_sha256": "2efdfbd5664e50a584e2fcbf61db9911a62c646a1ab7f938c7a0cd36f2f8fed3"
+      },
+      "frontend/README.md": {
+        "base_sha256": "47b55a192a43d61157340d38619d474b34e6a66c1505910f18cf70d91b025ac2",
+        "candidate_sha256": "78894ef58f30d364bea94379f9618b6b0d1fe403a41c3eaf12fc0641e0c036f7"
+      },
+      "frontend/src/app/workspace/admin/dashboard/page.tsx": {
+        "base_sha256": "cd5c84d305e351819428a5c7b0bb0c5784ce0035c96be4d55e85d3eb99d53d67",
+        "candidate_sha256": "ee496546a46ee180b8a91c8e2deab2be7786179b25a8a2645b95b442f56ab1ac"
+      },
+      "frontend/src/core/dashboard/api.ts": {
+        "base_sha256": "60f189e749093df956441d79b5eaf81a8eaa2cc5ef14edc7c7eeb38cad7b34ac",
+        "candidate_sha256": "64ee999ea89029980ed91fc58a0c3f3743a0e7ef994c015e81f49164c1904477"
+      },
+      "frontend/src/core/dashboard/hooks.ts": {
+        "base_sha256": "9026e6474f75625d1618c6ad3a3b7d465353b073cf3c1a34d703c7cf87e61fe5",
+        "candidate_sha256": "71b2b14428bb6ba92ac2a73fb955cb5fe65b5804fe9faa68f7877ddb74a99f3b"
+      },
+      "frontend/src/core/dashboard/types.ts": {
+        "base_sha256": "3bc34093d8df66f101cd7746bc9e10c181c07668eec4a240fef68d2030d02927",
+        "candidate_sha256": "1c18ba4a79914d6948885fbdb4f3eacb5e4b0149a26e3c10b030824f8b464023"
+      },
+      "frontend/src/core/observability/api.ts": {
+        "base_sha256": "3bee26cf5e71943f095d721651b30cf16ea7f594fea41f9b0a935e6cd3f71625",
+        "candidate_sha256": "91c5b8153e226071c8812f5f1ec3311e7c847bf212330e09bd332b17bb54850f"
+      },
+      "frontend/src/core/observability/diagnostic-response.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "8eeefd46a785892eb9ad4a40acef463c9b1e3440e2b9e7a40987575a172286bd"
+      },
+      "frontend/src/core/observability/hooks.ts": {
+        "base_sha256": "a40606e7580676b6b9930b7e1b3256ee8e425dc292162c67b89801163a6b0315",
+        "candidate_sha256": "f64414bfdabb9a1b619e9bae2d8d10aa59d953901c640ed2735b77416c04be36"
+      },
+      "frontend/src/core/observability/types.ts": {
+        "base_sha256": "8f307151ec87c42ad8e90df46354e0fd8e9995aca27b7ba44a23d7fedebae25d",
+        "candidate_sha256": "b692a419ac3c9ddb0a91a0f041b54c3b243b39d7674bafbafb7ecbb4c742f962"
+      },
+      "frontend/tests/e2e/dashboard-range-recovery.spec.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "012fad39817cb9d2fe89b1525ac36dde4cadb612ab0524e5cb18226d494965da"
+      },
+      "frontend/tests/unit/core/dashboard/api.test.ts": {
+        "base_sha256": "e2bb5dfac5a6f1ed3f66064e44437ebe554dfb72d17cfb30070c1b16257f6a95",
+        "candidate_sha256": "e1210ff640eb6601541c540bac01038d1c3c781ab4742350e24579abf4718e56"
+      },
+      "frontend/tests/unit/core/observability/diagnostic-response.test.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "fa235d7de4017145ef35a8e26d0954eb98c718d0d38fc1baa7e7890da75a34f9"
+      }
+    }
+  }
+}

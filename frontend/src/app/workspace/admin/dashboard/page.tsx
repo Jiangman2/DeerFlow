@@ -12,6 +12,7 @@ import {
   ClockIcon,
   ExternalLinkIcon,
   FileTextIcon,
+  LoaderCircleIcon,
   RefreshCwIcon,
   ThumbsUpIcon,
   UsersIcon,
@@ -37,6 +38,7 @@ import {
 } from "@/components/workspace/dashboard/employee-activity-panels";
 import {
   useDashboardFailures,
+  useDashboardDateBounds,
   useDashboardKnowledge,
   useDashboardRunRankings,
   useDashboardSummary,
@@ -1411,6 +1413,14 @@ function FailedRuns({
             />
           ) : diagnosticsQuery.data && selectedFailure ? (
             <div className="min-h-0 min-w-0 space-y-5 overflow-y-auto overscroll-contain pr-1 text-sm [overflow-wrap:anywhere]">
+              {diagnosticsQuery.data.preview?.bounded ? (
+                <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+                  当前为诊断摘要：共{" "}
+                  {diagnosticsQuery.data.preview.total_events} 条事件， 展示末尾{" "}
+                  {diagnosticsQuery.data.preview.returned_events} 条。
+                  长文本已截取，过大元数据未加载；工具与节点信息仅来自此摘要，原始记录未修改。
+                </p>
+              ) : null}
               <div className="grid grid-cols-2 gap-3 rounded-lg border bg-slate-50 p-4 xl:grid-cols-4">
                 <div className="col-span-2 min-w-0 xl:col-span-1">
                   <AccountIdentity
@@ -1621,6 +1631,19 @@ export default function DashboardPage() {
     toDateTimeLocal(new Date(Date.now() - 24 * 3_600_000)),
   );
   const [customEnd, setCustomEnd] = useState(() => toDateTimeLocal(new Date()));
+  const [customStartEdited, setCustomStartEdited] = useState(false);
+  const dateBoundsQuery = useDashboardDateBounds();
+  const minimumDate = dateBoundsQuery.data?.selectable_start_at
+    ? toDateTimeLocal(new Date(dateBoundsQuery.data.selectable_start_at))
+    : undefined;
+  const visibleCustomStart =
+    !customStartEdited && minimumDate && customStart < minimumDate
+      ? minimumDate
+      : customStart;
+  const rangeBeforeData = Boolean(
+    minimumDate &&
+    (visibleCustomStart < minimumDate || customEnd < minimumDate),
+  );
   const [appliedCustomRange, setAppliedCustomRange] = useState<{
     start: string;
     end: string;
@@ -1633,10 +1656,14 @@ export default function DashboardPage() {
     null,
   );
   const deferredFailureSearchQuery = useDeferredValue(failureSearchQuery);
-  const draftStart = isoFromDateTimeLocal(customStart);
+  const draftStart = isoFromDateTimeLocal(visibleCustomStart);
   const draftEnd = isoFromDateTimeLocal(customEnd);
   const draftHours = hoursBetween(draftStart, draftEnd);
-  const canApplyCustomRange = draftHours !== null;
+  const canApplyCustomRange =
+    draftHours !== null &&
+    Boolean(minimumDate) &&
+    !rangeBeforeData &&
+    !dateBoundsQuery.isError;
   const rangeStart =
     rangeMode === "custom" ? appliedCustomRange?.start : undefined;
   const rangeEnd = rangeMode === "custom" ? appliedCustomRange?.end : undefined;
@@ -1651,6 +1678,10 @@ export default function DashboardPage() {
     [activeHours, rangeEnd, rangeStart],
   );
   const summaryQuery = useDashboardSummary(filters);
+  const draftMatchesAppliedRange =
+    rangeMode === "custom" &&
+    draftStart === rangeStart &&
+    draftEnd === rangeEnd;
   const knowledgeQuery = useDashboardKnowledge(filters);
   const failuresQuery = useDashboardFailures(
     5,
@@ -1680,9 +1711,11 @@ export default function DashboardPage() {
   };
 
   const windowLabel = useMemo(() => {
-    if (!summary) return "加载中";
+    if (rangeStart && rangeEnd)
+      return `${shortTime(rangeStart)} - ${shortTime(rangeEnd)}`;
+    if (!summary) return "";
     return `${shortTime(summary.window.start_at)} - ${shortTime(summary.window.end_at)}`;
-  }, [summary]);
+  }, [rangeEnd, rangeStart, summary]);
   return (
     <main className="cnooc-admin-dashboard app-scroll-region min-h-full w-full max-w-full overflow-x-hidden overflow-y-auto bg-slate-50 px-3 py-4 text-slate-950 sm:px-6 sm:py-6">
       <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-6">
@@ -1714,8 +1747,15 @@ export default function DashboardPage() {
                 aria-label="开始时间"
                 className="h-8 w-full min-w-0 sm:w-auto lg:w-[220px] lg:min-w-[220px] lg:shrink-0"
                 type="datetime-local"
-                value={customStart}
-                onChange={(event) => setCustomStart(event.target.value)}
+                min={minimumDate}
+                disabled={!minimumDate || dateBoundsQuery.isError}
+                aria-describedby="dashboard-date-bounds"
+                aria-invalid={rangeBeforeData || undefined}
+                value={visibleCustomStart}
+                onChange={(event) => {
+                  setCustomStartEdited(true);
+                  setCustomStart(event.target.value);
+                }}
               />
               <span className="hidden text-xs text-slate-400 sm:inline">
                 至
@@ -1724,15 +1764,32 @@ export default function DashboardPage() {
                 aria-label="结束时间"
                 className="h-8 w-full min-w-0 sm:w-auto lg:w-[220px] lg:min-w-[220px] lg:shrink-0"
                 type="datetime-local"
+                min={minimumDate}
+                disabled={!minimumDate || dateBoundsQuery.isError}
+                aria-describedby="dashboard-date-bounds"
+                aria-invalid={rangeBeforeData || undefined}
                 value={customEnd}
                 onChange={(event) => setCustomEnd(event.target.value)}
               />
               <Button
                 size="sm"
                 variant={rangeMode === "custom" ? "default" : "outline"}
-                disabled={!canApplyCustomRange}
+                disabled={
+                  !canApplyCustomRange ||
+                  (draftMatchesAppliedRange && summaryQuery.isFetching)
+                }
                 onClick={() => {
-                  if (!draftStart || !draftEnd || draftHours === null) return;
+                  if (
+                    !canApplyCustomRange ||
+                    !draftStart ||
+                    !draftEnd ||
+                    draftHours === null
+                  )
+                    return;
+                  if (draftMatchesAppliedRange) {
+                    void refreshDashboardQueries(queryClient);
+                    return;
+                  }
                   setAppliedCustomRange({
                     start: draftStart,
                     end: draftEnd,
@@ -1741,7 +1798,17 @@ export default function DashboardPage() {
                   setRangeMode("custom");
                 }}
               >
-                应用区间
+                {draftMatchesAppliedRange && summaryQuery.isFetching ? (
+                  <>
+                    <LoaderCircleIcon
+                      className="size-4 animate-spin motion-reduce:animate-none"
+                      aria-hidden="true"
+                    />
+                    应用中…
+                  </>
+                ) : (
+                  "应用区间"
+                )}
               </Button>
             </div>
             <span className="text-xs text-slate-500">
@@ -1753,15 +1820,6 @@ export default function DashboardPage() {
                     ? "最近 7 天"
                     : "最近 24 小时"}
             </span>
-            {summary &&
-            (summaryQuery.isPlaceholderData || summaryQuery.isFetching) ? (
-              <span
-                className="text-xs whitespace-nowrap text-blue-600"
-                aria-live="polite"
-              >
-                数据更新中，当前先保留上次结果
-              </span>
-            ) : null}
             <Button
               type="button"
               size="sm"
@@ -1786,10 +1844,84 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {summaryQuery.isError ? (
+        <div
+          id="dashboard-date-bounds"
+          className="-mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500"
+          aria-live="polite"
+        >
+          {dateBoundsQuery.isError ? (
+            <>
+              <span>可选日期范围加载失败，暂不能应用自定义区间。</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void dateBoundsQuery.refetch()}
+                disabled={dateBoundsQuery.isFetching}
+              >
+                重试日期范围
+              </Button>
+            </>
+          ) : minimumDate ? (
+            <span className={rangeBeforeData ? "text-red-700" : undefined}>
+              {rangeBeforeData ? "所选时间早于现有数据，请重新选择。" : ""}
+              最早可选：{minimumDate.replace("T", " ")}（本地时间）
+            </span>
+          ) : dateBoundsQuery.isPending ? (
+            "正在获取可选日期范围…"
+          ) : (
+            "暂无可统计数据，暂不能选择自定义区间。"
+          )}
+        </div>
+        {summaryQuery.isFetching ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="overflow-hidden rounded-lg border border-blue-200 bg-blue-50 text-blue-900"
+          >
+            <div className="flex items-start gap-3 px-4 py-4 sm:px-5">
+              <LoaderCircleIcon
+                className="mt-0.5 size-5 shrink-0 animate-spin motion-reduce:animate-none"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 space-y-1">
+                <p className="text-sm font-medium">正在加载所选区间</p>
+                <p className="text-xs leading-relaxed text-blue-800/80">
+                  {summary
+                    ? "当前暂时保留上次结果，加载完成后自动更新。"
+                    : "正在汇总统计数据，加载完成后自动显示。"}
+                  区间较大时可能需要一些时间。
+                </p>
+              </div>
+            </div>
+            <div
+              className="h-1 animate-pulse bg-blue-300 motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+          </div>
+        ) : null}
+        {summaryQuery.isError && !summaryQuery.isFetching ? (
           <Card className="rounded-lg border-red-200 bg-red-50 py-5 text-red-700 shadow-none">
-            <CardContent>
-              看板数据加载失败：{summaryQuery.error.message}
+            <CardContent
+              className="flex flex-wrap items-center justify-between gap-3"
+              role="alert"
+            >
+              <div className="min-w-0 flex-1">
+                <p>看板数据加载失败：{summaryQuery.error.message}</p>
+                {summary ? (
+                  <p className="mt-1 text-xs">
+                    以下为上次成功加载的结果，本次区间尚未更新。
+                  </p>
+                ) : null}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void summaryQuery.refetch()}
+              >
+                <RefreshCwIcon className="size-4" aria-hidden="true" />
+                重新加载
+              </Button>
             </CardContent>
           </Card>
         ) : null}

@@ -13,7 +13,7 @@ Covered behavior:
   reading image files on-demand from disk (no base64 stored in state).
 - `_should_inject_image_message` gates injection on all preconditions, including
   deduplication when an image-details message was already added.
-- `_inject_image_message` returns a state update with a HumanMessage, or None
+- `_inject_image_message` returns a lightweight reference HumanMessage, or None
   when injection is not warranted.
 - `before_model` and `abefore_model` expose the same behavior sync/async.
 """
@@ -414,9 +414,10 @@ class TestInjectImageMessage:
         assert len(result["messages"]) == 1
         injected = result["messages"][0]
         assert isinstance(injected, HumanMessage)
-        # Mixed-content payload: list of text + image_url blocks
+        # Checkpoint state contains text/path references, never inline image bytes.
         assert isinstance(injected.content, list)
-        assert any(isinstance(b, dict) and b.get("type") == "image_url" for b in injected.content)
+        assert all(isinstance(b, dict) and b.get("type") == "text" for b in injected.content)
+        assert "data:image/" not in str(injected.content)
         # Internal injection: must be hidden from the chat UI (and IM channels),
         # like the other middleware-injected context messages.
         assert injected.additional_kwargs.get("hide_from_ui") is True

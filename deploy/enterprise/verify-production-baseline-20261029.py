@@ -90,6 +90,9 @@ def verify(ref=None):
     assert lock['images']['ppt-master-runner'] == historical['images']['ppt-master-runner'], 'RUNNER_IMAGE_CHANGED'
     # Disallow an unsealed new frontend runtime file, as well as changed files.
     expected = {n for n in lock['source_sets']['frontend'] if n.startswith(('frontend/src/', 'frontend/public/'))}
+    incident_delta = (result.get('candidate') or {}).get('incident_delta')
+    if incident_delta:
+        expected.update(incident_delta['frontend_runtime_paths'])
     if ref:
         names = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, 'frontend/src', 'frontend/public'], cwd=ROOT).decode().splitlines()
         actual = set(names)

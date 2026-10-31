@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import {
+  getDashboardDateBounds,
   getDashboardFailures,
   getDashboardKnowledge,
   getDashboardRunRankings,
@@ -9,6 +10,16 @@ import {
   getDashboardUserSessions,
 } from "./api";
 import type { DashboardFilters } from "./types";
+
+export function useDashboardDateBounds() {
+  return useQuery({
+    queryKey: ["dashboard", "date-bounds"],
+    queryFn: ({ signal }) => getDashboardDateBounds(signal),
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
+}
 
 export function dashboardRefreshInterval(
   filters: DashboardFilters,
@@ -25,12 +36,13 @@ export function useDashboardSummary(filters: DashboardFilters | number = 168) {
 
   return useQuery({
     queryKey: ["dashboard", "summary", resolved],
-    queryFn: () => getDashboardSummary(resolved),
+    queryFn: ({ signal }) => getDashboardSummary(resolved, signal),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     refetchInterval: dashboardRefreshInterval(resolved),
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
+    retry: false,
   });
 }
 

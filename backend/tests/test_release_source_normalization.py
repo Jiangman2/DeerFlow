@@ -1,5 +1,6 @@
 """Formatting provenance must reject executable changes, not just hash drift."""
 
+import copy
 import hashlib
 import importlib.util
 import json
@@ -96,3 +97,63 @@ def test_candidate_verification_rejects_undeclared_or_changed_source(tmp_path, m
         result = verifier.verify()
         assert result["status"] == "CANDIDATE_SOURCE_VERIFIED"
         assert result["candidate"]["status"] == "NOT_DEPLOYED"
+
+
+@pytest.mark.parametrize("tamper", [None, "parent", "base", "deployed", "outside", "wrong_component", "source", "unlisted", "missing"])
+def test_incident_delta_binds_parent_and_exact_source(tmp_path, monkeypatch, tamper):
+    def digest(raw):
+        return hashlib.sha256(raw).hexdigest()
+
+    name = "backend/app/example.py"
+    front = "frontend/src/example.ts"
+    lock = {"source_sets": {"gateway": {name: digest(b"VALUE = 0\n")}, "frontend": {front: digest(b"export const value = 0;\n")}}, "scope": {"test": "synthetic"}}
+    lock_raw = json.dumps(lock).encode()
+    prior = {
+        "schema": "production-source-candidate.v1",
+        "status": "NOT_DEPLOYED",
+        "base_commit": "b" * 40,
+        "base_lock_sha256": digest(lock_raw),
+        "changes": {name: {"base_sha256": lock["source_sets"]["gateway"][name], "candidate_sha256": digest(b"VALUE = 1\n")}},
+    }
+    prior_raw = json.dumps(prior).encode()
+    delta = {
+        "schema": "incident-source-candidate.v1",
+        "status": "NOT_DEPLOYED",
+        "base_commit": "c" * 40,
+        "base_lock_sha256": digest(lock_raw),
+        "parent_candidate_sha256": digest(prior_raw),
+        "changes": {
+            "gateway": {name: {"base_sha256": digest(b"VALUE = 1\n"), "candidate_sha256": digest(b"VALUE = 2\n")}},
+            "frontend": {front: {"base_sha256": lock["source_sets"]["frontend"][front], "candidate_sha256": digest(b"export const value = 2;\n")}},
+        },
+    }
+    bad = copy.deepcopy(delta)
+    if tamper == "parent":
+        bad["parent_candidate_sha256"] = "0" * 64
+    elif tamper == "base":
+        bad["changes"]["gateway"][name]["base_sha256"] = lock["source_sets"]["gateway"][name]
+    elif tamper == "deployed":
+        bad["status"] = "DEPLOYED"
+    elif tamper == "outside":
+        bad["changes"]["frontend"]["frontend/src/../../secret.ts"] = {"base_sha256": None, "candidate_sha256": "0" * 64}
+    elif tamper == "wrong_component":
+        bad["changes"]["ppt-master-runner"] = {}
+    for path, raw in ((verifier.LOCK, lock_raw), (verifier.CANDIDATE, prior_raw), (verifier.INCIDENT_DELTA, json.dumps(bad).encode()), (name, b"VALUE = 2\n"), (front, b"export const value = 2;\n")):
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(raw)
+    monkeypatch.setattr(verifier, "ROOT", tmp_path)
+    if tamper == "source":
+        (tmp_path / front).write_text("export const value = 3;\n")
+    elif tamper == "unlisted":
+        (tmp_path / "backend/app/unlisted.py").write_text("VALUE = 3\n")
+    elif tamper == "missing":
+        (tmp_path / verifier.INCIDENT_DELTA).unlink()
+    if tamper:
+        with pytest.raises(AssertionError):
+            verifier.verify()
+    else:
+        result = verifier.verify()
+        assert result["candidate"]["status"] == "NOT_DEPLOYED"
+        assert result["candidate"]["incident_delta"]["changed_sources"] == 2
+        assert result["candidate"]["incident_delta"]["frontend_runtime_paths"] == [front]

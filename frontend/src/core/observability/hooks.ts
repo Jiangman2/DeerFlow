@@ -77,8 +77,11 @@ export function useObservabilityAuditLogs(filters: AuditFilters) {
 export function useRunDiagnostics(runId: string | null) {
   return useQuery({
     queryKey: ["observability", "run-diagnostics", runId],
-    queryFn: () => getRunDiagnostics(runId ?? ""),
+    queryFn: ({ signal }) => getRunDiagnostics(runId ?? "", signal),
     enabled: Boolean(runId),
+    retry: false,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
   });
 }
 

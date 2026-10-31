@@ -1,5 +1,17 @@
 # DeerFlow Frontend
 
+The October 31 incident-repair candidate bounds failed-run diagnostic responses
+to 2 MiB and a 20-second request deadline. Closing the detail dialog cancels its
+request; oversized or failed responses show a recoverable error. The preview
+notice explains the server's latest-event and text limits. This candidate is
+locally verified and has not been deployed.
+
+Range application now shows a spinning button and a visible status panel, keeps
+previous results explicitly labelled during updates, and offers retry after an
+error or 60-second timeout. The date picker disables dates before the earliest
+retained database day and validates typed values. Empty/unavailable bounds have
+explicit states; the backend and frontend changes must be released together.
+
 The October 2 dmdb frontend follow-up hardens tool-result navigation and
 malformed argument rendering, presents clarification context once outside the
 processing panel, shares the ordinary/custom-agent provider stack, encodes

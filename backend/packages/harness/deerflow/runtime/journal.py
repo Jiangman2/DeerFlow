@@ -31,6 +31,7 @@ from langgraph.types import Command
 
 from deerflow.agents.human_input import read_human_input_response
 from deerflow.runtime.interrupted_history import InterruptedCapture, InterruptedJournalMethods
+from deerflow.runtime.lifecycle_preview import lifecycle_preview
 from deerflow.utils.messages import message_to_text, restore_original_human_message
 
 if TYPE_CHECKING:
@@ -184,7 +185,13 @@ class RunJournal(InterruptedJournalMethods, BaseCallbackHandler):
             return
         self._reconcile_final_error_fallback(outputs)
         self._reconcile_final_tool_messages(outputs)
-        self._put(event_type="run.end", category="outputs", content=outputs, metadata={"status": "success"})
+        preview, truncated = lifecycle_preview(outputs)
+        self._put(
+            event_type="run.end",
+            category="outputs",
+            content=preview,
+            metadata={"status": "success", "diagnostic_preview": True, "content_truncated": truncated},
+        )
         self._flush_sync()
 
     def on_chain_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:

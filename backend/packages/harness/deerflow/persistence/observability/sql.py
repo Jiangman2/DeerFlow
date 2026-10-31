@@ -235,20 +235,25 @@ def _caller(metadata: dict[str, Any]) -> str | None:
     return str(value) if value is not None else None
 
 
-def _extract_tool_calls(events: list[RunEventRow]) -> list[dict[str, Any]]:
+def _extract_tool_calls(events: list[RunEventRow], *, limit: int | None = None) -> list[dict[str, Any]]:
     calls: list[dict[str, Any]] = []
     pending: dict[str, dict[str, Any]] = {}
     for event in events:
         payload = _json_content(event) or {}
         if event.event_type == "llm.ai.response":
-            for tool_call in payload.get("tool_calls") or []:
+            tool_list = payload.get("tool_calls")
+            for tool_call in tool_list if isinstance(tool_list, list) else []:
+                if limit is not None and len(calls) >= limit:
+                    break
                 if not isinstance(tool_call, dict):
                     continue
+                function = tool_call.get("function")
+                function = function if isinstance(function, dict) else {}
                 call_id = str(tool_call.get("id") or f"seq-{event.seq}")
                 entry = {
                     "id": call_id,
-                    "name": tool_call.get("name") or tool_call.get("function", {}).get("name"),
-                    "args": tool_call.get("args") or tool_call.get("function", {}).get("arguments"),
+                    "name": str(tool_call.get("name") or function.get("name") or "")[:128],
+                    "args": tool_call.get("args") or function.get("arguments"),
                     "status": "pending",
                     "started_at": _iso(event.created_at),
                     "finished_at": None,
@@ -262,6 +267,8 @@ def _extract_tool_calls(events: list[RunEventRow]) -> list[dict[str, Any]]:
             call_id = str(payload.get("tool_call_id") or f"seq-{event.seq}")
             entry = pending.get(call_id)
             if entry is None:
+                if limit is not None and len(calls) >= limit:
+                    continue
                 entry = {
                     "id": call_id,
                     "name": payload.get("name"),
@@ -274,9 +281,9 @@ def _extract_tool_calls(events: list[RunEventRow]) -> list[dict[str, Any]]:
                     "error": None,
                 }
                 calls.append(entry)
-            status = payload.get("status") or ("error" if payload.get("is_error") else "success")
+            status = str(payload.get("status") or ("error" if payload.get("is_error") else "success"))[:128]
             entry["status"] = status
-            entry["name"] = entry.get("name") or payload.get("name")
+            entry["name"] = str(entry.get("name") or payload.get("name") or "")[:128]
             entry["finished_at"] = _iso(event.created_at)
             content = payload.get("content")
             entry["result_preview"] = str(content or "")[:500]
@@ -1139,19 +1146,26 @@ class ObservabilityRepository:
             "audit_logs": [_row_dict(row) for row in recent_audit_rows],
         }
 
-    async def run_diagnostics(self, run_id: str) -> dict[str, Any] | None:
+    async def run_diagnostics(self, run_id: str, *, bounded: bool = False) -> dict[str, Any] | None:
         if self._sf is None:
             return None
         async with self._sf() as session:
-            row = await session.get(RunRow, run_id)
+            if bounded:
+                from deerflow.persistence.observability.preview import load_disposition_preview, load_preview
+
+                row, events, total_events = await load_preview(session, run_id)
+            else:
+                row = await session.get(RunRow, run_id)
             if row is None:
                 return None
-            events = (await session.execute(select(RunEventRow).where(RunEventRow.run_id == run_id).order_by(RunEventRow.seq.asc()))).scalars().all()
+            if bounded:
+                dispositions, disposition_status = await load_disposition_preview(session, run_id)
+            if not bounded:
+                events = (await session.execute(select(RunEventRow).where(RunEventRow.run_id == run_id).order_by(RunEventRow.seq.asc()))).scalars().all()
+                total_events = len(events)
             user_email = {}
             if row.user_id:
-                user = await session.get(UserRow, row.user_id)
-                if user is not None:
-                    user_email[row.user_id] = user.email
+                user_email[row.user_id] = await session.scalar(select(UserRow.email).where(UserRow.id == row.user_id))
 
         start_event = next((event for event in events if event.event_type == "run.start"), None)
         start_meta = start_event.event_metadata if start_event is not None else {}
@@ -1166,7 +1180,7 @@ class ObservabilityRepository:
                     user_question = first.get("text")
             elif isinstance(content, str):
                 user_question = content
-        tool_calls = _extract_tool_calls(events)
+        tool_calls = _extract_tool_calls(events, limit=30 if bounded else None)
         last_success, failed_node = _find_nodes(events)
         cause = _error_cause(row, events)
         error_stack = row.error
@@ -1176,7 +1190,7 @@ class ObservabilityRepository:
                 error_stack = error_stack or blob[:4000]
                 break
 
-        event_counts = {run_id: len(events)}
+        event_counts = {run_id: total_events}
         summary = _run_summary(row, user_email, event_counts)
         summary["agent"] = summary.get("agent") or start_meta.get("agent_name") or start_meta.get("caller")
         return {
@@ -1199,8 +1213,16 @@ class ObservabilityRepository:
             "failed_node": failed_node or (row.status if row.status in _TERMINAL_ERROR_STATUSES else None),
             "possible_causes": [cause] if cause else [],
             "events": [_event_dict(event) for event in events],
-            "dispositions": await self.list_dispositions(run_id),
-            "disposition_status": await self.latest_disposition_status(run_id),
+            "dispositions": dispositions if bounded else await self.list_dispositions(run_id),
+            "disposition_status": disposition_status if bounded else await self.latest_disposition_status(run_id),
+            "preview": {
+                "bounded": bounded,
+                "total_events": total_events,
+                "returned_events": len(events),
+                "event_text_limit": 4096 if bounded else None,
+                "metadata_omitted_above_chars": 1024 if bounded else None,
+                "disposition_limit": 20 if bounded else None,
+            },
         }
 
     async def trace_events(self, run_id: str, *, limit: int = 200) -> list[dict[str, Any]]:

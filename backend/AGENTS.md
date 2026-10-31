@@ -1,5 +1,47 @@
 # AGENTS.md
 
+## Bounded diagnostics and transient image context (2026-10-31 candidate)
+
+Dashboard large-window ID lookups are batched at 1,000 parameters; retain all
+rows and use database subqueries for scheduled-task ownership history. Do not
+restore a range-sized Python `IN` list. `/api/admin/dashboard/date-bounds` is
+admin-only, cached for 60 seconds, bounded by a 10-second read deadline, and
+reads timestamps/counts only. The picker begins at midnight in Asia/Shanghai on
+the first retained data day, including nonempty supported rollups. Empty or
+unavailable bounds must not masquerade as a guessed historical start date.
+
+Bound SQL channel mappings may recover a missing thread through
+`channel_connections/recovery.py`. Revalidate the current connection, external
+identity and mapping owner. Preserve existing threads and the normal Gateway
+owner gate; never interpret a generic HTTP 404 as permission to replace one.
+Refuse recovery while any checkpoint, pending/running run (even with an expired
+lease), or conflicting historical owner remains. Read only indexed scalar
+metadata. Create the candidate through the authenticated Gateway outside the
+SQL transaction, then compare-and-set the exact mapping id, old thread and
+update timestamp while rechecking all guards. A concurrent winner or explicit
+`/new` must not be overwritten. Losing candidates remain empty; do not delete
+them or replay old messages. File-only and deterministic webhook mappings keep
+their existing lifecycle. This is a local candidate, not a deployed Work update.
+
+Keep the admin diagnostics GET on `run_diagnostics(..., bounded=True)`.
+`observability/preview.py` projects scalar columns in SQL, limits the latest
+30 event rows and 20 dispositions, and bounds text/JSON before ORM decoding.
+Do not revert to loading whole event entities before slicing. Keep the admin
+authorization boundary and historical records intact. `lifecycle_preview.py`
+bounds only the redundant `run.end` diagnostic snapshot, never the actual graph
+state or checkpoint.
+
+`ViewImageMiddleware.before_model` persists only a hidden path receipt. Its
+sync/async model wrappers expand successful current `view_image` receipts into
+a request copy with a 20 MiB raw-image budget. Old host-injected inline images
+are removed only from that request copy; actual user images, message IDs,
+checkpoint data and text references remain intact. Failed repeat views cannot
+reuse stale metadata. Keep async file reads off the event loop and test the
+real `create_agent`/checkpointer boundary, not only helper return values.
+The candidate is not deployed; retain the operator Gateway 395 and
+Frontend 232 evidence separately from historical immutable source locks.
+
+
 ## Sequential-stage canary
 
 `StagedExecutionMiddleware` is default off with an exact server-owned thread
@@ -2038,7 +2080,8 @@ For models with `supports_vision: true`:
 
 - `ViewImageMiddleware` processes images in conversation
 - `view_image_tool` added to agent's toolset
-- Images automatically converted to base64 and injected into state
+- Images expanded as base64 only in a bounded model-request copy; checkpoint
+  state retains lightweight hidden references
 
 ## Code Style
 

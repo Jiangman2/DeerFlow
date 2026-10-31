@@ -3,6 +3,7 @@ import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 
 import type {
+  DashboardDateBounds,
   DashboardFilters,
   DashboardSummary,
   DashboardRunRankings,
@@ -22,8 +23,29 @@ async function readJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
+export async function getDashboardDateBounds(
+  signal?: AbortSignal,
+): Promise<DashboardDateBounds> {
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  signal?.addEventListener("abort", cancel, { once: true });
+  if (signal?.aborted) cancel();
+  const timer = setTimeout(cancel, 15_000);
+  try {
+    const response = await fetch(
+      `${getBackendBaseURL()}/api/admin/dashboard/date-bounds`,
+      { signal: controller.signal },
+    );
+    return await readJson<DashboardDateBounds>(response);
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
+  }
+}
+
 export async function getDashboardSummary(
   filters: DashboardFilters | number = 168,
+  signal?: AbortSignal,
 ): Promise<DashboardSummary> {
   const resolved =
     typeof filters === "number" ? { hours: filters } : { ...filters };
@@ -45,10 +67,28 @@ export async function getDashboardSummary(
     }
     params.set(key, String(value));
   }
-  const response = await fetch(
-    `${getBackendBaseURL()}/api/admin/dashboard/summary?${params}`,
-  );
-  return readJson<DashboardSummary>(response);
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  let timedOut = false;
+  signal?.addEventListener("abort", cancel, { once: true });
+  if (signal?.aborted) cancel();
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 60_000);
+  try {
+    const response = await fetch(
+      `${getBackendBaseURL()}/api/admin/dashboard/summary?${params}`,
+      { signal: controller.signal },
+    );
+    return await readJson<DashboardSummary>(response);
+  } catch (error) {
+    if (timedOut) throw new Error("统计加载超时，请缩小区间或稍后重试");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
+  }
 }
 
 export async function getDashboardKnowledge(

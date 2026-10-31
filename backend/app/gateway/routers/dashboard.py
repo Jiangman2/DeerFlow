@@ -9,8 +9,10 @@ import logging
 import os
 import re
 from collections import Counter, defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from itertools import islice
 from pathlib import PurePosixPath
 from time import perf_counter
 from typing import Any
@@ -48,6 +50,7 @@ from app.gateway.external_agent_analytics import (
     ExternalPlatformClickAccumulator,
 )
 from app.gateway.weknora_analytics import empty_weknora_dashboard_analytics, get_weknora_dashboard_analytics
+from deerflow.persistence.dashboard_rollup.model import DashboardDailyRollupRow, DashboardHourlyRollupRow
 from deerflow.persistence.engine import get_session_factory
 from deerflow.persistence.feedback.model import FeedbackRow
 from deerflow.persistence.models.run_event import RunEventRow
@@ -103,6 +106,12 @@ class DashboardWindow(BaseModel):
     start_at: datetime
     end_at: datetime
     hours: int
+
+
+class DashboardDateBounds(BaseModel):
+    earliest_at: datetime | None
+    selectable_start_at: datetime | None
+    timezone: str = "Asia/Shanghai"
 
 
 class DashboardOverview(BaseModel):
@@ -607,6 +616,13 @@ def _coerce_aware(value: datetime | None) -> datetime | None:
     return value.astimezone(UTC)
 
 
+def _dashboard_id_batches(values: set[str]) -> Iterator[list[str]]:
+    """Keep large-window lookups below driver bind limits without losing rows."""
+    iterator = iter(values)
+    while batch := list(islice(iterator, 1000)):
+        yield batch
+
+
 def _window_bounds(hours: int, start_at: datetime | None, end_at: datetime | None) -> tuple[datetime, datetime, int]:
     end = _coerce_aware(end_at)
     if end is None:
@@ -823,7 +839,12 @@ async def _load_compact_supporting_metrics(
         run_task_ids = {str(row.task_id) for row in run_groups if row.task_id}
         audit_scope = and_(AuditLogRow.created_at >= start, AuditLogRow.created_at < end)
         missing_task_ids = run_task_ids - set(task_owner)
-        audit_owner_filter = or_(audit_scope, AuditLogRow.resource_id.in_(missing_task_ids)) if missing_task_ids else audit_scope
+        missing_task_query = select(ScheduledTaskRunRow.task_id).where(
+            ScheduledTaskRunRow.created_at >= start,
+            ScheduledTaskRunRow.created_at < end,
+            ~ScheduledTaskRunRow.task_id.in_(select(ScheduledTaskRow.id)),
+        )
+        audit_owner_filter = or_(audit_scope, AuditLogRow.resource_id.in_(missing_task_query)) if missing_task_ids else audit_scope
         creation_audits = list(
             (
                 await session.execute(
@@ -1695,6 +1716,51 @@ async def get_failed_runs(
     return FailedRunList(items=items, total=total)
 
 
+async def _build_dashboard_date_bounds() -> DashboardDateBounds:
+    """Read indexed timestamps only, never historical event payloads."""
+    timestamps: list[datetime] = []
+    now = datetime.now(UTC)
+    async with asyncio.timeout(10), _session_factory()() as session:
+        await apply_dashboard_statement_limits(session)
+        for model in (RunRow, ThreadCreationRow, UserRow, FeedbackRow, ScheduledTaskRow, ScheduledTaskRunRow, AuditLogRow, OperationDispositionRow):
+            value = await session.scalar(select(func.min(model.created_at)).where(model.created_at <= now))
+            if value is not None:
+                timestamps.append(_coerce_aware(value))
+        if dashboard_rollups_enabled():
+            # Retained aggregates can outlive source rows. Do not disable days
+            # whose metrics are still available, or use empty/future buckets.
+            for model, column in ((DashboardDailyRollupRow, DashboardDailyRollupRow.day), (DashboardHourlyRollupRow, DashboardHourlyRollupRow.bucket_start)):
+                value = await session.scalar(
+                    select(func.min(column)).where(model.schema_version == ROLLUP_SCHEMA_VERSION, or_(model.source_run_count > 0, model.source_thread_count > 0, model.source_feedback_count > 0, model.source_external_click_count > 0))
+                )
+                if value is not None:
+                    timestamp = _coerce_aware(value) if isinstance(value, datetime) else datetime.combine(value, datetime.min.time(), _BUSINESS_TIMEZONE).astimezone(UTC)
+                    if timestamp <= now:
+                        timestamps.append(timestamp)
+    earliest = min(timestamps) if timestamps else None
+    # Allow the whole first business day, including its first partial minute.
+    minimum = earliest.astimezone(_BUSINESS_TIMEZONE).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(UTC) if earliest else None
+    return DashboardDateBounds(earliest_at=earliest, selectable_start_at=minimum)
+
+
+@router.get("/date-bounds", response_model=DashboardDateBounds)
+async def get_dashboard_date_bounds(request: Request, response: Response) -> DashboardDateBounds:
+    await require_admin_user(request, detail=_ADMIN_REQUIRED)
+    try:
+        cached = await dashboard_response_cache.get_or_create(
+            _dashboard_cache_key("date-bounds-v1", rollups_enabled=dashboard_rollups_enabled()),
+            ttl_seconds=60,
+            producer=_build_dashboard_date_bounds,
+            encode=lambda value: value.model_dump_json(),
+            decode=DashboardDateBounds.model_validate_json,
+        )
+    except Exception as exc:
+        logger.warning("Dashboard date bounds unavailable: %s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="暂时无法获取可选日期范围，请稍后重试。") from exc
+    response.headers["Cache-Control"] = "private, no-store"
+    return cached.value
+
+
 @router.get("/summary", response_model=DashboardSummary)
 async def get_dashboard_summary(
     request: Request,
@@ -2071,7 +2137,7 @@ async def _build_dashboard_summary(
 
         thread_ids = {row.thread_id for row in runs} | {row.thread_id for row in thread_creations}
         thread_meta: dict[str, ThreadMetaRow] = {}
-        if thread_ids:
+        for id_batch in _dashboard_id_batches(thread_ids):
             meta_rows = (
                 await session.execute(
                     select(ThreadMetaRow)
@@ -2084,10 +2150,10 @@ async def _build_dashboard_summary(
                             ThreadMetaRow.metadata_json,
                         )
                     )
-                    .where(ThreadMetaRow.thread_id.in_(thread_ids))
+                    .where(ThreadMetaRow.thread_id.in_(id_batch))
                 )
             ).scalars()
-            thread_meta = {row.thread_id: row for row in meta_rows}
+            thread_meta.update((row.thread_id, row) for row in meta_rows)
 
         scheduled_task_rows = list(
             (await session.execute(select(ScheduledTaskRow).options(load_only(ScheduledTaskRow.id, ScheduledTaskRow.user_id, ScheduledTaskRow.status, ScheduledTaskRow.created_at)).order_by(desc(ScheduledTaskRow.created_at))))
@@ -2117,7 +2183,12 @@ async def _build_dashboard_summary(
         if scheduled_task_ids_for_runs:
             scheduled_audit_filter = or_(
                 and_(*scheduled_audit_scope),
-                AuditLogRow.resource_id.in_(scheduled_task_ids_for_runs),
+                AuditLogRow.resource_id.in_(
+                    select(ScheduledTaskRunRow.task_id).where(
+                        ScheduledTaskRunRow.created_at >= start,
+                        ScheduledTaskRunRow.created_at <= end,
+                    )
+                ),
             )
         else:
             scheduled_audit_filter = and_(*scheduled_audit_scope)
@@ -2150,9 +2221,9 @@ async def _build_dashboard_summary(
             | {row.user_id for row in scheduled_creation_audits if row.user_id}
         )
         users_by_id: dict[str, UserRow] = {}
-        if user_ids:
-            user_rows = (await session.execute(select(UserRow).options(load_only(UserRow.id, UserRow.email, UserRow.display_name, UserRow.organization_name)).where(UserRow.id.in_(user_ids)))).scalars()
-            users_by_id = {row.id: row for row in user_rows}
+        for id_batch in _dashboard_id_batches(user_ids):
+            user_rows = (await session.execute(select(UserRow).options(load_only(UserRow.id, UserRow.email, UserRow.display_name, UserRow.organization_name)).where(UserRow.id.in_(id_batch)))).scalars()
+            users_by_id.update((row.id, row) for row in user_rows)
 
         total_users = await session.scalar(select(func.count()).select_from(UserRow)) or 0
         new_users = await session.scalar(select(func.count()).select_from(UserRow).where(UserRow.created_at >= start, UserRow.created_at <= end)) or 0

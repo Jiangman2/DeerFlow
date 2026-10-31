@@ -4,6 +4,12 @@ export interface DashboardWindow {
   hours: number;
 }
 
+export interface DashboardDateBounds {
+  earliest_at: string | null;
+  selectable_start_at: string | null;
+  timezone: string;
+}
+
 export interface DashboardOverview {
   total_users: number;
   new_users: number;

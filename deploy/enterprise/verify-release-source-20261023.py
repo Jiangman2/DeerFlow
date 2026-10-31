@@ -18,6 +18,7 @@ RUNNER = 'release/production-source-20261022/ppt-master-runner/'
 FORMAT_BASELINE = 'release/production-source-20261023/gateway-format-baseline/'
 TEST_BASELINE = 'release/production-source-20261026/frontend-test-baseline/'
 CANDIDATE = 'deploy/enterprise/work-source-candidate-20261026.json'
+INCIDENT_DELTA = 'deploy/enterprise/incident-source-candidate-20261031.json'
 
 
 def candidate_overrides(lock, manifest, lock_digest):
@@ -37,6 +38,31 @@ def candidate_overrides(lock, manifest, lock_digest):
         digest = change['candidate_sha256']
         assert len(digest) == 64 and all(c in '0123456789abcdef' for c in digest)
         result[name] = digest
+    return result
+
+
+def incident_overrides(lock, prior, manifest, lock_digest, prior_digest):
+    """Layer an explicit, undeployed repair over the preserved candidate seal."""
+    assert manifest['schema'] == 'incident-source-candidate.v1'
+    assert manifest['status'] == 'NOT_DEPLOYED'
+    assert manifest['base_lock_sha256'] == lock_digest, 'INCIDENT_BASE_LOCK_MISMATCH'
+    assert manifest['parent_candidate_sha256'] == prior_digest, 'INCIDENT_PARENT_CHANGED'
+    assert len(manifest['base_commit']) == 40 and all(c in '0123456789abcdef' for c in manifest['base_commit'])
+    assert set(manifest['changes']) == {'gateway', 'frontend'}, 'INCIDENT_COMPONENT_SCOPE'
+    result = {'gateway': {}, 'frontend': {}}
+    for component, changes in manifest['changes'].items():
+        for name, change in changes.items():
+            if component == 'gateway':
+                assert name.startswith(('backend/app/', 'backend/packages/harness/')) and name.endswith('.py')
+                expected = prior.get(name, lock.get('format_normalizations', {}).get(name, {}).get('formatted_sha256', lock['source_sets'][component].get(name)))
+            else:
+                assert (name.startswith(('frontend/src/', 'frontend/tests/unit/', 'frontend/tests/e2e/')) and name.endswith(('.ts', '.tsx'))) or name in ('frontend/README.md', 'frontend/AGENTS.md')
+                expected = lock.get('line_ending_normalizations', {}).get(name, {}).get('lf_sha256', lock.get('qualification_test_overrides', {}).get(name, {}).get('current_sha256', lock['source_sets'][component].get(name)))
+            assert '\\' not in name and PurePosixPath(name).as_posix() == name and '..' not in PurePosixPath(name).parts
+            assert change['base_sha256'] == expected, (name, 'INCIDENT_PARENT_MISMATCH')
+            digest = change['candidate_sha256']
+            assert len(digest) == 64 and all(c in '0123456789abcdef' for c in digest)
+            result[component][name] = digest
     return result
 
 
@@ -122,9 +148,9 @@ def verify(ref=None, lock_path=LOCK):
                      *selected_lock['runtime_patch']['qualified_source_files'], selected_lock['current_observation']['path']]
         extra += [row['baseline_path'] for row in selected_lock.get('qualification_test_overrides', {}).values()]
         extra += [row['baseline_path'] for row in selected_lock.get('line_ending_normalizations', {}).values()]
-        candidate_exists = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, CANDIDATE], cwd=ROOT).strip()
-        if candidate_exists:
-            extra.append(CANDIDATE)
+        for manifest_path in (CANDIDATE, INCIDENT_DELTA):
+            if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, manifest_path], cwd=ROOT).strip():
+                extra.append(manifest_path)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
@@ -135,11 +161,15 @@ def verify(ref=None, lock_path=LOCK):
     has_candidate = CANDIDATE in archived if archived is not None else (ROOT / CANDIDATE).is_file()
     manifest = json.loads(read(CANDIDATE)) if has_candidate else None
     overrides = candidate_overrides(lock, manifest, hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest()) if manifest else {}
+    has_incident = INCIDENT_DELTA in archived if archived is not None else (ROOT / INCIDENT_DELTA).is_file()
+    delta = json.loads(read(INCIDENT_DELTA)) if has_incident else None
+    incident = incident_overrides(lock, overrides, delta, hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest(), hashlib.sha256(read(CANDIDATE).replace(b'\r\n', b'\n')).hexdigest()) if delta else {'gateway': {}, 'frontend': {}}
     normalizations = lock.get('format_normalizations', {})
     assert set(lock.get('qualification_test_overrides', {})) <= set(lock['source_sets']['frontend']), 'UNKNOWN_QUALIFICATION_TEST'
     results = []
     for component, expected in lock['source_sets'].items():
-        expected = {**expected, **overrides} if component == 'gateway' else expected
+        component_overrides = {**(overrides if component == 'gateway' else {}), **incident.get(component, {})}
+        expected = {**expected, **component_overrides}
         prefix = RUNNER if component == 'ppt-master-runner' else ''
         if component != 'frontend':
             roots = [prefix + 'backend/app/', prefix + 'backend/packages/harness/']
@@ -152,6 +182,12 @@ def verify(ref=None, lock_path=LOCK):
             if actual != set(expected):
                 raise AssertionError((component, 'SOURCE_SET_MISMATCH', sorted(actual ^ set(expected))))
         for name, digest in expected.items():
+            if name in component_overrides:
+                raw = read(name).replace(b'\r\n', b'\n')
+                assert hashlib.sha256(raw).hexdigest() == digest, (name, 'CANDIDATE_HASH_MISMATCH')
+                if name.endswith('.py'):
+                    ast.parse(raw, filename=name)
+                continue
             raw = qualification_source(read, lock, name) if component == 'frontend' else read(prefix + name)
             newline = lock.get('line_ending_normalizations', {}).get(name) if component == 'frontend' else None
             if newline:
@@ -163,10 +199,6 @@ def verify(ref=None, lock_path=LOCK):
                 assert raw.replace(b'\r\n', b'\n') == original.replace(b'\r\n', b'\n'), (name, 'NEWLINE_CONTENT_CHANGED')
                 assert hashlib.sha256(raw.replace(b'\r\n', b'\n')).hexdigest() == newline['lf_sha256'], (name, 'NEWLINE_HASH_CHANGED')
                 raw = original
-            if component == 'gateway' and name in overrides:
-                assert hashlib.sha256(raw.replace(b'\r\n', b'\n')).hexdigest() == digest, (name, 'CANDIDATE_HASH_MISMATCH')
-                ast.parse(raw, filename=name)
-                continue
             normalization = normalizations.get(name) if component == 'gateway' else None
             if normalization:
                 original = read(FORMAT_BASELINE + name).replace(b'\r\n', b'\n')
@@ -195,7 +227,7 @@ def verify(ref=None, lock_path=LOCK):
     return {'status': 'CANDIDATE_SOURCE_VERIFIED' if manifest else 'RELEASE_SOURCE_VERIFIED', 'git_ref': ref, 'lock_file': lock_path, 'results': results,
             'post_release_test_only_corrections': len(lock.get('qualification_test_overrides', {})),
             'scope': lock['scope'], 'production_modified': False,
-            'candidate': {'status': 'NOT_DEPLOYED', 'base_commit': manifest['base_commit'], 'changed_sources': len(overrides)} if manifest else None}
+            'candidate': {'status': 'NOT_DEPLOYED', 'base_commit': manifest['base_commit'], 'changed_sources': len(overrides), 'incident_delta': {'base_commit': delta['base_commit'], 'changed_sources': sum(len(v) for v in incident.values()), 'frontend_runtime_paths': sorted(n for n in incident['frontend'] if n.startswith('frontend/src/'))} if delta else None} if manifest else None}
 
 
 if __name__ == '__main__':

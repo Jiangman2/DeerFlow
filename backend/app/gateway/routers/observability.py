@@ -178,7 +178,7 @@ async def list_traces(
 @router.get("/runs/{run_id}/diagnostics")
 async def get_run_diagnostics(request: Request, run_id: str):
     await require_admin_user(request, detail="Admin privileges are required to view run diagnostics")
-    diagnostics = await _repo().run_diagnostics(run_id)
+    diagnostics = await _repo().run_diagnostics(run_id, bounded=True)
     if diagnostics is None:
         raise HTTPException(status_code=404, detail="Run not found")
     return diagnostics
