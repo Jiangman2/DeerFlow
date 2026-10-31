@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+from types import SimpleNamespace
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, messages_from_dict, messages_to_dict
@@ -33,6 +34,24 @@ def urls(update):
     return [b["image_url"]["url"] for m in update["messages"] for b in m.content if isinstance(b, dict) and b.get("type") == "image_url"]
 
 
+def model_view(mw, state, asynchronous=False):
+    update = asyncio.run(mw.abefore_model(state, None)) if asynchronous else mw.before_model(state, None)
+    if update is None:
+        return None
+    assert urls(update) == []  # Checkpoints contain references, not bytes.
+    copied = {**state, "messages": [*state["messages"], *update["messages"]]}
+    req = SimpleNamespace(state=copied, messages=copied["messages"], override=lambda **kw: kw)
+    if asynchronous:
+        async def handler(value):
+            return value
+        result = asyncio.run(mw.awrap_model_call(req, handler))
+    else:
+        result = mw.wrap_model_call(req, lambda value: value)
+    # Model-request data must never mutate the persistent receipt or old messages.
+    assert urls(update) == []
+    return {"messages": result["messages"], "receipt": update["messages"]}
+
+
 @pytest.mark.parametrize("asynchronous", [False, True])
 def test_sequential_views_add_one_image_each(tmp_path, monkeypatch, asynchronous):
     mw = ViewImageMiddleware()
@@ -45,12 +64,12 @@ def test_sequential_views_add_one_image_each(tmp_path, monkeypatch, asynchronous
         path = f"/mnt/user-data/workspace/{i}.png"
         state["viewed_images"][path] = image(tmp_path, f"{i}.png")
         state["messages"].extend(batch(call(f"c{i}", path)))
-        update = asyncio.run(mw.abefore_model(state, None)) if asynchronous else mw.before_model(state, None)
+        update = model_view(mw, state, asynchronous)
         assert len(urls(update)) == 1
         assert len(read_paths) == i + 1
         assert read_paths[-1] == state["viewed_images"][path]["actual_path"]
         updates.append(update)
-        state["messages"].extend(update["messages"])
+        state["messages"].extend(update["receipt"])
     assert sum(len(urls(u)) for u in updates) == 6  # Previously 1+2+3+4+5+6 = 21.
 
 
@@ -61,7 +80,7 @@ def test_mixed_parallel_batch_waits_and_deduplicates_paths(tmp_path):
     state["messages"].pop()
     assert mw.before_model(state, None) is None
     state["messages"].append(ToolMessage(content="ok", tool_call_id="bash"))
-    assert len(urls(mw.before_model(state, None))) == 2
+    assert len(urls(model_view(mw, state))) == 2
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
@@ -78,7 +97,7 @@ def test_successful_member_of_failed_batch_is_still_visible(tmp_path):
         "messages": batch(call("a", "/a.png"), call("b", "/b.png"), results=[ToolMessage(content="Successfully read image", tool_call_id="a"), ToolMessage(content="Error: failed", tool_call_id="b")]),
         "viewed_images": {"/a.png": image(tmp_path, "a.png"), "/b.png": image(tmp_path, "b.png")},
     }
-    assert len(urls(ViewImageMiddleware().before_model(state, None))) == 1
+    assert len(urls(model_view(ViewImageMiddleware(), state))) == 1
 
 
 def test_restored_messages_do_not_reinject_completed_batch(tmp_path):
@@ -94,11 +113,11 @@ def test_restored_messages_do_not_reinject_completed_batch(tmp_path):
 def test_explicit_review_reads_updated_file_without_changing_history(tmp_path):
     mw = ViewImageMiddleware()
     state = {"messages": batch(call("old", "/a.png")), "viewed_images": {"/a.png": image(tmp_path, "a.png")}}
-    previous = mw.before_model(state, None)
-    state["messages"].extend(previous["messages"])
+    previous = model_view(mw, state)
+    state["messages"].extend(previous["receipt"])
     state["messages"].extend(batch(call("new", "/a.png")))
     state["viewed_images"]["/a.png"] = image(tmp_path, "a.png", b"\x89PNG\r\n\x1a\nupdated")
-    current = mw.before_model(state, None)
+    current = model_view(mw, state)
     assert len(urls(current)) == 1
     assert urls(current) != urls(previous)
     assert base64.b64decode(urls(current)[0].split(",")[1]).endswith(b"updated")
@@ -120,9 +139,9 @@ def test_missing_file_does_not_fall_back_to_history(tmp_path):
     meta = image(tmp_path, "gone.png")
     (tmp_path / "gone.png").unlink()
     state = {"messages": batch(call("a", "/gone.png")), "viewed_images": {"/gone.png": meta, "/old.png": image(tmp_path, "old.png")}}
-    update = ViewImageMiddleware().before_model(state, None)
+    update = model_view(ViewImageMiddleware(), state)
     assert urls(update) == []
-    assert "unavailable" in str(update["messages"][0].content)
+    assert "unavailable" in str(update["messages"][-1].content)
     assert "old.png" not in str(update)
 
 
@@ -135,10 +154,13 @@ def test_real_graph_checkpoint_continuation_keeps_images_linear(tmp_path):
     app = graph.compile(checkpointer=InMemorySaver())
     cfg = {"configurable": {"thread_id": "batch-images"}}
     first = app.invoke({"messages": batch(call("a", "/a.png")), "viewed_images": {"/a.png": image(tmp_path, "a.png")}}, cfg)
-    assert len(urls({"messages": [m for m in first["messages"] if isinstance(m, HumanMessage)]})) == 1
+    assert urls({"messages": first["messages"]}) == []
     second = app.invoke({"messages": batch(call("b", "/b.png")), "viewed_images": {"/b.png": image(tmp_path, "b.png")}}, cfg)
     images = [m for m in second["messages"] if isinstance(m, HumanMessage)]
-    assert len(urls({"messages": images})) == 2
+    assert len(images) == 2
+    assert urls({"messages": images}) == []
+    req = SimpleNamespace(state=second, messages=second["messages"], override=lambda **kw: kw)
+    assert len(urls(mw.wrap_model_call(req, lambda value: value))) == 1
     app.invoke({}, cfg)
     replay = app.get_state(cfg).values
     assert len(replay["messages"]) == len(second["messages"])

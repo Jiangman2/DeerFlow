@@ -1380,8 +1380,8 @@ class ChannelManager:
             user_id=msg.user_id,
         )
 
-    async def _create_thread(self, client, msg: InboundMessage) -> str:
-        """Create a new thread through Gateway and store the mapping."""
+    async def _create_thread(self, client, msg: InboundMessage, *, store_mapping: bool = True) -> str:
+        """Create through Gateway; recovery publishes the mapping separately."""
         metadata = _thread_channel_metadata(msg)
         owner_headers = _owner_headers(msg)
         # Some channels (notably GitHub) supply a deterministic preferred
@@ -1438,10 +1438,12 @@ class ChannelManager:
                 preferred_thread_id,
                 exc.__class__.__name__,
             )
-            await self._store_thread_id(msg, preferred_thread_id)
+            if store_mapping:
+                await self._store_thread_id(msg, preferred_thread_id)
             return preferred_thread_id
         thread_id = thread["thread_id"]
-        await self._store_thread_id(msg, thread_id)
+        if store_mapping:
+            await self._store_thread_id(msg, thread_id)
         logger.info("[Manager] new thread created through Gateway: thread_id=%s for chat_id=%s topic_id=%s", thread_id, msg.chat_id, msg.topic_id)
         return thread_id
 
@@ -1455,18 +1457,42 @@ class ChannelManager:
         Serialize the create path per conversation and re-check inside the lock
         so only the first message creates a thread and the rest reuse it.
         """
+        from deerflow.persistence.channel_connections.recovery import ChannelThreadBinding, ChannelThreadRecovery
+        from deerflow.persistence.channel_connections.sql import ChannelConnectionRepository
+
+        recovery = None
+        meta = msg.metadata if isinstance(msg.metadata, dict) else {}
+        # Legacy file mappings and deterministic webhook threads retain their
+        # existing lifecycle. Only a fully identified SQL binding can recover.
+        if msg.connection_id and msg.owner_user_id and not meta.get("preferred_thread_id") and isinstance(self._connection_repo, ChannelConnectionRepository):
+            recovery = ChannelThreadRecovery(
+                self._connection_repo.session_factory,
+                ChannelThreadBinding(msg.connection_id, msg.owner_user_id, msg.channel_name, msg.user_id, msg.workspace_id or "", msg.chat_id, msg.topic_id or ""),
+            )
         thread_id = await self._lookup_thread_id(msg)
+        recovering_missing = False
         if thread_id:
-            return thread_id, False
+            if recovery is None:
+                return thread_id, False
+            current = await recovery.inspect()
+            if not current.missing:
+                return current.thread_id, False
+            recovering_missing = True
 
         key = (msg.channel_name, msg.chat_id, msg.topic_id)
         lock = self._thread_create_locks.setdefault(key, asyncio.Lock())
         try:
             async with lock:
+                if recovering_missing:
+                    # A revoked/removed binding must not fall through to the
+                    # ordinary create path while we were waiting on this lock.
+                    return await recovery.recover(lambda: self._create_thread(client, msg, store_mapping=False))
                 # A concurrent message for the same chat may have created the
                 # thread while we were waiting on the lock.
                 thread_id = await self._lookup_thread_id(msg)
                 if thread_id:
+                    if recovery is not None:
+                        return await recovery.recover(lambda: self._create_thread(client, msg, store_mapping=False))
                     return thread_id, False
                 return await self._create_thread(client, msg), True
         finally:

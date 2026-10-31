@@ -1,5 +1,41 @@
 # DeerFlow Backend
 
+### Incident repair candidate (2026-10-31; not deployed)
+
+Month-sized dashboard queries no longer expand every thread, user or scheduled
+task ID into one SQL parameter list. A disposable PostgreSQL regression with
+33,000 thread/user/task identifiers reproduces the previous asyncpg 32,767
+parameter failure and verifies complete totals after batching/subqueries. This
+is a reproduced defect, not a proven explanation for the operator's HTTP 500
+without its server exception. The admin-only date-bounds endpoint returns the
+first retained data day for calendar limits, including retained nonempty
+rollups; it does not imply every day or metric in that range is complete.
+
+The Work incident was a connected channel mapping to a thread whose metadata
+and checkpoint no longer existed. The operator confirmed normal replies after
+`/new`; the deletion's origin is not established. The recovery candidate checks
+current binding ownership and target existence before dispatch. Only a missing,
+idle target without remaining checkpoints or conflicting historical ownership
+can be replaced. Database compare-and-set prevents concurrent managers from
+overwriting a winner or a manual `/new`. The new Gateway-created thread starts
+with fresh context; no history is deleted and no earlier request is replayed.
+Concurrent losers may leave an empty candidate thread, which is not automatically
+deleted. Legacy file mappings and deterministic webhook targets are unchanged.
+
+The admin failed-run detail read uses a bounded preview of the latest 30 events.
+Large event text and metadata are limited in SQL before transfer and decoding;
+original diagnostic records and conversation checkpoints remain available.
+The redundant `run.end` snapshot is bounded before serialization.
+
+Image-view context now stores a hidden text/path reference in checkpoints and
+adds image bytes only to the current model request. Earlier host-generated
+inline image blocks are omitted from the request copy, with their references
+retained; user-uploaded image messages are unchanged. A repeated view must have
+a successful current tool receipt, and a 20 MiB total raw-image budget prevents
+unbounded accumulation. Existing checkpoints are not rewritten by this fix.
+Production rollout and the affected conversation's acceptance remain pending.
+
+
 ### Sequential-stage candidate (default off)
 
 An exact-thread, server-configured canary can expose checkpointed sequential
@@ -940,5 +976,6 @@ ViewImageMiddleware must select only the latest assistant batch's successful
 view_image receipts and validated metadata. Never replay the cumulative
 image registry on each new view, or reuse old metadata after a failed read.
 Keep explicit re-views, replay deduplication and existing file boundaries.
-Injected HumanMessage image payloads remain checkpointed; the registry itself
-is metadata-only. See docs/view-image-current-batch.md at repository root.
+Checkpoint messages and the registry contain only text/path metadata. Expand
+current validated image bytes in the request wrapper only; strip legacy internal
+image bytes from request copies without rewriting history or user attachments. See docs/view-image-current-batch.md at repository root.

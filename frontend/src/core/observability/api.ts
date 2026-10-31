@@ -2,6 +2,7 @@ import { throwGatewayApiError } from "@/core/api/errors";
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 
+import { readDiagnosticResponse } from "./diagnostic-response";
 import type {
   AuditFilters,
   AuditLog,
@@ -154,13 +155,30 @@ export async function searchTraces(
 
 export async function getRunDiagnostics(
   runId: string,
+  signal?: AbortSignal,
 ): Promise<RunDiagnostics> {
-  const response = await fetch(
-    `${getBackendBaseURL()}/api/admin/observability/runs/${encodeURIComponent(
-      runId,
-    )}/diagnostics`,
-  );
-  return readJson<RunDiagnostics>(response);
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  let timedOut = false;
+  signal?.addEventListener("abort", cancel, { once: true });
+  if (signal?.aborted) cancel();
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 20_000);
+  try {
+    const response = await fetch(
+      `${getBackendBaseURL()}/api/admin/observability/runs/${encodeURIComponent(runId)}/diagnostics`,
+      { signal: controller.signal },
+    );
+    return await readDiagnosticResponse<RunDiagnostics>(response);
+  } catch (error) {
+    if (timedOut) throw new Error("错误详情加载超时，请稍后重试");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
+  }
 }
 
 export async function recordRunDisposition(

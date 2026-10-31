@@ -116,6 +116,11 @@ export interface PossibleCause {
 }
 
 export interface RunDiagnostics {
+  preview?: {
+    bounded: boolean;
+    total_events: number;
+    returned_events: number;
+  };
   run: TraceSummary;
   user_question: string | null;
   agent: string | null;

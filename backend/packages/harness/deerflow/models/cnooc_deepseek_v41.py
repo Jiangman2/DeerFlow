@@ -8,8 +8,8 @@ from typing import Any
 
 import httpx
 
-from deerflow.models.robust_openai import RobustChatOpenAI
 from deerflow.models.cnooc_stream_guard import install_cnooc_stream_guard
+from deerflow.models.robust_openai import RobustChatOpenAI
 
 ENDPOINT = "https://aiapi.cnooc.com.cn/DeepSeek-V4.1-Flash-1017/FNC-01"
 

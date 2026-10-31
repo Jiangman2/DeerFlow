@@ -99,7 +99,46 @@ describe("dashboard progressive summary api", () => {
 
     expect(mockedFetch).toHaveBeenCalledWith(
       "/backend/api/admin/dashboard/summary?hours=720&limit=10&include_knowledge=false&include_business_details=false",
+      { signal: expect.any(AbortSignal) },
     );
+  });
+
+  test("cancels a superseded range without retrying", async () => {
+    const controller = new AbortController();
+    mockedFetch.mockImplementationOnce(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("Aborted", "AbortError")),
+          );
+        }),
+    );
+    const pending = getDashboardSummary({ hours: 720 }, controller.signal);
+    controller.abort();
+    await expect(pending).rejects.toThrow("Aborted");
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+  });
+
+  test("ends an unresponsive summary with a recoverable timeout", async () => {
+    rs.useFakeTimers();
+    try {
+      mockedFetch.mockImplementationOnce(
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("Aborted", "AbortError")),
+            );
+          }),
+      );
+      const result = expect(
+        getDashboardSummary({ hours: 720 }),
+      ).rejects.toThrow("统计加载超时");
+      await rs.advanceTimersByTimeAsync(60_000);
+      await result;
+      expect(mockedFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      rs.useRealTimers();
+    }
   });
 
   test("loads WeKnora analytics through the independent knowledge endpoint", async () => {

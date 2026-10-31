@@ -1,5 +1,20 @@
 # AGENTS.md
 
+The October 31 failed-run detail candidate uses a streamed 2 MiB response bound
+before JSON parsing, a 20-second deadline, and the query cancellation signal.
+Keep diagnostic queries free of automatic retries, focus refetches and retained
+cache after unmount. Preserve the server-preview notice and recoverable dialog
+error; never fetch an unbounded historical event payload to display the preview.
+This is a local candidate, not evidence of a production rollout.
+
+Custom dashboard ranges use the admin date-bounds endpoint for both datetime
+input minima and manual-input validation. Before bounds load, on failure, or
+with an empty database, disable custom Apply and show an explicit state/retry;
+keep preset ranges usable. Show progress immediately while summary fetches,
+label retained results as old, cancel superseded reads, and expose a retry after
+errors/timeouts. Never invent a numeric completion percentage. Same-range
+refreshes use the serialized dashboard refresh helper to preserve DB admission.
+
 The main new-chat welcome page displays the complete non-confidential-system
 warning in red below the first branding/navigation row on desktop (`md` and
 wider). Bind it to the page's visual `isWelcomeMode`: submission immediately

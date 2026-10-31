@@ -19,9 +19,15 @@ LOCAL_TOOLS = frozenset({"ask_clarification", "think", "write_todos", "read_file
 # no data access and cannot execute code or make external requests.
 STAGE_CONTROL_TOOLS = frozenset({"start_execution_stages", "advance_execution_stage"})
 ALLOWED_TOOLS = DATA_TOOLS | LOCAL_TOOLS | STAGE_CONTROL_TOOLS
-_QUERY = re.compile(r"查询|查一下|查下|查找|检索|统计|汇总|筛选|调取|提取|排名|列出|找出|获取|问数|有哪些|是多少|有多少|最大|最小|最高|最低|\b(?:query|retrieve|search|fetch)\b", re.I)
+_QUERY = re.compile(
+    r"查询|查一下|查下|查找|检索|统计|汇总|筛选|调取|提取|排名|列出|找出|获取|问数|有哪些|"
+    r"是多少|有多少|最大|最小|最高|最低|\b(?:query|retrieve|search|fetch)\b", re.I
+)
 _SOURCE = re.compile(r"数据湖|data\s*lake|(?:内部|企业|公司)(?:数据库|数据表)|(?:内部|企业内部|公司内部)业务数据", re.I)
-_EXPLANATION = re.compile(r"^(?:请|帮我|能否|麻烦|一下|\s)*(?:介绍|解释|讲解|说明|分析.*(?:代码|报错|故障)|调试|修复|审查|讨论|什么是|为什么)|(?:是什么|代码如何|工具怎么|报错原因|故障原因|查询原理)", re.I)
+_EXPLANATION = re.compile(
+    r"^(?:请|帮我|能否|麻烦|一下|\s)*(?:介绍|解释|讲解|说明|分析.*(?:代码|报错|"
+    r"故障)|调试|修复|审查|讨论|什么是|为什么)|(?:是什么|代码如何|工具怎么|报错原因|故障原因|查询原理)", re.I
+)
 _FOLLOWUP = re.compile(
     r"^(?:请|帮我|麻烦|\s)*(?:继续|重试|已开启|权限已开启|再查一下|根据(?:刚才|上述|这些|查询)(?:的)?(?:结果|数据)|"
     r"把(?:刚才|上述|这些|查询)(?:的)?(?:结果|数据)|(?:分析|整理|处理|导出)(?:刚才|上述|这些|查询)?(?:的)?(?:结果|数据))",
@@ -31,15 +37,24 @@ _NEW_TASK = re.compile(r"换个|新任务|新的任务|另一个|另一篇|不�
 _RESULT_REFERENCE = re.compile(r"(?:刚才|上述|这些|查询)(?:的)?(?:结果|数据)|数据湖(?:结果|返回的数据)", re.I)
 _PROCESSING = re.compile(r"生成|导出|绘图|制图|排版|Word|Excel|图表|整理结果|分析结果", re.I)
 # Intent comes from the original human request, not model-generated tool args.
-_BUSINESS_QUERY = re.compile(r"查阅|(?:^|[，。；\s]|帮我|请|麻烦)查|查询|查一下|查下|查查|查找|检索|统计|汇总|筛选|调取|提取|排名|列出|列一下|找出|获取|问数|有哪些|多少|几[个口座家]|属于|归属|隶属|在哪|哪个|哪些|是多少|怎么样|如何|对比|比较|查看|看看|看一下|给我|提供|最大|最小|最高|最低|\b(?:query|retrieve|search|fetch|list|count|compare|how many)\b", re.I)
+_BUSINESS_QUERY = re.compile(
+    r"查阅|(?:^|[，。；\s]|帮我|请|麻烦)查|查询|查一下|查下|查查|查找|检索|统计|汇总|筛选|调取|提取|排名|列出|列一下|找出|获取|问数|有哪些|多少|几[个口座家]|属于|归属|隶属|在哪|哪个|"
+    r"哪些|是多少|怎么样|如何|对比|比较|查看|看看|看一下|给我|提供|最大|最小|最高|最低|\b(?:query|retrieve|search|fetch|list|count|compare|how many)\b", re.I
+)
 _BUSINESS_OBJECT = re.compile(r"公司|作业区|油气田|油田|气田|区块|平台|油井|气井|井号|井名|[\w-]+井|\b[A-Z]{1,12}\d+(?:[-_]\d+)+[A-Z]?\b", re.I)
-_BUSINESS_FACT = re.compile(r"主数据|油气田|油田|气田|区块|井|平台|下属单位|分公司|所属公司|产量|产能|产气|产油|日产|月产|年产|指标|明细|记录|列表|清单|台账|排名|成本|储量|库存|预算|计划|实际|完成率|达成率|进度|数量|含水率|注水|井深|坐标|报告|井史|地质|完井|测井|试油|资料|文档|所属|归属|隶属", re.I)
+_BUSINESS_FACT = re.compile(
+    r"主数据|油气田|油田|气田|区块|井|平台|下属单位|分公司|所属公司|产量|产能|产气|产油|日产|月产|年产|指标|明细|记录|列表|清单|台账|"
+    r"排名|成本|储量|库存|预算|计划|实际|完成率|达成率|进度|数量|含水率|注水|井深|坐标|报告|井史|地质|完井|测井|试油|资料|文档|所属|归属|隶属", re.I
+)
 _DOMAIN_DOCUMENT = re.compile(r"井史|井身结构|钻井报告|完井报告|测井报告|试油报告|地质报告|生产日报|生产月报", re.I)
 _LOCAL_INPUT = re.compile(r"上传|附件|这份文件|这个文件|这张表|本地文件|这份表格|这个表格|这份Excel|这个Excel|提供的表格", re.I)
 _WRITING_REQUEST = re.compile(r"^(?:请|帮我|麻烦|能否|\s)*(?:写|撰写|编写|润色|改写|翻译|修改|设计|生成)", re.I)
 _TEXT_OR_SYNTHETIC = re.compile(r"翻译|润色|改写|措辞|语法|这句话|模拟|虚构|示例数据|测试数据|模板|写代码|编写.*代码", re.I)
 _ACQUIRE = re.compile(r"查阅|(?:^|[，。；\s]|帮我|请|麻烦)查|查询|查一下|查下|查查|查找|检索|调取|获取|问数", re.I)
-_NEGATED_QUERY = re.compile(r"不(?:要|必|用|需要)(?:再|去|从)?(?:查询|检索|查|调取|获取)|(?:不要|不用|无需|禁止)(?:使用|调用|访问)?(?:数据湖|data\s*lake)", re.I)
+_NEGATED_QUERY = re.compile(
+    r"不(?:要|必|用|需要)(?:再|去|从)?(?:查询|检索|查|调取|获取)|"
+    r"(?:不要|不用|无需|禁止)(?:使用|调用|访问)?(?:数据湖|data\s*lake)", re.I
+)
 _PUBLIC_REQUEST = re.compile(r"公开资料|公开数据|公开报道|新闻|维基|百度|(?:网上|联网)(?:查询|检索|搜索)|全球|世界|全国", re.I)
 
 
