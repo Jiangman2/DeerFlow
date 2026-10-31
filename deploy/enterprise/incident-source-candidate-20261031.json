@@ -42,6 +42,10 @@
       "backend/packages/harness/deerflow/runtime/lifecycle_preview.py": {
         "base_sha256": null,
         "candidate_sha256": "2b9b932702956714159d56fe33bb5bf047bd819cd30adaf2e612e226a982411c"
+      },
+      "backend/packages/harness/deerflow/config/staged_agent_scope.py": {
+        "base_sha256": "9455f0b49e958f6ea7f9a091b1261518e547ad0c1ac175be19bea1b705d716e9",
+        "candidate_sha256": "3441910c42c1b85b774e43c39f5255884432538c41e3209e6ca3796ffad437e3"
       }
     },
     "frontend": {

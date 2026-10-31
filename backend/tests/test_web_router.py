@@ -383,8 +383,7 @@ def test_shared_timeout_wakeup_never_spends_rounding_remainder(scoped, monkeypat
     # Hold the accounting clock just before expiry while the awaited operation
     # reports timer expiry. This models event-loop timer resolution deterministically.
     monkeypatch.setattr(tools.time, "monotonic", lambda: 100.0)
-    monkeypatch.setattr(tools, "_settings", lambda *args: tools.Settings(
-        order=list(tools.NAMES), keys={p: "test" for p in tools.NAMES}, timeout=15, total_timeout=10))
+    monkeypatch.setattr(tools, "_settings", lambda *args: tools.Settings(order=list(tools.NAMES), keys={p: "test" for p in tools.NAMES}, timeout=15, total_timeout=10))
     calls = []
 
     async def timed_out(provider, *args):

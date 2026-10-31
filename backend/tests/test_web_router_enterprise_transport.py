@@ -1,16 +1,17 @@
 """Actual router with mocked HTTP: proxy/CA policy and failed-primary fallback."""
+
 import asyncio
 import json
 import os
 import ssl
-from unittest.mock import patch
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import httpx
 import pytest
 
 from deerflow.community.web_router import providers, tools
-from deerflow.config.app_config import AppConfig, push_current_app_config, pop_current_app_config
+from deerflow.config.app_config import AppConfig, pop_current_app_config, push_current_app_config
 
 
 @pytest.fixture(autouse=True)
@@ -70,14 +71,29 @@ def test_verified_proxy_and_primary_failure_fallback(monkeypatch, operation, pri
         assert context.check_hostname and context.verify_mode == ssl.CERT_REQUIRED
         return original_client(**kwargs, transport=httpx.MockTransport(handler))
 
-    config = AppConfig.model_validate({
-        "sandbox": {"use": "deerflow.sandbox.local:LocalSandboxProvider", "allow_host_bash": False},
-        "models": [], "tool_groups": [{"name": "web"}],
-        "tools": [{"name": name, "group": "web", "use": f"deerflow.community.web_router.tools:{name}_tool",
-                   "provider_order": ["deepseek", "tavily"], "pdf_provider_order": ["deepseek", "tavily"],
-                   "max_results": 5, "max_attempts": 3, "timeout": 15, "total_timeout": 40, "max_characters": 20000,
-                   "providers": {p: {"api_key": "synthetic-" + p} for p in ("deepseek", "tavily")}}
-                  for name in ("web_search", "web_fetch")]})
+    config = AppConfig.model_validate(
+        {
+            "sandbox": {"use": "deerflow.sandbox.local:LocalSandboxProvider", "allow_host_bash": False},
+            "models": [],
+            "tool_groups": [{"name": "web"}],
+            "tools": [
+                {
+                    "name": name,
+                    "group": "web",
+                    "use": f"deerflow.community.web_router.tools:{name}_tool",
+                    "provider_order": ["deepseek", "tavily"],
+                    "pdf_provider_order": ["deepseek", "tavily"],
+                    "max_results": 5,
+                    "max_attempts": 3,
+                    "timeout": 15,
+                    "total_timeout": 40,
+                    "max_characters": 20000,
+                    "providers": {p: {"api_key": "synthetic-" + p} for p in ("deepseek", "tavily")},
+                }
+                for name in ("web_search", "web_fetch")
+            ],
+        }
+    )
     push_current_app_config(config)
     try:
         with patch.object(providers.ssl, "create_default_context", return_value=context) as factory, patch.object(providers.httpx, "AsyncClient", side_effect=client):
@@ -98,9 +114,11 @@ def test_verified_proxy_and_primary_failure_fallback(monkeypatch, operation, pri
 def test_redirect_does_not_send_key_to_second_host():
     seen = []
     original = httpx.AsyncClient
+
     def handler(request):
         seen.append(request)
         return httpx.Response(302, headers={"Location": "https://other.invalid"})
+
     with patch.object(providers.httpx, "AsyncClient", side_effect=lambda **kw: original(**kw, transport=httpx.MockTransport(handler))):
         with pytest.raises(providers.ProviderFailure) as failure:
             asyncio.run(providers._request("tavily", "search", "synthetic-key", {}, 15))
@@ -111,13 +129,14 @@ def test_equal_total_budget_roundoff_never_dispatches_backup(monkeypatch):
     # (base + 0.02) - base is slightly above 0.02 at this clock magnitude.
     base = 88888.0
     assert (base + 0.02) - base > 0.02
-    monkeypatch.setattr(tools, 'time', SimpleNamespace(monotonic=lambda: base))
-    monkeypatch.setattr(tools, '_settings', lambda *args: tools.Settings(
-        order=['deepseek', 'tavily'], keys={'deepseek': 'synthetic', 'tavily': 'synthetic'}, timeout=0.02, total_timeout=0.02))
+    monkeypatch.setattr(tools, "time", SimpleNamespace(monotonic=lambda: base))
+    monkeypatch.setattr(tools, "_settings", lambda *args: tools.Settings(order=["deepseek", "tavily"], keys={"deepseek": "synthetic", "tavily": "synthetic"}, timeout=0.02, total_timeout=0.02))
     seen = []
+
     async def timed_out(provider, *args):
         seen.append(provider)
         raise TimeoutError()
-    monkeypatch.setattr(providers, 'search', timed_out)
-    content, _ = asyncio.run(tools._aroute('search', 'q'))
-    assert seen == ['deepseek'] and 'BUDGET_EXHAUSTED' in content
+
+    monkeypatch.setattr(providers, "search", timed_out)
+    content, _ = asyncio.run(tools._aroute("search", "q"))
+    assert seen == ["deepseek"] and "BUDGET_EXHAUSTED" in content
