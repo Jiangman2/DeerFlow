@@ -1,0 +1,108 @@
+{
+  "after": {
+    "frontend": {
+      "generation": 235,
+      "spec_sha256": "ab4fc0aaa4a997803aae039494de260ab13b9a0d87b66291e0dc2824da487ea3",
+      "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+    },
+    "gateway": {
+      "generation": 400,
+      "spec_sha256": "2e323c03bedc5468bae34b7b23c8b48f03e261165522c33e8bc508d215c532d3",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "nginx": {
+      "generation": 116,
+      "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+      "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+    },
+    "nginx-security-heai-20261012-r1": {
+      "generation": 2,
+      "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+      "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d"
+    },
+    "ppt-master-runner": {
+      "generation": 58,
+      "spec_sha256": "8602f3a5cf40ff97c3f9ee36d792e0c76ae37be53469b8146be41d3409719934",
+      "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+    },
+    "provisioner": {
+      "generation": 85,
+      "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+      "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+    }
+  },
+  "before": {
+    "frontend": {
+      "generation": 234,
+      "spec_sha256": "0790a74bce5f3893327bad6c18a942b515ffd006263442718426f69f4c4cd2cf",
+      "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+    },
+    "gateway": {
+      "generation": 400,
+      "spec_sha256": "2e323c03bedc5468bae34b7b23c8b48f03e261165522c33e8bc508d215c532d3",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "nginx": {
+      "generation": 116,
+      "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+      "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+    },
+    "nginx-security-heai-20261012-r1": {
+      "generation": 2,
+      "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+      "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d"
+    },
+    "ppt-master-runner": {
+      "generation": 58,
+      "spec_sha256": "8602f3a5cf40ff97c3f9ee36d792e0c76ae37be53469b8146be41d3409719934",
+      "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+    },
+    "provisioner": {
+      "generation": 85,
+      "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+      "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+    }
+  },
+  "browser_acceptance_pending": true,
+  "cache_files_verified_per_node": 15,
+  "database_access": false,
+  "evidence_origin": "operator_pasted_output_not_direct_server_access",
+  "frontend_image": "deerflow.local/deer-flow-frontend@sha256:f53ee1253d827a3542f3cc897e8b1c82f8ccf008ddf86bc0b64d6c1074faf944",
+  "frontend_runtime_pods_verified": 2,
+  "gateway_completed_receipt": {
+    "bytes": 48800,
+    "path": "/var/lib/portal-gateway-core-activation-20261101-r1/REPORT.json",
+    "sha256": "a5dba5ccb4828822dd3200c67f93de559a95c89216b8f2cac6570a25c3fa7978"
+  },
+  "gateway_or_frontend_reexecution_required": false,
+  "historical_evidence_preserved": true,
+  "http_static_assets_verified_per_pod": 12,
+  "pasted_output_copy": {
+    "autolink_image_references_preserved": true,
+    "bytes": 11312,
+    "path": "release/service-recovery-core-20261101-r1/frontend-activation/FIELD-OUTPUT-20261102.json",
+    "sha256": "cfaeceb047fb08b4c634c46f93be8f01acb896cbe8f4a62563cc94f131c98f68"
+  },
+  "patch_request_count": 1,
+  "recorded_local_date": "2026-11-02",
+  "schema": "portal-frontend-core-runtime-field-evidence.v1",
+  "schema_migrated": false,
+  "server_private_report": {
+    "bytes": 33727,
+    "full_report_available_locally": false,
+    "full_report_hash_independently_verified": false,
+    "path": "/var/lib/portal-frontend-service-recovery-core-activation-d9699efa63c545f2816bc0f73afaff78/REPORT.json",
+    "reason": "printed output omits commands, backend snapshots, preload receipts and source pins",
+    "reported_by_operator": true,
+    "sha256": "354c39dfefb5fdad40e1aac68e3a76d2275b119502a29ef8315afd9391f63aef"
+  },
+  "services_preserved": true,
+  "source": {
+    "bytes": 9456,
+    "path": "C:\\Users\\15285\\.codex\\attachments\\4dd08afc-9008-4114-b0e2-0266acf9f646\\已粘贴的文本.txt",
+    "sha256": "3b422b7cfdc615c9c9c449a325656822f4cbbc80686c6255b4d32d5e9e966a57"
+  },
+  "status": "FRONTEND_CORE_RUNTIME_ACCEPTED_BROWSER_PENDING",
+  "unrelated_specs_preserved": true,
+  "work_datalake_activated": false
+}

@@ -147,9 +147,9 @@ class AppConfig(BaseModel):
     token_budget: TokenBudgetConfig = Field(default_factory=TokenBudgetConfig, description="Token Budget tracking and limits configuration.")
     staged_execution: StagedExecutionConfig = Field(default_factory=StagedExecutionConfig, description="Default-off sequential-stage canary; server-owned exact thread allowlist and bounded model-call budgets.")
     max_recursion_limit: int = Field(
-        default=2000,
+        default=10000,
         ge=1,
-        description="Hard server-side ceiling for a client-supplied run recursion_limit. Client values above this are clamped; loop and token guards remain the primary runaway-work controls.",
+        description="Hard server-side ceiling for a client-supplied run recursion_limit. Client values above this are clamped; loop and token guards are independent controls that apply only when enabled.",
     )
     models: list[ModelConfig] = Field(default_factory=list, description="Available models")
     sandbox: SandboxConfig = Field(

@@ -29,6 +29,7 @@ from app.gateway.dashboard_database import (
     get_dashboard_read_database_unavailable_reason,
     get_dashboard_read_session_factory,
 )
+from app.gateway.dashboard_failures import failed_run_statements
 from app.gateway.dashboard_rollups import (
     ROLLUP_SCHEMA_VERSION,
     DashboardContribution,
@@ -382,6 +383,7 @@ class ScheduledTaskUsageSummary(BaseModel):
 
 
 class RecentFailureItem(BaseModel):
+    error_truncated: bool = False
     run_id: str
     thread_id: str
     user_id: str | None
@@ -1630,90 +1632,45 @@ async def get_failed_runs(
     """Return every failed run, optionally filtered by account or name."""
 
     await require_admin_user(request, detail=_ADMIN_REQUIRED)
-    failed_filter = or_(RunRow.status.in_(_FAILED_STATUSES), RunRow.error.is_not(None))
-    owner_user_id = func.coalesce(RunRow.user_id, ThreadMetaRow.user_id)
-    rows_stmt = select(RunRow, owner_user_id.label("owner_user_id"), UserRow).outerjoin(ThreadMetaRow, ThreadMetaRow.thread_id == RunRow.thread_id).outerjoin(UserRow, UserRow.id == owner_user_id).where(failed_filter)
-    count_stmt = select(func.count()).select_from(RunRow).outerjoin(ThreadMetaRow, ThreadMetaRow.thread_id == RunRow.thread_id).outerjoin(UserRow, UserRow.id == owner_user_id).where(failed_filter)
-    normalized_query = q.strip().casefold()
-    if normalized_query:
-        pattern = f"%{normalized_query}%"
-        identity_filter = or_(
-            func.lower(UserRow.email).like(pattern),
-            func.lower(func.coalesce(UserRow.display_name, "")).like(pattern),
-        )
-        rows_stmt = rows_stmt.where(identity_filter)
-        count_stmt = count_stmt.where(identity_filter)
-
-    sf = _session_factory()
-    async with sf() as session:
-        total = int(await session.scalar(count_stmt) or 0)
-        result_rows = list(
-            (
-                await session.execute(
-                    rows_stmt.order_by(
-                        desc(RunRow.updated_at),
-                        desc(RunRow.created_at),
-                        desc(RunRow.run_id),
-                    )
-                    .limit(limit)
-                    .offset(offset)
+    count_stmt, rows_stmt = failed_run_statements(q, limit, offset)
+    step = "admission"
+    try:
+        async with asyncio.timeout(20), dashboard_query_slot(), _session_factory()() as session:
+            await apply_dashboard_statement_limits(session)
+            step = "count"
+            total = int(await session.scalar(count_stmt) or 0)
+            step = "page"
+            rows = (await session.execute(rows_stmt)).mappings().all()
+        step = "response"
+        items = []
+        for row in rows:
+            can_open = bool(row["thread_exists"] and row["has_messages"])
+            items.append(
+                RecentFailureItem(
+                    run_id=row["run_id"],
+                    thread_id=row["thread_id"],
+                    user_id=row["user_id"],
+                    email=row["email"],
+                    display_name=row["display_name"],
+                    status=row["status"],
+                    error=row["error"],
+                    error_truncated=row["error_truncated"],
+                    assistant_id=row["assistant_id"],
+                    model_name=row["model_name"],
+                    started_at=row["created_at"],
+                    updated_at=row["updated_at"],
+                    duration_ms=_duration_ms(row["created_at"], row["updated_at"]),
+                    disposition_status=row["disposition_status"],
+                    diagnostics_url=f"/workspace/admin/observability?run_id={row['run_id']}",
+                    can_open=can_open,
+                    chat_url=f"/workspace/chats/{row['thread_id']}?admin_review=1" if can_open else None,
                 )
-            ).all()
-        )
-        runs = [row[0] for row in result_rows]
-        owner_by_run = {row[0].run_id: (row[1], row[2]) for row in result_rows}
-        thread_ids = {run.thread_id for run in runs}
-        existing_thread_ids = set((await session.execute(select(ThreadMetaRow.thread_id).where(ThreadMetaRow.thread_id.in_(thread_ids)))).scalars()) if thread_ids else set()
-        message_thread_ids = (
-            set(
-                (
-                    await session.execute(
-                        select(RunEventRow.thread_id)
-                        .where(
-                            RunEventRow.thread_id.in_(thread_ids),
-                            RunEventRow.category == "message",
-                        )
-                        .distinct()
-                    )
-                ).scalars()
             )
-            if thread_ids
-            else set()
-        )
-        disposition_rows = (
-            list((await session.execute(select(OperationDispositionRow).where(OperationDispositionRow.run_id.in_({run.run_id for run in runs})).order_by(desc(OperationDispositionRow.created_at)))).scalars().all()) if runs else []
-        )
-
-    latest_disposition_by_run: dict[str, OperationDispositionRow] = {}
-    for row in disposition_rows:
-        latest_disposition_by_run.setdefault(row.run_id, row)
-
-    items: list[RecentFailureItem] = []
-    for run in runs:
-        can_open = run.thread_id in existing_thread_ids and run.thread_id in message_thread_ids
-        disposition = latest_disposition_by_run.get(run.run_id)
-        owner_id, owner = owner_by_run.get(run.run_id, (run.user_id, None))
-        items.append(
-            RecentFailureItem(
-                run_id=run.run_id,
-                thread_id=run.thread_id,
-                user_id=owner_id,
-                email=owner.email if owner else None,
-                display_name=owner.display_name if owner else None,
-                status=run.status,
-                error=run.error,
-                assistant_id=run.assistant_id,
-                model_name=run.model_name,
-                started_at=run.created_at,
-                updated_at=run.updated_at,
-                duration_ms=_duration_ms(run.created_at, run.updated_at),
-                disposition_status=(disposition.status or disposition.action) if disposition else None,
-                diagnostics_url=f"/workspace/admin/observability?run_id={run.run_id}",
-                can_open=can_open,
-                chat_url=f"/workspace/chats/{run.thread_id}?admin_review=1" if can_open else None,
-            )
-        )
-    return FailedRunList(items=items, total=total)
+        return FailedRunList(items=items, total=total)
+    except Exception as exc:
+        # Never log SQL parameters, user search text or database error bodies.
+        logger.warning("Dashboard failures unavailable: step=%s exception=%s", step, type(exc).__name__)
+        raise HTTPException(status_code=503, detail="失败运行暂时无法加载，请稍后重试。", headers={"Retry-After": "10"}) from None
 
 
 async def _build_dashboard_date_bounds() -> DashboardDateBounds:

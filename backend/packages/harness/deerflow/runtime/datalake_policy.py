@@ -44,9 +44,7 @@ def query_scope(state, context=None):
     run_key = str(context.get("run_id") or boundary)
     previous = state.get(STATE_KEY) or {}
     inherited = context.get("datalake_query_only") is True
-    retained = (previous.get("version") == SCOPE_VERSION and previous.get("run_key") == run_key
-                and (previous.get("user_boundary") == boundary or user is None and bool(context.get("run_id")))
-                and previous.get("required") is True)
+    retained = previous.get("version") == SCOPE_VERSION and previous.get("run_key") == run_key and (previous.get("user_boundary") == boundary or user is None and bool(context.get("run_id"))) and previous.get("required") is True
     if retained and user is None:
         boundary = previous["user_boundary"]
     required = inherited or retained
@@ -54,7 +52,7 @@ def query_scope(state, context=None):
     phase = previous.get("phase", "acquisition") if retained else "acquisition" if inherited else "ordinary"
     outcome = previous.get("outcome") if retained else None
     selected = set()
-    for message in messages[(index + 1) if index is not None else len(messages):]:
+    for message in messages[(index + 1) if index is not None else len(messages) :]:
         if isinstance(message, AIMessage):
             for call in message.tool_calls or []:
                 if call.get("name") in DATA_TOOLS and call.get("id"):
@@ -69,5 +67,4 @@ def query_scope(state, context=None):
                 outcome = "error" if message.status == "error" else "returned"
             elif required and message.name == "present_files" and message.status != "error":
                 phase = "complete"
-    return {"version": SCOPE_VERSION, "user_boundary": boundary, "run_key": run_key,
-            "required": bool(required), "phase": phase, "trigger": trigger, "outcome": outcome}
+    return {"version": SCOPE_VERSION, "user_boundary": boundary, "run_key": run_key, "required": bool(required), "phase": phase, "trigger": trigger, "outcome": outcome}

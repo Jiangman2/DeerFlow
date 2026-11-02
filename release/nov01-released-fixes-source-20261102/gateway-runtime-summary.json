@@ -1,0 +1,113 @@
+{
+  "business_acceptance_pending": true,
+  "dashboard_query_acceptance": {
+    "application_started": false,
+    "authenticated_http_acceptance": false,
+    "business_text_exported": false,
+    "credentials_exported": false,
+    "database_readonly": true,
+    "filtered_page_41": {
+      "rows": 0,
+      "status": "PASS",
+      "total": 0
+    },
+    "installed_query_builder_used": true,
+    "pages": [
+      {
+        "elapsed_ms": 35,
+        "page": 1,
+        "rows": 5,
+        "status": "PASS"
+      },
+      {
+        "elapsed_ms": 7,
+        "page": 2,
+        "rows": 5,
+        "status": "PASS"
+      },
+      {
+        "elapsed_ms": 118,
+        "page": 20,
+        "rows": 5,
+        "status": "PASS"
+      },
+      {
+        "elapsed_ms": 186,
+        "page": 40,
+        "rows": 5,
+        "status": "PASS"
+      },
+      {
+        "elapsed_ms": 110,
+        "page": 41,
+        "rows": 5,
+        "status": "PASS"
+      },
+      {
+        "elapsed_ms": 5135,
+        "page": 3465,
+        "rows": 4,
+        "status": "PASS"
+      },
+      {
+        "elapsed_ms": 217,
+        "page": 3466,
+        "rows": 0,
+        "status": "PASS"
+      }
+    ],
+    "provider_requests": 0,
+    "revisions": [
+      "0022_work_integration_state"
+    ],
+    "schema_migrated": false,
+    "status": "PASS",
+    "total": 17324
+  },
+  "database_modified_by_tool": false,
+  "evidence_origin": "operator_uploaded_log_not_direct_server_access",
+  "frontend_next_tool": "activate-portal-frontend-core-20261101-r1.py",
+  "frontend_next_tool_sha256": "c56e5c7d2ef3f2bd9014d77bbcf6a6fea93e0cb36dc12d1ea3df7c2c2eaeeba9",
+  "frontend_status": "234_preserved_not_activated_in_this_receipt",
+  "gateway_after": {
+    "generation": 400,
+    "spec_sha256": "2e323c03bedc5468bae34b7b23c8b48f03e261165522c33e8bc508d215c532d3",
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+  },
+  "gateway_reexecution_required": false,
+  "historical_evidence_preserved": true,
+  "image": "deerflow.local/deer-flow-gateway@sha256:5e1acd2e3276f777df4a3ddd936f18d235b2aa123e52edfc0508e7cb0ef7eb86",
+  "max_recursion_limit": 10000,
+  "receipt_reconstruction": {
+    "bytes": 48800,
+    "local_path": "release/service-recovery-core-20261101-r1/gateway-activation-r3/FIELD-REPORT-20261102.json",
+    "matches_operator_report": true,
+    "method": "remove report_path/report_bytes/report_sha256; canonical sorted compact JSON plus newline",
+    "server_path": "/var/lib/portal-gateway-core-activation-20261101-r1/REPORT.json",
+    "sha256": "a5dba5ccb4828822dd3200c67f93de559a95c89216b8f2cac6570a25c3fa7978"
+  },
+  "recorded_local_date": "2026-11-02",
+  "replicas": {
+    "availableReplicas": 70,
+    "readyReplicas": 70,
+    "replicas": 70,
+    "updatedReplicas": 70
+  },
+  "runtime_nodes": {
+    "ecs-zdz-pro-0018": 14,
+    "ecs-zdz-pro-0019": 14,
+    "ecs-zdz-pro-0020": 14,
+    "ecs-zdz-pro-0021": 14,
+    "ecs-zdz-pro-0022": 14
+  },
+  "runtime_unique_pods": 70,
+  "schema": "portal-gateway-core-runtime-field-evidence.v1",
+  "schema_migrated": false,
+  "source": {
+    "bytes": 67523,
+    "path": "C:\\Users\\15285\\Downloads\\log(6).txt",
+    "sha256": "e8b445a28f51134679dfaa2057f24f5c628368ce7b4c0e68d02b1fe01f8c4681"
+  },
+  "status": "GATEWAY_CORE_DEPLOYED_RUNTIME_VERIFIED",
+  "work_datalake_activated": false
+}

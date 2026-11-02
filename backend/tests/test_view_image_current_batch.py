@@ -42,8 +42,10 @@ def model_view(mw, state, asynchronous=False):
     copied = {**state, "messages": [*state["messages"], *update["messages"]]}
     req = SimpleNamespace(state=copied, messages=copied["messages"], override=lambda **kw: kw)
     if asynchronous:
+
         async def handler(value):
             return value
+
         result = asyncio.run(mw.awrap_model_call(req, handler))
     else:
         result = mw.wrap_model_call(req, lambda value: value)

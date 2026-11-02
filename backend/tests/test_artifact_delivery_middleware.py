@@ -1,6 +1,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 
 from deerflow.agents.middlewares.artifact_delivery_middleware import ArtifactDeliveryMiddleware
@@ -72,6 +73,20 @@ def test_existing_presented_output_is_allowed(tmp_path: Path):
         )
         is None
     )
+
+
+@pytest.mark.parametrize("reference", ["[下载](/mnt/user-data/outputs/工作 报告.pptx)", "`/mnt/user-data/outputs/工作 报告.pptx`"])
+def test_complete_published_reference_does_not_add_truncated_bare_path(tmp_path: Path, reference: str):
+    (tmp_path / "工作 报告.pptx").write_bytes(b"pptx")
+    state = _state(tmp_path, AIMessage(content=reference), artifacts=["/mnt/user-data/outputs/工作 报告.pptx"])
+    assert ArtifactDeliveryMiddleware().after_model(state, _runtime()) is None
+
+
+def test_separate_unpublished_path_is_not_hidden_by_published_reference(tmp_path: Path):
+    (tmp_path / "工作 报告.pptx").write_bytes(b"pptx")
+    content = "[下载](/mnt/user-data/outputs/工作 报告.pptx) 另一个文件 /mnt/user-data/outputs/missing.pdf"
+    state = _state(tmp_path, AIMessage(id="false-second-link", content=content), artifacts=["/mnt/user-data/outputs/工作 报告.pptx"])
+    assert ArtifactDeliveryMiddleware().after_model(state, _runtime())["jump_to"] == "model"
 
 
 def test_retry_request_receives_hidden_execution_reminder(tmp_path: Path):

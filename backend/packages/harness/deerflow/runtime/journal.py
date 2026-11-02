@@ -337,8 +337,13 @@ class RunJournal(InterruptedJournalMethods, BaseCallbackHandler):
                     reasoning = additional_kwargs.get("reasoning_content")
                     logger.warning(
                         "LLM_EMPTY_RESPONSE thread_id=%s run_id=%s langchain_run_id=%s latency_ms=%s finish_present=%s usage_present=%s reasoning_chars=%s",
-                        self.thread_id, self.run_id, rid, latency_ms,
-                        bool(finish), bool(usage_dict), len(reasoning) if isinstance(reasoning, str) else 0,
+                        self.thread_id,
+                        self.run_id,
+                        rid,
+                        latency_ms,
+                        bool(finish),
+                        bool(usage_dict),
+                        len(reasoning) if isinstance(reasoning, str) else 0,
                     )
 
             # Resolve call index

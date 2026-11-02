@@ -121,11 +121,16 @@ export function getLocalSettings(): LocalSettings {
   if (!isBrowser()) {
     return DEFAULT_LOCAL_SETTINGS;
   }
-  const json = localStorage.getItem(LOCAL_SETTINGS_KEY);
   try {
+    const json = localStorage.getItem(LOCAL_SETTINGS_KEY);
     if (json) {
       const settings = JSON.parse(json) as LocalSettingsInput;
-      return mergeLocalSettings(settings);
+      const restored = mergeLocalSettings(settings);
+      // A saved preference cannot prove this page's current HttpOnly session.
+      return {
+        ...restored,
+        context: { ...restored.context, datalake_enabled: false },
+      };
     }
   } catch {}
   return DEFAULT_LOCAL_SETTINGS;
@@ -135,5 +140,15 @@ export function saveLocalSettings(settings: LocalSettings) {
   if (!isBrowser()) {
     return;
   }
-  localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(settings));
+  try {
+    localStorage.setItem(
+      LOCAL_SETTINGS_KEY,
+      JSON.stringify({
+        ...settings,
+        context: { ...settings.context, datalake_enabled: false },
+      }),
+    );
+  } catch {
+    // Storage quotas/policies must not prevent updating or revoking in-memory state.
+  }
 }

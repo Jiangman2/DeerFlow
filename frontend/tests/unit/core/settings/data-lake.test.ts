@@ -94,5 +94,6 @@ test("shares one Data Lake value across threads and supports re-enable", () => {
 
   updateThreadSettings("thread-b", "context", { datalake_enabled: true });
   expect(getBaseSettingsSnapshot().context.datalake_enabled).toBe(true);
-  expect(getLocalSettings().context.datalake_enabled).toBe(true);
+  // Authorization belongs to the live page session, never persisted settings.
+  expect(getLocalSettings().context.datalake_enabled).toBe(false);
 });

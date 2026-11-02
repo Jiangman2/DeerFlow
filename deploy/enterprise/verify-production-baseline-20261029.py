@@ -93,6 +93,8 @@ def verify(ref=None):
     incident_delta = (result.get('candidate') or {}).get('incident_delta')
     if incident_delta:
         expected.update(incident_delta['frontend_runtime_paths'])
+    if result.get('released_delta'):
+        expected.update(result['released_delta']['frontend_runtime_paths'])
     if ref:
         names = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, 'frontend/src', 'frontend/public'], cwd=ROOT).decode().splitlines()
         actual = set(names)
@@ -107,6 +109,10 @@ def verify(ref=None):
         result.update(status='CANDIDATE_ON_PRODUCTION_BASELINE_VERIFIED', runtime_accepted=False,
                       production_baseline_runtime_accepted=True, work_update_included=True,
                       candidate_deployed=False)
+    if result.get('released_delta'):
+        result.update(status='RELEASED_DELTA_ON_HISTORICAL_BASELINE_VERIFIED',
+                      work_update_included=False, work_datalake_deferred=True,
+                      scope='Scoped November 1 source delta; historical inventories remain immutable')
     return result
 
 

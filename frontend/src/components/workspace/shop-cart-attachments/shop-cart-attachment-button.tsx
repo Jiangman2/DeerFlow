@@ -19,8 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ensureDataLakeAuthorization } from "@/core/data-lake/auth";
+import {
+  ensureDataLakeAuthorization,
+  type DataLakeAuthorizationResult,
+} from "@/core/data-lake/auth";
 import { useI18n } from "@/core/i18n/hooks";
+import { getDataLakeAuthorizationSignal } from "@/core/settings/store";
 import type {
   DownloadableNewShopCartFile,
   NewShopCartFile,
@@ -76,7 +80,13 @@ export function ShopCartAttachmentButton({
   const [loginAction, setLoginAction] = useState<"enable" | "files" | null>(
     null,
   );
-  const authorizationPending = useRef(false);
+  const mounted = useRef(true);
+  const authorizationPending = useRef<{
+    controller: AbortController;
+    lifetime: AbortSignal;
+    onReset: () => void;
+    toastId: string | number;
+  } | null>(null);
   const requestSequence = useRef(0);
   const onAddFilesRef = useRef(onAddFiles);
   const onContextChangeRef = useRef(onContextChange);
@@ -84,7 +94,7 @@ export function ShopCartAttachmentButton({
   onAddFilesRef.current = onAddFiles;
   onContextChangeRef.current = onContextChange;
   contextRef.current = context;
-  const dataLakeEnabled = context.datalake_enabled === true;
+  const dataLakeEnabled = !authorizing && context.datalake_enabled === true;
 
   const resetDataLakeUi = useCallback(() => {
     requestSequence.current += 1;
@@ -101,6 +111,30 @@ export function ShopCartAttachmentButton({
     contextRef.current = nextContext;
     onContextChangeRef.current?.(nextContext);
   }, []);
+
+  const cancelAuthorization = useCallback(() => {
+    const attempt = authorizationPending.current;
+    authorizationPending.current = null;
+    if (attempt) {
+      attempt.lifetime.removeEventListener("abort", attempt.onReset);
+      attempt.controller.abort();
+      toast.dismiss(attempt.toastId);
+    }
+    if (mounted.current) {
+      setAuthorizing(false);
+      setLoginAction(null);
+      resetDataLakeUi();
+    }
+  }, [resetDataLakeUi]);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      requestSequence.current += 1;
+      cancelAuthorization();
+    };
+  }, [cancelAuthorization]);
 
   useEffect(() => {
     if (dataLakeEnabled) {
@@ -193,18 +227,41 @@ export function ShopCartAttachmentButton({
   const authorizeDataLake = useCallback(
     async (action: "enable" | "files") => {
       if (authorizationPending.current || disabled) return;
-      authorizationPending.current = true;
+      // Revalidation revokes the previous success for both presentation and sends.
+      commitDataLakeEnabled(false);
+      resetDataLakeUi();
+      const attempt = {
+        controller: new AbortController(),
+        lifetime: getDataLakeAuthorizationSignal(),
+        onReset: cancelAuthorization,
+        toastId: toast.loading(t.inputBox.dataLakeAuthorizingDescription),
+      };
+      authorizationPending.current = attempt;
+      attempt.lifetime.addEventListener("abort", attempt.onReset, {
+        once: true,
+      });
       setAuthorizing(true);
-      const toastId = toast.loading(t.inputBox.dataLakeAuthorizingDescription);
-      let authorized;
+      let authorized: DataLakeAuthorizationResult;
       try {
-        authorized = await ensureDataLakeAuthorization();
-      } finally {
-        toast.dismiss(toastId);
-        authorizationPending.current = false;
-        setAuthorizing(false);
+        authorized = await ensureDataLakeAuthorization(
+          attempt.controller.signal,
+        );
+      } catch {
+        authorized = { ok: false } as const;
       }
+      if (
+        authorizationPending.current !== attempt ||
+        !mounted.current ||
+        attempt.lifetime.aborted
+      )
+        return;
+      attempt.lifetime.removeEventListener("abort", attempt.onReset);
+      authorizationPending.current = null;
+      toast.dismiss(attempt.toastId);
+      setAuthorizing(false);
       if (!authorized.ok) {
+        commitDataLakeEnabled(false);
+        resetDataLakeUi();
         if (authorized.code === "data_lake_login_required") {
           setNewShopCartOpen(false);
           setLoginAction(action);
@@ -212,10 +269,6 @@ export function ShopCartAttachmentButton({
           return;
         }
         setLoginAction(null);
-        if (authorized.status === 401 || authorized.status === 403) {
-          resetDataLakeUi();
-          commitDataLakeEnabled(false);
-        }
         toast.error(
           authorized.code === "data_lake_permission_denied"
             ? t.inputBox.dataLakePermissionDenied
@@ -233,6 +286,7 @@ export function ShopCartAttachmentButton({
       }
     },
     [
+      cancelAuthorization,
       commitDataLakeEnabled,
       disabled,
       loadNewShopCartFiles,
@@ -246,12 +300,18 @@ export function ShopCartAttachmentButton({
       if (enabled) {
         await authorizeDataLake("enable");
       } else {
+        cancelAuthorization();
         setLoginAction(null);
         resetDataLakeUi();
         commitDataLakeEnabled(false);
       }
     },
-    [authorizeDataLake, commitDataLakeEnabled, resetDataLakeUi],
+    [
+      authorizeDataLake,
+      cancelAuthorization,
+      commitDataLakeEnabled,
+      resetDataLakeUi,
+    ],
   );
 
   return (

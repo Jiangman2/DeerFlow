@@ -22,6 +22,19 @@ const threadModelNames = new Map<string, string | undefined>();
 let baseSettings: LocalSettings = DEFAULT_LOCAL_SETTINGS;
 let baseSettingsLoaded = false;
 let storageListenerRegistered = false;
+let dataLakeAuthorizationLifetime = new AbortController();
+
+function invalidateDataLakeAuthorization() {
+  const previous = dataLakeAuthorizationLifetime;
+  dataLakeAuthorizationLifetime = new AbortController();
+  previous.abort();
+}
+
+// Cancellation identity only: the authorization value remains in settings.context.
+export function getDataLakeAuthorizationSignal(): AbortSignal {
+  ensureStorageListenerRegistered();
+  return dataLakeAuthorizationLifetime.signal;
+}
 
 function emitChange() {
   for (const listener of listeners) {
@@ -44,6 +57,9 @@ function ensureStorageListenerRegistered() {
   }
 
   window.addEventListener("storage", handleStorage);
+  window.addEventListener("pagehide", () => {
+    updateLocalSettings("context", { datalake_enabled: false });
+  });
   storageListenerRegistered = true;
 }
 
@@ -52,6 +68,12 @@ function mergeSettingsSection<K extends keyof LocalSettings>(
   key: K,
   value: Partial<LocalSettings[K]>,
 ): LocalSettings {
+  if (
+    key === "context" &&
+    (value as Partial<LocalSettings["context"]>).datalake_enabled === false
+  ) {
+    invalidateDataLakeAuthorization();
+  }
   return {
     ...settings,
     [key]: {
@@ -69,6 +91,7 @@ function handleStorage(event: StorageEvent) {
   ensureBaseSettingsLoaded();
 
   if (event.key === null) {
+    invalidateDataLakeAuthorization();
     baseSettings = getLocalSettings();
     threadModelNames.clear();
     emitChange();
@@ -76,7 +99,16 @@ function handleStorage(event: StorageEvent) {
   }
 
   if (event.key === LOCAL_SETTINGS_KEY) {
-    baseSettings = getLocalSettings();
+    const restored = getLocalSettings();
+    // Other tabs may update preferences, but cannot grant/revoke this tab's
+    // confirmed state just by saving their (always disabled) persisted flag.
+    baseSettings = {
+      ...restored,
+      context: {
+        ...restored.context,
+        datalake_enabled: baseSettings.context.datalake_enabled,
+      },
+    };
     emitChange();
     return;
   }
