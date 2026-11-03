@@ -14,9 +14,9 @@ import tarfile
 import time
 
 HERE = Path(__file__).resolve().parent
-TAG = 'deerflow.local/deer-flow-frontend:20261103-dashboard-navigation-r1'
-ARCHIVE = 'frontend.dashboard-navigation.full.oci.tar'
-REVISION = '20261103-r1'
+TAG = 'deerflow.local/deer-flow-frontend:20261103-dashboard-navigation-r2'
+ARCHIVE = 'frontend.dashboard-navigation-r2.full.oci.tar'
+REVISION = '20261103-r2'
 TEMPLATES = {
     '0015': ('receiver/preload-portal-frontend-employee-roster-20261020-r2.CANDIDATE.py',
              'a68dcf1f762f6a871bde3a0319604de118eb938bd0c9e49af68544b9392268f6'),

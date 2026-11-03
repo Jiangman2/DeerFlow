@@ -4,9 +4,9 @@ import hashlib
 import json
 from pathlib import PurePosixPath
 
-ARCHIVE = "release/dashboard-navigation-20261103/"
+ARCHIVE = "release/dashboard-navigation-20261103-r2/"
 MANIFEST = ARCHIVE + "SOURCE.json"
-MANIFEST_SHA256 = "a9ad5b41e35090695e09578eb1e00493b6074561312b7804c582eca41a47b47e"
+MANIFEST_SHA256 = "5a8f98a6ebd63175e83f6db294e2c7f826efaa6662b69c66d7043147b7086b92"
 BASE_COMMIT = "443cbd8ab6e2e74298075976fa68af079c1f7100"
 
 
@@ -29,7 +29,7 @@ def qualify(read):
     assert manifest["production_acceptance_claimed"] is False, "DASHBOARD_NAVIGATION_OVERCLAIM"
     assert manifest["gateway_modified"] is False and manifest["database_modified"] is False, "DASHBOARD_NAVIGATION_SCOPE"
     changes = manifest["changes"]
-    assert sum(path.startswith("frontend/src/") for path in changes) == 9, "DASHBOARD_NAVIGATION_RUNTIME_SCOPE"
+    assert sum(path.startswith("frontend/src/") for path in changes) == 10, "DASHBOARD_NAVIGATION_RUNTIME_SCOPE"
     for path, row in changes.items():
         pure = PurePosixPath(path)
         assert not pure.is_absolute() and ".." not in pure.parts and "\\" not in path and pure.as_posix() == path, "DASHBOARD_NAVIGATION_PATH"

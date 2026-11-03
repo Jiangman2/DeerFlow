@@ -18,7 +18,7 @@ class NavigationSourceTests(unittest.TestCase):
 
     def test_candidate_is_not_a_production_receipt(self):
         manifest = navigation.qualify(self.read)
-        self.assertEqual(len(navigation.summary(manifest)["frontend_runtime_paths"]), 9)
+        self.assertEqual(len(navigation.summary(manifest)["frontend_runtime_paths"]), 10)
         self.assertFalse(manifest["production_acceptance_claimed"])
         self.assertFalse(manifest["gateway_modified"])
         self.assertFalse(manifest["database_modified"])

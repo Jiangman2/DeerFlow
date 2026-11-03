@@ -18,7 +18,7 @@ import frontend_slim as slim
 BASE_INVENTORY = "3e2c101edb9ca05ecb0573149af6a8e4b9d839bc896d8e0a1d795263bdf181b1"
 BASE_IMAGE = "sha256:97a84226f1c9f77871c05cebaae1fa42b7525644edc844bccf75e29518ba44c1"
 NODE = "node@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402"
-TAG = "deerflow.local/deer-flow-frontend:20261103-dashboard-navigation-r1"
+TAG = "deerflow.local/deer-flow-frontend:20261103-dashboard-navigation-r2"
 FILES = (
     "frontend/src/app/workspace/admin/dashboard/page.tsx",
     "frontend/src/components/workspace/dashboard/section-navigation.tsx",
@@ -29,8 +29,9 @@ FILES = (
     "frontend/src/core/i18n/locales/en-US.ts",
     "frontend/src/core/i18n/locales/zh-CN.ts",
     "frontend/src/app/workspace/chats/page.tsx",
+    "frontend/src/app/workspace/chats/history-page.tsx",
 )
-NEW_FILES = {FILES[1], FILES[5]}
+NEW_FILES = {FILES[1], FILES[5], FILES[9]}
 
 
 def prepare(base, inventory, out):

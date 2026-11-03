@@ -128,7 +128,7 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(m.PROTECTED[m.REPO + '@' + P.RECENT['20261102-usage-monitor-r2']],
                              P.RECENT['20261102-usage-monitor-r2'])
             self.assertEqual(m.PROTECTED[m.REPO + '@' + P.RECENT['20261102-usage-heatmap-r2']], P.RECENT['20261102-usage-heatmap-r2'])
-            self.assertIn('portal-frontend-dashboard-navigation-preload-20261103-r1', source)
+            self.assertIn('portal-frontend-dashboard-navigation-preload-20261103-r2', source)
             self.assertNotIn("20261102-usage-heatmap-r1", repr(m.PROTECTED))
             self.assertTrue(m.CONTROL.startswith("/mnt/data/" if role == "0015" else "/var/lib/"))
             m.transport_guard()

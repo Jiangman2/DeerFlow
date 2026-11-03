@@ -28,10 +28,11 @@ not continue polling. Overview does not request all lower dashboard modules.
 No backend API or database query is added by this change.
 
 The local ARM64 build starts from the exact 979-file Frontend 239 build snapshot,
-replaces seven runtime files, and adds two runtime files. The other 972 inputs,
+replaces seven runtime files, and adds three runtime files. The other 972 inputs,
 including the production CSS bytes, remain unchanged. Candidate source hashes
 and immutable enterprise-parent snapshots are recorded separately in
-`release/dashboard-navigation-20261103/SOURCE.json`. Historical inventories and
+`release/dashboard-navigation-20261103-r2/SOURCE.json`. The earlier local r1
+candidate and its source seal are retained. Historical inventories and
 operator receipts are not rewritten. The additive verifier validates the current
 candidate before exposing parent bytes to historical source checks.
 
@@ -42,8 +43,13 @@ Local validation: `pnpm check`; 29 dashboard/heatmap unit checks; six responsive
 dashboard viewports, range retention, keyboard navigation, failure pagination and
 recovery, account/monitoring states, and chat-history labels. Initial cold dev
 compilation exceeded assertions in two existing account checks; those checks
-passed after compilation. Chat document titles now use React's title element to
-avoid an imperative title update racing streamed page metadata. Source validation
+passed after compilation. The r1 production-image browser run passed 19 checks
+but exposed the default root title replacing the chat-history title. The r2
+candidate uses route-owned server metadata and keeps the interactive history
+list in a client component; it requires its own image/browser qualification.
+Source validation
 includes six candidate checks, twelve enterprise-followup checks, fifteen November
 2 checks, and six package integrity/admission checks. Build and production results
-are recorded separately rather than implied by these local tests.
+are recorded separately rather than implied by these local tests. Nine formatter
+qualification checks cover the additive navigation seal, both parent snapshots,
+unregistered drift, and historical checkouts.
