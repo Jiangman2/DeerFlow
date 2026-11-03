@@ -1,0 +1,23 @@
+{
+  "schema": "portal-dashboard-navigation-browser-acceptance.v1",
+  "evidence_source": "operator_response",
+  "accepted_on": "2026-11-04",
+  "timezone": "Asia/Shanghai",
+  "status": "FRONTEND_240_DESKTOP_MOBILE_ACCEPTED",
+  "frontend_generation": 240,
+  "manifest": "sha256:74c2e66ecc1c2e9b483faac428fc9211ff43bc0e0ed59ee141de379c678fdfb5",
+  "activation_operation": "c0a556cc43e144438f186c436027066c",
+  "activation_report_sha256": "03da2dd4e70c4adc79d7119cee1137dfb068cd9524307029b8bf2caef6104087",
+  "requested_checks": [
+    "侧栏与历史列表标题显示历史对话",
+    "桌面和手机端六个看板 Tab 显示正常",
+    "切换 Tab 后时间范围、筛选条件与分页保留",
+    "运行诊断显示最新 1000 条范围内筛选",
+    "模型监控与 OA 模块分别保留自己的时间范围"
+  ],
+  "operator_response_verbatim": "桌面和手机均正常",
+  "verification_method": "Operator confirmation of the requested browser checks, not an independently recorded production browser session",
+  "new_model_or_oa_business_call_acceptance_claimed": false,
+  "historical_runtime_receipt_preserved": true,
+  "production_commands_executed_for_this_record": false
+}

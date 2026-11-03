@@ -103,5 +103,11 @@ stable service endpoint checks. Frontend is generation 240 with spec SHA256
 Gateway remained generation 406 with its pre-existing spec hash. The other
 observed workload and service specs were preserved. No database access or
 model/OA request was made by the activation tool. This runtime acceptance does
-not establish new business-call acceptance. Desktop/mobile browser acceptance
-remains pending. Do not rerun the completed preload or activation commands.
+not establish new business-call acceptance. The runtime receipt's browser-pending
+status remains unchanged as historical evidence. On November 4, the operator
+confirmed "桌面和手机均正常" in response to the history labels, six dashboard
+sections, retained ranges/filters/pagination, latest-1000 scope copy and independent
+model/OA intervals checklist. This separate browser acceptance is recorded in
+`release/dashboard-navigation-20261103-r2/BROWSER-ACCEPTANCE.json`. The frontend
+release is accepted on desktop and mobile. Do not rerun the completed preload
+or activation commands.
