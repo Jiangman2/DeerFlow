@@ -993,3 +993,8 @@ human turn starts a new model choice without linguistic follow-up heuristics.
 Do not revive legacy keyword scopes or treat missing tools as proof of missing
 permission. Keep strict execution-time authorization and retired tools hidden.
 See docs/datalake-natural-query-routing.md for the precise boundary and tests.
+
+
+## Optional WeKnora list statistics budgets
+
+Knowledge-list count enrichment uses at most eight active library workers per event loop across requests. Each worker reads one page (100 documents) at a time and queries chunk totals sequentially. Optional enrichment has a five-second hard deadline and a 5,000-document per-library budget; busy or incomplete work preserves upstream fields without publishing partial counts. Complete upstream statistics bypass fallback work. Cancellation drains workers and releases permits. This bounds fallback statistics only, not tenant discovery, uploads or model relay traffic. Runtime/image validation remains required before release.

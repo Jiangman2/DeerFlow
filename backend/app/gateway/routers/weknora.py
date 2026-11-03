@@ -36,6 +36,9 @@ _DEFAULT_EMBEDDING_MODEL_ID = "deerflow-dashscope-embedding"
 _DEFAULT_SUMMARY_MODEL_ID = "deerflow-qwen-plus"
 _COUNT_ENRICH_CONCURRENCY = 8
 _COUNT_PAGE_SIZE = 100
+_COUNT_MAX_DOCUMENTS = 5000
+_COUNT_ENRICH_MAX_SECONDS = 5.0
+_KNOWLEDGE_COUNT_LIMITERS: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 _PRESENTATION_FILE_TYPES = ("ppt", "pptx")
 _VISUAL_DOCUMENT_FILE_TYPES = ("pdf", "doc", "docx", "ppt", "pptx")
 _SUPPORTED_PRESENTATION_PARSERS = {"markitdown", "mineru"}
@@ -518,67 +521,61 @@ def _is_processing_knowledge(item: dict[str, Any]) -> bool:
     return status in {"pending", "processing", "parsing", "unprocessed"}
 
 
+def _knowledge_count_limiter() -> asyncio.Semaphore:
+    """Share optional statistics admission across requests in this event loop."""
+    loop = asyncio.get_running_loop()
+    limiter = _KNOWLEDGE_COUNT_LIMITERS.get(loop)
+    if limiter is None:
+        limiter = asyncio.Semaphore(_COUNT_ENRICH_CONCURRENCY)
+        _KNOWLEDGE_COUNT_LIMITERS[loop] = limiter
+    return limiter
+
+
 async def _knowledge_base_counts(
     kb_id: str,
     access_token: str,
     tenant_id: str | int | None = None,
 ) -> dict[str, Any]:
-    response = await _knowledge_base_knowledge_page(
-        kb_id,
-        access_token,
-        page=1,
-        tenant_id=tenant_id,
-    )
-    items = [item for item in response["items"] if isinstance(item, dict)]
-    knowledge_count = _int_value(response.get("total"), len(items))
-    if knowledge_count > len(items):
-        remaining_pages = range(2, (knowledge_count + _COUNT_PAGE_SIZE - 1) // _COUNT_PAGE_SIZE + 1)
-        extra_pages = await asyncio.gather(
-            *[
-                _knowledge_base_knowledge_page(
-                    kb_id,
-                    access_token,
-                    page=page,
-                    tenant_id=tenant_id,
-                )
-                for page in remaining_pages
-            ],
-            return_exceptions=True,
-        )
-        for page_data in extra_pages:
-            if isinstance(page_data, Exception):
-                logger.debug("Failed to fetch all WeKnora knowledge rows for %s: %s", kb_id, page_data)
-                continue
-            items.extend(item for item in page_data["items"] if isinstance(item, dict))
-    processing_count = sum(1 for item in items if _is_processing_knowledge(item))
-
-    async def _chunk_count_for_knowledge(knowledge_id: str) -> int:
-        chunk_data = await _request(
-            "GET",
-            f"/chunks/{knowledge_id}",
-            access_token,
-            tenant_id=tenant_id,
-            params={"page": 1, "page_size": 1},
-        )
-        return _int_value(chunk_data.get("total"), 0)
-
-    chunk_counts = await asyncio.gather(
-        *[_chunk_count_for_knowledge(str(item.get("id"))) for item in items if item.get("id")],
-        return_exceptions=True,
-    )
-    chunk_count = 0
-    for count in chunk_counts:
-        if isinstance(count, Exception):
-            logger.debug("Failed to count WeKnora chunks for knowledge base %s: %s", kb_id, count)
-            continue
-        chunk_count += count
-
-    return {
-        "knowledge_count": knowledge_count,
-        "chunk_count": chunk_count,
-        "processing_count": processing_count,
-        "is_processing": processing_count > 0,
-    }
+    """Count one bounded page at a time; never fan out per document."""
+    total = None
+    seen: set[str] = set()
+    processing_count = chunk_count = 0
+    page = 1
+    while True:
+        response = await _knowledge_base_knowledge_page(kb_id, access_token, page=page, tenant_id=tenant_id)
+        items = response["items"]
+        current_total = response.get("total")
+        # Refuse unknown, changing or oversized totals rather than publishing
+        # a partial count as if it covered the whole knowledge base.
+        if type(current_total) is not int or not 0 <= current_total <= _COUNT_MAX_DOCUMENTS:
+            raise HTTPException(status_code=503, detail="Knowledge statistics budget exceeded or total unavailable.")
+        if total is None:
+            total = current_total
+        if current_total != total or len(items) > _COUNT_PAGE_SIZE:
+            raise HTTPException(status_code=503, detail="Knowledge statistics changed during collection.")
+        if not items and len(seen) != total:
+            raise HTTPException(status_code=503, detail="Knowledge statistics page is incomplete.")
+        for item in items:
+            if not isinstance(item, dict) or not item.get("id"):
+                raise HTTPException(status_code=503, detail="Knowledge statistics page is invalid.")
+            identifier = str(item["id"])
+            if identifier in seen or len(seen) >= total:
+                raise HTTPException(status_code=503, detail="Knowledge statistics page is inconsistent.")
+            seen.add(identifier)
+            data = await _request("GET", f"/chunks/{identifier}", access_token,
+                                  tenant_id=tenant_id, params={"page": 1, "page_size": 1})
+            count = data.get("total")
+            if type(count) is not int or count < 0:
+                raise HTTPException(status_code=503, detail="Knowledge chunk total is unavailable.")
+            chunk_count += count
+            processing_count += int(_is_processing_knowledge(item))
+        if len(seen) == total:
+            break
+        if len(items) != _COUNT_PAGE_SIZE:
+            raise HTTPException(status_code=503, detail="Knowledge statistics page is incomplete.")
+        page += 1
+    return dict(knowledge_count=total, chunk_count=chunk_count,
+                processing_count=processing_count, is_processing=processing_count > 0)
 
 
 async def _knowledge_base_knowledge_page(
@@ -588,33 +585,50 @@ async def _knowledge_base_knowledge_page(
     page: int,
     tenant_id: str | int | None = None,
 ) -> dict[str, Any]:
-    data = await _request(
-        "GET",
-        f"/knowledge-bases/{kb_id}/knowledge",
-        access_token,
-        tenant_id=tenant_id,
-        params={"page": page, "page_size": _COUNT_PAGE_SIZE},
-    )
+    data = await _request("GET", f"/knowledge-bases/{kb_id}/knowledge", access_token,
+                          tenant_id=tenant_id, params={"page": page, "page_size": _COUNT_PAGE_SIZE})
+    metadata = data.get("data") if isinstance(data.get("data"), dict) else data
+    if "total" not in metadata and "total" not in data:
+        raise HTTPException(status_code=503, detail="Knowledge statistics total is unavailable.")
     return _unwrap_list_response(data)
 
 
 async def _enrich_knowledge_base_counts(items: list[dict[str, Any]], access_token: str) -> None:
-    semaphore = asyncio.Semaphore(_COUNT_ENRICH_CONCURRENCY)
+    """Optional enrichment: fixed workers, no admission queue, atomic per-KB commit."""
+    limiter = _knowledge_count_limiter()
+    pending = iter(items)
 
-    async def _enrich(item: dict[str, Any]) -> None:
-        kb_id = str(item.get("id") or "")
-        if not kb_id:
-            return
-        if all(key in item for key in ("knowledge_count", "chunk_count", "processing_count", "is_processing")):
-            return
-        try:
-            async with semaphore:
+    async def worker() -> None:
+        for item in pending:
+            kb_id = str(item.get("id") or "")
+            if not kb_id or all(key in item for key in ("knowledge_count", "chunk_count", "processing_count", "is_processing")):
+                continue
+            # No await between locked() and acquire(): an available permit is
+            # acquired immediately on this event loop. Busy optional work skips.
+            if limiter.locked():
+                return
+            await limiter.acquire()
+            try:
                 tenant_id = item.get("access_tenant_id") or item.get("owner_tenant_id") or item.get("source_tenant_id") or item.get("tenant_id")
-                item.update(await _knowledge_base_counts(kb_id, access_token, tenant_id=tenant_id))
-        except HTTPException:
-            logger.debug("Failed to enrich WeKnora knowledge-base counts for %s", kb_id, exc_info=True)
+                counts = await _knowledge_base_counts(kb_id, access_token, tenant_id=tenant_id)
+                item.update(counts)
+            except HTTPException:
+                logger.debug("Skipping incomplete WeKnora statistics.")
+            finally:
+                limiter.release()
 
-    await asyncio.gather(*[_enrich(item) for item in items])
+    # An inner hard ceiling also applies if the legacy outer timeout is disabled.
+    tasks = [asyncio.create_task(worker()) for _ in range(min(len(items), _COUNT_ENRICH_CONCURRENCY))]
+    try:
+        async with asyncio.timeout(_COUNT_ENRICH_MAX_SECONDS):
+            await asyncio.gather(*tasks)
+    except TimeoutError:
+        logger.debug("Skipping WeKnora statistics after the bounded deadline.")
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 def _session_identity_fallback(session: Any) -> tuple[dict[str, Any], list[dict[str, Any]]]:
