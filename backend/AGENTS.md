@@ -1,5 +1,19 @@
 # AGENTS.md
 
+## Data Lake login contract correction (2026-11-03 candidate)
+
+CNOOC login verification uses `/apigateway/zhy/tokenCheck` directly after
+appCode acquisition; `/apigateway/kzxmw/zcjksjfw_9543` is not part of this
+authentication flow. Its two TOKEN_CHECK environment variables are no longer
+required by the shared CNOOC auth helper. A tokenCheck response-body `code=200`
+permits user-info validation; body `code=403` means the user has not logged in
+to Data Lake, even when HTTP is 200. Map that result to the existing 401
+`data_lake_login_required` UI handoff without an appCode-refresh retry. Other
+upstream failures must not be relabeled as missing login. Preserve identity
+matching, token/user binding, HttpOnly cookies and the existing bound-cookie
+fast path. This source candidate is not a deployment; historical source locks
+and build inventories remain immutable.
+
 ## Bounded diagnostics and transient image context (2026-10-31 candidate)
 
 Dashboard large-window ID lookups are batched at 1,000 parameters; retain all

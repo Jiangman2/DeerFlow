@@ -277,7 +277,7 @@ describe("ShopCartAttachmentButton", () => {
     });
   });
 
-  it("keeps Data Lake enabled when the upstream platform login is missing", async () => {
+  it("disables Data Lake when the upstream platform login is missing", async () => {
     const onContextChange = rs.fn();
     rs.mocked(fetchNewShopCartFiles).mockResolvedValue({
       ok: false,
@@ -305,7 +305,11 @@ describe("ShopCartAttachmentButton", () => {
     expect(toast.error).toHaveBeenCalledWith(
       "Please sign in to Data Lake first.",
     );
-    expect(onContextChange).not.toHaveBeenCalled();
+    expect(onContextChange).toHaveBeenCalledWith({
+      model_name: "latest-model",
+      mode: "thinking",
+      datalake_enabled: false,
+    });
   });
 
   it("does not report success when every downloaded file is rejected", async () => {

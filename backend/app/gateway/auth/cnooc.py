@@ -63,8 +63,6 @@ class CnoocAuthConfig:
     base_url: str
     app_name: str
     app_id: str
-    token_check_api_token: str
-    token_check_login_user_code: str
     user_info_api_token: str
 
 
@@ -233,8 +231,6 @@ def _load_config() -> CnoocAuthConfig:
         base_url=_require_env("CNOOC_OAUTH_BASE_URL").rstrip("/"),
         app_name=_require_env("CNOOC_OAUTH_APP_NAME"),
         app_id=_require_env("CNOOC_OAUTH_APP_ID"),
-        token_check_api_token=_require_env("CNOOC_OAUTH_TOKEN_CHECK_API_TOKEN"),
-        token_check_login_user_code=_require_env("CNOOC_OAUTH_TOKEN_CHECK_LOGIN_USER_CODE"),
         user_info_api_token=_require_env("CNOOC_OAUTH_USER_INFO_API_TOKEN"),
     )
 
@@ -366,24 +362,6 @@ async def _exchange_data_lake_token(
     return token.strip()
 
 
-async def _verify_token(client: httpx.AsyncClient, config: CnoocAuthConfig, app_code: str, token: str) -> None:
-    response = await _get_with_retry(
-        client,
-        f"{config.base_url}/apigateway/kzxmw/zcjksjfw_9543",
-        label="CNOOC token verification",
-        params={
-            "appCode": app_code,
-            "query": _query_payload("zhId", token),
-        },
-        headers={
-            "apiToken": config.token_check_api_token,
-            "loginUserCode": config.token_check_login_user_code,
-        },
-    )
-    payload = await _read_json(response, "CNOOC token verification")
-    _api_success(payload, "CNOOC token verification", 401)
-
-
 async def _fetch_user_info(client: httpx.AsyncClient, config: CnoocAuthConfig, app_code: str, token: str) -> Any:
     response = await _get_with_retry(
         client,
@@ -396,6 +374,10 @@ async def _fetch_user_info(client: httpx.AsyncClient, config: CnoocAuthConfig, a
         headers={"apiToken": config.user_info_api_token},
     )
     payload = await _read_json(response, "CNOOC user info")
+    # tokenCheck uses a business-level 403 for a missing Data Lake login,
+    # even when HTTP succeeds. Map it to the existing login-required flow.
+    if payload.get("code") == 403:
+        raise CnoocAuthError("Please sign in to Data Lake first.", 401)
     _api_success(payload, "CNOOC user info")
     return payload.get("data")
 
@@ -453,15 +435,13 @@ async def check_cnooc_token(token: str) -> CnoocTokenCheckResult:
     ) as client:
         app_code = await _fetch_app_code(client, config)
         try:
-            await _verify_token(client, config, app_code, token)
             user_info = await _fetch_user_info(client, config, app_code, token)
         except CnoocAuthError as exc:
-            if exc.status_code == 503:
+            if exc.status_code in {401, 503}:
                 raise
             global _cached_app_code
             _cached_app_code = None
             app_code = await _fetch_app_code(client, config)
-            await _verify_token(client, config, app_code, token)
             user_info = await _fetch_user_info(client, config, app_code, token)
     return _map_user_info(user_info, token)
 

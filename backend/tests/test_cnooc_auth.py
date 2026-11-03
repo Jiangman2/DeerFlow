@@ -196,8 +196,6 @@ async def test_fetch_app_code_uses_first_eight_timestamp_digits(monkeypatch):
         base_url="http://datalake.internal",
         app_name="deerflow",
         app_id="app-id",
-        token_check_api_token="token-check",
-        token_check_login_user_code="login-user",
         user_info_api_token="user-info",
     )
 
@@ -209,6 +207,54 @@ async def test_fetch_app_code_uses_first_eight_timestamp_digits(monkeypatch):
         "appId": "app-id",
         "timeStamp": "17234567",
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("business_code, expected_status", [(200, None), (403, 401), (500, 502)])
+async def test_token_check_is_the_only_login_check(monkeypatch, business_code, expected_status):
+    for key, value in {
+        "CNOOC_OAUTH_BASE_URL": "http://datalake.internal",
+        "CNOOC_OAUTH_APP_NAME": "deerflow",
+        "CNOOC_OAUTH_APP_ID": "app-id",
+        "CNOOC_OAUTH_USER_INFO_API_TOKEN": "user-info",
+    }.items():
+        monkeypatch.setenv(key, value)
+    # The removed endpoint's credentials must no longer be required.
+    monkeypatch.delenv("CNOOC_OAUTH_TOKEN_CHECK_API_TOKEN", raising=False)
+    monkeypatch.delenv("CNOOC_OAUTH_TOKEN_CHECK_LOGIN_USER_CODE", raising=False)
+    monkeypatch.setattr(cnooc, "_cached_app_code", None)
+    paths = []
+
+    async def fake_get(_client, url, *, params, headers=None, **_kwargs):
+        path = httpx.URL(url).path
+        paths.append(path)
+        if path == "/apigateway/appauth/getappid":
+            payload = {"code": 200, "data": "app-code"}
+        else:
+            assert path == "/apigateway/zhy/tokenCheck"
+            assert params == {"appCode": "app-code", "query": '{"jsonObj":{"token":"platform-token"}}'}
+            assert headers == {"apiToken": "user-info"}
+            payload = {
+                "code": business_code,
+                "msg": "您没有权限操作此功能！" if business_code == 403 else "result",
+                "bizCode": None,
+                "dataSize": 0,
+                "data": {"userid": "USER-001", "username": "user", "ryxm": "User"} if business_code == 200 else None,
+            }
+        return httpx.Response(200, request=httpx.Request("GET", url), json=payload)
+
+    monkeypatch.setattr(cnooc, "_get_with_retry", fake_get)
+    if expected_status is None:
+        result = await cnooc.check_cnooc_token("platform-token")
+        assert result.user.platform_user_id == "USER-001"
+    else:
+        with pytest.raises(CnoocAuthError) as exc_info:
+            await cnooc.check_cnooc_token("platform-token")
+        assert exc_info.value.status_code == expected_status
+    expected_paths = ["/apigateway/appauth/getappid", "/apigateway/zhy/tokenCheck"]
+    # Retain the existing appCode refresh for other upstream failures,
+    # but never retry a definitive not-logged-in response.
+    assert paths == expected_paths * (2 if business_code == 500 else 1)
 
 
 @pytest.mark.asyncio

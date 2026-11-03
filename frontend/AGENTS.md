@@ -361,13 +361,14 @@ the shared setting to `false`; a temporary Gateway failure returns 503 without
 deleting a possibly valid Cookie or preference. When the shop-cart list upstream
 instead returns HTTP 401 with `code=1` and `msg=invalid_token`, map it to
 `data_lake_login_required`, show the localized **Please sign in to Data Lake
-first** message, and retain both the HttpOnly Cookie and `datalake_enabled=true`.
+first** message, retain the HttpOnly Cookie, and reset `datalake_enabled=false`
+to remove the highlight and clear the file-list UI before offering login/retry.
 Data Lake authorization shows a busy button plus a persistent loading toast;
 the token request is bounded to 60 seconds. Only `data_lake_login_required`
 opens the sign-in dialog, with a fixed `https://datalake.cnooc/` link opened
 using `noopener noreferrer` and a reauthorize/retry action that resumes the
-original enable or file-list operation. A business login failure preserves an
-existing enabled preference. Permission denial and transient failures must not
+original enable or file-list operation. A business login failure disables the
+shared preference; successful reauthorization can enable it again. Permission denial and transient failures must not
 be classified as missing Data Lake login. Never put a Token in the entry URL.
 The Data Lake control maps `data_lake_permission_denied` to the localized **No
 Data Lake permission** message and `data_lake_login_required` to the localized
