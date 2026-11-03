@@ -1,5 +1,19 @@
 # AGENTS.md
 
+## Accepted November 2 release (operator acceptance November 3)
+
+Gateway 403 / Frontend 239 supersede the earlier component versions below.
+This PR archives the scoped released delta after PR #25; see
+`docs/nov02-released-fixes-20261103.md` and
+`release/nov02-released-fixes-source-20261103/SOURCE.json`.
+Run `python deploy/enterprise/verify-nov02-released-source-20261103.py --ref HEAD`
+and the historical baseline verifier with Python 3.12+. Keep all historical
+source inventories and operator receipts immutable. The operator confirmed
+the heatmaps and monitoring UI work; do not extend that to provider billing or
+new model/OA business-call acceptance. Work DataLake authorization remains
+deferred, database head remains 0022, and this batch does not update PPT Runner.
+Do not rerun archived production activation commands when reviewing this PR.
+
 ## Current production baseline (2026-10-29)
 
 Gateway 389 and Frontend 231 supersede the historical 387/229 baseline described

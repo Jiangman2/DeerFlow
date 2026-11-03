@@ -171,8 +171,8 @@
 }
 @media (max-width: 767px) {
   .cnooc-workspace-shell {
-    --cnooc-page-gutter: 16px;
-    --cnooc-page-top: 16px;
+    --cnooc-page-gutter: 1rem;
+    --cnooc-page-top: 1rem;
   }
 }
 
@@ -5029,6 +5029,27 @@
 .cnooc-knowledge-menu-footer button {
   min-height: 36px;
 }
+@media (max-width: 767px) {
+  /* Keep discovery controls as easy to tap as the adjacent primary actions. */
+  .cnooc-agents-page .cnooc-page-heading [role="tablist"] {
+    height: auto;
+    min-height: 48px;
+  }
+  .cnooc-agents-page .cnooc-page-heading [role="tab"],
+  .cnooc-agents-page .cnooc-page-heading input[type="search"],
+  .cnooc-knowledge-menu-header input,
+  .cnooc-knowledge-menu-header button,
+  .cnooc-knowledge-menu-footer button {
+    min-height: 44px;
+  }
+  .cnooc-knowledge-menu-header button {
+    min-width: 44px;
+  }
+  .cnooc-agents-page .cnooc-page-heading input[type="search"],
+  .cnooc-knowledge-menu-header input {
+    font-size: 16px;
+  }
+}
 .cnooc-artifact-card {
   gap: 0;
   overflow: hidden;
@@ -5367,20 +5388,20 @@ h1.cnooc-page-heading,
   h1.cnooc-page-heading,
   .cnooc-page-heading h1,
   .cnooc-module-title h1 {
-    font-size: 22px;
+    font-size: 1.375rem;
   }
   .cnooc-module-title {
-    gap: 8px;
+    gap: 0.5rem;
   }
   .cnooc-module-title-icon {
-    width: 32px;
-    height: 32px;
-    flex-basis: 32px;
-    border-radius: 10px;
+    width: 2rem;
+    height: 2rem;
+    flex-basis: 2rem;
+    border-radius: 0.625rem;
   }
   .cnooc-module-title-icon > svg {
-    width: 19px;
-    height: 19px;
+    width: 1.1875rem;
+    height: 1.1875rem;
   }
   :where(.cnooc-page-heading, [data-testid="settings-dialog"])
     [data-slot="button"] {
@@ -5689,8 +5710,7 @@ h1.cnooc-page-heading,
   :is(.cnooc-tool-voice, .cnooc-tool-polish):disabled {
   color: #8b98a8 !important;
 }
-/* One compact material-button treatment for the home and conversation composer.
-   The mobile hit area remains 44px; the inset border makes the pill feel lighter. */
+/* Preserve the desktop material pills; mobile uses an inset touch surface. */
 .cnooc-workspace-shell
   .cnooc-composer
   .cnooc-primary-tools
@@ -5728,23 +5748,34 @@ h1.cnooc-page-heading,
 }
 @media (max-width: 47.999rem) {
   .cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools {
-    gap: 6px !important;
+    inset: 4px 0.5rem auto !important;
+    gap: 0.25rem !important;
   }
   .cnooc-workspace-shell
     .cnooc-composer
     .cnooc-primary-tools
     :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge) {
-    width: 0 !important;
-    min-width: 0 !important;
-    max-width: 78px;
-    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: min-content !important;
+    max-width: none;
+    flex: 0 1 auto !important;
     height: 44px !important;
     min-height: 44px;
-    padding-inline: 0 !important;
+    gap: 0.25rem !important;
     border-color: transparent !important;
-    border-radius: 20px !important;
+    border-radius: 10px !important;
     background: transparent !important;
+    font-weight: 400 !important;
     isolation: isolate;
+  }
+  .cnooc-workspace-shell
+    .cnooc-composer
+    .cnooc-primary-tools
+    :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge)
+    > span {
+    white-space: normal;
+    word-break: keep-all;
+    line-height: 1.2;
   }
   .cnooc-workspace-shell
     .cnooc-composer
@@ -5757,9 +5788,9 @@ h1.cnooc-page-heading,
     position: absolute;
     inset: 4px 0;
     z-index: -1;
-    border: 1px solid #dce4ed;
-    border-radius: 18px;
-    background: #fff;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: #f3f6fa;
     content: "";
   }
   .cnooc-workspace-shell
@@ -5799,19 +5830,131 @@ h1.cnooc-page-heading,
     ):not(:disabled):hover::before {
     background: var(--cnooc-blue-soft);
   }
-  [data-testid="chat-composer"] .cnooc-tool-voice {
-    margin-left: auto;
+  /* A shared rem density keeps the whole mobile surface proportional. Let
+     controls size from their contents instead of dividing a narrow row into
+     equal columns that can clip the longer labels. */
+  .cnooc-workspace-shell
+    .cnooc-composer
+    :is(.cnooc-primary-tools, .cnooc-model-tools)
+    button,
+  .cnooc-workspace-shell
+    .cnooc-composer
+    :is(.cnooc-primary-tools, .cnooc-model-tools)
+    button
+    > span:not([data-slot="badge"]) {
+    font-size: 0.8125rem !important;
   }
-}
-@media (max-width: 21.875rem) {
-  .cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools {
-    gap: 4px !important;
+  .cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools > button svg {
+    width: 1rem !important;
+    height: 1rem !important;
+    flex-shrink: 0;
   }
   .cnooc-workspace-shell
     .cnooc-composer
-    .cnooc-primary-tools
-    :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge) {
-    gap: 3px !important;
+    :is(.cnooc-tool-voice, .cnooc-tool-polish) {
+    position: relative !important;
+    inset: auto !important;
+    width: 44px !important;
+    height: 44px !important;
+    flex: 0 0 44px;
+    border: 0 !important;
+    border-radius: 10px !important;
+    background: transparent !important;
+    isolation: isolate;
+  }
+  .cnooc-workspace-shell
+    .cnooc-composer
+    :is(.cnooc-tool-voice, .cnooc-tool-polish)::before {
+    position: absolute;
+    inset: 4px 0;
+    z-index: -1;
+    border-radius: 10px;
+    background: #f3f6fa;
+    content: "";
+  }
+  .cnooc-workspace-shell
+    .cnooc-composer
+    :is(.cnooc-tool-voice, .cnooc-tool-polish):not(:disabled):hover::before {
+    background: var(--cnooc-blue-soft);
+  }
+  .cnooc-workspace-shell .cnooc-composer .cnooc-tool-voice {
+    margin-left: auto;
+  }
+  .cnooc-workspace-shell .cnooc-composer .cnooc-model-tools {
+    position: absolute !important;
+    inset: auto 0.5rem 0.5rem !important;
+    height: 44px;
+    display: flex !important;
+    align-items: center;
+    gap: 0.25rem !important;
+  }
+  .cnooc-workspace-shell .cnooc-composer .cnooc-model-selector {
+    position: relative !important;
+    inset: auto !important;
+    order: 1;
+    flex: 0 1 auto;
+    width: max-content !important;
+    margin-right: auto;
+    min-width: 0;
+    max-width: none !important;
+    height: 44px !important;
+    padding-inline: 0.375rem !important;
+    gap: 0.25rem !important;
+  }
+  .cnooc-workspace-shell .cnooc-composer .cnooc-model-name {
+    width: auto;
+    min-width: 0;
+    max-width: none !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+  .cnooc-workspace-shell .cnooc-composer .cnooc-tool-mode {
+    position: relative !important;
+    inset: auto !important;
+    order: 2;
+    flex: 0 0 auto;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 44px !important;
+    padding-inline: 0.375rem !important;
+    gap: 0.25rem !important;
+  }
+  .cnooc-workspace-shell .cnooc-composer .cnooc-submit {
+    position: relative !important;
+    inset: auto !important;
+    order: 3;
+    flex: 0 0 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    width: 44px !important;
+    height: 44px !important;
+  }
+  /* These controls already have a full touch target; the older enlarged
+     pseudo-elements can otherwise overlap neighbours in the flow layout. */
+  .cnooc-workspace-shell .cnooc-composer .cnooc-model-selector::after,
+  .cnooc-workspace-shell .cnooc-composer .cnooc-submit::after {
+    display: none;
+  }
+}
+/* Important Tailwind padding utilities are layered. Put the shared mobile
+   material padding in base as well so it can replace those fixed overrides. */
+@layer base {
+  @media (max-width: 47.999rem) {
+    .cnooc-workspace-shell
+      .cnooc-composer
+      .cnooc-primary-tools
+      :is(
+        .cnooc-tool-attachments,
+        .cnooc-tool-datalake,
+        .cnooc-tool-knowledge
+      ) {
+      padding-inline: 0.3125rem !important;
+    }
   }
 }
 @media (max-width: 47.999rem) {
@@ -6027,5 +6170,534 @@ h1.cnooc-page-heading,
 @media (prefers-reduced-motion: reduce) {
   .cnooc-message-actions {
     transition: none;
+  }
+}
+
+/* Digital Employee welcome: keep materials and draft in normal flow.
+   The shared welcome offsets assume 40px rows and must not move this dock. */
+.cnooc-agent-chat-page[data-welcome="true"]
+  .cnooc-chat-main[data-has-composer-materials="true"] {
+  justify-content: flex-start;
+}
+
+.cnooc-agent-chat-page[data-welcome="true"] .cnooc-composer-dock-welcome {
+  transform: none;
+}
+
+.cnooc-agent-chat-page [data-testid="welcome-composer"] .cnooc-welcome-composer.cnooc-composer {
+  height: auto !important;
+  min-height: 192px !important;
+}
+
+.cnooc-agent-chat-page
+  [data-testid="welcome-composer"]
+  .cnooc-welcome-composer.cnooc-composer
+  > [data-slot="input-group"] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: auto !important;
+  min-height: 192px !important;
+  padding: 64px 0 76px;
+}
+
+.cnooc-agent-chat-page
+  [data-testid="welcome-composer"]
+  .cnooc-welcome-composer
+  .cnooc-composer-header {
+  position: relative !important;
+  inset: auto !important;
+  flex: 0 0 auto;
+  width: auto !important;
+  height: auto;
+  max-height: 56px;
+  margin: 0 18px;
+  padding: 0 !important;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.cnooc-agent-chat-page
+  [data-testid="welcome-composer"]
+  .cnooc-welcome-composer
+  .cnooc-composer-input {
+  position: relative !important;
+  inset: auto !important;
+  flex: 0 0 auto;
+  width: auto !important;
+  min-height: 72px !important;
+  max-height: 200px;
+  padding: 10px 28px !important;
+  overflow-y: auto;
+}
+
+@media (max-width: 767px) {
+  .cnooc-agent-chat-page [data-testid="welcome-composer"] .cnooc-welcome-composer.cnooc-composer,
+  .cnooc-agent-chat-page
+    [data-testid="welcome-composer"]
+    .cnooc-welcome-composer.cnooc-composer
+    > [data-slot="input-group"] {
+    min-height: 224px !important;
+  }
+
+  .cnooc-agent-chat-page
+    [data-testid="welcome-composer"]
+    .cnooc-welcome-composer
+    > [data-slot="input-group"] {
+    padding-top: 52px;
+  }
+
+  .cnooc-agent-chat-page
+    [data-testid="welcome-composer"]
+    .cnooc-welcome-composer
+    .cnooc-composer-header {
+    max-height: 80px;
+    margin-inline: 14px;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .cnooc-agent-chat-page
+    [data-testid="welcome-composer"]
+    .cnooc-welcome-composer
+    .cnooc-composer-input {
+    max-height: 164px;
+    padding-inline: 16px !important;
+  }
+}
+
+/* Main chat: a single visible material row, independent from the draft. */
+.cnooc-main-chat-with-notice .cnooc-chat-main[data-has-composer-materials="true"]
+  :is(.cnooc-desktop-welcome-copy, .cnooc-composer-dock-welcome) {
+  transform: none;
+}
+
+.cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
+  .cnooc-welcome-composer.cnooc-composer {
+  height: 286px !important;
+  min-height: 286px !important;
+}
+
+.cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
+  .cnooc-welcome-composer.cnooc-composer > [data-slot="input-group"] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 64px 0 68px;
+}
+
+.cnooc-main-chat-with-notice .cnooc-composer-shell[data-has-materials="true"]
+  .cnooc-composer .cnooc-composer-header {
+  --cnooc-material-row-height: 32px;
+  position: relative !important;
+  inset: auto !important;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  grid-auto-rows: var(--cnooc-material-row-height);
+  align-items: center;
+  align-content: start;
+  gap: 8px;
+  flex: 0 0 auto;
+  width: auto !important;
+  height: var(--cnooc-material-row-height) !important;
+  min-height: 0 !important;
+  max-height: var(--cnooc-material-row-height) !important;
+  margin: 0 18px;
+  padding: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.cnooc-main-chat-with-notice .cnooc-composer-shell[data-has-attachments="true"]
+  .cnooc-composer .cnooc-composer-header {
+  --cnooc-material-row-height: 56px;
+}
+
+.cnooc-main-chat-with-notice .cnooc-composer-shell[data-has-materials="true"]
+  .cnooc-composer .cnooc-composer-header::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.cnooc-main-chat-with-notice .cnooc-composer-shell[data-has-materials="true"]
+  :is(.cnooc-composer-attachment-chip, .cnooc-attachment-card, .cnooc-knowledge-scope-chip) {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
+  .cnooc-composer .cnooc-composer-input {
+  position: relative !important;
+  inset: auto !important;
+  flex: 1 1 auto;
+  width: auto !important;
+  min-height: 0 !important;
+  padding: 12px 28px !important;
+  overflow-y: auto;
+}
+
+.cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
+  .cnooc-composer :is(.cnooc-composer-textarea, [contenteditable="true"]) {
+  height: auto !important;
+  min-height: 24px !important;
+}
+
+@media (max-width: 767px) {
+  .cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
+    .cnooc-welcome-composer.cnooc-composer {
+    height: 240px !important;
+    min-height: 240px !important;
+  }
+
+  .cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
+    .cnooc-welcome-composer.cnooc-composer > [data-slot="input-group"] {
+    padding: 52px 0 60px;
+  }
+
+  .cnooc-main-chat-with-notice .cnooc-composer-shell[data-has-materials="true"]
+    .cnooc-composer .cnooc-composer-header {
+    margin-inline: 14px;
+  }
+
+  .cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
+    .cnooc-composer .cnooc-composer-input {
+    padding: 8px 16px !important;
+  }
+}
+
+/* Shared icon toolbar: compact desktop controls, with 44px mobile hit targets. */
+.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools {
+  gap: 4px !important;
+}
+.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search) {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px !important;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--cnooc-copy) !important;
+  box-shadow: none !important;
+}
+/* Remove the previous inset pill without changing the actual hit target. */
+.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search)::before {
+  content: none !important;
+}
+.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search) > svg {
+  width: 18px !important;
+  height: 18px !important;
+  flex-shrink: 0;
+}
+/* Keep names and authorization progress available to assistive technology. */
+.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search) > span:not(.cnooc-knowledge-scope-count) {
+  display: block !important;
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search):not(:disabled):hover {
+  background: #f0f4f8 !important;
+  color: var(--cnooc-blue-dark) !important;
+}
+.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-datalake[data-active="true"], .cnooc-tool-knowledge[data-active="true"], .cnooc-tool-web-search[aria-pressed="true"]):not(:disabled) {
+  background: var(--cnooc-blue-soft) !important;
+  color: var(--cnooc-blue) !important;
+}
+/* Voice and polish share the toolbar treatment, including the floating pair. */
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice, .cnooc-tool-polish) {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  flex: 0 0 36px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--cnooc-copy) !important;
+  box-shadow: none !important;
+}
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice, .cnooc-tool-polish)::before {
+  content: none !important;
+}
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice, .cnooc-tool-polish) > svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice, .cnooc-tool-polish):not(:disabled):hover {
+  background: #f0f4f8 !important;
+  color: var(--cnooc-blue-dark) !important;
+}
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice[aria-pressed="true"], .cnooc-tool-polish[data-active="true"]) {
+  background: var(--cnooc-blue-soft) !important;
+  color: var(--cnooc-blue) !important;
+}
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice, .cnooc-tool-polish):focus-visible {
+  outline: 2px solid var(--cnooc-blue);
+  outline-offset: -2px;
+}
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search, .cnooc-tool-voice, .cnooc-tool-polish):disabled {
+  color: #96a1af !important;
+  opacity: 0.6;
+}
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-primary-tools, .cnooc-model-tools) button > svg {
+  stroke-width: 1.8;
+}
+@media (max-width: 47.999rem) {
+  .cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice, .cnooc-tool-polish) {
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    flex-basis: 44px !important;
+  }
+}
+
+/* Uploaded files and knowledge references use the same single-row cards. */
+.cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"] .cnooc-composer .cnooc-composer-header {
+  --cnooc-material-row-height: 48px;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  grid-auto-rows: 48px;
+  padding-block: 0 !important;
+  align-items: stretch;
+  align-content: start;
+  gap: 8px;
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"] .cnooc-composer .cnooc-composer-header::-webkit-scrollbar {
+  display: block;
+  width: 4px;
+}
+.cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"] .cnooc-composer .cnooc-composer-header::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: #cad5e2;
+}
+/* PromptInputAttachments adds a capped wrapper around each uploaded file. */
+.cnooc-workspace-shell .cnooc-composer .cnooc-composer-header > .contents > div:has(> .cnooc-composer-attachment-chip) {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+.cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"] .cnooc-composer :is(.cnooc-composer-attachment-chip, .cnooc-attachment-card, .cnooc-knowledge-scope-chip) {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  height: 48px !important;
+  box-sizing: border-box;
+  justify-self: stretch;
+}
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 2px 1px 10px;
+  border: 1px solid #dce4ed;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: var(--cnooc-ink);
+}
+.cnooc-workspace-shell .cnooc-composer .cnooc-material-icon {
+  display: flex;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  color: var(--cnooc-blue);
+}
+.cnooc-workspace-shell .cnooc-composer .cnooc-material-icon > svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.8;
+}
+.cnooc-workspace-shell .cnooc-composer .cnooc-material-copy {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-material-name, .cnooc-material-meta) {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cnooc-workspace-shell .cnooc-composer .cnooc-material-name {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19px;
+}
+.cnooc-workspace-shell .cnooc-composer .cnooc-material-meta {
+  margin-top: 0;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 17px;
+  color: #758397;
+}
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip) > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #758397;
+}
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip) > button > svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.8;
+}
+.cnooc-workspace-shell .cnooc-composer :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip) > button:not(:disabled):hover {
+  background: #edf2f7;
+  color: #b42318;
+}
+@media (max-width: 47.999rem) {
+  .cnooc-workspace-shell .cnooc-composer :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip) > button {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+}
+.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search):focus-visible {
+  outline: 2px solid var(--cnooc-blue);
+  outline-offset: -2px;
+}
+.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools .cnooc-tool-knowledge > .cnooc-knowledge-scope-count {
+  position: absolute !important;
+  display: flex !important;
+  top: 0;
+  right: 0;
+  min-width: 14px;
+  height: 14px;
+  padding-inline: 3px;
+  border-radius: 7px;
+  background: var(--cnooc-blue) !important;
+  color: #fff !important;
+  font-size: 9px;
+  line-height: 14px;
+  pointer-events: none;
+}
+@media (max-width: 47.999rem) {
+  .cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search) {
+    flex-basis: 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+  .cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools .cnooc-tool-knowledge > .cnooc-knowledge-scope-count {
+    top: 3px;
+    right: 3px;
+  }
+}
+
+/* The one-row limit belongs to materials, never to the editable draft.
+   Explicit sizing also supports enterprise browsers without field-sizing. */
+.cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"]
+  .cnooc-composer .cnooc-composer-input {
+  min-height: 96px !important;
+  overflow: hidden;
+}
+
+.cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"]
+  .cnooc-composer :is(.cnooc-composer-textarea, [contenteditable="true"]) {
+  field-sizing: fixed;
+  height: 72px !important;
+  min-height: 72px !important;
+  max-height: 72px !important;
+  flex: 0 0 auto;
+  line-height: 24px !important;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* Submission switches from welcome to chat layout without removing knowledge
+   scope. Keep that same material rail in flow and inset from the chat border. */
+.cnooc-workspace-shell [data-testid="chat-composer"][data-has-materials="true"]
+  .cnooc-composer > [data-slot="input-group"] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: auto !important;
+  padding-top: 12px;
+}
+
+.cnooc-workspace-shell [data-testid="chat-composer"][data-has-materials="true"]
+  .cnooc-composer .cnooc-composer-header {
+  position: relative !important;
+  inset: auto !important;
+  align-self: stretch;
+  flex: 0 0 48px;
+  width: auto !important;
+  margin: 0 12px;
+  padding: 0 !important;
+  justify-content: start;
+}
+
+.cnooc-workspace-shell [data-testid="chat-composer"][data-has-materials="true"]
+  .cnooc-composer .cnooc-composer-input {
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 767px) {
+  .cnooc-workspace-shell [data-testid="chat-composer"][data-has-materials="true"]
+    .cnooc-composer > [data-slot="input-group"] {
+    padding-top: 52px;
+  }
+
+  .cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
+    .cnooc-welcome-composer.cnooc-composer {
+    height: 256px !important;
+    min-height: 256px !important;
+  }
+
+  .cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"]
+    .cnooc-composer .cnooc-composer-input {
+    min-height: 88px !important;
   }
 }

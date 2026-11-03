@@ -1,5 +1,6 @@
 "use client";
 
+
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIcon,
@@ -36,6 +37,7 @@ import {
   EmployeeClicksPanel,
   FeedbackActorsPanel,
 } from "@/components/workspace/dashboard/employee-activity-panels";
+import { ModelMonitorPanel } from "@/components/workspace/model-monitor-panel";
 import {
   useDashboardFailures,
   useDashboardDateBounds,
@@ -475,7 +477,7 @@ function RegisteredUserSessions() {
 }
 
 function UserRanking({ items }: { items: UserUsageItem[] }) {
-  const pageSize = 5;
+  const pageSize = 10;
   const [page, setPage] = useState(0);
   if (items.length === 0) return <EmptyState label="暂无用户使用数据" />;
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
@@ -485,8 +487,11 @@ function UserRanking({ items }: { items: UserUsageItem[] }) {
     (currentPage + 1) * pageSize,
   );
   return (
-    <div className="space-y-3">
-      <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div
+        data-testid="user-run-ranking-list"
+        className="max-h-72 space-y-2 overflow-y-auto pr-1 xl:max-h-none xl:flex-1 xl:basis-0"
+      >
         {pageItems.map((item, index) => (
           <div
             key={item.user_id}
@@ -2085,7 +2090,10 @@ export default function DashboardPage() {
         <ScheduledTaskUsagePanel summary={summary?.scheduled_task_usage} />
 
         <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-          <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">
+          <Card
+            data-testid="user-run-ranking"
+            className="min-h-0 min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur"
+          >
             <CardHeader>
               <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
                 <span className="flex items-center gap-2">
@@ -2097,7 +2105,7 @@ export default function DashboardPage() {
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex min-h-0 flex-1 flex-col">
               <UserRanking items={summary?.user_usage ?? []} />
             </CardContent>
           </Card>
@@ -2108,6 +2116,8 @@ export default function DashboardPage() {
           />
         </div>
 
+        <ModelMonitorPanel />
+        <ModelMonitorPanel scope="oa" />
         <RegisteredUserSessions />
 
         <div className="grid min-w-0 gap-4 xl:grid-cols-2">

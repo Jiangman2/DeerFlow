@@ -17,6 +17,7 @@ from typing import Any
 import httpx
 
 from app.gateway.oa_policy_flow_config import OAPolicyFlowConfig
+from app.gateway.oa_policy_flow_metrics import job_patch_committed, observe_claimed_job
 from app.gateway.oa_policy_flow_results import collect_result_set, public_results, read_result_snapshot
 from app.gateway.services import launch_scheduled_thread_run
 from app.gateway.upload_document_parser import (
@@ -211,6 +212,10 @@ class OAPolicyFlowService:
                 pass
 
     async def _process_claimed(self, job: dict[str, Any]) -> None:
+        with observe_claimed_job(job):
+            await self._process_claimed_observed(job)
+
+    async def _process_claimed_observed(self, job: dict[str, Any]) -> None:
         work = asyncio.create_task(self._process_claimed_body(job))
         heartbeat = asyncio.create_task(self._renew_claim_lease(job["id"]))
         try:
@@ -306,6 +311,7 @@ class OAPolicyFlowService:
         )
         if not updated:
             raise OAPolicyFlowLeaseLost(f"Lost OA policy-flow lease for {job_id}")
+        job_patch_committed(job_id, values)
 
     async def _prepare_and_launch(self, job: dict[str, Any]) -> None:
         attempt = int(job.get("process_attempts") or 0) + 1

@@ -4,7 +4,7 @@ on:
   push:
     branches: [ 'main', '2.0.x-dev' ]
   pull_request:
-    branches: [ '*', 'codex/enterprise-consolidation-20260716' ]
+    branches: [ '*', 'codex/enterprise-consolidation-20260716', 'codex/nov01-released-fixes' ]
 
 permissions:
   contents: read

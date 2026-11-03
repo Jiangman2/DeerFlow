@@ -14,6 +14,7 @@ export const DEFAULT_LOCAL_SETTINGS: LocalSettings = {
     mode: "flash",
     reasoning_effort: undefined,
     datalake_enabled: false,
+    web_search_enabled: false,
   },
 };
 
@@ -59,6 +60,7 @@ export function mergeLocalSettings(
     context: {
       ...DEFAULT_LOCAL_SETTINGS.context,
       ...settings?.context,
+      web_search_enabled: settings?.context?.web_search_enabled === true,
       datalake_enabled:
         typeof settings?.context?.datalake_enabled === "boolean"
           ? settings.context.datalake_enabled

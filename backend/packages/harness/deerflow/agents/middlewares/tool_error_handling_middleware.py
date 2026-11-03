@@ -270,6 +270,7 @@ def _build_runtime_middlewares(
     from deerflow.agents.middlewares.thread_data_middleware import ThreadDataMiddleware
     from deerflow.agents.middlewares.tool_output_budget_middleware import ToolOutputBudgetMiddleware
     from deerflow.agents.middlewares.tool_result_sanitization_middleware import ToolResultSanitizationMiddleware
+    from deerflow.agents.middlewares.web_search_middleware import WebSearchMiddleware
     from deerflow.sandbox.middleware import SandboxMiddleware
 
     # Layer 1 — outermost wrap_model_call wrappers (listed outer→inner).
@@ -285,6 +286,7 @@ def _build_runtime_middlewares(
         InputSanitizationMiddleware(),
         PlatformConfidentialityMiddleware(),
         DataLakeSourceMiddleware(),
+        WebSearchMiddleware(),
         ToolOutputBudgetMiddleware.from_app_config(app_config),
         ToolResultSanitizationMiddleware(),
     ]

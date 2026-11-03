@@ -62,15 +62,21 @@ export function ComposerAttachment({
           </DialogContent>
         </Dialog>
       ) : (
-        <span className="cnooc-attachment-icon" aria-hidden="true">
+        <span
+          className="cnooc-attachment-icon cnooc-material-icon"
+          aria-hidden="true"
+        >
           <FileText className="size-5" />
         </span>
       )}
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium" title={name}>
+      <div className="cnooc-material-copy min-w-0 flex-1">
+        <div
+          className="cnooc-material-name truncate text-sm font-medium"
+          title={name}
+        >
           {name}
         </div>
-        <div className="mt-0.5 text-xs text-slate-500">
+        <div className="cnooc-material-meta mt-0.5 text-xs text-slate-500">
           {extension && extension.length <= 10
             ? extension
             : t.uploads.attachment}

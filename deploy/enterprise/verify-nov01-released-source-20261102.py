@@ -2,19 +2,36 @@
 import argparse
 import ast
 import hashlib
+import io
 import json
 from pathlib import Path
 import subprocess
+import tarfile
+
+from released_source_20261102 import ARCHIVE as NOV02_ARCHIVE, DELTA as NOV02_DELTA, PARENT_DELTA, historical_read
 
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = "release/nov01-released-fixes-source-20261102/"
 
 
 def verify(ref=None):
+    has_nov02 = bool(subprocess.check_output(["git", "ls-tree", "--name-only", ref, NOV02_DELTA], cwd=ROOT).strip()) if ref else (ROOT / NOV02_DELTA).is_file()
+    archived = {}
+    if ref:
+        roots = ["backend/app", "backend/packages/harness", "backend/tests", "frontend/src", "frontend/tests", "skills/public/data-analysis", ARCHIVE]
+        if has_nov02:
+            roots.extend((NOV02_ARCHIVE, NOV02_DELTA, PARENT_DELTA))
+        raw = subprocess.check_output(["git", "archive", ref, *roots], cwd=ROOT)
+        with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
+            archived = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}
+
     def read(path):
         if ref:
-            return subprocess.check_output(["git", "show", ref + ":" + path], cwd=ROOT)
+            return archived[path]
         return (ROOT / path).read_bytes()
+
+    if has_nov02:
+        read = historical_read(read)
 
     digest = lambda raw: hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
     manifest = json.loads(read(ARCHIVE + "SOURCE.json"))

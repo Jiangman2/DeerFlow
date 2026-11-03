@@ -1,0 +1,170 @@
+{
+  "schema": "portal-usage-monitor-installed-field.v1",
+  "is_raw_receipt": false,
+  "evidence_source": "operator pasted r2 receipt on 2026-11-02",
+  "receipt": {
+    "automatic_retry": false,
+    "business_acceptance_pending": true,
+    "checks": [
+      {
+        "deployment": "ecs-zdz-pro-0018",
+        "job": "portal-usage-monitor-check-6f97e490d9dd",
+        "job_uid": "a2c9078e-97ac-47db-8aec-2480657e44cc",
+        "status": "PASS",
+        "job_conditions": [
+          {
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "SuccessCriteriaMet"
+          },
+          {
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "observation": {
+          "application_started": false,
+          "business_requests": 0,
+          "candidate_only_in_job": true,
+          "checks": [
+            "installed_release_overlay_matches_sealed_batch",
+            "installed_import_origins_verified",
+            "image_read_and_personal_usage_synthetic_regressions",
+            "model_oa_request_and_background_job_synthetic_regressions"
+          ],
+          "credentials_exported": false,
+          "installed_source_files": 15,
+          "migration_head_unchanged": "0022_work_integration_state",
+          "phase": "COMPLETE",
+          "preserved_baseline_sources_verified": 50,
+          "production_configuration_used": false,
+          "production_database_access": false,
+          "production_workload_modified": false,
+          "provider_requests": 0,
+          "raw_errors_exported": false,
+          "ready_for_rollout": false,
+          "schema": "portal-usage-monitor-installed-child.v1",
+          "schema_migrated": false,
+          "source_scope": "15_release_overlay_files_not_entire_image",
+          "status": "INSTALLED_USAGE_MONITOR_FEATURES_ACCEPTED",
+          "temporary_files_cleaned": true,
+          "tests": {
+            "collection_errors": 0,
+            "exitcode": 0,
+            "failed": 0,
+            "failure_nodes": [],
+            "passed": 408,
+            "skipped": 0,
+            "subtests_passed": 0
+          },
+          "work_datalake_sources_absent": true
+        },
+        "pods": [
+          {
+            "name": "portal-usage-monitor-check-6f97e490d9dd-p24dw",
+            "uid": "e91aee59-0e89-4cf1-bcce-86cf38f1003f",
+            "phase": "Succeeded",
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "deerflow.local/deer-flow-gateway@sha256:da8cbc4733f22c33c753910722f6a50452ba0147f6372dbf038447e0747af8eb",
+                "waiting_reason": null
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "deployment": "ecs-zdz-pro-0021",
+        "job": "portal-usage-monitor-check-3f34b00d28ff",
+        "job_uid": "2627db85-8650-4aee-a3ab-34bfd07f4327",
+        "status": "PASS",
+        "job_conditions": [
+          {
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "SuccessCriteriaMet"
+          },
+          {
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "observation": {
+          "application_started": false,
+          "business_requests": 0,
+          "candidate_only_in_job": true,
+          "checks": [
+            "installed_release_overlay_matches_sealed_batch",
+            "installed_import_origins_verified",
+            "image_read_and_personal_usage_synthetic_regressions",
+            "model_oa_request_and_background_job_synthetic_regressions"
+          ],
+          "credentials_exported": false,
+          "installed_source_files": 15,
+          "migration_head_unchanged": "0022_work_integration_state",
+          "phase": "COMPLETE",
+          "preserved_baseline_sources_verified": 50,
+          "production_configuration_used": false,
+          "production_database_access": false,
+          "production_workload_modified": false,
+          "provider_requests": 0,
+          "raw_errors_exported": false,
+          "ready_for_rollout": false,
+          "schema": "portal-usage-monitor-installed-child.v1",
+          "schema_migrated": false,
+          "source_scope": "15_release_overlay_files_not_entire_image",
+          "status": "INSTALLED_USAGE_MONITOR_FEATURES_ACCEPTED",
+          "temporary_files_cleaned": true,
+          "tests": {
+            "collection_errors": 0,
+            "exitcode": 0,
+            "failed": 0,
+            "failure_nodes": [],
+            "passed": 408,
+            "skipped": 0,
+            "subtests_passed": 0
+          },
+          "work_datalake_sources_absent": true
+        },
+        "pods": [
+          {
+            "name": "portal-usage-monitor-check-3f34b00d28ff-6k4pg",
+            "uid": "da34d7b6-8589-4ceb-b707-9ff52d65d860",
+            "phase": "Succeeded",
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "deerflow.local/deer-flow-gateway@sha256:da8cbc4733f22c33c753910722f6a50452ba0147f6372dbf038447e0747af8eb",
+                "waiting_reason": null
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "once_claimed": true,
+    "production_database_access": false,
+    "production_workload_modified": false,
+    "provider_requests": 0,
+    "ready_for_rollout": false,
+    "report_bytes": 4040,
+    "report_path": "/var/lib/portal-usage-monitor-installed-check-20261102-r2/REPORT.json",
+    "report_sha256": "79649202d3a2054996dd41af7ac1f2e6f6b683960a215687f7559ea76e2a807a",
+    "schema": "portal-usage-monitor-installed-images.v1",
+    "schema_migrated": false,
+    "status": "USAGE_MONITOR_IMAGES_ACCEPTED_NOT_DEPLOYED",
+    "temporary_jobs_created": [
+      {
+        "creation_requested": true,
+        "name": "portal-usage-monitor-check-6f97e490d9dd"
+      },
+      {
+        "creation_requested": true,
+        "name": "portal-usage-monitor-check-3f34b00d28ff"
+      }
+    ]
+  }
+}

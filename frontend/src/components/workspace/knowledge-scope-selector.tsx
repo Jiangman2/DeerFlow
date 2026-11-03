@@ -52,6 +52,8 @@ import {
 import { listWeKnoraTags } from "@/core/weknora/api";
 import { cn } from "@/lib/utils";
 
+import { Tooltip } from "./tooltip";
+
 export type KnowledgeScopeContext = {
   weknora_knowledge_base_ids?: string[];
   weknora_knowledge_bases?: { id: string; name: string }[];
@@ -275,8 +277,20 @@ export function KnowledgeScopeChips<T>({
           key={weknoraScopeItemKey(item)}
           title={item.kb_name ? `${item.name} · ${item.kb_name}` : item.name}
         >
-          {scopeIcon(item.type, "size-3.5 shrink-0 text-[#5575aa]")}
-          <span className="truncate">{item.name}</span>
+          <span className="cnooc-material-icon" aria-hidden="true">
+            {scopeIcon(item.type, "size-4 shrink-0")}
+          </span>
+          <span className="cnooc-material-copy">
+            <span className="cnooc-material-name">{item.name}</span>
+            <span className="cnooc-material-meta">
+              {item.type === "kb"
+                ? "知识库"
+                : item.type === "tag"
+                  ? "知识库标签"
+                  : "知识库文件"}
+              {item.type !== "kb" && item.kb_name ? ` · ${item.kb_name}` : ""}
+            </span>
+          </span>
           <button
             aria-label={`移除${item.name}`}
             className="hover:bg-muted flex size-4 shrink-0 items-center justify-center rounded-full"
@@ -536,37 +550,47 @@ export function KnowledgeScopeSelector<T>({
         }
       }}
     >
-      <DropdownMenuTrigger asChild>
-        <PromptInputButton
-          aria-label={
-            selectedItems.length > 0
-              ? `知识范围，已选择 ${selectedItems.length} 项`
-              : "知识库、标签或文件"
-          }
-          className={cn(
-            "min-w-0 gap-1.5 px-2!",
-            selectedItems.length > 0 &&
-              "border-primary bg-accent text-accent-foreground",
-            className,
-          )}
-          data-active={selectedItems.length > 0}
-          data-selected-count={selectedItems.length}
-          data-testid="knowledge-scope-trigger"
-          disabled={disabled}
-          type="button"
-        >
-          <BookOpenIcon className="size-3.5" />
-          <span className="text-xs font-normal whitespace-nowrap">知识库</span>
-          {selectedItems.length > 0 && (
-            <span
-              className="cnooc-knowledge-scope-count bg-primary text-primary-foreground flex min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-4 font-semibold"
-              data-testid="knowledge-scope-count"
-            >
-              {selectedItems.length}
+      <Tooltip
+        content={
+          selectedItems.length > 0
+            ? `知识库，已选择 ${selectedItems.length} 项`
+            : "选择知识库、标签或文件"
+        }
+      >
+        <DropdownMenuTrigger asChild>
+          <PromptInputButton
+            aria-label={
+              selectedItems.length > 0
+                ? `知识范围，已选择 ${selectedItems.length} 项`
+                : "知识库、标签或文件"
+            }
+            className={cn(
+              "min-w-0 gap-1.5 px-2!",
+              selectedItems.length > 0 &&
+                "border-primary bg-accent text-accent-foreground",
+              className,
+            )}
+            data-active={selectedItems.length > 0}
+            data-selected-count={selectedItems.length}
+            data-testid="knowledge-scope-trigger"
+            disabled={disabled}
+            type="button"
+          >
+            <BookOpenIcon className="size-3.5" />
+            <span className="text-xs font-normal whitespace-nowrap">
+              知识库
             </span>
-          )}
-        </PromptInputButton>
-      </DropdownMenuTrigger>
+            {selectedItems.length > 0 && (
+              <span
+                className="cnooc-knowledge-scope-count bg-primary text-primary-foreground flex min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-4 font-semibold"
+                data-testid="knowledge-scope-count"
+              >
+                {selectedItems.length}
+              </span>
+            )}
+          </PromptInputButton>
+        </DropdownMenuTrigger>
+      </Tooltip>
       <DropdownMenuContent
         align="start"
         className="cnooc-knowledge-menu flex min-h-0 w-[min(24rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border-[#ccd8e9] p-0 shadow-xl"

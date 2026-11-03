@@ -197,7 +197,7 @@ test.describe("mobile WebView workspace", () => {
     await expectNoPageOverflow(page, 390);
   });
 
-  test("phone welcome keeps the composer compact and actions on horizontal rails", async ({
+  test("phone welcome keeps compact icon controls and a horizontal suggestion rail", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 320, height: 568 });
@@ -247,14 +247,25 @@ test.describe("mobile WebView workspace", () => {
       ),
     ).toBeHidden();
 
+    // Check each control's role and visibility without requiring microphone
+    // permission or recording support in the test browser.
+    const buttons = tools.getByRole("button");
+    const controls = [
+      buttons.and(tools.locator(".cnooc-tool-attachments")),
+      buttons.and(tools.locator(".cnooc-tool-datalake")),
+      buttons.and(tools.getByTestId("knowledge-scope-trigger")),
+      buttons.and(tools.getByTestId("web-search-toggle")),
+      buttons.and(tools.getByTestId("voice-input-button")),
+      buttons.and(tools.getByTestId("polish-input-button")),
+    ];
+    for (const control of controls) {
+      await expect(control).toBeVisible();
+    }
+
     const [composerBox, toolMetrics, suggestionMetrics] = await Promise.all([
       composer.locator(".cnooc-welcome-composer").boundingBox(),
       tools.evaluate((element) => ({
-        clientWidth: element.clientWidth,
-        scrollWidth: element.scrollWidth,
         flexWrap: getComputedStyle(element).flexWrap,
-        left: element.getBoundingClientRect().left,
-        right: element.getBoundingClientRect().right,
         buttons: [...element.querySelectorAll("button")].map((button) => {
           const box = button.getBoundingClientRect();
           return {
@@ -274,18 +285,16 @@ test.describe("mobile WebView workspace", () => {
     expect(composerBox).not.toBeNull();
     expect(composerBox!.height).toBeLessThan(190);
     expect(toolMetrics.flexWrap).toBe("nowrap");
-    // The refined three-button row fits this viewport; do not require overflow.
-    expect(toolMetrics.scrollWidth).toBeLessThanOrEqual(
-      toolMetrics.clientWidth + 1,
-    );
-    expect(toolMetrics.buttons).toHaveLength(3);
+    // All six compact controls stay in one row inside the composer.
     for (const button of toolMetrics.buttons) {
-      expect(button.left).toBeGreaterThanOrEqual(toolMetrics.left - 1);
-      expect(button.right).toBeLessThanOrEqual(toolMetrics.right + 1);
       expect(button.height).toBeGreaterThanOrEqual(32);
       expect(
         Math.abs(button.top - toolMetrics.buttons[0]!.top),
       ).toBeLessThanOrEqual(1);
+      expect(button.left).toBeGreaterThanOrEqual(composerBox!.x);
+      expect(button.right).toBeLessThanOrEqual(
+        composerBox!.x + composerBox!.width,
+      );
     }
     expect(suggestionMetrics.scrollWidth).toBeGreaterThan(
       suggestionMetrics.clientWidth,

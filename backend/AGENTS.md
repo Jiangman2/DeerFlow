@@ -1,5 +1,19 @@
 # AGENTS.md
 
+## Released monitoring and tool controls (November 2)
+
+Gateway 403 includes browser-default-off web_search/web_fetch request controls
+propagated to subagents; legacy callers omitting the option retain their prior
+behavior. It also includes bounded image/binary text-read rejection, personal usage aggregates,
+and model/OA telemetry. Preserve authentication and admin checks on monitoring;
+HTTP query values are strings limited to 15/60 before conversion to integers.
+Operational monitoring must not add business-database reads or block/retry a
+provider/OA operation. Keep memory/Redis cardinality, TTL, byte and time bounds;
+unknown data must not become a healthy zero. Personal aggregates retain owner
+indexes, read-only deadlines and caching. Concurrency is sampled, not exact peak
+or provider-side concurrency. Work grant hooks and migration 0023 are excluded.
+See `docs/nov02-released-fixes-20261103.md` for source and acceptance scope.
+
 ## Bounded diagnostics and transient image context (2026-10-31 candidate)
 
 Dashboard large-window ID lookups are batched at 1,000 parameters; retain all

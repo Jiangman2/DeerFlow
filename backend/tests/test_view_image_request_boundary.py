@@ -136,6 +136,8 @@ def test_failed_repeat_view_does_not_reuse_previous_metadata(tmp_path, error_res
     current = state(tmp_path)
     current["messages"][-1] = error_result
     mw = ViewImageMiddleware()
+    # An unsuccessful repeat produces no new reference, rather than an empty
+    # synthetic HumanMessage that could be confused with the previous image.
     assert mw.before_model(current, None) is None
     with patch.object(mw, "_read_image_as_data_url", side_effect=AssertionError("failed view must not read old image")):
         assert inline(mw._model_messages(request(current))) == []

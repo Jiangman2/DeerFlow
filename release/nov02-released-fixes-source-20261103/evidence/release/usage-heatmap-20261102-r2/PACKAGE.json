@@ -1,0 +1,43 @@
+{
+  "schema": "portal-usage-heatmap-frontend-package.v1",
+  "manifest": "sha256:97a84226f1c9f77871c05cebaae1fa42b7525644edc844bccf75e29518ba44c1",
+  "config": "sha256:4fc66c46ee6ee3e7afaea4127a915c79f90cf4a9376b39461a5b3943727d6930",
+  "qualified_image_id": "sha256:97a84226f1c9f77871c05cebaae1fa42b7525644edc844bccf75e29518ba44c1",
+  "tag": "deerflow.local/deer-flow-frontend:20261102-usage-heatmap-r2",
+  "archive": "frontend.usage-heatmap-r2.full.oci.tar",
+  "transport": {
+    "bytes": 127414784,
+    "sha256": "b031eb5062d3389261b0ea9055f4a8d13e3cbdaa43e1c6897ec2534822595b24"
+  },
+  "scripts": {
+    "0015": {
+      "bytes": 88797,
+      "sha256": "08344eb15def92b09a822564663b3998e53cd5471b4e48629d7a2cbf9e4b5e7e",
+      "file": "preload-portal-frontend-usage-heatmap-0015-20261102-r2.py",
+      "hostname": "ecs-zdz-pro-0015",
+      "expected_node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+      "prior_importer_sha256": "a68dcf1f762f6a871bde3a0319604de118eb938bd0c9e49af68544b9392268f6"
+    },
+    "datax02": {
+      "bytes": 90382,
+      "sha256": "91a3bed3681977e566dfa69ffa0270f131e3d76c2832f2a3a53835a9af331c6d",
+      "file": "preload-portal-frontend-usage-heatmap-datax02-20261102-r2.py",
+      "hostname": "datax-02",
+      "expected_node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+      "prior_importer_sha256": "d885b1a68e9427adbebe1ba1e911bbb4d3bc5ff85e965d2bc3dc1608eaf77804"
+    }
+  },
+  "qualification_pin": {
+    "bytes": 2236,
+    "sha256": "9e1428139fc9e6edfb3502f7dadd16b90409ddee6d769b7b7e9a8c896405e2b2"
+  },
+  "source_inventory_pin": {
+    "bytes": 170976,
+    "sha256": "3e2c101edb9ca05ecb0573149af6a8e4b9d839bc896d8e0a1d795263bdf181b1"
+  },
+  "capacity_checked_before_once_claim": true,
+  "old_references_preserved": true,
+  "fresh_node_uid_check_required_at_activation": true,
+  "production_workload_mutation": false,
+  "ready_for_rollout": false
+}

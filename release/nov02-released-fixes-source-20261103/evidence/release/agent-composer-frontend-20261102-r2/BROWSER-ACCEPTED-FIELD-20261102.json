@@ -1,0 +1,28 @@
+{
+  "schema": "portal-agent-composer-browser-field.v2",
+  "status": "DEPLOYED_RUNTIME_AND_USER_UI_ACCEPTED",
+  "acceptance_date": "2026-11-02",
+  "acceptance_source": "direct_user_confirmation",
+  "user_response": "桌面和手机均正常",
+  "question_item_id": "call_0e8dc2aaf5004c6089433a25179fe76a:0",
+  "frontend": {
+    "generation": 236,
+    "spec_sha256": "b6632dd94dbae06ec79f1952e0fa5ccc299a0410d9e4d533ebcf6589648945d5",
+    "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+  },
+  "image": "sha256:b27c3d82481566e88613aad15a1033f63ff2c04a646db82cc49c2731cc4c9db6",
+  "runtime_evidence": {
+    "path": "deploy/enterprise/agent-composer-frontend-runtime-accepted-field-20261102-r2.json",
+    "sha256": "8eb19a54b6e4ddffeaaa0604cceac7572585c006b3816cfa2f5cd98c125ed41d"
+  },
+  "confirmed_scope": [
+    "desktop_single_row_attachment_height_and_vertical_scroll",
+    "draft_and_employee_introduction_not_obscured",
+    "scrolled_attachment_deletion",
+    "mobile_layout"
+  ],
+  "browser_acceptance_pending": false,
+  "independent_production_browser_automation_performed": false,
+  "production_commands_run_for_this_acknowledgement": 0,
+  "previous_evidence_preserved": true
+}

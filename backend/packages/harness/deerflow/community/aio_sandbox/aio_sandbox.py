@@ -7,6 +7,7 @@ import shlex
 import threading
 import uuid
 
+import httpx
 from agent_sandbox import Sandbox as AioSandboxClient
 from agent_sandbox.core.api_error import ApiError
 
@@ -14,10 +15,13 @@ from deerflow.config.paths import VIRTUAL_PATH_PREFIX
 from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
 from deerflow.sandbox.sandbox import Sandbox, _validate_extra_env
 from deerflow.sandbox.search import GrepMatch, path_matches, should_ignore_path, truncate_line
+from deerflow.sandbox.text_read_policy import image_text_read_error
 
 logger = logging.getLogger(__name__)
 
 _MAX_DOWNLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
+_TEXT_READ_REQUEST_OPTIONS = {"timeout_in_seconds": 30, "max_retries": 0}
+_TEXT_READ_TIMEOUT = "Error: READ_FILE_TIMEOUT. The sandbox text-read request timed out. No shell fallback was started. Check sandbox availability before retrying; this is not a successful file read."
 
 _ERROR_OBSERVATION_SIGNATURE = "'ErrorObservation' object has no attribute 'exit_code'"
 _BASH_EXIT_SENTINEL = "__DEERFLOW_BASH_EXIT_CODE__="
@@ -331,9 +335,19 @@ class AioSandbox(Sandbox):
         Returns:
             The content of the file.
         """
+        rejection = image_text_read_error(path)
+        if rejection:
+            return rejection
         try:
-            result = self._client.file.read_file(file=path)
+            result = self._client.file.read_file(file=path, request_options=dict(_TEXT_READ_REQUEST_OPTIONS))
             return result.data.content if result.data else ""
+        except UnicodeDecodeError:
+            # Binary bytes cannot be repaired by sending them through cat.
+            raise
+        except (httpx.TimeoutException, TimeoutError):
+            return _TEXT_READ_TIMEOUT
+        except httpx.TransportError:
+            return "Error: READ_FILE_TRANSPORT. The sandbox text-read connection failed. Check sandbox availability before retrying."
         except Exception as e:
             # Some agent-sandbox SDK/runtime combinations raise while parsing
             # the file endpoint's error response (for example a missing file is
@@ -350,9 +364,12 @@ class AioSandbox(Sandbox):
                 fallback = self._client.shell.exec_command(
                     command=_capture_bash_exit_code(f"cat -- {shlex.quote(normalized)}"),
                     no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT,
+                    request_options=dict(_TEXT_READ_REQUEST_OPTIONS),
                 )
                 output = fallback.data.output if fallback and fallback.data else ""
                 return _normalize_bash_exit_output(output)
+            except (httpx.TimeoutException, TimeoutError):
+                return "Error: READ_FILE_TIMEOUT. The sandbox compatibility text-read request timed out. Check sandbox availability before retrying; this is not a successful file read."
             except Exception as fallback_error:
                 logger.error(
                     "Failed to read file in sandbox through file and shell channels (%s; %s)",

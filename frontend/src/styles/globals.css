@@ -399,6 +399,19 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  /* Keep the mobile rem scale independent of browser default-font preferences.
+     This controls web text inflation, not native WebView textZoom; pinch zoom
+     remains available through the viewport configuration. */
+  @media (max-width: 767px), (pointer: coarse) {
+    html {
+      /* One density scale for rem-based text, icons, spacing, and dialogs.
+         Keep the compact end readable instead of shrinking without a floor. */
+      font-size: clamp(14px, 4.102564vw, 16px);
+      text-size-adjust: none;
+      -webkit-text-size-adjust: none;
+    }
+  }
+
   * {
     @apply border-border;
     outline-color: rgba(
