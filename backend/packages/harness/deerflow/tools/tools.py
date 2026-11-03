@@ -1,4 +1,5 @@
 import logging
+import os
 from collections.abc import Iterable
 
 from langchain.tools import BaseTool
@@ -21,6 +22,17 @@ DATALAKE_TOOL_NAMES = frozenset(
         "datalake_data_qa",
     }
 )
+
+
+def _browser_navigation_frozen(name: str) -> bool:
+    """Temporary registration freeze, including MCP server-prefixed names.
+
+    Explicit restoration is operator-controlled; other browser/web tools are
+    unaffected. This is tool availability, not a network security boundary.
+    """
+    if os.getenv("DEERFLOW_BROWSER_NAVIGATE_ENABLED", "").strip().lower() == "true":
+        return False
+    return name == "browser_navigate" or name.endswith("_browser_navigate")
 
 
 def filter_tools_by_datalake_scope(tools: Iterable[BaseTool], *, enabled: bool | None) -> list[BaseTool]:
@@ -86,6 +98,7 @@ def get_available_tools(
     """
     config = app_config or get_app_config()
     tool_configs = [tool for tool in config.tools if groups is None or tool.group in groups]
+    tool_configs = [tool for tool in tool_configs if not _browser_navigation_frozen(tool.name)]
 
     # Do not expose host bash by default when LocalSandboxProvider is active.
     if not is_host_bash_allowed(config):
@@ -197,6 +210,8 @@ def get_available_tools(
     seen_names: set[str] = set()
     unique_tools: list[BaseTool] = []
     for t in all_tools:
+        if _browser_navigation_frozen(t.name):
+            continue
         if t.name in RETIRED_DATALAKE_TOOL_NAMES:
             continue
         if t.name not in seen_names:

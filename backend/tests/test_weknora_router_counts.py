@@ -597,7 +597,8 @@ async def test_enrich_knowledge_base_counts_trusts_complete_upstream_counts(monk
 
 
 @pytest.mark.asyncio
-async def test_list_knowledge_bases_returns_when_count_enrichment_times_out(monkeypatch):
+@pytest.mark.parametrize("legacy_timeout", ["0", "0.01", "5"])
+async def test_list_knowledge_bases_never_automatically_enriches_counts(monkeypatch, legacy_timeout):
     async def fake_session(user):
         return SimpleNamespace(token="token", tenant={"id": "tenant-1"})
 
@@ -621,17 +622,22 @@ async def test_list_knowledge_bases_returns_when_count_enrichment_times_out(monk
         raise AssertionError(path)
 
     async def slow_enrichment(items, access_token):
-        await asyncio.sleep(1)
+        pytest.fail("List reads must never attempt count enrichment")
 
     monkeypatch.setattr(weknora, "ensure_weknora_session_for_deerflow_user", fake_session)
     monkeypatch.setattr(weknora, "_request", fake_request)
     monkeypatch.setattr(weknora, "_enrich_knowledge_base_counts", slow_enrichment)
-    monkeypatch.setenv("WEKNORA_KB_COUNT_TIMEOUT_SECONDS", "0.01")
+    monkeypatch.setenv("WEKNORA_KB_COUNT_TIMEOUT_SECONDS", legacy_timeout)
 
     response = await weknora.list_knowledge_bases(user=SimpleNamespace())
 
     assert response["total"] == 1
     assert response["items"][0]["id"] == "kb-1"
+    assert "knowledge_count" not in response["items"][0]
+    assert response["count_summary"]["auto_enrichment_enabled"] is False
+    assert response["count_summary"]["missing_before"] == 1
+    assert response["count_summary"]["missing_after"] == 1
+    assert response["count_summary"]["enriched"] == 0
 
 
 def test_float_env_uses_default_for_invalid_values(monkeypatch):

@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 import json
 
 import httpx
@@ -42,7 +43,22 @@ class _Response:
         return self._payload
 
 
-class _Client:
+    headers = {}
+
+    async def aiter_raw(self, chunk_size=16384):
+        raw = json.dumps(self._payload).encode()
+        for i in range(0, len(raw), chunk_size):
+            yield raw[i:i + chunk_size]
+
+
+class _StreamingClient:
+    @asynccontextmanager
+    async def stream(self, method, url, **kwargs):
+        assert method == "POST"
+        yield await self.post(url, **kwargs)
+
+
+class _Client(_StreamingClient):
     def __init__(self, response: _Response, calls: list):
         self.response = response
         self.calls = calls
@@ -163,7 +179,7 @@ async def test_bailian_embedding_adapter_maps_upstream_and_network_failures(monk
     assert upstream.value.status_code == 502
     assert "429" in str(upstream.value.detail)
 
-    class _FailingClient:
+    class _FailingClient(_StreamingClient):
         async def __aenter__(self):
             return self
 

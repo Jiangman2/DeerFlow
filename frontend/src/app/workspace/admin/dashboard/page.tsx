@@ -1219,7 +1219,7 @@ function FailedRuns({
         <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
           <span className="flex items-center gap-2">
             <AlertTriangleIcon className="size-4" />
-            全部失败运行（
+            最近失败运行（
             {isError
               ? "暂不可用"
               : total === undefined
@@ -1228,7 +1228,7 @@ function FailedRuns({
             ）
           </span>
           <span className="text-xs font-normal text-slate-500">
-            全历史 · 点击可查看只读错误诊断
+            最新 1000 条范围内筛选 · 点击可查看只读错误诊断
           </span>
         </CardTitle>
         <div className="flex items-center gap-2">
@@ -1279,7 +1279,7 @@ function FailedRuns({
           <EmptyState
             label={
               searchQuery
-                ? "没有匹配该账号或姓名的失败运行"
+                ? "最新 1000 条中没有匹配该账号或姓名的失败运行"
                 : "目前没有失败运行"
             }
           />

@@ -120,13 +120,13 @@ for (const width of [1440, 390]) {
         await page.goto(`${baseURL}/workspace/admin/dashboard`);
         const card = page
           .locator('[data-slot="card"]')
-          .filter({ hasText: "全部失败运行" });
+          .filter({ hasText: "最近失败运行" });
         await expect(card.getByText("1 / 41", { exact: true })).toBeVisible();
         await card.getByRole("button", { name: "下一页", exact: true }).click();
         await expect(card.getByRole("status")).toContainText(
           "正在加载失败运行",
         );
-        await expect(card.getByText(/全部失败运行（加载中）/)).toBeVisible();
+        await expect(card.getByText(/最近失败运行（加载中）/)).toBeVisible();
         await expect.poll(() => typeof release).toBe("function");
         release!();
         for (let displayed = 2; displayed < failedPage; displayed++) {
@@ -138,8 +138,8 @@ for (const width of [1440, 390]) {
             .click();
         }
         await expect(card.getByRole("alert")).toContainText("HTTP 500");
-        await expect(card.getByText("全部失败运行（暂不可用）")).toBeVisible();
-        await expect(card.getByText("全部失败运行（0）")).toHaveCount(0);
+        await expect(card.getByText("最近失败运行（暂不可用）")).toBeVisible();
+        await expect(card.getByText("最近失败运行（0）")).toHaveCount(0);
         await expect(page.getByText("PRIVATE SQL DETAILS")).toHaveCount(0);
         await page.waitForTimeout(3500);
         expect(offsets.filter((n) => n === failedOffset)).toHaveLength(1);

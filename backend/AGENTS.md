@@ -2049,10 +2049,10 @@ in-cluster hop. The relay bypasses environment proxies with `trust_env=false`.
 Qwen3 embeddings are fixed to 1024 Matryoshka dimensions; when the approved
 endpoint returns 4096 values, the relay takes the 1024-value prefix and
 L2-normalizes it. Do not change that dimension without rebuilding every
-affected knowledge-base index. The approved retrieval credential admits 200
-concurrent upstream requests. Keep `WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY=200`
-as both the default and hard Gateway ceiling while retaining WeKnora's 2+1
-document worker limits. Gateway retries transient business code `10020` with bounded backoff
+affected knowledge-base index. The upstream credential capacity is independent of Gateway memory admission.
+Both embedding routes share a default and hard ceiling of eight requests per
+event loop (`WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY` may lower it), while
+retaining WeKnora's 2+1 document worker limits. Gateway retries transient business code `10020` with bounded backoff
 to absorb brief shared-capacity races while rerank requests retain their
 independent path.
 The workspace knowledge-base adapter refreshes `/auth/me` memberships before
@@ -2335,4 +2335,63 @@ See docs/datalake-natural-query-routing.md for the precise boundary and tests.
 
 ## Optional WeKnora list statistics budgets
 
-Knowledge-list count enrichment uses at most eight active library workers per event loop across requests. Each worker reads one page (100 documents) at a time and queries chunk totals sequentially. Optional enrichment has a five-second hard deadline and a 5,000-document per-library budget; busy or incomplete work preserves upstream fields without publishing partial counts. Complete upstream statistics bypass fallback work. Cancellation drains workers and releases permits. This bounds fallback statistics only, not tenant discovery, uploads or model relay traffic. Runtime/image validation remains required before release.
+Knowledge-list requests use upstream statistics only. Preserve absent fields as absent; never automatically call the legacy private count-enrichment helper or enumerate documents/chunks for display totals. The legacy WEKNORA_KB_COUNT_TIMEOUT_SECONDS setting cannot re-enable list enrichment. Existing private helper bounds are retained for compatibility/tests but are not a list-route fallback. Runtime/image validation remains required before release.
+
+
+### Bounded knowledge statistics, failure history and embedding relay
+
+Knowledge-list count fallback is disabled. Preserve upstream counts without
+filling absent values or publishing partial/zero totals.
+The failed-run list and identity search operate within the latest 1000 failures
+(updated_at, created_at, run_id descending); total is scoped to that window.
+Its count never counts all historical failure rows. Deploy the companion partial
+ordering index after DBA review to avoid a full historical sort; LIMIT alone does
+not guarantee bounded database work. The frontend labels the window explicitly.
+Both embedding endpoints share an event-loop-local ceiling of eight ASGI
+requests. Admission precedes body consumption and remains held through response
+send/cancellation. Full capacity returns 429 with Retry-After: 2 without reading
+the body; verify the WeKnora worker retries this status before production rollout.
+Request JSON is read incrementally with an 8 MiB hard maximum and a 30-second
+read deadline. Upstream embedding JSON is read incrementally with a 16 MiB hard
+maximum; unexpected content encoding is rejected rather than decompressed without
+a bound. Existing credentials, TLS/proxy policy and vector validation are retained.
+These are per-event-loop limits, not a global cluster budget or an RSS guarantee.
+The historical OOM root cause is not established by these protective changes.
+
+
+Knowledge-list responses expose count_summary using the four-field presence gate.
+Count deduplicated returned libraries only; scope is current_user_returned_libraries,
+never the platform total. auto_enrichment_enabled is false, enriched is zero and
+missing_before equals missing_after. Report per-field missing counts and known
+listing request failures. A zero failure count does not certify complete upstream
+pagination. Existing null/stale fields are not validated by this diagnostic.
+Log aggregate counts only, without new user/library identifiers or credentials,
+and perform no additional I/O. Missing counts do not authorize enrichment.
+
+
+### Temporary model-performance load-test diagnostics
+
+`DEERFLOW_LLM_PERFORMANCE_LOGS=true` enables two content-free JSON LLM_PERF
+records per RobustChatOpenAI invocation (including CNOOC V4.1), independently
+of legacy timing and admission-limit flags. Keep admission, cancellation and
+generator-close cleanup balanced. No prompt/output bodies, per-token logs,
+database writes or unbounded history caches. First effective/reasoning/content/
+tool times exclude empty and usage-only chunks; non-stream TTFT is unknown.
+Concurrency is process-local and model-scoped, not a provider-wide gauge.
+See docs/llm-performance-loadtest.md and scripts/llm_performance_report.py
+at repository root. Tests include test_llm_performance and
+test_llm_performance_adapter; MockTransport is mandatory in adapter tests.
+
+
+### Temporary browser navigation freeze (November 3)
+
+`get_available_tools` excludes browser_navigate and MCP server-prefixed names
+ending in _browser_navigate by default, before the agent/deferred catalog is
+built. Filter configured names before importing and actual tool names at final
+assembly, so aliases cannot accidentally register the navigation tool. Other
+browser and web tools retain their existing policies. An operator may restore
+registration with DEERFLOW_BROWSER_NAVIGATE_ENABLED=true after connectivity
+acceptance. Already-built agents and direct external MCP calls are not revoked.
+The coordinated Gateway release also preserves the OA environment override
+OA_POLICY_FLOW_RUN_TIMEOUT_SECONDS=3600. Do not replay the archived OA mutation
+script or silently resume a paused Deployment while preparing source.

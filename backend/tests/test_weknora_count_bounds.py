@@ -24,16 +24,18 @@ def load_counts():
         path = Path(__file__).parent / 'candidate/backend/app/gateway/routers/weknora.py'
     tree = ast.parse(path.read_text(encoding='utf-8'))
     names = {'_knowledge_count_limiter', '_knowledge_base_counts', '_knowledge_base_knowledge_page',
-             '_enrich_knowledge_base_counts', '_int_value', '_is_processing_knowledge', '_unwrap_list_response'}
-    constants = {'_COUNT_ENRICH_CONCURRENCY', '_COUNT_PAGE_SIZE', '_COUNT_MAX_DOCUMENTS', '_COUNT_ENRICH_MAX_SECONDS'}
+             '_enrich_knowledge_base_counts', '_int_value', '_is_processing_knowledge', '_unwrap_list_response',
+             '_knowledge_count_coverage', '_knowledge_count_summary', 'list_knowledge_bases', '_normalise_tenant_id'}
+    constants = {'_COUNT_ENRICH_CONCURRENCY', '_COUNT_PAGE_SIZE', '_COUNT_MAX_DOCUMENTS', '_COUNT_ENRICH_MAX_SECONDS', '_COUNT_FIELDS'}
     nodes = []
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in names:
+            node.decorator_list = []
             nodes.append(node)
         if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id in constants for t in node.targets):
             nodes.append(node)
     scope = dict(asyncio=asyncio, Any=Any, HTTPException=HTTPException, logger=logging.getLogger('counts-test'),
-                 _KNOWLEDGE_COUNT_LIMITERS=weakref.WeakKeyDictionary())
+                 _KNOWLEDGE_COUNT_LIMITERS=weakref.WeakKeyDictionary(), Depends=lambda value: None, get_current_user_from_request=None)
     exec(compile(ast.Module(body=nodes, type_ignores=[]), str(path), 'exec'), scope)
     return scope
 
@@ -70,6 +72,70 @@ class CountBoundsTests(unittest.IsolatedAsyncioTestCase):
     async def enrich(self, items):
         await self.scope['_enrich_knowledge_base_counts'](items, 'synthetic')
 
+    async def test_coverage_before_after_counts_libraries_once_without_extra_io(self):
+        items = [dict(id='complete', knowledge_count=0, chunk_count=0, processing_count=0, is_processing=False),
+                 dict(id='missing'), dict(id='partial', knowledge_count=201)]
+        before = self.scope['_knowledge_count_coverage'](items)
+        self.assertEqual(self.calls, 0)
+        self.assertEqual(before['missing_libraries'], 2)
+        self.assertEqual(before['missing_fields']['knowledge_count'], 1)
+        self.assertEqual(before['missing_fields']['chunk_count'], 2)
+        await self.enrich(items)
+        calls = self.calls
+        with self.assertLogs('counts-test', level='INFO') as logs:
+            result = self.scope['_knowledge_count_summary'](before, items, 1)
+        self.assertEqual(self.calls, calls)
+        self.assertEqual((result['returned_libraries'], result['missing_before'], result['enriched'], result['missing_after']), (3, 2, 2, 0))
+        self.assertEqual(result['listing_failures'], 1)
+        self.assertEqual(before['missing_libraries'], 2)
+        self.assertNotIn('partial', '\n'.join(logs.output))
+
+    async def test_coverage_timeout_and_oversize_remain_missing(self):
+        for blocking in (False, True):
+            self.documents = 501
+            self.block = blocking
+            self.scope['_COUNT_ENRICH_MAX_SECONDS'] = 0.01
+            items = [dict(id='large')]
+            before = self.scope['_knowledge_count_coverage'](items)
+            await self.enrich(items)
+            summary = self.scope['_knowledge_count_summary'](before, items, 0)
+            self.assertEqual((summary['missing_before'], summary['enriched'], summary['missing_after']), (1, 0, 1))
+        self.assertEqual(self.active, 0)
+
+    async def test_coverage_empty_and_present_null_match_existing_eligibility(self):
+        self.assertEqual(self.scope['_knowledge_count_summary'](self.scope['_knowledge_count_coverage']([]), [], 2)['returned_libraries'], 0)
+        # Presence-only is the existing gate; null/stale values are not certified valid.
+        item = {key: None for key in self.scope['_COUNT_FIELDS']}
+        self.assertEqual(self.scope['_knowledge_count_coverage']([item])['missing_libraries'], 0)
+        self.assertEqual(self.calls, 0)
+
+    async def test_list_response_reports_deduplicated_scope_and_partial_listing(self):
+        from types import SimpleNamespace
+        async def session(user):
+            return SimpleNamespace(token='private-token', user={'id': 'user'})
+        async def identity(session):
+            return {'id': 'user'}, [{'tenant_id': 'one'}, {'tenant_id': 'two'}]
+        async def request(method, path, token, **kwargs):
+            self.calls += 1
+            if path == '/knowledge-bases':
+                return {'data': [{'id': 'same-kb'}]}
+            if kwargs['tenant_id'] == 'two':
+                raise HTTPException(503, 'synthetic')
+            return {'data': []}
+        async def fail_enrichment(items, token):
+            self.fail('Knowledge lists must not call count enrichment')
+        self.scope.update(ensure_weknora_session_for_deerflow_user=session, _live_weknora_identity=identity,
+                          _request=request, _classify_tenant_knowledge_base=lambda item, **kwargs: dict(item),
+                          _float_env=lambda name, default: default, _enrich_knowledge_base_counts=fail_enrichment)
+        result = await self.scope['list_knowledge_bases'](object())
+        self.assertEqual(self.calls, 4)  # Two existing list reads per membership, no diagnostic I/O.
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(result['items'], [{'id': 'same-kb'}])
+        summary = result['count_summary']
+        self.assertEqual((summary['returned_libraries'], summary['missing_before'], summary['enriched'], summary['missing_after'], summary['listing_failures']), (1, 1, 0, 1, 1))
+        self.assertEqual(summary['scope'], 'current_user_returned_libraries')
+        self.assertFalse(summary['auto_enrichment_enabled'])
+
     async def test_exact_paged_counts(self):
         items = [{'id': 'kb'}]
         await self.enrich(items)
@@ -79,8 +145,21 @@ class CountBoundsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.pages, 3)
         self.assertEqual(self.peak, 1)
 
+    async def test_exact_maximum_500_and_preserve_known_counts_above_limit(self):
+        self.documents = 500
+        items = [{'id': 'kb'}]
+        await self.enrich(items)
+        self.assertEqual(items[0]['knowledge_count'], 500)
+        self.assertEqual(items[0]['chunk_count'], 1000)
+        self.documents = 501
+        items = [{'id': 'kb', 'knowledge_count': 501}]
+        before = self.calls
+        await self.enrich(items)
+        self.assertEqual(items, [{'id': 'kb', 'knowledge_count': 501}])
+        self.assertEqual(self.calls - before, 1)
+
     async def test_limit_shared_between_requests(self):
-        self.documents = 1000
+        self.documents = 500
         await asyncio.gather(*(self.enrich([{'id': str(i)} for i in range(8)]) for _ in range(4)))
         self.assertLessEqual(self.peak, 8)
         self.assertEqual(self.active, 0)
@@ -96,7 +175,7 @@ class CountBoundsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(items, [{'id': 'kb'}])
 
     async def test_large_total_skips_before_chunk_reads(self):
-        self.documents = 5001
+        self.documents = 501
         items = [{'id': 'kb'}]
         await self.enrich(items)
         self.assertEqual(self.calls, 1)
