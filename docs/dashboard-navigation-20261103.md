@@ -46,7 +46,14 @@ compilation exceeded assertions in two existing account checks; those checks
 passed after compilation. The r1 production-image browser run passed 19 checks
 but exposed the default root title replacing the chat-history title. The r2
 candidate uses route-owned server metadata and keeps the interactive history
-list in a client component; it requires its own image/browser qualification.
+list in a client component. The r2 ARM64 image passed all 26 browser checks
+(22 main scenarios plus four existing ranking/attribution regressions), including
+the real production-build title check. Windows and Linux package checks each
+passed six cases; both generated scripts passed Python 3.7 wrong-host admission
+checks before any import or execution marker. The image, OCI export, compiled
+asset hashes, package pins and local test summaries are recorded under
+`release/dashboard-navigation-20261103-r2/qualification/`. These are local
+qualification receipts; neither preload nor production rollout has been claimed.
 Source validation
 includes six candidate checks, twelve enterprise-followup checks, fifteen November
 2 checks, and six package integrity/admission checks. Build and production results
