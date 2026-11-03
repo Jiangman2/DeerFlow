@@ -40,7 +40,8 @@ class EmbeddingBudgetRoute(APIRoute):
         if limiter.locked():
             response = JSONResponse(
                 {"detail": "Embedding relay busy; retry later"},
-                status_code=429, headers={"Retry-After": "2"},
+                status_code=429,
+                headers={"Retry-After": "2"},
             )
             return await response(scope, receive, send)
         # No suspension between the availability check and immediate acquisition.

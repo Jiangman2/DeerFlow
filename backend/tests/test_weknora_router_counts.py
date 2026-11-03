@@ -1,6 +1,5 @@
 """Tests for DeerFlow's WeKnora proxy response enrichment."""
 
-import asyncio
 import io
 import json
 from types import SimpleNamespace

@@ -1,6 +1,6 @@
 """Exercise real ASGI admission, cancellation and streaming size bounds."""
+
 import asyncio
-import json
 import os
 import unittest
 from contextlib import asynccontextmanager
@@ -30,27 +30,35 @@ class RelayBudgetTests(unittest.IsolatedAsyncioTestCase):
 
     async def invoke(self, app, path="/first", receive=None, send=None):
         events = []
+
         async def default_receive():
             return {"type": "http.request", "body": b"{}", "more_body": False}
+
         async def default_send(event):
             events.append(event)
-        await app({"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
-                   "method": "POST", "scheme": "http", "path": path, "raw_path": path.encode(),
-                   "query_string": b"", "headers": [], "server": ("test", 80), "client": ("test", 1)},
-                  receive or default_receive, send or default_send)
+
+        await app(
+            {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "POST", "scheme": "http", "path": path, "raw_path": path.encode(), "query_string": b"", "headers": [], "server": ("test", 80), "client": ("test", 1)},
+            receive or default_receive,
+            send or default_send,
+        )
         return events
 
     async def test_shared_admission_rejects_without_reading_body_and_releases_cancel(self):
         started = asyncio.Event()
+
         async def endpoint(request: Request):
             await request.body()
             started.set()
             await asyncio.Event().wait()
+
         app = self.application(endpoint)
         task = asyncio.create_task(self.invoke(app))
         await asyncio.wait_for(started.wait(), 2)
+
         async def forbidden_read():
             self.fail("Rejected request body was read")
+
         try:
             events = await self.invoke(app, "/second", receive=forbidden_read)
             self.assertEqual(events[0]["status"], 429)
@@ -63,12 +71,15 @@ class RelayBudgetTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_slow_send_retains_admission(self):
         started, release = asyncio.Event(), asyncio.Event()
+
         async def endpoint():
             return {"data": [1, 2, 3]}
+
         async def slow_send(event):
             if event["type"] == "http.response.body":
                 started.set()
                 await release.wait()
+
         app = self.application(endpoint)
         task = asyncio.create_task(self.invoke(app, send=slow_send))
         try:
@@ -82,6 +93,7 @@ class RelayBudgetTests(unittest.IsolatedAsyncioTestCase):
     async def test_auth_failure_returns_original_status_and_releases(self):
         async def endpoint():
             raise HTTPException(401, "required")
+
         app = self.application(endpoint)
         for _ in range(2):
             self.assertEqual((await self.invoke(app))[0]["status"], 401)
@@ -96,19 +108,21 @@ class RelayBudgetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(limiter._value, 7)
         limiter.release()
 
-    async def read(self, chunks, headers=(), max_bytes=8*1024*1024):
+    async def read(self, chunks, headers=(), max_bytes=8 * 1024 * 1024):
         iterator = iter(chunks)
+
         async def receive():
             body = next(iterator)
             return {"type": "http.request", "body": body, "more_body": bool(body)}
+
         request = RawRequest({"type": "http", "headers": list(headers)}, receive)
         return await budget.bounded_request_json(request, label="test", max_bytes=max_bytes)
 
     async def test_chunked_json_and_non_object(self):
-        self.assertEqual(await self.read([b'{"a":', b'1}', b'']), {"a": 1})
+        self.assertEqual(await self.read([b'{"a":', b"1}", b""]), {"a": 1})
         for body in (b"[]", b"", b"invalid"):
             with self.assertRaises(HTTPException) as ctx:
-                await self.read([body, b''])
+                await self.read([body, b""])
             self.assertEqual(ctx.exception.status_code, 400)
 
     async def test_body_bounds_do_not_trust_declared_length(self):
@@ -118,12 +132,13 @@ class RelayBudgetTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(ctx.exception.status_code, 413)
         # Environment callers cannot raise the hard maximum.
         with self.assertRaises(HTTPException) as ctx:
-            await self.read([], ((b"content-length", str(budget.MAX_REQUEST_BYTES + 1).encode()),), max_bytes=100*1024*1024)
+            await self.read([], ((b"content-length", str(budget.MAX_REQUEST_BYTES + 1).encode()),), max_bytes=100 * 1024 * 1024)
         self.assertEqual(ctx.exception.status_code, 413)
 
     async def test_body_read_deadline(self):
         async def stalled():
             await asyncio.Event().wait()
+
         request = RawRequest({"type": "http", "headers": []}, stalled)
         with patch.object(budget, "BODY_READ_SECONDS", 0.01):
             with self.assertRaises(HTTPException) as ctx:
@@ -136,6 +151,7 @@ class RelayBudgetTests(unittest.IsolatedAsyncioTestCase):
             read = 0
             status_code = 200
             headers = {}
+
             @asynccontextmanager
             async def stream(self, method, url, **kwargs):
                 self.sent_headers = kwargs["headers"]
@@ -143,10 +159,12 @@ class RelayBudgetTests(unittest.IsolatedAsyncioTestCase):
                     yield self
                 finally:
                     self.closed = True
+
             async def aiter_raw(self, chunk_size):
                 for chunk in (b"1234", b"5678", b"never"):
                     self.read += 1
                     yield chunk
+
         client = Client()
         with patch.object(budget, "MAX_RESPONSE_BYTES", 7):
             with self.assertRaises(HTTPException) as ctx:
@@ -164,17 +182,23 @@ class RelayBudgetTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_successful_raw_stream_json_and_buffer_release(self):
         import httpx
+
         class Stream(httpx.AsyncByteStream):
             closed = False
+
             async def __aiter__(self):
                 yield b'{"data":'
-                yield b'[]}'
+                yield b"[]}"
+
             async def aclose(self):
                 self.closed = True
+
         stream = Stream()
+
         async def handle(request):
             self.assertEqual(request.headers["accept-encoding"], "identity")
             return httpx.Response(200, stream=stream)
+
         async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
             response = await budget.bounded_post(client, "http://synthetic", headers={})
             self.assertTrue(stream.closed)

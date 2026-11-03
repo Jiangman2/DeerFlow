@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import tarfile
 
-from released_source_20261102 import ARCHIVE, CI_ARCHIVE, CI_MANIFEST, DELTA, FORBIDDEN, PARENT_DELTA, load
+from released_source_20261102 import ARCHIVE, CI_ARCHIVE, CI_MANIFEST, DELTA, FORBIDDEN, PARENT_DELTA, followup, load
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -15,6 +15,8 @@ def verify(ref=None):
     cache = {}
     if ref:
         extra = [CI_ARCHIVE] if subprocess.check_output(["git", "ls-tree", "--name-only", ref, CI_MANIFEST], cwd=ROOT).strip() else []
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.MANIFEST], cwd=ROOT).strip():
+            extra.append(followup.ARCHIVE)
         raw = subprocess.check_output(["git", "archive", ref, "backend/app", "backend/packages/harness", "backend/tests", "frontend/src", "frontend/tests", ARCHIVE, DELTA, PARENT_DELTA, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             cache = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}
@@ -30,7 +32,8 @@ def verify(ref=None):
             assert not (ROOT / path).exists(), (path, "NOV02_DEFERRED_SOURCE_PRESENT")
     for path in ("backend/app/gateway/services.py", "frontend/src/core/data-lake/auth.ts", "frontend/src/core/settings/store.ts"):
         assert b"work-grant" not in read(path) and b"inject_work_data_lake_context" not in read(path), (path, "NOV02_DEFERRED_HOOK_PRESENT")
-    return {"status": "NOV02_RELEASED_SOURCE_VERIFIED", "delta": DELTA, "sources": len(manifest["sources"]), "tests": len(manifest["tests"]), "evidence": len(manifest["evidence"]), "gateway": 403, "frontend": 239, "work_datalake_deferred": True, "production_commands_executed": False, "scope": manifest["scope"]}
+    successor = followup.summary(followup.qualify(read))
+    return {"status": "ENTERPRISE_SOURCE_FOLLOWUP_ON_NOV02_VERIFIED" if successor else "NOV02_RELEASED_SOURCE_VERIFIED", "enterprise_source_followup": successor, "delta": DELTA, "sources": len(manifest["sources"]), "tests": len(manifest["tests"]), "evidence": len(manifest["evidence"]), "gateway": 403, "frontend": 239, "work_datalake_deferred": True, "production_commands_executed": False, "scope": manifest["scope"]}
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
-from contextlib import asynccontextmanager
 import json
+from contextlib import asynccontextmanager
 
 import httpx
 import pytest
@@ -42,13 +42,12 @@ class _Response:
     def json(self) -> dict:
         return self._payload
 
-
     headers = {}
 
     async def aiter_raw(self, chunk_size=16384):
         raw = json.dumps(self._payload).encode()
         for i in range(0, len(raw), chunk_size):
-            yield raw[i:i + chunk_size]
+            yield raw[i : i + chunk_size]
 
 
 class _StreamingClient:

@@ -58,9 +58,10 @@ from deerflow.models.assistant_payload_replay import (
     restore_assistant_payloads,
     restore_reasoning_content,
 )
+from deerflow.models.llm_performance import PerformanceSpan
+from deerflow.models.llm_performance import enabled as performance_enabled
 from deerflow.models.output_safety import ModelOutputGuard, visible_text
 from deerflow.models.stream_admission import admit_model_stream
-from deerflow.models.llm_performance import PerformanceSpan, enabled as performance_enabled
 
 _MAX_PROVIDER_MESSAGE_CHARS = 1000
 _MAX_JSON_STRING_UNWRAP_DEPTH = 3
@@ -186,8 +187,7 @@ class _ModelStreamTiming:
 
     def __post_init__(self):
         if performance_enabled():
-            self.performance = PerformanceSpan(model=self.model, mode=self.mode, call_id=self.llm_call_id,
-                                               thread_id=self.deerflow_thread_id, run_id=self.deerflow_run_id)
+            self.performance = PerformanceSpan(model=self.model, mode=self.mode, call_id=self.llm_call_id, thread_id=self.deerflow_thread_id, run_id=self.deerflow_run_id)
 
     upstream_next_count: int = 0
     upstream_next_total_s: float = 0.0

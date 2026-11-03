@@ -21,18 +21,18 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.gateway.deps import get_current_user_from_request
+from app.gateway.weknora_identity import (
+    build_weknora_ui_policy,
+    ensure_weknora_session_for_deerflow_user,
+    weknora_endpoint,
+    weknora_timeout,
+)
 from app.gateway.weknora_relay_budget import (
     LIMITERS,
     EmbeddingBudgetRoute,
     bounded_post,
     bounded_request_json,
     embedding_limiter,
-)
-from app.gateway.weknora_identity import (
-    build_weknora_ui_policy,
-    ensure_weknora_session_for_deerflow_user,
-    weknora_endpoint,
-    weknora_timeout,
 )
 
 logger = logging.getLogger(__name__)
@@ -535,8 +535,7 @@ async def _knowledge_base_counts(
             if identifier in seen or len(seen) >= total:
                 raise HTTPException(status_code=503, detail="Knowledge statistics page is inconsistent.")
             seen.add(identifier)
-            data = await _request("GET", f"/chunks/{identifier}", access_token,
-                                  tenant_id=tenant_id, params={"page": 1, "page_size": 1})
+            data = await _request("GET", f"/chunks/{identifier}", access_token, tenant_id=tenant_id, params={"page": 1, "page_size": 1})
             count = data.get("total")
             if type(count) is not int or count < 0:
                 raise HTTPException(status_code=503, detail="Knowledge chunk total is unavailable.")
@@ -547,8 +546,7 @@ async def _knowledge_base_counts(
         if len(items) != _COUNT_PAGE_SIZE:
             raise HTTPException(status_code=503, detail="Knowledge statistics page is incomplete.")
         page += 1
-    return dict(knowledge_count=total, chunk_count=chunk_count,
-                processing_count=processing_count, is_processing=processing_count > 0)
+    return dict(knowledge_count=total, chunk_count=chunk_count, processing_count=processing_count, is_processing=processing_count > 0)
 
 
 async def _knowledge_base_knowledge_page(
@@ -558,8 +556,7 @@ async def _knowledge_base_knowledge_page(
     page: int,
     tenant_id: str | int | None = None,
 ) -> dict[str, Any]:
-    data = await _request("GET", f"/knowledge-bases/{kb_id}/knowledge", access_token,
-                          tenant_id=tenant_id, params={"page": page, "page_size": _COUNT_PAGE_SIZE})
+    data = await _request("GET", f"/knowledge-bases/{kb_id}/knowledge", access_token, tenant_id=tenant_id, params={"page": page, "page_size": _COUNT_PAGE_SIZE})
     metadata = data.get("data") if isinstance(data.get("data"), dict) else data
     if "total" not in metadata and "total" not in data:
         raise HTTPException(status_code=503, detail="Knowledge statistics total is unavailable.")
@@ -762,7 +759,11 @@ def _knowledge_count_summary(before: dict[str, Any], items: list[dict[str, Any]]
     }
     logger.info(
         "WeKnora count coverage scope=current_user_returned_libraries returned=%d missing_before=%d enriched=%d missing_after=%d listing_failures=%d",
-        summary["returned_libraries"], summary["missing_before"], summary["enriched"], summary["missing_after"], listing_failures,
+        summary["returned_libraries"],
+        summary["missing_before"],
+        summary["enriched"],
+        summary["missing_after"],
+        listing_failures,
     )
     return summary
 
@@ -1220,7 +1221,8 @@ async def bailian_embeddings(request: Request) -> JSONResponse:
             verify=_bailian_tls_verify(),
         ) as client:
             response = await bounded_post(
-                client, upstream_url,
+                client,
+                upstream_url,
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",

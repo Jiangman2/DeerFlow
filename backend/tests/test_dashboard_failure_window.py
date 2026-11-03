@@ -1,7 +1,8 @@
 """Execute the real statement builder against a small isolated SQL schema."""
+
 import ast
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 from sqlalchemy import Column, MetaData, String, Table, create_engine
 from sqlalchemy.orm import registry
@@ -35,7 +36,10 @@ class FailureWindowTests(unittest.TestCase):
         with self.engine.begin() as conn:
             conn.execute(self.tables["UserRow"].insert(), [dict(id="new", email="new@example", display_name="新"), dict(id="old", email="old@example", display_name="旧")])
             conn.execute(self.tables["ThreadMetaRow"].insert(), [dict(thread_id="thread", user_id="old")])
-            conn.execute(self.tables["RunRow"].insert(), [dict(run_id=f"r{i:04}", thread_id="thread", user_id="old" if i < 100 else "new", status="error", error="x" * 5000, assistant_id="a", model_name="m", created_at=f"{i:04}", updated_at=f"{i:04}") for i in range(1100)])
+            conn.execute(
+                self.tables["RunRow"].insert(),
+                [dict(run_id=f"r{i:04}", thread_id="thread", user_id="old" if i < 100 else "new", status="error", error="x" * 5000, assistant_id="a", model_name="m", created_at=f"{i:04}", updated_at=f"{i:04}") for i in range(1100)],
+            )
 
     def query(self, q="", limit=5, offset=0):
         count, rows = self.statements(q, limit, offset)
