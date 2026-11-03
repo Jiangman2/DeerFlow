@@ -1,0 +1,76 @@
+{
+  "schema": "enterprise-source-formatting.v1",
+  "parent_manifest_sha256": "d383005667ae3f623045ae54fe333ba98677ec3ea03096914b23daf59342d1bc",
+  "changes": {
+    "backend/app/gateway/dashboard_failures.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/app/gateway/dashboard_failures.py",
+      "baseline_sha256": "8c97bb2701bea2772454770d4b920e705d08beec4b981e6f59064304ecc9fee2",
+      "formatted_sha256": "5f8202efc0cb5d2aa7ded35a7354f1cafc57dc47921e4b56a42d8a9dd75465b0"
+    },
+    "backend/app/gateway/routers/weknora.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/app/gateway/routers/weknora.py",
+      "baseline_sha256": "541ba6fc343d8a85bcc67f9fb08f05745d09d9a486e38c813328b808c7d100ea",
+      "formatted_sha256": "0b744449eedfd1ee50d587023ab6d1399eaf1da14ae4d3117ba63633b3cff3a6"
+    },
+    "backend/app/gateway/weknora_relay_budget.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/app/gateway/weknora_relay_budget.py",
+      "baseline_sha256": "a20730c067d529b818df4f2c30a6de9ad92f0bb368571f244851f64962db37e5",
+      "formatted_sha256": "138cd46114caf95ffc03f75c49e825ba2f619de47f0b5edfc7c5b529f5d4426b"
+    },
+    "backend/packages/harness/deerflow/models/llm_performance.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/packages/harness/deerflow/models/llm_performance.py",
+      "baseline_sha256": "e58211ac0cbf3ce9c0f6a71a550ffbe074c3fb05b66741d3d8baa5877deb1e9b",
+      "formatted_sha256": "abc6e0667e147045af1f0e00d8b91b23d98933624cbaf9c46c43a0acda164b5e"
+    },
+    "backend/packages/harness/deerflow/models/robust_openai.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/packages/harness/deerflow/models/robust_openai.py",
+      "baseline_sha256": "905b42e67931b18f48eb6687ba718529885b29d9e62f301eee2d83fd47977085",
+      "formatted_sha256": "592b333e88c7b8161f40b7c8f4084935608707f7088d3be825e0f63f6059896e"
+    },
+    "backend/tests/test_browser_navigation_freeze.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/tests/test_browser_navigation_freeze.py",
+      "baseline_sha256": "f7e081e84feefb279b7804f9332429a8ae689eb88965fbf0dbc77e5fe029b735",
+      "formatted_sha256": "8911faa4569d77651b1c02f72351926ce207470f4dc7bd6ca769eabbe373f1f0"
+    },
+    "backend/tests/test_dashboard_failure_window.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/tests/test_dashboard_failure_window.py",
+      "baseline_sha256": "7e45c1c0ee0e8b663706525c770637ed12bfd47021845f9ed2f803a263a2a58c",
+      "formatted_sha256": "0484f2c20598bf525de268509d93406a4eab3f4fd98f50e50d0f69fb55e5d0db"
+    },
+    "backend/tests/test_llm_performance.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/tests/test_llm_performance.py",
+      "baseline_sha256": "42b6d92b3b9f5c588679b095d81613e74dcae64ca72e62d19362a83d29994f16",
+      "formatted_sha256": "b103c3229c38ea940196ec8e297344cd7c21ea4274649f1294f3d187101490dd"
+    },
+    "backend/tests/test_llm_performance_adapter.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/tests/test_llm_performance_adapter.py",
+      "baseline_sha256": "e21acb3c4922d8920847c1ec9628f501026cad36450116bfeea1ff8136dd5896",
+      "formatted_sha256": "eeb4e8cd94f0310a890b40f2c5c8d9e29dc0ef7fa073aaaa42e067478064f387"
+    },
+    "backend/tests/test_weknora_bailian_embedding_adapter.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/tests/test_weknora_bailian_embedding_adapter.py",
+      "baseline_sha256": "23b239d3b66a51102cc10acb71abe0cd53a70389a66b1c68bbb2ec8c07c35422",
+      "formatted_sha256": "1ac7e1fd92a7d6e128e49d0ea2ad91345f3bbef81f8064ca7662e303bc7a54f4"
+    },
+    "backend/tests/test_weknora_count_bounds.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/tests/test_weknora_count_bounds.py",
+      "baseline_sha256": "d4b1f53e823c45deabccf00b469ba1ea1c08c09a55a4dbfdba394b0a1fdcee64",
+      "formatted_sha256": "4eff7f5e0d8272deb67e4fa5cae4513b150293951a1fb06820d9c202d8b18d71"
+    },
+    "backend/tests/test_weknora_internal_retrieval_adapter.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/tests/test_weknora_internal_retrieval_adapter.py",
+      "baseline_sha256": "8aba863f2daa24afa43bcdfa2b93d9e2e1c0f5c20bd62438250f83c83955bd0a",
+      "formatted_sha256": "570f2cf17c9f94297584739843778c62aa42959e519dda3171bb41c7dc75cb04"
+    },
+    "backend/tests/test_weknora_relay_budget.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/tests/test_weknora_relay_budget.py",
+      "baseline_sha256": "188cbe52e7e3ff9e383edb1decb7ec21e26cd5ed38e552680e832f36b52ae784",
+      "formatted_sha256": "6c480251ae59aa0a1b8d0c5a49f580d8a9a052ee922757b479e4e2d506070b60"
+    },
+    "backend/tests/test_weknora_router_counts.py": {
+      "baseline_path": "release/enterprise-source-followup-20261103/ci-baseline/backend/tests/test_weknora_router_counts.py",
+      "baseline_sha256": "2d8a0eaa85bde3cef41a4c3cb7f67951cfbbeddb85839fc419f83af8ee63f3d6",
+      "formatted_sha256": "87ad0836b6b31bcf886b0bf31e5f40effe2fad4c1f75dd69abb9671cb61a9e7d"
+    }
+  }
+}

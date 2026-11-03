@@ -15,13 +15,19 @@ FAILURE_WINDOW = 1000
 def failed_run_statements(query: str, limit: int, offset: int):
     failed = or_(RunRow.status.in_(("error", "timeout", "interrupted")), RunRow.error.is_not(None))
     # Bound history before identity search/count; never load full error payloads here.
-    recent = select(
-        RunRow.run_id,
-        RunRow.thread_id,
-        RunRow.user_id,
-        RunRow.created_at,
-        RunRow.updated_at,
-    ).where(failed).order_by(desc(RunRow.updated_at), desc(RunRow.created_at), desc(RunRow.run_id)).limit(FAILURE_WINDOW).cte("recent_failed_runs")
+    recent = (
+        select(
+            RunRow.run_id,
+            RunRow.thread_id,
+            RunRow.user_id,
+            RunRow.created_at,
+            RunRow.updated_at,
+        )
+        .where(failed)
+        .order_by(desc(RunRow.updated_at), desc(RunRow.created_at), desc(RunRow.run_id))
+        .limit(FAILURE_WINDOW)
+        .cte("recent_failed_runs")
+    )
     count = select(func.count()).select_from(recent)
     page = select(recent)
     if normalized := query.strip().casefold():

@@ -10,7 +10,7 @@ an explicit successor inventory.
 This follow-up records the exact 7 runtime files and 11 tests changed since
 `5a29e5aa66b4190024bfd55be14cbd1cc8b16f77`. The new additive manifest is
 `release/enterprise-source-followup-20261103/SOURCE.json`; its 10 parent snapshots
-are copied from that fixed base commit. No application source is changed here.
+are copied from that fixed base commit. Application behavior is preserved.
 
 Verification first checks the sealed manifest, every current file and every
 parent snapshot. Only then can an older verifier read those exact parent bytes.
@@ -20,6 +20,14 @@ still fails. Original release inventories, operator receipts, published sources
 and the existing PR26 qualification remain immutable. The frontend formatter
 check independently validates the current dashboard hash and then proves its
 historical parent is still the pinned formatter's exact output.
+
+The first CI run additionally exposed 26 existing backend lint diagnostics and
+13 unformatted files in the enterprise successor. `CI_FORMATTING.json` separately
+records Ruff corrections to 5 runtime files and 9 tests, with all 14 original
+sources preserved under `ci-baseline/`. The verifier checks both hashes and AST
+equivalence allowing contiguous import ordering/splitting; only the two named
+test files permit removal of their unused `json` / `asyncio` imports. No lint
+rules or runtime tests are disabled. The original `SOURCE.json` remains intact.
 
 This seal records committed source, **not a new deployment or business
 acceptance**. The historical Gateway 403 / Frontend 239 observations remain

@@ -38,6 +38,31 @@ class EnterpriseFollowupTests(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "ENTERPRISE_FOLLOWUP_SEAL_CHANGED"):
             load(self.changed(followup.MANIFEST))
 
+    def test_formatting_seal_and_snapshots_are_enforced(self):
+        import json
+        with self.assertRaisesRegex(AssertionError, "ENTERPRISE_FORMATTING_SEAL_CHANGED"):
+            load(self.changed(followup.CI_FORMATTING))
+        for row in json.loads(self.read(followup.CI_FORMATTING))["changes"].values():
+            with self.subTest(path=row["baseline_path"]), self.assertRaisesRegex(AssertionError, "ENTERPRISE_FORMATTING_BASE_CHANGED"):
+                load(self.changed(row["baseline_path"]))
+
+    def test_formatting_fingerprint_accepts_layout_and_import_splitting(self):
+        before = b"from a import c, b\nimport json\nx = (1 + 2)\n"
+        after = b"import json\nfrom a import b\nfrom a import c\nx=1+2\n"
+        self.assertEqual(followup.formatting_fingerprint(before, "example.py"), followup.formatting_fingerprint(after, "example.py"))
+
+    def test_formatting_fingerprint_rejects_executable_and_binding_changes(self):
+        baseline = followup.formatting_fingerprint(b"import json\nx = 3\n", "example.py")
+        for raw in (b"import json\nx = 4\n", b"import json as something\nx=3\n", b"x=3\nimport json\n"):
+            with self.subTest(raw=raw):
+                self.assertNotEqual(baseline, followup.formatting_fingerprint(raw, "example.py"))
+
+    def test_unused_import_exception_is_limited_to_two_tests(self):
+        before, after = b"import json\nx=3\n", b"x=3\n"
+        self.assertNotEqual(followup.formatting_fingerprint(before, "runtime.py"), followup.formatting_fingerprint(after, "runtime.py"))
+        path = "backend/tests/test_weknora_relay_budget.py"
+        self.assertEqual(followup.formatting_fingerprint(before, path), followup.formatting_fingerprint(after, path))
+
     def test_missing_registered_current_source_is_rejected(self):
         path = "backend/packages/harness/deerflow/models/llm_performance.py"
         def read(name):
