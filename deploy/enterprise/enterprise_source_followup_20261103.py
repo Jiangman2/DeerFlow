@@ -5,8 +5,13 @@ This is source provenance only, not acceptance of a new production deployment.
 
 import ast
 import hashlib
+import importlib.util
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+
+_spec = importlib.util.spec_from_file_location("dashboard_navigation_source_20261103", Path(__file__).with_name("dashboard_navigation_source_20261103.py"))
+navigation = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(navigation)
 
 ARCHIVE = "release/enterprise-source-followup-20261103/"
 MANIFEST = ARCHIVE + "SOURCE.json"
@@ -74,6 +79,7 @@ def formatting_read(read, manifest):
 def qualify(read):
     if isinstance(read, HistoricalReader):
         return read.qualification
+    read = navigation.historical_read(read)
     try:
         raw = read(MANIFEST)
     except (FileNotFoundError, KeyError):
@@ -124,6 +130,7 @@ class HistoricalReader:
 def historical_read(read):
     if isinstance(read, HistoricalReader):
         return read
+    read = navigation.historical_read(read)
     qualification = qualify(read)
     return HistoricalReader(read, qualification) if qualification else read
 

@@ -15,7 +15,7 @@ for (const width of [1440, 390]) {
       .context()
       .addCookies([{ name: "locale", value: "zh-CN", url: baseURL! }]);
     await modelSquareFixture(page, true);
-    await page.goto("/workspace/admin/dashboard");
+    await page.goto("/workspace/admin/dashboard#users");
     const card = page.getByTestId("user-run-ranking");
     const list = page.getByTestId("user-run-ranking-list");
     await expect(card.getByText("合成用户1", { exact: true })).toBeVisible();

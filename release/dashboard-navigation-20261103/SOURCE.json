@@ -1,0 +1,87 @@
+{
+  "base_build_inventory_sha256": "3e2c101edb9ca05ecb0573149af6a8e4b9d839bc896d8e0a1d795263bdf181b1",
+  "base_commit": "443cbd8ab6e2e74298075976fa68af079c1f7100",
+  "base_frontend_image": "sha256:97a84226f1c9f77871c05cebaae1fa42b7525644edc844bccf75e29518ba44c1",
+  "changes": {
+    "frontend/src/app/workspace/admin/dashboard/page.tsx": {
+      "base_sha256": "c9adfae7fd0a042d21b7d3830de220003026c716f550438229d3f4d8941b4b78",
+      "baseline_path": "release/dashboard-navigation-20261103/baseline/frontend/src/app/workspace/admin/dashboard/page.tsx",
+      "current_sha256": "26c13dcb6959eddcaa0362daa8ee71fcb2d45ea3681b7c9b4fd1ac5e74842e22"
+    },
+    "frontend/src/app/workspace/chats/page.tsx": {
+      "base_sha256": "af328fe6d87c0517d6df41c89debc1a9994bfcef494a7674bd2dccadda55eb76",
+      "baseline_path": "release/dashboard-navigation-20261103/baseline/frontend/src/app/workspace/chats/page.tsx",
+      "current_sha256": "37dba4b5e9b422b94717451931565496e4ba82c2659dcfd390f11b7f0e7b7eef"
+    },
+    "frontend/src/components/workspace/dashboard/section-navigation.tsx": {
+      "base_sha256": null,
+      "baseline_path": null,
+      "current_sha256": "55270ed7c4509180f1faa69b9f8557ff9626120e676651551bcd5da99140e2a4"
+    },
+    "frontend/src/components/workspace/model-monitor-panel.tsx": {
+      "base_sha256": "508655a4765e18f63d0e6b83bab06a51fd824eae9ae6c2eb02f9012984eb9201",
+      "baseline_path": "release/dashboard-navigation-20261103/baseline/frontend/src/components/workspace/model-monitor-panel.tsx",
+      "current_sha256": "e2588a38599c0f87b059b4cd856a5b1348e630f0c5f882856ff7fa1cb9347eee"
+    },
+    "frontend/src/core/console/model-monitor.ts": {
+      "base_sha256": "078cb3e1ece8baa709ccf8c8c463196a028481bc8805a1a8cd56681718e1641c",
+      "baseline_path": "release/dashboard-navigation-20261103/baseline/frontend/src/core/console/model-monitor.ts",
+      "current_sha256": "21db53e0c1dc7161a5dc8677ead2020c38262776b7c709f477d2a1ff4f165e7b"
+    },
+    "frontend/src/core/dashboard/hooks.ts": {
+      "base_sha256": "cafa9fb7c7e8c8bb44b0f70f8f392989b171b2354a8cbdfe07025ca3fa15675c",
+      "baseline_path": "release/dashboard-navigation-20261103/baseline/frontend/src/core/dashboard/hooks.ts",
+      "current_sha256": "c294ec03ba480c652e430113dd1b5f654b93b79900495c406680e070a8ec4d15"
+    },
+    "frontend/src/core/i18n/dashboard-navigation.ts": {
+      "base_sha256": null,
+      "baseline_path": null,
+      "current_sha256": "79324d18fd76550e71d6f6d3984f3b565e47c242e79cfd48d99c25c93911de81"
+    },
+    "frontend/src/core/i18n/locales/en-US.ts": {
+      "base_sha256": "1c586d27601811b9c388578a55aa8754dac1d025176465e50c082d43b683afcd",
+      "baseline_path": "release/dashboard-navigation-20261103/baseline/frontend/src/core/i18n/locales/en-US.ts",
+      "current_sha256": "dc3333c69252af6d308e17297ec57126a5334db0c768d91699ed93c775554d93"
+    },
+    "frontend/src/core/i18n/locales/zh-CN.ts": {
+      "base_sha256": "6e49627e4af0e7592928cc8d776807f2ed564e3ff7fbe5f31d0f98ef2c1b029b",
+      "baseline_path": "release/dashboard-navigation-20261103/baseline/frontend/src/core/i18n/locales/zh-CN.ts",
+      "current_sha256": "f223b525b07e874388d52e40c8fb8b122c748e50cd0d2002658f81ae0f63d8f5"
+    },
+    "frontend/tests/e2e/dashboard-failures-recovery.spec.ts": {
+      "base_sha256": "a757ff25839e97b0142b90130d9b2084a42605ffd4e1f74d6fa0b3c95a66ae1b",
+      "baseline_path": "release/dashboard-navigation-20261103/baseline/frontend/tests/e2e/dashboard-failures-recovery.spec.ts",
+      "current_sha256": "6f661fb4cf5f5dd5b861716970740a9158c847a165730cbac8c83a9a17418a07"
+    },
+    "frontend/tests/e2e/dashboard-navigation.spec.ts": {
+      "base_sha256": null,
+      "baseline_path": null,
+      "current_sha256": "87b81ec9a05e2bb279d3ea440cf216342ad78e65f7f2dc30c608073ca94da8fb"
+    },
+    "frontend/tests/e2e/dashboard-range-recovery.spec.ts": {
+      "base_sha256": "012fad39817cb9d2fe89b1525ac36dde4cadb612ab0524e5cb18226d494965da",
+      "baseline_path": "release/dashboard-navigation-20261103/baseline/frontend/tests/e2e/dashboard-range-recovery.spec.ts",
+      "current_sha256": "4c71107f6c8ce4877f362ab4929cd3769acd93d3f79ae974ec832dd66eb10cc6"
+    },
+    "frontend/tests/e2e/model-square-account.spec.ts": {
+      "base_sha256": "7987ccb31603c5d870f6f832c57cecd619bd817a82085e72349e3f8354cf2ef4",
+      "baseline_path": "release/dashboard-navigation-20261103/baseline/frontend/tests/e2e/model-square-account.spec.ts",
+      "current_sha256": "62b3c2f7bfdd9bd92e791d2fb1d46aef066af8cba8291aa80806a4de2fd07bb1"
+    },
+    "frontend/tests/e2e/usage-monitoring.spec.ts": {
+      "base_sha256": "6b4da0ad3bd7551a8e48174bd20839ac2f7cf723251c12f104ca4988d6f40a8b",
+      "baseline_path": "release/dashboard-navigation-20261103/baseline/frontend/tests/e2e/usage-monitoring.spec.ts",
+      "current_sha256": "e80052fca92bc40ee0cc05072f6c124d504cd02955e9d5d3e75232ede158b929"
+    },
+    "frontend/tests/e2e/utils/monitor-fixture.ts": {
+      "base_sha256": null,
+      "baseline_path": null,
+      "current_sha256": "9f82be3c6b0108de1a711b3583c49cf6812c27f1a7593b98755c360691f1e0db"
+    }
+  },
+  "database_modified": false,
+  "gateway_modified": false,
+  "production_acceptance_claimed": false,
+  "schema": "dashboard-navigation-source.v1",
+  "status": "CANDIDATE_SOURCE_NOT_DEPLOYMENT_ACCEPTANCE"
+}

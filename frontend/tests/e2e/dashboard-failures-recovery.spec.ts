@@ -117,7 +117,7 @@ for (const width of [1440, 390]) {
         await route.fulfill({ json }).catch(() => undefined);
       });
       try {
-        await page.goto(`${baseURL}/workspace/admin/dashboard`);
+        await page.goto(`${baseURL}/workspace/admin/dashboard#runs`);
         const card = page
           .locator('[data-slot="card"]')
           .filter({ hasText: "最近失败运行" });

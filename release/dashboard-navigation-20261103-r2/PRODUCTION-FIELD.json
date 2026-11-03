@@ -1,0 +1,154 @@
+{
+  "schema": "portal-dashboard-navigation-production-field.v1",
+  "evidence_source": "operator_supplied_final_json_2026-11-04",
+  "scope": "Selected fields from the operator's activation output; not a copy or independent remote reread of the private REPORT.json",
+  "status": "FRONTEND_DASHBOARD_NAVIGATION_RUNTIME_ACCEPTED_BROWSER_PENDING",
+  "operation": "c0a556cc43e144438f186c436027066c",
+  "source_schema": "portal-frontend-dashboard-navigation-activation.v1",
+  "tool_revision": "r1",
+  "elapsed_seconds": 47.553,
+  "exitcode": 0,
+  "stage_passed": true,
+  "browser_acceptance_pending": true,
+  "manifest": "sha256:74c2e66ecc1c2e9b483faac428fc9211ff43bc0e0ed59ee141de379c678fdfb5",
+  "config": "sha256:36e1d830a55672dab51361c11e490fd8432da262fe1347ed369ec91d2d71ca40",
+  "report": {
+    "path": "/var/lib/portal-frontend-dashboard-navigation-activation-20261104-r1-c0a556cc43e144438f186c436027066c/REPORT.json",
+    "bytes": 33881,
+    "sha256": "03da2dd4e70c4adc79d7119cee1137dfb068cd9524307029b8bf2caef6104087"
+  },
+  "before": {
+    "frontend": {
+      "generation": 239,
+      "spec_sha256": "5643948b676d786e7c28e889a21c637a1e2dc47414eaf010c287bcb39b1fa9f5",
+      "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+    },
+    "gateway": {
+      "generation": 406,
+      "spec_sha256": "6f66293bf974b8943ddc057d240c5fa5be2c6e965206824d53b7518e613fb901",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    }
+  },
+  "after": {
+    "frontend": {
+      "generation": 240,
+      "spec_sha256": "edfb8674c6e413124a5ed27f381f689ee9498853bb1f4be38ee8f90c15dab578",
+      "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+    },
+    "gateway": {
+      "generation": 406,
+      "spec_sha256": "6f66293bf974b8943ddc057d240c5fa5be2c6e965206824d53b7518e613fb901",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    }
+  },
+  "unchanged_other_deployments": {
+    "nginx": {
+      "generation": 116,
+      "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+      "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+    },
+    "nginx-security-heai-20261012-r1": {
+      "generation": 2,
+      "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+      "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d"
+    },
+    "ppt-master-runner": {
+      "generation": 58,
+      "spec_sha256": "8602f3a5cf40ff97c3f9ee36d792e0c76ae37be53469b8146be41d3409719934",
+      "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+    },
+    "provisioner": {
+      "generation": 85,
+      "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+      "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+    }
+  },
+  "accepted_pods": [
+    {
+      "node": "datax-02",
+      "pod": "frontend-ff75b6f9-hng8r",
+      "uid": "0e6c1887-9933-4a0f-80af-cf3bfb48d64c",
+      "observation": {
+        "status": "PASS",
+        "bytes": 7520,
+        "http_status": 307,
+        "provider_requests": 0,
+        "sources_verified": true,
+        "static_assets_verified": 7
+      }
+    },
+    {
+      "node": "ecs-zdz-pro-0015",
+      "pod": "frontend-ff75b6f9-qwqw9",
+      "uid": "e4a4c56f-af1a-49f5-b6c9-f15f381df8c5",
+      "observation": {
+        "status": "PASS",
+        "bytes": 7520,
+        "http_status": 307,
+        "provider_requests": 0,
+        "sources_verified": true,
+        "static_assets_verified": 7
+      }
+    }
+  ],
+  "cache_checks": [
+    {
+      "node": "datax-02",
+      "node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+      "job": "portal-dashboard-nav-cache-c0a556cc43e14443-0",
+      "job_uid": "7030242e-8691-4334-b18f-1963f4e05479",
+      "pod": "portal-dashboard-nav-cache-c0a556cc43e14443-0-dx6rh",
+      "pod_uid": "766d6d96-5b14-4730-88e8-ccb3c35313b7",
+      "status": "PASS",
+      "files_verified": 10,
+      "sources_verified": true,
+      "exit_code": 0,
+      "restart_count": 0,
+      "imageID": "deerflow.local/deer-flow-frontend@sha256:74c2e66ecc1c2e9b483faac428fc9211ff43bc0e0ed59ee141de379c678fdfb5"
+    },
+    {
+      "node": "ecs-zdz-pro-0015",
+      "node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+      "job": "portal-dashboard-nav-cache-c0a556cc43e14443-1",
+      "job_uid": "97abce07-90ee-491b-b71b-9cf45e0c8f0e",
+      "pod": "portal-dashboard-nav-cache-c0a556cc43e14443-1-57snq",
+      "pod_uid": "0790f0d2-2cfd-47f6-bc9d-c2c8b8f4f9d5",
+      "status": "PASS",
+      "files_verified": 10,
+      "sources_verified": true,
+      "exit_code": 0,
+      "restart_count": 0,
+      "imageID": "deerflow.local/deer-flow-frontend@sha256:74c2e66ecc1c2e9b483faac428fc9211ff43bc0e0ed59ee141de379c678fdfb5"
+    }
+  ],
+  "frontend_node_coverage": {
+    "status": "ROLE_NODE_COVERAGE_ACCEPTED",
+    "observed_node_count": 18,
+    "preloaded_node_count": 2,
+    "potential_nodes": ["datax-02", "ecs-zdz-pro-0015"],
+    "uncovered_nodes": [],
+    "missing_pinned_nodes": [],
+    "uid_mismatches": [],
+    "unhealthy_pinned_nodes": []
+  },
+  "once_claimed": true,
+  "patch_request_count": 1,
+  "patch_requested": true,
+  "patch_dispatched": true,
+  "patch_acknowledged_by_readback": true,
+  "patch_may_have_applied": true,
+  "preflight_retry_available": false,
+  "automatic_retry": false,
+  "automatic_rollback": false,
+  "image_pull_policy": "Never",
+  "check_job_ttl_seconds": 3600,
+  "services_preserved": true,
+  "unrelated_specs_preserved": true,
+  "gateway_deployment_rechecked": true,
+  "gateway_business_acceptance_claimed": false,
+  "database_access": false,
+  "provider_requests": 0,
+  "other_workload_mutation": false,
+  "schema_migration_requested": false,
+  "work_datalake_activated": false
+}

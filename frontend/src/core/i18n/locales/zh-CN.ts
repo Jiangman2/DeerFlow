@@ -418,7 +418,7 @@ export const zhCN: Translations = {
   // Sidebar
   sidebar: {
     newChat: "新对话",
-    chats: "对话",
+    chats: "历史对话",
     channels: "渠道",
     recentChats: "最近的对话",
     demoChats: "演示对话",
@@ -771,7 +771,7 @@ export const zhCN: Translations = {
   // Breadcrumb
   breadcrumb: {
     workspace: "工作区",
-    chats: "对话",
+    chats: "历史对话",
     agents: "数字员工",
     knowledge: "知识库",
     skillCenter: "技能中心",
@@ -888,7 +888,7 @@ export const zhCN: Translations = {
   // Page titles (document title)
   pages: {
     appName: "海能通用智能体",
-    chats: "对话",
+    chats: "历史对话",
     newChat: "新对话",
     untitled: "未命名",
   },

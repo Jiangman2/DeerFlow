@@ -7,6 +7,9 @@ on:
       - 'release/nov02-released-fixes-source-20261103/**'
       - 'release/pr26-ci-qualification-20261103/**'
       - 'release/enterprise-source-followup-20261103/**'
+      - 'release/dashboard-navigation-20261103/**'
+      - 'release/dashboard-navigation-20261103-r2/**'
+      - 'deploy/enterprise/*dashboard*navigation*'
       - 'deploy/enterprise/*enterprise_source_followup*'
       - 'deploy/enterprise/*nov02*'
       - 'deploy/enterprise/released_source_20261102.py'
@@ -29,6 +32,10 @@ jobs:
         with:
           python-version: '3.12'
       - run: python deploy/enterprise/test_nov02_source_delta.py
+      - run: python deploy/enterprise/test_dashboard_navigation_source_20261103.py
+      - run: python deploy/enterprise/test_dashboard_navigation_frontend_package_20261103.py
+      - run: python deploy/enterprise/test_dashboard_navigation_frontend_activation_20261104.py
+      - run: python deploy/enterprise/verify-dashboard-navigation-source-20261103.py --ref HEAD
       - run: python deploy/enterprise/test_enterprise_source_followup_20261103.py
       - run: python deploy/enterprise/test_nov01_source_delta.py
       - run: python deploy/enterprise/verify-nov02-released-source-20261103.py --ref HEAD

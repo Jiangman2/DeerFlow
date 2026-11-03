@@ -111,6 +111,9 @@ for (const width of [1440, 390]) {
     });
     try {
       await page.goto(`${baseURL}/workspace/admin/dashboard`);
+      await page
+        .getByRole("button", { name: "自定义区间", exact: true })
+        .click();
       const start = page.getByLabel("开始时间");
       const end = page.getByLabel("结束时间");
       const apply = page.getByRole("button", { name: "应用区间", exact: true });
@@ -164,6 +167,9 @@ for (const width of [1440, 390]) {
       ).toBe(true);
       boundsMode = "empty";
       await page.reload();
+      await page
+        .getByRole("button", { name: "自定义区间", exact: true })
+        .click();
       await expect(
         page.getByText("暂无可统计数据，暂不能选择自定义区间。"),
       ).toBeVisible();
@@ -171,6 +177,9 @@ for (const width of [1440, 390]) {
       await expect(apply).toBeDisabled();
       boundsMode = "error";
       await page.reload();
+      await page
+        .getByRole("button", { name: "自定义区间", exact: true })
+        .click();
       await expect(
         page.getByText("可选日期范围加载失败，暂不能应用自定义区间。"),
       ).toBeVisible();
