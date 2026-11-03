@@ -204,11 +204,15 @@ def verify(ref=None, lock_path=LOCK):
             extra.extend((NOV02_DELTA, NOV02_ARCHIVE, "backend/tests"))
         if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, _nov02.CI_MANIFEST], cwd=ROOT).strip():
             extra.append(_nov02.CI_ARCHIVE)
+        if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, _nov02.followup.MANIFEST], cwd=ROOT).strip():
+            extra.append(_nov02.followup.ARCHIVE)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
     read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    followup = _nov02.followup.qualify(read)
+    read = _nov02.followup.historical_read(read)
     lock_raw = read(lock_path)
     lock = json.loads(lock_raw)
     has_candidate = CANDIDATE in archived if archived is not None else (ROOT / CANDIDATE).is_file()
@@ -237,6 +241,10 @@ def verify(ref=None, lock_path=LOCK):
             else:
                 actual = {p.relative_to(ROOT / prefix).as_posix() for r in roots
                           for p in (ROOT / r).rglob('*.py') if '__pycache__' not in p.parts}
+            if component == 'gateway' and followup:
+                actual -= {path for path, row in followup['changes'].items()
+                           if row['base_sha256'] is None and row['kind'] == 'runtime-source'
+                           and path.startswith(('backend/app/', 'backend/packages/harness/'))}
             if actual != set(expected):
                 raise AssertionError((component, 'SOURCE_SET_MISMATCH', sorted(actual ^ set(expected))))
         for name, digest in expected.items():
@@ -283,6 +291,7 @@ def verify(ref=None, lock_path=LOCK):
     if patch_result:
         results.append(patch_result)
     return {'status': 'CANDIDATE_SOURCE_VERIFIED' if manifest else 'RELEASE_SOURCE_VERIFIED', 'git_ref': ref, 'lock_file': lock_path, 'results': results,
+            'enterprise_source_followup': _nov02.followup.summary(followup),
             'post_release_test_only_corrections': len(lock.get('qualification_test_overrides', {})),
             'scope': lock['scope'], 'production_modified': False,
             'released_delta': {'source_manifest': release_manifest['source_manifest'], 'frontend_runtime_paths': sorted(n for n in released['frontend'] if n.startswith('frontend/src/')), 'changed_sources': sum(map(len, released.values()))} if release_manifest else None,

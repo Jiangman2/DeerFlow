@@ -1,7 +1,7 @@
-from contextlib import asynccontextmanager
 import asyncio
 import json
 import math
+from contextlib import asynccontextmanager
 
 import httpx
 import pytest
@@ -36,13 +36,12 @@ class _Response:
     def json(self) -> dict:
         return self._payload
 
-
     headers = {}
 
     async def aiter_raw(self, chunk_size=16384):
         raw = json.dumps(self._payload).encode()
         for i in range(0, len(raw), chunk_size):
-            yield raw[i:i + chunk_size]
+            yield raw[i : i + chunk_size]
 
 
 class _StreamingClient:
@@ -202,17 +201,16 @@ async def test_internal_embedding_relay_serializes_upstream_calls(monkeypatch, i
     monkeypatch.setattr(weknora.httpx, "AsyncClient", lambda **kwargs: _TrackingClient())
 
     from fastapi import FastAPI
+
     # httpx is shared with weknora; recover the actual client class after its patch.
     from httpx._client import AsyncClient as RealClient
+
     app = FastAPI()
     app.include_router(weknora.router)
     async with RealClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
-        responses = await asyncio.gather(*[
-            client.post("/api/weknora/internal-models/v1/embeddings",
-                        headers={"Authorization": "Bearer relay-secret"},
-                        json={"model": "Qwen3-Embedding-8B", "input": ["test"], "dimensions": 1024})
-            for _ in range(2)
-        ])
+        responses = await asyncio.gather(
+            *[client.post("/api/weknora/internal-models/v1/embeddings", headers={"Authorization": "Bearer relay-secret"}, json={"model": "Qwen3-Embedding-8B", "input": ["test"], "dimensions": 1024}) for _ in range(2)]
+        )
     assert sorted(r.status_code for r in responses) == [200, 429]
     assert max_active == 1
 

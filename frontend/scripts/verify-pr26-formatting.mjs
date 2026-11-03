@@ -6,6 +6,8 @@ import { resolve } from "node:path";
 
 import * as prettier from "prettier";
 
+import { formattingSource } from "./source-followup.mjs";
+
 const root = resolve(import.meta.dirname, "../..");
 const manifest = JSON.parse(
   await readFile(
@@ -18,7 +20,9 @@ for (const [path, row] of Object.entries(manifest.changes)) {
   if (row.kind !== "prettier_only") continue;
   const filepath = resolve(root, path);
   const before = await readFile(resolve(root, row.baseline_path), "utf8");
-  const after = await readFile(filepath, "utf8");
+  const after = await formattingSource(path, (name) =>
+    readFile(resolve(root, name)),
+  );
   const options = await prettier.resolveConfig(filepath);
   assert.equal(
     after.replaceAll("\r\n", "\n"),
@@ -31,4 +35,6 @@ for (const [path, row] of Object.entries(manifest.changes)) {
   checked += 1;
 }
 assert.equal(checked, 2);
-console.log("Both runtime files match pinned Prettier output.");
+console.log(
+  "Both historical runtime files match pinned Prettier output; later dashboard changes are hash-qualified separately.",
+);

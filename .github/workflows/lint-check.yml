@@ -66,6 +66,7 @@ jobs:
         run: |
           cd frontend
           pnpm format
+          node --test scripts/test-source-followup.mjs
           node scripts/verify-pr26-formatting.mjs
 
       - name: Run frontend linting

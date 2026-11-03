@@ -2,8 +2,15 @@
 
 import ast
 import hashlib
+import importlib.util
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+
+_followup_spec = importlib.util.spec_from_file_location(
+    "enterprise_source_followup_20261103", Path(__file__).with_name("enterprise_source_followup_20261103.py")
+)
+followup = importlib.util.module_from_spec(_followup_spec)
+_followup_spec.loader.exec_module(followup)
 
 ARCHIVE = "release/nov02-released-fixes-source-20261103/"
 SOURCE = ARCHIVE + "SOURCE.json"
@@ -34,6 +41,7 @@ def safe_path(path):
 
 def ci_qualification(read):
     """Qualify later test/formatter corrections without changing release evidence."""
+    read = followup.historical_read(read)
     try:
         raw = read(CI_MANIFEST)
     except (FileNotFoundError, KeyError):
@@ -57,11 +65,11 @@ def ci_qualification(read):
         followup_raw = None
     if followup_raw is not None:
         assert digest(followup_raw) == CI_FOLLOWUP_SHA256, "PR26_CI_FOLLOWUP_SEAL_CHANGED"
-        followup = json.loads(followup_raw)
-        assert followup["schema"] == "pr26-ci-test-followup.v1", "PR26_CI_FOLLOWUP_SCHEMA"
-        assert followup["base_commit"] == "2d5fcb05d7175ec265caddbde6be616afce3c4f0", "PR26_CI_FOLLOWUP_BASE_CHANGED"
-        assert followup["parent_manifest_sha256"] == CI_MANIFEST_SHA256, "PR26_CI_FOLLOWUP_PARENT_CHANGED"
-        for path, row in followup["changes"].items():
+        ci_followup = json.loads(followup_raw)
+        assert ci_followup["schema"] == "pr26-ci-test-followup.v1", "PR26_CI_FOLLOWUP_SCHEMA"
+        assert ci_followup["base_commit"] == "2d5fcb05d7175ec265caddbde6be616afce3c4f0", "PR26_CI_FOLLOWUP_BASE_CHANGED"
+        assert ci_followup["parent_manifest_sha256"] == CI_MANIFEST_SHA256, "PR26_CI_FOLLOWUP_PARENT_CHANGED"
+        for path, row in ci_followup["changes"].items():
             safe_path(path)
             assert row["kind"] == "test_correction" and path.startswith(("backend/tests/", "frontend/tests/")), "PR26_CI_FOLLOWUP_SCOPE"
             assert row["baseline_path"] == CI_ARCHIVE + "followup-baseline/" + path, "PR26_CI_FOLLOWUP_BASELINE_PATH"
@@ -81,6 +89,7 @@ def ci_baseline_read(read, qualification):
 
 
 def load(read, *, check_current=True):
+    read = followup.historical_read(read)
     read = ci_baseline_read(read, ci_qualification(read))
     delta = json.loads(read(DELTA))
     assert delta["schema"] == "released-source-delta.v2", "NOV02_DELTA_SCHEMA"
@@ -177,6 +186,7 @@ def load(read, *, check_current=True):
 
 
 def overrides(lock, prior, incident, released, read):
+    read = followup.historical_read(read)
     delta, manifest = load(read)
     result = {"gateway": {}, "frontend": {}}
     for component, changes in delta["changes"].items():
@@ -199,6 +209,7 @@ def overrides(lock, prior, incident, released, read):
 
 def historical_read(read):
     """Verify the new seal, then expose the immutable PR25 bytes to the older audit."""
+    read = followup.historical_read(read)
     _, manifest = load(read)
     read = ci_baseline_read(read, ci_qualification(read))
     parents = {p: row["parent_source"] for p, row in {**manifest["sources"], **manifest["tests"]}.items() if row.get("parent_source")}
