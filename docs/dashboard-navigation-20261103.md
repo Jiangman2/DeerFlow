@@ -37,7 +37,7 @@ operator receipts are not rewritten. The additive verifier validates the current
 candidate before exposing parent bytes to historical source checks.
 
 This document and source qualification are not a production deployment receipt.
-Production preload, rollout and browser acceptance require their own observations.
+Production preload, rollout and browser acceptance have separate observations.
 
 Local validation: `pnpm check`; 29 dashboard/heatmap unit checks; six responsive
 dashboard viewports, range retention, keyboard navigation, failure pagination and
@@ -87,4 +87,21 @@ Node-dependent fixture skipped (that fixture passed on Windows). The final
 Python 3.7 entrypoint rejected the wrong host before mutation. The exact
 candidate ARM64 image executed the final ten-file probe as UID 1000 with a
 read-only filesystem and no network. Production activation and browser
-acceptance are still pending; this handoff is not a production success receipt.
+acceptance are recorded separately from this local qualification.
+
+## Frontend 240 runtime acceptance
+
+The operator returned a successful activation on November 4, operation
+`c0a556cc43e144438f186c436027066c`, in 47.553 seconds. Selected fields are
+recorded in `release/dashboard-navigation-20261103-r2/PRODUCTION-FIELD.json`;
+the original private report is 33,881 bytes with SHA256
+`03da2dd4e70c4adc79d7119cee1137dfb068cd9524307029b8bf2caef6104087`.
+Both temporary image checks passed, the single frontend patch was read back,
+and both new frontend Pods passed source, seven static-asset HTTP checks and
+stable service endpoint checks. Frontend is generation 240 with spec SHA256
+`edfb8674c6e413124a5ed27f381f689ee9498853bb1f4be38ee8f90c15dab578`.
+Gateway remained generation 406 with its pre-existing spec hash. The other
+observed workload and service specs were preserved. No database access or
+model/OA request was made by the activation tool. This runtime acceptance does
+not establish new business-call acceptance. Desktop/mobile browser acceptance
+remains pending. Do not rerun the completed preload or activation commands.
