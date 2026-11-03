@@ -1,0 +1,2157 @@
+"use client";
+
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  ActivityIcon,
+  AlertTriangleIcon,
+  BarChart3Icon,
+  BookOpenIcon,
+  CalendarClockIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  ExternalLinkIcon,
+  FileTextIcon,
+  LoaderCircleIcon,
+  RefreshCwIcon,
+  ThumbsUpIcon,
+  UsersIcon,
+  ZapIcon,
+} from "lucide-react";
+import Link from "next/link";
+import { useDeferredValue, useMemo, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { CompetitionDisplaySettings } from "@/components/workspace/dashboard/competition-display-settings";
+import {
+  EmployeeClicksPanel,
+  FeedbackActorsPanel,
+} from "@/components/workspace/dashboard/employee-activity-panels";
+import { ModelMonitorPanel } from "@/components/workspace/model-monitor-panel";
+import {
+  useDashboardFailures,
+  useDashboardDateBounds,
+  useDashboardKnowledge,
+  useDashboardRunRankings,
+  useDashboardSummary,
+  useDashboardUsers,
+  useDashboardUserSessions,
+  activityBarPercent,
+  activityChartMinWidth,
+  activityPeriodLabel,
+  activitySharedMax,
+  dashboardHeadlineCounts,
+  dashboardUserPrimaryLabel,
+  dashboardUserSecondaryParts,
+  dashboardBarStyle,
+  refreshDashboardQueries,
+  type DashboardFilters,
+  type DashboardRunRankingItem,
+  type FeedbackSummary,
+  type KnowledgeUsageSummary,
+  type RecentFailureItem,
+  type ScheduledTaskUsageSummary,
+  type UserActivityPoint,
+  type UserUsageItem,
+} from "@/core/dashboard";
+import { useRunDiagnostics } from "@/core/observability";
+import { cn } from "@/lib/utils";
+
+function compactNumber(value: number): string {
+  return Intl.NumberFormat("zh-CN", { notation: "compact" }).format(value);
+}
+
+function duration(ms: number): string {
+  if (!ms) return "-";
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60_000) return `${Math.round(ms / 100) / 10}s`;
+  return `${Math.round(ms / 6000) / 10}m`;
+}
+
+function shortTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return "-";
+  return date.toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function AccountIdentity({
+  name,
+  email,
+  fallback = "-",
+}: {
+  name?: string | null;
+  email?: string | null;
+  fallback?: string;
+}) {
+  const normalizedName = name?.trim();
+  const normalizedEmail = email?.trim();
+  const distinctName =
+    normalizedName &&
+    normalizedName.toLocaleLowerCase() !== normalizedEmail?.toLocaleLowerCase()
+      ? normalizedName
+      : null;
+  return (
+    <div className="min-w-0 space-y-0.5">
+      <div
+        className="font-medium break-words text-slate-800 md:truncate"
+        title={distinctName ?? "未采集"}
+      >
+        姓名：{distinctName ?? "未采集"}
+      </div>
+      <div
+        className="break-all text-slate-500 md:truncate"
+        title={normalizedEmail ?? fallback}
+      >
+        登录账号：{normalizedEmail ?? fallback}
+      </div>
+    </div>
+  );
+}
+
+function toDateTimeLocal(value: Date): string {
+  const offsetMs = value.getTimezoneOffset() * 60_000;
+  return new Date(value.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function isoFromDateTimeLocal(value: string): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return undefined;
+  return date.toISOString();
+}
+
+function hoursBetween(startAt?: string, endAt?: string): number | null {
+  if (!startAt || !endAt) return null;
+  const start = new Date(startAt).valueOf();
+  const end = new Date(endAt).valueOf();
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return null;
+  return Math.max(1, Math.ceil((end - start) / 3_600_000));
+}
+
+function MetricCard({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  tone = "slate",
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  icon: typeof ActivityIcon;
+  tone?: "slate" | "green" | "amber" | "red";
+}) {
+  const toneClass = {
+    slate: "bg-slate-50 text-slate-700",
+    green: "bg-emerald-50 text-emerald-700",
+    amber: "bg-amber-50 text-amber-700",
+    red: "bg-red-50 text-red-700",
+  }[tone];
+
+  return (
+    <Card className="min-w-0 gap-4 rounded-lg py-5 shadow-none">
+      <CardHeader className="flex-row items-center justify-between gap-3 px-5">
+        <CardTitle className="text-sm font-medium text-slate-600">
+          {label}
+        </CardTitle>
+        <span className={cn("rounded-md p-2", toneClass)}>
+          <Icon className="size-4" />
+        </span>
+      </CardHeader>
+      <CardContent className="px-5">
+        <div className="text-2xl font-semibold break-words text-slate-950">
+          {value}
+        </div>
+        <div className="mt-2 text-xs text-slate-500">{detail}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed text-sm text-slate-500">
+      {label}
+    </div>
+  );
+}
+
+function ActivityTrend({
+  items,
+  bucket,
+}: {
+  items: UserActivityPoint[];
+  bucket: string;
+}) {
+  const sharedMax = activitySharedMax(items);
+  if (items.length === 0) return <EmptyState label="暂无活跃数据" />;
+
+  return (
+    <div className="min-w-0 overflow-x-auto pb-2">
+      <div
+        className="grid h-56 border-b border-l border-slate-200 px-3 pt-3"
+        style={{
+          minWidth: activityChartMinWidth(items.length),
+          gridTemplateColumns: `repeat(${items.length}, minmax(36px, 1fr))`,
+        }}
+      >
+        {items.map((item) => (
+          <div
+            key={item.date}
+            className="flex h-full min-w-0 flex-col items-center justify-end gap-2"
+          >
+            <div className="flex h-44 w-full items-end justify-center gap-1">
+              <div
+                className="w-2.5 rounded-t bg-slate-800"
+                style={{
+                  height: item.threads
+                    ? `${activityBarPercent(item.threads, sharedMax)}%`
+                    : 2,
+                }}
+                title={`${item.threads} 个新增会话`}
+              />
+              <div
+                className="w-2.5 rounded-t bg-emerald-500"
+                style={{
+                  height: item.active_users
+                    ? `${activityBarPercent(item.active_users, sharedMax)}%`
+                    : 2,
+                }}
+                title={`${item.active_users} 个活跃用户`}
+              />
+            </div>
+            <div
+              className="w-full truncate text-center text-[11px] text-slate-500"
+              title={activityPeriodLabel(item, bucket)}
+            >
+              {activityPeriodLabel(item, bucket)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RegisteredUserSessions() {
+  const pageSize = 5;
+  const [page, setPage] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const usersQuery = useDashboardUsers(pageSize, page * pageSize, searchQuery);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [sessionPage, setSessionPage] = useState(0);
+  const sessionsQuery = useDashboardUserSessions(
+    expandedUserId,
+    pageSize,
+    sessionPage * pageSize,
+  );
+  const pageUsers = usersQuery.data?.items ?? [];
+  const totalPages = Math.max(
+    1,
+    Math.ceil((usersQuery.data?.total ?? 0) / pageSize),
+  );
+  const currentPage = Math.min(page, totalPages - 1);
+  const sessionTotalPages = Math.max(
+    1,
+    Math.ceil((sessionsQuery.data?.total ?? 0) / pageSize),
+  );
+
+  return (
+    <Card className="min-w-0 rounded-lg shadow-none">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2">
+            <UsersIcon className="size-4" />
+            注册用户当前保留会话
+          </span>
+          <span className="text-xs font-normal text-slate-500">
+            按最后登录时间倒序 · 共 {usersQuery.data?.total ?? 0} 个注册用户
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-3 flex items-center gap-2">
+          <Input
+            value={searchQuery}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setPage(0);
+              setExpandedUserId(null);
+            }}
+            placeholder="检索用户姓名或邮箱账号"
+            aria-label="检索注册用户姓名或邮箱账号"
+            className="h-9"
+          />
+          {searchQuery ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery("");
+                setPage(0);
+                setExpandedUserId(null);
+              }}
+            >
+              清除
+            </Button>
+          ) : null}
+        </div>
+        {usersQuery.isError ? (
+          <EmptyState label={`用户会话加载失败：${usersQuery.error.message}`} />
+        ) : pageUsers.length === 0 ? (
+          <EmptyState
+            label={usersQuery.isLoading ? "正在加载…" : "暂无注册用户"}
+          />
+        ) : (
+          <div className="space-y-3">
+            <div className="max-h-[34rem] space-y-2 overflow-y-auto pr-1">
+              {pageUsers.map((user) => {
+                const expanded = expandedUserId === user.user_id;
+                return (
+                  <div
+                    key={user.user_id}
+                    className="rounded-lg border bg-white"
+                  >
+                    <button
+                      type="button"
+                      className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-4 p-3 text-left"
+                      onClick={() => {
+                        setSessionPage(0);
+                        setExpandedUserId(expanded ? null : user.user_id);
+                      }}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-slate-800">
+                          {dashboardUserPrimaryLabel(user)}
+                        </span>
+                        <span
+                          className="mt-1 block truncate text-xs text-slate-500"
+                          title={dashboardUserSecondaryParts(user).join(" · ")}
+                        >
+                          {dashboardUserSecondaryParts(user).join(" · ")}
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-500">
+                          {user.system_role === "admin" ? "管理员" : "普通用户"}
+                          {user.is_disabled ? " · 已停用" : ""}
+                          {" · "}
+                          当前保留会话 {user.existing_threads} · 最后活动{" "}
+                          {user.last_active_at
+                            ? shortTime(user.last_active_at)
+                            : "暂无"}
+                          {" · 最后登录 "}
+                          {user.last_login_at
+                            ? shortTime(user.last_login_at)
+                            : "暂无"}
+                        </span>
+                      </span>
+                      <span className="text-right text-xs text-slate-500">
+                        <span className="block font-medium text-slate-700">
+                          {user.runs} 次运行
+                        </span>
+                        <span className="mt-1 block">
+                          成功 {user.successful_runs} · 失败 {user.failed_runs}{" "}
+                          · 运行中 {user.running_runs}
+                        </span>
+                      </span>
+                    </button>
+                    {expanded ? (
+                      <div className="border-t bg-slate-50/60 p-3">
+                        {sessionsQuery.isLoading ? (
+                          <div className="py-3 text-center text-xs text-slate-500">
+                            正在加载当前保留会话…
+                          </div>
+                        ) : sessionsQuery.isError ? (
+                          <div className="py-3 text-center text-xs text-red-600">
+                            会话加载失败：{sessionsQuery.error.message}
+                          </div>
+                        ) : (sessionsQuery.data?.items.length ?? 0) === 0 ? (
+                          <div className="py-3 text-center text-xs text-slate-500">
+                            该用户当前没有未删除会话
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {sessionsQuery.data?.items.map((session) => (
+                              <div
+                                key={session.thread_id}
+                                className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-md border bg-white px-3 py-2"
+                              >
+                                <span className="min-w-0">
+                                  {session.can_open && session.chat_url ? (
+                                    <Link
+                                      className="block truncate text-sm font-medium text-cyan-700 hover:text-cyan-900"
+                                      href={session.chat_url}
+                                    >
+                                      {session.title ?? "未命名会话"}
+                                    </Link>
+                                  ) : (
+                                    <span
+                                      className="block truncate text-sm font-medium text-slate-700"
+                                      title="出于会话隐私与权限隔离，仅会话所有者可以打开内容"
+                                    >
+                                      {session.title ?? "未命名会话"}
+                                    </span>
+                                  )}
+                                  <span
+                                    className="mt-1 block truncate text-xs text-slate-400"
+                                    title={session.thread_id}
+                                  >
+                                    {session.thread_id}
+                                  </span>
+                                  {!session.can_open ? (
+                                    <span className="mt-1 block text-xs text-slate-400">
+                                      他人会话仅展示运行统计
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <span className="text-right text-xs text-slate-500">
+                                  <span className="block">
+                                    {session.runs} 次运行
+                                  </span>
+                                  <span className="mt-1 block">
+                                    成功 {session.successful_runs} · 失败{" "}
+                                    {session.failed_runs} · 运行中{" "}
+                                    {session.running_runs}
+                                  </span>
+                                  <span className="mt-1 block text-slate-400">
+                                    状态 {session.status} · 创建{" "}
+                                    {shortTime(session.created_at)}
+                                  </span>
+                                  <span className="mt-1 block text-slate-400">
+                                    最近运行{" "}
+                                    {session.last_run_at
+                                      ? shortTime(session.last_run_at)
+                                      : "暂无"}
+                                  </span>
+                                </span>
+                              </div>
+                            ))}
+                            <RankingPagination
+                              page={Math.min(
+                                sessionPage,
+                                sessionTotalPages - 1,
+                              )}
+                              totalPages={sessionTotalPages}
+                              onPageChange={setSessionPage}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+            <RankingPagination
+              page={currentPage}
+              totalPages={totalPages}
+              onPageChange={(nextPage) => {
+                setPage(nextPage);
+                setExpandedUserId(null);
+                setSessionPage(0);
+              }}
+            />
+            <p className="text-xs text-slate-500">
+              这里只统计仍存在的会话及其中的运行；用户已删除的会话不会混入当前会话明细。
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function UserRanking({ items }: { items: UserUsageItem[] }) {
+  const pageSize = 10;
+  const [page, setPage] = useState(0);
+  if (items.length === 0) return <EmptyState label="暂无用户使用数据" />;
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageItems = items.slice(
+    currentPage * pageSize,
+    (currentPage + 1) * pageSize,
+  );
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div
+        data-testid="user-run-ranking-list"
+        className="max-h-72 space-y-2 overflow-y-auto pr-1 xl:max-h-none xl:flex-1 xl:basis-0"
+      >
+        {pageItems.map((item, index) => (
+          <div
+            key={item.user_id}
+            className="flex items-center gap-3 rounded-lg border border-slate-200/80 bg-white/70 px-3 py-3"
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+              {currentPage * pageSize + index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-slate-800">
+                {dashboardUserPrimaryLabel(item)}
+              </div>
+              <div
+                className="mt-1 truncate text-xs text-slate-500"
+                title={dashboardUserSecondaryParts(item).join(" · ")}
+              >
+                {dashboardUserSecondaryParts(item).join(" · ")}
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                {item.threads} 个会话 · {compactNumber(item.total_tokens)} Token
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-semibold text-slate-900">
+                {item.runs}
+              </div>
+              <div className="text-xs text-slate-500">次运行</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <RankingPagination
+        page={currentPage}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
+    </div>
+  );
+}
+
+function RankingPagination({
+  page,
+  totalPages,
+  onPageChange,
+  disabled = false,
+}: {
+  disabled?: boolean;
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-end gap-2 border-t pt-3 text-xs text-slate-500">
+      <span>
+        {page + 1} / {totalPages}
+      </span>
+      <Button
+        size="icon"
+        variant="outline"
+        className="size-7"
+        disabled={disabled || page === 0}
+        onClick={() => onPageChange(page - 1)}
+        aria-label="上一页"
+      >
+        <ChevronLeftIcon className="size-3.5" />
+      </Button>
+      <Button
+        size="icon"
+        variant="outline"
+        className="size-7"
+        disabled={disabled || page >= totalPages - 1}
+        onClick={() => onPageChange(page + 1)}
+        aria-label="下一页"
+      >
+        <ChevronRightIcon className="size-3.5" />
+      </Button>
+    </div>
+  );
+}
+
+function UsagePair({
+  label,
+  current,
+  historical,
+  currentLabel = "当前",
+  historicalLabel = "所选区间",
+}: {
+  label: string;
+  current: number;
+  historical: number;
+  currentLabel?: string;
+  historicalLabel?: string;
+}) {
+  return (
+    <div className="rounded-lg border bg-white p-4">
+      <div className="text-sm text-slate-500">{label}</div>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <div>
+          <div className="text-2xl font-semibold text-slate-900">
+            {compactNumber(current)}
+          </div>
+          <div className="text-xs text-slate-400">{currentLabel}</div>
+        </div>
+        <div className="text-right">
+          <div className="text-lg font-semibold text-cyan-700">
+            {compactNumber(historical)}
+          </div>
+          <div className="text-xs text-slate-400">{historicalLabel}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KnowledgeUsagePanel({ summary }: { summary?: KnowledgeUsageSummary }) {
+  const pageSize = 5;
+  const [userPage, setUserPage] = useState(0);
+  const [sharedSpacePage, setSharedSpacePage] = useState(0);
+  if (!summary) {
+    return (
+      <Card className="min-w-0 rounded-lg shadow-none">
+        <CardContent className="pt-6">
+          <EmptyState label="正在加载 WeKnora 使用统计" />
+        </CardContent>
+      </Card>
+    );
+  }
+  if (!summary.available) {
+    return (
+      <Card className="min-w-0 rounded-lg shadow-none">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BookOpenIcon className="size-4" />
+            知识库使用情况
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            暂时无法读取 WeKnora 统计。DeerFlow 看板本身仍可正常使用， 请检查
+            WeKnora 数据库连接。
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const maxFormat = Math.max(
+    1,
+    ...summary.file_formats.flatMap((item) => [
+      item.current_count,
+      item.uploaded_count,
+    ]),
+  );
+  const userTotalPages = Math.max(
+    1,
+    Math.ceil(summary.users.length / pageSize),
+  );
+  const currentUserPage = Math.min(userPage, userTotalPages - 1);
+  const visibleUsers = summary.users.slice(
+    currentUserPage * pageSize,
+    (currentUserPage + 1) * pageSize,
+  );
+  const sharedSpaceTotalPages = Math.max(
+    1,
+    Math.ceil(summary.shared_spaces.length / pageSize),
+  );
+  const currentSharedSpacePage = Math.min(
+    sharedSpacePage,
+    sharedSpaceTotalPages - 1,
+  );
+  const visibleSharedSpaces = summary.shared_spaces.slice(
+    currentSharedSpacePage * pageSize,
+    (currentSharedSpacePage + 1) * pageSize,
+  );
+  return (
+    <Card className="min-w-0 rounded-lg shadow-none">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <BookOpenIcon className="size-4 text-cyan-700" />
+          知识库使用情况
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="min-w-0 space-y-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <UsagePair
+            label="用户"
+            current={summary.current_users}
+            historical={summary.registered_users}
+            currentLabel="现存"
+            historicalLabel="累计新注册"
+          />
+          <UsagePair
+            label="知识库"
+            current={summary.current_knowledge_bases}
+            historical={summary.created_knowledge_bases}
+            currentLabel="现存"
+            historicalLabel="累计创建"
+          />
+          <UsagePair
+            label="文档"
+            current={summary.current_documents}
+            historical={summary.uploaded_documents}
+            currentLabel="现存"
+            historicalLabel="累计上传"
+          />
+          <UsagePair
+            label="知识库会话"
+            current={summary.current_conversation_sessions}
+            historical={summary.conversation_sessions}
+            currentLabel="现存"
+            historicalLabel="累计创建"
+          />
+          <UsagePair
+            label="用户提问"
+            current={summary.current_question_turns}
+            historical={summary.question_turns}
+            currentLabel="现存"
+            historicalLabel="累计提问"
+          />
+        </div>
+
+        <div className="rounded-lg border border-cyan-100 bg-cyan-50/50 px-4 py-3 text-xs leading-5 text-slate-600">
+          “知识库会话”是用户新建的一次知识库对话；“用户提问”是这些对话中发送的问题总轮次。
+          一次会话可以连续提出多个问题，因此用户提问数通常大于知识库会话数。
+          本区域的“累计”均表示所选时间范围内累计发生的数量。
+        </div>
+
+        <div className="min-w-0 rounded-lg border p-4">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <FileTextIcon className="size-4 text-cyan-700" />
+            文档格式分布
+          </div>
+          {summary.file_formats.length === 0 ? (
+            <EmptyState label="所选时间范围暂无文档" />
+          ) : (
+            <div className="grid gap-x-6 gap-y-4 md:grid-cols-2 xl:grid-cols-3">
+              {summary.file_formats.map((item) => (
+                <div key={item.format} className="space-y-1.5">
+                  <div className="flex justify-between gap-3 text-xs">
+                    <span className="font-medium text-slate-700 uppercase">
+                      {item.format || "OTHER"}
+                    </span>
+                    <span className="text-slate-500">
+                      现存 {item.current_count} · 累计上传 {item.uploaded_count}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full"
+                        style={dashboardBarStyle(item.current_count, maxFormat)}
+                      />
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          ...dashboardBarStyle(item.uploaded_count, maxFormat),
+                          backgroundColor: "#2563eb",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div className="flex items-center gap-4 text-xs text-slate-400">
+                <span>青色：现存</span>
+                <span>蓝色：累计上传</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 overflow-hidden rounded-lg border">
+          <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
+            知识库明细
+          </div>
+          <div
+            className="cnooc-table-scroll max-h-96 overflow-auto"
+            role="region"
+            aria-label="知识库明细"
+            tabIndex={0}
+          >
+            <table className="w-full min-w-[680px] text-left text-xs">
+              <thead className="sticky top-0 bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">
+                    知识库 / 创建人姓名与账号
+                  </th>
+                  <th className="px-3 py-3 font-medium">文档</th>
+                  <th className="px-3 py-3 font-medium">格式</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {summary.knowledge_bases.map((item) => (
+                  <tr key={item.knowledge_base_id}>
+                    <td className="max-w-64 px-4 py-3">
+                      <div className="truncate font-medium text-slate-800">
+                        {item.name}
+                      </div>
+                      <AccountIdentity
+                        name={item.creator_name}
+                        email={item.creator_email}
+                      />
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">
+                      现存 {item.current_documents}
+                      <br />
+                      累计上传 {item.uploaded_documents}
+                    </td>
+                    <td className="max-w-72 px-3 py-3 text-slate-500">
+                      {item.file_formats.length
+                        ? item.file_formats
+                            .map(
+                              (format) =>
+                                `${format.format.toUpperCase()} ${format.current_count}/${format.uploaded_count}`,
+                            )
+                            .join(" · ")
+                        : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {summary.knowledge_bases.length === 0 ? (
+              <div className="p-4">
+                <EmptyState label="暂无知识库" />
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-lg border p-4">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">
+              共享空间使用情况
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              成员按加入共享空间的工作空间统计；知识库和文档按共享记录去重。
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <UsagePair
+              label="共享空间"
+              current={summary.current_shared_spaces}
+              historical={summary.created_shared_spaces}
+              currentLabel="现存"
+              historicalLabel="累计创建"
+            />
+            <UsagePair
+              label="成员工作空间"
+              current={summary.current_shared_space_members}
+              historical={summary.joined_shared_space_members}
+              currentLabel="当前加入"
+              historicalLabel="累计加入"
+            />
+            <UsagePair
+              label="共享知识库"
+              current={summary.current_shared_knowledge_bases}
+              historical={summary.shared_knowledge_bases}
+              currentLabel="当前共享"
+              historicalLabel="累计共享"
+            />
+            <UsagePair
+              label="共享文档"
+              current={summary.current_shared_documents}
+              historical={summary.uploaded_shared_documents}
+              currentLabel="当前可用"
+              historicalLabel="累计上传"
+            />
+            <UsagePair
+              label="加入申请"
+              current={summary.pending_shared_space_requests}
+              historical={summary.shared_space_join_requests}
+              currentLabel="当前待处理"
+              historicalLabel="累计提交"
+            />
+          </div>
+          <div className="min-w-0 overflow-hidden rounded-lg border">
+            <div
+              className="cnooc-table-scroll max-h-96 overflow-auto"
+              role="region"
+              aria-label="共享空间使用情况"
+              tabIndex={0}
+            >
+              <table className="w-full min-w-[1100px] text-left text-xs">
+                <thead className="sticky top-0 bg-slate-50 text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">
+                      共享空间 / 所有者姓名与账号
+                    </th>
+                    <th className="px-3 py-3 font-medium">创建时间</th>
+                    <th className="px-3 py-3 font-medium">成员角色</th>
+                    <th className="px-3 py-3 font-medium">共享知识库</th>
+                    <th className="px-3 py-3 font-medium">共享文档</th>
+                    <th className="px-3 py-3 font-medium">加入申请</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {visibleSharedSpaces.map((item) => (
+                    <tr key={item.shared_space_id}>
+                      <td className="max-w-72 px-4 py-3">
+                        <div className="truncate font-medium text-slate-800">
+                          {item.name}
+                        </div>
+                        <AccountIdentity
+                          name={item.owner_name}
+                          email={item.owner_email}
+                        />
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        {shortTime(item.created_at)}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        当前 {item.current_members} · 累计加入{" "}
+                        {item.joined_members}
+                        <br />
+                        管理 {item.admins} / 编辑 {item.editors} / 查看{" "}
+                        {item.viewers}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        当前 {item.current_knowledge_bases}
+                        <br />
+                        累计共享 {item.shared_knowledge_bases}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        当前 {item.current_documents}
+                        <br />
+                        累计上传 {item.uploaded_documents}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        待处理 {item.pending_requests}
+                        <br />
+                        累计提交 {item.join_requests}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {summary.shared_spaces.length === 0 ? (
+                <div className="p-4">
+                  <EmptyState label="暂无共享空间" />
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <RankingPagination
+            page={currentSharedSpacePage}
+            totalPages={sharedSpaceTotalPages}
+            onPageChange={setSharedSpacePage}
+          />
+        </div>
+
+        <div className="min-w-0 overflow-hidden rounded-lg border">
+          <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
+            知识库使用排行
+          </div>
+          <div
+            className="cnooc-table-scroll max-h-80 overflow-auto"
+            role="region"
+            aria-label="知识库使用排行"
+            tabIndex={0}
+          >
+            <table className="w-full min-w-[620px] text-left text-xs">
+              <thead className="sticky top-0 bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">用户姓名与账号</th>
+                  <th className="px-3 py-3 font-medium">
+                    知识库 现存/累计创建
+                  </th>
+                  <th className="px-3 py-3 font-medium">文档 现存/累计上传</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {visibleUsers.map((item) => (
+                  <tr key={item.weknora_user_id}>
+                    <td className="max-w-72 px-4 py-3">
+                      <AccountIdentity
+                        name={item.name}
+                        email={item.email}
+                        fallback={item.weknora_user_id}
+                      />
+                    </td>
+                    <td className="px-3 py-3">
+                      {item.current_knowledge_bases} /{" "}
+                      {item.created_knowledge_bases}
+                    </td>
+                    <td className="px-3 py-3">
+                      {item.current_documents} / {item.uploaded_documents}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {summary.users.length === 0 ? (
+              <div className="p-4">
+                <EmptyState label="暂无知识库用户" />
+              </div>
+            ) : null}
+          </div>
+          <div className="px-4 pb-3">
+            <RankingPagination
+              page={currentUserPage}
+              totalPages={userTotalPages}
+              onPageChange={setUserPage}
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ScheduledTaskUsagePanel({
+  summary,
+}: {
+  summary?: ScheduledTaskUsageSummary;
+}) {
+  return (
+    <Card className="min-w-0 rounded-lg shadow-none">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2">
+            <CalendarClockIcon className="size-4 text-cyan-700" />
+            定时任务使用情况
+          </span>
+          <span className="text-xs font-normal text-slate-500">
+            历史创建审计可在任务删除后继续保留
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <UsagePair
+            label="定时任务"
+            current={summary?.current_tasks ?? 0}
+            historical={summary?.created_tasks ?? 0}
+            historicalLabel="区间创建"
+          />
+          <UsagePair
+            label="任务状态"
+            current={summary?.enabled_tasks ?? 0}
+            historical={summary?.paused_tasks ?? 0}
+            currentLabel="当前启用"
+            historicalLabel="当前暂停"
+          />
+          <UsagePair
+            label="任务执行"
+            current={summary?.successful_runs ?? 0}
+            historical={summary?.runs ?? 0}
+            currentLabel="区间成功"
+            historicalLabel="区间总执行"
+          />
+          <UsagePair
+            label="异常与跳过"
+            current={summary?.failed_runs ?? 0}
+            historical={summary?.skipped_runs ?? 0}
+            currentLabel="失败/中断"
+            historicalLabel="跳过"
+          />
+        </div>
+        <div className="min-w-0 overflow-hidden rounded-lg border">
+          <div
+            className="cnooc-table-scroll max-h-80 overflow-auto"
+            role="region"
+            aria-label="定时任务使用情况"
+            tabIndex={0}
+          >
+            <table className="w-full min-w-[780px] text-left text-xs">
+              <thead className="sticky top-0 bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">用户</th>
+                  <th className="px-3 py-3 font-medium">任务 当前/区间创建</th>
+                  <th className="px-3 py-3 font-medium">启用/暂停</th>
+                  <th className="px-3 py-3 font-medium">执行</th>
+                  <th className="px-3 py-3 font-medium">成功/失败/跳过</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {(summary?.users ?? []).map((item) => (
+                  <tr key={item.user_id}>
+                    <td className="max-w-72 px-4 py-3">
+                      <div className="truncate font-medium text-slate-800">
+                        {dashboardUserPrimaryLabel(item)}
+                      </div>
+                      <div
+                        className="mt-1 truncate text-xs text-slate-500"
+                        title={dashboardUserSecondaryParts(item).join(" · ")}
+                      >
+                        {dashboardUserSecondaryParts(item).join(" · ")}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3">
+                      {item.current_tasks} / {item.created_tasks}
+                    </td>
+                    <td className="px-3 py-3">
+                      {item.enabled_tasks} / {item.paused_tasks}
+                    </td>
+                    <td className="px-3 py-3">{item.runs}</td>
+                    <td className="px-3 py-3">
+                      {item.successful_runs} / {item.failed_runs} /{" "}
+                      {item.skipped_runs}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {(summary?.users.length ?? 0) === 0 ? (
+              <div className="p-4">
+                <EmptyState label="所选区间暂无定时任务活动" />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RunRanking({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: DashboardRunRankingItem[];
+}) {
+  const pageSize = 5;
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageRows = rows.slice(
+    currentPage * pageSize,
+    (currentPage + 1) * pageSize,
+  );
+  return (
+    <Card className="min-w-0 rounded-lg shadow-none">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ClockIcon className="size-4" />
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <EmptyState label="当前时间范围内暂无数据" />
+        ) : (
+          <div className="space-y-3">
+            <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+              {pageRows.map((run) => (
+                <div
+                  key={run.run_id}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border px-3 py-3 text-sm"
+                >
+                  <div className="min-w-0">
+                    <div
+                      className="truncate font-medium text-slate-800"
+                      title={run.run_id}
+                    >
+                      {run.run_id}
+                    </div>
+                    <div className="mt-1 truncate text-xs text-slate-500">
+                      {run.model ?? "未记录模型"} · {run.agent ?? "默认智能体"}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-slate-500">
+                    <div>{duration(run.duration_ms)}</div>
+                    <div className="mt-1">
+                      {compactNumber(run.tokens)} Token
+                    </div>
+                    <Link
+                      className="mt-2 inline-flex items-center gap-1 text-cyan-700 hover:text-cyan-900"
+                      href={`/workspace/chats/${run.thread_id}?admin_review=1`}
+                    >
+                      查看原对话 <ExternalLinkIcon className="size-3" />
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <RankingPagination
+              page={currentPage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FailedRuns({
+  rows,
+  total,
+  page,
+  searchQuery,
+  isLoading,
+  isError,
+  isFetching,
+  errorMessage,
+  onRetry,
+  onSearchChange,
+  onPageChange,
+}: {
+  rows: RecentFailureItem[];
+  total: number | undefined;
+  page: number;
+  searchQuery: string;
+  isLoading: boolean;
+  isError: boolean;
+  isFetching: boolean;
+  errorMessage: string;
+  onRetry: () => void;
+  onSearchChange: (query: string) => void;
+  onPageChange: (page: number) => void;
+}) {
+  const [selectedFailure, setSelectedFailure] =
+    useState<RecentFailureItem | null>(null);
+  const diagnosticsQuery = useRunDiagnostics(selectedFailure?.run_id ?? null);
+  const totalPages = Math.max(1, Math.ceil((total ?? 0) / 5));
+  const currentPage = Math.min(page, totalPages - 1);
+  return (
+    <Card className="min-w-0 rounded-lg shadow-none xl:col-span-2">
+      <CardHeader className="gap-3">
+        <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2">
+            <AlertTriangleIcon className="size-4" />
+            全部失败运行（
+            {isError
+              ? "暂不可用"
+              : total === undefined
+                ? "加载中"
+                : compactNumber(total)}
+            ）
+          </span>
+          <span className="text-xs font-normal text-slate-500">
+            全历史 · 点击可查看只读错误诊断
+          </span>
+        </CardTitle>
+        <div className="flex items-center gap-2">
+          <Input
+            value={searchQuery}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="按登录账号或姓名筛选失败任务"
+            aria-label="按登录账号或姓名筛选失败任务"
+            className="h-9"
+          />
+          {searchQuery ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onSearchChange("")}
+            >
+              清除
+            </Button>
+          ) : null}
+        </div>
+      </CardHeader>
+      <CardContent aria-busy={isFetching}>
+        {isLoading ? (
+          <div
+            role="status"
+            className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500"
+          >
+            <LoaderCircleIcon className="size-4 animate-spin" />
+            正在加载失败运行
+          </div>
+        ) : isError ? (
+          <div
+            role="alert"
+            className="space-y-3 rounded-lg border border-dashed p-6 text-center text-sm text-slate-600"
+          >
+            <p>{errorMessage}</p>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isFetching}
+              onClick={onRetry}
+            >
+              {isFetching ? "重试中…" : "重试加载失败运行"}
+            </Button>
+          </div>
+        ) : rows.length === 0 ? (
+          <EmptyState
+            label={
+              searchQuery
+                ? "没有匹配该账号或姓名的失败运行"
+                : "目前没有失败运行"
+            }
+          />
+        ) : (
+          <div className="space-y-3">
+            {isFetching && (
+              <div
+                role="status"
+                className="flex items-center gap-2 text-sm text-slate-500"
+              >
+                <LoaderCircleIcon className="size-4 animate-spin" />
+                正在更新失败运行
+              </div>
+            )}
+            <div className="space-y-3 md:hidden">
+              {rows.map((row) => (
+                <article
+                  key={row.run_id}
+                  className="min-w-0 space-y-3 rounded-lg border p-3 text-sm [overflow-wrap:anywhere]"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                    <time dateTime={row.updated_at}>
+                      {shortTime(row.updated_at)}
+                    </time>
+                    <span>耗时 {duration(row.duration_ms)}</span>
+                  </div>
+                  <AccountIdentity
+                    name={row.display_name}
+                    email={row.email}
+                    fallback={row.user_id ?? "未识别"}
+                  />
+                  <div className="flex flex-wrap items-start justify-between gap-2 text-xs text-slate-600">
+                    <span className="min-w-0 flex-1">
+                      {row.model_name ?? "未记录模型"}
+                    </span>
+                    <span className="shrink-0 rounded-md bg-red-50 px-2 py-1 text-red-700">
+                      {row.status}
+                    </span>
+                  </div>
+                  <p className="line-clamp-3 rounded-md bg-red-50/60 p-3 leading-relaxed text-red-800">
+                    {row.error ?? row.status}
+                  </p>
+                  {row.error_truncated && (
+                    <p className="text-xs text-slate-500">
+                      错误摘要已截取，可查看错误详情。
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-500">Run：{row.run_id}</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11 flex-1"
+                      onClick={() => setSelectedFailure(row)}
+                    >
+                      查看错误详情
+                    </Button>
+                    {row.can_open && row.chat_url ? (
+                      <Link
+                        className="inline-flex min-h-11 items-center gap-1 text-cyan-700"
+                        href={row.chat_url}
+                      >
+                        查看原对话 <ExternalLinkIcon className="size-3" />
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-slate-400">
+                        原对话不可用
+                      </span>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="hidden max-h-[26rem] overflow-auto rounded-lg border md:block">
+              <table className="w-full min-w-[680px] table-fixed text-left text-xs">
+                <colgroup>
+                  <col className="w-[15%]" />
+                  <col className="w-[22%]" />
+                  <col className="w-[17%]" />
+                  <col className="w-[30%]" />
+                  <col className="w-[16%]" />
+                </colgroup>
+                <thead className="sticky top-0 bg-slate-50 text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">失败时间</th>
+                    <th className="px-3 py-3 font-medium">用户姓名与账号</th>
+                    <th className="px-3 py-3 font-medium">模型 / 状态</th>
+                    <th className="px-3 py-3 font-medium">错误摘要</th>
+                    <th className="px-3 py-3 font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {rows.map((row) => (
+                    <tr key={row.run_id} className="bg-red-50/20 align-top">
+                      <td className="min-w-0 px-3 py-3 text-slate-600">
+                        {shortTime(row.updated_at)}
+                        <div className="mt-1 text-slate-400">
+                          耗时 {duration(row.duration_ms)}
+                        </div>
+                      </td>
+                      <td className="min-w-0 px-3 py-3">
+                        <AccountIdentity
+                          name={row.display_name}
+                          email={row.email}
+                          fallback={row.user_id ?? "未识别"}
+                        />
+                      </td>
+                      <td className="min-w-0 px-3 py-3 text-slate-600">
+                        <div className="break-words">
+                          {row.model_name ?? "未记录模型"}
+                        </div>
+                        <div className="mt-1 text-red-700">{row.status}</div>
+                      </td>
+                      <td className="min-w-0 px-3 py-3 text-red-700">
+                        <div
+                          className="line-clamp-3"
+                          title={row.error ?? row.status}
+                        >
+                          {row.error ?? row.status}
+                        </div>
+                        {row.error_truncated && (
+                          <div className="mt-1 text-slate-500">
+                            错误摘要已截取，可查看错误详情。
+                          </div>
+                        )}
+                        <div className="mt-1 truncate text-slate-400">
+                          Run：{row.run_id}
+                        </div>
+                      </td>
+                      <td className="min-w-0 px-2 py-3">
+                        <div className="flex min-w-0 flex-col items-stretch gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-auto w-full px-2 py-1.5 whitespace-normal"
+                            onClick={() => setSelectedFailure(row)}
+                          >
+                            查看错误详情
+                          </Button>
+                          {row.can_open && row.chat_url ? (
+                            <Link
+                              className="text-center leading-5 text-cyan-700 hover:text-cyan-900"
+                              href={row.chat_url}
+                            >
+                              查看原对话{" "}
+                              <ExternalLinkIcon className="inline size-3" />
+                            </Link>
+                          ) : (
+                            <span className="text-center leading-5 text-slate-400">
+                              原对话不可用
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <RankingPagination
+              page={currentPage}
+              totalPages={totalPages}
+              onPageChange={onPageChange}
+              disabled={isFetching}
+            />
+          </div>
+        )}
+      </CardContent>
+      <Dialog
+        open={Boolean(selectedFailure)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedFailure(null);
+        }}
+      >
+        <DialogContent className="cnooc-detail-dialog flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-5xl">
+          <DialogHeader className="shrink-0 pr-8 text-left">
+            <DialogTitle>失败运行错误详情</DialogTitle>
+            <DialogDescription>
+              只读展示运行错误、节点、工具调用与事件记录，不会修改或重试该任务。
+            </DialogDescription>
+          </DialogHeader>
+          {diagnosticsQuery.isLoading ? (
+            <EmptyState label="正在加载错误诊断详情" />
+          ) : diagnosticsQuery.isError ? (
+            <EmptyState
+              label={`错误诊断加载失败：${diagnosticsQuery.error.message}`}
+            />
+          ) : diagnosticsQuery.data && selectedFailure ? (
+            <div className="min-h-0 min-w-0 space-y-5 overflow-y-auto overscroll-contain pr-1 text-sm [overflow-wrap:anywhere]">
+              {diagnosticsQuery.data.preview?.bounded ? (
+                <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+                  当前为诊断摘要：共{" "}
+                  {diagnosticsQuery.data.preview.total_events} 条事件， 展示末尾{" "}
+                  {diagnosticsQuery.data.preview.returned_events} 条。
+                  长文本已截取，过大元数据未加载；工具与节点信息仅来自此摘要，原始记录未修改。
+                </p>
+              ) : null}
+              <div className="grid grid-cols-2 gap-3 rounded-lg border bg-slate-50 p-4 xl:grid-cols-4">
+                <div className="col-span-2 min-w-0 xl:col-span-1">
+                  <AccountIdentity
+                    name={selectedFailure.display_name}
+                    email={selectedFailure.email}
+                    fallback={selectedFailure.user_id ?? "未识别"}
+                  />
+                </div>
+                {[
+                  ["状态", diagnosticsQuery.data.status],
+                  ["模型", diagnosticsQuery.data.model ?? "未记录"],
+                  ["Agent", diagnosticsQuery.data.agent ?? "未记录"],
+                  [
+                    "最后成功节点",
+                    diagnosticsQuery.data.last_successful_node ?? "未记录",
+                  ],
+                  ["失败节点", diagnosticsQuery.data.failed_node ?? "未记录"],
+                  ["耗时", duration(diagnosticsQuery.data.duration_ms)],
+                  [
+                    "总 Token",
+                    compactNumber(diagnosticsQuery.data.tokens.total),
+                  ],
+                ].map(([label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <div className="text-xs text-slate-500">{label}</div>
+                    <div
+                      className="mt-1 font-medium break-words text-slate-800"
+                      title={String(value)}
+                    >
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-slate-500">Run ID</div>
+                  <div className="mt-1 font-mono text-xs break-all">
+                    {diagnosticsQuery.data.run.run_id}
+                  </div>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-slate-500">Thread ID</div>
+                  <div className="mt-1 font-mono text-xs break-all">
+                    {diagnosticsQuery.data.run.thread_id}
+                  </div>
+                </div>
+              </div>
+
+              {diagnosticsQuery.data.user_question ? (
+                <section className="space-y-2">
+                  <h3 className="font-semibold text-slate-800">用户问题</h3>
+                  <div className="rounded-lg border bg-slate-50 p-3 whitespace-pre-wrap text-slate-700">
+                    {diagnosticsQuery.data.user_question}
+                  </div>
+                </section>
+              ) : null}
+
+              {diagnosticsQuery.data.possible_causes.length ? (
+                <section className="space-y-2">
+                  <h3 className="font-semibold text-slate-800">可能原因</h3>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {diagnosticsQuery.data.possible_causes.map((cause) => (
+                      <div
+                        key={`${cause.type}-${cause.label}`}
+                        className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900"
+                      >
+                        <div className="font-medium">{cause.label}</div>
+                        <div className="mt-1 text-xs">
+                          置信度：{cause.confidence}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              <section className="space-y-2">
+                <h3 className="font-semibold text-slate-800">错误堆栈</h3>
+                <pre className="max-h-64 overflow-auto rounded-lg border border-red-200 bg-red-50 p-3 text-xs break-all whitespace-pre-wrap text-red-800">
+                  {diagnosticsQuery.data.error_stack ??
+                    diagnosticsQuery.data.run.error ??
+                    "未记录错误堆栈"}
+                </pre>
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="font-semibold text-slate-800">
+                  工具调用（{diagnosticsQuery.data.tool_calls.length}）
+                </h3>
+                {diagnosticsQuery.data.tool_calls.length ? (
+                  <div className="max-h-64 space-y-2 overflow-auto rounded-lg border p-2">
+                    {diagnosticsQuery.data.tool_calls.map((tool) => (
+                      <div
+                        key={tool.id}
+                        className="rounded-md bg-slate-50 p-3 text-xs"
+                      >
+                        <div className="flex flex-wrap justify-between gap-2 font-medium text-slate-800">
+                          <span>{tool.name ?? "未知工具"}</span>
+                          <span>
+                            {tool.status} · {duration(tool.duration_ms ?? 0)}
+                          </span>
+                        </div>
+                        {tool.error ? (
+                          <div className="mt-2 whitespace-pre-wrap text-red-700">
+                            {tool.error}
+                          </div>
+                        ) : null}
+                        {tool.result_preview ? (
+                          <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-slate-600">
+                            {tool.result_preview}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState label="该运行没有工具调用记录" />
+                )}
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="font-semibold text-slate-800">
+                  末尾事件（最多 30 条）
+                </h3>
+                <div className="max-h-72 space-y-2 overflow-auto rounded-lg border p-2">
+                  {diagnosticsQuery.data.events.slice(-30).map((event) => (
+                    <div
+                      key={event.id}
+                      className="rounded-md bg-slate-50 p-3 text-xs"
+                    >
+                      <div className="flex flex-wrap justify-between gap-2 text-slate-500">
+                        <span>
+                          {event.seq} · {event.category} · {event.event_type}
+                        </span>
+                        <span>{shortTime(event.created_at)}</span>
+                      </div>
+                      <div className="mt-2 line-clamp-4 break-all whitespace-pre-wrap text-slate-700">
+                        {event.content || "（无正文）"}
+                      </div>
+                    </div>
+                  ))}
+                  {diagnosticsQuery.data.events.length === 0 ? (
+                    <EmptyState label="该运行没有事件记录" />
+                  ) : null}
+                </div>
+              </section>
+
+              {selectedFailure.can_open && selectedFailure.chat_url ? (
+                <div className="flex justify-end">
+                  <Button asChild variant="outline">
+                    <Link href={selectedFailure.chat_url}>
+                      查看原对话 <ExternalLinkIcon className="size-3" />
+                    </Link>
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+function FeedbackPanel({ summary }: { summary?: FeedbackSummary }) {
+  const total = summary?.total ?? 0;
+  return (
+    <Card className="min-w-0 rounded-lg shadow-none">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ThumbsUpIcon className="size-4" />
+          用户反馈（所选区间）
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="min-w-0 space-y-4">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-lg border bg-white p-4">
+            <div className="text-sm text-slate-500">反馈数</div>
+            <div className="mt-2 text-2xl font-semibold">
+              {compactNumber(total)}
+            </div>
+          </div>
+          <div className="rounded-lg border bg-white p-4">
+            <div className="text-sm text-slate-500">好评</div>
+            <div className="mt-2 text-2xl font-semibold text-emerald-700">
+              {compactNumber(summary?.positive ?? 0)}
+            </div>
+          </div>
+          <div className="rounded-lg border bg-white p-4">
+            <div className="text-sm text-slate-500">差评</div>
+            <div className="mt-2 text-2xl font-semibold text-red-700">
+              {compactNumber(summary?.negative ?? 0)}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function DashboardPage() {
+  const queryClient = useQueryClient();
+  const [hours, setHours] = useState(24);
+  const [rangeMode, setRangeMode] = useState<"preset" | "custom">("preset");
+  const [customStart, setCustomStart] = useState(() =>
+    toDateTimeLocal(new Date(Date.now() - 24 * 3_600_000)),
+  );
+  const [customEnd, setCustomEnd] = useState(() => toDateTimeLocal(new Date()));
+  const [customStartEdited, setCustomStartEdited] = useState(false);
+  const dateBoundsQuery = useDashboardDateBounds();
+  const minimumDate = dateBoundsQuery.data?.selectable_start_at
+    ? toDateTimeLocal(new Date(dateBoundsQuery.data.selectable_start_at))
+    : undefined;
+  const visibleCustomStart =
+    !customStartEdited && minimumDate && customStart < minimumDate
+      ? minimumDate
+      : customStart;
+  const rangeBeforeData = Boolean(
+    minimumDate &&
+    (visibleCustomStart < minimumDate || customEnd < minimumDate),
+  );
+  const [appliedCustomRange, setAppliedCustomRange] = useState<{
+    start: string;
+    end: string;
+    hours: number;
+  } | null>(null);
+  const [failurePage, setFailurePage] = useState(0);
+  const [failureSearchQuery, setFailureSearchQuery] = useState("");
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const [lastManualRefreshAt, setLastManualRefreshAt] = useState<Date | null>(
+    null,
+  );
+  const deferredFailureSearchQuery = useDeferredValue(failureSearchQuery);
+  const draftStart = isoFromDateTimeLocal(visibleCustomStart);
+  const draftEnd = isoFromDateTimeLocal(customEnd);
+  const draftHours = hoursBetween(draftStart, draftEnd);
+  const canApplyCustomRange =
+    draftHours !== null &&
+    Boolean(minimumDate) &&
+    !rangeBeforeData &&
+    !dateBoundsQuery.isError;
+  const rangeStart =
+    rangeMode === "custom" ? appliedCustomRange?.start : undefined;
+  const rangeEnd = rangeMode === "custom" ? appliedCustomRange?.end : undefined;
+  const activeHours =
+    rangeMode === "custom" ? (appliedCustomRange?.hours ?? hours) : hours;
+  const filters = useMemo<DashboardFilters>(
+    () => ({
+      hours: activeHours,
+      start_at: rangeStart,
+      end_at: rangeEnd,
+    }),
+    [activeHours, rangeEnd, rangeStart],
+  );
+  const summaryQuery = useDashboardSummary(filters);
+  const draftMatchesAppliedRange =
+    rangeMode === "custom" &&
+    draftStart === rangeStart &&
+    draftEnd === rangeEnd;
+  const knowledgeQuery = useDashboardKnowledge(filters);
+  const failuresQuery = useDashboardFailures(
+    5,
+    failurePage * 5,
+    deferredFailureSearchQuery,
+  );
+  const summary = summaryQuery.data;
+  const rankingsQuery = useDashboardRunRankings(
+    filters,
+    Boolean(summary) && !summaryQuery.isFetching,
+  );
+  const headlineCounts = dashboardHeadlineCounts(summary?.overview);
+  const activityReportsReady =
+    summaryQuery.isFetched &&
+    !summaryQuery.isFetching &&
+    (summaryQuery.isError ||
+      (rankingsQuery.isFetched && !rankingsQuery.isFetching));
+
+  const handleRefresh = async () => {
+    setIsManualRefreshing(true);
+    try {
+      await refreshDashboardQueries(queryClient);
+      setLastManualRefreshAt(new Date());
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  };
+
+  const windowLabel = useMemo(() => {
+    if (rangeStart && rangeEnd)
+      return `${shortTime(rangeStart)} - ${shortTime(rangeEnd)}`;
+    if (!summary) return "";
+    return `${shortTime(summary.window.start_at)} - ${shortTime(summary.window.end_at)}`;
+  }, [rangeEnd, rangeStart, summary]);
+  return (
+    <main className="cnooc-admin-dashboard app-scroll-region min-h-full w-full max-w-full overflow-x-hidden overflow-y-auto bg-slate-50 px-3 py-4 text-slate-950 sm:px-6 sm:py-6">
+      <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-6">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+          <div className="flex w-full min-w-0 items-center justify-between gap-3">
+            <h1 className="text-2xl font-semibold tracking-normal">业务看板</h1>
+            <CompetitionDisplaySettings />
+          </div>
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto lg:shrink-0">
+            {[1, 24, 168].map((value) => (
+              <Button
+                key={value}
+                size="sm"
+                variant={
+                  rangeMode === "preset" && hours === value
+                    ? "default"
+                    : "outline"
+                }
+                onClick={() => {
+                  setRangeMode("preset");
+                  setHours(value);
+                }}
+              >
+                {value === 1 ? "1小时" : value === 168 ? "7天" : "24小时"}
+              </Button>
+            ))}
+            <div className="grid w-full min-w-0 grid-cols-1 items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] lg:w-auto lg:min-w-fit lg:py-1">
+              <Input
+                aria-label="开始时间"
+                className="h-8 w-full min-w-0 sm:w-auto lg:w-[220px] lg:min-w-[220px] lg:shrink-0"
+                type="datetime-local"
+                min={minimumDate}
+                disabled={!minimumDate || dateBoundsQuery.isError}
+                aria-describedby="dashboard-date-bounds"
+                aria-invalid={rangeBeforeData || undefined}
+                value={visibleCustomStart}
+                onChange={(event) => {
+                  setCustomStartEdited(true);
+                  setCustomStart(event.target.value);
+                }}
+              />
+              <span className="hidden text-xs text-slate-400 sm:inline">
+                至
+              </span>
+              <Input
+                aria-label="结束时间"
+                className="h-8 w-full min-w-0 sm:w-auto lg:w-[220px] lg:min-w-[220px] lg:shrink-0"
+                type="datetime-local"
+                min={minimumDate}
+                disabled={!minimumDate || dateBoundsQuery.isError}
+                aria-describedby="dashboard-date-bounds"
+                aria-invalid={rangeBeforeData || undefined}
+                value={customEnd}
+                onChange={(event) => setCustomEnd(event.target.value)}
+              />
+              <Button
+                size="sm"
+                variant={rangeMode === "custom" ? "default" : "outline"}
+                disabled={
+                  !canApplyCustomRange ||
+                  (draftMatchesAppliedRange && summaryQuery.isFetching)
+                }
+                onClick={() => {
+                  if (
+                    !canApplyCustomRange ||
+                    !draftStart ||
+                    !draftEnd ||
+                    draftHours === null
+                  )
+                    return;
+                  if (draftMatchesAppliedRange) {
+                    void refreshDashboardQueries(queryClient);
+                    return;
+                  }
+                  setAppliedCustomRange({
+                    start: draftStart,
+                    end: draftEnd,
+                    hours: draftHours,
+                  });
+                  setRangeMode("custom");
+                }}
+              >
+                {draftMatchesAppliedRange && summaryQuery.isFetching ? (
+                  <>
+                    <LoaderCircleIcon
+                      className="size-4 animate-spin motion-reduce:animate-none"
+                      aria-hidden="true"
+                    />
+                    应用中…
+                  </>
+                ) : (
+                  "应用区间"
+                )}
+              </Button>
+            </div>
+            <span className="text-xs text-slate-500">
+              {rangeMode === "custom"
+                ? windowLabel
+                : hours === 1
+                  ? "最近 1 小时"
+                  : hours === 168
+                    ? "最近 7 天"
+                    : "最近 24 小时"}
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="bg-white"
+              onClick={() => void handleRefresh()}
+              disabled={isManualRefreshing}
+            >
+              <RefreshCwIcon
+                className={cn("size-4", isManualRefreshing && "animate-spin")}
+              />
+              {isManualRefreshing ? "刷新中" : "刷新"}
+            </Button>
+            {lastManualRefreshAt ? (
+              <span
+                className="text-xs whitespace-nowrap text-slate-500"
+                aria-live="polite"
+              >
+                上次手动刷新 {lastManualRefreshAt.toLocaleTimeString("zh-CN")}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <div
+          id="dashboard-date-bounds"
+          className="-mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500"
+          aria-live="polite"
+        >
+          {dateBoundsQuery.isError ? (
+            <>
+              <span>可选日期范围加载失败，暂不能应用自定义区间。</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void dateBoundsQuery.refetch()}
+                disabled={dateBoundsQuery.isFetching}
+              >
+                重试日期范围
+              </Button>
+            </>
+          ) : minimumDate ? (
+            <span className={rangeBeforeData ? "text-red-700" : undefined}>
+              {rangeBeforeData ? "所选时间早于现有数据，请重新选择。" : ""}
+              最早可选：{minimumDate.replace("T", " ")}（本地时间）
+            </span>
+          ) : dateBoundsQuery.isPending ? (
+            "正在获取可选日期范围…"
+          ) : (
+            "暂无可统计数据，暂不能选择自定义区间。"
+          )}
+        </div>
+        {summaryQuery.isFetching ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="overflow-hidden rounded-lg border border-blue-200 bg-blue-50 text-blue-900"
+          >
+            <div className="flex items-start gap-3 px-4 py-4 sm:px-5">
+              <LoaderCircleIcon
+                className="mt-0.5 size-5 shrink-0 animate-spin motion-reduce:animate-none"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 space-y-1">
+                <p className="text-sm font-medium">正在加载所选区间</p>
+                <p className="text-xs leading-relaxed text-blue-800/80">
+                  {summary
+                    ? "当前暂时保留上次结果，加载完成后自动更新。"
+                    : "正在汇总统计数据，加载完成后自动显示。"}
+                  区间较大时可能需要一些时间。
+                </p>
+              </div>
+            </div>
+            <div
+              className="h-1 animate-pulse bg-blue-300 motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+          </div>
+        ) : null}
+        {summaryQuery.isError && !summaryQuery.isFetching ? (
+          <Card className="rounded-lg border-red-200 bg-red-50 py-5 text-red-700 shadow-none">
+            <CardContent
+              className="flex flex-wrap items-center justify-between gap-3"
+              role="alert"
+            >
+              <div className="min-w-0 flex-1">
+                <p>看板数据加载失败：{summaryQuery.error.message}</p>
+                {summary ? (
+                  <p className="mt-1 text-xs">
+                    以下为上次成功加载的结果，本次区间尚未更新。
+                  </p>
+                ) : null}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void summaryQuery.refetch()}
+              >
+                <RefreshCwIcon className="size-4" aria-hidden="true" />
+                重新加载
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+        {rankingsQuery.isError ? (
+          <Card className="rounded-lg border-amber-200 bg-amber-50 py-5 text-amber-800 shadow-none">
+            <CardContent>
+              运行排行加载失败：{rankingsQuery.error.message}
+            </CardContent>
+          </Card>
+        ) : null}
+        {knowledgeQuery.isError ? (
+          <Card className="rounded-lg border-amber-200 bg-amber-50 py-5 text-amber-800 shadow-none">
+            <CardContent>
+              知识库统计加载失败：{knowledgeQuery.error.message}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="活跃用户"
+            value={compactNumber(summary?.overview.active_users ?? 0)}
+            detail={`总用户 ${compactNumber(summary?.overview.total_users ?? 0)}，新增 ${compactNumber(summary?.overview.new_users ?? 0)}`}
+            icon={UsersIcon}
+            tone="green"
+          />
+          <MetricCard
+            label="区间新增会话"
+            value={compactNumber(headlineCounts.threadsCreatedInWindow)}
+            detail={`历史累计创建 ${compactNumber(headlineCounts.threadsCreatedAllTime)} · 当前保留（全历史） ${compactNumber(headlineCounts.threadsRetainedAllTime)} · 历史已删除 ${compactNumber(headlineCounts.threadsDeletedAllTime)}`}
+            icon={ActivityIcon}
+          />
+          <MetricCard
+            label="区间启动运行"
+            value={compactNumber(headlineCounts.runsStartedInWindow)}
+            detail={`已结束运行 ${compactNumber(headlineCounts.runsEnded)}（成功 ${compactNumber(headlineCounts.runsSuccessful)} · 失败/超时/中断 ${compactNumber(headlineCounts.runsUnsuccessful)}）· 仍在运行 ${compactNumber(headlineCounts.runsActive)}`}
+            icon={ZapIcon}
+            tone={headlineCounts.runsUnsuccessful > 0 ? "amber" : "green"}
+          />
+          <MetricCard
+            label="Token 与模型调用"
+            value={compactNumber(summary?.overview.total_tokens ?? 0)}
+            detail={`${compactNumber(summary?.overview.llm_calls ?? 0)} 次 LLM 调用，平均耗时 ${duration(summary?.overview.avg_run_duration_ms ?? 0)}`}
+            icon={BarChart3Icon}
+          />
+        </div>
+
+        <div className="min-w-0">
+          <Card className="min-w-0 rounded-lg shadow-none">
+            <CardHeader>
+              <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+                <span className="flex items-center gap-2">
+                  <BarChart3Icon className="size-4" />
+                  用户活跃趋势
+                </span>
+                <span className="text-xs font-normal text-slate-500">
+                  区间新增{" "}
+                  {compactNumber(
+                    summary?.user_activity.reduce(
+                      (total, item) => total + item.threads,
+                      0,
+                    ) ?? 0,
+                  )}{" "}
+                  个会话 ·
+                  {summary?.activity_bucket === "week"
+                    ? " 按周聚合"
+                    : summary?.activity_bucket === "month"
+                      ? " 按约30天聚合"
+                      : summary?.activity_bucket === "year"
+                        ? " 按约1年聚合"
+                        : " 按日统计"}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ActivityTrend
+                items={summary?.user_activity ?? []}
+                bucket={summary?.activity_bucket ?? "day"}
+              />
+              <div className="mt-3 flex gap-4 text-xs text-slate-500">
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-full bg-slate-800" />
+                  区间新增会话数
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-full bg-emerald-500" />
+                  活跃用户
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-slate-400">
+                按所选时间范围展示会话创建与活跃用户趋势，两组柱使用同一刻度。
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <FeedbackPanel summary={summary?.feedback} />
+        <FeedbackActorsPanel
+          key={`actors:${filters.hours}:${filters.start_at}:${filters.end_at}`}
+          filters={filters}
+          enabled={activityReportsReady}
+        />
+
+        {knowledgeQuery.isError ? null : (
+          <KnowledgeUsagePanel summary={knowledgeQuery.data} />
+        )}
+
+        <ScheduledTaskUsagePanel summary={summary?.scheduled_task_usage} />
+
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+          <Card
+            data-testid="user-run-ranking"
+            className="min-h-0 min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur"
+          >
+            <CardHeader>
+              <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+                <span className="flex items-center gap-2">
+                  <UsersIcon className="size-4 text-cyan-700" />
+                  用户运行排行
+                </span>
+                <span className="text-xs font-normal text-slate-500">
+                  所选区间历史运行
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex min-h-0 flex-1 flex-col">
+              <UserRanking items={summary?.user_usage ?? []} />
+            </CardContent>
+          </Card>
+          <EmployeeClicksPanel
+            key={`clicks:${filters.hours}:${filters.start_at}:${filters.end_at}`}
+            filters={filters}
+            enabled={activityReportsReady}
+          />
+        </div>
+
+        <ModelMonitorPanel />
+        <ModelMonitorPanel scope="oa" />
+        <RegisteredUserSessions />
+
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+          <RunRanking
+            title="慢运行排行（已结束）"
+            rows={rankingsQuery.data?.slow_runs ?? []}
+          />
+          <RunRanking
+            title="高 Token 运行排行（已结束）"
+            rows={rankingsQuery.data?.high_token_runs ?? []}
+          />
+          <FailedRuns
+            rows={failuresQuery.data?.items ?? []}
+            total={failuresQuery.data?.total}
+            page={failurePage}
+            searchQuery={failureSearchQuery}
+            isLoading={failuresQuery.isLoading}
+            isError={failuresQuery.isError}
+            isFetching={failuresQuery.isFetching}
+            errorMessage={
+              failuresQuery.error instanceof Error
+                ? failuresQuery.error.message
+                : "失败运行暂时无法加载，请稍后重试"
+            }
+            onRetry={() => {
+              void failuresQuery.refetch();
+            }}
+            onSearchChange={(query) => {
+              setFailureSearchQuery(query);
+              setFailurePage(0);
+            }}
+            onPageChange={setFailurePage}
+          />
+        </div>
+      </div>
+    </main>
+  );
+}

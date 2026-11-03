@@ -9,7 +9,7 @@ import subprocess
 import tarfile
 
 from released_source_20261102 import ARCHIVE as NOV02_ARCHIVE, DELTA as NOV02_DELTA, PARENT_DELTA, historical_read
-from released_source_20261102 import CI_ARCHIVE, CI_MANIFEST
+from released_source_20261102 import CI_ARCHIVE, CI_MANIFEST, followup
 
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = "release/nov01-released-fixes-source-20261102/"
@@ -24,6 +24,8 @@ def verify(ref=None):
             roots.extend((NOV02_ARCHIVE, NOV02_DELTA, PARENT_DELTA))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, CI_MANIFEST], cwd=ROOT).strip():
             roots.append(CI_ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.MANIFEST], cwd=ROOT).strip():
+            roots.append(followup.ARCHIVE)
         raw = subprocess.check_output(["git", "archive", ref, *roots], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             archived = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}

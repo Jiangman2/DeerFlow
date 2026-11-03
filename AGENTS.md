@@ -1,5 +1,15 @@
 # AGENTS.md
 
+## November 3 enterprise successor provenance
+
+`release/enterprise-source-followup-20261103/SOURCE.json` qualifies the 7 runtime
+files and 11 tests changed after PR #26 at enterprise commit `1fbc07fcf`. Verify
+the current hashes before projecting its immutable parent snapshots for older
+release checks. This is committed-source provenance, not deployment acceptance.
+See `docs/enterprise-source-followup-20261103.md`; keep all earlier inventories
+and operator receipts immutable. Run the successor rejection tests as well as
+the existing November 1/2 and October 29 source verifiers with Python 3.12+.
+
 ## Accepted November 2 release (operator acceptance November 3)
 
 Gateway 403 / Frontend 239 supersede the earlier component versions below.

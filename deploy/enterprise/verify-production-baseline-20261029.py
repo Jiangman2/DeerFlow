@@ -119,6 +119,10 @@ def verify(ref=None):
         result.update(status='NOV02_RELEASED_DELTA_ON_HISTORICAL_BASELINE_VERIFIED',
                       work_update_included=False, work_datalake_deferred=True,
                       scope='Scoped November 2 source delta on PR25; historical inventories remain immutable')
+    if result.get('enterprise_source_followup'):
+        result.update(status='ENTERPRISE_SOURCE_FOLLOWUP_ON_HISTORICAL_BASELINE_VERIFIED',
+                      runtime_accepted=False, candidate_deployed=False,
+                      scope='Committed November 3 source successor; historical evidence preserved; no new deployment acceptance')
     return result
 
 

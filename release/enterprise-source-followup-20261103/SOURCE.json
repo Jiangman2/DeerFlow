@@ -1,0 +1,119 @@
+{
+  "schema": "enterprise-source-followup.v1",
+  "status": "COMMITTED_SOURCE_NOT_DEPLOYMENT_ACCEPTANCE",
+  "base_commit": "5a29e5aa66b4190024bfd55be14cbd1cc8b16f77",
+  "source_commit": "1fbc07fcf6a7a7258d15e84e040042da4b5c8748",
+  "production_acceptance_claimed": false,
+  "work_datalake_deferred": true,
+  "database_head": "0022",
+  "changes": {
+    "backend/app/gateway/dashboard_failures.py": {
+      "kind": "runtime-source",
+      "base_sha256": "91f51164ee8803c15f5906a5ed063deff2d6497777e087ee83fb84eb5752acae",
+      "current_sha256": "8c97bb2701bea2772454770d4b920e705d08beec4b981e6f59064304ecc9fee2",
+      "baseline_path": "release/enterprise-source-followup-20261103/baseline/backend/app/gateway/dashboard_failures.py"
+    },
+    "backend/app/gateway/routers/weknora.py": {
+      "kind": "runtime-source",
+      "base_sha256": "3486e1fdf1cdf3a98fdb80fcaccc3828fd2a3549b211e3e63f5f7b0400ccb0a9",
+      "current_sha256": "541ba6fc343d8a85bcc67f9fb08f05745d09d9a486e38c813328b808c7d100ea",
+      "baseline_path": "release/enterprise-source-followup-20261103/baseline/backend/app/gateway/routers/weknora.py"
+    },
+    "backend/app/gateway/weknora_relay_budget.py": {
+      "kind": "runtime-source",
+      "base_sha256": null,
+      "current_sha256": "a20730c067d529b818df4f2c30a6de9ad92f0bb368571f244851f64962db37e5",
+      "baseline_path": null
+    },
+    "backend/packages/harness/deerflow/models/llm_performance.py": {
+      "kind": "runtime-source",
+      "base_sha256": null,
+      "current_sha256": "e58211ac0cbf3ce9c0f6a71a550ffbe074c3fb05b66741d3d8baa5877deb1e9b",
+      "baseline_path": null
+    },
+    "backend/packages/harness/deerflow/models/robust_openai.py": {
+      "kind": "runtime-source",
+      "base_sha256": "8a41b677b843b6c8e58433f1725378c312af0315711bc1ca62422d55421f2a52",
+      "current_sha256": "905b42e67931b18f48eb6687ba718529885b29d9e62f301eee2d83fd47977085",
+      "baseline_path": "release/enterprise-source-followup-20261103/baseline/backend/packages/harness/deerflow/models/robust_openai.py"
+    },
+    "backend/packages/harness/deerflow/tools/tools.py": {
+      "kind": "runtime-source",
+      "base_sha256": "17a3736c6b42dcb9db54b47e9e6d1194ca747b2494a238bf4d37d0febfc8c761",
+      "current_sha256": "da8cc41ba93bbb332987a4fe5ea9300423324c5d52c12939ac1ade5a4959ff0e",
+      "baseline_path": "release/enterprise-source-followup-20261103/baseline/backend/packages/harness/deerflow/tools/tools.py"
+    },
+    "backend/tests/test_browser_navigation_freeze.py": {
+      "kind": "regression-test",
+      "base_sha256": null,
+      "current_sha256": "f7e081e84feefb279b7804f9332429a8ae689eb88965fbf0dbc77e5fe029b735",
+      "baseline_path": null
+    },
+    "backend/tests/test_dashboard_failure_window.py": {
+      "kind": "regression-test",
+      "base_sha256": null,
+      "current_sha256": "7e45c1c0ee0e8b663706525c770637ed12bfd47021845f9ed2f803a263a2a58c",
+      "baseline_path": null
+    },
+    "backend/tests/test_dashboard_failures_bounded.py": {
+      "kind": "regression-test",
+      "base_sha256": "80e00f74e12f703d371867271765820f35d9098e7500a46b63829ab085bff37f",
+      "current_sha256": "3d7af7b082faa31f62910694879da07ed78b5ee2e18596a728033eaf6e162020",
+      "baseline_path": "release/enterprise-source-followup-20261103/baseline/backend/tests/test_dashboard_failures_bounded.py"
+    },
+    "backend/tests/test_llm_performance.py": {
+      "kind": "regression-test",
+      "base_sha256": null,
+      "current_sha256": "42b6d92b3b9f5c588679b095d81613e74dcae64ca72e62d19362a83d29994f16",
+      "baseline_path": null
+    },
+    "backend/tests/test_llm_performance_adapter.py": {
+      "kind": "regression-test",
+      "base_sha256": null,
+      "current_sha256": "e21acb3c4922d8920847c1ec9628f501026cad36450116bfeea1ff8136dd5896",
+      "baseline_path": null
+    },
+    "backend/tests/test_weknora_bailian_embedding_adapter.py": {
+      "kind": "regression-test",
+      "base_sha256": "d6558fa9ad76960d8030e4c0653bc97f676045df8694596fae143783af550aba",
+      "current_sha256": "23b239d3b66a51102cc10acb71abe0cd53a70389a66b1c68bbb2ec8c07c35422",
+      "baseline_path": "release/enterprise-source-followup-20261103/baseline/backend/tests/test_weknora_bailian_embedding_adapter.py"
+    },
+    "backend/tests/test_weknora_count_bounds.py": {
+      "kind": "regression-test",
+      "base_sha256": null,
+      "current_sha256": "d4b1f53e823c45deabccf00b469ba1ea1c08c09a55a4dbfdba394b0a1fdcee64",
+      "baseline_path": null
+    },
+    "backend/tests/test_weknora_internal_retrieval_adapter.py": {
+      "kind": "regression-test",
+      "base_sha256": "01f4776c5b8f276e2635b72d2f6dee7d72d12ddd6b1821392b810ccfde17b6d3",
+      "current_sha256": "8aba863f2daa24afa43bcdfa2b93d9e2e1c0f5c20bd62438250f83c83955bd0a",
+      "baseline_path": "release/enterprise-source-followup-20261103/baseline/backend/tests/test_weknora_internal_retrieval_adapter.py"
+    },
+    "backend/tests/test_weknora_relay_budget.py": {
+      "kind": "regression-test",
+      "base_sha256": null,
+      "current_sha256": "188cbe52e7e3ff9e383edb1decb7ec21e26cd5ed38e552680e832f36b52ae784",
+      "baseline_path": null
+    },
+    "backend/tests/test_weknora_router_counts.py": {
+      "kind": "regression-test",
+      "base_sha256": "adc96fc61c99e473a60f2b991b88601c22d3060f1b94b9f5622c5c4ae7e38ba2",
+      "current_sha256": "2d8a0eaa85bde3cef41a4c3cb7f67951cfbbeddb85839fc419f83af8ee63f3d6",
+      "baseline_path": "release/enterprise-source-followup-20261103/baseline/backend/tests/test_weknora_router_counts.py"
+    },
+    "frontend/src/app/workspace/admin/dashboard/page.tsx": {
+      "kind": "runtime-source",
+      "base_sha256": "4661dcfd7169dc523a389a336d5cf8f54f37b256435c7dedb226cabb0bc91061",
+      "current_sha256": "c9adfae7fd0a042d21b7d3830de220003026c716f550438229d3f4d8941b4b78",
+      "baseline_path": "release/enterprise-source-followup-20261103/baseline/frontend/src/app/workspace/admin/dashboard/page.tsx"
+    },
+    "frontend/tests/e2e/dashboard-failures-recovery.spec.ts": {
+      "kind": "regression-test",
+      "base_sha256": "92b8a5a720c0d27226feab25cfb5520b95f76606b7267a76a5a16bd0ce34c2af",
+      "current_sha256": "a757ff25839e97b0142b90130d9b2084a42605ffd4e1f74d6fa0b3c95a66ae1b",
+      "baseline_path": "release/enterprise-source-followup-20261103/baseline/frontend/tests/e2e/dashboard-failures-recovery.spec.ts"
+    }
+  }
+}
