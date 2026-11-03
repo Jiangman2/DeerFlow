@@ -1,0 +1,17 @@
+{
+  "schema": "portal-composer-controls-browser-acceptance.v1",
+  "source": "operator response in this conversation",
+  "date": "2026-11-02",
+  "gateway": 401,
+  "frontend": 237,
+  "reply": "界面均正常",
+  "requested_checks": [
+    "main and employee attachment rows",
+    "composer icon buttons",
+    "web toggle default off and enable notice",
+    "Token 万/亿",
+    "dashboard ranking height"
+  ],
+  "desktop_mobile_ui_accepted": true,
+  "provider_request_tests_claimed": false
+}

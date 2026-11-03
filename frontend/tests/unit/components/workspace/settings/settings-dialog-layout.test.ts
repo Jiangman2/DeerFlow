@@ -19,8 +19,10 @@ describe("settings dialog viewport layout", () => {
   });
 
   test("uses the available desktop viewport instead of a fixed 75 percent height", () => {
-    expect(source).toContain("sm:h-[calc(100vh-2rem)]");
-    expect(source).toContain("sm:max-h-[56rem]");
+    expect(source).toContain("sm:h-[calc(100dvh-2rem)]");
+    expect(source).toContain("sm:max-h-[64rem]");
+    expect(source).toContain("sm:w-[calc(100vw-2rem)]");
+    expect(source).toContain("sm:max-w-[90rem]");
     expect(source).not.toContain("sm:h-[75vh]");
   });
 

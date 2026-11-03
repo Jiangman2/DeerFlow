@@ -626,8 +626,9 @@ test.describe("CNOOC concept layout", () => {
     const materialGap = scopeBox!.x - (attachmentBox!.x + attachmentBox!.width);
     expect(materialGap).toBeGreaterThanOrEqual(0);
     expect(materialGap).toBeLessThanOrEqual(12);
-    expect(attachmentBox!.width).toBeLessThanOrEqual(240);
-    expect(scopeBox!.width).toBeLessThanOrEqual(240);
+    expect(attachmentBox!.width).toBeCloseTo(scopeBox!.width, 0);
+    expect(attachmentBox!.height).toBeLessThanOrEqual(56);
+    expect(scopeBox!.height).toBeLessThanOrEqual(56);
     await expect
       .poll(() =>
         fileScopeChip.evaluate(
@@ -717,7 +718,8 @@ test.describe("CNOOC concept layout", () => {
           : Number.POSITIVE_INFINITY;
       })
       .toBeLessThanOrEqual(64);
-    await expect(page.getByTestId("knowledge-scope-count")).toBeHidden();
+    await expect(page.getByTestId("knowledge-scope-count")).toBeVisible();
+    await expect(page.getByTestId("knowledge-scope-count")).toHaveText("2");
     const mobileToolMetrics = await page
       .getByTestId("composer-primary-tools")
       .evaluate((element) => ({
@@ -811,89 +813,54 @@ test.describe("CNOOC concept layout", () => {
     );
     await expect(page.getByTestId("knowledge-scope-count")).toHaveText("20");
     await expect(materials).toHaveCount(28);
-    const desktopMetrics = await header.evaluate((element) => {
-      const headerRect = element.getBoundingClientRect();
-      const inputRect = element.parentElement
-        ?.querySelector(".cnooc-composer-input")
-        ?.getBoundingClientRect();
-      const boxes = Array.from(
-        element.querySelectorAll(
-          ".cnooc-composer-attachment-chip, .cnooc-knowledge-scope-chip",
-        ),
-      ).map((item) => {
-        const rect = item.getBoundingClientRect();
-        return {
-          bottom: rect.bottom,
-          left: rect.left,
-          right: rect.right,
-          top: rect.top,
-          width: rect.width,
-        };
-      });
-      return {
-        boxes,
+    // The accepted composer keeps one visible material row on both sizes;
+    // additional grid rows scroll vertically without growing the text area.
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const input = page.locator(".cnooc-composer-input");
+      const composer = page.getByTestId("welcome-composer");
+      const metrics = await header.evaluate((element) => ({
         clientWidth: element.clientWidth,
-        headerBottom: headerRect.bottom,
-        headerLeft: headerRect.left,
-        headerRight: headerRect.right,
-        inputTop: inputRect?.top ?? 0,
-        rows: new Set(boxes.map((box) => Math.round(box.top))).size,
-        rowCounts: Array.from(
-          boxes.reduce((counts, box) => {
-            const key = Math.round(box.top);
-            counts.set(key, (counts.get(key) ?? 0) + 1);
-            return counts;
-          }, new Map<number, number>()),
-          ([, count]) => count,
-        ),
-        reportedRows: Number(
-          element
-            .closest<HTMLElement>("[data-testid='welcome-composer']")
-            ?.style.getPropertyValue("--cnooc-desktop-material-rows") ?? "0",
-        ),
         scrollWidth: element.scrollWidth,
-      };
-    });
-    expect(desktopMetrics.scrollWidth).toBeLessThanOrEqual(
-      desktopMetrics.clientWidth + 1,
-    );
-    expect(desktopMetrics.rows).toBeGreaterThanOrEqual(4);
-    expect(Math.max(...desktopMetrics.rowCounts)).toBeGreaterThan(4);
-    expect(desktopMetrics.reportedRows).toBe(desktopMetrics.rows);
-    expect(desktopMetrics.headerBottom).toBeLessThanOrEqual(
-      desktopMetrics.inputTop,
-    );
-    for (const box of desktopMetrics.boxes) {
-      expect(box.left).toBeGreaterThanOrEqual(desktopMetrics.headerLeft - 1);
-      expect(box.right).toBeLessThanOrEqual(desktopMetrics.headerRight + 1);
-      expect(box.width).toBeLessThanOrEqual(240);
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
+        overflowY: getComputedStyle(element).overflowY,
+      }));
+      expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
+      expect(metrics.clientHeight).toBeLessThanOrEqual(56);
+      expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
+      expect(metrics.overflowY).toBe("auto");
+      const headerBox = (await header.boundingBox())!;
+      const inputBox = (await input.boundingBox())!;
+      const composerBox = (await composer.boundingBox())!;
+      expect(headerBox.y + headerBox.height).toBeLessThanOrEqual(inputBox.y);
+      expect(headerBox.x - composerBox.x).toBeGreaterThanOrEqual(12);
+      expect(
+        composerBox.x + composerBox.width - headerBox.x - headerBox.width,
+      ).toBeGreaterThanOrEqual(12);
+      await header.evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
+      await expect(materials.last()).toBeInViewport();
+      expect(
+        await header.evaluate((element) => element.scrollTop),
+      ).toBeGreaterThan(0);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(viewport.width);
+      await page.screenshot({
+        path: test
+          .info()
+          .outputPath(`cnooc-concept-materials-many-${viewport.width}.png`),
+        fullPage: true,
+      });
     }
-    await page.screenshot({
-      path: test.info().outputPath("cnooc-concept-desktop-materials-many.png"),
-      fullPage: true,
-    });
-
-    await page.setViewportSize({ width: 390, height: 844 });
-    const mobileMetrics = await header.evaluate((element) => ({
-      clientWidth: element.clientWidth,
-      scrollWidth: element.scrollWidth,
-    }));
-    expect(mobileMetrics.scrollWidth).toBeGreaterThan(
-      mobileMetrics.clientWidth,
-    );
-    await expect
-      .poll(async () => {
-        await header.evaluate((element) => {
-          element.scrollLeft = element.scrollWidth;
-        });
-        const box = await materials.last().boundingBox();
-        return box ? box.x + box.width : Number.POSITIVE_INFINITY;
-      })
-      .toBeLessThanOrEqual(390);
-    await page.screenshot({
-      path: test.info().outputPath("cnooc-concept-mobile-materials-many.png"),
-      fullPage: true,
-    });
+    await materials.last().getByRole("button").click();
+    await expect(materials).toHaveCount(27);
+    await expect(page.getByTestId("knowledge-scope-count")).toHaveText("19");
   });
 
   test("mobile composition is compact and safe-area aware", async ({

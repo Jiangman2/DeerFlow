@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 import { mockLangGraphAPI } from "./mock-api";
 
 // Synthetic API data; every screenshot still renders the real application.
-export async function modelSquareFixture(page: Page) {
+export async function modelSquareFixture(page: Page, withUserRanking = false) {
   const names = [
     "制度研究助手",
     "项目财务助手",
@@ -160,7 +160,16 @@ export async function modelSquareFixture(page: Page) {
         },
         activity_bucket: "day",
         user_activity: [],
-        user_usage: [],
+        user_usage: withUserRanking
+          ? Array.from({ length: 20 }, (_, i) => ({
+              user_id: `qa-${i}`,
+              display_name: `合成用户${i + 1}`,
+              email: `qa${i}@example.test`,
+              threads: 2,
+              runs: 50 - i,
+              total_tokens: 1200000,
+            }))
+          : [],
         feature_usage: [],
         agent_usage: [],
         model_usage: [],

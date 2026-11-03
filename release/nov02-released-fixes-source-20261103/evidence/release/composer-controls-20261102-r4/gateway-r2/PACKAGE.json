@@ -1,0 +1,65 @@
+{
+  "patch_bytes": 54907,
+  "patch_sha256": "ee7f0af52bd91967583caa9f178e0604869abb3f29b543709ecd8affe0b13829",
+  "production_workload_modified": false,
+  "qualification": {
+    "base_generation": 400,
+    "base_manifest": "sha256:5e1acd2e3276f777df4a3ddd936f18d235b2aa123e52edfc0508e7cb0ef7eb86",
+    "base_spec_sha256": "2e323c03bedc5468bae34b7b23c8b48f03e261165522c33e8bc508d215c532d3",
+    "installed_image_acceptance_pending": true,
+    "preload_only": true,
+    "production_config_change_required": null,
+    "production_configuration_modified": false,
+    "production_schema_migration_required": false,
+    "production_source_preflight_pending": true,
+    "ready_for_rollout": false,
+    "required_migration": null,
+    "runner_update_required": false,
+    "source_base_ref": "97bd146de0fb41264eb991c15f098d0e0de395db",
+    "source_base_sha256": {
+      "app/gateway/services.py": "2f81eaf4490a37a95b58efd1624a9c0deb46eb6cc983cd886fa85d01e9a3e27e",
+      "packages/harness/deerflow/agents/lead_agent/agent.py": "1a5cbe048777f9498a0ce086c156d571ea7399ced2e83b34bb660eb32f54cd30",
+      "packages/harness/deerflow/agents/middlewares/tool_error_handling_middleware.py": "787d19c27993ed4b4fc141ca8afbf2b5e8b396c4bb71f1b48b1c6341330c285f",
+      "packages/harness/deerflow/agents/middlewares/web_search_middleware.py": null,
+      "packages/harness/deerflow/runtime/web_search_policy.py": null,
+      "packages/harness/deerflow/subagents/executor.py": "e2fa000b3d54eb4f12d32bd7e177e629907cc4ec78303268c71144b5c7860a7e",
+      "packages/harness/deerflow/tools/builtins/task_tool.py": "25f48c9c233f96c02380d8447bc682368cb62bd323a1e63e542ea897b8f1815b"
+    },
+    "source_files": {
+      "app/backend/app/gateway/services.py": {
+        "bytes": 53134,
+        "sha256": "1ce41123a0238f29960096cf4f6ff787a93add931714e23660ed5efd649d4980"
+      },
+      "app/backend/packages/harness/deerflow/agents/lead_agent/agent.py": {
+        "bytes": 40753,
+        "sha256": "ec90288229cee4e54a34e41b31b946d22be7c8d6d21a8363be790c799dad9945"
+      },
+      "app/backend/packages/harness/deerflow/agents/middlewares/tool_error_handling_middleware.py": {
+        "bytes": 28616,
+        "sha256": "c7320a2b57589fb5c54d06a2556bf94dff69ca2184d58b9b5f4357eb0171892c"
+      },
+      "app/backend/packages/harness/deerflow/agents/middlewares/web_search_middleware.py": {
+        "bytes": 2318,
+        "sha256": "2f06dd9beb6703ec4685163c9dc78647832f8f29ba4b2b8f493fc8dfce92b286"
+      },
+      "app/backend/packages/harness/deerflow/runtime/web_search_policy.py": {
+        "bytes": 785,
+        "sha256": "0e08a4f62c3008e23728f5b7c6504ab4373cc7c1000c74b262fb895389571110"
+      },
+      "app/backend/packages/harness/deerflow/subagents/executor.py": {
+        "bytes": 55566,
+        "sha256": "b1789418e46880f7e303eec4863e48b1225ad2b37eaabe7d21ecc4b4d0e12b34"
+      },
+      "app/backend/packages/harness/deerflow/tools/builtins/task_tool.py": {
+        "bytes": 28280,
+        "sha256": "c18564b1ae4a49d9485e0e3840beae87540c0bedc3f5142a6e41a2491d15bea6"
+      }
+    },
+    "work_datalake_deferred": true
+  },
+  "schema": "portal-composer-controls-gateway-package.v2",
+  "script_bytes": 226707,
+  "script_sha256": "baea48367b13c91bdd47596b78fec8ba59bd3a01818ea32ef1b6fdbffc34eb65",
+  "template_sha256": "db7cfd377dd7c2325c77af06ca47e6195b96d698b6894718f917e2ef0392bb37",
+  "tool_revision": "r2"
+}

@@ -6,11 +6,19 @@ Use --ref HEAD after committing to check Git objects rather than working files.
 import argparse
 import ast
 import hashlib
+import importlib.util
 import io
 import json
 from pathlib import Path, PurePosixPath
 import subprocess
 import tarfile
+
+# This verifier is also loaded by file path from backend tests. Resolve its
+# sibling explicitly so those callers need no process-wide sys.path mutation.
+_spec = importlib.util.spec_from_file_location("released_source_20261102", Path(__file__).with_name("released_source_20261102.py"))
+_nov02 = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_nov02)
+NOV02_ARCHIVE, NOV02_DELTA, nov02_overrides = _nov02.ARCHIVE, _nov02.DELTA, _nov02.overrides
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = 'deploy/enterprise/production-source-lock-20261029.json'
@@ -192,6 +200,10 @@ def verify(ref=None, lock_path=LOCK):
         for manifest_path in (CANDIDATE, INCIDENT_DELTA, RELEASED_DELTA, "release/nov01-released-fixes-source-20261102/SOURCE.json"):
             if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, manifest_path], cwd=ROOT).strip():
                 extra.append(manifest_path)
+        if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, NOV02_DELTA], cwd=ROOT).strip():
+            extra.extend((NOV02_DELTA, NOV02_ARCHIVE, "backend/tests"))
+        if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, _nov02.CI_MANIFEST], cwd=ROOT).strip():
+            extra.append(_nov02.CI_ARCHIVE)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
@@ -208,11 +220,13 @@ def verify(ref=None, lock_path=LOCK):
     has_release = RELEASED_DELTA in archived if archived is not None else (ROOT / RELEASED_DELTA).is_file()
     release_manifest = json.loads(read(RELEASED_DELTA)) if has_release else None
     released = released_overrides(lock, overrides, incident, release_manifest, read) if release_manifest else {'gateway': {}, 'frontend': {}}
+    has_nov02 = NOV02_DELTA in archived if archived is not None else (ROOT / NOV02_DELTA).is_file()
+    nov02 = nov02_overrides(lock, overrides, incident, released, read) if has_nov02 else {'gateway': {}, 'frontend': {}}
     normalizations = lock.get('format_normalizations', {})
     assert set(lock.get('qualification_test_overrides', {})) <= set(lock['source_sets']['frontend']), 'UNKNOWN_QUALIFICATION_TEST'
     results = []
     for component, expected in lock['source_sets'].items():
-        component_overrides = {**(overrides if component == 'gateway' else {}), **incident.get(component, {}), **released.get(component, {})}
+        component_overrides = {**(overrides if component == 'gateway' else {}), **incident.get(component, {}), **released.get(component, {}), **nov02.get(component, {})}
         expected = {**expected, **component_overrides}
         prefix = RUNNER if component == 'ppt-master-runner' else ''
         if component != 'frontend':
@@ -272,6 +286,7 @@ def verify(ref=None, lock_path=LOCK):
             'post_release_test_only_corrections': len(lock.get('qualification_test_overrides', {})),
             'scope': lock['scope'], 'production_modified': False,
             'released_delta': {'source_manifest': release_manifest['source_manifest'], 'frontend_runtime_paths': sorted(n for n in released['frontend'] if n.startswith('frontend/src/')), 'changed_sources': sum(map(len, released.values()))} if release_manifest else None,
+            'released_delta_nov02': {'source_manifest': NOV02_ARCHIVE + 'SOURCE.json', 'frontend_runtime_paths': sorted(n for n in nov02['frontend'] if n.startswith('frontend/src/')), 'changed_sources': sum(map(len, nov02.values()))} if has_nov02 else None,
             'candidate': {'status': 'NOT_DEPLOYED', 'base_commit': manifest['base_commit'], 'changed_sources': len(overrides), 'incident_delta': {'base_commit': delta['base_commit'], 'changed_sources': sum(len(v) for v in incident.values()), 'frontend_runtime_paths': sorted(n for n in incident['frontend'] if n.startswith('frontend/src/'))} if delta else None} if manifest else None}
 
 

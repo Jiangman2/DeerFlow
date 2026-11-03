@@ -40,6 +40,7 @@ from app.gateway.routers import (
     input_polish,
     mcp,
     memory,
+    model_monitor,
     models,
     oa_policy_flow,
     observability,
@@ -340,7 +341,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             app.state.oa_policy_flow_service = oa_service
             await oa_service.start()
 
-        yield
+        from app.gateway.model_monitor import model_monitor as monitor_service
+
+        await monitor_service.start()
+        try:
+            yield
+        finally:
+            await monitor_service.close()
 
         try:
             await auth.close_oidc_service()
@@ -573,6 +580,9 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     from app.gateway.work_oauth_logging import WorkOAuthQueryRedactionMiddleware
 
     app.add_middleware(WorkOAuthQueryRedactionMiddleware)
+    from app.gateway.oa_policy_flow_metrics import OAPolicyFlowMetricsMiddleware
+
+    app.add_middleware(OAPolicyFlowMetricsMiddleware)
 
     # Include routers
     # Models API is mounted at /api/models
@@ -652,6 +662,7 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     app.include_router(observability.router)
     app.include_router(dashboard.router)
+    app.include_router(model_monitor.router)
     app.include_router(home_statistics.router)
     app.include_router(announcements.router)
     app.include_router(admin_users.router)

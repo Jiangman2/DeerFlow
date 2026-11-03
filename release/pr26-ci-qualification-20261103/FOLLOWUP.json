@@ -1,0 +1,26 @@
+{
+  "schema": "pr26-ci-test-followup.v1",
+  "base_commit": "2d5fcb05d7175ec265caddbde6be616afce3c4f0",
+  "parent_manifest_sha256": "08d28a9b6f9863f074d3138be1b8c21059efc0b922040a4712626d9e25115f1d",
+  "production_workload_modified": false,
+  "changes": {
+    "backend/tests/test_tool_output_budget_middleware.py": {
+      "kind": "test_correction",
+      "baseline_path": "release/pr26-ci-qualification-20261103/followup-baseline/backend/tests/test_tool_output_budget_middleware.py",
+      "base_sha256": "2c00f7d44654cdf7f8c3c0b8ab1da4ed55a4360bc5dc4c3fa41dd5f3bcec155c",
+      "current_sha256": "f89a261130a4b5480bbf237b29799a4d1b17ad4cec990eac2395c80b0bfc37ad"
+    },
+    "frontend/tests/e2e/cnooc-concept-layout.spec.ts": {
+      "kind": "test_correction",
+      "baseline_path": "release/pr26-ci-qualification-20261103/followup-baseline/frontend/tests/e2e/cnooc-concept-layout.spec.ts",
+      "base_sha256": "a2b9a2cc9b8793323039766c7b9d95920a641f1a7ade1f11d48dd5ba0ba6df1c",
+      "current_sha256": "b5ac08dbc51a9f063b18edc80893af24e35d57ffc15dc19d271f6a565fe2b005"
+    },
+    "frontend/tests/e2e/usage-monitoring.spec.ts": {
+      "kind": "test_correction",
+      "baseline_path": "release/pr26-ci-qualification-20261103/followup-baseline/frontend/tests/e2e/usage-monitoring.spec.ts",
+      "base_sha256": "3717bdce4c59ff3f6518f64fdbd428fd30779d4f6af32c29d9f6a7b1f9cac5f5",
+      "current_sha256": "6b4da0ad3bd7551a8e48174bd20839ac2f7cf723251c12f104ca4988d6f40a8b"
+    }
+  }
+}

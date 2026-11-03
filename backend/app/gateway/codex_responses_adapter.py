@@ -1024,7 +1024,11 @@ async def stream_deepseek_responses(converted: ConvertedRequest, *, receipt_requ
         last_progress = time.monotonic()
         turn_budget = asyncio.timeout(max(0.001, deadline - time.monotonic()))
         try:
-            async with turn_budget, httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+            from deerflow.observability.model_metrics import measure_model_async
+
+            # Count actual upstream HTTP attempts, including existing bounded
+            # repairs/retries, without changing their protocol or retry policy.
+            async with measure_model_async(os.getenv("PPT_MASTER_MODEL_METRICS_LABEL", "ppt-deepseek"), "text", "relay"), turn_budget, httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
                 async with client.stream(
                     "POST",
                     upstream_url,

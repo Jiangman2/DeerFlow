@@ -478,6 +478,60 @@ class TestWriteFileParents:
 
 
 class TestReadFileFallback:
+    def test_image_never_reaches_file_or_shell_api(self, sandbox):
+        result = sandbox.read_file("/mnt/user-data/workspace/plot.PNG")
+        assert "READ_FILE_IMAGE_UNSUPPORTED" in result
+        sandbox._client.file.read_file.assert_not_called()
+        sandbox._client.shell.exec_command.assert_not_called()
+
+    def test_file_read_has_own_timeout_without_changing_command_client(self, sandbox):
+        sandbox._client.file.read_file.return_value = SimpleNamespace(data=SimpleNamespace(content="text"))
+        assert sandbox.read_file("/mnt/user-data/workspace/notes.md") == "text"
+        sandbox._client.file.read_file.assert_called_once_with(file="/mnt/user-data/workspace/notes.md", request_options={"timeout_in_seconds": 30, "max_retries": 0})
+
+    def test_timeout_does_not_fall_back_to_another_long_running_request(self, sandbox):
+        import httpx
+
+        sandbox._client.file.read_file.side_effect = httpx.ReadTimeout("SECRET internal endpoint")
+        result = sandbox.read_file("/mnt/user-data/workspace/notes.md")
+        assert "READ_FILE_TIMEOUT" in result and "SECRET" not in result
+        sandbox._client.shell.exec_command.assert_not_called()
+
+    def test_binary_decode_error_never_falls_back_to_cat(self, sandbox):
+        sandbox._client.file.read_file.side_effect = UnicodeDecodeError("utf8", b"\xff", 0, 1, "invalid byte")
+        with pytest.raises(UnicodeDecodeError):
+            sandbox.read_file("/mnt/user-data/workspace/unknown.bin")
+        sandbox._client.shell.exec_command.assert_not_called()
+
+    def test_real_sdk_receives_timeout_and_disables_transport_retries(self):
+        import httpx
+        from agent_sandbox import Sandbox as Client
+
+        from deerflow.community.aio_sandbox.aio_sandbox import AioSandbox
+
+        requests = []
+
+        def transport(request):
+            requests.append(request)
+            raise httpx.ReadTimeout("SECRET", request=request)
+
+        with httpx.Client(transport=httpx.MockTransport(transport)) as http:
+            client = Client(base_url="http://synthetic.invalid", httpx_client=http, timeout=600)
+            with patch("deerflow.community.aio_sandbox.aio_sandbox.AioSandboxClient", return_value=client):
+                adapter = AioSandbox(id="test", base_url="http://synthetic.invalid")
+            assert "READ_FILE_TIMEOUT" in adapter.read_file("/mnt/user-data/workspace/note.md")
+        assert len(requests) == 1
+        assert requests[0].url.path == "/v1/file/read"
+        assert requests[0].extensions["timeout"]["read"] == 30
+
+    def test_compatibility_fallback_timeout_is_sanitized(self, sandbox):
+        import httpx
+
+        sandbox._client.file.read_file.side_effect = ValueError("SECRET parser")
+        sandbox._client.shell.exec_command.side_effect = httpx.ReadTimeout("SECRET endpoint")
+        result = sandbox.read_file("/mnt/user-data/workspace/note.md")
+        assert "READ_FILE_TIMEOUT" in result and "SECRET" not in result
+
     def test_file_api_parse_error_falls_back_to_shell(self, sandbox):
         """A malformed remote error response must not hide a readable file."""
         sandbox._client.file.read_file = MagicMock(side_effect=ValueError("invalid response"))
@@ -487,6 +541,7 @@ class TestReadFileFallback:
 
         assert result == "<svg>content</svg>"
         sandbox._client.shell.exec_command.assert_called_once()
+        assert sandbox._client.shell.exec_command.call_args.kwargs["request_options"] == {"timeout_in_seconds": 30, "max_retries": 0}
 
     def test_file_api_parse_error_returns_normalized_shell_failure(self, sandbox):
         """A missing file should become an actionable Error string."""

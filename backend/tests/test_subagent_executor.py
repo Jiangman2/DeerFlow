@@ -3268,11 +3268,13 @@ class TestSubagentGuardrailAttribution:
         )
 
     @pytest.mark.anyio
+    @pytest.mark.parametrize("web_enabled", [False, True])
     async def test_aexecute_propagates_attribution_to_subagent_context(
         self,
         classes,
         executor_module,
         monkeypatch,
+        web_enabled,
     ):
         """The authenticated runtime context captured at task_tool must reach
         the subagent's ``astream`` context so GuardrailMiddleware sees the
@@ -3287,6 +3289,7 @@ class TestSubagentGuardrailAttribution:
             run_id="run-42",
         )
         fake_agent = _FakeStreamAgent()
+        executor.web_search_enabled = web_enabled
         monkeypatch.setattr(executor, "_build_initial_state", self._noop_build_initial_state)
         monkeypatch.setattr(executor, "_create_agent", lambda *a, **kw: fake_agent)
 
@@ -3300,6 +3303,7 @@ class TestSubagentGuardrailAttribution:
         assert context.get("oauth_id") == "subj-123"
         assert context.get("run_id") == "run-42"
         assert context.get("is_subagent") is True
+        assert context.get("web_search_enabled") is web_enabled
 
     @pytest.mark.anyio
     async def test_aexecute_propagates_channel_user_id_to_subagent_context(
@@ -3367,3 +3371,17 @@ class TestSubagentGuardrailAttribution:
         from langchain_core.messages import HumanMessage
 
         return ({"messages": [HumanMessage(content=task)]}, [], None)
+
+
+def test_subagent_catalog_inherits_toggle_and_keeps_offline_tools(_setup_executor_classes):
+    SubagentConfig = _setup_executor_classes["SubagentConfig"]
+    SubagentExecutor = _setup_executor_classes["SubagentExecutor"]
+    from langchain_core.tools import StructuredTool
+
+    tools = [StructuredTool.from_function(lambda query: "synthetic", name=n, description="synthetic tool") for n in ["web_search", "web_fetch", "read_file"]]
+    for enabled in [False, True]:
+        executor = SubagentExecutor(config=SubagentConfig(name="qa", description="synthetic", system_prompt="synthetic"), tools=tools, web_search_enabled=enabled)
+        names = [t.name for t in executor._base_tools]
+        assert ("web_search" in names) == enabled
+        assert ("web_fetch" in names) == enabled
+        assert "read_file" in names

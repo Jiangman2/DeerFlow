@@ -387,6 +387,9 @@ async def task_tool(
     # A delegated prompt cannot erase the parent's enterprise-source restriction.
     datalake_query_only = query_scope(getattr(runtime, "state", None), parent_context)["required"]
     # Create executor
+    from deerflow.runtime.web_search_policy import filter_web_tools, web_search_enabled
+
+    tools = filter_web_tools(tools, parent_context)
     executor_kwargs = {
         "config": config,
         "tools": tools,
@@ -404,6 +407,7 @@ async def task_tool(
         "deerflow_trace_id": deerflow_trace_id,
         "datalake_enabled": datalake_enabled,
         "datalake_query_only": datalake_query_only,
+        "web_search_enabled": web_search_enabled(parent_context),
     }
     if resolved_app_config is not None:
         executor_kwargs["app_config"] = resolved_app_config

@@ -160,13 +160,15 @@ def test_build_subagent_runtime_middlewares_threads_app_config_to_llm_middleware
     from deerflow.agents.middlewares.system_message_coalescing_middleware import SystemMessageCoalescingMiddleware
     from deerflow.agents.middlewares.token_budget_middleware import TokenBudgetMiddleware
     from deerflow.agents.middlewares.tool_output_budget_middleware import ToolOutputBudgetMiddleware
+    from deerflow.agents.middlewares.web_search_middleware import WebSearchMiddleware
     from deerflow.agents.middlewares.weknora_citation_middleware import WeKnoraCitationMiddleware
 
-    assert len(middlewares) == 18
+    assert len(middlewares) == 19
     assert isinstance(middlewares[0], FakeMiddleware)  # InputSanitizationMiddleware stub
     assert isinstance(middlewares[1], PlatformConfidentialityMiddleware)
     assert isinstance(middlewares[2], DataLakeSourceMiddleware)
-    assert isinstance(middlewares[3], ToolOutputBudgetMiddleware)
+    assert isinstance(middlewares[3], WebSearchMiddleware)
+    assert isinstance(middlewares[4], ToolOutputBudgetMiddleware)
     assert any(isinstance(m, ToolErrorHandlingMiddleware) for m in middlewares)
     # The token-budget backstop is attached by default so the cap engages (#3875).
     assert any(isinstance(m, TokenBudgetMiddleware) for m in middlewares)

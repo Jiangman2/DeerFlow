@@ -169,6 +169,7 @@ export function buildThreadRunContext(
   return {
     ...extraContext,
     ...context,
+    web_search_enabled: context.web_search_enabled === true,
     thinking_enabled: context.mode !== "flash",
     is_plan_mode: context.mode === "pro" || context.mode === "ultra",
     subagent_enabled: context.mode === "ultra",

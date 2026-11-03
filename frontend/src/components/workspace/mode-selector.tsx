@@ -143,7 +143,7 @@ export function ModeSelector({
         <ModeIcon mode={selectedMode} className="size-3" />
         <span
           className={cn(
-            "truncate text-xs font-normal",
+            "cnooc-composer-option-label truncate text-xs font-normal",
             selectedMode === "ultra" && "golden-text",
           )}
         >

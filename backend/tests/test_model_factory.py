@@ -86,15 +86,18 @@ def _capturing_class(base_cls: type, captured: dict) -> type:
     BaseChatOpenAI)``, so the resolved class must genuinely subclass the real
     provider for the test to exercise that gate. ``__init__`` only records the
     constructor kwargs and deliberately skips the provider's real ``__init__`` (so no
-    api_key / network / event loop is required); the factory never reads the returned
-    instance's fields when tracing is patched to ``[]``, so a bare instance is safe
-    for these config-level assertions.
+    api_key / network / event loop is required). ``model_construct`` initializes
+    Pydantic defaults without provider validators, so callback attachment uses a
+    valid instance while config assertions still inspect the original kwargs.
     """
 
     class _Capturing(base_cls):  # type: ignore[valid-type,misc]
         def __init__(self, **kwargs):
             captured.clear()
             captured.update(kwargs)
+            instance = type(self).model_construct()
+            for field in ("__dict__", "__pydantic_fields_set__", "__pydantic_extra__", "__pydantic_private__"):
+                object.__setattr__(self, field, getattr(instance, field))
 
     return _Capturing
 
@@ -149,7 +152,27 @@ def test_appends_all_tracing_callbacks(monkeypatch):
     FakeChatModel.captured_kwargs = {}
     model = factory_module.create_chat_model(name="alpha")
 
-    assert model.callbacks == ["smith-callback", "langfuse-callback"]
+    from deerflow.observability.model_metrics import ModelMetricsCallback
+
+    assert isinstance(model.callbacks[0], ModelMetricsCallback)
+    assert model.callbacks[1:] == ["smith-callback", "langfuse-callback"]
+
+
+def test_metrics_preserves_caller_callback_manager_without_mutation(monkeypatch):
+    from langchain_core.callbacks import BaseCallbackHandler, CallbackManager
+
+    from deerflow.observability.model_metrics import ModelMetricsCallback
+
+    cfg = _make_app_config([_make_model("alpha")])
+    _patch_factory(monkeypatch, cfg)
+    handler = BaseCallbackHandler()
+    manager = CallbackManager([handler], inheritable_handlers=[handler], tags=["caller"], metadata={"scope": "test"})
+    model = factory_module.create_chat_model(name="alpha", callbacks=manager, attach_tracing=False)
+    assert manager.handlers == [handler]
+    assert model.callbacks is not manager
+    assert model.callbacks.handlers[0] is handler
+    assert isinstance(model.callbacks.handlers[1], ModelMetricsCallback)
+    assert model.callbacks.tags == ["caller"] and model.callbacks.metadata == {"scope": "test"}
 
 
 # ---------------------------------------------------------------------------

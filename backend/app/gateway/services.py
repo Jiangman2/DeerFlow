@@ -368,6 +368,15 @@ def merge_run_context_overrides(config: dict[str, Any], context: Mapping[str, An
     short-lived token in the checkpoint store.
     """
     _validate_datalake_context(config, context)
+    # Browser preference is authoritative for this run, never a saved checkpoint.
+    if context is not None and "web_search_enabled" in context:
+        value = context["web_search_enabled"]
+        if type(value) is not bool:
+            raise HTTPException(status_code=400, detail={"code": "invalid_web_search_context", "message": "web_search_enabled must be a boolean", "retryable": False})
+        config.setdefault("context", {})["web_search_enabled"] = value
+    configurable_web = config.get("configurable")
+    if isinstance(configurable_web, dict):
+        configurable_web.pop("web_search_enabled", None)
     if not context:
         return
     configurable = config.setdefault("configurable", {})

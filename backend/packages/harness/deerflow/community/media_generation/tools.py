@@ -25,6 +25,7 @@ from langgraph.types import Command
 
 from deerflow.community.url_safety import resolve_host_addresses, validate_public_http_url
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
+from deerflow.observability.model_metrics import measure_model_async
 from deerflow.tools.types import Runtime
 
 logger = logging.getLogger(__name__)
@@ -384,7 +385,7 @@ async def generate_image_tool(
             body["negative_prompt"] = negative_prompt
 
         timeout = float(_bounded_int_env("DEERFLOW_IMAGE_GENERATION_TIMEOUT_SECONDS", 600, 30, 1800))
-        async with _async_client(read_timeout=timeout) as client:
+        async with measure_model_async(os.getenv("DEERFLOW_IMAGE_MODEL_LABEL", "platform-image"), "image"), _async_client(read_timeout=timeout) as client:
             async with client.stream("POST", endpoint, headers=_api_headers(), json=body) as response:
                 _raise_for_status(response, operation="Image generation")
                 raw = await _read_limited_response(response, _MAX_IMAGE_RESPONSE_BYTES)
@@ -578,7 +579,7 @@ def _download_video_to_output(
 
 async def _video_status_request(client: httpx.AsyncClient, endpoint: str, job_id: str) -> dict[str, Any]:
     url = f"{endpoint}/{quote(job_id, safe='')}"
-    async with client.stream("GET", url, headers=_api_headers()) as response:
+    async with measure_model_async(os.getenv("DEERFLOW_VIDEO_MODEL_LABEL", "platform-video"), "video", "poll"), client.stream("GET", url, headers=_api_headers()) as response:
         if response.status_code == 404:
             raise MediaGenerationError(
                 "The video service no longer has this job; do not resubmit it automatically",
@@ -797,7 +798,7 @@ async def generate_video_tool(
                     data = {key: str(value) for key, value in body.items()}
                     files = {"input_reference": (reference_name, reference_content, reference_mime)}
                     json_body = None
-                async with _async_client(read_timeout=60.0) as client:
+                async with measure_model_async(os.getenv("DEERFLOW_VIDEO_MODEL_LABEL", "platform-video"), "video", "submit"), _async_client(read_timeout=60.0) as client:
                     async with client.stream(
                         "POST",
                         endpoint,

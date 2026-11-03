@@ -10,6 +10,7 @@ import { useAuth } from "@/core/auth/AuthProvider";
 import { parseAuthError } from "@/core/auth/types";
 import { useI18n } from "@/core/i18n/hooks";
 
+import { AccountActivityPanel } from "./account-activity-panel";
 import { AccountUsageCard } from "./account-usage-card";
 import { SettingsSection } from "./settings-section";
 
@@ -122,6 +123,7 @@ export function AccountSettingsPage() {
       </SettingsSection>
       <SettingsSection title={t.settings.account.usageTitle}>
         <AccountUsageCard />
+        <AccountActivityPanel />
       </SettingsSection>
 
       {!isSsoUser ? (

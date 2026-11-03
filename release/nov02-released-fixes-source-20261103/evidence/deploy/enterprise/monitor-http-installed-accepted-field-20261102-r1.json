@@ -1,0 +1,171 @@
+{
+  "schema": "portal-monitor-http-installed-field.v1",
+  "origin": "operator pasted JSON in current chat on 2026-11-02",
+  "is_raw_receipt": false,
+  "normalization": "Markdown imageID links reduced to their literal image labels; remote report bytes and SHA256 are operator reported and must be verified by the activation tool.",
+  "receipt": {
+    "automatic_retry": false,
+    "business_acceptance_pending": true,
+    "checks": [
+      {
+        "deployment": "ecs-zdz-pro-0018",
+        "job": "portal-monitor-http-check-fcafbfe54ea0",
+        "job_conditions": [
+          {
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "SuccessCriteriaMet"
+          },
+          {
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "job_uid": "1adf3a5d-d5f4-446e-950d-218087141f09",
+        "observation": {
+          "application_started": false,
+          "business_requests": 0,
+          "candidate_only_in_job": true,
+          "checks": [
+            "installed_release_overlay_matches_sealed_batch",
+            "installed_import_origins_verified",
+            "real_http_query_validation_and_auth_regressions",
+            "model_oa_monitor_synthetic_regressions"
+          ],
+          "credentials_exported": false,
+          "installed_source_files": 1,
+          "migration_head_unchanged": "0022_work_integration_state",
+          "phase": "COMPLETE",
+          "preserved_baseline_sources_verified": 64,
+          "production_configuration_used": false,
+          "production_database_access": false,
+          "production_workload_modified": false,
+          "provider_requests": 0,
+          "raw_errors_exported": false,
+          "ready_for_rollout": false,
+          "schema": "portal-monitor-http-installed-child.v1",
+          "schema_migrated": false,
+          "source_scope": "1_release_overlay_file_not_entire_image",
+          "status": "INSTALLED_MONITOR_HTTP_FEATURES_ACCEPTED",
+          "temporary_files_cleaned": true,
+          "tests": {
+            "collection_errors": 0,
+            "exitcode": 0,
+            "failed": 0,
+            "failure_nodes": [],
+            "passed": 41,
+            "skipped": 0,
+            "subtests_passed": 0
+          },
+          "work_datalake_sources_absent": true
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "deerflow.local/deer-flow-gateway@sha256:ebcde83d011eb0bb5f2babae7ccb3a5e782839801da5b156f2c0a5c971f029f7",
+                "waiting_reason": null
+              }
+            ],
+            "name": "portal-monitor-http-check-fcafbfe54ea0-tdrww",
+            "phase": "Succeeded",
+            "uid": "ece906df-490a-4ebf-b249-66f0b79d0dab"
+          }
+        ],
+        "status": "PASS"
+      },
+      {
+        "deployment": "ecs-zdz-pro-0021",
+        "job": "portal-monitor-http-check-979e30e8dab3",
+        "job_conditions": [
+          {
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "SuccessCriteriaMet"
+          },
+          {
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "job_uid": "79d11d81-3139-4904-b6bf-c4bb3b270f19",
+        "observation": {
+          "application_started": false,
+          "business_requests": 0,
+          "candidate_only_in_job": true,
+          "checks": [
+            "installed_release_overlay_matches_sealed_batch",
+            "installed_import_origins_verified",
+            "real_http_query_validation_and_auth_regressions",
+            "model_oa_monitor_synthetic_regressions"
+          ],
+          "credentials_exported": false,
+          "installed_source_files": 1,
+          "migration_head_unchanged": "0022_work_integration_state",
+          "phase": "COMPLETE",
+          "preserved_baseline_sources_verified": 64,
+          "production_configuration_used": false,
+          "production_database_access": false,
+          "production_workload_modified": false,
+          "provider_requests": 0,
+          "raw_errors_exported": false,
+          "ready_for_rollout": false,
+          "schema": "portal-monitor-http-installed-child.v1",
+          "schema_migrated": false,
+          "source_scope": "1_release_overlay_file_not_entire_image",
+          "status": "INSTALLED_MONITOR_HTTP_FEATURES_ACCEPTED",
+          "temporary_files_cleaned": true,
+          "tests": {
+            "collection_errors": 0,
+            "exitcode": 0,
+            "failed": 0,
+            "failure_nodes": [],
+            "passed": 41,
+            "skipped": 0,
+            "subtests_passed": 0
+          },
+          "work_datalake_sources_absent": true
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "deerflow.local/deer-flow-gateway@sha256:ebcde83d011eb0bb5f2babae7ccb3a5e782839801da5b156f2c0a5c971f029f7",
+                "waiting_reason": null
+              }
+            ],
+            "name": "portal-monitor-http-check-979e30e8dab3-25hjk",
+            "phase": "Succeeded",
+            "uid": "3eda6d17-3d3f-44e4-9c59-317b28edbacf"
+          }
+        ],
+        "status": "PASS"
+      }
+    ],
+    "once_claimed": true,
+    "production_database_access": false,
+    "production_workload_modified": false,
+    "provider_requests": 0,
+    "ready_for_rollout": false,
+    "report_bytes": 3974,
+    "report_path": "/var/lib/portal-monitor-http-installed-check-20261102-r1/REPORT.json",
+    "report_sha256": "138d4ff3789199d32b98010cf2bb44f4154b18354daa8019a15e16ff3be750e1",
+    "schema": "portal-monitor-http-installed-images.v1",
+    "schema_migrated": false,
+    "status": "MONITOR_HTTP_IMAGES_ACCEPTED_NOT_DEPLOYED",
+    "temporary_jobs_created": [
+      {
+        "creation_requested": true,
+        "name": "portal-monitor-http-check-fcafbfe54ea0"
+      },
+      {
+        "creation_requested": true,
+        "name": "portal-monitor-http-check-979e30e8dab3"
+      }
+    ]
+  }
+}

@@ -195,6 +195,7 @@ async def test_generate_video_reports_remote_job_loss_without_resubmitting(tmp_p
         runtime=runtime,
         tool_call_id="video-call",
         prompt="A stable offshore platform shot",
+        filename="remote-job-loss",
         wait_seconds=0,
     )
     assert _payload(first)["code"] == "video_job_lost"
@@ -205,6 +206,7 @@ async def test_generate_video_reports_remote_job_loss_without_resubmitting(tmp_p
         runtime=runtime,
         tool_call_id="video-call-repeat",
         prompt="A stable offshore platform shot",
+        filename="remote-job-loss",
         wait_seconds=0,
     )
     assert _payload(second)["code"] == "video_job_lost"
