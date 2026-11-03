@@ -10,6 +10,9 @@ SOURCE = ARCHIVE + "SOURCE.json"
 DELTA = "deploy/enterprise/released-source-delta-20261102.json"
 PARENT_DELTA = "deploy/enterprise/released-source-delta-20261101.json"
 BASE_COMMIT = "97bd146de0fb41264eb991c15f098d0e0de395db"
+CI_ARCHIVE = "release/pr26-ci-qualification-20261103/"
+CI_MANIFEST = CI_ARCHIVE + "SOURCE.json"
+CI_MANIFEST_SHA256 = "08d28a9b6f9863f074d3138be1b8c21059efc0b922040a4712626d9e25115f1d"
 FORBIDDEN = (
     "backend/app/gateway/auth/data_lake_work.py",
     "backend/packages/harness/deerflow/persistence/data_lake_auth/work_grant.py",
@@ -27,7 +30,34 @@ def safe_path(path):
     assert value.as_posix() == path, "NOV02_NONCANONICAL_PATH"
 
 
+def ci_qualification(read):
+    """Qualify later test/formatter corrections without changing release evidence."""
+    try:
+        raw = read(CI_MANIFEST)
+    except (FileNotFoundError, KeyError):
+        return {}
+    assert digest(raw) == CI_MANIFEST_SHA256, "PR26_CI_SEAL_CHANGED"
+    qualification = json.loads(raw)
+    assert qualification["schema"] == "pr26-ci-qualification.v1", "PR26_CI_SCHEMA"
+    assert qualification["base_commit"] == "5ec9fa2059f846d6b13646f64aa457d8eec10230", "PR26_CI_BASE_CHANGED"
+    for path, row in qualification["changes"].items():
+        safe_path(path)
+        assert row["baseline_path"] == CI_ARCHIVE + "baseline/" + path, "PR26_CI_BASELINE_PATH"
+        assert digest(read(row["baseline_path"])) == row["base_sha256"], "PR26_CI_BASELINE_CHANGED"
+        assert digest(read(path)) == row["current_sha256"], (path, "PR26_CI_CURRENT_CHANGED")
+        if row["kind"] == "prettier_only":
+            assert path in ("frontend/src/app/workspace/admin/dashboard/page.tsx", "frontend/src/styles/cnooc-concept.css"), "PR26_CI_FORMAT_SCOPE"
+        else:
+            assert row["kind"] == "test_correction" and path.startswith("frontend/tests/"), "PR26_CI_TEST_SCOPE"
+    return qualification["changes"]
+
+
+def ci_baseline_read(read, qualification):
+    return lambda path: read(qualification[path]["baseline_path"] if path in qualification else path)
+
+
 def load(read, *, check_current=True):
+    read = ci_baseline_read(read, ci_qualification(read))
     delta = json.loads(read(DELTA))
     assert delta["schema"] == "released-source-delta.v2", "NOV02_DELTA_SCHEMA"
     assert delta["work_datalake_deferred"] is True and delta["database_migration"] is False, "NOV02_DELTA_FEATURE_SCOPE"
@@ -137,11 +167,14 @@ def overrides(lock, prior, incident, released, read):
                 expected = manifest["tests"][name]["base_sha256"]
             assert change["base_sha256"] == expected, (name, "NOV02_PARENT_CHAIN_MISMATCH")
             result[component][name] = change["released_sha256"]
+    for path, row in ci_qualification(read).items():
+        result["frontend"][path] = row["current_sha256"]
     return result
 
 
 def historical_read(read):
     """Verify the new seal, then expose the immutable PR25 bytes to the older audit."""
     _, manifest = load(read)
+    read = ci_baseline_read(read, ci_qualification(read))
     parents = {p: row["parent_source"] for p, row in {**manifest["sources"], **manifest["tests"]}.items() if row.get("parent_source")}
     return lambda path: read(parents.get(path, path))

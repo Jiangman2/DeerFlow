@@ -436,7 +436,8 @@ test.describe("mobile WebView workspace", () => {
     expect(contentBox).not.toBeNull();
     expect(dialogBox!.x).toBeGreaterThanOrEqual(15);
     expect(dialogBox!.y).toBeGreaterThanOrEqual(15);
-    expect(dialogBox!.width).toBeLessThanOrEqual(1153);
+    expect(dialogBox!.width).toBeCloseTo(1440, 0);
+    expect(dialogBox!.x + dialogBox!.width).toBeLessThanOrEqual(1744 - 15);
     expect(dialogBox!.height).toBeLessThanOrEqual(811);
     expect(frameBox!.x - dialogBox!.x).toBeGreaterThanOrEqual(0);
     expect(frameBox!.y - dialogBox!.y).toBeGreaterThanOrEqual(0);

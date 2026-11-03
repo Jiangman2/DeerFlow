@@ -66,6 +66,7 @@ jobs:
         run: |
           cd frontend
           pnpm format
+          node scripts/verify-pr26-formatting.mjs
 
       - name: Run frontend linting
         if: ${{ !cancelled() && steps.frontend-deps.outcome == 'success' }}

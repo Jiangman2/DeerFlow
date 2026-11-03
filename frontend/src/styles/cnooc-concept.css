@@ -6184,7 +6184,9 @@ h1.cnooc-page-heading,
   transform: none;
 }
 
-.cnooc-agent-chat-page [data-testid="welcome-composer"] .cnooc-welcome-composer.cnooc-composer {
+.cnooc-agent-chat-page
+  [data-testid="welcome-composer"]
+  .cnooc-welcome-composer.cnooc-composer {
   height: auto !important;
   min-height: 192px !important;
 }
@@ -6234,7 +6236,9 @@ h1.cnooc-page-heading,
 }
 
 @media (max-width: 767px) {
-  .cnooc-agent-chat-page [data-testid="welcome-composer"] .cnooc-welcome-composer.cnooc-composer,
+  .cnooc-agent-chat-page
+    [data-testid="welcome-composer"]
+    .cnooc-welcome-composer.cnooc-composer,
   .cnooc-agent-chat-page
     [data-testid="welcome-composer"]
     .cnooc-welcome-composer.cnooc-composer
@@ -6270,19 +6274,23 @@ h1.cnooc-page-heading,
 }
 
 /* Main chat: a single visible material row, independent from the draft. */
-.cnooc-main-chat-with-notice .cnooc-chat-main[data-has-composer-materials="true"]
+.cnooc-main-chat-with-notice
+  .cnooc-chat-main[data-has-composer-materials="true"]
   :is(.cnooc-desktop-welcome-copy, .cnooc-composer-dock-welcome) {
   transform: none;
 }
 
-.cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
+.cnooc-main-chat-with-notice
+  [data-testid="welcome-composer"][data-has-materials="true"]
   .cnooc-welcome-composer.cnooc-composer {
   height: 286px !important;
   min-height: 286px !important;
 }
 
-.cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
-  .cnooc-welcome-composer.cnooc-composer > [data-slot="input-group"] {
+.cnooc-main-chat-with-notice
+  [data-testid="welcome-composer"][data-has-materials="true"]
+  .cnooc-welcome-composer.cnooc-composer
+  > [data-slot="input-group"] {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -6291,8 +6299,10 @@ h1.cnooc-page-heading,
   padding: 64px 0 68px;
 }
 
-.cnooc-main-chat-with-notice .cnooc-composer-shell[data-has-materials="true"]
-  .cnooc-composer .cnooc-composer-header {
+.cnooc-main-chat-with-notice
+  .cnooc-composer-shell[data-has-materials="true"]
+  .cnooc-composer
+  .cnooc-composer-header {
   --cnooc-material-row-height: 32px;
   position: relative !important;
   inset: auto !important;
@@ -6315,26 +6325,37 @@ h1.cnooc-page-heading,
   scrollbar-width: thin;
 }
 
-.cnooc-main-chat-with-notice .cnooc-composer-shell[data-has-attachments="true"]
-  .cnooc-composer .cnooc-composer-header {
+.cnooc-main-chat-with-notice
+  .cnooc-composer-shell[data-has-attachments="true"]
+  .cnooc-composer
+  .cnooc-composer-header {
   --cnooc-material-row-height: 56px;
 }
 
-.cnooc-main-chat-with-notice .cnooc-composer-shell[data-has-materials="true"]
-  .cnooc-composer .cnooc-composer-header::-webkit-scrollbar {
+.cnooc-main-chat-with-notice
+  .cnooc-composer-shell[data-has-materials="true"]
+  .cnooc-composer
+  .cnooc-composer-header::-webkit-scrollbar {
   display: block;
   width: 6px;
 }
 
-.cnooc-main-chat-with-notice .cnooc-composer-shell[data-has-materials="true"]
-  :is(.cnooc-composer-attachment-chip, .cnooc-attachment-card, .cnooc-knowledge-scope-chip) {
+.cnooc-main-chat-with-notice
+  .cnooc-composer-shell[data-has-materials="true"]
+  :is(
+    .cnooc-composer-attachment-chip,
+    .cnooc-attachment-card,
+    .cnooc-knowledge-scope-chip
+  ) {
   width: 100% !important;
   min-width: 0 !important;
   max-width: 100% !important;
 }
 
-.cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
-  .cnooc-composer .cnooc-composer-input {
+.cnooc-main-chat-with-notice
+  [data-testid="welcome-composer"][data-has-materials="true"]
+  .cnooc-composer
+  .cnooc-composer-input {
   position: relative !important;
   inset: auto !important;
   flex: 1 1 auto;
@@ -6344,31 +6365,40 @@ h1.cnooc-page-heading,
   overflow-y: auto;
 }
 
-.cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
-  .cnooc-composer :is(.cnooc-composer-textarea, [contenteditable="true"]) {
+.cnooc-main-chat-with-notice
+  [data-testid="welcome-composer"][data-has-materials="true"]
+  .cnooc-composer
+  :is(.cnooc-composer-textarea, [contenteditable="true"]) {
   height: auto !important;
   min-height: 24px !important;
 }
 
 @media (max-width: 767px) {
-  .cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
+  .cnooc-main-chat-with-notice
+    [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-welcome-composer.cnooc-composer {
     height: 240px !important;
     min-height: 240px !important;
   }
 
-  .cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
-    .cnooc-welcome-composer.cnooc-composer > [data-slot="input-group"] {
+  .cnooc-main-chat-with-notice
+    [data-testid="welcome-composer"][data-has-materials="true"]
+    .cnooc-welcome-composer.cnooc-composer
+    > [data-slot="input-group"] {
     padding: 52px 0 60px;
   }
 
-  .cnooc-main-chat-with-notice .cnooc-composer-shell[data-has-materials="true"]
-    .cnooc-composer .cnooc-composer-header {
+  .cnooc-main-chat-with-notice
+    .cnooc-composer-shell[data-has-materials="true"]
+    .cnooc-composer
+    .cnooc-composer-header {
     margin-inline: 14px;
   }
 
-  .cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
-    .cnooc-composer .cnooc-composer-input {
+  .cnooc-main-chat-with-notice
+    [data-testid="welcome-composer"][data-has-materials="true"]
+    .cnooc-composer
+    .cnooc-composer-input {
     padding: 8px 16px !important;
   }
 }
@@ -6377,7 +6407,15 @@ h1.cnooc-page-heading,
 .cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools {
   gap: 4px !important;
 }
-.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search) {
+.cnooc-workspace-shell
+  .cnooc-composer
+  .cnooc-primary-tools
+  :is(
+    .cnooc-tool-attachments,
+    .cnooc-tool-datalake,
+    .cnooc-tool-knowledge,
+    .cnooc-tool-web-search
+  ) {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -6397,16 +6435,42 @@ h1.cnooc-page-heading,
   box-shadow: none !important;
 }
 /* Remove the previous inset pill without changing the actual hit target. */
-.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search)::before {
+.cnooc-workspace-shell
+  .cnooc-composer
+  .cnooc-primary-tools
+  :is(
+    .cnooc-tool-attachments,
+    .cnooc-tool-datalake,
+    .cnooc-tool-knowledge,
+    .cnooc-tool-web-search
+  )::before {
   content: none !important;
 }
-.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search) > svg {
+.cnooc-workspace-shell
+  .cnooc-composer
+  .cnooc-primary-tools
+  :is(
+    .cnooc-tool-attachments,
+    .cnooc-tool-datalake,
+    .cnooc-tool-knowledge,
+    .cnooc-tool-web-search
+  )
+  > svg {
   width: 18px !important;
   height: 18px !important;
   flex-shrink: 0;
 }
 /* Keep names and authorization progress available to assistive technology. */
-.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search) > span:not(.cnooc-knowledge-scope-count) {
+.cnooc-workspace-shell
+  .cnooc-composer
+  .cnooc-primary-tools
+  :is(
+    .cnooc-tool-attachments,
+    .cnooc-tool-datalake,
+    .cnooc-tool-knowledge,
+    .cnooc-tool-web-search
+  )
+  > span:not(.cnooc-knowledge-scope-count) {
   display: block !important;
   position: absolute !important;
   width: 1px !important;
@@ -6418,16 +6482,33 @@ h1.cnooc-page-heading,
   white-space: nowrap !important;
   border: 0 !important;
 }
-.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search):not(:disabled):hover {
+.cnooc-workspace-shell
+  .cnooc-composer
+  .cnooc-primary-tools
+  :is(
+    .cnooc-tool-attachments,
+    .cnooc-tool-datalake,
+    .cnooc-tool-knowledge,
+    .cnooc-tool-web-search
+  ):not(:disabled):hover {
   background: #f0f4f8 !important;
   color: var(--cnooc-blue-dark) !important;
 }
-.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-datalake[data-active="true"], .cnooc-tool-knowledge[data-active="true"], .cnooc-tool-web-search[aria-pressed="true"]):not(:disabled) {
+.cnooc-workspace-shell
+  .cnooc-composer
+  .cnooc-primary-tools
+  :is(
+    .cnooc-tool-datalake[data-active="true"],
+    .cnooc-tool-knowledge[data-active="true"],
+    .cnooc-tool-web-search[aria-pressed="true"]
+  ):not(:disabled) {
   background: var(--cnooc-blue-soft) !important;
   color: var(--cnooc-blue) !important;
 }
 /* Voice and polish share the toolbar treatment, including the floating pair. */
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice, .cnooc-tool-polish) {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(.cnooc-tool-voice, .cnooc-tool-polish) {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
@@ -6444,34 +6525,63 @@ h1.cnooc-page-heading,
   color: var(--cnooc-copy) !important;
   box-shadow: none !important;
 }
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice, .cnooc-tool-polish)::before {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(.cnooc-tool-voice, .cnooc-tool-polish)::before {
   content: none !important;
 }
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice, .cnooc-tool-polish) > svg {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(.cnooc-tool-voice, .cnooc-tool-polish)
+  > svg {
   width: 18px !important;
   height: 18px !important;
 }
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice, .cnooc-tool-polish):not(:disabled):hover {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(.cnooc-tool-voice, .cnooc-tool-polish):not(:disabled):hover {
   background: #f0f4f8 !important;
   color: var(--cnooc-blue-dark) !important;
 }
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice[aria-pressed="true"], .cnooc-tool-polish[data-active="true"]) {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(
+    .cnooc-tool-voice[aria-pressed="true"],
+    .cnooc-tool-polish[data-active="true"]
+  ) {
   background: var(--cnooc-blue-soft) !important;
   color: var(--cnooc-blue) !important;
 }
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice, .cnooc-tool-polish):focus-visible {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(.cnooc-tool-voice, .cnooc-tool-polish):focus-visible {
   outline: 2px solid var(--cnooc-blue);
   outline-offset: -2px;
 }
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search, .cnooc-tool-voice, .cnooc-tool-polish):disabled {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(
+    .cnooc-tool-attachments,
+    .cnooc-tool-datalake,
+    .cnooc-tool-knowledge,
+    .cnooc-tool-web-search,
+    .cnooc-tool-voice,
+    .cnooc-tool-polish
+  ):disabled {
   color: #96a1af !important;
   opacity: 0.6;
 }
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-primary-tools, .cnooc-model-tools) button > svg {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(.cnooc-primary-tools, .cnooc-model-tools)
+  button
+  > svg {
   stroke-width: 1.8;
 }
 @media (max-width: 47.999rem) {
-  .cnooc-workspace-shell .cnooc-composer :is(.cnooc-tool-voice, .cnooc-tool-polish) {
+  .cnooc-workspace-shell
+    .cnooc-composer
+    :is(.cnooc-tool-voice, .cnooc-tool-polish) {
     width: 44px !important;
     min-width: 44px !important;
     max-width: 44px !important;
@@ -6482,7 +6592,10 @@ h1.cnooc-page-heading,
 }
 
 /* Uploaded files and knowledge references use the same single-row cards. */
-.cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"] .cnooc-composer .cnooc-composer-header {
+.cnooc-workspace-shell
+  .cnooc-composer-shell[data-has-materials="true"]
+  .cnooc-composer
+  .cnooc-composer-header {
   --cnooc-material-row-height: 48px;
   display: grid !important;
   grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
@@ -6499,21 +6612,38 @@ h1.cnooc-page-heading,
   overscroll-behavior: contain;
   scrollbar-width: thin;
 }
-.cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"] .cnooc-composer .cnooc-composer-header::-webkit-scrollbar {
+.cnooc-workspace-shell
+  .cnooc-composer-shell[data-has-materials="true"]
+  .cnooc-composer
+  .cnooc-composer-header::-webkit-scrollbar {
   display: block;
   width: 4px;
 }
-.cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"] .cnooc-composer .cnooc-composer-header::-webkit-scrollbar-thumb {
+.cnooc-workspace-shell
+  .cnooc-composer-shell[data-has-materials="true"]
+  .cnooc-composer
+  .cnooc-composer-header::-webkit-scrollbar-thumb {
   border-radius: 4px;
   background: #cad5e2;
 }
 /* PromptInputAttachments adds a capped wrapper around each uploaded file. */
-.cnooc-workspace-shell .cnooc-composer .cnooc-composer-header > .contents > div:has(> .cnooc-composer-attachment-chip) {
+.cnooc-workspace-shell
+  .cnooc-composer
+  .cnooc-composer-header
+  > .contents
+  > div:has(> .cnooc-composer-attachment-chip) {
   width: 100% !important;
   min-width: 0 !important;
   max-width: 100% !important;
 }
-.cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"] .cnooc-composer :is(.cnooc-composer-attachment-chip, .cnooc-attachment-card, .cnooc-knowledge-scope-chip) {
+.cnooc-workspace-shell
+  .cnooc-composer-shell[data-has-materials="true"]
+  .cnooc-composer
+  :is(
+    .cnooc-composer-attachment-chip,
+    .cnooc-attachment-card,
+    .cnooc-knowledge-scope-chip
+  ) {
   width: 100% !important;
   min-width: 0 !important;
   max-width: 100% !important;
@@ -6521,7 +6651,9 @@ h1.cnooc-page-heading,
   box-sizing: border-box;
   justify-self: stretch;
 }
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip) {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip) {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -6548,7 +6680,9 @@ h1.cnooc-page-heading,
   flex: 1 1 0;
   min-width: 0;
 }
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-material-name, .cnooc-material-meta) {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(.cnooc-material-name, .cnooc-material-meta) {
   display: block;
   overflow: hidden;
   white-space: nowrap;
@@ -6566,7 +6700,10 @@ h1.cnooc-page-heading,
   line-height: 17px;
   color: #758397;
 }
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip) > button {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip)
+  > button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -6579,27 +6716,49 @@ h1.cnooc-page-heading,
   background: transparent;
   color: #758397;
 }
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip) > button > svg {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip)
+  > button
+  > svg {
   width: 15px;
   height: 15px;
   stroke-width: 1.8;
 }
-.cnooc-workspace-shell .cnooc-composer :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip) > button:not(:disabled):hover {
+.cnooc-workspace-shell
+  .cnooc-composer
+  :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip)
+  > button:not(:disabled):hover {
   background: #edf2f7;
   color: #b42318;
 }
 @media (max-width: 47.999rem) {
-  .cnooc-workspace-shell .cnooc-composer :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip) > button {
+  .cnooc-workspace-shell
+    .cnooc-composer
+    :is(.cnooc-attachment-card, .cnooc-knowledge-scope-chip)
+    > button {
     width: 44px;
     height: 44px;
     flex-basis: 44px;
   }
 }
-.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search):focus-visible {
+.cnooc-workspace-shell
+  .cnooc-composer
+  .cnooc-primary-tools
+  :is(
+    .cnooc-tool-attachments,
+    .cnooc-tool-datalake,
+    .cnooc-tool-knowledge,
+    .cnooc-tool-web-search
+  ):focus-visible {
   outline: 2px solid var(--cnooc-blue);
   outline-offset: -2px;
 }
-.cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools .cnooc-tool-knowledge > .cnooc-knowledge-scope-count {
+.cnooc-workspace-shell
+  .cnooc-composer
+  .cnooc-primary-tools
+  .cnooc-tool-knowledge
+  > .cnooc-knowledge-scope-count {
   position: absolute !important;
   display: flex !important;
   top: 0;
@@ -6615,7 +6774,15 @@ h1.cnooc-page-heading,
   pointer-events: none;
 }
 @media (max-width: 47.999rem) {
-  .cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools :is(.cnooc-tool-attachments, .cnooc-tool-datalake, .cnooc-tool-knowledge, .cnooc-tool-web-search) {
+  .cnooc-workspace-shell
+    .cnooc-composer
+    .cnooc-primary-tools
+    :is(
+      .cnooc-tool-attachments,
+      .cnooc-tool-datalake,
+      .cnooc-tool-knowledge,
+      .cnooc-tool-web-search
+    ) {
     flex-basis: 44px !important;
     width: 44px !important;
     min-width: 44px !important;
@@ -6623,7 +6790,11 @@ h1.cnooc-page-heading,
     height: 44px !important;
     min-height: 44px !important;
   }
-  .cnooc-workspace-shell .cnooc-composer .cnooc-primary-tools .cnooc-tool-knowledge > .cnooc-knowledge-scope-count {
+  .cnooc-workspace-shell
+    .cnooc-composer
+    .cnooc-primary-tools
+    .cnooc-tool-knowledge
+    > .cnooc-knowledge-scope-count {
     top: 3px;
     right: 3px;
   }
@@ -6631,14 +6802,18 @@ h1.cnooc-page-heading,
 
 /* The one-row limit belongs to materials, never to the editable draft.
    Explicit sizing also supports enterprise browsers without field-sizing. */
-.cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"]
-  .cnooc-composer .cnooc-composer-input {
+.cnooc-workspace-shell
+  .cnooc-composer-shell[data-has-materials="true"]
+  .cnooc-composer
+  .cnooc-composer-input {
   min-height: 96px !important;
   overflow: hidden;
 }
 
-.cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"]
-  .cnooc-composer :is(.cnooc-composer-textarea, [contenteditable="true"]) {
+.cnooc-workspace-shell
+  .cnooc-composer-shell[data-has-materials="true"]
+  .cnooc-composer
+  :is(.cnooc-composer-textarea, [contenteditable="true"]) {
   field-sizing: fixed;
   height: 72px !important;
   min-height: 72px !important;
@@ -6655,8 +6830,10 @@ h1.cnooc-page-heading,
 
 /* Submission switches from welcome to chat layout without removing knowledge
    scope. Keep that same material rail in flow and inset from the chat border. */
-.cnooc-workspace-shell [data-testid="chat-composer"][data-has-materials="true"]
-  .cnooc-composer > [data-slot="input-group"] {
+.cnooc-workspace-shell
+  [data-testid="chat-composer"][data-has-materials="true"]
+  .cnooc-composer
+  > [data-slot="input-group"] {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -6664,8 +6841,10 @@ h1.cnooc-page-heading,
   padding-top: 12px;
 }
 
-.cnooc-workspace-shell [data-testid="chat-composer"][data-has-materials="true"]
-  .cnooc-composer .cnooc-composer-header {
+.cnooc-workspace-shell
+  [data-testid="chat-composer"][data-has-materials="true"]
+  .cnooc-composer
+  .cnooc-composer-header {
   position: relative !important;
   inset: auto !important;
   align-self: stretch;
@@ -6676,8 +6855,10 @@ h1.cnooc-page-heading,
   justify-content: start;
 }
 
-.cnooc-workspace-shell [data-testid="chat-composer"][data-has-materials="true"]
-  .cnooc-composer .cnooc-composer-input {
+.cnooc-workspace-shell
+  [data-testid="chat-composer"][data-has-materials="true"]
+  .cnooc-composer
+  .cnooc-composer-input {
   position: relative !important;
   inset: auto !important;
   width: 100% !important;
@@ -6685,19 +6866,24 @@ h1.cnooc-page-heading,
 }
 
 @media (max-width: 767px) {
-  .cnooc-workspace-shell [data-testid="chat-composer"][data-has-materials="true"]
-    .cnooc-composer > [data-slot="input-group"] {
+  .cnooc-workspace-shell
+    [data-testid="chat-composer"][data-has-materials="true"]
+    .cnooc-composer
+    > [data-slot="input-group"] {
     padding-top: 52px;
   }
 
-  .cnooc-main-chat-with-notice [data-testid="welcome-composer"][data-has-materials="true"]
+  .cnooc-main-chat-with-notice
+    [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-welcome-composer.cnooc-composer {
     height: 256px !important;
     min-height: 256px !important;
   }
 
-  .cnooc-workspace-shell .cnooc-composer-shell[data-has-materials="true"]
-    .cnooc-composer .cnooc-composer-input {
+  .cnooc-workspace-shell
+    .cnooc-composer-shell[data-has-materials="true"]
+    .cnooc-composer
+    .cnooc-composer-input {
     min-height: 88px !important;
   }
 }

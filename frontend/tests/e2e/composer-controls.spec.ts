@@ -79,7 +79,9 @@ test("account totals use Chinese units and retain exact totals", async ({
       new RegExp(value.toLocaleString("zh-CN")),
     );
     if (value === 465800241) {
-      await page.getByRole("menu").screenshot({ path: info.outputPath("tokens-menu-465800241.png") });
+      await page
+        .getByRole("menu")
+        .screenshot({ path: info.outputPath("tokens-menu-465800241.png") });
     }
     await page.getByRole("menuitem", { name: "设置", exact: true }).click();
     const usage = page.getByRole("dialog").getByTestId("account-token-usage");
@@ -135,14 +137,18 @@ for (const width of [1440, 390, 320]) {
       await expect(page.locator("textarea:visible")).toBeEditable();
       await toggle.click();
       await expect(toggle).toHaveAttribute("aria-pressed", "true");
-      await expect(page.locator("[data-sonner-toast]")).toContainText(/已开启联网搜索[\s\S]*后续提问可使用网页搜索和读取。/);
+      await expect(page.locator("[data-sonner-toast]")).toContainText(
+        /已开启联网搜索[\s\S]*后续提问可使用网页搜索和读取。/,
+      );
       await page.locator("textarea:visible").fill("合成测试二");
       await page.locator(".cnooc-submit:visible").click();
       await expect.poll(() => sent).toEqual([false, true]);
       await expect(toggle).toBeEnabled();
       await toggle.click();
       await expect(toggle).toHaveAttribute("aria-pressed", "false");
-      await expect(page.locator("[data-sonner-toast]")).toContainText(/已关闭联网搜索[\s\S]*后续提问将停用网页搜索和读取。/);
+      await expect(page.locator("[data-sonner-toast]")).toContainText(
+        /已关闭联网搜索[\s\S]*后续提问将停用网页搜索和读取。/,
+      );
       const tools = page.locator(".cnooc-primary-tools:visible");
       const buttons = tools.locator(":scope > button:visible");
       const boxes = await buttons.evaluateAll((elements) =>

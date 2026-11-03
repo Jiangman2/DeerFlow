@@ -5,6 +5,7 @@ on:
       - 'backend/**'
       - 'frontend/**'
       - 'release/nov02-released-fixes-source-20261103/**'
+      - 'release/pr26-ci-qualification-20261103/**'
       - 'deploy/enterprise/*nov02*'
       - 'deploy/enterprise/released_source_20261102.py'
       - 'deploy/enterprise/released-source-delta-20261102.json'

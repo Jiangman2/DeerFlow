@@ -6,13 +6,19 @@ Use --ref HEAD after committing to check Git objects rather than working files.
 import argparse
 import ast
 import hashlib
+import importlib.util
 import io
 import json
 from pathlib import Path, PurePosixPath
 import subprocess
 import tarfile
 
-from released_source_20261102 import ARCHIVE as NOV02_ARCHIVE, DELTA as NOV02_DELTA, overrides as nov02_overrides
+# This verifier is also loaded by file path from backend tests. Resolve its
+# sibling explicitly so those callers need no process-wide sys.path mutation.
+_spec = importlib.util.spec_from_file_location("released_source_20261102", Path(__file__).with_name("released_source_20261102.py"))
+_nov02 = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_nov02)
+NOV02_ARCHIVE, NOV02_DELTA, nov02_overrides = _nov02.ARCHIVE, _nov02.DELTA, _nov02.overrides
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = 'deploy/enterprise/production-source-lock-20261029.json'
@@ -196,6 +202,8 @@ def verify(ref=None, lock_path=LOCK):
                 extra.append(manifest_path)
         if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, NOV02_DELTA], cwd=ROOT).strip():
             extra.extend((NOV02_DELTA, NOV02_ARCHIVE, "backend/tests"))
+        if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, _nov02.CI_MANIFEST], cwd=ROOT).strip():
+            extra.append(_nov02.CI_ARCHIVE)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:

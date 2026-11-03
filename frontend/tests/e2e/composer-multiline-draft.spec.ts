@@ -54,16 +54,14 @@ for (const width of [1440, 390]) {
         const input = composer.locator("textarea");
         await expect(input).toBeEditable({ timeout: 60_000 });
         await input.fill(draft);
-        await composer
-          .locator('input[type="file"]')
-          .setInputFiles(
-            Array.from({ length: 10 }, (_, i) => ({
-              name: `测试附件${i}.docx`,
-              mimeType:
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-              buffer: Buffer.from("Synthetic only. Never uploaded."),
-            })),
-          );
+        await composer.locator('input[type="file"]').setInputFiles(
+          Array.from({ length: 10 }, (_, i) => ({
+            name: `测试附件${i}.docx`,
+            mimeType:
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            buffer: Buffer.from("Synthetic only. Never uploaded."),
+          })),
+        );
         await expect(composer.locator(".cnooc-attachment-card")).toHaveCount(
           10,
         );

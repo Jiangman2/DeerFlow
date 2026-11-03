@@ -115,8 +115,13 @@ for (const [size, width, height] of [
       "preview@example.test",
     );
     await expect(page.getByTestId("account-token-usage")).toContainText(
-      "1,286,450",
+      "128.65万",
     );
+    await expect(
+      page
+        .getByTestId("account-token-usage")
+        .getByTitle("累计使用 Token: 1,286,450"),
+    ).toHaveText("128.65万");
     await screenshot(page, info, `${size}-account-menu`);
     await page.getByRole("menuitem", { name: "设置", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeVisible();

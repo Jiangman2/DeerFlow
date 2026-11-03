@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import unittest
 
-from released_source_20261102 import DELTA, SOURCE, digest, historical_read, load
+from released_source_20261102 import CI_MANIFEST, DELTA, SOURCE, digest, historical_read, load
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -54,6 +54,21 @@ class SourceDeltaTests(unittest.TestCase):
     def test_source_seal_change_rejected(self):
         with self.assertRaisesRegex(AssertionError, "NOV02_SOURCE_SEAL_CHANGED"):
             load(self.replace(SOURCE, self.read(SOURCE) + b"\n"))
+
+    def test_ci_qualification_seal_change_rejected(self):
+        with self.assertRaisesRegex(AssertionError, "PR26_CI_SEAL_CHANGED"):
+            load(self.replace(CI_MANIFEST, self.read(CI_MANIFEST) + b"\n"))
+
+    def test_formatter_output_drift_rejected(self):
+        path = "frontend/src/styles/cnooc-concept.css"
+        with self.assertRaisesRegex(AssertionError, "PR26_CI_CURRENT_CHANGED"):
+            load(self.replace(path, self.read(path) + b"\n/* drift */\n"))
+
+    def test_ci_baseline_drift_rejected(self):
+        qualification = json.loads(self.read(CI_MANIFEST))
+        path = next(iter(qualification["changes"].values()))["baseline_path"]
+        with self.assertRaisesRegex(AssertionError, "PR26_CI_BASELINE_CHANGED"):
+            load(self.replace(path, self.read(path) + b"\n"))
 
     def test_historical_reader_restores_exact_parent(self):
         historical = historical_read(self.read)
