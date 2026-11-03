@@ -53,10 +53,38 @@ passed six cases; both generated scripts passed Python 3.7 wrong-host admission
 checks before any import or execution marker. The image, OCI export, compiled
 asset hashes, package pins and local test summaries are recorded under
 `release/dashboard-navigation-20261103-r2/qualification/`. These are local
-qualification receipts; neither preload nor production rollout has been claimed.
+qualification receipts; production evidence is recorded separately below.
 Source validation
 includes six candidate checks, twelve enterprise-followup checks, fifteen November
 2 checks, and six package integrity/admission checks. Build and production results
 are recorded separately rather than implied by these local tests. Nine formatter
 qualification checks cover the additive navigation seal, both parent snapshots,
 unregistered drift, and historical checkouts.
+
+## November 4 operator preload and activation handoff
+
+The operator supplied successful r2 preload receipts from `ecs-zdz-pro-0015`
+and `datax-02`, recorded in `release/dashboard-navigation-20261103-r2/PRELOAD-FIELD.json`.
+Both report completed import/unpack and CRI visibility for manifest
+`sha256:74c2e66ecc1c2e9b483faac428fc9211ff43bc0e0ed59ee141de379c678fdfb5`,
+with old references preserved and no production workload mutation. These are
+operator-supplied summaries, not a remote reread of their private reports.
+
+The separate `activation-20261104-r1/` handoff contains the exact generated
+Frontend 239 -> 240 tool and its local qualification. The generator pins the
+previous transport template, current image/compiled assets, 26 browser checks,
+and both preload receipts. At execution it requires the freshly observed
+Gateway 406 and Frontend 239 identities. It runs two temporary non-root
+`imagePullPolicy: Never` checks, then makes at most one frontend image change
+using UID, resource version and complete-spec comparisons. It verifies both
+new frontend Pods, local static HTTP assets and service endpoints. Gateway,
+other workload specs and service specs must remain unchanged. It does not
+access the database or call model/OA providers. A changed baseline is refused;
+there is no automatic retry or rollback after a dispatched patch.
+
+Activation transport checks: Windows 18 passed; Linux 17 passed with one
+Node-dependent fixture skipped (that fixture passed on Windows). The final
+Python 3.7 entrypoint rejected the wrong host before mutation. The exact
+candidate ARM64 image executed the final ten-file probe as UID 1000 with a
+read-only filesystem and no network. Production activation and browser
+acceptance are still pending; this handoff is not a production success receipt.

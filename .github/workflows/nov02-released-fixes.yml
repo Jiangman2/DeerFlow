@@ -34,6 +34,7 @@ jobs:
       - run: python deploy/enterprise/test_nov02_source_delta.py
       - run: python deploy/enterprise/test_dashboard_navigation_source_20261103.py
       - run: python deploy/enterprise/test_dashboard_navigation_frontend_package_20261103.py
+      - run: python deploy/enterprise/test_dashboard_navigation_frontend_activation_20261104.py
       - run: python deploy/enterprise/verify-dashboard-navigation-source-20261103.py --ref HEAD
       - run: python deploy/enterprise/test_enterprise_source_followup_20261103.py
       - run: python deploy/enterprise/test_nov01_source_delta.py
