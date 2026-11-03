@@ -1,0 +1,35 @@
+name: Gateway 406 observation provenance
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'frontend/src/app/workspace/admin/dashboard/page.tsx'
+      - 'frontend/tests/e2e/dashboard-failures-recovery.spec.ts'
+      - 'release/production-observation-20261103-gw406/**'
+      - 'release/enterprise-source-followup-20261103/**'
+      - 'release/nov01-released-fixes-source-20261102/**'
+      - 'release/nov02-released-fixes-source-20261103/**'
+      - 'release/production-source-20261023/gateway-format-baseline/**'
+      - 'deploy/enterprise/*observation*406*'
+      - 'deploy/enterprise/enterprise_source_followup_20261103.py'
+      - '.github/workflows/production-observation-406.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-observation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python deploy/enterprise/test_production_observation_406_20261103.py
+      - run: python deploy/enterprise/verify-production-observation-406-20261103.py --ref HEAD
+      - run: python deploy/enterprise/test_enterprise_source_followup_20261103.py
+      - run: python deploy/enterprise/verify-nov02-released-source-20261103.py --ref HEAD
+      - run: python deploy/enterprise/verify-nov01-released-source-20261102.py --ref HEAD
+      - run: python deploy/enterprise/verify-production-baseline-20261029.py --ref HEAD
