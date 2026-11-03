@@ -52,6 +52,34 @@ void test("parses new shop cart list responses with null extra fields", () => {
   assert.equal(result.files[0]?.extra, null);
 });
 
+void test("parses mixed shop types including null from the production list", () => {
+  const nullableItem = { ...exampleItem, shopType: null, extra: null };
+  const result = parseNewShopCartListResponse({
+    code: 0,
+    msg: null,
+    data: [nullableItem, exampleItem, { ...exampleItem, shopType: 2 }],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.files.length, 3);
+  assert.deepEqual(result.files[0], nullableItem);
+  assert.deepEqual(parseNewShopCartFile(nullableItem), {
+    ok: true,
+    file: nullableItem,
+  });
+});
+
+void test("rejects missing or malformed shop types", () => {
+  for (const shopType of [undefined, "2", {}, []]) {
+    const item = { ...exampleItem, shopType };
+    assert.equal(
+      parseNewShopCartListResponse({ code: 0, data: [item] }).ok,
+      false,
+    );
+    assert.equal(parseNewShopCartFile(item).ok, false);
+  }
+});
+
 void test("parses incomplete new shop cart list items with null download fields", () => {
   const incompleteItem = {
     ...exampleItem,

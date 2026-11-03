@@ -1,16 +1,16 @@
 export function GET() {
   return Response.json({
     mcp_servers: {
-      "mcp-github-trending": {
+      "mcp-open-source-trending": {
         enabled: true,
         type: "stdio",
         command: "uvx",
-        args: ["mcp-github-trending"],
+        args: ["mcp-open-source-trending"],
         env: {},
         url: null,
         headers: {},
         description:
-          "A MCP server that provides access to GitHub trending repositories and developers data",
+          "A MCP server that provides access to open-source project trend data",
       },
       "context-7": {
         enabled: true,

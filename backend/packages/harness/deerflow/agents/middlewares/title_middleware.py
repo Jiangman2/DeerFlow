@@ -2,6 +2,8 @@
 
 import logging
 import re
+import time
+from contextlib import aclosing
 from typing import TYPE_CHECKING, Any, NotRequired, override
 
 from langchain.agents import AgentState
@@ -13,12 +15,26 @@ from langgraph.runtime import Runtime
 from deerflow.agents.middlewares.dynamic_context_middleware import is_dynamic_context_reminder
 from deerflow.config.title_config import get_title_config
 from deerflow.models import create_chat_model
+from deerflow.run_timing import log_run_timing
 
 if TYPE_CHECKING:
     from deerflow.config.app_config import AppConfig
     from deerflow.config.title_config import TitleConfig
 
 logger = logging.getLogger(__name__)
+
+
+def fallback_title_from_text(user_msg: str, config: "TitleConfig") -> str:
+    """Derive the bounded local title used when no title-model result exists."""
+
+    fallback_chars = min(config.max_chars, 50)
+    if len(user_msg) > fallback_chars:
+        # Reserve room for the ellipsis so this path honours ``max_chars``
+        # exactly as the model-backed title parser does.
+        ellipsis = "..."
+        body = min(fallback_chars, config.max_chars - len(ellipsis))
+        return user_msg[:body].rstrip() + ellipsis
+    return user_msg if user_msg else "New Conversation"
 
 
 class TitleMiddlewareState(AgentState):
@@ -64,15 +80,41 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         return ""
 
     @staticmethod
+    def _message_type(message: object) -> str | None:
+        message_type = getattr(message, "type", None)
+        if message_type is None and isinstance(message, dict):
+            message_type = message.get("type") or message.get("role")
+        if message_type == "user":
+            return "human"
+        if message_type == "assistant":
+            return "ai"
+        return message_type if isinstance(message_type, str) else None
+
+    @staticmethod
+    def _message_content(message: object) -> object:
+        if isinstance(message, dict):
+            return message.get("content", "")
+        return getattr(message, "content", "")
+
+    @staticmethod
+    def _is_dynamic_context_reminder_message(message: object) -> bool:
+        if is_dynamic_context_reminder(message):
+            return True
+        if isinstance(message, dict):
+            additional_kwargs = message.get("additional_kwargs")
+            return isinstance(additional_kwargs, dict) and bool(additional_kwargs.get("dynamic_context_reminder"))
+        return False
+
+    @staticmethod
     def _is_user_message_for_title(message: object) -> bool:
-        return getattr(message, "type", None) == "human" and not is_dynamic_context_reminder(message)
+        return TitleMiddleware._message_type(message) == "human" and not TitleMiddleware._is_dynamic_context_reminder_message(message)
 
     def _get_title_user_message(self, state: TitleMiddlewareState) -> str:
-        messages = state.get("messages", [])
-        user_msg_content = next((m.content for m in messages if self._is_user_message_for_title(m)), "")
+        messages = state.get("messages") or []
+        user_msg_content = next((self._message_content(m) for m in messages if self._is_user_message_for_title(m)), "")
         return self._normalize_content(user_msg_content)
 
-    def _should_generate_title(self, state: TitleMiddlewareState) -> bool:
+    def _should_generate_title(self, state: TitleMiddlewareState, *, allow_partial_exchange: bool = False) -> bool:
         """Check if we should generate a title for this thread."""
         config = self._get_title_config()
         if not config.enabled:
@@ -82,17 +124,23 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         if state.get("title"):
             return False
 
-        # Check if this is the first turn (has at least one user message and one assistant response)
-        messages = state.get("messages", [])
-        if len(messages) < 2:
+        # Check if this is the first turn (has at least one user message and one assistant response).
+        # Defensively coerce a None ``messages`` channel (possible when reading a
+        # partially-initialized checkpoint) into an empty list so ``len()`` is safe.
+        messages = state.get("messages") or []
+        min_messages = 1 if allow_partial_exchange else 2
+        if len(messages) < min_messages:
             return False
 
         # Count user and assistant messages
         user_messages = [m for m in messages if self._is_user_message_for_title(m)]
-        assistant_messages = [m for m in messages if m.type == "ai"]
+        assistant_messages = [m for m in messages if self._message_type(m) == "ai"]
 
-        # Generate title after first complete exchange
-        return len(user_messages) == 1 and len(assistant_messages) >= 1
+        # Normal path: title only after first complete exchange. Interrupted path
+        # (``allow_partial_exchange=True``) accepts a lone first-turn user message
+        # so a fallback title can still be persisted when the run is cancelled
+        # before any AI chunk reaches the checkpoint.
+        return len(user_messages) == 1 and (len(assistant_messages) >= 1 or allow_partial_exchange)
 
     def _build_title_prompt(self, state: TitleMiddlewareState) -> tuple[str, str]:
         """Extract user/assistant messages and build the title prompt.
@@ -100,16 +148,15 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         Returns (prompt_string, user_msg) so callers can use user_msg as fallback.
         """
         config = self._get_title_config()
-        messages = state.get("messages", [])
+        messages = state.get("messages") or []
 
-        assistant_msg_content = next((m.content for m in messages if m.type == "ai"), "")
+        assistant_msg_content = next((self._message_content(m) for m in messages if self._message_type(m) == "ai"), "")
 
         user_msg = self._get_title_user_message(state)
         assistant_msg = self._strip_think_tags(self._normalize_content(assistant_msg_content))
 
         prompt = config.prompt_template.format(
             max_words=config.max_words,
-            max_chars=config.max_chars,
             user_msg=user_msg[:500],
             assistant_msg=assistant_msg[:500],
         )
@@ -128,17 +175,15 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         return title[: config.max_chars] if len(title) > config.max_chars else title
 
     def _fallback_title(self, user_msg: str) -> str:
-        config = self._get_title_config()
-        fallback_chars = min(config.max_chars, 50)
-        if len(user_msg) > fallback_chars:
-            return user_msg[:fallback_chars].rstrip() + "..."
-        return user_msg if user_msg else "New Conversation"
+        return fallback_title_from_text(user_msg, self._get_title_config())
 
     def _get_runnable_config(self) -> dict[str, Any]:
         """Inherit the parent RunnableConfig and add middleware tag.
 
         This ensures RunJournal identifies LLM calls from this middleware
         as ``middleware:title`` instead of ``lead_agent``.
+        TAG_NOSTREAM hides title tokens from the graph's public messages stream;
+        it does not disable the private upstream model stream.
         """
         try:
             parent = get_config()
@@ -153,23 +198,25 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         ]
         return config
 
-    def _generate_title_result(self, state: TitleMiddlewareState) -> dict | None:
+    def _generate_title_result(self, state: TitleMiddlewareState, *, allow_partial_exchange: bool = False) -> dict | None:
         """Generate a local fallback title without blocking on an LLM call."""
-        if not self._should_generate_title(state):
+        if not self._should_generate_title(state, allow_partial_exchange=allow_partial_exchange):
             return None
 
         user_msg = self._get_title_user_message(state)
         return {"title": self._fallback_title(user_msg)}
 
     async def _agenerate_title_result(self, state: TitleMiddlewareState) -> dict | None:
-        """Generate a configured LLM title asynchronously and fall back locally."""
+        """Collect a private LLM stream into one title and fall back locally."""
         if not self._should_generate_title(state):
             return None
 
         config = self._get_title_config()
-        prompt, user_msg = self._build_title_prompt(state)
+        started_at = time.monotonic()
+        log_run_timing(logger, "title_generation_start")
 
         try:
+            prompt, user_msg = self._build_title_prompt(state)
             # attach_tracing=False because ``_get_runnable_config()`` inherits
             # the graph-level RunnableConfig (set in ``_make_lead_agent``) whose
             # callbacks already carry tracing handlers; binding them again at
@@ -181,12 +228,43 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
                 model = create_chat_model(name=config.model_name, **model_kwargs)
             else:
                 model = create_chat_model(**model_kwargs)
-            response = await model.ainvoke(prompt, config=self._get_runnable_config())
-            title = self._parse_title(response.content)
+            # This model instance belongs only to this title call. Force the
+            # streaming path even if the configured model normally disables it.
+            model.disable_streaming = False
+            if "streaming" in getattr(type(model), "model_fields", {}):
+                model.streaming = True
+            response = None
+            async with aclosing(model.astream(prompt, config=self._get_runnable_config(), stream=True)) as stream:
+                async for chunk in stream:
+                    response = chunk if response is None else response + chunk
+            # Parse only after EOF: think tags / quotes may span chunks, and a
+            # failed partial stream must never become the persisted title.
+            title = self._parse_title(response.content if response is not None else "")
             if title:
+                log_run_timing(
+                    logger,
+                    "title_generation_end",
+                    elapsed_ms=(time.monotonic() - started_at) * 1000,
+                    outcome="completed",
+                )
                 return {"title": title}
-        except Exception:
+        except Exception as exc:
+            log_run_timing(
+                logger,
+                "title_generation_end",
+                elapsed_ms=(time.monotonic() - started_at) * 1000,
+                outcome="error",
+                error_type=type(exc).__name__,
+            )
             logger.debug("Failed to generate async title; falling back to local title", exc_info=True)
+        else:
+            log_run_timing(
+                logger,
+                "title_generation_end",
+                elapsed_ms=(time.monotonic() - started_at) * 1000,
+                outcome="empty",
+            )
+        user_msg = self._get_title_user_message(state)
         return {"title": self._fallback_title(user_msg)}
 
     @override

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from copy import deepcopy
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -21,15 +23,35 @@ from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, Field
 
 from app.gateway.authz import require_permission
-from app.gateway.deps import get_checkpointer, get_current_user, get_feedback_repo, get_run_event_store, get_run_manager, get_run_store, get_stream_bridge
+from app.gateway.deps import (
+    get_authorized_read_scope_user_id,
+    get_checkpointer,
+    get_feedback_repo,
+    get_run_event_store,
+    get_run_manager,
+    get_run_store,
+    get_stream_bridge,
+)
+from app.gateway.internal_auth import INTERNAL_SYSTEM_ROLE, get_trusted_internal_owner_user_id
 from app.gateway.pagination import trim_run_message_page
 from app.gateway.services import sse_consumer, start_run, wait_for_run_completion
-from deerflow.runtime import RunRecord, RunStatus, serialize_channel_values_for_api
+from deerflow.runtime import CancelOutcome, RunRecord, RunStatus, serialize_channel_values_for_api
 from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY, get_original_user_content_text, message_to_text
+from deerflow.workspace_changes import get_workspace_changes_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/threads", tags=["runs"])
 REGENERATE_HISTORY_SCAN_LIMIT = 200
+# Doubled to keep ~200 effective checkpoints when duration-only checkpoints
+# (one per successful run in steady state) consume roughly half of history.
+REGENERATE_HISTORY_RAW_SCAN_LIMIT = REGENERATE_HISTORY_SCAN_LIMIT * 2
+THREAD_MESSAGE_PAGE_SCAN_BATCH = 201
+
+
+def _is_duration_only_checkpoint(checkpoint_tuple: Any) -> bool:
+    metadata = getattr(checkpoint_tuple, "metadata", None)
+    writes = metadata.get("writes") if isinstance(metadata, dict) else None
+    return isinstance(writes, dict) and "runtime_run_duration" in writes
 
 
 def compute_run_durations(runs) -> dict[str, int]:
@@ -89,6 +111,12 @@ class RegeneratePrepareResponse(BaseModel):
     target_run_id: str
 
 
+class ThreadMessagesPageResponse(BaseModel):
+    data: list[dict[str, Any]]
+    has_more: bool
+    next_before_seq: int | None = None
+
+
 class RunResponse(BaseModel):
     run_id: str
     thread_id: str
@@ -107,6 +135,7 @@ class RunResponse(BaseModel):
     subagent_tokens: int = 0
     middleware_tokens: int = 0
     message_count: int = 0
+    stop_reason: str | None = None
 
 
 class ThreadTokenUsageModelBreakdown(BaseModel):
@@ -144,6 +173,54 @@ def _cancel_conflict_detail(run_id: str, record: RunRecord) -> str:
     return f"Run {run_id} is not cancellable (status: {record.status.value})"
 
 
+def _compute_retry_after(lease_expires_at: str | None, grace_seconds: int) -> int | None:
+    """Return seconds until the lease expires + grace, for ``Retry-After``.
+
+    Returns ``None`` when the lease is NULL or unparseable so the caller
+    can decide whether to send a generic 409 without the header.
+
+    The ``max(1, ...)`` floor means a lease just about to expire yields
+    ``Retry-After: 1``.  This is a lower bound, not a recommended poll
+    interval — clients that honour this header should apply minimum
+    backoff / jitter rather than retrying every second.
+    """
+    if lease_expires_at is None:
+        return None
+    try:
+        dt = datetime.fromisoformat(lease_expires_at)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+    except (ValueError, TypeError):
+        return None
+    remaining = (dt - datetime.now(UTC)).total_seconds() + grace_seconds
+    return max(1, int(remaining))
+
+
+async def _raise_lease_valid_elsewhere(
+    run_id: str,
+    run_mgr,  # RunManager (avoid import for testability)
+    record: RunRecord,
+) -> None:
+    """Re-fetch the lease and raise HTTP 409 + Retry-After.
+
+    ``record.lease_expires_at`` may be stale (fetched at request start while
+    the owner renewed between our read and the conditional UPDATE). Re-read
+    from the store to get the fresh value so ``Retry-After`` is accurate.
+    """
+    fresh = await run_mgr.get(run_id)
+    if fresh is not None:
+        record = fresh
+    retry_after = _compute_retry_after(record.lease_expires_at, run_mgr.grace_seconds)
+    headers: dict[str, str] = {}
+    if retry_after is not None:
+        headers["Retry-After"] = str(retry_after)
+    raise HTTPException(
+        status_code=409,
+        detail=f"Run {run_id} is active on another worker; retry after lease expiry.",
+        headers=headers,
+    )
+
+
 def _record_to_response(record: RunRecord) -> RunResponse:
     return RunResponse(
         run_id=record.run_id,
@@ -163,6 +240,7 @@ def _record_to_response(record: RunRecord) -> RunResponse:
         subagent_tokens=record.subagent_tokens,
         middleware_tokens=record.middleware_tokens,
         message_count=record.message_count,
+        stop_reason=record.stop_reason,
     )
 
 
@@ -209,7 +287,22 @@ def _message_additional_kwargs(message: Any) -> dict[str, Any]:
 def _is_hidden_or_control_message(message: Any) -> bool:
     message_type = _message_type(message)
     additional_kwargs = _message_additional_kwargs(message)
-    return message_type == "remove" or _message_name(message) == "summary" or additional_kwargs.get("hide_from_ui") is True
+    return message_type == "remove" or _message_name(message) == "summary" or additional_kwargs.get("hide_from_ui") is True or _is_internal_compaction_transcript(message)
+
+
+def _is_internal_compaction_transcript(message: Any) -> bool:
+    """Recognize a leaked provider-facing context-compaction completion.
+
+    Internal summarizer calls are normally tagged ``middleware:summarization``.
+    A few OpenAI-compatible providers have dropped those callback tags and an
+    old journal row may therefore look like a lead-agent answer.  The exact
+    paired envelope is not a valid user-facing response and is safe to hide as
+    defense in depth.
+    """
+    if _message_type(message) != "ai":
+        return False
+    text = _message_text(message).strip()
+    return text.startswith("<analysis>") and "</analysis>" in text and "<summary>" in text and text.endswith("</summary>")
 
 
 def _is_visible_human_message(message: Any) -> bool:
@@ -218,6 +311,14 @@ def _is_visible_human_message(message: Any) -> bool:
 
 def _is_visible_ai_message(message: Any) -> bool:
     return _message_type(message) == "ai" and not _is_hidden_or_control_message(message)
+
+
+def _is_middleware_message_row(row: dict[str, Any]) -> bool:
+    return str((row.get("metadata") or {}).get("caller", "")).startswith("middleware:")
+
+
+def _is_hidden_message_row(row: dict[str, Any]) -> bool:
+    return _is_middleware_message_row(row) or _is_internal_compaction_transcript(row.get("content"))
 
 
 def _checkpoint_messages(checkpoint_tuple: Any) -> list[Any]:
@@ -284,6 +385,53 @@ def _run_last_ai_matches_message(record: RunRecord, message: Any) -> bool:
     return last_ai_message == target_text[: len(last_ai_message)]
 
 
+async def _thread_ownership_established(request: Request, thread_id: str) -> bool:
+    """Return whether a concrete owner is recorded for ``thread_id``."""
+    thread_store = getattr(request.app.state, "thread_store", None)
+    if thread_store is None:
+        return False
+    meta = await thread_store.get(thread_id, user_id=None)
+    meta_owner = meta.get("user_id") if isinstance(meta, dict) else getattr(meta, "user_id", None)
+    return meta is not None and bool(meta_owner)
+
+
+async def _run_scope_user_id(request: Request, thread_id: str) -> str | None:
+    """Resolve the persisted data-owner scope after route authorization.
+
+    Administrators retain the enterprise read-only, unscoped view. Trusted
+    internal callers also read an established owner's thread unscoped because
+    their synthetic authorization identity is normalized while run rows carry
+    the raw owner value. For legacy missing/NULL-owner metadata, however, keep
+    the exact acting-owner scope so one internal caller cannot see another
+    owner's rows merely because the thread itself has no owner record.
+    """
+    state = getattr(request, "state", None)
+    user = getattr(state, "user", None)
+    if getattr(user, "system_role", None) != INTERNAL_SYSTEM_ROLE:
+        return await get_authorized_read_scope_user_id(request)
+    if await _thread_ownership_established(request, thread_id):
+        return None
+    return get_trusted_internal_owner_user_id(request) or await get_authorized_read_scope_user_id(request)
+
+
+async def _require_run_visible_to_scope(run_id: str, thread_id: str, request: Request) -> None:
+    """Protect run-id subresources on legacy missing/NULL-owner threads."""
+    state = getattr(request, "state", None)
+    user = getattr(state, "user", None)
+    if getattr(user, "system_role", None) != INTERNAL_SYSTEM_ROLE:
+        return
+    if await _thread_ownership_established(request, thread_id):
+        return
+
+    scope = get_trusted_internal_owner_user_id(request) or "default"
+    record = await get_run_manager(request).get(run_id)
+    if record is None:
+        return
+    record_owner = getattr(record, "user_id", None) or "default"
+    if record.thread_id != thread_id or record_owner != scope:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+
+
 async def _find_target_run_id(thread_id: str, message_id: str, target_message: Any, request: Request) -> str:
     event_store = get_run_event_store(request)
     rows = await event_store.list_messages(thread_id, limit=REGENERATE_HISTORY_SCAN_LIMIT)
@@ -295,7 +443,7 @@ async def _find_target_run_id(thread_id: str, message_id: str, target_message: A
             if isinstance(run_id, str) and run_id:
                 return run_id
     run_mgr = get_run_manager(request)
-    user_id = await get_current_user(request)
+    user_id = await _run_scope_user_id(request, thread_id)
     records = await run_mgr.list_by_thread(thread_id, user_id=user_id, limit=10)
     fallback_record = next(
         (record for record in records if record.status == RunStatus.success and _run_last_ai_matches_message(record, target_message)),
@@ -317,7 +465,8 @@ async def _find_base_checkpoint_before_human(thread_id: str, human_message_id: s
     checkpointer = get_checkpointer(request)
     base_config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
     try:
-        checkpoints = [item async for item in checkpointer.alist(base_config, limit=REGENERATE_HISTORY_SCAN_LIMIT)]
+        raw_checkpoints = [item async for item in checkpointer.alist(base_config, limit=REGENERATE_HISTORY_RAW_SCAN_LIMIT)]
+        checkpoints = [item for item in raw_checkpoints if not _is_duration_only_checkpoint(item)]
     except Exception as exc:
         logger.exception("Failed to list checkpoints for regenerate thread %s", thread_id)
         raise HTTPException(status_code=500, detail="Failed to inspect checkpoint history") from exc
@@ -479,7 +628,7 @@ async def wait_run(thread_id: str, body: RunCreateRequest, request: Request) -> 
 async def list_runs(thread_id: str, request: Request) -> list[RunResponse]:
     """List all runs for a thread."""
     run_mgr = get_run_manager(request)
-    user_id = await get_current_user(request)
+    user_id = await _run_scope_user_id(request, thread_id)
     records = await run_mgr.list_by_thread(thread_id, user_id=user_id)
     return [_record_to_response(r) for r in records]
 
@@ -489,7 +638,7 @@ async def list_runs(thread_id: str, request: Request) -> list[RunResponse]:
 async def get_run(thread_id: str, run_id: str, request: Request) -> RunResponse:
     """Get details of a specific run."""
     run_mgr = get_run_manager(request)
-    user_id = await get_current_user(request)
+    user_id = await _run_scope_user_id(request, thread_id)
     record = await run_mgr.get(run_id, user_id=user_id)
     if record is None or record.thread_id != thread_id:
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
@@ -511,38 +660,50 @@ async def cancel_run(
     - action=rollback: Stop execution, revert to pre-run checkpoint state
     - wait=true: Block until the run fully stops, return 204
     - wait=false: Return immediately with 202
+
+    In multi-worker deployments, a cancel landing on a non-owning worker
+    can take over the run when the owner's lease has expired.  When the
+    lease is still valid a 409 + ``Retry-After`` header is returned.
     """
+    await _require_run_visible_to_scope(run_id, thread_id, request)
     run_mgr = get_run_manager(request)
     record = await run_mgr.get(run_id)
     if record is None or record.thread_id != thread_id:
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
 
-    cancelled = await run_mgr.cancel(run_id, action=action)
-    if not cancelled:
-        raise HTTPException(status_code=409, detail=_cancel_conflict_detail(run_id, record))
+    outcome = await run_mgr.cancel(run_id, action=action)
 
-    if wait and record.task is not None:
-        try:
-            await record.task
-        except asyncio.CancelledError:
-            pass
-        return Response(status_code=204)
+    # Success paths — the run was either cancelled locally or taken over
+    # from a dead worker.
+    if outcome in (CancelOutcome.cancelled, CancelOutcome.taken_over):
+        if wait and record.task is not None:
+            try:
+                await record.task
+            except asyncio.CancelledError:
+                pass
+            return Response(status_code=204)
+        return Response(status_code=202)
 
-    return Response(status_code=202)
+    if outcome == CancelOutcome.lease_valid_elsewhere:
+        await _raise_lease_valid_elsewhere(run_id, run_mgr, record)
+
+    # not_cancellable, not_active_locally, unknown
+    raise HTTPException(status_code=409, detail=_cancel_conflict_detail(run_id, record))
 
 
 @router.get("/{thread_id}/runs/{run_id}/join")
 @require_permission("runs", "read", owner_check=True)
 async def join_run(thread_id: str, run_id: str, request: Request) -> StreamingResponse:
     """Join an existing run's SSE stream."""
+    await _require_run_visible_to_scope(run_id, thread_id, request)
     run_mgr = get_run_manager(request)
     record = await run_mgr.get(run_id)
     if record is None or record.thread_id != thread_id:
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
-    if record.store_only:
+    bridge = get_stream_bridge(request)
+    if record.store_only and not bridge.supports_cross_process:
         raise HTTPException(status_code=409, detail=f"Run {run_id} is not active on this worker and cannot be streamed")
 
-    bridge = get_stream_bridge(request)
     return StreamingResponse(
         sse_consumer(bridge, record, request, run_mgr),
         media_type="text/event-stream",
@@ -575,17 +736,27 @@ async def stream_existing_run(
     is present the run is cancelled first; the response then streams any
     remaining buffered events so the client observes a clean shutdown.
     """
+    await _require_run_visible_to_scope(run_id, thread_id, request)
     run_mgr = get_run_manager(request)
     record = await run_mgr.get(run_id)
     if record is None or record.thread_id != thread_id:
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
-    if record.store_only and action is None:
+    bridge = get_stream_bridge(request)
+    if record.store_only and action is None and not bridge.supports_cross_process:
         raise HTTPException(status_code=409, detail=f"Run {run_id} is not active on this worker and cannot be streamed")
 
     # Cancel if an action was requested (stop-button / interrupt flow)
     if action is not None:
-        cancelled = await run_mgr.cancel(run_id, action=action)
-        if not cancelled:
+        outcome = await run_mgr.cancel(run_id, action=action)
+        if outcome == CancelOutcome.taken_over:
+            # The run was on another worker and is now marked ``error`` in the
+            # store.  There is no local stream to drain — return immediately so
+            # the client doesn't hang on an SSE subscription this worker can
+            # never serve.
+            return Response(status_code=202)
+        if outcome != CancelOutcome.cancelled:
+            if outcome == CancelOutcome.lease_valid_elsewhere:
+                await _raise_lease_valid_elsewhere(run_id, run_mgr, record)
             raise HTTPException(status_code=409, detail=_cancel_conflict_detail(run_id, record))
         if wait and record.task is not None:
             try:
@@ -594,7 +765,6 @@ async def stream_existing_run(
                 pass
             return Response(status_code=204)
 
-    bridge = get_stream_bridge(request)
     return StreamingResponse(
         sse_consumer(bridge, record, request, run_mgr),
         media_type="text/event-stream",
@@ -616,17 +786,23 @@ async def stream_existing_run(
 async def list_thread_messages(
     thread_id: str,
     request: Request,
-    limit: int = Query(default=50, le=200),
-    before_seq: int | None = Query(default=None),
-    after_seq: int | None = Query(default=None),
+    limit: int = Query(default=50, le=200, ge=1),
+    before_seq: int | None = Query(default=None, ge=1),
+    after_seq: int | None = Query(default=None, ge=1),
 ) -> list[dict]:
     """Return displayable messages for a thread (across all runs), with feedback attached."""
     event_store = get_run_event_store(request)
-    messages = await event_store.list_messages(thread_id, limit=limit, before_seq=before_seq, after_seq=after_seq)
 
-    # Resolve the caller once; it is needed both to scope the feedback query
+    # Resolve the caller once; it is needed both to scope the message/feedback
     # below and to list the thread's runs for turn-duration injection.
-    user_id = await get_current_user(request)
+    user_id = await _run_scope_user_id(request, thread_id)
+    messages = await event_store.list_messages(
+        thread_id,
+        limit=limit,
+        before_seq=before_seq,
+        after_seq=after_seq,
+        user_id=user_id,
+    )
 
     # Find the last AI message per run_id. AI messages are persisted by
     # RunJournal with event_type "llm.ai.response" (see runtime/journal.py);
@@ -678,6 +854,148 @@ async def list_thread_messages(
     return messages
 
 
+async def _scan_thread_message_page(
+    thread_id: str,
+    *,
+    limit: int,
+    before_seq: int | None,
+    request: Request,
+    user_id: str | None,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Select the newest ``limit + 1`` page-eligible rows before a cursor."""
+    event_store = get_run_event_store(request)
+    run_mgr = get_run_manager(request)
+    superseded_run_ids = await run_mgr.list_successful_regenerate_sources(thread_id, user_id=user_id)
+    visible_desc: list[dict[str, Any]] = []
+    seen_message_ids: set[tuple[str, str]] = set()
+    scan_before = before_seq
+
+    while len(visible_desc) < limit + 1:
+        raw = await event_store.list_messages(
+            thread_id,
+            limit=THREAD_MESSAGE_PAGE_SCAN_BATCH,
+            before_seq=scan_before,
+            user_id=user_id,
+        )
+        if not raw:
+            break
+
+        invalid_seq_rows = [row for row in raw if not isinstance(row.get("seq"), int)]
+        if invalid_seq_rows:
+            logger.error(
+                "Thread message scan found rows without sequence values: thread_id=%s scan_before=%s row_count=%d invalid_count=%d",
+                thread_id,
+                scan_before,
+                len(raw),
+                len(invalid_seq_rows),
+            )
+            raise RuntimeError("Run event message rows are missing sequence values")
+
+        for row in reversed(raw):
+            if _is_hidden_message_row(row) or row.get("run_id") in superseded_run_ids:
+                continue
+            content = row.get("content")
+            message_id = content.get("id") if isinstance(content, dict) else None
+            run_id = row.get("run_id")
+            if isinstance(run_id, str) and isinstance(message_id, str) and message_id:
+                identity = (run_id, message_id)
+                if identity in seen_message_ids:
+                    continue
+                seen_message_ids.add(identity)
+            visible_desc.append(row)
+            if len(visible_desc) == limit + 1:
+                break
+
+        raw_seqs = [row["seq"] for row in raw]
+        next_scan_before = min(raw_seqs)
+        if scan_before is not None and next_scan_before >= scan_before:
+            logger.error(
+                "Thread message scan cursor did not advance: thread_id=%s scan_before=%s next_scan_before=%s row_count=%d",
+                thread_id,
+                scan_before,
+                next_scan_before,
+                len(raw),
+            )
+            raise RuntimeError("Run event message scan did not advance its cursor")
+        scan_before = next_scan_before
+        if len(raw) < THREAD_MESSAGE_PAGE_SCAN_BATCH:
+            break
+
+    has_more = len(visible_desc) > limit
+    return list(reversed(visible_desc[:limit])), has_more
+
+
+async def _enrich_thread_message_page(
+    thread_id: str,
+    rows: list[dict[str, Any]],
+    *,
+    request: Request,
+    user_id: str | None,
+) -> list[dict[str, Any]]:
+    """Attach run-scoped duration and feedback without mutating store rows."""
+    data = deepcopy(rows)
+    if not data:
+        return data
+
+    run_ids = {row["run_id"] for row in data if isinstance(row.get("run_id"), str)}
+    run_mgr = get_run_manager(request)
+    records = await run_mgr.get_many_by_thread(thread_id, run_ids, user_id=user_id)
+    run_durations = compute_run_durations(records.values())
+
+    event_store = get_run_event_store(request)
+    last_ai_seq_by_run = await event_store.get_last_visible_ai_seq_by_run(thread_id, run_ids, user_id=user_id)
+    feedback_map: dict[str, dict] = {}
+    feedback_run_ids = {run_id for row in data if isinstance((run_id := row.get("run_id")), str) and row.get("seq") == last_ai_seq_by_run.get(run_id)}
+    if feedback_run_ids:
+        feedback_repo = get_feedback_repo(request)
+        feedback_map = await feedback_repo.list_by_run_ids(thread_id, feedback_run_ids, user_id=user_id)
+
+    for row in data:
+        run_id = row.get("run_id")
+        row["feedback"] = None
+        if row.get("seq") == last_ai_seq_by_run.get(run_id):
+            feedback = feedback_map.get(run_id)
+            if feedback:
+                row["feedback"] = {
+                    "feedback_id": feedback["feedback_id"],
+                    "rating": feedback["rating"],
+                    "comment": feedback.get("comment"),
+                }
+
+        content = row.get("content")
+        if isinstance(content, dict) and content.get("type") == "ai" and run_id in run_durations:
+            content.setdefault("additional_kwargs", {})["turn_duration"] = run_durations[run_id]
+    return data
+
+
+@router.get("/{thread_id}/messages/page", response_model=ThreadMessagesPageResponse)
+@require_permission("runs", "read", owner_check=True)
+async def list_thread_messages_page(
+    thread_id: str,
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=200),
+    before_seq: int | None = Query(default=None, ge=1),
+) -> ThreadMessagesPageResponse:
+    """Return a backward page ordered by the thread-global event sequence."""
+    if "after_seq" in request.query_params:
+        raise HTTPException(status_code=422, detail="after_seq is not supported by this backward-only endpoint")
+
+    user_id = await _run_scope_user_id(request, thread_id)
+    rows, has_more = await _scan_thread_message_page(
+        thread_id,
+        limit=limit,
+        before_seq=before_seq,
+        request=request,
+        user_id=user_id,
+    )
+    data = await _enrich_thread_message_page(thread_id, rows, request=request, user_id=user_id)
+    return ThreadMessagesPageResponse(
+        data=data,
+        has_more=has_more,
+        next_before_seq=data[0]["seq"] if has_more else None,
+    )
+
+
 @router.get("/{thread_id}/runs/{run_id}/messages")
 @require_permission("runs", "read", owner_check=True)
 async def list_run_messages(
@@ -685,13 +1003,14 @@ async def list_run_messages(
     run_id: str,
     request: Request,
     limit: int = Query(default=50, le=200, ge=1),
-    before_seq: int | None = Query(default=None),
-    after_seq: int | None = Query(default=None),
+    before_seq: int | None = Query(default=None, ge=1),
+    after_seq: int | None = Query(default=None, ge=1),
 ) -> dict:
     """Return paginated messages for a specific run.
 
     Response: { data: [...], has_more: bool }
     """
+    await _require_run_visible_to_scope(run_id, thread_id, request)
     event_store = get_run_event_store(request)
     rows = await event_store.list_messages_by_run(
         thread_id,
@@ -728,12 +1047,40 @@ async def list_run_events(
     run_id: str,
     request: Request,
     event_types: str | None = Query(default=None),
-    limit: int = Query(default=500, le=2000),
+    task_id: str | None = Query(default=None),
+    limit: int = Query(default=500, le=2000, ge=1),
+    after_seq: int | None = Query(default=None, ge=1),
 ) -> list[dict]:
-    """Return the full event stream for a run (debug/audit)."""
+    """Return the full event stream for a run (debug/audit).
+
+    ``task_id`` + ``after_seq`` let the subtask card page through one subagent
+    task's persisted steps without the run-wide ``limit`` truncating the tail (#3779).
+    """
+    await _require_run_visible_to_scope(run_id, thread_id, request)
     event_store = get_run_event_store(request)
     types = event_types.split(",") if event_types else None
-    return await event_store.list_events(thread_id, run_id, event_types=types, limit=limit)
+    return await event_store.list_events(thread_id, run_id, event_types=types, task_id=task_id, limit=limit, after_seq=after_seq)
+
+
+@router.get("/{thread_id}/runs/{run_id}/workspace-changes")
+@require_permission("runs", "read", owner_check=True)
+async def get_run_workspace_changes(
+    thread_id: str,
+    run_id: str,
+    request: Request,
+    include_files: bool = Query(default=True),
+    include_diff: bool = Query(default=True),
+) -> dict:
+    """Return workspace/output file changes recorded for one run."""
+    await _require_run_visible_to_scope(run_id, thread_id, request)
+    event_store = get_run_event_store(request)
+    return await get_workspace_changes_response(
+        event_store,
+        thread_id,
+        run_id,
+        include_files=include_files,
+        include_diff=include_diff,
+    )
 
 
 @router.get("/{thread_id}/token-usage", response_model=ThreadTokenUsageResponse)
@@ -745,8 +1092,9 @@ async def thread_token_usage(
 ) -> ThreadTokenUsageResponse:
     """Thread-level token usage aggregation."""
     run_store = get_run_store(request)
+    scope_user_id = await _run_scope_user_id(request, thread_id)
     if include_active:
-        agg = await run_store.aggregate_tokens_by_thread(thread_id, include_active=True)
+        agg = await run_store.aggregate_tokens_by_thread(thread_id, include_active=True, user_id=scope_user_id)
     else:
-        agg = await run_store.aggregate_tokens_by_thread(thread_id)
+        agg = await run_store.aggregate_tokens_by_thread(thread_id, user_id=scope_user_id)
     return ThreadTokenUsageResponse(thread_id=thread_id, **agg)

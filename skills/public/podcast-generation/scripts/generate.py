@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import random
+import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -16,12 +17,12 @@ logger = logging.getLogger(__name__)
 
 MINIMAX_DEFAULT_HOST = "https://api.minimaxi.com"
 DASHSCOPE_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/api/v1"
-DASHSCOPE_DEFAULT_TTS_MODEL = "cosyvoice-v3-flash"
 # MiniMax base_resp codes worth retrying: unknown, timeout, RPM limit, TPM limit.
 MINIMAX_RETRYABLE_CODES = {1000, 1001, 1002, 1039}
 DEFAULT_TTS_MAX_RETRIES = 4
 DEFAULT_MAX_WORKERS = 4
 DEFAULT_MINIMAX_MAX_WORKERS = 1
+DEFAULT_DASHSCOPE_MAX_WORKERS = 1
 
 
 class ScriptLine:
@@ -65,31 +66,19 @@ def _resolve_tts_provider() -> str:
     has_volc = bool(
         os.getenv("VOLCENGINE_TTS_APPID") and os.getenv("VOLCENGINE_TTS_ACCESS_TOKEN")
     )
-    has_dashscope = bool(os.getenv("DASHSCOPE_API_KEY"))
-    provider = os.getenv("PODCAST_GENERATION_PROVIDER")
-    if provider:
-        provider = provider.strip().lower()
-    elif has_volc:
-        provider = "volcengine"
-    elif has_dashscope:
+    override = os.getenv("PODCAST_GENERATION_PROVIDER")
+    if override:
+        provider = override.strip().lower()
+    elif os.getenv("DASHSCOPE_API_KEY"):
         provider = "dashscope"
-    elif os.getenv("MINIMAX_API_KEY"):
-        provider = "minimax"
     else:
-        raise ValueError(
-            "No credentials found. Set VOLCENGINE_TTS_APPID + "
-            "VOLCENGINE_TTS_ACCESS_TOKEN for volcengine, DASHSCOPE_API_KEY for "
-            "dashscope, or MINIMAX_API_KEY for minimax (optionally force with "
-            "PODCAST_GENERATION_PROVIDER)."
-        )
-    if provider in ("bailian", "qwen"):
-        provider = "dashscope"
-    if provider not in ("volcengine", "minimax", "dashscope"):
+        provider = _resolve_provider("PODCAST_GENERATION_PROVIDER", "volcengine", has_volc)
+    if provider not in ("dashscope", "bailian", "volcengine", "minimax"):
         raise ValueError(
             f"Unknown podcast provider: {provider!r} "
-            f"(use 'volcengine', 'minimax', or 'dashscope')"
+            "(use 'dashscope', 'volcengine', or 'minimax')"
         )
-    return provider
+    return "dashscope" if provider == "bailian" else provider
 
 
 def _default_max_retries() -> int:
@@ -105,22 +94,9 @@ def _default_max_workers(provider: str) -> int:
     """
     if provider == "minimax":
         return DEFAULT_MINIMAX_MAX_WORKERS
+    if provider == "dashscope":
+        return DEFAULT_DASHSCOPE_MAX_WORKERS
     return DEFAULT_MAX_WORKERS
-
-
-def _dashscope_base_url() -> str:
-    return os.getenv("DASHSCOPE_BASE_URL", DASHSCOPE_DEFAULT_BASE_URL).rstrip("/")
-
-
-def _download_audio(url: str) -> Optional[bytes]:
-    response = requests.get(url, timeout=300)
-    if response.status_code != 200:
-        logger.error(
-            f"Audio download error: {response.status_code} - "
-            f"{getattr(response, 'text', '')}"
-        )
-        return None
-    return response.content
 
 
 def _parse_retry_after(response) -> Optional[float]:
@@ -265,41 +241,27 @@ def text_to_speech_minimax(
 
 
 def text_to_speech_dashscope(
-    text: str, voice_id: str, max_retries: Optional[int] = None
+    text: str, voice: str, max_retries: Optional[int] = None
 ) -> Optional[bytes]:
-    """Convert text to speech using DashScope CosyVoice.
-
-    The non-streaming API usually returns an expiring OSS URL, while streaming
-    responses return base64 chunks. Support both shapes so API-side changes do
-    not break the skill unnecessarily.
-    """
+    """Convert text to speech with Qwen-TTS and download the returned audio."""
     api_key = os.getenv("DASHSCOPE_API_KEY")
-    if not api_key:
-        return None
     if max_retries is None:
         max_retries = _default_max_retries()
+    base_url = os.getenv(
+        "DASHSCOPE_BASE_URL", DASHSCOPE_DEFAULT_BASE_URL
+    ).rstrip("/")
     payload = {
-        "model": os.getenv("DASHSCOPE_TTS_MODEL", DASHSCOPE_DEFAULT_TTS_MODEL),
+        "model": os.getenv("DASHSCOPE_TTS_MODEL", "qwen3-tts-flash"),
         "input": {
             "text": text,
-            "voice": voice_id,
-            "format": os.getenv("DASHSCOPE_TTS_FORMAT", "mp3"),
-            "sample_rate": int(os.getenv("DASHSCOPE_TTS_SAMPLE_RATE", "24000")),
-            "rate": float(os.getenv("DASHSCOPE_TTS_RATE", "1.0")),
-            "volume": int(os.getenv("DASHSCOPE_TTS_VOLUME", "50")),
+            "voice": voice,
+            "language_type": "Chinese",
         },
     }
-    language_hint = os.getenv("DASHSCOPE_TTS_LANGUAGE_HINT")
-    if language_hint:
-        payload["input"]["language_hints"] = [language_hint]
-    instruction = os.getenv("DASHSCOPE_TTS_INSTRUCTION")
-    if instruction:
-        payload["input"]["instruction"] = instruction
-
     for attempt in range(max_retries + 1):
         try:
             response = requests.post(
-                f"{_dashscope_base_url()}/services/audio/tts/SpeechSynthesizer",
+                f"{base_url}/services/aigc/multimodal-generation/generation",
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
@@ -307,16 +269,18 @@ def text_to_speech_dashscope(
                 json=payload,
                 timeout=120,
             )
-        except Exception as e:
-            logger.error(f"DashScope TTS error: {e}")
+        except Exception as exc:
+            logger.error("DashScope TTS error: %s", exc)
             if attempt < max_retries:
                 _backoff_sleep(attempt, None)
                 continue
             return None
         if response.status_code == 429 or response.status_code >= 500:
             logger.warning(
-                f"DashScope TTS transient HTTP {response.status_code} "
-                f"(attempt {attempt + 1}/{max_retries + 1})"
+                "DashScope TTS transient HTTP %s (attempt %s/%s)",
+                response.status_code,
+                attempt + 1,
+                max_retries + 1,
             )
             if attempt < max_retries:
                 _backoff_sleep(attempt, _parse_retry_after(response))
@@ -324,20 +288,29 @@ def text_to_speech_dashscope(
             return None
         if response.status_code != 200:
             logger.error(
-                f"DashScope TTS error: {response.status_code} - "
-                f"{getattr(response, 'text', '')}"
+                "DashScope TTS error: %s - %s",
+                response.status_code,
+                getattr(response, "text", ""),
             )
             return None
         result = response.json()
-        audio = ((result.get("output") or {}).get("audio") or {})
-        audio_data = audio.get("data")
-        if audio_data:
-            return base64.b64decode(audio_data)
-        audio_url = audio.get("url")
-        if audio_url:
-            return _download_audio(audio_url)
-        logger.error(f"DashScope TTS returned no audio data or URL: {result}")
-        return None
+        audio_url = (((result.get("output") or {}).get("audio") or {}).get("url"))
+        if not audio_url:
+            logger.error(
+                "DashScope TTS returned no audio URL (request_id=%s)",
+                result.get("request_id"),
+            )
+            return None
+        try:
+            audio_response = requests.get(audio_url, timeout=300)
+            audio_response.raise_for_status()
+            return audio_response.content
+        except Exception as exc:
+            logger.error("DashScope TTS audio download error: %s", exc)
+            if attempt < max_retries:
+                _backoff_sleep(attempt, None)
+                continue
+            return None
     return None
 
 
@@ -345,18 +318,18 @@ def _process_line(args: tuple[int, ScriptLine, int, str]) -> tuple[int, Optional
     """Process a single script line for TTS. Returns (index, audio_bytes)."""
     i, line, total, provider = args
     logger.info(f"Processing line {i + 1}/{total} ({line.speaker}) via {provider}")
-    if provider == "minimax":
+    if provider == "dashscope":
+        if line.speaker == "male":
+            voice = os.getenv("DASHSCOPE_TTS_VOICE_MALE", "Ethan")
+        else:
+            voice = os.getenv("DASHSCOPE_TTS_VOICE_FEMALE", "Cherry")
+        audio = text_to_speech_dashscope(line.paragraph, voice)
+    elif provider == "minimax":
         if line.speaker == "male":
             voice = os.getenv("MINIMAX_TTS_VOICE_MALE", "male-qn-qingse")
         else:
             voice = os.getenv("MINIMAX_TTS_VOICE_FEMALE", "female-tianmei")
         audio = text_to_speech_minimax(line.paragraph, voice)
-    elif provider == "dashscope":
-        if line.speaker == "male":
-            voice = os.getenv("DASHSCOPE_TTS_VOICE_MALE", "longcheng_v3")
-        else:
-            voice = os.getenv("DASHSCOPE_TTS_VOICE_FEMALE", "longxiaochun_v3")
-        audio = text_to_speech_dashscope(line.paragraph, voice)
     else:
         if line.speaker == "male":
             voice = "zh_male_yangguangqingnian_moon_bigtts"
@@ -490,5 +463,6 @@ if __name__ == "__main__":
         print(result)
     except Exception as e:
         import traceback
-        print(f"Error generating podcast: {e}")
-        traceback.print_exc()
+        print(f"Error generating podcast: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        raise SystemExit(1) from e

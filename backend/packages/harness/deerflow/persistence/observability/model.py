@@ -39,6 +39,7 @@ class AuditLogRow(Base):
     __table_args__ = (
         Index("ix_audit_logs_resource", "resource_type", "resource_id"),
         Index("ix_audit_logs_user_time", "user_id", "created_at"),
+        Index("ix_audit_logs_action_time", "action", "created_at"),
     )
 
 

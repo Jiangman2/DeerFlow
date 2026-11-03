@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "status": "operator_reported_R4_deployment_PASS",
+  "result_sha256": "58699339fd3d2f013936a3f221e06b0ce0f3c5246be499a4215eeb10dda8373b",
+  "build_payload_manifest_sha256": "9473ecee03df4e4373e7427587f69449487049a31bbc596cff86210b1f1653e7",
+  "scope": "GATEWAY_AND_RUNNER_IMAGE_ONLY",
+  "active_work_policy": "OPERATOR_ACKNOWLEDGED_FOR_R4",
+  "automatic_resume": false,
+  "browser_acceptance": "REQUIRED",
+  "business_token_acceptance": "REQUIRED",
+  "other_deployments_operator_report": "UNCHANGED",
+  "production_database_mutation_operator_report": "NONE",
+  "components": {
+    "runner": {
+      "image": "deerflow.local/deer-flow-gateway:20260928-ppt-preview-profile-r4-runner-9473ecee03df4e43",
+      "manifest_digest": "sha256:eb23de08345bab65c78264f99ce33085c4ea3574ff8d6281b62418f644fc06cd",
+      "config_digest": "sha256:bc378da76f8ba638256d7f70764dcd130a12cb44346a596ed7a17c4d61815cec",
+      "archive_sha256": "d521617c5d7918053e9403a831058ecf38cad109f34e82c8b634492456a12667",
+      "before_sha256": "cf03bfa827411d23089a18418378676ee718ad257e7bb3491f662e1f3ba21652",
+      "after_sha256": "6ae2a2633ee476094b6de66f1524f2cf1b4b77ea7d69d8a1f53c5ff0a92e13d1"
+    },
+    "gateway": {
+      "image": "deerflow.local/deer-flow-gateway:20260928-ppt-preview-profile-r4-gateway-9473ecee03df4e43",
+      "manifest_digest": "sha256:e58a8740d95389eed538a60e37190ca05f969150008091db8e8998a37ff7a4f8",
+      "config_digest": "sha256:f42b9a50aecfb313fbaae029955cbaf5970e5b83209c395d7f0beb691ae39918",
+      "archive_sha256": "9dec3c28703f474fad00bf7db801a1d21e4336dc22b63e7a4f34e282b38db431",
+      "before_sha256": "13004e5f876bff16ae76cf89bac2df88be05dec58f86d6aea673f777da3cc36e",
+      "after_sha256": "888816a1fb36d98bde100398783e61c5a9fdea5896fa96381bd9818d2b7de5f8"
+    }
+  }
+}

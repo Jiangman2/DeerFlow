@@ -10,7 +10,17 @@ import type {
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Request failed with ${response.status}`);
+    let message = text;
+    try {
+      const payload = JSON.parse(text) as { detail?: string };
+      message = payload.detail ?? text;
+    } catch {
+      // Keep the plain response body when it is not JSON.
+    }
+    if (response.status === 409) {
+      message = "该展示时段与另一条已发布公告重叠，请先调整时间或撤下原公告。";
+    }
+    throw new Error(message || `请求失败（${response.status}）`);
   }
   return (await response.json()) as T;
 }

@@ -4,7 +4,7 @@ on:
   push:
     branches: [ 'main', '2.0.x-dev' ]
   pull_request:
-    branches: [ '*' ]
+    branches: [ '*', 'codex/enterprise-consolidation-20260716' ]
 
 permissions:
   contents: read
@@ -53,26 +53,31 @@ jobs:
         run: corepack prepare pnpm@10.26.2 --activate
 
       - name: Install frontend dependencies
+        id: frontend-deps
         run: |
           cd frontend
           pnpm install --frozen-lockfile
 
       - name: Check frontend formatting
+        if: ${{ !cancelled() && steps.frontend-deps.outcome == 'success' }}
         run: |
           cd frontend
           pnpm format
 
       - name: Run frontend linting
+        if: ${{ !cancelled() && steps.frontend-deps.outcome == 'success' }}
         run: |
           cd frontend
           pnpm lint
 
       - name: Check TypeScript types
+        if: ${{ !cancelled() && steps.frontend-deps.outcome == 'success' }}
         run: |
           cd frontend
           pnpm typecheck
 
       - name: Build frontend
+        if: ${{ !cancelled() && steps.frontend-deps.outcome == 'success' }}
         run: |
           cd frontend
           BETTER_AUTH_SECRET=local-dev-secret pnpm build

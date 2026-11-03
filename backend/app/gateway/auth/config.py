@@ -27,6 +27,10 @@ class AuthConfig(BaseModel):
     token_expiry_days: int = Field(default=7, ge=1, le=30)
     oauth_github_client_id: str | None = Field(default=None)
     oauth_github_client_secret: str | None = Field(default=None)
+    sso_only: bool = Field(
+        default=False,
+        description="Disable every non-CNOOC session-creation path.",
+    )
 
 
 _auth_config: AuthConfig | None = None
@@ -75,7 +79,10 @@ def get_auth_config() -> AuthConfig:
                 "For production, add AUTH_JWT_SECRET to your .env file: "
                 'python -c "import secrets; print(secrets.token_urlsafe(32))"'
             )
-        _auth_config = AuthConfig(jwt_secret=jwt_secret)
+        _auth_config = AuthConfig(
+            jwt_secret=jwt_secret,
+            sso_only=os.environ.get("DEER_FLOW_SSO_ONLY", "false"),
+        )
     return _auth_config
 
 

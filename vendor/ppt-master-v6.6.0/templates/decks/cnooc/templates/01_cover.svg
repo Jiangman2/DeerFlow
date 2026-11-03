@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+  width="1280" height="720" viewBox="0 0 1280 720"
+  data-pptx-master="cnooc_corporate_master" data-pptx-master-name="CNOOC Corporate"
+  data-pptx-layout="cover" data-pptx-layout-name="Cover">
+  <rect id="cnooc-master-background" x="0" y="0" width="1280" height="720" fill="#FFFFFF"
+    data-pptx-layer="master" data-pptx-editable="false"/>
+
+  <image id="cover-background" x="0" y="0" width="1280" height="720"
+    href="../images/cover_bg.png" preserveAspectRatio="xMidYMid slice"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <image id="cover-logo" x="52" y="26" width="188" height="56"
+    href="../images/logo_white.png" preserveAspectRatio="xMinYMid meet"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <rect id="cover-title-accent" x="76" y="258" width="92" height="6" rx="3" fill="#DE002B"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+
+  <g id="cover-title-slot" data-pptx-placeholder="title"
+    data-pptx-bounds="76 282 664 92">
+    <text id="cover-title-carrier" data-pptx-carrier="true"
+      x="76" y="344" fill="#FFFFFF"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="52" font-weight="700">{{TITLE}}</text>
+  </g>
+  <g id="cover-subtitle-slot" data-pptx-placeholder="subtitle" data-pptx-idx="1"
+    data-pptx-bounds="76 376 664 58">
+    <text id="cover-subtitle-carrier" data-pptx-carrier="true"
+      x="76" y="416" fill="#EAF2F9"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="28" font-weight="700">{{SUBTITLE}}</text>
+  </g>
+  <g id="cover-author-slot" data-pptx-placeholder="body" data-pptx-idx="2"
+    data-pptx-bounds="76 446 560 38">
+    <text id="cover-author-carrier" data-pptx-carrier="true"
+      x="76" y="474" fill="#DDEAF6"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="19">{{AUTHOR}}</text>
+  </g>
+  <g id="cover-date-slot" data-pptx-placeholder="date" data-pptx-idx="3"
+    data-pptx-bounds="76 490 360 34">
+    <text id="cover-date-carrier" data-pptx-carrier="true"
+      x="76" y="515" fill="#DDEAF6"
+      font-family="Arial, Microsoft YaHei, sans-serif" font-size="17">{{DATE}}</text>
+  </g>
+</svg>

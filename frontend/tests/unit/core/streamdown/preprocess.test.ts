@@ -15,19 +15,19 @@ test("capBlockquoteNesting returns normal content unchanged", () => {
 });
 
 test("capBlockquoteNesting keeps nesting at or below the cap untouched", () => {
-  const input = "> ".repeat(100) + "hi";
+  const input = "> ".repeat(16) + "hi";
   expect(capBlockquoteNesting(input)).toBe(input);
 });
 
 test("capBlockquoteNesting caps pathological nesting and preserves content", () => {
   const result = capBlockquoteNesting("> ".repeat(5000) + "hi");
-  expect((result.match(/>/g) ?? []).length).toBe(100);
+  expect((result.match(/>/g) ?? []).length).toBe(16);
   expect(result.endsWith("hi")).toBe(true);
 });
 
 test("capBlockquoteNesting handles markers without spaces", () => {
   const result = capBlockquoteNesting(">".repeat(5000) + "hi");
-  expect((result.match(/>/g) ?? []).length).toBe(100);
+  expect((result.match(/>/g) ?? []).length).toBe(16);
   expect(result.endsWith("hi")).toBe(true);
 });
 
@@ -51,7 +51,7 @@ test("capBlockquoteNesting only rewrites pathological lines", () => {
   const result = capBlockquoteNesting(`${normal}\n${deep}\nplain`);
   const lines = result.split("\n");
   expect(lines[0]).toBe(normal);
-  expect((lines[1]?.match(/>/g) ?? []).length).toBe(100);
+  expect((lines[1]?.match(/>/g) ?? []).length).toBe(16);
   expect(lines[2]).toBe("plain");
 });
 
@@ -98,7 +98,7 @@ test("capMarkdownNesting caps both blockquote and list nesting", () => {
   const input = `${"> ".repeat(3000)}quote\n${" ".repeat(500)}- item`;
   const result = capMarkdownNesting(input);
   const lines = result.split("\n");
-  expect((lines[0]?.match(/>/g) ?? []).length).toBe(100);
+  expect((lines[0]?.match(/>/g) ?? []).length).toBe(16);
   expect(/^[ \t]*/.exec(lines[1]!)![0].length).toBe(200);
 });
 
@@ -214,6 +214,15 @@ test("preprocessStreamdownMarkdown applies only Mermaid fixes (not math)", () =>
     "```",
   ].join("\n");
   expect(preprocessStreamdownMarkdown(input)).toBe(expected);
+});
+
+test("preprocessStreamdownMarkdown repairs legacy WeKnora sandbox links", () => {
+  const input =
+    '要求 [citation:2026年立项规范](/mnt/user-data/knowledge_bases/kb-1/研究总院2026年"书记项目" 0403.xlsx)';
+
+  expect(preprocessStreamdownMarkdown(input)).toBe(
+    "要求 [citation:2026年立项规范](/platform/knowledge-bases/kb-1)",
+  );
 });
 
 test("normalizeStreamdownMathMarkdown preserves escaped backslash before parens", () => {

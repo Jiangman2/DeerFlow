@@ -1,0 +1,9 @@
+deerflow_llm_direct_transport_r1_static_contracts=PASS
+real_factory_plain_and_tool_probe_contract=PASS
+gateway_two_replica_rolling_update_contract=PASS
+gateway_image_mutation_code=NONE
+production_database_mutation_code=NONE
+weknora_mutation_code=NONE
+ppt_runner_mutation_code=NONE
+automatic_exact_environment_rollback_contract=PASS
+bash_syntax=PASS

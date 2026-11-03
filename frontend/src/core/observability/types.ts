@@ -95,6 +95,8 @@ export interface AuditFilters {
   user_id?: string;
   result?: string;
   operation_type?: string;
+  actions?: string[];
+  resource_type?: string;
 }
 
 export interface ToolCallDiagnostic {
@@ -317,4 +319,119 @@ export interface TraceEvent {
   content: string;
   metadata: Record<string, unknown>;
   created_at: string;
+}
+
+// -- IM bot ("channel") audit views -----------------------------------------
+//
+// These describe one aggregated window of bot activity, plus the very same text
+// the backend would push into a chat. Keeping the rendered digest in the payload
+// lets the UI preview exactly what an operator is about to send.
+
+export interface ChannelAuditWindow {
+  start_at: string;
+  end_at: string;
+  hours: number;
+  bucket_minutes: number;
+}
+
+export interface ChannelAuditTotals {
+  events: number;
+  success: number;
+  failure: number;
+  truncated: boolean;
+}
+
+export interface ChannelAuditActionBucket {
+  action: string;
+  count: number;
+  failure: number;
+}
+
+export interface ChannelAuditUserBucket {
+  user_id: string | null;
+  user_email: string | null;
+  count: number;
+  failure: number;
+  last_at: string;
+}
+
+export interface ChannelAuditChannelBucket {
+  channel: string;
+  count: number;
+  failure: number;
+}
+
+export interface ChannelAuditResultBucket {
+  result: string;
+  count: number;
+}
+
+export interface ChannelAuditTimelineBucket {
+  bucket: string;
+  count: number;
+  failure: number;
+}
+
+export interface ChannelAuditErrorSample {
+  created_at: string;
+  action: string;
+  channel: string;
+  user_id: string | null;
+  user_email: string | null;
+  platform_user_id: string | null;
+  chat_id: string | null;
+  thread_id: string | null;
+  run_id: string | null;
+  reason: string | null;
+  error: string | null;
+  text_preview: string | null;
+}
+
+export interface ChannelAuditSummary {
+  window: ChannelAuditWindow;
+  totals: ChannelAuditTotals;
+  by_action: ChannelAuditActionBucket[];
+  by_user: ChannelAuditUserBucket[];
+  by_channel: ChannelAuditChannelBucket[];
+  by_result: ChannelAuditResultBucket[];
+  timeline: ChannelAuditTimelineBucket[];
+  errors: ChannelAuditErrorSample[];
+  first_at: string;
+  last_at: string;
+}
+
+export interface ChannelAuditDelivery {
+  sent: boolean;
+  channel: string;
+  chat_id: string | null;
+  reason: string | null;
+  chars?: number;
+}
+
+export interface ChannelAuditFeed {
+  summary: ChannelAuditSummary;
+  digest: string;
+}
+
+export interface ChannelAuditSendResult extends ChannelAuditFeed {
+  delivery: ChannelAuditDelivery;
+}
+
+export interface ChannelAuditAnalysisResult {
+  summary: ChannelAuditSummary;
+  analysis: string;
+  message: string;
+  delivery: ChannelAuditDelivery;
+}
+
+export interface ChannelAuditFilters {
+  hours?: number;
+  start_at?: string;
+  end_at?: string;
+  user_id?: string;
+  result?: string;
+  q?: string;
+  actions?: string[];
+  error_samples?: number;
+  bucket_minutes?: number;
 }

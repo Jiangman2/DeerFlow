@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
 from dataclasses import dataclass
+from typing import Any
 
 from deerflow.config import get_app_config
 from deerflow.config.app_config import AppConfig
 from deerflow.models import create_chat_model
 from deerflow.skills.types import SKILL_MD_FILE
+from deerflow.utils.llm_text import extract_response_text
+from deerflow.utils.streaming_llm import astream_response
 
 logger = logging.getLogger(__name__)
+
+_MODEL_CALL_TIMEOUT_SECONDS = 45
+_MODEL_CALL_ATTEMPTS = 3
+_MODEL_RETRY_DELAYS_SECONDS = (0.0, 0.35, 0.9)
 
 
 @dataclass(slots=True)
@@ -67,7 +75,26 @@ def _extract_json_object(raw: str) -> dict | None:
     return None
 
 
-async def scan_skill_content(content: str, *, executable: bool = False, location: str = SKILL_MD_FILE, app_config: AppConfig | None = None) -> ScanResult:
+def _format_static_findings_context(static_findings: list[dict[str, Any]]) -> str:
+    if not static_findings:
+        return "None."
+    lines = []
+    for finding in static_findings:
+        finding_location = finding.get("file") or "<unknown>"
+        if finding.get("line") is not None:
+            finding_location = f"{finding_location}:{finding['line']}"
+        lines.append(f"- {finding.get('rule_id')} ({finding.get('severity')}): {finding.get('message')} at {finding_location}. Evidence: {finding.get('evidence') or '<none>'}. Remediation: {finding.get('remediation')}")
+    return "\n".join(lines)
+
+
+async def scan_skill_content(
+    content: str,
+    *,
+    executable: bool = False,
+    location: str = SKILL_MD_FILE,
+    app_config: AppConfig | None = None,
+    static_findings: list[dict[str, Any]] | None = None,
+) -> ScanResult:
     """Screen skill content before it is written to disk."""
     rubric = (
         "You are a security reviewer for AI agent skills. "
@@ -77,30 +104,65 @@ async def scan_skill_content(content: str, *, executable: bool = False, location
         "Respond with ONLY a single JSON object on one line, no code fences, no commentary:\n"
         '{"decision":"allow|warn|block","reason":"..."}'
     )
-    prompt = f"Location: {location}\nExecutable: {str(executable).lower()}\n\nReview this content:\n-----\n{content}\n-----"
+    prompt = f"Location: {location}\nExecutable: {str(executable).lower()}\nDeterministic SkillScan findings:\n{_format_static_findings_context(static_findings or [])}\n\nReview this content:\n-----\n{content}\n-----"
 
     model_responded = False
     try:
         config = app_config or get_app_config()
         model_name = config.skill_evolution.moderation_model_name
-        model = create_chat_model(name=model_name, thinking_enabled=False, app_config=config) if model_name else create_chat_model(thinking_enabled=False, app_config=config)
-        response = await model.ainvoke(
-            [
-                {"role": "system", "content": rubric},
-                {"role": "user", "content": prompt},
-            ],
-            config={"run_name": "security_agent"},
-        )
-        model_responded = True
-        raw = str(getattr(response, "content", "") or "")
-        parsed = _extract_json_object(raw)
-        if parsed:
-            decision = str(parsed.get("decision", "")).lower()
-            if decision in {"allow", "warn", "block"}:
-                return ScanResult(decision, str(parsed.get("reason") or "No reason provided."))
-        logger.warning("Security scan produced unparseable output: %s", raw[:200])
     except Exception:
-        logger.warning("Skill security scan model call failed; using conservative fallback", exc_info=True)
+        logger.warning("Skill security scan configuration is unavailable", exc_info=True)
+        unavailable_target = "executable content" if executable else "skill content"
+        return ScanResult(
+            "block",
+            f"Security scan unavailable for {unavailable_target}; manual review required.",
+        )
+    messages = [
+        {"role": "system", "content": rubric},
+        {"role": "user", "content": prompt},
+    ]
+    for attempt in range(_MODEL_CALL_ATTEMPTS):
+        if _MODEL_RETRY_DELAYS_SECONDS[attempt]:
+            await asyncio.sleep(_MODEL_RETRY_DELAYS_SECONDS[attempt])
+        try:
+            model_kwargs = {
+                "thinking_enabled": False,
+                "attach_tracing": False,
+                "app_config": config,
+            }
+            if model_name:
+                model_kwargs["name"] = model_name
+            model = create_chat_model(**model_kwargs)
+            async with asyncio.timeout(_MODEL_CALL_TIMEOUT_SECONDS):
+                response = await astream_response(
+                    model,
+                    messages,
+                    config={"run_name": "security_agent"},
+                )
+            model_responded = True
+            raw = extract_response_text(getattr(response, "content", ""))
+            parsed = _extract_json_object(raw)
+            if parsed:
+                decision = str(parsed.get("decision", "")).lower()
+                if decision in {"allow", "warn", "block"}:
+                    return ScanResult(
+                        decision,
+                        str(parsed.get("reason") or "No reason provided."),
+                    )
+            logger.warning("Security scan produced unparseable output: %s", raw[:200])
+            # Internal providers can occasionally return a truncated or
+            # prose-wrapped response while under load. Treat that as a
+            # transient scanner failure and retry with a fresh model client;
+            # the final outcome still fails closed if no valid decision is
+            # produced.
+            continue
+        except Exception:
+            logger.warning(
+                "Skill security scan model call failed (attempt %d/%d)",
+                attempt + 1,
+                _MODEL_CALL_ATTEMPTS,
+                exc_info=True,
+            )
 
     if model_responded:
         return ScanResult("block", "Security scan produced unparseable output; manual review required.")

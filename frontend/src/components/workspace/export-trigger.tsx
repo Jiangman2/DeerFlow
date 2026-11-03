@@ -1,7 +1,7 @@
 "use client";
 
-import { Download, FileJson, FileText } from "lucide-react";
-import { useCallback } from "react";
+import { Download, FileJson, FileText, Send } from "lucide-react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { useI18n } from "@/core/i18n/hooks";
 import {
   exportThreadAsJSON,
   exportThreadAsMarkdown,
+  sendThreadAsMarkdownToFeishu,
 } from "@/core/threads/export";
 import type { AgentThread } from "@/core/threads/types";
 
@@ -24,6 +25,7 @@ import { Tooltip } from "./tooltip";
 export function ExportTrigger({ threadId }: { threadId: string }) {
   const { t } = useI18n();
   const { thread } = useThread();
+  const [sendingToFeishu, setSendingToFeishu] = useState(false);
 
   const messages = thread.messages;
 
@@ -49,6 +51,28 @@ export function ExportTrigger({ threadId }: { threadId: string }) {
     [messages, thread.values, threadId, t],
   );
 
+  const handleSendToFeishu = useCallback(async () => {
+    if (messages.length === 0) {
+      toast.error(t.conversation.noMessages);
+      return;
+    }
+    const agentThread = {
+      thread_id: threadId,
+      updated_at: new Date().toISOString(),
+      values: thread.values,
+    } as AgentThread;
+
+    setSendingToFeishu(true);
+    try {
+      await sendThreadAsMarkdownToFeishu(agentThread, messages);
+      toast.success(t.common.exportToFeishuSuccess);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSendingToFeishu(false);
+    }
+  }, [messages, thread.values, threadId, t]);
+
   if (messages.length === 0) {
     return null;
   }
@@ -58,11 +82,12 @@ export function ExportTrigger({ threadId }: { threadId: string }) {
       <Tooltip content={t.common.export}>
         <DropdownMenuTrigger asChild>
           <Button
-            className="text-muted-foreground hover:text-foreground"
+            aria-label={t.common.export}
+            className="text-muted-foreground hover:text-foreground size-8 px-0 sm:h-9 sm:w-auto sm:px-4"
             variant="ghost"
           >
             <Download />
-            {t.common.export}
+            <span className="hidden sm:inline">{t.common.export}</span>
           </Button>
         </DropdownMenuTrigger>
       </Tooltip>
@@ -74,6 +99,13 @@ export function ExportTrigger({ threadId }: { threadId: string }) {
         <DropdownMenuItem onSelect={() => handleExport("json")}>
           <FileJson className="text-muted-foreground" />
           <span>{t.common.exportAsJSON}</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={sendingToFeishu}
+          onSelect={() => void handleSendToFeishu()}
+        >
+          <Send className="text-muted-foreground" />
+          <span>{t.common.exportToFeishu}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

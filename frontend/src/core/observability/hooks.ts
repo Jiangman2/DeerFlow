@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  analyzeChannelAudit,
+  getChannelAudit,
   getObservabilityAnalytics,
   getObservabilitySnapshot,
   getRunDiagnostics,
@@ -9,8 +11,14 @@ import {
   recordRunDisposition,
   searchAuditLogs,
   searchTraces,
+  sendChannelAudit,
 } from "./api";
-import type { AuditFilters, DispositionInput, TraceFilters } from "./types";
+import type {
+  AuditFilters,
+  ChannelAuditFilters,
+  DispositionInput,
+  TraceFilters,
+} from "./types";
 
 export function useObservabilitySnapshot(
   hours = 24,
@@ -39,11 +47,7 @@ export function useObservabilityAnalytics(
   });
 }
 
-export function useUserActivity(
-  hours = 24,
-  startAt?: string,
-  endAt?: string,
-) {
+export function useUserActivity(hours = 24, startAt?: string, endAt?: string) {
   return useQuery({
     queryKey: ["observability", "user-activity", hours, startAt, endAt],
     queryFn: () => getUserActivity(hours, startAt, endAt),
@@ -98,6 +102,45 @@ export function useRecordRunDisposition(runId: string | null) {
         }),
         queryClient.invalidateQueries({ queryKey: ["observability"] }),
       ]);
+    },
+  });
+}
+
+export function useChannelAudit(filters: ChannelAuditFilters) {
+  return useQuery({
+    queryKey: ["observability", "channel-audit", filters],
+    queryFn: () => getChannelAudit(filters),
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useSendChannelAudit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (filters: ChannelAuditFilters & { chat_id?: string; title?: string }) =>
+      sendChannelAudit(filters),
+    onSuccess: async () => {
+      // The send itself is audited server-side, so refresh the feed to show it.
+      await queryClient.invalidateQueries({ queryKey: ["observability"] });
+    },
+  });
+}
+
+export function useAnalyzeChannelAudit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (
+      filters: ChannelAuditFilters & {
+        question?: string;
+        model_name?: string;
+        send_to_channel?: boolean;
+        chat_id?: string;
+        title?: string;
+      },
+    ) => analyzeChannelAudit(filters),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["observability"] });
     },
   });
 }

@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
+from langchain_core.messages import AIMessageChunk
 
 from deerflow.skills.security_scanner import _extract_json_object, scan_skill_content
 
@@ -10,14 +11,19 @@ def _make_env(monkeypatch, response_content):
     fake_response = SimpleNamespace(content=response_content)
 
     class FakeModel:
-        async def ainvoke(self, *args, **kwargs):
+        async def astream(self, *args, **kwargs):
             self.args = args
             self.kwargs = kwargs
-            return fake_response
+            yield AIMessageChunk(content=fake_response.content)
 
     model = FakeModel()
+
+    def _fake_create_chat_model(**kwargs):
+        model.create_kwargs = kwargs
+        return model
+
     monkeypatch.setattr("deerflow.skills.security_scanner.get_app_config", lambda: config)
-    monkeypatch.setattr("deerflow.skills.security_scanner.create_chat_model", lambda **kwargs: model)
+    monkeypatch.setattr("deerflow.skills.security_scanner.create_chat_model", _fake_create_chat_model)
     return model
 
 
@@ -72,7 +78,38 @@ async def test_scan_skill_content_passes_run_name_to_model(monkeypatch):
     model = _make_env(monkeypatch, '{"decision":"allow","reason":"ok"}')
     result = await scan_skill_content(SKILL_CONTENT, executable=False)
     assert result.decision == "allow"
-    assert model.kwargs["config"] == {"run_name": "security_agent"}
+    assert model.kwargs["config"] == {"run_name": "security_agent", "tags": ["nostream"]}
+
+
+@pytest.mark.anyio
+async def test_scan_skill_content_parses_responses_api_text_blocks(monkeypatch):
+    _make_env(
+        monkeypatch,
+        [{"type": "text", "text": '{"decision":"allow","reason":"clean"}'}],
+    )
+
+    result = await scan_skill_content(SKILL_CONTENT, executable=False)
+
+    assert result.decision == "allow"
+    assert result.reason == "clean"
+
+
+@pytest.mark.anyio
+async def test_scan_skill_content_ignores_non_text_blocks_and_joins_text_blocks(monkeypatch):
+    _make_env(
+        monkeypatch,
+        [
+            {"type": "reasoning", "text": '{"decision":"block","reason":"fake"}'},
+            {"type": "text", "text": '{"decision":"allow",'},
+            {"type": "output_text", "text": '"reason":"clean"}'},
+            {"type": "tool_call", "text": '{"decision":"block","reason":"fake"}'},
+        ],
+    )
+
+    result = await scan_skill_content(SKILL_CONTENT, executable=False)
+
+    assert result.decision == "allow"
+    assert result.reason == "clean"
 
 
 @pytest.mark.anyio
@@ -80,6 +117,76 @@ async def test_scan_skill_content_blocks_when_model_unavailable(monkeypatch):
     config = SimpleNamespace(skill_evolution=SimpleNamespace(moderation_model_name=None))
     monkeypatch.setattr("deerflow.skills.security_scanner.get_app_config", lambda: config)
     monkeypatch.setattr("deerflow.skills.security_scanner.create_chat_model", lambda **kwargs: (_ for _ in ()).throw(RuntimeError("boom")))
+
+    result = await scan_skill_content(SKILL_CONTENT, executable=False)
+
+    assert result.decision == "block"
+    assert "unavailable" in result.reason
+
+
+@pytest.mark.anyio
+async def test_scan_skill_content_retries_transient_model_failure(monkeypatch):
+    config = SimpleNamespace(skill_evolution=SimpleNamespace(moderation_model_name=None))
+    attempts = 0
+    create_kwargs = []
+
+    class FakeModel:
+        async def astream(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise RuntimeError("temporary provider failure")
+            yield AIMessageChunk(content='{"decision":"allow","reason":"ok"}')
+
+    monkeypatch.setattr("deerflow.skills.security_scanner.get_app_config", lambda: config)
+    monkeypatch.setattr(
+        "deerflow.skills.security_scanner.create_chat_model",
+        lambda **kwargs: create_kwargs.append(kwargs) or FakeModel(),
+    )
+    monkeypatch.setattr("deerflow.skills.security_scanner.asyncio.sleep", lambda *_: _async_none())
+
+    result = await scan_skill_content(SKILL_CONTENT, executable=False)
+
+    assert result.decision == "allow"
+    assert attempts == 2
+    assert len(create_kwargs) == 2
+    assert all(kwargs["attach_tracing"] is False for kwargs in create_kwargs)
+
+
+@pytest.mark.anyio
+async def test_scan_skill_content_retries_unparseable_model_response(monkeypatch):
+    config = SimpleNamespace(skill_evolution=SimpleNamespace(moderation_model_name=None))
+    attempts = 0
+
+    class FakeModel:
+        async def astream(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                yield AIMessageChunk(content="temporarily truncated")
+                return
+            yield AIMessageChunk(content='{"decision":"allow","reason":"ok"}')
+
+    monkeypatch.setattr("deerflow.skills.security_scanner.get_app_config", lambda: config)
+    monkeypatch.setattr("deerflow.skills.security_scanner.create_chat_model", lambda **kwargs: FakeModel())
+    monkeypatch.setattr("deerflow.skills.security_scanner.asyncio.sleep", lambda *_: _async_none())
+
+    result = await scan_skill_content(SKILL_CONTENT, executable=False)
+
+    assert result.decision == "allow"
+    assert attempts == 2
+
+
+async def _async_none():
+    return None
+
+
+@pytest.mark.anyio
+async def test_scan_skill_content_blocks_when_configuration_unavailable(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.skills.security_scanner.get_app_config",
+        lambda: (_ for _ in ()).throw(RuntimeError("config unavailable")),
+    )
 
     result = await scan_skill_content(SKILL_CONTENT, executable=False)
 
@@ -139,3 +246,8 @@ async def test_scan_distinguishes_unparseable_executable(monkeypatch):
     # Even for executable content, unparseable uses the unparseable message
     assert result.decision == "block"
     assert "unparseable" in result.reason
+
+
+# Standalone/in-graph moderation tracing is deferred with its two incoming-only
+# tests until the scanner signature and all callers are reconciled. Retain the
+# pre-merge attach_tracing=False policy and every preexisting test above.

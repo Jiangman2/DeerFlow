@@ -12,82 +12,106 @@ export function SandboxSection({ className }: { className?: string }) {
   return (
     <Section
       className={className}
-      title="安全运行环境"
+      title="Agent Runtime Environment"
       subtitle={
         <p>
-          中海油勘探开发通用智能体可在受控环境中执行命令、管理文件并完成长任务。
+          本平台可在安全的 Docker 沙箱中执行命令、管理文件并运行长时间任务。
         </p>
       }
     >
-      <div className="mt-8 flex w-full max-w-6xl flex-col items-center gap-12 px-4 lg:flex-row lg:gap-16">
+      <div className="mt-8 flex w-full max-w-6xl flex-col items-center gap-12 lg:flex-row lg:gap-16">
+        {/* Left: Terminal */}
         <div className="w-full flex-1">
           <Terminal className="h-[360px] w-full">
-            <TypingAnimation>$ cat production-analysis.md</TypingAnimation>
+            {/* Scene 1: Build a Game */}
+            <TypingAnimation>$ cat requirements.txt</TypingAnimation>
             <AnimatedSpan delay={800} className="text-zinc-400">
-              输入资料已读取
+              pygame==2.5.0
             </AnimatedSpan>
 
             <TypingAnimation delay={1200}>
-              $ python analyze_well_data.py
+              $ pip install -r requirements.txt
             </TypingAnimation>
             <AnimatedSpan delay={2000} className="text-green-500">
-              生产动态分析完成
+              ✔ Installed pygame
             </AnimatedSpan>
 
             <TypingAnimation delay={2400}>
-              $ write report.md --sections 6
+              $ write game.py --lines 156
             </TypingAnimation>
             <AnimatedSpan delay={3200} className="text-blue-500">
-              报告正文已生成
+              ✔ Written 156 lines
             </AnimatedSpan>
 
-            <TypingAnimation delay={3600}>$ validate report.md</TypingAnimation>
+            <TypingAnimation delay={3600}>
+              $ python game.py --test
+            </TypingAnimation>
             <AnimatedSpan delay={4200} className="text-green-500">
-              数据来源已校验
+              ✔ All sprites loaded
             </AnimatedSpan>
             <AnimatedSpan delay={4500} className="text-green-500">
-              图表已生成
+              ✔ Physics engine OK
             </AnimatedSpan>
             <AnimatedSpan delay={4800} className="text-green-500">
-              汇报材料已就绪
+              ✔ 60 FPS stable
             </AnimatedSpan>
 
+            {/* Scene 2: Data Analysis */}
             <TypingAnimation delay={5400}>
-              $ export ./outputs/final-report.docx
+              $ curl -O sales-2024.csv
             </TypingAnimation>
             <AnimatedSpan delay={6200} className="text-zinc-400">
-              已导出工作产物
+              Downloaded 12.4 MB
             </AnimatedSpan>
           </Terminal>
         </div>
 
+        {/* Right: Description */}
         <div className="w-full flex-1 space-y-6">
           <div className="space-y-4">
-            <p className="text-sm font-medium tracking-wider text-blue-400 uppercase">
-              Runtime
+            <p className="text-sm font-medium tracking-wider text-purple-400 uppercase">
+              Open-source
             </p>
             <h2 className="text-4xl font-bold tracking-tight lg:text-5xl">
-              受控沙箱
+              <a href="#" target="_blank" rel="noopener noreferrer">
+                AIO Sandbox
+              </a>
             </h2>
           </div>
 
           <div className="space-y-4 text-lg text-zinc-400">
             <p>
-              运行环境整合浏览器、Shell、文件系统和工具调用能力，在隔离工作区内处理资料、表格、脚本和产物。
+              We recommend using{" "}
+              <a
+                href="#"
+                className="underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                All-in-One Sandbox
+              </a>{" "}
+              that combines Browser, Shell, File, MCP and VSCode Server in a
+              single Docker container.
             </p>
           </div>
 
+          {/* Feature Tags */}
           <div className="flex flex-wrap gap-3 pt-4">
-            {["隔离执行", "权限可控", "过程留痕", "文件挂载", "长任务"].map(
-              (label) => (
-                <span
-                  key={label}
-                  className="rounded-full border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm text-zinc-300"
-                >
-                  {label}
-                </span>
-              ),
-            )}
+            <span className="rounded-full border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm text-zinc-300">
+              Isolated
+            </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm text-zinc-300">
+              Safe
+            </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm text-zinc-300">
+              Persistent
+            </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm text-zinc-300">
+              Mountable FS
+            </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm text-zinc-300">
+              Long-running
+            </span>
           </div>
         </div>
       </div>

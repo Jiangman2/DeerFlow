@@ -20,6 +20,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from typing import IO
 
 try:
     import fcntl
@@ -27,11 +28,25 @@ except ImportError:  # pragma: no cover - Windows fallback
     fcntl = None  # type: ignore[assignment]
     import msvcrt
 
+from deerflow.community.warm_pool_lifecycle import (
+    DEFAULT_IDLE_TIMEOUT,
+    DEFAULT_REPLICAS,
+    WarmPoolLifecycleMixin,
+)
+from deerflow.community.warm_pool_lifecycle import (
+    IDLE_CHECK_INTERVAL as _SHARED_IDLE_CHECK_INTERVAL,
+)
 from deerflow.config import get_app_config
-from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
+from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths, join_host_path
+from deerflow.run_timing import (
+    log_run_timing,
+    record_sandbox_acquire_timing,
+    run_timing_logs_enabled,
+)
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.sandbox.sandbox import Sandbox
 from deerflow.sandbox.sandbox_provider import SandboxProvider
+from deerflow.skills.storage import user_should_see_legacy_skills
 
 from .aio_sandbox import AioSandbox
 from .backend import SandboxBackend, wait_for_sandbox_ready, wait_for_sandbox_ready_async
@@ -42,13 +57,11 @@ from .sandbox_info import SandboxInfo
 logger = logging.getLogger(__name__)
 
 # Default configuration
-DEFAULT_IMAGE = "enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox@sha256:742062f99915e5495df8d4bfeaf40a93197c87c7c47b4e2407cd2b6356df8f48"
+DEFAULT_IMAGE = "enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest"
 DEFAULT_PORT = 8080
 DEFAULT_CONTAINER_PREFIX = "deer-flow-sandbox"
-DEFAULT_IDLE_TIMEOUT = 600  # 10 minutes in seconds
-DEFAULT_STARTUP_TIMEOUT = 60
-DEFAULT_REPLICAS = 3  # Maximum concurrent sandbox containers
-IDLE_CHECK_INTERVAL = 60  # Check every 60 seconds
+DEFAULT_STARTUP_TIMEOUT = 180
+IDLE_CHECK_INTERVAL = _SHARED_IDLE_CHECK_INTERVAL
 THREAD_LOCK_EXECUTOR_WORKERS = min(32, (os.cpu_count() or 1) + 4)
 _THREAD_LOCK_EXECUTOR = ThreadPoolExecutor(max_workers=THREAD_LOCK_EXECUTOR_WORKERS, thread_name_prefix="sandbox-lock-wait")
 atexit.register(_THREAD_LOCK_EXECUTOR.shutdown, wait=False, cancel_futures=True)
@@ -63,6 +76,30 @@ def _lock_file_exclusive(lock_file) -> None:
     msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
 
 
+def _lock_file_shared(lock_file) -> None:
+    if fcntl is not None:
+        fcntl.flock(lock_file, fcntl.LOCK_SH)
+        return
+
+    # Windows has no shared ``msvcrt.locking`` mode. An exclusive file lock is
+    # conservative but preserves the lifecycle safety contract in local tests.
+    lock_file.seek(0)
+    msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+
+
+def _try_lock_file_exclusive(lock_file) -> bool:
+    try:
+        if fcntl is not None:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
+
+        lock_file.seek(0)
+        msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+        return True
+    except (BlockingIOError, OSError):
+        return False
+
+
 def _unlock_file(lock_file) -> None:
     if fcntl is not None:
         fcntl.flock(lock_file, fcntl.LOCK_UN)
@@ -73,7 +110,7 @@ def _unlock_file(lock_file) -> None:
 
 
 def _open_lock_file(lock_path):
-    return open(lock_path, "a", encoding="utf-8")
+    return open(lock_path, "a+", encoding="utf-8")
 
 
 async def _acquire_thread_lock_async(lock: threading.Lock) -> None:
@@ -106,7 +143,7 @@ def _release_cancelled_lock_acquire(lock: threading.Lock, task: asyncio.Future[b
         lock.release()
 
 
-class AioSandboxProvider(SandboxProvider):
+class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
     """Sandbox provider that manages containers running the AIO sandbox.
 
     Architecture:
@@ -120,6 +157,7 @@ class AioSandboxProvider(SandboxProvider):
         port: 8080                      # Base port for local containers
         container_prefix: deer-flow-sandbox
         idle_timeout: 600               # Idle timeout in seconds (0 to disable)
+        startup_timeout: 180             # Cold-start readiness timeout in seconds
         replicas: 3                     # Max concurrent sandbox containers (LRU eviction when exceeded)
         mounts:                         # Volume mounts for local containers
           - host_path: /path/on/host
@@ -165,12 +203,11 @@ class AioSandboxProvider(SandboxProvider):
         """Whether thread workspace/uploads/outputs are visible via mounts.
 
         Local container backends bind-mount the thread data directories, so files
-        written by the gateway are already visible when the sandbox starts.
-        Provisioner-backed remote sandboxes also mount per-thread user-data,
-        either through hostPath or PVC subPath, so gateway-written uploads are
-        visible without starting a sandbox just to sync files.
+        written by the gateway are already visible when the sandbox starts. A
+        provisioner backend can declare the same contract when Gateway and sandbox
+        Pods mount one shared PVC; otherwise remote backends require explicit sync.
         """
-        return isinstance(self._backend, (LocalContainerBackend, RemoteSandboxBackend))
+        return isinstance(self._backend, LocalContainerBackend) or bool(self._config.get("shared_thread_data_mounts", False))
 
     # ── Factory methods ──────────────────────────────────────────────────
 
@@ -186,7 +223,8 @@ class AioSandboxProvider(SandboxProvider):
         provisioner_url = self._config.get("provisioner_url")
         if provisioner_url:
             logger.info(f"Using remote sandbox backend with provisioner at {provisioner_url}")
-            return RemoteSandboxBackend(provisioner_url=provisioner_url)
+            api_key = self._config.get("provisioner_api_key", "")
+            return RemoteSandboxBackend(provisioner_url=provisioner_url, api_key=api_key)
 
         logger.info("Using local container sandbox backend")
         return LocalContainerBackend(
@@ -195,6 +233,22 @@ class AioSandboxProvider(SandboxProvider):
             container_prefix=self._config["container_prefix"],
             config_mounts=self._config["mounts"],
             environment=self._config["environment"],
+            api_key=self._config["sandbox_api_key"],
+        )
+
+    def _new_sandbox(self, sandbox_id: str, sandbox_url: str) -> AioSandbox:
+        """Create a client and bridge configured env into remote sandboxes.
+
+        Local containers already receive the environment at container creation.
+        Provisioner-managed Pods do not, so their command client injects it through
+        the structured per-command environment supported by ``bash.exec``.
+        """
+        default_env = self._config["environment"] if isinstance(self._backend, RemoteSandboxBackend) else None
+        return AioSandbox(
+            id=sandbox_id,
+            base_url=sandbox_url,
+            default_env=default_env,
+            api_key=self._config.get("sandbox_api_key") or None,
         )
 
     # ── Configuration ────────────────────────────────────────────────────
@@ -205,20 +259,23 @@ class AioSandboxProvider(SandboxProvider):
         sandbox_config = config.sandbox
 
         idle_timeout = getattr(sandbox_config, "idle_timeout", None)
-        startup_timeout = getattr(sandbox_config, "startup_timeout", None)
         replicas = getattr(sandbox_config, "replicas", None)
+        startup_timeout = getattr(sandbox_config, "startup_timeout", None)
 
         return {
             "image": sandbox_config.image or DEFAULT_IMAGE,
             "port": sandbox_config.port or DEFAULT_PORT,
             "container_prefix": sandbox_config.container_prefix or DEFAULT_CONTAINER_PREFIX,
             "idle_timeout": idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT,
-            "startup_timeout": startup_timeout if startup_timeout is not None else DEFAULT_STARTUP_TIMEOUT,
             "replicas": replicas if replicas is not None else DEFAULT_REPLICAS,
+            "startup_timeout": startup_timeout if startup_timeout is not None else DEFAULT_STARTUP_TIMEOUT,
+            "shared_thread_data_mounts": bool(getattr(sandbox_config, "shared_thread_data_mounts", False)),
             "mounts": sandbox_config.mounts or [],
             "environment": self._resolve_env_vars(sandbox_config.environment or {}),
             # provisioner URL for dynamic pod management (e.g. http://provisioner:8002)
             "provisioner_url": getattr(sandbox_config, "provisioner_url", None) or "",
+            "provisioner_api_key": getattr(sandbox_config, "provisioner_api_key", None) or "",
+            "sandbox_api_key": getattr(sandbox_config, "sandbox_api_key", None) or "",
         }
 
     @staticmethod
@@ -272,11 +329,21 @@ class AioSandboxProvider(SandboxProvider):
             with self._lock:
                 if info.sandbox_id in self._sandboxes or info.sandbox_id in self._warm_pool:
                     continue
-                self._warm_pool[info.sandbox_id] = (info, current_time)
+                # Preserve age ordering across Gateway restarts so capacity
+                # reconciliation removes the oldest orphaned Pods first.
+                timestamp = info.created_at if info.created_at > 0 else current_time
+                self._warm_pool[info.sandbox_id] = (info, timestamp)
             adopted += 1
             logger.info(f"Adopted container {info.sandbox_id} into warm pool (age: {age:.0f}s)")
 
-        logger.info(f"Startup reconciliation complete: {adopted} adopted into warm pool, {len(running)} total found")
+        evicted = self._evict_warm_until_capacity()
+        logger.info(
+            "Startup reconciliation complete: %s adopted, %s total found, %s evicted to enforce replicas=%s",
+            adopted,
+            len(running),
+            len(evicted),
+            self._config.get("replicas", DEFAULT_REPLICAS),
+        )
 
     # ── Deterministic ID ─────────────────────────────────────────────────
 
@@ -307,10 +374,10 @@ class AioSandboxProvider(SandboxProvider):
             mounts.extend(self._get_thread_mounts(thread_id, user_id=user_id))
             logger.info(f"Adding thread mounts for thread {thread_id}: {mounts}")
 
-        skills_mount = self._get_skills_mount()
-        if skills_mount:
-            mounts.append(skills_mount)
-            logger.info(f"Adding skills mount: {skills_mount}")
+        skills_mounts = self._get_skills_mounts(user_id=user_id)
+        if skills_mounts:
+            mounts.extend(skills_mounts)
+            logger.info(f"Adding skills mounts: {skills_mounts}")
 
         return mounts
 
@@ -336,49 +403,86 @@ class AioSandboxProvider(SandboxProvider):
         ]
 
     @staticmethod
-    def _get_skills_mount() -> tuple[str, str, bool] | None:
-        """Get the skills directory mount configuration.
+    def _get_skills_mounts(*, user_id: str | None = None) -> list[tuple[str, str, bool]]:
+        """Get skills directory mount configurations for three-way skills layout.
 
-        Mount source uses DEER_FLOW_HOST_SKILLS_PATH when running inside Docker (DooD)
-        so the host Docker daemon can resolve the path.
+        Mirrors ``LocalSandboxProvider._build_thread_path_mappings`` for AIO
+        sandboxes: public, per-user custom, and legacy (pre-migration
+        global-custom) skills are mounted to separate container subdirectories so
+        that ``Skill.get_container_path()`` category-aware paths resolve
+        correctly inside the sandbox.
+
+        Mount sources use ``DEER_FLOW_HOST_SKILLS_PATH`` and
+        ``DEER_FLOW_HOST_BASE_DIR`` when running inside Docker (DooD) so the
+        host Docker daemon can resolve the paths.
         """
+        mounts: list[tuple[str, str, bool]] = []
         try:
             config = get_app_config()
             skills_path = config.skills.get_skills_path()
             container_path = config.skills.container_path
 
-            if skills_path.exists():
-                # When running inside Docker with DooD, use host-side skills path.
-                host_skills = os.environ.get("DEER_FLOW_HOST_SKILLS_PATH") or str(skills_path)
-                return (host_skills, container_path, True)  # Read-only for security
+            # When running inside Docker with DooD, use host-side skills path.
+            host_skills_root = os.environ.get("DEER_FLOW_HOST_SKILLS_PATH") or str(skills_path)
+
+            # 1. Public skills: global, read-only — static, shared by all threads
+            public_skills_path = skills_path / "public"
+            if public_skills_path.exists():
+                mounts.append(
+                    (
+                        join_host_path(host_skills_root, "public"),
+                        f"{container_path}/public",
+                        True,
+                    )
+                )
+
+            # 2. Per-user custom skills: read-only, per-thread/per-user
+            effective_user_id = AioSandboxProvider._effective_acquire_user_id(user_id)
+            paths = get_paths()
+            user_custom_path = paths.user_custom_skills_dir(effective_user_id)
+            user_custom_path.mkdir(parents=True, exist_ok=True)
+
+            host_user_custom = join_host_path(
+                str(paths.host_base_dir),
+                "users",
+                effective_user_id,
+                "skills",
+                "custom",
+            )
+            mounts.append(
+                (
+                    host_user_custom,
+                    f"{container_path}/custom",
+                    True,
+                )
+            )
+
+            # 3. Legacy (pre-migration global-custom) skills: only mount for
+            #    users who have no per-user custom skills yet, mirroring
+            #    ``UserScopedSkillStorage._iter_skill_files`` visibility rule.
+            legacy_skills_path = skills_path / "custom"
+            if user_should_see_legacy_skills(effective_user_id, host_path=str(skills_path)) and legacy_skills_path.exists():
+                mounts.append(
+                    (
+                        join_host_path(host_skills_root, "custom"),
+                        f"{container_path}/legacy",
+                        True,
+                    )
+                )
         except Exception as e:
-            logger.warning(f"Could not setup skills mount: {e}")
-        return None
+            logger.warning("Could not setup skills mounts: %s", e)
+
+        return mounts
 
     # ── Idle timeout management ──────────────────────────────────────────
 
-    def _start_idle_checker(self) -> None:
-        """Start the background thread that checks for idle sandboxes."""
-        self._idle_checker_thread = threading.Thread(
-            target=self._idle_checker_loop,
-            name="sandbox-idle-checker",
-            daemon=True,
-        )
-        self._idle_checker_thread.start()
-        logger.info(f"Started idle checker thread (timeout: {self._config.get('idle_timeout', DEFAULT_IDLE_TIMEOUT)}s)")
-
-    def _idle_checker_loop(self) -> None:
-        idle_timeout = self._config.get("idle_timeout", DEFAULT_IDLE_TIMEOUT)
-        while not self._idle_checker_stop.wait(timeout=IDLE_CHECK_INTERVAL):
-            try:
-                self._cleanup_idle_sandboxes(idle_timeout)
-            except Exception as e:
-                logger.error(f"Error in idle checker loop: {e}")
+    def _cleanup_idle_resources(self, idle_timeout: float) -> None:
+        """Clean AIO resources idle longer than ``idle_timeout`` seconds."""
+        self._cleanup_idle_sandboxes(idle_timeout)
 
     def _cleanup_idle_sandboxes(self, idle_timeout: float) -> None:
         current_time = time.time()
         active_to_destroy = []
-        warm_to_destroy: list[tuple[str, SandboxInfo]] = []
 
         with self._lock:
             # Active sandboxes: tracked via _last_activity
@@ -387,14 +491,6 @@ class AioSandboxProvider(SandboxProvider):
                 if idle_duration > idle_timeout:
                     active_to_destroy.append(sandbox_id)
                     logger.info(f"Sandbox {sandbox_id} idle for {idle_duration:.1f}s, marking for destroy")
-
-            # Warm pool: tracked via release_timestamp stored in _warm_pool
-            for sandbox_id, (info, release_ts) in list(self._warm_pool.items()):
-                warm_duration = current_time - release_ts
-                if warm_duration > idle_timeout:
-                    warm_to_destroy.append((sandbox_id, info))
-                    del self._warm_pool[sandbox_id]
-                    logger.info(f"Warm-pool sandbox {sandbox_id} idle for {warm_duration:.1f}s, marking for destroy")
 
         # Destroy active sandboxes (re-verify still idle before acting)
         for sandbox_id in active_to_destroy:
@@ -417,13 +513,7 @@ class AioSandboxProvider(SandboxProvider):
             except Exception as e:
                 logger.error(f"Failed to destroy idle sandbox {sandbox_id}: {e}")
 
-        # Destroy warm-pool sandboxes (already removed from _warm_pool under lock above)
-        for sandbox_id, info in warm_to_destroy:
-            try:
-                self._backend.destroy(info)
-                logger.info(f"Destroyed idle warm-pool sandbox {sandbox_id}")
-            except Exception as e:
-                logger.error(f"Failed to destroy idle warm-pool sandbox {sandbox_id}: {e}")
+        self._reap_expired_warm(idle_timeout)
 
     # ── Signal handling ──────────────────────────────────────────────────
 
@@ -546,7 +636,7 @@ class AioSandboxProvider(SandboxProvider):
             if warm_item is None:
                 return None
             info, _ = warm_item
-            sandbox = AioSandbox(id=sandbox_id, base_url=info.sandbox_url)
+            sandbox = self._new_sandbox(sandbox_id, info.sandbox_url)
             self._sandboxes[sandbox_id] = sandbox
             self._sandbox_infos[sandbox_id] = info
             self._last_activity[sandbox_id] = time.time()
@@ -567,7 +657,7 @@ class AioSandboxProvider(SandboxProvider):
 
     def _register_discovered_sandbox(self, thread_id: str, info: SandboxInfo, *, user_id: str) -> str:
         """Track a sandbox discovered through the backend."""
-        sandbox = AioSandbox(id=info.sandbox_id, base_url=info.sandbox_url)
+        sandbox = self._new_sandbox(info.sandbox_id, info.sandbox_url)
         key = self._thread_key(thread_id, user_id)
         with self._lock:
             self._sandboxes[info.sandbox_id] = sandbox
@@ -580,7 +670,7 @@ class AioSandboxProvider(SandboxProvider):
 
     def _register_created_sandbox(self, thread_id: str | None, sandbox_id: str, info: SandboxInfo, *, user_id: str | None = None) -> str:
         """Track a newly-created sandbox in the active maps."""
-        sandbox = AioSandbox(id=sandbox_id, base_url=info.sandbox_url)
+        sandbox = self._new_sandbox(sandbox_id, info.sandbox_url)
         with self._lock:
             self._sandboxes[sandbox_id] = sandbox
             self._sandbox_infos[sandbox_id] = info
@@ -598,6 +688,119 @@ class AioSandboxProvider(SandboxProvider):
         except Exception as e:
             logger.warning(f"Failed to check sandbox {sandbox_id} health: {e}")
             return None
+
+    def _execution_lease_path(self, sandbox_id: str):
+        """Return the shared lock path protecting one Sandbox execution."""
+
+        lease_dir = get_paths().base_dir / ".sandbox-execution-leases"
+        lease_dir.mkdir(parents=True, exist_ok=True)
+        safe_name = hashlib.sha256(sandbox_id.encode("utf-8")).hexdigest()
+        return lease_dir / f"{safe_name}.lock"
+
+    def acquire_thread_execution_lease(self, thread_id: str, *, user_id: str | None = None) -> tuple[str, IO[str]]:
+        """Protect a whole Gateway run, including lazy Sandbox acquisition.
+
+        The deterministic ID is known before the Pod exists. Taking the shared
+        lease before graph execution closes the gap between lazy acquisition and
+        another Gateway's startup/idle/capacity reconciliation. Unlike the PPT
+        host lease, this must not require the Sandbox to be locally tracked yet.
+        """
+
+        sandbox_id = self._deterministic_sandbox_id(thread_id, self._effective_acquire_user_id(user_id))
+        lock_file: IO[str] = _open_lock_file(self._execution_lease_path(sandbox_id))
+        locked = False
+        try:
+            # A cached Pod may have died between turns. Repair it before taking
+            # the run-long shared lease; otherwise our own lease would prevent
+            # _drop_unhealthy_sandbox() from obtaining deletion authority.
+            _lock_file_exclusive(lock_file)
+            locked = True
+            with self._lock:
+                info = self._sandbox_infos.get(sandbox_id)
+                if info is None:
+                    warm = self._warm_pool.get(sandbox_id)
+                    info = warm[0] if warm is not None else None
+            if info is not None and self._check_tracked_sandbox_alive(sandbox_id, info) is False:
+                sandbox, stale_info, removed = self._remove_tracked_sandbox(sandbox_id, expected_info=info)
+                if removed:
+                    if sandbox is not None:
+                        try:
+                            sandbox.close()
+                        except Exception:
+                            logger.warning("Failed to close stale Sandbox client %s", sandbox_id, exc_info=True)
+                    if stale_info is not None:
+                        self._backend.destroy(stale_info)
+                    logger.warning("Removed stale sandbox %s before Gateway Run lease", sandbox_id)
+            if fcntl is None:
+                # msvcrt has no lock conversion; Windows is only a local-test
+                # fallback, while Kubernetes uses atomic Linux flock conversion.
+                _unlock_file(lock_file)
+                locked = False
+            _lock_file_shared(lock_file)
+            locked = True
+            return sandbox_id, lock_file
+        except BaseException:
+            if locked:
+                _unlock_file(lock_file)
+            lock_file.close()
+            raise
+
+    def acquire_execution_lease(self, sandbox_id: str) -> IO[str]:
+        """Hold a cross-process lease while an external host uses a Sandbox.
+
+        Gateway and the dedicated PPT runner are separate OS processes with
+        separate active/warm maps. This shared file lease is therefore the
+        authoritative boundary that prevents either process from deleting a
+        Pod while the other is still relaying an external Agent task.
+        """
+
+        lock_file: IO[str] = _open_lock_file(self._execution_lease_path(sandbox_id))
+        locked = False
+        try:
+            _lock_file_shared(lock_file)
+            locked = True
+            with self._lock:
+                info = self._sandbox_infos.get(sandbox_id)
+                if info is None:
+                    warm = self._warm_pool.get(sandbox_id)
+                    info = warm[0] if warm is not None else None
+            if info is None:
+                raise RuntimeError(f"Sandbox {sandbox_id} is no longer tracked")
+            alive = self._check_tracked_sandbox_alive(sandbox_id, info)
+            if alive is False:
+                raise RuntimeError(f"Sandbox {sandbox_id} is no longer alive")
+            logger.info("Acquired cross-process execution lease for sandbox %s", sandbox_id)
+            return lock_file
+        except Exception:
+            if locked:
+                _unlock_file(lock_file)
+            lock_file.close()
+            raise
+
+    def release_execution_lease(self, lock_file: IO[str], sandbox_id: str) -> None:
+        """Release a lease returned by :meth:`acquire_execution_lease`."""
+
+        try:
+            _unlock_file(lock_file)
+        finally:
+            lock_file.close()
+        logger.info("Released cross-process execution lease for sandbox %s", sandbox_id)
+
+    def _try_acquire_destroy_lease(self, sandbox_id: str) -> IO[str] | None:
+        """Acquire exclusive destruction authority without waiting."""
+
+        lock_file: IO[str] = _open_lock_file(self._execution_lease_path(sandbox_id))
+        if _try_lock_file_exclusive(lock_file):
+            return lock_file
+        lock_file.close()
+        return None
+
+    @staticmethod
+    def _release_destroy_lease(lock_file: IO[str]) -> None:
+        try:
+            _unlock_file(lock_file)
+        finally:
+            lock_file.close()
 
     def _remove_tracked_sandbox(
         self,
@@ -634,44 +837,71 @@ class AioSandboxProvider(SandboxProvider):
 
         return sandbox, info, True
 
-    def _drop_unhealthy_sandbox(self, sandbox_id: str, reason: str, *, expected_info: SandboxInfo | None = None) -> None:
+    def _drop_unhealthy_sandbox(self, sandbox_id: str, reason: str, *, expected_info: SandboxInfo | None = None) -> bool:
         """Remove and destroy a sandbox after a definitive failed health check."""
-        sandbox, info, removed = self._remove_tracked_sandbox(sandbox_id, expected_info=expected_info)
-        if not removed:
-            logger.info(f"Skipped dropping sandbox {sandbox_id}: tracked info changed after health check")
-            return
+        destroy_lease = self._try_acquire_destroy_lease(sandbox_id)
+        if destroy_lease is None:
+            logger.info("Deferred dropping sandbox %s because another process is executing in it", sandbox_id)
+            return False
+        try:
+            sandbox, info, removed = self._remove_tracked_sandbox(sandbox_id, expected_info=expected_info)
+            if not removed:
+                logger.info(f"Skipped dropping sandbox {sandbox_id}: tracked info changed after health check")
+                return False
 
-        if sandbox is not None:
+            if sandbox is not None:
+                try:
+                    sandbox.close()
+                except Exception as e:
+                    logger.warning(f"Error closing unhealthy sandbox {sandbox_id}: {e}")
+
+            if info is not None:
+                try:
+                    self._backend.destroy(info)
+                except Exception as e:
+                    logger.warning(f"Error destroying unhealthy sandbox {sandbox_id}: {e}")
+                    return False
+
+            logger.warning(f"Dropped unhealthy sandbox {sandbox_id}: {reason}")
+            return True
+        finally:
+            self._release_destroy_lease(destroy_lease)
+
+    def _active_count_locked(self) -> int:
+        """Return active AIO sandbox count while ``_lock`` is held."""
+        return len(self._sandboxes)
+
+    def _destroy_warm_entry(self, sandbox_id: str, entry: SandboxInfo, *, reason: str) -> bool:
+        """Destroy a warm-pool sandbox using AIO-specific backend logging."""
+        destroy_lease = self._try_acquire_destroy_lease(sandbox_id)
+        if destroy_lease is None:
+            logger.info(
+                "Deferred warm-pool destruction of sandbox %s (%s): external execution lease is active",
+                sandbox_id,
+                reason,
+            )
+            return False
+        try:
             try:
-                sandbox.close()
+                self._backend.destroy(entry)
             except Exception as e:
-                logger.warning(f"Error closing unhealthy sandbox {sandbox_id}: {e}")
+                if reason == "idle_timeout":
+                    logger.error(f"Failed to destroy idle warm-pool sandbox {sandbox_id}: {e}")
+                elif reason == "replica_enforcement":
+                    logger.error(f"Failed to destroy warm-pool sandbox {sandbox_id}: {e}")
+                else:
+                    logger.error(f"Failed to destroy warm-pool sandbox {sandbox_id} for {reason}: {e}")
+                return False
+        finally:
+            self._release_destroy_lease(destroy_lease)
 
-        if info is not None:
-            try:
-                self._backend.destroy(info)
-            except Exception as e:
-                logger.warning(f"Error destroying unhealthy sandbox {sandbox_id}: {e}")
-
-        logger.warning(f"Dropped unhealthy sandbox {sandbox_id}: {reason}")
-
-    def _replica_count(self) -> tuple[int, int]:
-        """Return configured replicas and currently tracked sandbox count."""
-        replicas = self._config.get("replicas", DEFAULT_REPLICAS)
-        with self._lock:
-            total = len(self._sandboxes) + len(self._warm_pool)
-        return replicas, total
-
-    def _log_replicas_soft_cap(self, replicas: int, sandbox_id: str, evicted: str | None) -> None:
-        """Log the result of enforcing the warm-pool replica budget."""
-        if evicted:
-            logger.info(f"Evicted warm-pool sandbox {evicted} to stay within replicas={replicas}")
-            return
-
-        # All slots are occupied by active sandboxes — proceed anyway and log.
-        # The replicas limit is a soft cap; we never forcibly stop a container
-        # that is actively serving a thread.
-        logger.warning(f"All {replicas} replica slots are in active use; creating sandbox {sandbox_id} beyond the soft limit")
+        if reason == "idle_timeout":
+            logger.info(f"Destroyed idle warm-pool sandbox {sandbox_id}")
+        elif reason == "replica_enforcement":
+            logger.info(f"Destroyed warm-pool sandbox {sandbox_id}")
+        else:
+            logger.info(f"Destroyed warm-pool sandbox {sandbox_id} for {reason}")
+        return True
 
     # ── Core: acquire / get / release / shutdown ─────────────────────────
 
@@ -690,13 +920,37 @@ class AioSandboxProvider(SandboxProvider):
         Returns:
             The ID of the acquired sandbox environment.
         """
-        effective_user_id = self._effective_acquire_user_id(user_id)
-        if thread_id:
-            thread_lock = self._get_thread_lock(thread_id, effective_user_id)
-            with thread_lock:
-                return self._acquire_internal(thread_id, user_id=effective_user_id)
-        else:
-            return self._acquire_internal(thread_id, user_id=effective_user_id)
+        timing_enabled = run_timing_logs_enabled()
+        started_at = time.monotonic() if timing_enabled else 0.0
+        if timing_enabled:
+            log_run_timing(logger, "sandbox_acquire_start")
+        try:
+            effective_user_id = self._effective_acquire_user_id(user_id)
+            if thread_id:
+                thread_lock = self._get_thread_lock(thread_id, effective_user_id)
+                with thread_lock:
+                    sandbox_id = self._acquire_internal(thread_id, user_id=effective_user_id)
+            else:
+                sandbox_id = self._acquire_internal(thread_id, user_id=effective_user_id)
+        except Exception as exc:
+            if timing_enabled:
+                log_run_timing(
+                    logger,
+                    "sandbox_acquire_error",
+                    elapsed_ms=round((time.monotonic() - started_at) * 1000),
+                    error_type=type(exc).__name__,
+                )
+            raise
+        if timing_enabled:
+            ended_at = time.monotonic()
+            log_run_timing(
+                logger,
+                "sandbox_acquire_end",
+                elapsed_ms=round((ended_at - started_at) * 1000),
+                sandbox_id=sandbox_id,
+            )
+            record_sandbox_acquire_timing(started_at=started_at, ended_at=ended_at)
+        return sandbox_id
 
     async def acquire_async(self, thread_id: str | None = None, *, user_id: str | None = None) -> str:
         """Acquire a sandbox environment without blocking the event loop.
@@ -705,16 +959,40 @@ class AioSandboxProvider(SandboxProvider):
         event loop and using async-native readiness polling for newly created
         sandboxes.
         """
-        effective_user_id = self._effective_acquire_user_id(user_id)
-        if thread_id:
-            thread_lock = self._get_thread_lock(thread_id, effective_user_id)
-            await _acquire_thread_lock_async(thread_lock)
-            try:
-                return await self._acquire_internal_async(thread_id, user_id=effective_user_id)
-            finally:
-                thread_lock.release()
-
-        return await self._acquire_internal_async(thread_id, user_id=effective_user_id)
+        timing_enabled = run_timing_logs_enabled()
+        started_at = time.monotonic() if timing_enabled else 0.0
+        if timing_enabled:
+            log_run_timing(logger, "sandbox_acquire_start")
+        try:
+            effective_user_id = self._effective_acquire_user_id(user_id)
+            if thread_id:
+                thread_lock = self._get_thread_lock(thread_id, effective_user_id)
+                await _acquire_thread_lock_async(thread_lock)
+                try:
+                    sandbox_id = await self._acquire_internal_async(thread_id, user_id=effective_user_id)
+                finally:
+                    thread_lock.release()
+            else:
+                sandbox_id = await self._acquire_internal_async(thread_id, user_id=effective_user_id)
+        except Exception as exc:
+            if timing_enabled:
+                log_run_timing(
+                    logger,
+                    "sandbox_acquire_error",
+                    elapsed_ms=round((time.monotonic() - started_at) * 1000),
+                    error_type=type(exc).__name__,
+                )
+            raise
+        if timing_enabled:
+            ended_at = time.monotonic()
+            log_run_timing(
+                logger,
+                "sandbox_acquire_end",
+                elapsed_ms=round((ended_at - started_at) * 1000),
+                sandbox_id=sandbox_id,
+            )
+            record_sandbox_acquire_timing(started_at=started_at, ended_at=ended_at)
+        return sandbox_id
 
     def _acquire_internal(self, thread_id: str | None, *, user_id: str) -> str:
         """Internal sandbox acquisition with two-layer consistency.
@@ -827,26 +1105,6 @@ class AioSandboxProvider(SandboxProvider):
                 await asyncio.to_thread(_unlock_file, lock_file)
             await asyncio.to_thread(lock_file.close)
 
-    def _evict_oldest_warm(self) -> str | None:
-        """Destroy the oldest container in the warm pool to free capacity.
-
-        Returns:
-            The evicted sandbox_id, or None if warm pool is empty.
-        """
-        with self._lock:
-            if not self._warm_pool:
-                return None
-            oldest_id = min(self._warm_pool, key=lambda sid: self._warm_pool[sid][1])
-            info, _ = self._warm_pool.pop(oldest_id)
-
-        try:
-            self._backend.destroy(info)
-            logger.info(f"Destroyed warm-pool sandbox {oldest_id}")
-        except Exception as e:
-            logger.error(f"Failed to destroy warm-pool sandbox {oldest_id}: {e}")
-            return None
-        return oldest_id
-
     def _create_sandbox(self, thread_id: str | None, sandbox_id: str, *, user_id: str | None = None) -> str:
         """Create a new sandbox via the backend.
 
@@ -860,47 +1118,94 @@ class AioSandboxProvider(SandboxProvider):
         Raises:
             RuntimeError: If sandbox creation or readiness check fails.
         """
-        effective_user_id = self._effective_acquire_user_id(user_id)
-        extra_mounts = self._get_extra_mounts(thread_id, user_id=effective_user_id)
+        timing_enabled = run_timing_logs_enabled()
+        started_at = time.monotonic() if timing_enabled else 0.0
+        if timing_enabled:
+            log_run_timing(logger, "sandbox_create_start", sandbox_id=sandbox_id)
+        try:
+            effective_user_id = self._effective_acquire_user_id(user_id)
+            extra_mounts = self._get_extra_mounts(thread_id, user_id=effective_user_id)
 
-        # Enforce replicas: only warm-pool containers count toward eviction budget.
-        # Active sandboxes are in use by live threads and must not be forcibly stopped.
-        replicas, total = self._replica_count()
-        if total >= replicas:
-            evicted = self._evict_oldest_warm()
-            self._log_replicas_soft_cap(replicas, sandbox_id, evicted)
+            # Make room for the new sandbox. A restart may have adopted many stale
+            # Pods, so evict repeatedly rather than removing only one per creation.
+            replicas, _ = self._replica_count()
+            evicted = self._evict_warm_until_capacity(reserve=1)
+            _, total = self._replica_count()
+            if total >= replicas:
+                self._log_replicas_soft_cap(replicas, sandbox_id, evicted[-1] if evicted else None)
 
-        info = self._backend.create(thread_id, sandbox_id, extra_mounts=extra_mounts or None, user_id=effective_user_id)
+            info = self._backend.create(thread_id, sandbox_id, extra_mounts=extra_mounts or None, user_id=effective_user_id)
+            if timing_enabled:
+                log_run_timing(logger, "sandbox_create_submitted", elapsed_ms=round((time.monotonic() - started_at) * 1000), sandbox_id=sandbox_id)
 
-        # Wait for sandbox to be ready
-        startup_timeout = int(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT))
-        if not wait_for_sandbox_ready(info.sandbox_url, timeout=startup_timeout):
-            self._backend.destroy(info)
-            raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within timeout at {info.sandbox_url}")
+            # Wait for sandbox to be ready
+            startup_timeout = max(1, float(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT)))
+            readiness_kwargs = {"timeout": startup_timeout}
+            if self._config.get("sandbox_api_key"):
+                readiness_kwargs["api_key"] = self._config["sandbox_api_key"]
+            if not wait_for_sandbox_ready(info.sandbox_url, **readiness_kwargs):
+                self._backend.destroy(info)
+                raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within {startup_timeout:g}s at {info.sandbox_url}")
 
-        return self._register_created_sandbox(thread_id, sandbox_id, info, user_id=effective_user_id)
+            created_id = self._register_created_sandbox(thread_id, sandbox_id, info, user_id=effective_user_id)
+        except Exception as exc:
+            if timing_enabled:
+                log_run_timing(
+                    logger,
+                    "sandbox_create_error",
+                    elapsed_ms=round((time.monotonic() - started_at) * 1000),
+                    sandbox_id=sandbox_id,
+                    error_type=type(exc).__name__,
+                )
+            raise
+        if timing_enabled:
+            log_run_timing(logger, "sandbox_ready", elapsed_ms=round((time.monotonic() - started_at) * 1000), sandbox_id=sandbox_id)
+        return created_id
 
     async def _create_sandbox_async(self, thread_id: str | None, sandbox_id: str, *, user_id: str | None = None) -> str:
         """Async counterpart to ``_create_sandbox``."""
-        effective_user_id = self._effective_acquire_user_id(user_id)
-        extra_mounts = await asyncio.to_thread(self._get_extra_mounts, thread_id, user_id=effective_user_id)
+        timing_enabled = run_timing_logs_enabled()
+        started_at = time.monotonic() if timing_enabled else 0.0
+        if timing_enabled:
+            log_run_timing(logger, "sandbox_create_start", sandbox_id=sandbox_id)
+        try:
+            effective_user_id = self._effective_acquire_user_id(user_id)
+            extra_mounts = await asyncio.to_thread(self._get_extra_mounts, thread_id, user_id=effective_user_id)
 
-        # Enforce replicas: only warm-pool containers count toward eviction budget.
-        # Active sandboxes are in use by live threads and must not be forcibly stopped.
-        replicas, total = self._replica_count()
-        if total >= replicas:
-            evicted = await asyncio.to_thread(self._evict_oldest_warm)
-            self._log_replicas_soft_cap(replicas, sandbox_id, evicted)
+            # Async counterpart of the repeated warm-pool capacity reconciliation.
+            replicas, _ = self._replica_count()
+            evicted = await asyncio.to_thread(self._evict_warm_until_capacity, reserve=1)
+            _, total = self._replica_count()
+            if total >= replicas:
+                self._log_replicas_soft_cap(replicas, sandbox_id, evicted[-1] if evicted else None)
 
-        info = await asyncio.to_thread(self._backend.create, thread_id, sandbox_id, extra_mounts=extra_mounts or None, user_id=effective_user_id)
+            info = await asyncio.to_thread(self._backend.create, thread_id, sandbox_id, extra_mounts=extra_mounts or None, user_id=effective_user_id)
+            if timing_enabled:
+                log_run_timing(logger, "sandbox_create_submitted", elapsed_ms=round((time.monotonic() - started_at) * 1000), sandbox_id=sandbox_id)
 
-        # Wait for sandbox to be ready without blocking the event loop.
-        startup_timeout = int(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT))
-        if not await wait_for_sandbox_ready_async(info.sandbox_url, timeout=startup_timeout):
-            await asyncio.to_thread(self._backend.destroy, info)
-            raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within timeout at {info.sandbox_url}")
+            # Wait for sandbox to be ready without blocking the event loop.
+            startup_timeout = max(1, float(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT)))
+            readiness_kwargs = {"timeout": startup_timeout}
+            if self._config.get("sandbox_api_key"):
+                readiness_kwargs["api_key"] = self._config["sandbox_api_key"]
+            if not await wait_for_sandbox_ready_async(info.sandbox_url, **readiness_kwargs):
+                await asyncio.to_thread(self._backend.destroy, info)
+                raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within {startup_timeout:g}s at {info.sandbox_url}")
 
-        return self._register_created_sandbox(thread_id, sandbox_id, info, user_id=effective_user_id)
+            created_id = self._register_created_sandbox(thread_id, sandbox_id, info, user_id=effective_user_id)
+        except Exception as exc:
+            if timing_enabled:
+                log_run_timing(
+                    logger,
+                    "sandbox_create_error",
+                    elapsed_ms=round((time.monotonic() - started_at) * 1000),
+                    sandbox_id=sandbox_id,
+                    error_type=type(exc).__name__,
+                )
+            raise
+        if timing_enabled:
+            log_run_timing(logger, "sandbox_ready", elapsed_ms=round((time.monotonic() - started_at) * 1000), sandbox_id=sandbox_id)
+        return created_id
 
     def get(self, sandbox_id: str) -> Sandbox | None:
         """Get a sandbox by ID. Updates last activity timestamp.
@@ -916,6 +1221,51 @@ class AioSandboxProvider(SandboxProvider):
             if sandbox is not None:
                 self._last_activity[sandbox_id] = time.time()
             return sandbox
+
+    def get_for_thread(self, thread_id: str, *, user_id: str | None = None) -> Sandbox | None:
+        """Return or reclaim the existing sandbox assigned to ``thread_id``.
+
+        Live Preview is a browser read path.  It may reclaim a warm sandbox or
+        adopt a still-running deterministic sandbox after a Gateway restart,
+        but it must never create a new Pod/container merely because somebody
+        clicked a preview link.
+        """
+        effective_user_id = self._effective_acquire_user_id(user_id)
+        key = self._thread_key(thread_id, effective_user_id)
+        with self._lock:
+            sandbox_id = self._thread_sandboxes.get(key)
+            active = self._sandboxes.get(sandbox_id) if sandbox_id else None
+            warm = sandbox_id in self._warm_pool if sandbox_id else False
+
+        if active is not None:
+            return self.get(active.id)
+
+        deterministic_id = self._deterministic_sandbox_id(thread_id, effective_user_id)
+        reclaimed_id = (
+            self._reclaim_warm_pool_sandbox(
+                thread_id,
+                sandbox_id or deterministic_id,
+                user_id=effective_user_id,
+                post_lock=True,
+            )
+            if warm or sandbox_id == deterministic_id
+            else None
+        )
+        if reclaimed_id is not None:
+            return self.get(reclaimed_id)
+
+        # A Gateway restart can leave a Pod alive while the in-process maps are
+        # empty.  Discovery is read-only from the application perspective and
+        # reattaches only that deterministic sandbox; it does not provision.
+        try:
+            discovered = self._backend.discover(deterministic_id)
+        except Exception as exc:  # pragma: no cover - backend-specific
+            logger.debug("Live Preview sandbox discovery failed for %s: %s", thread_id, exc)
+            return None
+        if discovered is None:
+            return None
+        self._register_discovered_sandbox(thread_id, discovered, user_id=effective_user_id)
+        return self.get(discovered.sandbox_id)
 
     def release(self, sandbox_id: str) -> None:
         """Release a sandbox from active use into the warm pool.
@@ -958,7 +1308,7 @@ class AioSandboxProvider(SandboxProvider):
 
         logger.info(f"Released sandbox {sandbox_id} to warm pool (container still running)")
 
-    def destroy(self, sandbox_id: str) -> None:
+    def destroy(self, sandbox_id: str) -> bool:
         """Destroy a sandbox: stop the container and free all resources.
 
         Unlike release(), this actually stops the container.  Use this for
@@ -971,20 +1321,31 @@ class AioSandboxProvider(SandboxProvider):
         Args:
             sandbox_id: The ID of the sandbox to destroy.
         """
-        sandbox, info, _ = self._remove_tracked_sandbox(sandbox_id)
+        destroy_lease = self._try_acquire_destroy_lease(sandbox_id)
+        if destroy_lease is None:
+            logger.info(
+                "Deferred explicit destruction of sandbox %s: external execution lease is active",
+                sandbox_id,
+            )
+            return False
 
-        if sandbox is not None:
-            # Defense-in-depth: close() already swallows its own errors; this
-            # guard only protects against a future close() that misbehaves, so
-            # host-side client cleanup can never block container destruction.
-            try:
-                sandbox.close()
-            except Exception as e:
-                logger.warning(f"Error closing sandbox {sandbox_id} during destroy: {e}")
+        try:
+            sandbox, info, _ = self._remove_tracked_sandbox(sandbox_id)
 
-        if info:
-            self._backend.destroy(info)
-            logger.info(f"Destroyed sandbox {sandbox_id}")
+            if sandbox is not None:
+                # Defense-in-depth: close() already swallows its own errors;
+                # this guard keeps client cleanup from blocking destruction.
+                try:
+                    sandbox.close()
+                except Exception as e:
+                    logger.warning(f"Error closing sandbox {sandbox_id} during destroy: {e}")
+
+            if info:
+                self._backend.destroy(info)
+                logger.info(f"Destroyed sandbox {sandbox_id}")
+            return True
+        finally:
+            self._release_destroy_lease(destroy_lease)
 
     def shutdown(self) -> None:
         """Shutdown all sandboxes. Thread-safe and idempotent."""
@@ -996,11 +1357,7 @@ class AioSandboxProvider(SandboxProvider):
             warm_items = list(self._warm_pool.items())
             self._warm_pool.clear()
 
-        # Stop idle checker
-        self._idle_checker_stop.set()
-        if self._idle_checker_thread is not None and self._idle_checker_thread.is_alive():
-            self._idle_checker_thread.join(timeout=5)
-            logger.info("Stopped idle checker thread")
+        self._stop_idle_checker()
 
         logger.info(f"Shutting down {len(sandbox_ids)} active + {len(warm_items)} warm-pool sandbox(es)")
 
@@ -1012,7 +1369,6 @@ class AioSandboxProvider(SandboxProvider):
 
         for sandbox_id, (info, _) in warm_items:
             try:
-                self._backend.destroy(info)
-                logger.info(f"Destroyed warm-pool sandbox {sandbox_id} during shutdown")
+                self._destroy_warm_entry(sandbox_id, info, reason="shutdown")
             except Exception as e:
                 logger.error(f"Failed to destroy warm-pool sandbox {sandbox_id} during shutdown: {e}")

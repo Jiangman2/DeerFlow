@@ -76,7 +76,7 @@ Once you have enough information:
 2. Generate the SOUL.md following the template structure exactly.
 3. Present it warmly and ask for confirmation. Frame it as "here's [Name] on paper — does this feel right?"
 4. Iterate until the user confirms.
-5. Call the `setup_agent` tool with the confirmed SOUL.md content and a one-line description:
+5. Call the `setup_agent` tool with the confirmed SOUL.md content and a one-line description written in the same selected language:
    ```
    setup_agent(soul="<full SOUL.md content>", description="<one-line description>")
    ```
@@ -84,7 +84,8 @@ Once you have enough information:
 6. After the tool returns successfully, confirm: "✅ [Name] is officially real."
 
 **Generation rules:**
-- The final SOUL.md **must always be written in English**, regardless of the user's preferred language or conversation language.
+- Write both the final SOUL.md and the `description` in the user's preferred language. If no preference is explicit, use the current conversation language; if that is also unclear, default to Simplified Chinese.
+- An explicit user request for another output language takes precedence over the default.
 - Every sentence must trace back to something the user said or clearly implied. No generic filler.
 - Core Traits are **behavioral rules**, not adjectives. Write "argue position, push back, speak truth not comfort" — not "honest and brave."
 - Voice must match the user. Blunt user → blunt SOUL.md. Expressive user → let it breathe.

@@ -1,9 +1,14 @@
+import { throwGatewayApiError } from "@/core/api/errors";
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 
 import type {
   AuditFilters,
   AuditLog,
+  ChannelAuditAnalysisResult,
+  ChannelAuditFeed,
+  ChannelAuditFilters,
+  ChannelAuditSendResult,
   DispositionInput,
   ObservabilityAnalytics,
   ObservabilitySnapshot,
@@ -16,8 +21,10 @@ import type {
 
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Request failed with ${response.status}`);
+    await throwGatewayApiError(
+      response,
+      `服务暂时不可用（HTTP ${response.status}），请稍后重试`,
+    );
   }
   return (await response.json()) as T;
 }
@@ -110,7 +117,12 @@ function fetchObservabilityAuditLogs(filters: AuditFilters) {
     user_id: filters.user_id,
     result: filters.result,
     operation_type: filters.operation_type,
+    resource_type: filters.resource_type,
   });
+  // Repeated query parameter: FastAPI parses `actions=a&actions=b` into a list.
+  for (const action of filters.actions ?? []) {
+    if (action) params.append("actions", action);
+  }
   return fetch(
     `${getBackendBaseURL()}/api/admin/observability/audit-logs?${params}`,
   );
@@ -187,4 +199,70 @@ export async function getTraceEvents(runId: string): Promise<TraceEvent[]> {
   );
   const data = await readJson<{ items: TraceEvent[] }>(response);
   return data.items;
+}
+
+// -- IM bot audit views -----------------------------------------------------
+
+function appendChannelAuditParams(
+  params: URLSearchParams,
+  filters: ChannelAuditFilters,
+) {
+  appendParams(params, {
+    hours: filters.hours,
+    start_at: filters.start_at,
+    end_at: filters.end_at,
+    user_id: filters.user_id,
+    result: filters.result,
+    q: filters.q,
+    error_samples: filters.error_samples,
+    bucket_minutes: filters.bucket_minutes,
+  });
+  for (const action of filters.actions ?? []) {
+    if (action) params.append("actions", action);
+  }
+}
+
+export async function getChannelAudit(
+  filters: ChannelAuditFilters,
+): Promise<ChannelAuditFeed> {
+  const params = new URLSearchParams();
+  appendChannelAuditParams(params, filters);
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/admin/observability/channel-audit?${params}`,
+  );
+  return readJson<ChannelAuditFeed>(response);
+}
+
+export async function sendChannelAudit(
+  filters: ChannelAuditFilters & { chat_id?: string; title?: string },
+): Promise<ChannelAuditSendResult> {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/admin/observability/channel-audit/send`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(filters),
+    },
+  );
+  return readJson<ChannelAuditSendResult>(response);
+}
+
+export async function analyzeChannelAudit(
+  filters: ChannelAuditFilters & {
+    question?: string;
+    model_name?: string;
+    send_to_channel?: boolean;
+    chat_id?: string;
+    title?: string;
+  },
+): Promise<ChannelAuditAnalysisResult> {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/admin/observability/channel-audit/analyze`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(filters),
+    },
+  );
+  return readJson<ChannelAuditAnalysisResult>(response);
 }

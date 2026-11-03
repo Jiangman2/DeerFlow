@@ -1,0 +1,154 @@
+{
+  "schema_version": "1.0",
+  "profile": "miit",
+  "report": {
+    "cutoff_date": "2026-06-30",
+    "prepared_date": "2026-08-20",
+    "prepared_by": "财务管理部",
+    "reviewed_by": "项目财务负责人",
+    "status": "final"
+  },
+  "project": {
+    "name": "深海智能装备协同控制技术研制项目",
+    "topic_name": null,
+    "code": "MIIT-DEMO-2023-01",
+    "plan_name": "工业和信息化领域科研项目",
+    "entity_mode": null,
+    "responsible_person": "李明",
+    "researchers": ["李明", "王海", "赵宁"],
+    "start_date": "2023-01-01",
+    "end_date": "2026-06-30",
+    "actual_start_date": "2023-01-01",
+    "actual_end_date": "2026-06-30",
+    "research_content": ["深海装备协同感知", "多装备任务规划", "海试验证"],
+    "governance_summary": "项目实行牵头单位总负责制，项目负责人统筹技术、进度和经费，财务、采购、法务及各任务组按月协同，重大事项提交项目领导小组审议。",
+    "completion_summary": "项目已完成研制任务书约定的三项研究任务和海试验证，技术指标达到任务书要求，成果资料已归档。",
+    "approval_document": {
+      "title": "关于深海智能装备协同控制技术研制项目立项的批复",
+      "number": "工科装〔2023〕18号",
+      "date": "2023-01-10"
+    }
+  },
+  "organizations": {
+    "lead": {
+      "name": "海洋装备技术研究院有限公司",
+      "short_name": "海装院",
+      "affiliation": "海洋工程集团有限公司",
+      "established_date": "2010-05-18",
+      "unified_social_credit_code": "91110000DEMO000001",
+      "registered_capital": "人民币50000万元",
+      "legal_representative": "张强",
+      "registered_address": "北京市海淀区示例路1号",
+      "business_scope": "海洋装备研发、试验验证和技术服务",
+      "relevant_capability": "具有深海装备控制系统、海上试验和工程化应用技术积累"
+    },
+    "participants": [
+      {
+        "name": "智能控制技术有限公司",
+        "affiliation": "海洋工程集团有限公司",
+        "registered_address": "上海市浦东新区示例路8号",
+        "relevant_capability": "多装备协同算法与嵌入式控制"
+      },
+      {
+        "name": "海试保障中心",
+        "affiliation": "海洋工程集团有限公司",
+        "registered_address": "山东省青岛市示例路16号",
+        "relevant_capability": "海上试验组织与数据采集"
+      }
+    ],
+    "no_participants_reason": null
+  },
+  "funding": {
+    "currency": "CNY",
+    "unit": "万元",
+    "tax_basis": "not_applicable",
+    "expense_scope": "all_funds",
+    "approved_total": 1000,
+    "adjusted_total": 1000,
+    "sources": [
+      {"name": "国拨资金", "kind": "central_finance", "approved": 600, "received": 600, "spent": 560, "audited": 552, "evidence_refs": ["E1", "E3"]},
+      {"name": "单位自筹资金", "kind": "self_funded", "approved": 400, "received": 400, "spent": 399, "audited": 390, "evidence_refs": ["E1", "E3"]}
+    ],
+    "annual_appropriations": [
+      {"year": 2023, "amount": 350, "document": "工科装〔2023〕18号"},
+      {"year": 2024, "amount": 300, "document": "年度科研计划"},
+      {"year": 2025, "amount": 250, "document": "年度科研计划"},
+      {"year": 2026, "amount": 100, "document": "年度科研计划"}
+    ],
+    "adjustments": {"none_declared": true, "items": []},
+    "transfers": [
+      {"organization": "智能控制技术有限公司", "year": 2023, "amount": 120, "document": "项目转拨通知2023-01"},
+      {"organization": "智能控制技术有限公司", "year": 2024, "amount": 80, "document": "项目转拨通知2024-02"},
+      {"organization": "海试保障中心", "year": 2024, "amount": 100, "document": "项目转拨通知2024-03"},
+      {"organization": "海试保障中心", "year": 2025, "amount": 50, "document": "项目转拨通知2025-01"}
+    ]
+  },
+  "expenses": [
+    {"code": "materials", "name": "材料费", "budget": 180, "adjusted_budget": 180, "reported": 170, "actual": 170, "audited": 168, "description": "用于传感器、耐压连接器和样机试制材料。", "variance_reason": "批量采购降低单价。", "evidence_refs": ["E2", "E4"]},
+    {"code": "special", "name": "专用费", "budget": 220, "adjusted_budget": 220, "reported": 225, "actual": 225, "audited": 220, "description": "用于专用设备、工装和控制软件购置。", "variance_reason": "科目内统筹后按批复额度审定。", "evidence_refs": ["E2", "E4"]},
+    {"code": "outsourcing", "name": "外协费", "budget": 160, "adjusted_budget": 160, "reported": 155, "actual": 155, "audited": 150, "description": "用于压力舱试验和第三方性能测试。", "variance_reason": "部分测试合并实施节约费用。", "evidence_refs": ["E2", "E4"]},
+    {"code": "fuel_power", "name": "燃料动力费", "budget": 50, "adjusted_budget": 50, "reported": 48, "actual": 48, "audited": 48, "description": "用于试验运行水电和船舶燃油分摊。", "variance_reason": "", "evidence_refs": ["E2", "E4"]},
+    {"code": "business", "name": "事务费", "budget": 60, "adjusted_budget": 60, "reported": 57, "actual": 57, "audited": 56, "description": "用于差旅、会议、资料和知识产权事务。", "variance_reason": "", "evidence_refs": ["E2", "E4"]},
+    {"code": "depreciation", "name": "固定资产折旧费", "budget": 80, "adjusted_budget": 80, "reported": 78, "actual": 78, "audited": 78, "description": "按科研设备和试验场地使用工时分摊。", "variance_reason": "", "evidence_refs": ["E2", "E4"]},
+    {"code": "management", "name": "管理费", "budget": 90, "adjusted_budget": 90, "reported": 88, "actual": 88, "audited": 86, "description": "用于项目管理服务和公共保障费用分摊。", "variance_reason": "", "evidence_refs": ["E2", "E4"]},
+    {"code": "wages_labor", "name": "工资及劳务费", "budget": 130, "adjusted_budget": 130, "reported": 128, "actual": 128, "audited": 126, "description": "按项目工时归集研发人员薪酬和辅助人员劳务费。", "variance_reason": "", "evidence_refs": ["E2", "E4"]},
+    {"code": "contingency", "name": "不可预见费", "budget": 20, "adjusted_budget": 20, "reported": 0, "actual": 0, "audited": 0, "description": "项目执行期间未发生符合列支条件的不可预见事项。", "variance_reason": "未发生需要使用不可预见费的事项。", "evidence_refs": ["E1", "E2"]},
+    {"code": "expected_income", "name": "项目预计收益", "budget": 10, "adjusted_budget": 10, "reported": 10, "actual": 10, "audited": 10, "description": "按研制任务书约定计列项目预计收益。", "variance_reason": "", "evidence_refs": ["E1", "E4"]}
+  ],
+  "management": {
+    "accounting_standard": "《企业会计准则》及项目科研经费管理规定",
+    "accounting_system": "集团ERP财务核算系统",
+    "cost_accounting_summary": "项目在研发支出和专项应付款科目下设置独立项目号，国拨与自筹资金分开辅助核算，直接费用按凭证归集，共同费用按经批准的工时比例分摊。",
+    "accounting_policy": "材料费、专用费、外协费和事务费按项目直接归集；燃料动力、折旧、薪酬和管理费按经批准的项目工时或受益比例分摊，口径在项目执行期内保持一致。",
+    "internal_control_summary": "单位已建立预算、资金、授权审批、报销、核算、资产、采购和合同管理制度。抽查资料显示项目执行了分级审批和不相容岗位分离；一项合同归档时间滞后，已在决算前完成整改。",
+    "management_summary": "科研经费纳入统一财务管理并按项目单独核算，预算、合同、采购、付款和资产形成过程可追溯。",
+    "finance_department_opinion": "",
+    "no_transfers_reason": null,
+    "policies": [
+      {"name": "科研经费财务管理办法", "number": "海装研财〔2022〕6号", "execution": "作为项目预算、核算和决算依据"},
+      {"name": "采购与合同管理办法", "number": "海装研采〔2022〕9号", "execution": "采购比选、合同审批和验收按制度执行"},
+      {"name": "科研实物资产管理办法", "number": "海装研资〔2021〕12号", "execution": "形成资产已验收入账并登记台账"}
+    ]
+  },
+  "procurement": {
+    "summary": "项目采购采用公开招标、比选和单一来源三种方式，合同均履行采购、法务、财务和授权领导审批。共抽查12笔采购业务、18份合同，金额占项目采购总额的72%；一份合同归档时间滞后，已整改。",
+    "contracts": [
+      {"category": "材料采购合同", "count": 8, "amount": 160, "status": "已履行并验收"},
+      {"category": "专用设备及软件合同", "count": 6, "amount": 205, "status": "已履行并验收"},
+      {"category": "外协试验合同", "count": 4, "amount": 150, "status": "已履行并结算"}
+    ],
+    "tendering_summary": "项目实施公开招标2项、国内标2项，中标金额180万元；合同金额与中标金额一致，招投标资料已归档。",
+    "tenders": [
+      {"type": "国内公开招标", "count": 2, "amount": 180, "contract_consistency": "合同金额与中标金额一致"}
+    ]
+  },
+  "audit": {
+    "audit_org": "中正会计师事务所",
+    "report_no": "中正专审〔2026〕118号",
+    "reported_expenditure": 959,
+    "audit_reduction": 17,
+    "recognized_expenditure": 942,
+    "payables": 0,
+    "expected_expenditure": 0,
+    "opinion": "审定经费支出942万元。"
+  },
+  "assets": [
+    {"name": "深海协同控制试验样机", "type": "固定资产", "quantity": "2套", "value": 120, "management_status": "已验收入账并登记资产卡片"},
+    {"name": "协同控制软件", "type": "无形资产/软件", "quantity": "3套", "value": 45, "management_status": "已登记软件资产台账"}
+  ],
+  "outcomes": [
+    {"name": "深海多装备协同控制平台", "type": "技术平台", "quantity": "1套", "status": "完成验收", "description": "完成海试验证"},
+    {"name": "协同任务规划软件V1.0", "type": "软件著作权", "quantity": "1项", "status": "已登记", "description": "用于多装备任务规划"},
+    {"name": "深海协同控制方法", "type": "发明专利", "quantity": "2项", "status": "已受理", "description": "形成核心算法专利"}
+  ],
+  "narratives": {},
+  "selected_sections": [],
+  "evidence": [
+    {"id": "E1", "source_file": "项目研制任务书.pdf", "locator": "第18-22页，项目预算及批复内容", "fact": "项目批复总经费1000万元，其中国拨600万元、自筹400万元，列示各费用预算。", "as_of": "2023-01-10"},
+    {"id": "E2", "source_file": "项目财务明细账.xlsx", "locator": "费用明细表A2:J1260", "fact": "截至2026-06-30账面累计支出959万元及各科目明细。", "as_of": "2026-06-30"},
+    {"id": "E3", "source_file": "资金到位及转拨台账.xlsx", "locator": "资金汇总表A1:H26", "fact": "国拨和自筹资金均已到位，向两家参研单位累计转拨350万元。", "as_of": "2026-06-30"},
+    {"id": "E4", "source_file": "专项审计报告.pdf", "locator": "第9-15页，审定费用表", "fact": "报审959万元，审减17万元，审定942万元。", "as_of": "2026-08-12"}
+  ],
+  "conflicts": [],
+  "assumptions": []
+}

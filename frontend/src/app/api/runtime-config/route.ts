@@ -10,6 +10,10 @@ function cleanUrl(value: string | undefined) {
   return trimmed;
 }
 
+function readBoolean(value: string | undefined) {
+  return ["1", "true", "yes", "on"].includes(value?.trim().toLowerCase() ?? "");
+}
+
 function requestHostname(request: NextRequest) {
   const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0];
   const host = forwardedHost ?? request.headers.get("host");
@@ -52,6 +56,7 @@ export async function GET(request: NextRequest) {
     cleanUrl(process.env.NEXT_PUBLIC_WEKNORA_FRONTEND_URL);
 
   return NextResponse.json({
+    skillHubEnabled: readBoolean(process.env.DEER_FLOW_SKILLHUB_ENABLED),
     weknoraFrontendUrl: withWeKnoraKnowledgeBasePath(
       alignLocalhostUrl(weknoraFrontendUrl, request),
     ),

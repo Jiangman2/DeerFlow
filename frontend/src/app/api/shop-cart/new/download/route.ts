@@ -1,10 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { parseNewShopCartFile } from "@/core/shop-cart/api-files";
-import { env } from "@/env";
 import {
-  CNOOC_PLATFORM_TOKEN_COOKIE_NAME,
-  resolveCnoocPlatformToken,
+  authorizeCnoocPlatformToken,
+  buildCnoocPlatformTokenRejection,
 } from "@/server/cnooc-auth/platform-token";
 import {
   getNewShopCartApiBaseUrl,
@@ -24,19 +23,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const authorization = await authorizeCnoocPlatformToken(request);
+  if (!authorization.authorized) {
+    return buildCnoocPlatformTokenRejection(authorization.reason);
+  }
+
   const url = new URL(
     `${getNewShopCartApiBaseUrl()}${NEW_SHOP_CART_DOWNLOAD_PATH}`,
   );
-  const token = resolveCnoocPlatformToken(
-    request.cookies.get(CNOOC_PLATFORM_TOKEN_COOKIE_NAME)?.value,
-    env.SHOP_CART_DOWNLOAD_TOKEN,
-  );
-
   let response: Response;
   try {
     response = await requestDataLakeBinary(url, {
       body: [result.file],
-      token,
+      token: authorization.token,
     });
   } catch (error) {
     console.error("Failed to reach new shop cart download service", {

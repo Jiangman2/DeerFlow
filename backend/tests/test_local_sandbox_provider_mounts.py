@@ -309,6 +309,39 @@ class TestSymlinkEscapes:
         assert "/mnt/data/nested/linked-dir/" in entries
         assert "/mnt/data/dir-link" not in entries
 
+    def test_list_dir_raises_when_path_is_missing(self, tmp_path):
+        mount_dir = tmp_path / "mount"
+        mount_dir.mkdir()
+        sandbox = LocalSandbox(
+            "test",
+            [
+                PathMapping(
+                    container_path="/mnt/data",
+                    local_path=str(mount_dir),
+                    read_only=False,
+                ),
+            ],
+        )
+
+        with pytest.raises(FileNotFoundError):
+            sandbox.list_dir("/mnt/data/missing")
+
+    def test_list_dir_empty_directory_returns_empty(self, tmp_path):
+        mount_dir = tmp_path / "mount"
+        mount_dir.mkdir()
+        sandbox = LocalSandbox(
+            "test",
+            [
+                PathMapping(
+                    container_path="/mnt/data",
+                    local_path=str(mount_dir),
+                    read_only=False,
+                ),
+            ],
+        )
+
+        assert sandbox.list_dir("/mnt/data") == []
+
     def test_write_file_blocks_symlink_into_nested_read_only_mount(self, tmp_path):
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
@@ -488,16 +521,18 @@ class TestMultipleMounts:
             ],
         )
 
-        # Mock subprocess to capture the resolved command
+        # Mock subprocess to capture the resolved command. The POSIX path runs
+        # commands via subprocess.Popen, so wrap that and still execute the real
+        # command.
         captured = {}
-        original_run = __import__("subprocess").run
+        original_popen = __import__("subprocess").Popen
 
-        def mock_run(*args, **kwargs):
+        def mock_popen(*args, **kwargs):
             if len(args) > 0:
                 captured["command"] = args[0]
-            return original_run(*args, **kwargs)
+            return original_popen(*args, **kwargs)
 
-        monkeypatch.setattr("deerflow.sandbox.local.local_sandbox.subprocess.run", mock_run)
+        monkeypatch.setattr("deerflow.sandbox.local.local_sandbox.subprocess.Popen", mock_popen)
         monkeypatch.setattr("deerflow.sandbox.local.local_sandbox.LocalSandbox._get_shell", lambda self: "/bin/sh")
 
         sandbox.execute_command("cat /mnt/data/test.txt")
@@ -540,11 +575,83 @@ class TestMultipleMounts:
         assert "/mnt/data/file.txt" in masked
         assert str(mount_dir) not in masked
 
+    @pytest.mark.parametrize("suffix", ["", ":3:needle", " 3 needle"])
+    def test_reverse_resolve_keeps_mount_spelling_for_symlink_resolving_outside(
+        self,
+        tmp_path,
+        suffix,
+    ):
+        workspace = (tmp_path / "workspace").resolve()
+        workspace.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "secret.py").write_text("needle\n", encoding="utf-8")
+        _symlink_to(outside / "secret.py", workspace / "link.py")
+        sandbox = LocalSandbox(
+            "test",
+            [
+                PathMapping(
+                    container_path="/mnt/user-data/workspace",
+                    local_path=str(workspace),
+                )
+            ],
+        )
+
+        masked = sandbox._reverse_resolve_paths_in_output(f"{workspace}/link.py{suffix}")
+
+        assert masked == f"/mnt/user-data/workspace/link.py{suffix}"
+        assert sandbox.glob("/mnt/user-data/workspace", "*.py") == (
+            ["/mnt/user-data/workspace/link.py"],
+            False,
+        )
+
+    def test_reverse_resolve_prefers_mount_containing_symlink_target(self, tmp_path):
+        workspace = (tmp_path / "workspace").resolve()
+        uploads = (tmp_path / "uploads").resolve()
+        workspace.mkdir()
+        uploads.mkdir()
+        (uploads / "doc.md").write_text("x\n", encoding="utf-8")
+        _symlink_to(uploads / "doc.md", workspace / "doc.md")
+        sandbox = LocalSandbox(
+            "test",
+            [
+                PathMapping(
+                    container_path="/mnt/user-data/workspace",
+                    local_path=str(workspace),
+                ),
+                PathMapping(
+                    container_path="/mnt/user-data/uploads",
+                    local_path=str(uploads),
+                ),
+            ],
+        )
+
+        assert sandbox._reverse_resolve_path(str(workspace / "doc.md")) == "/mnt/user-data/uploads/doc.md"
+
+    def test_reverse_resolve_spelling_fallback_rejects_dot_dot_escape(self, tmp_path):
+        workspace = (tmp_path / "workspace").resolve()
+        workspace.mkdir()
+        sandbox = LocalSandbox(
+            "test",
+            [
+                PathMapping(
+                    container_path="/mnt/user-data/workspace",
+                    local_path=str(workspace),
+                )
+            ],
+        )
+
+        resolved = sandbox._reverse_resolve_path(f"{workspace}/../outside/secret.py")
+
+        assert not resolved.startswith("/mnt/user-data/workspace")
+
 
 class TestLocalSandboxProviderMounts:
     def test_setup_path_mappings_uses_configured_skills_container_path_as_reserved_prefix(self, tmp_path):
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
+        public_dir = skills_dir / "public"
+        public_dir.mkdir()
         custom_dir = tmp_path / "custom"
         custom_dir.mkdir()
 
@@ -564,11 +671,17 @@ class TestLocalSandboxProviderMounts:
         with patch("deerflow.config.get_app_config", return_value=config):
             provider = LocalSandboxProvider()
 
-        assert [m.container_path for m in provider._path_mappings] == ["/custom-skills"]
+        # Public skills are the only static skills mount; custom skills are
+        # per-user and built dynamically in _build_thread_path_mappings.
+        # Custom volume mount /custom-skills/nested is also included (not
+        # a reserved prefix like /custom-skills/custom).
+        assert [m.container_path for m in provider._path_mappings] == ["/custom-skills/public", "/custom-skills/nested"]
 
     def test_setup_path_mappings_skips_relative_host_path(self, tmp_path):
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
+        public_dir = skills_dir / "public"
+        public_dir.mkdir()
 
         from deerflow.config.sandbox_config import SandboxConfig, VolumeMountConfig
 
@@ -586,11 +699,14 @@ class TestLocalSandboxProviderMounts:
         with patch("deerflow.config.get_app_config", return_value=config):
             provider = LocalSandboxProvider()
 
-        assert [m.container_path for m in provider._path_mappings] == ["/mnt/skills"]
+        # Public skills mount is static; custom skills are per-thread.
+        assert [m.container_path for m in provider._path_mappings] == ["/mnt/skills/public"]
 
     def test_setup_path_mappings_skips_non_absolute_container_path(self, tmp_path):
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
+        public_dir = skills_dir / "public"
+        public_dir.mkdir()
         custom_dir = tmp_path / "custom"
         custom_dir.mkdir()
 
@@ -610,7 +726,7 @@ class TestLocalSandboxProviderMounts:
         with patch("deerflow.config.get_app_config", return_value=config):
             provider = LocalSandboxProvider()
 
-        assert [m.container_path for m in provider._path_mappings] == ["/mnt/skills"]
+        assert [m.container_path for m in provider._path_mappings] == ["/mnt/skills/public"]
 
     def test_setup_path_mappings_logs_actionable_error_for_missing_host_path(self, tmp_path, caplog):
         """Regression for #3244.
@@ -624,6 +740,8 @@ class TestLocalSandboxProviderMounts:
         """
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
+        public_dir = skills_dir / "public"
+        public_dir.mkdir()
         missing_host_path = tmp_path / "does-not-exist"
 
         from deerflow.config.sandbox_config import SandboxConfig, VolumeMountConfig
@@ -644,7 +762,8 @@ class TestLocalSandboxProviderMounts:
                 provider = LocalSandboxProvider()
 
         # Silent-skip behaviour is preserved (no breaking change for existing deployments).
-        assert [m.container_path for m in provider._path_mappings] == ["/mnt/skills"]
+        # Only public skills mount is static; custom skills are per-thread.
+        assert [m.container_path for m in provider._path_mappings] == ["/mnt/skills/public"]
 
         # The failure must be observable at ERROR level and reference the offending paths.
         error_records = [r for r in caplog.records if r.levelname == "ERROR"]
@@ -755,6 +874,8 @@ class TestLocalSandboxProviderMounts:
     def test_setup_path_mappings_normalizes_container_path_trailing_slash(self, tmp_path):
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
+        public_dir = skills_dir / "public"
+        public_dir.mkdir()
         custom_dir = tmp_path / "custom"
         custom_dir.mkdir()
 
@@ -774,7 +895,7 @@ class TestLocalSandboxProviderMounts:
         with patch("deerflow.config.get_app_config", return_value=config):
             provider = LocalSandboxProvider()
 
-        assert [m.container_path for m in provider._path_mappings] == ["/mnt/skills", "/mnt/data"]
+        assert [m.container_path for m in provider._path_mappings] == ["/mnt/skills/public", "/mnt/data"]
 
 
 class TestLocalSandboxProviderResetClearsSingleton:

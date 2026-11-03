@@ -8,10 +8,13 @@ export const env = createEnv({
    */
   server: {
     GITHUB_OAUTH_TOKEN: z.string().optional(),
+    DEER_FLOW_UNAUTHENTICATED_HOME_URL: z.string().url().optional(),
+    DEER_FLOW_SSO_ONLY: z.string().optional(),
     SHOP_CART_API_BASE_URL: z.string().optional(),
-    SHOP_CART_DOWNLOAD_TOKEN: z.string().optional(),
     SHOP_CART_DOWNLOAD_TLS_VERIFY: z.string().optional(),
-    WEKNORA_FRONTEND_URL: z.string().optional(),
+    HAINENG_MODEL_CALL_COUNT_URL: z.string().url().optional(),
+    HAINENG_MODEL_CALL_COUNT_APP_ID: z.string().optional(),
+    HAINENG_MODEL_CALL_COUNT_APP_KEY: z.string().optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -28,8 +31,6 @@ export const env = createEnv({
     NEXT_PUBLIC_SHOP_CART_MODE: z.string().optional(),
     NEXT_PUBLIC_SHOP_CART_IFRAME_URL: z.string().optional(),
     NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN: z.string().optional(),
-    NEXT_PUBLIC_WEKNORA_FRONTEND_URL: z.string().optional(),
-    NEXT_PUBLIC_AUTH_LOGIN_URL: z.string().optional(),
     NEXT_PUBLIC_STATIC_WEBSITE_ONLY: z.string().optional(),
   },
 
@@ -47,16 +48,19 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_SHOP_CART_IFRAME_URL,
     NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN:
       process.env.NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN,
-    NEXT_PUBLIC_WEKNORA_FRONTEND_URL:
-      process.env.NEXT_PUBLIC_WEKNORA_FRONTEND_URL,
-    NEXT_PUBLIC_AUTH_LOGIN_URL: process.env.NEXT_PUBLIC_AUTH_LOGIN_URL,
     NEXT_PUBLIC_STATIC_WEBSITE_ONLY:
       process.env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY,
     GITHUB_OAUTH_TOKEN: process.env.GITHUB_OAUTH_TOKEN,
+    DEER_FLOW_UNAUTHENTICATED_HOME_URL:
+      process.env.DEER_FLOW_UNAUTHENTICATED_HOME_URL,
+    DEER_FLOW_SSO_ONLY: process.env.DEER_FLOW_SSO_ONLY,
     SHOP_CART_API_BASE_URL: process.env.SHOP_CART_API_BASE_URL,
-    SHOP_CART_DOWNLOAD_TOKEN: process.env.SHOP_CART_DOWNLOAD_TOKEN,
     SHOP_CART_DOWNLOAD_TLS_VERIFY: process.env.SHOP_CART_DOWNLOAD_TLS_VERIFY,
-    WEKNORA_FRONTEND_URL: process.env.WEKNORA_FRONTEND_URL,
+    HAINENG_MODEL_CALL_COUNT_URL: process.env.HAINENG_MODEL_CALL_COUNT_URL,
+    HAINENG_MODEL_CALL_COUNT_APP_ID:
+      process.env.HAINENG_MODEL_CALL_COUNT_APP_ID,
+    HAINENG_MODEL_CALL_COUNT_APP_KEY:
+      process.env.HAINENG_MODEL_CALL_COUNT_APP_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

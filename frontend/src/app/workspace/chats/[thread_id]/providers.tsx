@@ -1,15 +1,4 @@
 "use client";
 
-import { PromptInputProvider } from "@/components/ai-elements/prompt-input";
-import { ArtifactsProvider } from "@/components/workspace/artifacts";
-import { SubtasksProvider } from "@/core/tasks/context";
-
-export function ChatProviders({ children }: { children: React.ReactNode }) {
-  return (
-    <SubtasksProvider>
-      <ArtifactsProvider>
-        <PromptInputProvider>{children}</PromptInputProvider>
-      </ArtifactsProvider>
-    </SubtasksProvider>
-  );
-}
+// Preserve the old import path without maintaining a second provider stack.
+export { ChatProviders } from "@/components/workspace/chats/chat-providers";

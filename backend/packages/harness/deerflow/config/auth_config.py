@@ -67,7 +67,29 @@ class OIDCAuthConfig(BaseModel):
     )
 
 
+class IAMAuthConfig(BaseModel):
+    """CNOOC IAM authorization-code and account-sync configuration.
+
+    Secrets are intentionally supplied through environment references in
+    ``config.yaml`` (for example ``$IAM_CLIENT_SECRET``), never from browser
+    input.  The inbound account-sync endpoint has its own credentials and SM4
+    key because it is a machine-to-machine BIM integration, not a browser API.
+    """
+
+    enabled: bool = Field(default=False)
+    base_url: str | None = Field(default=None, description="IAM service root, e.g. https://iam.example.com")
+    client_id: str | None = Field(default=None)
+    client_secret: str | None = Field(default=None)
+    redirect_uri: str | None = Field(default=None)
+    frontend_base_url: str | None = Field(default=None)
+    authorization_path: str = Field(default="/idp/oauth2/authorize")
+    token_path: str = Field(default="/idp/oauth2/getToken")
+    userinfo_path: str = Field(default="/idp/oauth2/getUserInfo")
+    request_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
+
+
 class AuthAppConfig(BaseModel):
     """Authentication configuration section for the DeerFlow app config."""
 
     oidc: OIDCAuthConfig = Field(default_factory=OIDCAuthConfig, description="OIDC SSO authentication settings")
+    iam: IAMAuthConfig = Field(default_factory=IAMAuthConfig, description="CNOOC IAM authentication and account synchronization")

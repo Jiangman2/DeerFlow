@@ -16,19 +16,45 @@ import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
 import { getAPIClient } from "../api";
 import { fetch } from "../api/fetcher";
+import {
+  inheritPptMasterRuntimeThread,
+  rememberPptMasterRuntimeThread,
+} from "../api/ppt-master-runtime";
 import { getBackendBaseURL } from "../config";
 import { useI18n } from "../i18n/hooks";
 import { isHiddenFromUIMessage } from "../messages/utils";
 import type { FileInMessage } from "../messages/utils";
 import type { LocalSettings } from "../settings";
+import { isSidecarThread, SIDECAR_METADATA_KEYS } from "../sidecar/thread";
 import { useUpdateSubtask } from "../tasks/context";
+import { taskEventToSubtaskUpdate } from "../tasks/lifecycle";
+import { messageToStep } from "../tasks/steps";
 import type { UploadedFileInfo } from "../uploads";
-import { promptInputFilePartToFile, uploadFiles } from "../uploads";
+import {
+  inferUploadPurpose,
+  promptInputFilePartToFile,
+  uploadFiles,
+} from "../uploads";
 
-import { fetchThreadTokenUsage } from "./api";
+import {
+  findLatestActiveRun,
+  readReconnectRun,
+  rememberReconnectRun,
+} from "./active-run-recovery";
+import {
+  branchThreadFromTurn,
+  fetchThreadTokenUsage,
+  patchThreadMetadata,
+  searchThreadsByArchive,
+  type ThreadMetadataPatch,
+} from "./api";
+import { isCustomEventForThread } from "./custom-event-scope";
+import { LEAD_AGENT_RECURSION_LIMIT } from "./run-config";
+import { isStaticDemoThreadId, loadStaticDemoThread } from "./static-demo";
 import {
   buildThreadsSearchQueryOptions,
   DEFAULT_THREAD_SEARCH_PARAMS,
+  filterThreadSearchResults,
   type ThreadSearchParams,
 } from "./thread-search-query";
 import { threadTokenUsageQueryKey } from "./token-usage";
@@ -38,6 +64,7 @@ import type {
   RunMessage,
   ThreadTokenUsageResponse,
 } from "./types";
+import { THREAD_PINNED_METADATA_KEY } from "./utils";
 
 export type ToolEndEvent = {
   name: string;
@@ -47,8 +74,15 @@ export type ToolEndEvent = {
 export type ThreadStreamOptions = {
   threadId?: string | null | undefined;
   displayThreadId?: string | null | undefined;
+  /**
+   * The route still represents a client-generated thread before the first
+   * stream starts.  Create that exact id before uploading attachments so the
+   * upload directory and the eventual Sandbox mount cannot diverge.
+   */
+  isNewThread?: boolean;
   context: LocalSettings["context"];
   isMock?: boolean;
+  isStaticDemo?: boolean;
   onSend?: (threadId: string) => void;
   onStart?: (threadId: string, runId: string) => void;
   onFinish?: (state: AgentThreadState) => void;
@@ -57,6 +91,27 @@ export type ThreadStreamOptions = {
 
 type SendMessageOptions = {
   additionalKwargs?: Record<string, unknown>;
+  additionalInputMessages?: Message[];
+  /**
+   * Invoked exactly once when the send passes the in-flight guard and is
+   * genuinely dispatched. It never fires on the early-return path, so callers
+   * can safely perform one-time cleanup (e.g. clearing quoted references)
+   * without losing state when a concurrent send is dropped.
+   */
+  onSent?: () => void;
+};
+
+type ThreadDeleteClient = {
+  threads: {
+    delete: (threadId: string) => Promise<unknown>;
+    search: (query: Record<string, unknown>) => Promise<AgentThread[]>;
+  };
+};
+
+type ThreadSidecarSearchClient = {
+  threads: {
+    search: (query: Record<string, unknown>) => Promise<AgentThread[]>;
+  };
 };
 
 type RegeneratePrepareResponse = {
@@ -69,6 +124,68 @@ type RegeneratePrepareResponse = {
   metadata: Record<string, unknown>;
   target_run_id: string;
 };
+
+export function buildThreadSubmitMessages({
+  text,
+  additionalKwargs,
+  additionalInputMessages = [],
+  filesForSubmit = [],
+}: {
+  text: string;
+  additionalKwargs?: Record<string, unknown>;
+  additionalInputMessages?: Message[];
+  filesForSubmit?: FileInMessage[];
+}): Message[] {
+  return [
+    ...additionalInputMessages,
+    {
+      type: "human",
+      content: [
+        {
+          type: "text",
+          text,
+        },
+      ],
+      additional_kwargs: {
+        ...additionalKwargs,
+        ...(filesForSubmit.length > 0 ? { files: filesForSubmit } : {}),
+      },
+    } as Message,
+  ];
+}
+
+export function buildThreadRunContext(
+  context: LocalSettings["context"],
+  threadId: string,
+  extraContext?: Record<string, unknown>,
+): LocalSettings["context"] & {
+  thinking_enabled: boolean;
+  is_plan_mode: boolean;
+  subagent_enabled: boolean;
+  thread_id: string;
+} {
+  return {
+    ...extraContext,
+    ...context,
+    thinking_enabled: context.mode !== "flash",
+    is_plan_mode: context.mode === "pro" || context.mode === "ultra",
+    subagent_enabled: context.mode === "ultra",
+    reasoning_effort:
+      context.reasoning_effort ??
+      (context.mode === "ultra"
+        ? "high"
+        : context.mode === "pro"
+          ? "medium"
+          : context.mode === "thinking"
+            ? "low"
+            : undefined),
+    thread_id: threadId,
+  };
+}
+
+// Stable identity for "no optimistic messages" so the merged-messages memo
+// below is not invalidated by a fresh empty array on every render.
+const EMPTY_MESSAGES: Message[] = [];
 
 const EMPTY_THREAD_VALUES: AgentThreadState = {
   title: "",
@@ -83,7 +200,7 @@ function isNonEmptyString(value: string | undefined): value is string {
 
 const SUMMARIZATION_MIDDLEWARE_UPDATE_KEYS = new Set([
   "SummarizationMiddleware.before_model",
-  "DeerFlowSummarizationMiddleware.before_model",
+  ["Deer", "FlowSummarizationMiddleware.before_model"].join(""),
 ]);
 
 function messageIdentity(message: Message): string | undefined {
@@ -175,26 +292,6 @@ function dedupeRunMessagesByIdentity(messages: RunMessage[]): RunMessage[] {
   });
 }
 
-export function getSupersededRunIds(
-  runs: Run[] | undefined,
-  pendingSupersededRunIds?: ReadonlySet<string>,
-) {
-  const ids = new Set(pendingSupersededRunIds ?? []);
-  for (const run of runs ?? []) {
-    if (run.status !== "success") {
-      continue;
-    }
-    const metadata = run.metadata;
-    if (metadata && typeof metadata === "object") {
-      const fromRunId = Reflect.get(metadata, "regenerate_from_run_id");
-      if (typeof fromRunId === "string" && fromRunId) {
-        ids.add(fromRunId);
-      }
-    }
-  }
-  return ids;
-}
-
 export function removeSetItems<T>(
   values: ReadonlySet<T>,
   itemsToRemove: Iterable<T>,
@@ -209,85 +306,53 @@ export function removeSetItems<T>(
 export function buildVisibleHistoryMessages(
   messageRows: RunMessage[],
   supersededRunIds: ReadonlySet<string>,
-  appendedMessages: Message[],
 ) {
   const visibleRows = messageRows.filter(
     (message) => !supersededRunIds.has(message.run_id),
   );
   return dedupeMessagesByIdentity([
+    // Carry the owning run_id onto the content message so historical subtask
+    // cards can fetch their persisted step history on expand (#3779). run_id
+    // lives on the RunMessage wrapper and would otherwise be dropped here.
     ...visibleRows.map((message) => ({
       ...message.content,
       run_id: message.run_id,
+      feedback: message.feedback ?? null,
     })),
-    ...appendedMessages,
   ]);
 }
 
-export function findLatestUnloadedRunIndex(
-  runs: Run[],
-  loadedRunIds: ReadonlySet<string>,
-): number {
-  for (let i = 0; i < runs.length; i++) {
-    const run = runs[i];
-    if (run && !loadedRunIds.has(run.run_id)) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-export const MAX_CONSECUTIVE_EMPTY_RUN_LOADS = 5;
-
-export function shouldAutoContinueOnEmptyRun(
-  fetchedMessageCount: number,
-  consecutiveEmptyLoads: number,
-  maxConsecutiveEmptyLoads: number = MAX_CONSECUTIVE_EMPTY_RUN_LOADS,
-): boolean {
-  return (
-    fetchedMessageCount === 0 &&
-    consecutiveEmptyLoads < maxConsecutiveEmptyLoads
-  );
-}
-
-type RunMessagesPageResponse = {
+export type ThreadMessagesPageResponse = {
   data: RunMessage[];
-  has_more?: boolean;
-  hasMore?: boolean;
+  has_more: boolean;
+  next_before_seq: number | null;
 };
 
-export function runMessagesPageHasMore(result: RunMessagesPageResponse) {
-  return result.has_more ?? result.hasMore ?? false;
-}
-
-export function getOldestRunMessageSeq(messages: RunMessage[]) {
-  let oldestSeq: number | null = null;
-  for (const message of messages) {
-    if (typeof message.seq !== "number") {
-      continue;
-    }
-    oldestSeq =
-      oldestSeq === null ? message.seq : Math.min(oldestSeq, message.seq);
+export function getThreadHistoryNextPageParam(
+  lastPage: ThreadMessagesPageResponse,
+): number | undefined {
+  if (!lastPage.has_more) {
+    return undefined;
   }
-  return oldestSeq;
-}
-
-export function getNextRunMessagesBeforeSeq(
-  result: RunMessagesPageResponse,
-): number | null | undefined {
-  if (!runMessagesPageHasMore(result)) {
-    return null;
+  if (lastPage.next_before_seq === null) {
+    console.warn(
+      "Thread history returned has_more without next_before_seq; pagination cannot continue.",
+    );
+    return undefined;
   }
-  return getOldestRunMessageSeq(result.data) ?? undefined;
+  return lastPage.next_before_seq;
 }
 
-export function buildRunMessagesUrl(
+export const threadHistoryQueryKey = (threadId: string) =>
+  ["thread-messages", threadId] as const;
+
+export function buildThreadMessagesPageUrl(
   baseUrl: string,
   threadId: string,
-  runId: string,
   beforeSeq?: number,
 ) {
   const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
-  const path = `/api/threads/${encodeURIComponent(threadId)}/runs/${encodeURIComponent(runId)}/messages`;
+  const path = `/api/threads/${encodeURIComponent(threadId)}/messages/page`;
   const url = new URL(
     `${normalizedBaseUrl}${path}`,
     typeof window !== "undefined" ? window.location.origin : "http://localhost",
@@ -298,23 +363,37 @@ export function buildRunMessagesUrl(
   return normalizedBaseUrl ? url.toString() : `${url.pathname}${url.search}`;
 }
 
+export function flattenThreadHistoryPages(
+  pages: ThreadMessagesPageResponse[],
+): RunMessage[] {
+  return dedupeRunMessagesByIdentity(
+    pages
+      .slice()
+      .reverse()
+      .flatMap((page) => page.data),
+  );
+}
+
 export function mergeMessages(
   historyMessages: Message[],
   threadMessages: Message[],
   optimisticMessages: Message[],
 ): Message[] {
-  // Only visible live messages should trim overlapping history. Hidden messages
-  // are UI control messages in this path, not observability records; any hidden
-  // message that must survive as task/tracing data should use custom events or a
-  // separate state channel instead of participating in this overlap heuristic.
-
   const savedTurnDurations = new Map<string, number>();
   const savedRunIds = new Map<string, string>();
+  const savedFeedback = new Map<
+    string,
+    Exclude<RunMessage["feedback"], undefined>
+  >();
   for (const msg of historyMessages) {
     const identity = messageIdentity(msg);
-    const runId = (msg as { run_id?: unknown }).run_id;
-    if (identity && typeof runId === "string" && runId.length > 0) {
-      savedRunIds.set(identity, runId);
+    const historical = msg as Message & {
+      feedback?: RunMessage["feedback"];
+      run_id?: string;
+    };
+    if (identity && typeof historical.run_id === "string") {
+      savedRunIds.set(identity, historical.run_id);
+      savedFeedback.set(identity, historical.feedback ?? null);
     }
     if (identity && msg.additional_kwargs?.turn_duration !== undefined) {
       savedTurnDurations.set(
@@ -324,47 +403,101 @@ export function mergeMessages(
     }
   }
 
-  const threadMessageIds = new Set(
-    threadMessages
-      .filter((message) => !isHiddenFromUIMessage(message))
-      .map(messageIdentity)
-      .filter(isNonEmptyString),
+  const canonical = dedupeMessagesByIdentity(historyMessages);
+  const live = dedupeMessagesByIdentity(threadMessages);
+  const canonicalByIdentity = new Map(
+    canonical.flatMap((message) => {
+      const identity = messageIdentity(message);
+      return identity ? [[identity, message] as const] : [];
+    }),
   );
+  const replacementByIdentity = new Map<string, Message>();
+  // This uses the same identity-anchor weaving shape as
+  // resolveTransientHistoryBridge, but intentionally remains separate: live
+  // messages may replace canonical copies and identity-less entries survive.
+  const beforeAnchor = new Map<string, Message[]>();
+  let pending: Message[] = [];
+  let lastAnchorIdentity: string | undefined;
+  let hasSharedAnchor = false;
 
-  // The overlap is a contiguous suffix of historyMessages (newest history == oldest thread).
-  // Scan from the end: shrink cutoff while messages are already in thread, stop as soon as
-  // we hit one that isn't — everything before that point is non-overlapping.
-  let cutoff = historyMessages.length;
-  for (let i = historyMessages.length - 1; i >= 0; i--) {
-    const msg = historyMessages[i];
-    if (!msg) {
+  // A summarized checkpoint is not necessarily a contiguous history suffix:
+  // middleware may retain protected prompt/input messages at the front and a
+  // recent tail at the back. Treat every shared identity as an ordering anchor,
+  // replacing the canonical copy in place. New live messages are woven before
+  // the next shared anchor (or after the last one), so a protected early input
+  // can never be moved to the tail by global last-copy deduplication.
+  for (const message of live) {
+    const identity = messageIdentity(message);
+    const canonicalMessage = identity
+      ? canonicalByIdentity.get(identity)
+      : undefined;
+    if (!identity || !canonicalMessage) {
+      pending.push(message);
       continue;
     }
-    const identity = messageIdentity(msg);
-    if (identity && threadMessageIds.has(identity)) {
-      cutoff = i;
-    } else {
-      break;
+
+    if (pending.length > 0 && hasSharedAnchor) {
+      beforeAnchor.set(identity, [
+        ...(beforeAnchor.get(identity) ?? []),
+        ...pending,
+      ]);
+    }
+    // A summarized checkpoint may start with a protected message whose true
+    // canonical position is separated from this anchor by unloaded pages.
+    // Suppress that ambiguous prefix instead of visually collapsing the gap.
+    pending = [];
+    hasSharedAnchor = true;
+    lastAnchorIdentity = identity;
+
+    // A hidden checkpoint control message must not replace a visible canonical
+    // user turn that happens to reuse its identity. In every other case the
+    // live checkpoint copy is fresher and replaces history without moving it.
+    if (
+      !isHiddenFromUIMessage(message) ||
+      isHiddenFromUIMessage(canonicalMessage)
+    ) {
+      replacementByIdentity.set(identity, message);
     }
   }
 
+  let canonicalAndLive: Message[];
+  if (!lastAnchorIdentity) {
+    canonicalAndLive = [...canonical, ...live];
+  } else {
+    canonicalAndLive = [];
+    for (const message of canonical) {
+      const identity = messageIdentity(message);
+      if (identity) {
+        canonicalAndLive.push(...(beforeAnchor.get(identity) ?? []));
+      }
+      const replacement = identity
+        ? replacementByIdentity.get(identity)
+        : undefined;
+      canonicalAndLive.push(replacement ?? message);
+    }
+    // A trailing live-only segment is known to come after the last shared
+    // anchor, but that anchor may not be the end of canonical history (for
+    // example, another client may have persisted newer rows). Preserve the
+    // canonical source order before appending the live tail.
+    canonicalAndLive.push(...pending);
+  }
+
   const merged = dedupeMessagesByIdentity([
-    ...historyMessages.slice(0, cutoff),
-    ...threadMessages,
+    ...canonicalAndLive,
     ...optimisticMessages,
   ]);
 
   return merged.map((message) => {
     const identity = messageIdentity(message);
-    let nextMessage: Message & { run_id?: string } = message;
-    if (
-      identity &&
-      savedRunIds.has(identity) &&
-      typeof (message as { run_id?: unknown }).run_id !== "string"
-    ) {
+    let nextMessage = message as Message & {
+      feedback?: RunMessage["feedback"];
+      run_id?: string;
+    };
+    if (identity && savedRunIds.has(identity)) {
       nextMessage = {
         ...nextMessage,
         run_id: savedRunIds.get(identity),
+        feedback: savedFeedback.get(identity) ?? null,
       };
     }
     if (
@@ -381,6 +514,255 @@ export function mergeMessages(
       } as Message;
     }
     return nextMessage;
+  });
+}
+
+/**
+ * Derive the live turns that context summarization is about to drop and that
+ * therefore need a short-lived visual bridge until run-event history catches up.
+ *
+ * Summarization emits `RemoveMessage(ALL)` + a hidden summary + the retained
+ * tail. Everything in the current live thread before the first retained visible
+ * message is being removed; we keep those (minus the summary control messages
+ * already tracked) so the UI can still show the full conversation (#3825).
+ */
+export function computeSummarizationTransientMessages(
+  currentMessages: Message[],
+  summarizationMessages: Message[],
+  summarizedMessageIds: ReadonlySet<string>,
+): Message[] {
+  const firstRetainedVisibleIdentity = summarizationMessages
+    .filter((message) => message.type !== "remove")
+    .filter((message) => !isHiddenFromUIMessage(message))
+    .map(messageIdentity)
+    .find(isNonEmptyString);
+
+  const moved: Message[] = [];
+  for (const message of currentMessages) {
+    if (
+      firstRetainedVisibleIdentity &&
+      messageIdentity(message) === firstRetainedVisibleIdentity
+    ) {
+      break;
+    }
+    if (!summarizedMessageIds.has(message.id ?? "")) {
+      moved.push(message);
+    }
+  }
+  return moved;
+}
+
+/**
+ * Overlay messages rescued from context summarization on top of the
+ * (possibly stale) visible history so the merged view never drops them.
+ *
+ * Background (#3825): after summarization the backend removes every live
+ * message (`RemoveMessage(ALL)`) while canonical run events can still be
+ * waiting for the journal flush/refetch lifecycle. Reading the captured turns
+ * from a synchronous transient buffer keeps the merge correct during that gap.
+ *
+ * Canonical history is cursor-paginated from newest to oldest. A rescued turn
+ * can therefore be older than the first row in the currently loaded page even
+ * though both came from the same pre-compression checkpoint. ``bridgeOrder``
+ * retains identities that canonical history has already confirmed so missing
+ * rescued turns can be inserted next to an overlapping anchor instead of being
+ * blindly appended after the newest page. Canonical copies always win.
+ */
+export function resolveTransientHistoryBridge(
+  visibleHistory: Message[],
+  transientMessages: Message[],
+  bridgeOrder: readonly string[] = transientMessages
+    .map(messageIdentity)
+    .filter(isNonEmptyString),
+): Message[] {
+  if (transientMessages.length === 0) {
+    return visibleHistory;
+  }
+  const presentIdentities = new Set(
+    visibleHistory.map(messageIdentity).filter(isNonEmptyString),
+  );
+  const missing = transientMessages.filter((message) => {
+    const identity = messageIdentity(message);
+    // Identity-less messages are intentionally skipped: without a stable
+    // identity they cannot be matched against history to drain or dedupe, so
+    // overlaying them would risk a permanent duplicate. Canonical history will
+    // surface them after the run journal is flushed and the page refetches.
+    return identity !== undefined && !presentIdentities.has(identity);
+  });
+  if (missing.length === 0) {
+    return visibleHistory;
+  }
+
+  const missingByIdentity = new Map(
+    missing.flatMap((message) => {
+      const identity = messageIdentity(message);
+      return identity ? [[identity, message] as const] : [];
+    }),
+  );
+  // This mirrors mergeMessages' identity-anchor weaving shape, but transient
+  // messages never replace canonical copies and identity-less entries are
+  // intentionally excluded to avoid permanent duplicates.
+  const beforeAnchor = new Map<string, Message[]>();
+  const emittedMissingIdentities = new Set<string>();
+  let pending: Message[] = [];
+  let lastAnchorIdentity: string | undefined;
+  let hasCanonicalAnchor = false;
+
+  for (const identity of bridgeOrder) {
+    if (presentIdentities.has(identity)) {
+      if (pending.length > 0 && hasCanonicalAnchor) {
+        beforeAnchor.set(identity, [
+          ...(beforeAnchor.get(identity) ?? []),
+          ...pending,
+        ]);
+      }
+      // The prefix before the first loaded anchor has no trustworthy position:
+      // cursor pages containing its intervening history may not be loaded yet.
+      pending = [];
+      hasCanonicalAnchor = true;
+      lastAnchorIdentity = identity;
+      continue;
+    }
+    const message = missingByIdentity.get(identity);
+    if (message && !emittedMissingIdentities.has(identity)) {
+      pending.push(message);
+      emittedMissingIdentities.add(identity);
+    }
+  }
+
+  // No bridge identity overlaps canonical history. This is the original
+  // persistence-gap case: loaded history is older and the rescued live turns
+  // belong after it.
+  if (!lastAnchorIdentity) {
+    return [...visibleHistory, ...missing];
+  }
+
+  // A candidate added before its ordering snapshot (or carrying an identity
+  // absent from that snapshot) cannot be anchored. Keep it in capture order at
+  // the trailing edge of the anchored bridge rather than dropping it.
+  for (const message of missing) {
+    const identity = messageIdentity(message);
+    if (identity && !emittedMissingIdentities.has(identity)) {
+      pending.push(message);
+      emittedMissingIdentities.add(identity);
+    }
+  }
+
+  const resolved: Message[] = [];
+  for (const message of visibleHistory) {
+    const identity = messageIdentity(message);
+    if (identity) {
+      resolved.push(...(beforeAnchor.get(identity) ?? []));
+    }
+    resolved.push(message);
+    if (identity === lastAnchorIdentity) {
+      resolved.push(...pending);
+    }
+  }
+  return resolved;
+}
+
+export function mergeTransientHistoryBridge(
+  currentBridge: Message[],
+  capturedMessages: Message[],
+): Message[] {
+  const merged = dedupeMessagesByIdentity(currentBridge);
+  const indexByIdentity = new Map<string, number>();
+  merged.forEach((message, index) => {
+    const identity = messageIdentity(message);
+    if (identity) {
+      indexByIdentity.set(identity, index);
+    }
+  });
+
+  for (const captured of dedupeMessagesByIdentity(capturedMessages)) {
+    const identity = messageIdentity(captured);
+    const existingIndex = identity ? indexByIdentity.get(identity) : undefined;
+    if (existingIndex === undefined) {
+      if (identity) {
+        indexByIdentity.set(identity, merged.length);
+      }
+      merged.push(captured);
+      continue;
+    }
+
+    const existing = merged[existingIndex];
+    if (
+      existing &&
+      (!isHiddenFromUIMessage(captured) || isHiddenFromUIMessage(existing))
+    ) {
+      // Refresh the buffered snapshot without moving its first-known
+      // chronological position. Repeated compression can recapture protected
+      // prefix messages before a newer tail.
+      merged[existingIndex] = captured;
+    }
+  }
+  return merged;
+}
+
+/**
+ * Preserve the complete checkpoint-relative identity order independently from
+ * bridge candidates. Confirmed candidates are pruned from the render buffer,
+ * but their identities remain useful as non-rendering pagination anchors.
+ */
+export function mergeTransientHistoryBridgeOrder(
+  currentOrder: readonly string[],
+  capturedMessages: Message[],
+): readonly string[] {
+  const capturedOrder = dedupeMessagesByIdentity(capturedMessages)
+    .map(messageIdentity)
+    .filter(isNonEmptyString);
+  // Clone lazily and return the input when nothing is appended: this runs per
+  // render while the bridge is active, and a fresh array would invalidate the
+  // coalesced render memo on every chunk (#4409 Phase 1).
+  let merged: string[] | null = null;
+  const seen = new Set(currentOrder);
+  for (const identity of capturedOrder) {
+    if (!seen.has(identity)) {
+      seen.add(identity);
+      (merged ??= [...currentOrder]).push(identity);
+    }
+  }
+  return merged ?? currentOrder;
+}
+
+export function resolveThreadTransientHistoryBridge(
+  visibleHistory: Message[],
+  transientMessages: Message[],
+  bridgeThreadId: string | null,
+  currentThreadId: string | null | undefined,
+  bridgeOrder?: readonly string[],
+): Message[] {
+  if (!bridgeThreadId || bridgeThreadId !== currentThreadId) {
+    return visibleHistory;
+  }
+  return resolveTransientHistoryBridge(
+    visibleHistory,
+    transientMessages,
+    bridgeOrder,
+  );
+}
+
+/**
+ * Drop transient-buffer entries that canonical history has already
+ * absorbed. This keeps the buffer a transient bridge across the async gap
+ * rather than a second long-lived source of truth — otherwise a stale copy
+ * could resurrect a message that history later filtered out (e.g. a superseded
+ * or regenerated run).
+ */
+export function pruneConfirmedTransientMessages(
+  transientMessages: Message[],
+  visibleHistory: Message[],
+): Message[] {
+  if (transientMessages.length === 0) {
+    return transientMessages;
+  }
+  const confirmedIdentities = new Set(
+    visibleHistory.map(messageIdentity).filter(isNonEmptyString),
+  );
+  return transientMessages.filter((message) => {
+    const identity = messageIdentity(message);
+    return !identity || !confirmedIdentities.has(identity);
   });
 }
 
@@ -408,6 +790,28 @@ export function getVisibleOptimisticMessages(
   return optimisticMessages;
 }
 
+export function settleOptimisticUploadMessages(
+  messages: Message[],
+  humanMessageId: string | null,
+  uploadPlaceholderId: string | null,
+  uploadedFiles: FileInMessage[],
+): Message[] {
+  return messages
+    .filter((message) => message.id !== uploadPlaceholderId)
+    .map((message) => {
+      if (message.id !== humanMessageId) {
+        return message;
+      }
+      return {
+        ...message,
+        additional_kwargs: {
+          ...message.additional_kwargs,
+          files: uploadedFiles,
+        },
+      };
+    });
+}
+
 export function getSummarizationMiddlewareMessages(
   data: unknown,
 ): Message[] | undefined {
@@ -430,6 +834,136 @@ export function getSummarizationMiddlewareMessages(
   }
 
   return undefined;
+}
+
+export const STREAM_RENDER_COALESCE_MS = 80;
+
+export type CoalesceDecision =
+  | { action: "flush-now" }
+  | { action: "schedule"; delayMs: number }
+  | { action: "wait" };
+
+/**
+ * Decide how an incoming stream update reaches the rendered snapshot: flush
+ * immediately once a full interval has elapsed (leading edge), otherwise
+ * schedule exactly one trailing flush for the interval remainder. Unlike a
+ * debounce, the delay never extends past the interval, so a dense stream can
+ * never starve rendering.
+ */
+export function decideCoalesce(
+  nowMs: number,
+  lastFlushMs: number,
+  intervalMs: number,
+  hasPendingTimer: boolean,
+): CoalesceDecision {
+  if (nowMs - lastFlushMs >= intervalMs) {
+    return { action: "flush-now" };
+  }
+  if (hasPendingTimer) {
+    return { action: "wait" };
+  }
+  return { action: "schedule", delayMs: intervalMs - (nowMs - lastFlushMs) };
+}
+
+/**
+ * While a run is streaming, expose the messages array as a snapshot that
+ * updates at most once per interval instead of once per SSE chunk, so the
+ * merge/group/render pipeline runs per frame budget rather than per token
+ * (#4409 Phase 1). When the stream is idle the latest array passes straight
+ * through, keeping non-stream updates immediate.
+ */
+function sameMessageArray(a: Message[], b: Message[]): boolean {
+  return (
+    a === b ||
+    (a.length === b.length && a.every((message, index) => message === b[index]))
+  );
+}
+
+export function useCoalescedStreamMessages(
+  messages: Message[],
+  isStreaming: boolean,
+  intervalMs: number = STREAM_RENDER_COALESCE_MS,
+): Message[] {
+  // `null` means "no snapshot belongs to the current stream": the live array is
+  // returned until the leading-edge flush lands, so a snapshot left over from an
+  // earlier stream can never be painted. This hook outlives thread switches (the
+  // chat page deliberately avoids re-mounting, see its `onStart` comment), so a
+  // retained snapshot would otherwise be another thread's messages.
+  const [snapshot, setSnapshot] = useState<Message[] | null>(null);
+  const latestRef = useRef(messages);
+  latestRef.current = messages;
+  // Monotonic clock: a wall-clock step (NTP, sleep/wake) between two reads
+  // would otherwise be added to the remaining interval and stall the flush for
+  // the length of the jump. -Infinity means "never flushed", so the first
+  // update of a stream always takes the leading edge.
+  const lastFlushRef = useRef(Number.NEGATIVE_INFINITY);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Every publication goes through the shallow-equality guard: inputs whose
+  // identity churns without content change (the SDK getter mints fresh arrays)
+  // must not re-trigger renders, or this effect would setState-loop.
+  const publish = useCallback(() => {
+    setSnapshot((previous) =>
+      previous !== null && sameMessageArray(previous, latestRef.current)
+        ? previous
+        : latestRef.current,
+    );
+  }, []);
+
+  const clearPendingFlush = useCallback(() => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isStreaming) {
+      clearPendingFlush();
+      // Drop the flush baseline so the leading edge is per stream rather than
+      // per hook instance: a run starting within one interval of the previous
+      // one must not have its first frame deferred. Dropping the snapshot with
+      // it costs one render per stream end, versus one per idle message change
+      // if the snapshot were instead kept in sync while nothing reads it.
+      lastFlushRef.current = Number.NEGATIVE_INFINITY;
+      setSnapshot((previous) => (previous === null ? previous : null));
+      return;
+    }
+    const now = performance.now();
+    const decision = decideCoalesce(
+      now,
+      lastFlushRef.current,
+      intervalMs,
+      timerRef.current !== null,
+    );
+    if (decision.action === "flush-now") {
+      // A trailing timer can still be armed here: timers fire late under
+      // main-thread load, which is exactly when a chunk overtakes one. Leaving
+      // it would publish a second time and slip the next interval forward.
+      clearPendingFlush();
+      lastFlushRef.current = now;
+      publish();
+    } else if (decision.action === "schedule") {
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        // Read the clock again: timers fire late under load, and the next
+        // interval must start from the real flush.
+        lastFlushRef.current = performance.now();
+        publish();
+      }, decision.delayMs);
+    }
+  }, [messages, isStreaming, intervalMs, publish, clearPendingFlush]);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+      }
+    },
+    [],
+  );
+
+  return isStreaming && snapshot !== null ? snapshot : messages;
 }
 
 export function upsertThreadInSearchCache(
@@ -478,10 +1012,18 @@ export function upsertThreadInInfiniteCache(
   queryClient: QueryClient,
   thread: AgentThread,
 ) {
+  const hasArchiveFilter = ({ queryKey }: { queryKey: readonly unknown[] }) =>
+    typeof (queryKey[2] as InfiniteThreadsParams | undefined)?.archived ===
+    "boolean";
+  void queryClient.invalidateQueries({
+    queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
+    predicate: hasArchiveFilter,
+  });
   queryClient.setQueriesData(
     {
       queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
       exact: false,
+      predicate: (query) => !hasArchiveFilter(query),
     },
     (oldData: InfiniteData<AgentThread[]> | undefined) => {
       if (!oldData) {
@@ -522,6 +1064,106 @@ export function upsertThreadInInfiniteCache(
       };
     },
   );
+}
+
+/**
+ * Keep every thread-list cache aligned with the authoritative title carried by
+ * the current stream state. LangGraph may deliver a title in either an
+ * `updates` frame or a full `values` frame (including reconnect/history
+ * hydration), while the sidebar reads a separate paginated search cache.
+ */
+export function syncThreadTitleInListCaches(
+  queryClient: QueryClient,
+  threadId: string,
+  title: string,
+) {
+  if (!threadId || !title.trim()) {
+    return;
+  }
+
+  const updateTitle = (thread: AgentThread): AgentThread => {
+    if (thread.thread_id !== threadId || thread.values?.title === title) {
+      return thread;
+    }
+    return {
+      ...thread,
+      values: {
+        ...thread.values,
+        title,
+      },
+    };
+  };
+
+  queryClient.setQueriesData(
+    {
+      queryKey: ["threads", "search"],
+      exact: false,
+    },
+    (oldData: Array<AgentThread> | undefined) => oldData?.map(updateTitle),
+  );
+  queryClient.setQueriesData(
+    {
+      queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
+      exact: false,
+    },
+    (oldData: InfiniteData<AgentThread[]> | undefined) =>
+      mapInfiniteThreadsCache(oldData, updateTitle),
+  );
+}
+
+export function invalidateStoppedThreadCaches(
+  queryClient: QueryClient,
+  threadId: string | null | undefined,
+  isMock = false,
+) {
+  void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
+  void queryClient.invalidateQueries({
+    queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
+  });
+
+  if (!threadId || isMock) {
+    return;
+  }
+
+  void queryClient.invalidateQueries({ queryKey: ["thread", threadId] });
+  void queryClient.invalidateQueries({
+    queryKey: threadHistoryQueryKey(threadId),
+  });
+  void queryClient.invalidateQueries({
+    queryKey: ["thread", "metadata", threadId, isMock],
+  });
+  void queryClient.invalidateQueries({
+    queryKey: threadTokenUsageQueryKey(threadId),
+  });
+}
+
+export const STOP_THREAD_FINALIZATION_REFETCH_DELAY_MS = 1500;
+
+function scheduleStoppedThreadFinalizationRefetch(
+  queryClient: QueryClient,
+  threadId: string | null | undefined,
+  isMock = false,
+) {
+  if (isMock) {
+    return;
+  }
+  globalThis.setTimeout(() => {
+    invalidateStoppedThreadCaches(queryClient, threadId, isMock);
+  }, STOP_THREAD_FINALIZATION_REFETCH_DELAY_MS);
+}
+
+export async function stopThreadAndInvalidateCaches(
+  queryClient: QueryClient,
+  stop: () => Promise<void> | void,
+  threadId: string | null | undefined,
+  isMock = false,
+) {
+  try {
+    await stop();
+  } finally {
+    invalidateStoppedThreadCaches(queryClient, threadId, isMock);
+    scheduleStoppedThreadFinalizationRefetch(queryClient, threadId, isMock);
+  }
 }
 
 function getStreamErrorMessage(error: unknown): string {
@@ -593,8 +1235,10 @@ function isThreadMissingError(error: unknown): boolean {
 export function useThreadStream({
   threadId,
   displayThreadId,
+  isNewThread = false,
   context,
   isMock,
+  isStaticDemo = false,
   onSend,
   onStart,
   onFinish,
@@ -604,6 +1248,20 @@ export function useThreadStream({
   const currentViewThreadId = displayThreadId ?? threadId ?? null;
   const currentViewThreadIdRef = useRef(currentViewThreadId);
   currentViewThreadIdRef.current = currentViewThreadId;
+  // A LangGraph SDK StreamManager may deliver one already-buffered callback
+  // after the route changed. Keep the accepted thread ids tied to the current
+  // view so that callback cannot write the previous conversation's task card
+  // into the new conversation.
+  const acceptedCustomEventThreadIdsRef = useRef<Set<string>>(
+    currentViewThreadId ? new Set([currentViewThreadId]) : new Set(),
+  );
+  const previousViewThreadIdRef = useRef(currentViewThreadId);
+  if (previousViewThreadIdRef.current !== currentViewThreadId) {
+    previousViewThreadIdRef.current = currentViewThreadId;
+    acceptedCustomEventThreadIdsRef.current = currentViewThreadId
+      ? new Set([currentViewThreadId])
+      : new Set();
+  }
   // Optimistic messages shown before the server stream responds.
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
   const [optimisticThreadId, setOptimisticThreadId] = useState<string | null>(
@@ -618,6 +1276,13 @@ export function useThreadStream({
   const [pendingSupersededMessageIds, setPendingSupersededMessageIds] =
     useState<ReadonlySet<string>>(() => new Set());
   const [isUploading, setIsUploading] = useState(false);
+  // The SDK's built-in reconnect only knows about a run ID kept in this
+  // browser tab's sessionStorage. Keep an explicit busy state while checking
+  // the authoritative Gateway run store so a reload/new tab cannot submit a
+  // competing run during recovery.
+  const [isRecoveringActiveRun, setIsRecoveringActiveRun] = useState(() =>
+    Boolean(threadId && !isMock && !isStaticDemo),
+  );
   // Track the thread ID that is currently streaming to handle thread changes during streaming
   const [onStreamThreadId, setOnStreamThreadId] = useState(() => threadId);
   // Ref to track current thread ID across async callbacks without causing re-renders,
@@ -637,10 +1302,10 @@ export function useThreadStream({
     hasMore: hasMoreHistory,
     loadMore: loadMoreHistory,
     loading: isHistoryLoading,
-    appendMessages,
   } = useThreadHistory(onStreamThreadId ?? "", {
     enabled: !isMock,
     pendingSupersededRunIds,
+    isStaticDemo,
   });
 
   // Keep listeners ref updated with latest callbacks
@@ -661,6 +1326,12 @@ export function useThreadStream({
   }, [threadId]);
 
   const handleStreamStart = useCallback((_threadId: string, _runId: string) => {
+    // Preserve isolated-runtime ownership when the run creation response uses
+    // an authoritative id different from the welcome page's client id. Do
+    // this before changing refs or enabling state/history hydration.
+    inheritPptMasterRuntimeThread(currentViewThreadIdRef.current, _threadId);
+    inheritPptMasterRuntimeThread(threadIdRef.current, _threadId);
+    acceptedCustomEventThreadIdsRef.current.add(_threadId);
     threadIdRef.current = _threadId;
     setOptimisticThreadId((currentOptimisticThreadId) => {
       const currentView = currentViewThreadIdRef.current;
@@ -680,9 +1351,14 @@ export function useThreadStream({
         (currentLiveMessagesThreadId === currentView ||
           currentLiveMessagesThreadId === _threadId)
       ) {
-        return _threadId;
+        // Keep the marker on the visible route identity. A new-chat route
+        // starts with a provisional client id, while the stream callback
+        // already knows the authoritative backend id. Storing the visible id
+        // prevents the old route's marker from making stale messages visible
+        // for one render during navigation.
+        return currentView ?? _threadId;
       }
-      return currentLiveMessagesThreadId;
+      return currentLiveMessagesThreadId ?? currentView ?? _threadId;
     });
     if (!startedRef.current) {
       listeners.current.onStart?.(_threadId, _runId);
@@ -695,11 +1371,24 @@ export function useThreadStream({
   const updateSubtask = useUpdateSubtask();
 
   const thread = useStream<AgentThreadState>({
-    client: getAPIClient(isMock),
+    client: getAPIClient(
+      isMock,
+      isStaticDemo ? (onStreamThreadId ?? undefined) : undefined,
+    ),
     assistantId: "lead_agent",
+    // Keep the SDK's original stream identity contract. DeerFlow updates this
+    // marker when a run is created or when the selected thread changes; do not
+    // replace it with a render-time route id during a live stream transition.
     threadId: onStreamThreadId,
     reconnectOnMount: true,
     fetchStateHistory: { limit: 1 },
+    // Batch stream updates received in the same macrotask without adding a
+    // fixed debounce interval that could delay a continuously active stream.
+    // Coalesce same-tick stream events into one React notification. Only the
+    // boolean tier is safe: the SDK's numeric tier is a trailing debounce that
+    // starves UI updates while chunks keep arriving faster than the window.
+    // Keep explicit: SDK types claim @default true, but runtime uses throttle ?? false.
+    throttle: true,
     onCreated(meta) {
       handleStreamStart(meta.thread_id, meta.run_id);
       const now = new Date().toISOString();
@@ -749,29 +1438,27 @@ export function useThreadStream({
       const _messages = getSummarizationMiddlewareMessages(data);
       if (_messages && _messages.length >= 2) {
         for (const m of _messages) {
+          // Backward-compat shim: pre-PR2 threads may still carry a synthetic
+          // HumanMessage(name="summary") from the old summarization path. New
+          // threads keep the summary in ThreadState.summary_text instead.
           if (m.name === "summary" && m.type === "human") {
             summarizedRef.current?.add(m.id ?? "");
           }
         }
-        const firstRetainedVisibleIdentity = _messages
-          .filter((message) => message.type !== "remove")
-          .filter((message) => !isHiddenFromUIMessage(message))
-          .map(messageIdentity)
-          .find(isNonEmptyString);
-        const _currentMessages = [...messagesRef.current];
-        const _movedMessages: Message[] = [];
-        for (const m of _currentMessages) {
-          if (
-            firstRetainedVisibleIdentity &&
-            messageIdentity(m) === firstRetainedVisibleIdentity
-          ) {
-            break;
-          }
-          if (!summarizedRef.current?.has(m.id ?? "")) {
-            _movedMessages.push(m);
-          }
-        }
-        appendMessages(_movedMessages);
+        const transientMessages = computeSummarizationTransientMessages(
+          messagesRef.current,
+          _messages,
+          summarizedRef.current ?? new Set<string>(),
+        );
+        transientHistoryOrderRef.current = mergeTransientHistoryBridgeOrder(
+          transientHistoryOrderRef.current,
+          transientMessages,
+        );
+        transientHistoryBridgeRef.current = mergeTransientHistoryBridge(
+          transientHistoryBridgeRef.current,
+          transientMessages,
+        );
+        transientHistoryThreadIdRef.current = threadIdRef.current;
         messagesRef.current = [];
       }
 
@@ -780,77 +1467,74 @@ export function useThreadStream({
       );
       for (const update of updates) {
         if (update && "title" in update && update.title) {
-          void queryClient.setQueriesData(
-            {
-              queryKey: ["threads", "search"],
-              exact: false,
-            },
-            (oldData: Array<AgentThread> | undefined) => {
-              return oldData?.map((t) => {
-                if (t.thread_id === threadIdRef.current) {
-                  return {
-                    ...t,
-                    values: {
-                      ...t.values,
-                      title: update.title,
-                    },
-                  };
-                }
-                return t;
-              });
-            },
-          );
-          const nextTitle: string = update.title;
-          void queryClient.setQueriesData(
-            {
-              queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
-              exact: false,
-            },
-            (oldData: InfiniteData<AgentThread[]> | undefined) =>
-              mapInfiniteThreadsCache(
-                oldData,
-                (t): AgentThread =>
-                  t.thread_id === threadIdRef.current
-                    ? {
-                        ...t,
-                        values: {
-                          ...t.values,
-                          title: nextTitle,
-                        },
-                      }
-                    : t,
-              ),
-          );
+          const targetThreadId = threadIdRef.current;
+          if (targetThreadId) {
+            syncThreadTitleInListCaches(
+              queryClient,
+              targetThreadId,
+              update.title,
+            );
+          }
         }
       }
     },
     onCustomEvent(event: unknown) {
       if (
+        !isCustomEventForThread(
+          event,
+          acceptedCustomEventThreadIdsRef.current,
+          currentViewThreadIdRef.current,
+          isNewThread,
+        )
+      ) {
+        return;
+      }
+      // Narrow `event.type` once; taskEventToSubtaskUpdate already validated the
+      // task_* events, so the per-branch re-narrowing below reads this single
+      // source of truth instead of re-checking the object shape each time.
+      const eventType =
+        typeof event === "object" && event !== null && "type" in event
+          ? (event as { type: unknown }).type
+          : undefined;
+
+      const taskUpdate = taskEventToSubtaskUpdate(event);
+      if (taskUpdate) {
+        // Custom events are delivered outside React render. Publish terminal
+        // transitions eagerly; the default deferred path exists for terminal
+        // ToolMessages parsed synchronously by MessageList during render.
+        updateSubtask(taskUpdate, { eager: true });
+      }
+
+      if (
+        eventType === "task_running" &&
         typeof event === "object" &&
         event !== null &&
-        "type" in event &&
-        event.type === "task_running"
+        "message" in event &&
+        typeof event.message === "object" &&
+        event.message !== null
       ) {
         const e = event as {
           type: "task_running";
           task_id: string;
           message: AIMessage;
+          message_index?: number;
         };
-        updateSubtask({ id: e.task_id, latestMessage: e.message });
+        // Accumulate the full step history instead of overwriting (#3779): keep
+        // latestMessage for the collapsed-header tool-call hint, and append the
+        // normalized step (assistant turn or tool output) to the timeline.
+        updateSubtask({
+          id: e.task_id,
+          latestMessage: e.message,
+          steps: [messageToStep(e.message, e.message_index ?? 0)],
+        });
         return;
       }
 
-      if (
-        typeof event === "object" &&
-        event !== null &&
-        "type" in event &&
-        event.type === "llm_retry" &&
-        "message" in event &&
-        typeof event.message === "string" &&
-        event.message.trim()
-      ) {
-        const e = event as { type: "llm_retry"; message: string };
-        toast(e.message);
+      if (eventType === "llm_retry") {
+        const e = event as { type: "llm_retry"; message?: unknown };
+        if (typeof e.message === "string" && e.message.trim()) {
+          toast(e.message);
+        }
       }
     },
     onError(error) {
@@ -865,7 +1549,10 @@ export function useThreadStream({
           .map(messageIdentity)
           .filter((id): id is string => Boolean(id)),
       );
-      if (threadIdRef.current && !isMock) {
+      if (threadIdRef.current && !isMock && !isStaticDemo) {
+        void queryClient.invalidateQueries({
+          queryKey: threadHistoryQueryKey(threadIdRef.current),
+        });
         void queryClient.invalidateQueries({
           queryKey: threadTokenUsageQueryKey(threadIdRef.current),
         });
@@ -878,36 +1565,66 @@ export function useThreadStream({
           .map(messageIdentity)
           .filter((id): id is string => Boolean(id)),
       );
-      void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
-      void queryClient.invalidateQueries({
-        queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
-      });
-      if (threadIdRef.current && !isMock) {
-        void queryClient.invalidateQueries({
-          queryKey: ["thread", threadIdRef.current],
-        });
-        void queryClient.invalidateQueries({
-          queryKey: threadTokenUsageQueryKey(threadIdRef.current),
-        });
-      }
+      invalidateStoppedThreadCaches(queryClient, threadIdRef.current, isMock);
     },
   });
 
+  const streamedTitle = thread.values?.title;
+  useEffect(() => {
+    if (
+      isNewThread ||
+      isMock ||
+      isStaticDemo ||
+      !onStreamThreadId ||
+      !streamedTitle
+    ) {
+      return;
+    }
+    syncThreadTitleInListCaches(queryClient, onStreamThreadId, streamedTitle);
+  }, [
+    isMock,
+    isNewThread,
+    isStaticDemo,
+    onStreamThreadId,
+    queryClient,
+    streamedTitle,
+  ]);
+  const threadRef = useRef(thread);
+  threadRef.current = thread;
+  const recoveringRunRef = useRef<{
+    threadId: string;
+    runId: string;
+  } | null>(null);
+
+  const stopThread = useCallback(async () => {
+    const stoppedThreadId =
+      threadIdRef.current ?? displayThreadId ?? threadId ?? null;
+    await stopThreadAndInvalidateCaches(
+      queryClient,
+      () => thread.stop(),
+      stoppedThreadId,
+      isMock,
+    );
+  }, [displayThreadId, isMock, queryClient, thread, threadId]);
+
   const hasVisibleStreamState =
-    Boolean(threadId) || liveMessagesThreadId === currentViewThreadId;
-  const persistedMessages = useMemo(
-    () =>
-      hasVisibleStreamState
-        ? thread.messages.filter(
-            (message) =>
-              !message.id || !pendingSupersededMessageIds.has(message.id),
-          )
-        : [],
-    [hasVisibleStreamState, pendingSupersededMessageIds, thread.messages],
-  );
+    liveMessagesThreadId === currentViewThreadId ||
+    (!isNewThread && Boolean(threadId));
+  const persistedMessages = useMemo(() => {
+    if (!hasVisibleStreamState) {
+      return EMPTY_MESSAGES;
+    }
+    const filtered = thread.messages.filter(
+      (message) => !message.id || !pendingSupersededMessageIds.has(message.id),
+    );
+    // The SDK getter mints a fresh [] on every read while the stream has no
+    // values; normalize to a stable identity so downstream effects keyed on
+    // this array cannot re-fire (and setState-loop) on idle renders.
+    return filtered.length === 0 ? EMPTY_MESSAGES : filtered;
+  }, [hasVisibleStreamState, pendingSupersededMessageIds, thread.messages]);
   const visibleHistory = useMemo(
-    () => (threadId ? history : []),
-    [history, threadId],
+    () => (!isNewThread && threadId ? history : []),
+    [history, isNewThread, threadId],
   );
   const humanMessageCount = persistedMessages.filter(
     (m) => m.type === "human",
@@ -915,6 +1632,15 @@ export function useThreadStream({
   const latestMessageCountsRef = useRef({ humanMessageCount });
   const sendInFlightRef = useRef(false);
   const messagesRef = useRef<Message[]>([]);
+  // Current-stream lifecycle bridge for messages removed from the checkpoint
+  // tail before the canonical run-event page refetch observes the journal
+  // flush. It is never appended into useThreadHistory's persisted pages.
+  const transientHistoryBridgeRef = useRef<Message[]>([]);
+  // Full identity order of each captured checkpoint. Confirmed bridge entries
+  // are pruned from the message buffer, but remain here as non-rendering
+  // anchors so an older rescue can be placed before a newest-first page.
+  const transientHistoryOrderRef = useRef<readonly string[]>([]);
+  const transientHistoryThreadIdRef = useRef<string | null>(null);
   const summarizedRef = useRef<Set<string>>(null);
   // Track human message count before sending to prevent clearing optimistic
   // messages before the server's human message arrives (e.g. when AI messages
@@ -930,14 +1656,129 @@ export function useThreadStream({
   useEffect(() => {
     startedRef.current = false;
     sendInFlightRef.current = false;
+    recoveringRunRef.current = null;
+    setIsRecoveringActiveRun(Boolean(threadId && !isMock && !isStaticDemo));
     messagesRef.current = [];
+    transientHistoryBridgeRef.current = [];
+    transientHistoryOrderRef.current = [];
+    transientHistoryThreadIdRef.current = null;
     summarizedRef.current = new Set<string>();
     pendingUsageBaselineMessageIdsRef.current = new Set();
     setPendingSupersededRunIds(new Set());
     setPendingSupersededMessageIds(new Set());
     prevHumanMsgCountRef.current =
       latestMessageCountsRef.current.humanMessageCount;
-  }, [threadId]);
+  }, [isMock, isStaticDemo, threadId]);
+
+  const recoverActiveRun = useCallback(
+    async (targetThreadId: string): Promise<boolean> => {
+      if (isMock || isStaticDemo || !targetThreadId) return false;
+      if (threadRef.current.isLoading) return true;
+
+      try {
+        const runs = await getAPIClient().runs.list(targetThreadId);
+        if (threadIdRef.current !== targetThreadId) return false;
+
+        const activeRun = findLatestActiveRun(runs);
+        if (!activeRun) return false;
+
+        const currentRecovery = recoveringRunRef.current;
+        if (
+          currentRecovery?.threadId === targetThreadId &&
+          currentRecovery.runId === activeRun.run_id
+        ) {
+          return true;
+        }
+
+        recoveringRunRef.current = {
+          threadId: targetThreadId,
+          runId: activeRun.run_id,
+        };
+        setIsRecoveringActiveRun(true);
+        rememberReconnectRun(targetThreadId, activeRun.run_id);
+        handleStreamStart(targetThreadId, activeRun.run_id);
+
+        void threadRef.current
+          .joinStream(activeRun.run_id)
+          .catch(() => {
+            // useStream invokes its configured onError callback for stream
+            // failures. Avoid a second unhandled rejection/toast here.
+          })
+          .finally(() => {
+            const latestRecovery = recoveringRunRef.current;
+            if (
+              latestRecovery?.threadId === targetThreadId &&
+              latestRecovery.runId === activeRun.run_id
+            ) {
+              recoveringRunRef.current = null;
+              setIsRecoveringActiveRun(false);
+            }
+          });
+        return true;
+      } catch {
+        // A transient list failure must not make the chat permanently busy.
+        return false;
+      }
+    },
+    [handleStreamStart, isMock, isStaticDemo],
+  );
+
+  useEffect(() => {
+    if (!threadId || isMock || isStaticDemo) {
+      setIsRecoveringActiveRun(false);
+      return;
+    }
+
+    let disposed = false;
+    const discoverAndRecover = async () => {
+      if (disposed || threadRef.current.isLoading) {
+        if (!disposed) setIsRecoveringActiveRun(false);
+        return;
+      }
+
+      // Let useStream own its normal same-tab reconnect. This fallback is for
+      // reloads/new tabs where that browser-local key is absent even though
+      // the Gateway still has a pending/running run.
+      if (readReconnectRun(threadId)) {
+        setIsRecoveringActiveRun(false);
+        return;
+      }
+
+      const recovered = await recoverActiveRun(threadId);
+      if (!disposed && !recovered) {
+        setIsRecoveringActiveRun(false);
+      }
+    };
+
+    void discoverAndRecover();
+
+    const handlePageActive = () => {
+      if (document.visibilityState === "visible") {
+        void discoverAndRecover();
+      }
+    };
+    window.addEventListener("focus", handlePageActive);
+    document.addEventListener("visibilitychange", handlePageActive);
+    return () => {
+      disposed = true;
+      window.removeEventListener("focus", handlePageActive);
+      document.removeEventListener("visibilitychange", handlePageActive);
+    };
+  }, [isMock, isStaticDemo, recoverActiveRun, threadId]);
+
+  // Release entries individually once canonical history confirms their stable
+  // identities. Keep unconfirmed entries across failure/refetch within this
+  // page lifecycle so a temporary persistence gap cannot hide a turn.
+  useEffect(() => {
+    transientHistoryBridgeRef.current = pruneConfirmedTransientMessages(
+      transientHistoryBridgeRef.current,
+      visibleHistory,
+    );
+    if (transientHistoryBridgeRef.current.length === 0) {
+      transientHistoryOrderRef.current = [];
+      transientHistoryThreadIdRef.current = null;
+    }
+  }, [visibleHistory]);
 
   useEffect(() => {
     if (optimisticThreadId && optimisticThreadId !== currentViewThreadId) {
@@ -990,10 +1831,18 @@ export function useThreadStream({
       extraContext?: Record<string, unknown>,
       options?: SendMessageOptions,
     ) => {
-      if (sendInFlightRef.current) {
+      if (
+        sendInFlightRef.current ||
+        thread.isLoading ||
+        isRecoveringActiveRun
+      ) {
         return;
       }
       sendInFlightRef.current = true;
+
+      // The send has genuinely proceeded past the in-flight guard, so callers
+      // can now run one-time cleanup that must not fire on the dropped path.
+      options?.onSent?.();
 
       const text = message.text.trim();
 
@@ -1021,11 +1870,19 @@ export function useThreadStream({
         ...(optimisticFiles.length > 0 ? { files: optimisticFiles } : {}),
       };
 
+      const optimisticTimestamp = Date.now();
+      const optimisticHumanMessageId = hideFromUI
+        ? null
+        : `opt-human-${optimisticTimestamp}`;
+      const uploadPlaceholderId =
+        optimisticFiles.length > 0 && !hideFromUI
+          ? `opt-ai-${optimisticTimestamp}`
+          : null;
       const newOptimistic: Message[] = [];
       if (!hideFromUI) {
         newOptimistic.push({
           type: "human",
-          id: `opt-human-${Date.now()}`,
+          id: optimisticHumanMessageId!,
           content: text ? [{ type: "text", text }] : "",
           additional_kwargs: optimisticAdditionalKwargs,
         });
@@ -1035,7 +1892,7 @@ export function useThreadStream({
         // Mock AI message while files are being uploaded
         newOptimistic.push({
           type: "ai",
-          id: `opt-ai-${Date.now()}`,
+          id: uploadPlaceholderId!,
           content: t.uploads.uploadingFiles,
           additional_kwargs: { element: "task" },
         });
@@ -1049,6 +1906,15 @@ export function useThreadStream({
       let uploadedFileInfo: UploadedFileInfo[] = [];
 
       try {
+        // Attachments are uploaded before LangGraph's first submit.  On a
+        // brand-new chat, useStream would otherwise create the thread only
+        // after the upload, which can leave the file in the client-generated
+        // id while the run and Sandbox use a different id.  The API is
+        // idempotent, so the SDK's create inside submit remains safe.
+        if (isNewThread && !isMock && !isStaticDemo) {
+          await getAPIClient().threads.create({ threadId });
+        }
+
         // Upload files first if any
         if (message.files && message.files.length > 0) {
           setIsUploading(true);
@@ -1074,7 +1940,11 @@ export function useThreadStream({
             }
 
             if (files.length > 0) {
-              const uploadResponse = await uploadFiles(threadId, files);
+              const uploadResponse = await uploadFiles(
+                threadId,
+                files,
+                inferUploadPurpose(text, files),
+              );
               uploadedFileInfo = uploadResponse.files;
 
               // Update optimistic human message with uploaded status + paths
@@ -1083,25 +1953,24 @@ export function useThreadStream({
                   filename: info.filename,
                   size: info.size,
                   path: info.virtual_path,
+                  ...(info.markdown_file
+                    ? { markdown_file: info.markdown_file }
+                    : {}),
                   status: "uploaded" as const,
                 }),
               );
-              setOptimisticMessages((messages) => {
-                if (messages.length > 1 && messages[0]) {
-                  const humanMessage: Message = messages[0];
-                  return [
-                    {
-                      ...humanMessage,
-                      additional_kwargs: {
-                        ...(humanMessage.additional_kwargs ?? {}),
-                        files: uploadedFiles,
-                      },
-                    },
-                    ...messages.slice(1),
-                  ];
-                }
-                return messages;
-              });
+              // The upload endpoint returns only after synchronous parsing and
+              // atomic persistence complete. Remove the upload-only placeholder
+              // before starting the run so later thread/session startup latency
+              // is never presented as file-upload latency.
+              setOptimisticMessages((messages) =>
+                settleOptimisticUploadMessages(
+                  messages,
+                  optimisticHumanMessageId,
+                  uploadPlaceholderId,
+                  uploadedFiles,
+                ),
+              );
             }
           } catch (error) {
             const errorMessage =
@@ -1124,56 +1993,37 @@ export function useThreadStream({
             filename: info.filename,
             size: info.size,
             path: info.virtual_path,
+            ...(info.markdown_file
+              ? { markdown_file: info.markdown_file }
+              : {}),
             status: "uploaded" as const,
           }),
         );
 
-        await thread.submit(
-          {
-            messages: [
-              {
-                type: "human",
-                content: [
-                  {
-                    type: "text",
-                    text,
-                  },
-                ],
-                additional_kwargs: {
-                  ...options?.additionalKwargs,
-                  ...(filesForSubmit.length > 0
-                    ? { files: filesForSubmit }
-                    : {}),
-                },
-              },
-            ],
+        const submitInput = {
+          messages: buildThreadSubmitMessages({
+            text,
+            additionalKwargs: options?.additionalKwargs,
+            additionalInputMessages: options?.additionalInputMessages,
+            filesForSubmit,
+          }),
+        };
+        // useStream may hydrate state/history before it reaches the wrapped
+        // runs.stream call. Mark an explicit ppt-master thread before submit
+        // so every read in that first-submit window uses the isolated runtime
+        // instead of racing the ordinary LangGraph namespace and logging 404s.
+        rememberPptMasterRuntimeThread(threadId, submitInput);
+
+        await thread.submit(submitInput, {
+          threadId: threadId,
+          // No streamSubgraphs: subtask progress arrives through root custom
+          // events; subgraph frames would duplicate delegated values/messages.
+          streamResumable: true,
+          config: {
+            recursion_limit: LEAD_AGENT_RECURSION_LIMIT,
           },
-          {
-            threadId: threadId,
-            streamSubgraphs: true,
-            streamResumable: true,
-            config: {
-              recursion_limit: 1000,
-            },
-            context: {
-              ...extraContext,
-              ...context,
-              thinking_enabled: context.mode !== "flash",
-              is_plan_mode: context.mode === "pro" || context.mode === "ultra",
-              subagent_enabled: context.mode === "ultra",
-              reasoning_effort:
-                context.reasoning_effort ??
-                (context.mode === "ultra"
-                  ? "high"
-                  : context.mode === "pro"
-                    ? "medium"
-                    : context.mode === "thinking"
-                      ? "low"
-                      : undefined),
-              thread_id: threadId,
-            },
-          },
-        );
+          context: buildThreadRunContext(context, threadId, extraContext),
+        });
         void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
         void queryClient.invalidateQueries({
           queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
@@ -1194,7 +2044,11 @@ export function useThreadStream({
       context,
       queryClient,
       humanMessageCount,
+      isRecoveringActiveRun,
       persistedMessages,
+      isMock,
+      isNewThread,
+      isStaticDemo,
     ],
   );
 
@@ -1204,7 +2058,13 @@ export function useThreadStream({
       messageId: string,
       supersededMessageIds: string[] = [messageId],
     ) => {
-      if (sendInFlightRef.current || !threadId || !messageId) {
+      if (
+        sendInFlightRef.current ||
+        thread.isLoading ||
+        isRecoveringActiveRun ||
+        !threadId ||
+        !messageId
+      ) {
         return;
       }
       sendInFlightRef.current = true;
@@ -1256,27 +2116,12 @@ export function useThreadStream({
           threadId,
           checkpoint: prepared.checkpoint,
           metadata: prepared.metadata,
-          streamSubgraphs: true,
+          // No streamSubgraphs — keep the resume path aligned with submit.
           streamResumable: true,
           config: {
-            recursion_limit: 1000,
+            recursion_limit: LEAD_AGENT_RECURSION_LIMIT,
           },
-          context: {
-            ...context,
-            thinking_enabled: context.mode !== "flash",
-            is_plan_mode: context.mode === "pro" || context.mode === "ultra",
-            subagent_enabled: context.mode === "ultra",
-            reasoning_effort:
-              context.reasoning_effort ??
-              (context.mode === "ultra"
-                ? "high"
-                : context.mode === "pro"
-                  ? "medium"
-                  : context.mode === "thinking"
-                    ? "low"
-                    : undefined),
-            thread_id: threadId,
-          },
+          context: buildThreadRunContext(context, threadId),
         });
         void queryClient.invalidateQueries({ queryKey: ["thread", threadId] });
         void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
@@ -1302,7 +2147,14 @@ export function useThreadStream({
         sendInFlightRef.current = false;
       }
     },
-    [context, humanMessageCount, persistedMessages, queryClient, thread],
+    [
+      context,
+      humanMessageCount,
+      isRecoveringActiveRun,
+      persistedMessages,
+      queryClient,
+      thread,
+    ],
   );
 
   // Cache the latest thread messages in a ref to compare against incoming history messages for deduplication,
@@ -1311,17 +2163,72 @@ export function useThreadStream({
     messagesRef.current = persistedMessages;
   }
 
-  const visibleOptimisticMessages = getVisibleOptimisticMessages(
+  // Render-facing coalesced snapshot. Refs, counters and usage tracking keep
+  // consuming the per-chunk array above so lifecycle semantics (optimistic
+  // clearing, summarization capture, token-usage baselines) are unchanged.
+  const renderMessages = useCoalescedStreamMessages(
+    persistedMessages,
+    thread.isLoading,
+  );
+
+  const rawVisibleOptimisticMessages = getVisibleOptimisticMessages(
     optimisticThreadId === currentViewThreadId ? optimisticMessages : [],
     prevHumanMsgCountRef.current,
     humanMessageCount,
   );
+  const visibleOptimisticMessages =
+    rawVisibleOptimisticMessages.length === 0
+      ? EMPTY_MESSAGES
+      : rawVisibleOptimisticMessages;
 
-  const mergedMessages = mergeMessages(
+  const transientHistoryOrder =
+    transientHistoryBridgeRef.current.length > 0 &&
+    transientHistoryThreadIdRef.current === threadId
+      ? mergeTransientHistoryBridgeOrder(
+          transientHistoryOrderRef.current,
+          persistedMessages,
+        )
+      : transientHistoryOrderRef.current;
+
+  // Commit the extended non-rendering order skeleton after React commits this
+  // render. The local value above keeps this render correctly anchored without
+  // mutating a ref during render.
+  useEffect(() => {
+    if (
+      transientHistoryBridgeRef.current.length > 0 &&
+      transientHistoryThreadIdRef.current === threadId
+    ) {
+      transientHistoryOrderRef.current = mergeTransientHistoryBridgeOrder(
+        transientHistoryOrderRef.current,
+        persistedMessages,
+      );
+    }
+  }, [persistedMessages, threadId]);
+
+  // The transient-bridge refs mutate in lockstep with stream/history updates
+  // already captured by these deps, and resolveTransientHistoryBridge is
+  // idempotent for entries canonical history has absorbed, so memoizing on the
+  // coalesced snapshot cannot pin a stale bridge.
+  const mergedMessages = useMemo(() => {
+    const effectiveHistory = resolveThreadTransientHistoryBridge(
+      visibleHistory,
+      transientHistoryBridgeRef.current,
+      transientHistoryThreadIdRef.current,
+      threadId,
+      transientHistoryOrder,
+    );
+    return mergeMessages(
+      effectiveHistory,
+      renderMessages,
+      visibleOptimisticMessages,
+    );
+  }, [
+    renderMessages,
+    threadId,
+    transientHistoryOrder,
     visibleHistory,
-    persistedMessages,
     visibleOptimisticMessages,
-  );
+  ]);
   const pendingUsageMessages = thread.isLoading
     ? getMessagesAfterBaseline(
         persistedMessages,
@@ -1333,6 +2240,8 @@ export function useThreadStream({
   // History messages may overlap with thread.messages; thread.messages take precedence
   const mergedThread = {
     ...thread,
+    isLoading: thread.isLoading || isRecoveringActiveRun,
+    stop: stopThread,
     values: hasVisibleStreamState ? thread.values : EMPTY_THREAD_VALUES,
     messages: mergedMessages,
   } as typeof thread;
@@ -1352,204 +2261,97 @@ export function useThreadStream({
 type ThreadHistoryOptions = {
   enabled?: boolean;
   pendingSupersededRunIds?: ReadonlySet<string>;
+  isStaticDemo?: boolean;
 };
+
+export const THREAD_HISTORY_QUERY_POLICY = {
+  refetchOnWindowFocus: false,
+  staleTime: 5 * 60 * 1_000,
+} as const;
 
 export function useThreadHistory(
   threadId: string,
-  { enabled = true, pendingSupersededRunIds }: ThreadHistoryOptions = {},
+  {
+    enabled = true,
+    pendingSupersededRunIds,
+    isStaticDemo = false,
+  }: ThreadHistoryOptions = {},
 ) {
-  const runs = useThreadRuns(threadId, { enabled });
-  const threadIdRef = useRef(threadId);
-  const runsRef = useRef(runs.data ?? []);
-  const indexRef = useRef(-1);
-  const loadingRef = useRef(false);
-  const pendingLoadRef = useRef(false);
-  const loadingRunIdRef = useRef<string | null>(null);
-  const loadedRunIdsRef = useRef<Set<string>>(new Set());
-  const runBeforeSeqRef = useRef<Map<string, number>>(new Map());
-  const loadGenerationRef = useRef(0);
-  const [loading, setLoading] = useState(false);
-  const [messageRows, setMessageRows] = useState<RunMessage[]>([]);
-  const [appendedMessages, setAppendedMessages] = useState<Message[]>([]);
+  const historyQuery = useInfiniteQuery<
+    ThreadMessagesPageResponse,
+    Error,
+    InfiniteData<ThreadMessagesPageResponse>,
+    ReturnType<typeof threadHistoryQueryKey>,
+    number | null
+  >({
+    ...THREAD_HISTORY_QUERY_POLICY,
+    queryKey: threadHistoryQueryKey(threadId),
+    enabled: enabled && Boolean(threadId),
+    initialPageParam: null,
+    queryFn: async ({ pageParam, signal }) => {
+      if (isStaticDemo && isStaticDemoThreadId(threadId)) {
+        const thread = await loadStaticDemoThread(threadId);
+        return {
+          data: (thread.values.messages ?? []).map((content, index) => ({
+            content,
+            run_id: `static-demo-${threadId}-${index}`,
+            metadata: { caller: "static-demo" },
+            created_at: thread.updated_at ?? thread.created_at,
+          })),
+          has_more: false,
+          next_before_seq: null,
+        } satisfies ThreadMessagesPageResponse;
+      }
+      const url = buildThreadMessagesPageUrl(
+        getBackendBaseURL(),
+        threadId,
+        pageParam ?? undefined,
+      );
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        signal,
+      });
+      if (!response.ok) {
+        throw new Error(
+          await readResponseErrorMessage(
+            response,
+            "Failed to load thread history.",
+          ),
+        );
+      }
+      return (await response.json()) as ThreadMessagesPageResponse;
+    },
+    getNextPageParam: getThreadHistoryNextPageParam,
+  });
 
-  const supersededRunIds = useMemo(() => {
-    return getSupersededRunIds(runs.data, pendingSupersededRunIds);
-  }, [pendingSupersededRunIds, runs.data]);
+  const messageRows = useMemo(
+    () => flattenThreadHistoryPages(historyQuery.data?.pages ?? []),
+    [historyQuery.data?.pages],
+  );
 
   const messages = useMemo(() => {
     return buildVisibleHistoryMessages(
       messageRows,
-      supersededRunIds,
-      appendedMessages,
+      pendingSupersededRunIds ?? new Set<string>(),
     );
-  }, [appendedMessages, messageRows, supersededRunIds]);
+  }, [messageRows, pendingSupersededRunIds]);
 
-  const loadMessages = useCallback(async () => {
-    if (!enabled) {
-      return;
-    }
-    const loadGeneration = loadGenerationRef.current;
-    if (loadingRef.current) {
-      const pendingRunIndex = findLatestUnloadedRunIndex(
-        runsRef.current,
-        loadedRunIdsRef.current,
-      );
-      const pendingRun = runsRef.current[pendingRunIndex];
-      if (pendingRun && pendingRun.run_id !== loadingRunIdRef.current) {
-        pendingLoadRef.current = true;
-      }
-      return;
-    }
-    if (runsRef.current.length === 0) {
-      return;
-    }
-
-    loadingRef.current = true;
-    setLoading(true);
-
-    try {
-      let consecutiveEmptyLoads = 0;
-      do {
-        pendingLoadRef.current = false;
-
-        const nextRunIndex = findLatestUnloadedRunIndex(
-          runsRef.current,
-          loadedRunIdsRef.current,
-        );
-        indexRef.current = nextRunIndex;
-
-        const run = runsRef.current[nextRunIndex];
-        if (!run) {
-          indexRef.current = -1;
-          return;
-        }
-
-        const requestThreadId = threadIdRef.current;
-        loadingRunIdRef.current = run.run_id;
-        const beforeSeq = runBeforeSeqRef.current.get(run.run_id);
-        const url = buildRunMessagesUrl(
-          getBackendBaseURL(),
-          requestThreadId,
-          run.run_id,
-          beforeSeq,
-        );
-        const result: RunMessagesPageResponse = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        }).then((res) => {
-          return res.json();
-        });
-        if (
-          loadGenerationRef.current !== loadGeneration ||
-          threadIdRef.current !== requestThreadId
-        ) {
-          return;
-        }
-        const _messages = result.data.filter(
-          (m) => !m.metadata.caller?.startsWith("middleware:"),
-        );
-        setMessageRows((prev) =>
-          dedupeRunMessagesByIdentity([..._messages, ...prev]),
-        );
-        const nextBeforeSeq = getNextRunMessagesBeforeSeq(result);
-        if (typeof nextBeforeSeq === "number") {
-          runBeforeSeqRef.current.set(run.run_id, nextBeforeSeq);
-          pendingLoadRef.current = true;
-        } else if (nextBeforeSeq === undefined) {
-          console.warn(
-            `Run ${run.run_id} returned has_more without message seq values; leaving it pending for retry.`,
-          );
-        } else {
-          runBeforeSeqRef.current.delete(run.run_id);
-          loadedRunIdsRef.current.add(run.run_id);
-          if (
-            shouldAutoContinueOnEmptyRun(
-              _messages.length,
-              consecutiveEmptyLoads,
-            )
-          ) {
-            consecutiveEmptyLoads += 1;
-            pendingLoadRef.current = true;
-          } else {
-            consecutiveEmptyLoads = 0;
-          }
-        }
-        indexRef.current = findLatestUnloadedRunIndex(
-          runsRef.current,
-          loadedRunIdsRef.current,
-        );
-      } while (pendingLoadRef.current);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      if (loadGenerationRef.current === loadGeneration) {
-        loadingRef.current = false;
-        loadingRunIdRef.current = null;
-        setLoading(false);
-      }
-    }
-  }, [enabled]);
   useEffect(() => {
-    const threadChanged = threadIdRef.current !== threadId;
-    threadIdRef.current = threadId;
-
-    if (!enabled || threadChanged) {
-      loadGenerationRef.current += 1;
-      runsRef.current = [];
-      indexRef.current = -1;
-      pendingLoadRef.current = false;
-      loadingRunIdRef.current = null;
-      loadedRunIdsRef.current = new Set();
-      runBeforeSeqRef.current = new Map();
-      loadingRef.current = false;
-      setLoading(false);
-      setMessageRows([]);
-      setAppendedMessages([]);
-    }
-
-    if (!enabled) {
-      return;
-    }
-
-    if (runs.data && runs.data.length > 0) {
-      runsRef.current = runs.data ?? [];
-      indexRef.current = findLatestUnloadedRunIndex(
-        runs.data,
-        loadedRunIdsRef.current,
-      );
-    }
-    loadMessages().catch(() => {
+    if (historyQuery.error) {
+      console.error(historyQuery.error);
       toast.error("Failed to load thread history.");
-    });
-  }, [enabled, threadId, runs.data, loadMessages]);
+    }
+  }, [historyQuery.error]);
 
-  const appendMessages = useCallback((_messages: Message[]) => {
-    setAppendedMessages((prev) => {
-      return dedupeMessagesByIdentity([...prev, ..._messages]);
-    });
-  }, []);
-  const hasThreadId = Boolean(threadId);
-  const hasUnloadedRuns = Boolean(
-    runs.data?.some((run) => !loadedRunIdsRef.current.has(run.run_id)),
-  );
-  const isRunsLoading =
-    enabled &&
-    hasThreadId &&
-    (runs.isLoading || (runs.isFetching && !runs.data));
-  const isRunsUnresolved =
-    enabled && hasThreadId && !runs.data && !runs.isError;
-  const hasMore =
-    enabled && hasThreadId && (indexRef.current >= 0 || hasUnloadedRuns);
   return {
-    runs: runs.data,
     messages,
-    loading: loading || isRunsLoading || isRunsUnresolved,
-    appendMessages,
-    hasMore,
-    loadMore: loadMessages,
+    loading: historyQuery.isLoading || historyQuery.isFetchingNextPage,
+    hasMore: Boolean(historyQuery.hasNextPage),
+    loadMore: historyQuery.fetchNextPage,
   };
 }
 
@@ -1569,16 +2371,89 @@ export const INFINITE_THREADS_QUERY_KEY_PREFIX = [
   "searchInfinite",
 ] as const;
 
+const INFINITE_THREADS_NEXT_PAGE_PARAM = Symbol(
+  "platform.infiniteThreads.nextPageParam",
+);
+
 type InfiniteThreadsParams = Omit<
-  Parameters<ThreadsClient["search"]>[0],
+  NonNullable<Parameters<ThreadsClient["search"]>[0]>,
   "limit" | "offset"
->;
+> & { archived?: boolean };
+
+type InfiniteThreadsSearchClient = {
+  threads: {
+    search: ThreadsClient["search"];
+  };
+};
+
+type InfiniteThreadsPageWithNextParam = AgentThread[] & {
+  [INFINITE_THREADS_NEXT_PAGE_PARAM]?: number;
+};
+
+function annotateInfiniteThreadsPage(
+  page: AgentThread[],
+  nextPageParam: number | undefined,
+): AgentThread[] {
+  if (nextPageParam !== undefined) {
+    Reflect.set(page, INFINITE_THREADS_NEXT_PAGE_PARAM, nextPageParam);
+  }
+  return page;
+}
+
+export async function fetchInfiniteThreadsPage(
+  apiClient: InfiniteThreadsSearchClient,
+  params: InfiniteThreadsParams,
+  pageParam: number,
+  pageSize: number = INFINITE_THREADS_PAGE_SIZE,
+): Promise<AgentThread[]> {
+  const threads: AgentThread[] = [];
+  let offset = pageParam;
+  let nextPageParam: number | undefined;
+
+  while (threads.length < pageSize) {
+    const currentLimit = pageSize - threads.length;
+    const response =
+      params.archived === undefined
+        ? ((await apiClient.threads.search<AgentThreadState>({
+            ...params,
+            limit: currentLimit,
+            offset,
+          })) as AgentThread[])
+        : await searchThreadsByArchive({
+            ...params,
+            archived: params.archived,
+            metadata: params.metadata ?? undefined,
+            limit: currentLimit,
+            offset,
+          });
+
+    threads.push(...filterThreadSearchResults(response, params));
+    offset += response.length;
+
+    if (response.length < currentLimit) {
+      nextPageParam = undefined;
+      break;
+    }
+
+    nextPageParam = offset;
+  }
+
+  return annotateInfiniteThreadsPage(threads, nextPageParam);
+}
 
 export function getInfiniteThreadsNextPageParam(
   lastPage: AgentThread[],
   allPages: AgentThread[][],
   pageSize: number = INFINITE_THREADS_PAGE_SIZE,
 ): number | undefined {
+  const annotatedNextPageParam = Reflect.get(
+    lastPage as InfiniteThreadsPageWithNextParam,
+    INFINITE_THREADS_NEXT_PAGE_PARAM,
+  );
+  if (typeof annotatedNextPageParam === "number") {
+    return annotatedNextPageParam;
+  }
+
   if (lastPage.length < pageSize) {
     return undefined;
   }
@@ -1611,6 +2486,49 @@ export function filterInfiniteThreadsCache(
   };
 }
 
+function mergeThreadMetadata(
+  thread: AgentThread,
+  metadata: ThreadMetadataPatch,
+): AgentThread {
+  return {
+    ...thread,
+    metadata: {
+      ...(thread.metadata ?? {}),
+      ...metadata,
+    },
+  };
+}
+
+export function setThreadMetadataInCaches(
+  queryClient: QueryClient,
+  threadId: string,
+  metadata: ThreadMetadataPatch,
+) {
+  queryClient.setQueriesData(
+    { queryKey: ["threads", "search"], exact: false },
+    (oldData: Array<AgentThread> | undefined) =>
+      oldData?.map((thread) =>
+        thread.thread_id === threadId
+          ? mergeThreadMetadata(thread, metadata)
+          : thread,
+      ),
+  );
+  queryClient.setQueriesData(
+    { queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX, exact: false },
+    (oldData: InfiniteData<AgentThread[]> | undefined) =>
+      mapInfiniteThreadsCache(oldData, (thread) =>
+        thread.thread_id === threadId
+          ? mergeThreadMetadata(thread, metadata)
+          : thread,
+      ),
+  );
+  queryClient.setQueriesData(
+    { queryKey: ["thread", "metadata", threadId], exact: false },
+    (oldData: AgentThread | null | undefined) =>
+      oldData ? mergeThreadMetadata(oldData, metadata) : oldData,
+  );
+}
+
 export function useInfiniteThreads(
   params: InfiniteThreadsParams = {
     sortBy: "updated_at",
@@ -1628,14 +2546,13 @@ export function useInfiniteThreads(
   >({
     queryKey: [...INFINITE_THREADS_QUERY_KEY_PREFIX, params],
     initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
-      const response = (await apiClient.threads.search<AgentThreadState>({
-        ...params,
-        limit: INFINITE_THREADS_PAGE_SIZE,
-        offset: pageParam,
-      })) as AgentThread[];
-      return response;
-    },
+    queryFn: async ({ pageParam }) =>
+      fetchInfiniteThreadsPage(
+        apiClient,
+        params,
+        pageParam,
+        INFINITE_THREADS_PAGE_SIZE,
+      ),
     getNextPageParam: (lastPage, allPages) =>
       getInfiniteThreadsNextPageParam(lastPage, allPages),
     refetchOnWindowFocus: false,
@@ -1666,11 +2583,15 @@ export function useThreadMetadata(
   {
     enabled = true,
     isMock = false,
-  }: { enabled?: boolean; isMock?: boolean } = {},
+    isStaticDemo = false,
+  }: { enabled?: boolean; isMock?: boolean; isStaticDemo?: boolean } = {},
 ) {
-  const apiClient = getAPIClient(isMock);
+  const apiClient = getAPIClient(
+    isMock,
+    isStaticDemo ? (threadId ?? undefined) : undefined,
+  );
   return useQuery<AgentThread | null>({
-    queryKey: ["thread", "metadata", threadId, isMock],
+    queryKey: ["thread", "metadata", threadId, isMock, isStaticDemo],
     queryFn: async () => {
       if (!threadId) {
         return null;
@@ -1709,6 +2630,62 @@ export function useThreadTokenUsage(
   });
 }
 
+export function useBranchThread() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      threadId,
+      messageId,
+      messageIds,
+      title,
+    }: {
+      threadId: string;
+      messageId: string;
+      messageIds?: string[];
+      title?: string;
+    }) => branchThreadFromTurn(threadId, { messageId, messageIds, title }),
+    onSuccess(response, { threadId }) {
+      void queryClient.invalidateQueries({
+        queryKey: ["thread", "metadata", response.thread_id],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["thread", "metadata", threadId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
+      void queryClient.invalidateQueries({
+        queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
+      });
+    },
+  });
+}
+
+export function usePinThread() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      threadId,
+      pinned,
+    }: {
+      threadId: string;
+      pinned: boolean;
+    }) =>
+      patchThreadMetadata(threadId, {
+        [THREAD_PINNED_METADATA_KEY]: pinned,
+      }),
+    onSuccess(_response, { threadId, pinned }) {
+      setThreadMetadataInCaches(queryClient, threadId, {
+        [THREAD_PINNED_METADATA_KEY]: pinned,
+      });
+    },
+    onSettled() {
+      void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
+      void queryClient.invalidateQueries({
+        queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
+      });
+    },
+  });
+}
+
 export function useRunDetail(threadId: string, runId: string) {
   const apiClient = getAPIClient();
   return useQuery<Run>({
@@ -1721,35 +2698,148 @@ export function useRunDetail(threadId: string, runId: string) {
   });
 }
 
+async function deleteLocalThreadData(threadId: string) {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}`,
+    {
+      method: "DELETE",
+    },
+  );
+
+  // A 404 means the thread is already gone — the desired end state. The prior
+  // `apiClient.threads.delete` call hits the same gateway handler (nginx
+  // rewrites /api/langgraph/threads/* to /api/threads/*) and removes the
+  // thread_meta row, so this second delete's ownership guard 404s. Treat it as
+  // success to keep the delete idempotent.
+  if (!response.ok && response.status !== 404) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to delete local thread data." }));
+    throw new Error(error.detail ?? "Failed to delete local thread data.");
+  }
+}
+
+async function deleteThreadEverywhere(
+  apiClient: ThreadDeleteClient,
+  threadId: string,
+) {
+  try {
+    await apiClient.threads.delete(threadId);
+  } catch (error) {
+    // A retry can observe the remote deletion from the previous attempt.
+    if (getHttpStatus(error) !== 404) throw error;
+  }
+  await deleteLocalThreadData(threadId);
+}
+
+export async function findSidecarThreadIdsForParent(
+  apiClient: ThreadSidecarSearchClient,
+  parentThreadId: string,
+) {
+  const threadIds = new Set<string>();
+  const limit = 100;
+  for (const metadataKey of SIDECAR_METADATA_KEYS) {
+    let offset = 0;
+
+    while (true) {
+      const response = await apiClient.threads.search({
+        metadata: {
+          [metadataKey]: true,
+          parent_thread_id: parentThreadId,
+        },
+        limit,
+        offset,
+        sortBy: "updated_at",
+        sortOrder: "desc",
+        select: ["thread_id", "metadata"],
+      });
+
+      for (const thread of response) {
+        if (
+          isSidecarThread(thread) &&
+          thread.metadata?.parent_thread_id === parentThreadId
+        ) {
+          threadIds.add(thread.thread_id);
+        }
+      }
+
+      if (response.length < limit) {
+        break;
+      }
+      offset += response.length;
+    }
+  }
+
+  return [...threadIds];
+}
+
+async function deleteSidecarThreadsForParent(
+  apiClient: ThreadDeleteClient,
+  parentThreadId: string,
+) {
+  let sidecarThreadIds: string[];
+  try {
+    sidecarThreadIds = await findSidecarThreadIdsForParent(
+      apiClient,
+      parentThreadId,
+    );
+  } catch (err) {
+    console.warn(
+      `Failed to look up sidecar threads for parent ${parentThreadId}; skipping cascade cleanup. Orphaned sidecar threads may remain.`,
+      err,
+    );
+    return [];
+  }
+
+  const results = await Promise.allSettled(
+    sidecarThreadIds.map((threadId) =>
+      deleteThreadEverywhere(apiClient, threadId),
+    ),
+  );
+
+  const failedDeletions = results
+    .map((result, index) =>
+      result.status === "rejected"
+        ? { threadId: sidecarThreadIds[index], reason: result.reason }
+        : null,
+    )
+    .filter((entry): entry is { threadId: string; reason: unknown } =>
+      Boolean(entry),
+    );
+
+  if (failedDeletions.length > 0) {
+    console.warn(
+      `Failed to delete ${failedDeletions.length} sidecar thread(s) for parent ${parentThreadId}; orphaned sidecar threads may remain.`,
+      failedDeletions,
+    );
+  }
+
+  return sidecarThreadIds.filter((_, index) => {
+    return results[index]?.status === "fulfilled";
+  });
+}
+
 export function useDeleteThread() {
   const queryClient = useQueryClient();
-  const apiClient = getAPIClient();
+  const apiClient = getAPIClient() as ThreadDeleteClient;
   return useMutation({
     mutationFn: async ({
       threadId,
-      onRemoteDeleted,
+      onDeleted,
     }: {
       threadId: string;
-      onRemoteDeleted?: () => void;
+      onDeleted?: () => void;
     }) => {
-      await apiClient.threads.delete(threadId);
-      onRemoteDeleted?.();
-
-      const response = await fetch(
-        `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}`,
-        {
-          method: "DELETE",
-        },
+      const deletedSidecarThreadIds = await deleteSidecarThreadsForParent(
+        apiClient,
+        threadId,
       );
-
-      if (!response.ok) {
-        const error = await response
-          .json()
-          .catch(() => ({ detail: "Failed to delete local thread data." }));
-        throw new Error(error.detail ?? "Failed to delete local thread data.");
-      }
+      await deleteThreadEverywhere(apiClient, threadId);
+      onDeleted?.();
+      return deletedSidecarThreadIds;
     },
-    onSuccess(_, { threadId }) {
+    onSuccess(deletedSidecarThreadIds, { threadId }) {
+      const deletedThreadIds = new Set([threadId, ...deletedSidecarThreadIds]);
       queryClient.setQueriesData(
         {
           queryKey: ["threads", "search"],
@@ -1759,7 +2849,7 @@ export function useDeleteThread() {
           if (oldData == null) {
             return oldData;
           }
-          return oldData.filter((t) => t.thread_id !== threadId);
+          return oldData.filter((t) => !deletedThreadIds.has(t.thread_id));
         },
       );
       queryClient.setQueriesData(
@@ -1768,7 +2858,10 @@ export function useDeleteThread() {
           exact: false,
         },
         (oldData: InfiniteData<AgentThread[]> | undefined) =>
-          filterInfiniteThreadsCache(oldData, (t) => t.thread_id !== threadId),
+          filterInfiniteThreadsCache(
+            oldData,
+            (t) => !deletedThreadIds.has(t.thread_id),
+          ),
       );
     },
 

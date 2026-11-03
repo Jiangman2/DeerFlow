@@ -6,9 +6,9 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { env } from "@/env";
 import {
-  resolveShopCartPlatformToken,
-  SHOP_CART_PLATFORM_TOKEN_COOKIE_NAME,
-} from "@/server/shop-cart/platform-token";
+  authorizeCnoocPlatformToken,
+  buildCnoocPlatformTokenRejection,
+} from "@/server/cnooc-auth/platform-token";
 
 const DATA_LAKE_DOWNLOAD_BASE =
   "https://datalake.cnooc/jsearch/bd_search/external-download/api/cart/download";
@@ -43,9 +43,7 @@ function requestDataLakeDownload(
           }
         }
 
-        const body = Readable.toWeb(
-          upstreamResponse,
-        ) as unknown as BodyInit;
+        const body = Readable.toWeb(upstreamResponse) as unknown as BodyInit;
         resolve(
           new Response(body, {
             status: upstreamResponse.statusCode ?? 502,
@@ -66,16 +64,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ detail: "fileId is required" }, { status: 400 });
   }
 
+  const authorization = await authorizeCnoocPlatformToken(request);
+  if (!authorization.authorized) {
+    return buildCnoocPlatformTokenRejection(authorization.reason);
+  }
+
   const url = new URL(DATA_LAKE_DOWNLOAD_BASE);
   url.searchParams.set("fileId", fileId);
-  const token = resolveShopCartPlatformToken(
-    request.cookies.get(SHOP_CART_PLATFORM_TOKEN_COOKIE_NAME)?.value,
-    env.SHOP_CART_DOWNLOAD_TOKEN,
-  );
 
   let response: Response;
   try {
-    response = await requestDataLakeDownload(url, token);
+    response = await requestDataLakeDownload(url, authorization.token);
   } catch (error) {
     console.error("Failed to reach data lake download service", {
       error,

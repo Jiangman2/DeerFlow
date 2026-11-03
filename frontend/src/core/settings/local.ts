@@ -11,13 +11,14 @@ export const DEFAULT_LOCAL_SETTINGS: LocalSettings = {
   },
   context: {
     model_name: undefined,
-    mode: undefined,
+    mode: "flash",
     reasoning_effort: undefined,
+    datalake_enabled: false,
   },
 };
 
-export const LOCAL_SETTINGS_KEY = "deerflow.local-settings";
-export const THREAD_MODEL_KEY_PREFIX = "deerflow.thread-model.";
+export const LOCAL_SETTINGS_KEY = "platform.local-settings";
+export const THREAD_MODEL_KEY_PREFIX = "platform.thread-model.";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";
@@ -46,12 +47,22 @@ export interface LocalSettings {
   };
 }
 
-function mergeLocalSettings(settings?: Partial<LocalSettings>): LocalSettings {
+type LocalSettingsInput = Omit<Partial<LocalSettings>, "context"> & {
+  context?: Partial<LocalSettings["context"]>;
+};
+
+export function mergeLocalSettings(
+  settings?: LocalSettingsInput,
+): LocalSettings {
   return {
     ...DEFAULT_LOCAL_SETTINGS,
     context: {
       ...DEFAULT_LOCAL_SETTINGS.context,
       ...settings?.context,
+      datalake_enabled:
+        typeof settings?.context?.datalake_enabled === "boolean"
+          ? settings.context.datalake_enabled
+          : DEFAULT_LOCAL_SETTINGS.context.datalake_enabled,
     },
     tokenUsage: {
       ...DEFAULT_LOCAL_SETTINGS.tokenUsage,
@@ -113,7 +124,7 @@ export function getLocalSettings(): LocalSettings {
   const json = localStorage.getItem(LOCAL_SETTINGS_KEY);
   try {
     if (json) {
-      const settings = JSON.parse(json) as Partial<LocalSettings>;
+      const settings = JSON.parse(json) as LocalSettingsInput;
       return mergeLocalSettings(settings);
     }
   } catch {}

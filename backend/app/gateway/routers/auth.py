@@ -7,6 +7,7 @@ import re
 import secrets
 import time
 import urllib.parse
+from datetime import UTC, datetime
 from ipaddress import ip_address, ip_network
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -21,6 +22,7 @@ from app.gateway.auth import (
 from app.gateway.auth.cnooc import CnoocAuthError, check_cnooc_token
 from app.gateway.auth.config import get_auth_config
 from app.gateway.auth.errors import AuthErrorCode, AuthErrorResponse
+from app.gateway.auth.iam import IAMAuthError, account_email, build_authorization_url, exchange_code, get_user_info
 from app.gateway.auth.oidc import OIDCError, OIDCService
 from app.gateway.auth.oidc_state import (
     OIDCStatePayload,
@@ -31,6 +33,11 @@ from app.gateway.auth.oidc_state import (
     generate_oidc_state,
     get_state_cookie,
     set_state_cookie,
+)
+from app.gateway.auth.platform_token_cookie import (
+    CNOOC_PLATFORM_TOKEN_COOKIE_NAME,
+    clear_cnooc_platform_token_cookie,
+    set_cnooc_platform_token_cookie,
 )
 from app.gateway.auth.user_provisioning import get_or_provision_oidc_user
 from app.gateway.csrf_middleware import CSRF_COOKIE_NAME, _request_origin, generate_csrf_token, is_secure_request
@@ -147,10 +154,26 @@ class MessageResponse(BaseModel):
     message: str
 
 
-CNOOC_PLATFORM_TOKEN_COOKIE_NAME = "cnooc.platform_token"
-
-
 # ── Helpers ───────────────────────────────────────────────────────────────
+
+
+def _require_non_cnooc_auth_enabled() -> None:
+    """Fail closed when the deployment accepts only CNOOC DataLake SSO.
+
+    The browser redirect is presentation-only. This check is the authoritative
+    boundary that prevents callers from bypassing the login page and posting
+    directly to local registration, password login, setup, or generic OIDC
+    endpoints.
+    """
+    if not get_auth_config().sso_only:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=AuthErrorResponse(
+            code=AuthErrorCode.LOCAL_AUTH_DISABLED,
+            message="Local authentication is disabled. Sign in through CNOOC DataLake SSO.",
+        ).model_dump(),
+    )
 
 
 def _set_session_cookie(response: Response, token: str, request: Request) -> None:
@@ -167,15 +190,10 @@ def _set_session_cookie(response: Response, token: str, request: Request) -> Non
     )
 
 
-def _set_cnooc_platform_token_cookie(response: Response, token: str, request: Request) -> None:
-    response.set_cookie(
-        key=CNOOC_PLATFORM_TOKEN_COOKIE_NAME,
-        value=token,
-        httponly=True,
-        secure=is_secure_request(request),
-        samesite="lax",
-        max_age=7 * 24 * 3600,
-    )
+async def _record_user_login(user):
+    """Persist a successful login time before issuing the session cookie."""
+    user.last_login_at = datetime.now(UTC)
+    return await get_local_provider().update_user(user)
 
 
 # ── Rate Limiting ────────────────────────────────────────────────────────
@@ -312,6 +330,7 @@ async def login_local(
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
     """Local email/password login."""
+    _require_non_cnooc_auth_enabled()
     client_ip = _get_client_ip(request)
     _check_rate_limit(client_ip)
 
@@ -325,8 +344,10 @@ async def login_local(
         )
 
     _record_login_success(client_ip)
+    user = await _record_user_login(user)
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
+    clear_cnooc_platform_token_cookie(response, request)
 
     return LoginResponse(
         expires_in=get_auth_config().token_expiry_days * 24 * 3600,
@@ -341,6 +362,7 @@ async def register(request: Request, response: Response, body: RegisterRequest):
     The first admin is created explicitly through /initialize. This endpoint creates regular users.
     Auto-login by setting the session cookie.
     """
+    _require_non_cnooc_auth_enabled()
     try:
         user = await get_local_provider().create_user(email=body.email, password=body.password, system_role="user")
     except ValueError:
@@ -349,16 +371,28 @@ async def register(request: Request, response: Response, body: RegisterRequest):
             detail=AuthErrorResponse(code=AuthErrorCode.EMAIL_ALREADY_EXISTS, message="Email already registered").model_dump(),
         )
 
+    user = await _record_user_login(user)
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
+    clear_cnooc_platform_token_cookie(response, request)
 
-    return UserResponse(id=str(user.id), email=user.email, system_role=user.system_role, is_disabled=user.is_disabled, oauth_provider=user.oauth_provider)
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        system_role=user.system_role,
+        is_disabled=user.is_disabled,
+        oauth_provider=user.oauth_provider,
+        display_name=user.display_name,
+        organization_name=user.organization_name,
+    )
 
 
 @router.post("/logout", response_model=MessageResponse)
 async def logout(request: Request, response: Response):
-    """Logout current user by clearing the cookie."""
-    response.delete_cookie(key="access_token", secure=is_secure_request(request), samesite="lax")
+    """Logout current user and clear both DeerFlow and upstream SSO cookies."""
+    secure = is_secure_request(request)
+    response.delete_cookie(key="access_token", secure=secure, samesite="lax")
+    response.delete_cookie(key=CNOOC_PLATFORM_TOKEN_COOKIE_NAME, secure=secure, samesite="lax")
     return MessageResponse(message="Successfully logged out")
 
 
@@ -372,6 +406,7 @@ async def change_password(request: Request, response: Response, body: ChangePass
     - Always increments token_version to invalidate old sessions
     - Re-issues session cookie with new token_version
     """
+    _require_non_cnooc_auth_enabled()
     from app.gateway.auth.password import hash_password_async, verify_password_async
     from app.gateway.auth_disabled import AUTH_SOURCE_AUTH_DISABLED
 
@@ -429,6 +464,8 @@ async def get_me(request: Request):
         needs_setup=user.needs_setup,
         is_disabled=user.is_disabled,
         oauth_provider=user.oauth_provider,
+        display_name=user.display_name,
+        organization_name=user.organization_name,
     )
 
 
@@ -519,6 +556,7 @@ async def initialize_admin(request: Request, response: Response, body: Initializ
     On success, the admin account is created with ``needs_setup=False`` and
     the session cookie is set.
     """
+    _require_non_cnooc_auth_enabled()
     admin_count = await get_local_provider().count_admin_users()
     if admin_count > 0:
         raise HTTPException(
@@ -529,19 +567,35 @@ async def initialize_admin(request: Request, response: Response, body: Initializ
     try:
         user = await get_local_provider().create_user(email=body.email, password=body.password, system_role="admin", needs_setup=False)
     except ValueError:
-        # DB unique-constraint race: another concurrent request beat us.
+        admin_count = await get_local_provider().count_admin_users()
+        if admin_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=AuthErrorResponse(code=AuthErrorCode.EMAIL_ALREADY_EXISTS, message="Email already registered").model_dump(),
+            )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=AuthErrorResponse(code=AuthErrorCode.SYSTEM_ALREADY_INITIALIZED, message="System already initialized").model_dump(),
         )
 
+    user = await _record_user_login(user)
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
+    clear_cnooc_platform_token_cookie(response, request)
 
-    return UserResponse(id=str(user.id), email=user.email, system_role=user.system_role, is_disabled=user.is_disabled, oauth_provider=user.oauth_provider)
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        system_role=user.system_role,
+        is_disabled=user.is_disabled,
+        oauth_provider=user.oauth_provider,
+        display_name=user.display_name,
+        organization_name=user.organization_name,
+    )
 
 
 # ── OIDC / SSO Endpoints ────────────────────────────────────────────────
+
 
 @router.get("/cnooc/login")
 async def cnooc_token_login(
@@ -560,6 +614,7 @@ async def cnooc_token_login(
 
     provider = get_local_provider()
     user = await provider.get_user_by_oauth("cnooc", checked.user.platform_user_id)
+    needs_update = False
     if user is None:
         existing_email_user = await provider.get_user_by_email(checked.user.email)
         if existing_email_user is not None:
@@ -568,7 +623,8 @@ async def cnooc_token_login(
             elif existing_email_user.oauth_provider in (None, "cnooc"):
                 existing_email_user.oauth_provider = "cnooc"
                 existing_email_user.oauth_id = checked.user.platform_user_id
-                user = await provider.update_user(existing_email_user)
+                user = existing_email_user
+                needs_update = True
             else:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -581,6 +637,10 @@ async def cnooc_token_login(
                     oauth_provider="cnooc",
                     oauth_id=checked.user.platform_user_id,
                     system_role="user",
+                    display_name=checked.user.name,
+                    organization_id=checked.user.organization_id,
+                    organization_code=checked.user.organization_code,
+                    organization_name=checked.user.organization_name,
                 )
             except ValueError as exc:
                 raise HTTPException(
@@ -588,16 +648,152 @@ async def cnooc_token_login(
                     detail="An account with this email already exists. Contact your administrator to link it to your SSO account.",
                 ) from exc
 
+    profile_fields = {
+        "display_name": checked.user.name,
+        "organization_id": checked.user.organization_id,
+        "organization_code": checked.user.organization_code,
+        "organization_name": checked.user.organization_name,
+    }
+    for field, value in profile_fields.items():
+        if getattr(user, field) != value:
+            setattr(user, field, value)
+            needs_update = True
+    if needs_update:
+        user = await provider.update_user(user)
+
     if user.is_disabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled.")
 
+    try:
+        user = await provider.bind_cnooc_platform_token(str(user.id), checked.platform_token_hash)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="CNOOC platform token is already bound to another account.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to bind CNOOC platform token for user %s", user.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to persist CNOOC login.",
+        ) from exc
+
+    user = await _record_user_login(user)
     access_token = create_access_token(str(user.id), token_version=user.token_version)
     redirect_path = validate_next_param(next) or "/workspace/chats/new"
     redirect_response = RedirectResponse(url=redirect_path, status_code=status.HTTP_302_FOUND)
     _set_session_cookie(redirect_response, access_token, request)
     _set_csrf_cookie(redirect_response, request)
-    _set_cnooc_platform_token_cookie(redirect_response, token, request)
+    set_cnooc_platform_token_cookie(redirect_response, token, request)
     return redirect_response
+
+
+# ── CNOOC IAM authorization-code login ───────────────────────────────────
+
+
+def _get_iam_config():
+    from deerflow.config.app_config import get_app_config
+
+    config = get_app_config().auth.iam
+    if not config.enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IAM authentication is not enabled")
+    return config
+
+
+def _resolve_iam_redirect_uri(request: Request, config) -> str:
+    if config.redirect_uri:
+        return config.redirect_uri
+    origin = _request_origin(request) or f"{request.url.scheme}://{request.headers.get('host', 'localhost:8001')}"
+    return f"{origin}/api/v1/auth/iam/callback"
+
+
+async def _find_iam_user(identity) -> object:
+    """Resolve a browser IAM identity only to a prior IAM-synchronized user."""
+    provider = get_local_provider()
+    existing = await provider.get_user_by_oauth("iam", identity.uid)
+    if existing is not None:
+        return existing
+
+    for account in identity.application_accounts:
+        try:
+            email = account_email(account)
+        except IAMAuthError:
+            continue
+        user = await provider.get_user_by_email(email)
+        if user is None:
+            # Preserve conversations created under releases that used a
+            # synthetic IAM address before the AD-mailbox contract existed.
+            from app.gateway.auth.iam import is_legacy_account_email, legacy_account_email
+
+            legacy = await provider.get_user_by_email(legacy_account_email(account))
+            if legacy is not None and is_legacy_account_email(legacy.email):
+                legacy.email = email
+                legacy.oauth_provider = "iam"
+                user = await provider.update_user(legacy)
+        if user is None:
+            continue
+        if user.oauth_provider != "iam":
+            raise HTTPException(status_code=409, detail="The corporate mailbox is already owned by a non-IAM account")
+        if user.oauth_id is not None and user.oauth_id != identity.uid:
+            raise HTTPException(status_code=409, detail="IAM account identity is already bound to another user")
+        user.oauth_id = identity.uid
+        return await provider.update_user(user)
+    raise HTTPException(status_code=403, detail="IAM user has not been synchronized to DeerFlow")
+
+
+@router.get("/iam/login")
+async def iam_login(request: Request, next: str | None = None):  # noqa: A002
+    config = _get_iam_config()
+    redirect_path = validate_next_param(next) or "/workspace/chats/new"
+    state = generate_oidc_state()
+    payload = OIDCStatePayload(provider="iam", state=state, next_path=redirect_path)
+    redirect_uri = _resolve_iam_redirect_uri(request, config)
+    try:
+        target = build_authorization_url(config, redirect_uri=redirect_uri, state=state)
+    except IAMAuthError as exc:
+        logger.error("IAM login is misconfigured: %s", exc)
+        raise HTTPException(status_code=503, detail="IAM authentication is unavailable") from exc
+    response = RedirectResponse(url=target, status_code=status.HTTP_302_FOUND)
+    set_state_cookie(response, request, payload)
+    return response
+
+
+# ``auth.iam.redirect_uri`` is an externally registered IAM application
+# contract. Existing deployments use this legacy callback path, so preserve
+# it as an explicit static route ahead of the generic OIDC callback route.
+@router.get("/callback/iam", include_in_schema=False)
+@router.get("/iam/callback")
+async def iam_callback(request: Request, code: str | None = None, state: str | None = None):
+    config = _get_iam_config()
+    state_payload = get_state_cookie(request, "iam")
+    if not code or not state or state_payload is None or not secrets.compare_digest(state, state_payload.state):
+        response = RedirectResponse(url=_build_error_redirect(config.frontend_base_url, "sso_failed"), status_code=status.HTTP_302_FOUND)
+        delete_state_cookie(response, request, "iam")
+        return response
+    try:
+        token = await exchange_code(config, code=code, redirect_uri=_resolve_iam_redirect_uri(request, config))
+        identity = await get_user_info(config, token)
+        user = await _find_iam_user(identity)
+        if user.is_disabled:
+            raise HTTPException(status_code=403, detail="This account has been disabled.")
+        user = await _record_user_login(user)
+    except HTTPException as exc:
+        logger.warning("IAM SSO callback failed: %s", exc.detail)
+        error = "sso_not_allowed" if exc.status_code == 403 else "sso_account_exists" if exc.status_code == 409 else "sso_failed"
+        response = RedirectResponse(url=_build_error_redirect(config.frontend_base_url, error), status_code=status.HTTP_302_FOUND)
+        delete_state_cookie(response, request, "iam")
+        return response
+    except IAMAuthError as exc:
+        logger.warning("IAM SSO callback failed: %s", exc)
+        response = RedirectResponse(url=_build_error_redirect(config.frontend_base_url, "sso_failed"), status_code=status.HTTP_302_FOUND)
+        delete_state_cookie(response, request, "iam")
+        return response
+    response = RedirectResponse(url=f"{config.frontend_base_url or ''}/auth/callback?next={urllib.parse.quote(state_payload.next_path)}", status_code=status.HTTP_302_FOUND)
+    _set_session_cookie(response, create_access_token(str(user.id), token_version=user.token_version), request)
+    _set_csrf_cookie(response, request)
+    clear_cnooc_platform_token_cookie(response, request)
+    delete_state_cookie(response, request, "iam")
+    return response
 
 
 _OIDC_PROVIDER_KEY_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
@@ -627,6 +823,10 @@ def _set_csrf_cookie(response: Response, request: Request) -> None:
         httponly=False,  # Must be JS-readable for Double Submit Cookie pattern
         secure=is_https,
         samesite="strict",
+        # Persist for the same lifetime as the access_token (see _set_session_cookie)
+        # so the double-submit pair is evicted together, never leaving a logged-in
+        # session whose csrf_token was dropped (e.g. iOS Safari PWA termination).
+        max_age=get_auth_config().token_expiry_days * 24 * 3600 if is_https else None,
     )
 
 
@@ -660,11 +860,18 @@ async def list_auth_providers():
 
     app_config = get_app_config()
     oidc_config = app_config.auth.oidc
-
-    if not oidc_config.enabled:
-        return {"providers": []}
+    iam_config = app_config.auth.iam
 
     providers = []
+    if iam_config.enabled:
+        providers.append({"id": "iam", "display_name": "CNOOC IAM", "type": "iam"})
+
+    if get_auth_config().sso_only:
+        return {"providers": providers, "sso_only": True}
+
+    if not oidc_config.enabled:
+        return {"providers": providers}
+
     for provider_id, provider_cfg in oidc_config.providers.items():
         providers.append(
             {
@@ -688,6 +895,7 @@ async def oauth_login(
     and PKCE parameters. The ``next`` query parameter specifies where to
     redirect after successful login (default: /workspace).
     """
+    _require_non_cnooc_auth_enabled()
     from deerflow.config.app_config import get_app_config
 
     app_config = get_app_config()
@@ -769,6 +977,7 @@ async def oauth_callback(
     the ID token, provisions/links the DeerFlow user, and sets the
     session cookie.
     """
+    _require_non_cnooc_auth_enabled()
     from deerflow.config.app_config import get_app_config
 
     app_config = get_app_config()
@@ -852,6 +1061,7 @@ async def oauth_callback(
     user = result["user"]
 
     # ── Issue DeerFlow session ───────────────────────────────────────
+    user = await _record_user_login(user)
     token = create_access_token(str(user.id), token_version=user.token_version)
 
     redirect_target = state_payload.next_path or "/workspace"
@@ -865,6 +1075,7 @@ async def oauth_callback(
 
     # Set CSRF cookie (callback is a GET, so CSRF middleware won't set it)
     _set_csrf_cookie(redirect_response, request)
+    clear_cnooc_platform_token_cookie(redirect_response, request)
 
     # Delete state cookie
     delete_state_cookie(redirect_response, request, provider)

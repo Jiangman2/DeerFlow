@@ -16,6 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from deerflow.skills.slash import RESERVED_SLASH_SKILL_NAMES
+
 
 @dataclass(frozen=True)
 class Command:
@@ -39,6 +41,7 @@ BUILTIN_COMMANDS: tuple[Command, ...] = (
     Command("threads", "Open the thread switcher"),
     Command("switch", "Open the thread switcher"),
     Command("resume", "Resume a thread by id or title"),
+    Command("goal", "Set, show or clear the active goal"),
     Command("model", "Open the model picker"),
     Command("skills", "Browse enabled and available skills"),
     Command("tools", "Show built-in, MCP and sandbox tools"),
@@ -62,7 +65,7 @@ def build_registry(skills: list[dict]) -> list[Command]:
         if not skill.get("enabled", False):
             continue
         name = skill.get("name")
-        if not name or name in _BUILTIN_NAMES:
+        if not name or name in _BUILTIN_NAMES or name in RESERVED_SLASH_SKILL_NAMES:
             continue
         commands.append(Command(name=name, description=skill.get("description", "") or "", category="skill"))
     return commands
@@ -108,6 +111,11 @@ def resolve(text: str, skills: list[str] | None = None) -> Resolution:
 
     if name in _BUILTIN_NAMES:
         return Resolution(kind="builtin", name=name, args=args)
+
+    if name in RESERVED_SLASH_SKILL_NAMES or (name == "context" and (args == "compact" or args.startswith("compact "))):
+        # TUI has no manual-compaction handler. Never send that control request
+        # as a Skill task; an ordinary /context task remains available.
+        return Resolution(kind="unknown", name=name, args=args)
 
     if skills and name in skills:
         return Resolution(kind="skill", name=name, args=args)

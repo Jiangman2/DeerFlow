@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-14",
+  "scope": "ALREADY_PUBLISHED_FRONTEND_HOME_ONLY",
+  "published_source_files": 16,
+  "published_payload_hashes": "PASS_ALL_16",
+  "source_archive_sha256": "578909778238f752bcb21c62a4694ec672a0290b1e1442aa9273f71db694f85b",
+  "pre_push_checks": {
+    "pnpm_check_full_frontend_eslint_and_typescript": "PASS_EXIT_0",
+    "portal_links_unit": {"passed": 3, "failed": 0, "skipped": 0},
+    "source_overlay": {"passed": 5, "failed": 0, "skipped": 0},
+    "git_diff_check_frontend": "PASS"
+  },
+  "historical_pre_release_checks_not_rerun_for_this_commit": {
+    "next_production_build": "PASS",
+    "playwright": {"passed": 45, "failed": 0, "workers": 1, "retries": 0},
+    "playwright_backend_and_external_targets": "MOCKED"
+  },
+  "operator_supplied_server_receipts": {
+    "candidate_build": "PASS",
+    "image_canary_nodes_passed": 2,
+    "frontend_only_rollout_fix1": "PASS",
+    "runtime_acceptance": "PASS",
+    "release_acceptance": "PENDING_USER_BROWSER",
+    "rollout_receipt_sha256": "b59cabd04fd050a243dcc41e9cbd6c845bc4c15d6a39b9a6256e505bb9cf7878"
+  },
+  "commit_does_not_authorize_new_deployment": true,
+  "upgrade_worktree_modified_by_this_commit_work": false,
+  "unreleased_mineru_changes_included": false,
+  "production_configuration_or_credentials_included": false,
+  "database_migrations_included": false
+}

@@ -280,7 +280,7 @@ def test_require_permission_denies_wrong_permission():
             assert "Permission denied" in response.json()["detail"]
 
 
-def _make_internal_owner_check_app():
+def _make_internal_owner_check_app(action: str = "read"):
     """App with an owner_check route and a thread owned by ``alice``."""
     import asyncio
 
@@ -295,7 +295,7 @@ def _make_internal_owner_check_app():
     app.state.thread_store = thread_store
 
     @app.get("/threads/{thread_id}")
-    @require_permission("threads", "read", owner_check=True)
+    @require_permission("threads", action, owner_check=True)
     async def endpoint(thread_id: str, request: Request):
         return {"ok": True}
 
@@ -309,6 +309,35 @@ def _internal_auth_context() -> AuthContext:
 
     user = SimpleNamespace(id="default", system_role=INTERNAL_SYSTEM_ROLE)
     return AuthContext(user=user, permissions=[Permissions.THREADS_READ])
+
+
+def _admin_auth_context(*permissions: str) -> AuthContext:
+    from types import SimpleNamespace
+
+    user = SimpleNamespace(id="admin", system_role="admin")
+    return AuthContext(user=user, permissions=list(permissions))
+
+
+def test_require_permission_admin_can_read_another_users_thread():
+    app = _make_internal_owner_check_app()
+    with patch(
+        "app.gateway.authz._authenticate",
+        return_value=_admin_auth_context(Permissions.THREADS_READ),
+    ):
+        with TestClient(app) as client:
+            response = client.get("/threads/alice-thread")
+    assert response.status_code == 200
+
+
+def test_require_permission_admin_cannot_write_another_users_thread():
+    app = _make_internal_owner_check_app("write")
+    with patch(
+        "app.gateway.authz._authenticate",
+        return_value=_admin_auth_context(Permissions.THREADS_WRITE),
+    ):
+        with TestClient(app) as client:
+            response = client.get("/threads/alice-thread")
+    assert response.status_code == 404
 
 
 def test_require_permission_internal_role_scoped_by_owner_header():
@@ -755,7 +784,12 @@ def test_missing_jwt_secret_generates_ephemeral(monkeypatch, caplog):
     config_module._auth_config = None
     monkeypatch.delenv("AUTH_JWT_SECRET", raising=False)
 
-    with caplog.at_level(logging.WARNING):
+    # Keep a developer's local .env from silently repopulating the variable
+    # that this test intentionally removes.
+    with (
+        patch("dotenv.load_dotenv"),
+        caplog.at_level(logging.WARNING),
+    ):
         config = config_module.get_auth_config()
 
     assert config.jwt_secret  # non-empty ephemeral secret

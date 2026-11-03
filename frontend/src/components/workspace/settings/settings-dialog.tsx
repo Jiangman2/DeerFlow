@@ -5,9 +5,7 @@ import {
   CableIcon,
   InfoIcon,
   BrainIcon,
-  MapPinnedIcon,
   MegaphoneIcon,
-  PaletteIcon,
   SparklesIcon,
   UserIcon,
   UsersIcon,
@@ -18,7 +16,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -26,11 +23,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AboutSettingsPage } from "@/components/workspace/settings/about-settings-page";
 import { AccountSettingsPage } from "@/components/workspace/settings/account-settings-page";
 import { AnnouncementSettingsPage } from "@/components/workspace/settings/announcement-settings-page";
-import { AppearanceSettingsPage } from "@/components/workspace/settings/appearance-settings-page";
 import { ChannelsSettingsPage } from "@/components/workspace/settings/channels-settings-page";
 import { MemorySettingsPage } from "@/components/workspace/settings/memory-settings-page";
 import { NotificationSettingsPage } from "@/components/workspace/settings/notification-settings-page";
-import { SiteNavigationSettingsPage } from "@/components/workspace/settings/site-navigation-settings-page";
 import { SkillSettingsPage } from "@/components/workspace/settings/skill-settings-page";
 import { ToolSettingsPage } from "@/components/workspace/settings/tool-settings-page";
 import { UserManagementSettingsPage } from "@/components/workspace/settings/user-management-settings-page";
@@ -40,14 +35,12 @@ import { cn } from "@/lib/utils";
 
 type SettingsSection =
   | "account"
-  | "appearance"
+  | "announcements"
   | "channels"
   | "memory"
   | "tools"
   | "skills"
-  | "sites"
   | "users"
-  | "announcements"
   | "notification"
   | "about";
 
@@ -56,7 +49,7 @@ type SettingsDialogProps = React.ComponentProps<typeof Dialog> & {
 };
 
 export function SettingsDialog(props: SettingsDialogProps) {
-  const { defaultSection = "appearance", ...dialogProps } = props;
+  const { defaultSection = "account", ...dialogProps } = props;
   const { t } = useI18n();
   const { user } = useAuth();
   const isAdmin = user?.system_role === "admin";
@@ -79,11 +72,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
         icon: UserIcon,
       },
       {
-        id: "appearance",
-        label: t.settings.sections.appearance,
-        icon: PaletteIcon,
-      },
-      {
         id: "notification",
         label: t.settings.sections.notification,
         icon: BellIcon,
@@ -102,28 +90,14 @@ export function SettingsDialog(props: SettingsDialogProps) {
       { id: "skills", label: t.settings.sections.skills, icon: SparklesIcon },
       ...(isAdmin
         ? [
-            {
-              id: "users",
-              label: "用户",
-              icon: UsersIcon,
-            },
-            {
-              id: "sites",
-              label: "站点",
-              icon: MapPinnedIcon,
-            },
-            {
-              id: "announcements",
-              label: "公告",
-              icon: MegaphoneIcon,
-            },
+            { id: "users", label: "用户管理", icon: UsersIcon },
+            { id: "announcements", label: "公告", icon: MegaphoneIcon },
           ]
         : []),
       { id: "about", label: t.settings.sections.about, icon: InfoIcon },
     ],
     [
       t.settings.sections.account,
-      t.settings.sections.appearance,
       t.settings.sections.channels,
       t.settings.sections.memory,
       t.settings.sections.tools,
@@ -138,63 +112,70 @@ export function SettingsDialog(props: SettingsDialogProps) {
       {...dialogProps}
       onOpenChange={(open) => props.onOpenChange?.(open)}
     >
-      <DialogContent className="flex h-[75vh] max-h-[calc(100vh-2rem)] flex-col sm:max-w-5xl md:max-w-6xl">
-        <DialogHeader className="gap-1">
-          <DialogTitle>{t.settings.title}</DialogTitle>
-          <DialogDescription className="text-muted-foreground text-sm">
-            {t.settings.description}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
-          <nav className="bg-sidebar min-h-0 overflow-y-auto rounded-lg border p-2">
-            <ul className="space-y-1 pr-1">
-              {sections.map(({ id, label, icon: Icon }) => {
-                const active = activeSection === id;
-                return (
-                  <li key={id}>
-                    <button
-                      type="button"
-                      onClick={() => setActiveSection(id as SettingsSection)}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                        active
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                      )}
-                    >
-                      <Icon className="size-4" />
-                      <span>{label}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-          <ScrollArea className="h-full min-h-0 rounded-lg border">
-            <div className="space-y-8 p-6">
-              {activeSection === "account" && <AccountSettingsPage />}
-              {activeSection === "appearance" && <AppearanceSettingsPage />}
-              {activeSection === "memory" && <MemorySettingsPage />}
-              {activeSection === "tools" && <ToolSettingsPage />}
-              {activeSection === "skills" && (
-                <SkillSettingsPage
-                  onClose={() => props.onOpenChange?.(false)}
-                />
-              )}
-              {activeSection === "notification" && <NotificationSettingsPage />}
-              {activeSection === "channels" && <ChannelsSettingsPage />}
-              {activeSection === "users" && isAdmin && (
-                <UserManagementSettingsPage />
-              )}
-              {activeSection === "sites" && isAdmin && (
-                <SiteNavigationSettingsPage />
-              )}
-              {activeSection === "announcements" && isAdmin && (
-                <AnnouncementSettingsPage />
-              )}
-              {activeSection === "about" && <AboutSettingsPage />}
-            </div>
-          </ScrollArea>
+      <DialogContent
+        className="mobile-fullscreen-surface app-safe-area flex w-screen max-w-none min-w-0 flex-col gap-0 overflow-hidden rounded-none border-x-0 p-0 sm:h-[calc(100vh-2rem)] sm:max-h-[56rem] sm:w-[calc(100vw-2rem)] sm:max-w-5xl sm:rounded-lg sm:border md:max-w-6xl"
+        aria-describedby={undefined}
+        data-testid="settings-dialog"
+      >
+        <div
+          className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6"
+          data-testid="settings-dialog-frame"
+        >
+          <DialogHeader className="shrink-0 gap-1 pr-8 text-left">
+            <DialogTitle>{t.settings.title}</DialogTitle>
+            <p className="text-muted-foreground text-sm">
+              {t.settings.description}
+            </p>
+          </DialogHeader>
+          <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden md:grid-cols-[220px_minmax(0,1fr)] md:grid-rows-1 md:gap-4">
+            <nav className="app-scroll-region bg-sidebar min-w-0 overflow-x-auto overflow-y-hidden rounded-lg border p-2 md:min-h-0 md:overflow-x-hidden md:overflow-y-auto">
+              <ul className="flex w-max min-w-full gap-1 md:block md:w-auto md:min-w-0 md:space-y-1 md:pr-1">
+                {sections.map(({ id, label, icon: Icon }) => {
+                  const active = activeSection === id;
+                  return (
+                    <li key={id}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection(id as SettingsSection)}
+                        className={cn(
+                          "flex min-h-10 shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors md:w-full md:gap-3",
+                          active
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        )}
+                      >
+                        <Icon className="size-4" />
+                        <span>{label}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+            <ScrollArea className="app-scroll-region h-full min-h-0 min-w-0 rounded-lg border">
+              <div className="min-w-0 space-y-8 p-4 sm:p-6">
+                {activeSection === "account" && <AccountSettingsPage />}
+                {activeSection === "announcements" && isAdmin && (
+                  <AnnouncementSettingsPage />
+                )}
+                {activeSection === "memory" && <MemorySettingsPage />}
+                {activeSection === "tools" && <ToolSettingsPage />}
+                {activeSection === "skills" && (
+                  <SkillSettingsPage
+                    onClose={() => props.onOpenChange?.(false)}
+                  />
+                )}
+                {activeSection === "notification" && (
+                  <NotificationSettingsPage />
+                )}
+                {activeSection === "channels" && <ChannelsSettingsPage />}
+                {activeSection === "users" && isAdmin && (
+                  <UserManagementSettingsPage />
+                )}
+                {activeSection === "about" && <AboutSettingsPage />}
+              </div>
+            </ScrollArea>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

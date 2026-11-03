@@ -10,12 +10,14 @@ function getInternalServiceURL(envKey, fallbackURL) {
     ? configured.replace(/\/+$/, "")
     : fallbackURL;
 }
+
 import nextra from "nextra";
 
 const withNextra = nextra({});
 
 /** @type {import("next").NextConfig} */
 const config = {
+  poweredByHeader: false,
   output:
     process.env.NEXT_CONFIG_BUILD_OUTPUT === "standalone"
       ? "standalone"
@@ -25,51 +27,49 @@ const config = {
     defaultLocale: "en",
   },
   devIndicators: false,
-  allowedDevOrigins: ["127.0.0.1"],
+  async redirects() {
+    // These retired public documentation entries already redirect to the
+    // enterprise workspace at page level. Resolve them before Nextra/locale
+    // rendering, which can otherwise fail before that redirect is reached.
+    return ["en", "zh"].map((language) => ({
+      source: `/${language}/docs/:path*`,
+      destination: "/workspace/chats/new",
+      permanent: false,
+      locale: false,
+    }));
+  },
   async rewrites() {
-    const rewrites = [];
+    const gatewayFallbackRewrites = [];
     const gatewayURL = getInternalServiceURL(
       "DEER_FLOW_INTERNAL_GATEWAY_BASE_URL",
       "http://127.0.0.1:8001",
     );
 
-    // Auth pages use same-origin `/api/v1/auth/*` endpoints so HttpOnly
-    // cookies are issued for the frontend origin. Keep this proxy active even
-    // when NEXT_PUBLIC_BACKEND_BASE_URL is configured for other API clients.
-    rewrites.push({
-      source: "/api/v1/auth",
-      destination: `${gatewayURL}/api/v1/auth`,
-    });
-    rewrites.push({
-      source: "/api/v1/auth/:path*",
-      destination: `${gatewayURL}/api/v1/auth/:path*`,
-    });
-
     if (!process.env.NEXT_PUBLIC_LANGGRAPH_BASE_URL) {
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/langgraph",
         destination: `${gatewayURL}/api`,
       });
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/langgraph/:path*",
         destination: `${gatewayURL}/api/:path*`,
       });
     }
 
     if (!process.env.NEXT_PUBLIC_BACKEND_BASE_URL) {
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/agents",
         destination: `${gatewayURL}/api/agents`,
       });
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/agents/:path*",
         destination: `${gatewayURL}/api/agents/:path*`,
       });
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/skills",
         destination: `${gatewayURL}/api/skills`,
       });
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/skills/:path*",
         destination: `${gatewayURL}/api/skills/:path*`,
       });
@@ -81,13 +81,22 @@ const config = {
       // NOTE: this must come AFTER the /api/langgraph rewrite above so that
       // LangGraph-compatible routes keep their public prefix while Gateway
       // receives its native /api/* paths.
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/:path*",
         destination: `${gatewayURL}/api/:path*`,
       });
     }
 
-    return rewrites;
+    // Gateway proxying is deliberately a fallback. Next.js must resolve
+    // repository-owned App Router handlers first, including the CNOOC
+    // external-agent launch route that reads the HttpOnly platform-token
+    // cookie. An array return is treated as an earlier rewrite phase in the
+    // production server and can make the catch-all shadow those handlers.
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: gatewayFallbackRewrites,
+    };
   },
 };
 

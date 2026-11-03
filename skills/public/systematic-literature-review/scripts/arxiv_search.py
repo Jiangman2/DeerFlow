@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from typing import Any
 
 # Namespace map for arXiv's Atom feed. arXiv extends Atom with its own
@@ -39,7 +40,12 @@ NS_MAP = {
 
 ARXIV_ENDPOINT = "http://export.arxiv.org/api/query"
 MAX_RESULTS_UPPER_BOUND = 50
-DEFAULT_TIMEOUT_SECONDS = 30
+DEFAULT_TIMEOUT_SECONDS = 20
+DEFAULT_MAX_ATTEMPTS = 3
+MAX_ATTEMPTS_UPPER_BOUND = 5
+BACKOFF_BASE_SECONDS = 2.0
+BACKOFF_MAX_SECONDS = 8.0
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 # --- HTTP client with requests -> urllib fallback --------------------------
@@ -52,9 +58,10 @@ except ImportError:
     import urllib.request
 
     class _UrllibResponse:
-        def __init__(self, data: bytes, status: int) -> None:
+        def __init__(self, data: bytes, status: int, headers: Any = None) -> None:
             self._data = data
             self.status_code = status
+            self.headers = headers or {}
             self.text = data.decode("utf-8", errors="replace")
             self.content = data
 
@@ -81,14 +88,83 @@ except ImportError:
             req = urllib.request.Request(url, headers={"User-Agent": "deerflow-slr-skill/0.1"})
             try:
                 with urllib.request.urlopen(req, timeout=timeout) as resp:
-                    return _UrllibResponse(resp.read(), resp.status)
+                    return _UrllibResponse(resp.read(), resp.status, resp.headers)
             except urllib.error.HTTPError as e:
-                return _UrllibResponse(e.read(), e.code)
+                return _UrllibResponse(e.read(), e.code, e.headers)
 
     requests = _UrllibRequestsShim()  # type: ignore
 
 
 # --- Core query + parsing --------------------------------------------------
+
+
+def _retry_delay(response: Any | None, attempt: int) -> float:
+    """Return a bounded retry delay, including a capped Retry-After hint."""
+    retry_after = None
+    if response is not None:
+        headers = getattr(response, "headers", None) or {}
+        retry_after = headers.get("Retry-After") or headers.get("retry-after")
+    if retry_after is not None:
+        try:
+            return min(max(float(retry_after), 0.0), BACKOFF_MAX_SECONDS)
+        except (TypeError, ValueError):
+            pass
+    return min(BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)), BACKOFF_MAX_SECONDS)
+
+
+def _is_retryable_exception(exc: Exception) -> bool:
+    return exc.__class__.__name__ in {
+        "ConnectionError",
+        "ConnectTimeout",
+        "ReadTimeout",
+        "Timeout",
+        "TimeoutError",
+        "URLError",
+    }
+
+
+def _get_with_bounded_retry(
+    params: dict[str, Any],
+    *,
+    max_attempts: int,
+    timeout_seconds: int,
+) -> Any:
+    max_attempts = min(max(1, max_attempts), MAX_ATTEMPTS_UPPER_BOUND)
+    for attempt in range(1, max_attempts + 1):
+        response = None
+        try:
+            response = requests.get(
+                ARXIV_ENDPOINT,
+                params=params,
+                timeout=timeout_seconds,
+            )
+        except Exception as exc:
+            if not _is_retryable_exception(exc) or attempt >= max_attempts:
+                raise
+            delay = _retry_delay(None, attempt)
+            print(
+                f"arxiv_search.py: transient network error; retry "
+                f"{attempt + 1}/{max_attempts} in {delay:g}s",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
+            continue
+
+        status_code = int(getattr(response, "status_code", 200))
+        if status_code in RETRYABLE_STATUS_CODES and attempt < max_attempts:
+            delay = _retry_delay(response, attempt)
+            print(
+                f"arxiv_search.py: HTTP {status_code}; retry "
+                f"{attempt + 1}/{max_attempts} in {delay:g}s",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
+            continue
+
+        response.raise_for_status()
+        return response
+
+    raise RuntimeError(f"arXiv request failed after {max_attempts} attempts")
 
 
 def _build_search_query(
@@ -199,6 +275,8 @@ def search(
     sort_by: str = "relevance",
     start_date: str | None = None,
     end_date: str | None = None,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> list[dict]:
     """Query arXiv and return a list of paper dicts.
 
@@ -228,8 +306,11 @@ def search(
         "sortOrder": "descending",
     }
 
-    resp = requests.get(ARXIV_ENDPOINT, params=params, timeout=DEFAULT_TIMEOUT_SECONDS)
-    resp.raise_for_status()
+    resp = _get_with_bounded_retry(
+        params,
+        max_attempts=max_attempts,
+        timeout_seconds=timeout_seconds,
+    )
 
     # arXiv returns Atom XML, not JSON.
     root = ET.fromstring(resp.text)
@@ -279,6 +360,23 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="latest submission date, YYYY-MM-DD (inclusive)",
     )
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=DEFAULT_MAX_ATTEMPTS,
+        choices=range(1, MAX_ATTEMPTS_UPPER_BOUND + 1),
+        metavar=f"1-{MAX_ATTEMPTS_UPPER_BOUND}",
+        help=(
+            f"maximum HTTP attempts for timeout/429/5xx failures "
+            f"(default: {DEFAULT_MAX_ATTEMPTS})"
+        ),
+    )
+    parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=DEFAULT_TIMEOUT_SECONDS,
+        help=f"timeout for each HTTP attempt (default: {DEFAULT_TIMEOUT_SECONDS})",
+    )
     return parser
 
 
@@ -292,6 +390,8 @@ def main() -> int:
             sort_by=args.sort_by,
             start_date=args.start_date,
             end_date=args.end_date,
+            max_attempts=args.max_attempts,
+            timeout_seconds=max(1, args.timeout_seconds),
         )
     except Exception as exc:
         print(f"arxiv_search.py: {exc}", file=sys.stderr)

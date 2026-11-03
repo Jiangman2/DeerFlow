@@ -30,6 +30,52 @@ test.describe("Sidebar navigation", () => {
     await expect(page).toHaveURL(/\/workspace\/agents/);
   });
 
+  test("Agents button is disabled with a hover tooltip when agents_api is off", async ({
+    page,
+  }) => {
+    mockLangGraphAPI(page);
+    await page.route("**/api/features", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ agents_api: { enabled: false } }),
+      }),
+    );
+
+    await page.goto("/workspace/chats/new");
+
+    const sidebar = page.locator("[data-sidebar='sidebar']");
+    // Chats remains a real link; Agents is no longer a navigable link.
+    await expect(sidebar.locator("a[href='/workspace/chats']")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(sidebar.locator("a[href='/workspace/agents']")).toHaveCount(0);
+
+    // The disabled Agents button is rendered and announces its disabled state.
+    const agentsButton = sidebar.getByRole("button", {
+      name: "Digital Employees",
+    });
+    await expect(agentsButton).toHaveAttribute("aria-disabled", "true");
+
+    // The button itself has pointer-events suppressed; force the hover so the
+    // event reaches the wrapping tooltip-trigger span that surfaces the tooltip.
+    await agentsButton.hover({ force: true });
+    await expect(page.getByText("Feature not enabled").first()).toBeVisible({
+      timeout: 5_000,
+    });
+
+    // Keyboard/screen-reader users get the reason too: the disabled entry
+    // stays in the tab order (focusable) and is wired to a visually-hidden
+    // description rather than relying on the hover-only tooltip.
+    const describedById = await agentsButton.getAttribute("aria-describedby");
+    expect(describedById).toBeTruthy();
+    await expect(page.locator(`#${describedById}`)).toHaveText(
+      "Feature not enabled",
+    );
+    await agentsButton.focus();
+    await expect(agentsButton).toBeFocused();
+  });
+
   test("mobile welcome layout stays within viewport and opens sidebar", async ({
     page,
   }) => {
@@ -43,18 +89,24 @@ test.describe("Sidebar navigation", () => {
       locator: ReturnType<typeof page.locator>,
     ) => {
       await expect(locator).toBeVisible({ timeout: 15_000 });
-      const box = await locator.boundingBox();
-      expect(box).not.toBeNull();
-      expect(box!.x).toBeGreaterThanOrEqual(-1);
-      expect(box!.x + box!.width).toBeLessThanOrEqual(viewportWidth + 1);
+      await expect
+        .poll(async () => {
+          const box = await locator.boundingBox();
+          return Boolean(
+            box && box.x >= -1 && box.x + box.width <= viewportWidth + 1,
+          );
+        })
+        .toBe(true);
     };
 
-    await expectInsideViewport(page.getByText(/Welcome to|欢迎使用/).first());
+    await expectInsideViewport(page.locator(".cnooc-mobile-welcome-copy h1"));
     await expectInsideViewport(page.getByRole("textbox").first());
-    await expectInsideViewport(page.locator("[data-slot='suggestions-list']"));
+    // The mobile quick actions intentionally scroll horizontally. Check their
+    // clipping viewport, not the wider inner content strip.
+    await expectInsideViewport(page.locator(".cnooc-welcome-actions"));
 
     const mobileSidebarTrigger = page
-      .locator("[data-sidebar='trigger']:visible")
+      .locator(".cnooc-mobile-menu-trigger:visible")
       .first();
     await expect(mobileSidebarTrigger).toBeVisible();
     await mobileSidebarTrigger.click();

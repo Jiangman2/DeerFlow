@@ -6,6 +6,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from deerflow.community.aio_sandbox.aio_sandbox import (
+    _BASH_EXIT_SENTINEL,
+    _capture_bash_exit_code,
+    _normalize_bash_exit_output,
+)
+
 
 @pytest.fixture()
 def sandbox():
@@ -15,6 +21,24 @@ def sandbox():
 
         sb = AioSandbox(id="test-sandbox", base_url="http://localhost:8080")
         return sb
+
+
+def test_api_key_is_sent_as_bearer_authorization_header():
+    """AIO 1.11.0 accepts SANDBOX_API_KEY via Authorization: Bearer."""
+    with patch("deerflow.community.aio_sandbox.aio_sandbox.AioSandboxClient") as client_cls:
+        from deerflow.community.aio_sandbox.aio_sandbox import AioSandbox
+
+        AioSandbox(
+            id="secured-sandbox",
+            base_url="http://localhost:8080",
+            api_key="sandbox-secret",
+        )
+
+    client_cls.assert_called_once_with(
+        base_url="http://localhost:8080",
+        headers={"Authorization": "Bearer sandbox-secret"},
+        timeout=600,
+    )
 
 
 class TestExecuteCommandSerialization:
@@ -57,6 +81,41 @@ class TestExecuteCommandSerialization:
         assert len(exits) == 3
         for e_idx, x_idx in zip(enters, exits):
             assert x_idx == e_idx + 1, f"Interleaved execution detected: {call_log}"
+
+
+class TestBashExitCodeCapture:
+    def test_command_appends_private_exit_marker(self):
+        captured = _capture_bash_exit_code("python tool.py bad-subcommand")
+
+        assert captured.startswith("python tool.py bad-subcommand\n")
+        assert _BASH_EXIT_SENTINEL in captured
+        assert '"$__deerflow_bash_exit_code"' in captured
+
+    def test_zero_exit_strips_marker_and_preserves_output(self):
+        assert _normalize_bash_exit_output(f"created file\n{_BASH_EXIT_SENTINEL}0\n") == "created file"
+
+    def test_nonzero_exit_is_explicit_actionable_error(self):
+        result = _normalize_bash_exit_output(f"usage: update_spec.py project key=value\n{_BASH_EXIT_SENTINEL}2\n")
+
+        assert result.startswith("Error: Bash command exited with code 2.")
+        assert "usage: update_spec.py" in result
+        assert "--help" in result
+        assert "do not guess command variants" in result
+        assert _BASH_EXIT_SENTINEL not in result
+
+    def test_execute_command_wraps_shell_api_and_classifies_failure(self, sandbox):
+        captured: dict[str, str] = {}
+
+        def mock_exec(command, **kwargs):
+            captured["command"] = command
+            return SimpleNamespace(data=SimpleNamespace(output=f"bad option\n{_BASH_EXIT_SENTINEL}2\n"))
+
+        sandbox._client.shell.exec_command = mock_exec
+
+        result = sandbox.execute_command("python tool.py invented")
+
+        assert _BASH_EXIT_SENTINEL in captured["command"]
+        assert result.startswith("Error: Bash command exited with code 2.")
 
 
 class TestErrorObservationRetry:
@@ -152,8 +211,7 @@ class TestErrorObservationRetry:
         def mock_exec(command, **kwargs):
             nonlocal call_count
             call_count += 1
-            marker = command.rsplit("__DEER_FLOW_EXIT_CODE_", 1)[1].split("__:", 1)[0]
-            return SimpleNamespace(data=SimpleNamespace(output=f"all good\n__DEER_FLOW_EXIT_CODE_{marker}__:0"))
+            return SimpleNamespace(data=SimpleNamespace(output="all good"))
 
         sandbox._client.shell.exec_command = mock_exec
 
@@ -161,37 +219,127 @@ class TestErrorObservationRetry:
         assert result == "all good"
         assert call_count == 1
 
-    def test_nonzero_exit_code_is_returned_in_output(self, sandbox):
-        """AIO shell output should expose command failure like local sandbox does."""
+    def test_unrelated_shell_404_is_not_treated_as_missing_session(self, sandbox):
+        """Only the structured session-not-found response rotates a session."""
+        from agent_sandbox.core.api_error import ApiError
 
-        def mock_exec(command, **kwargs):
-            marker = command.rsplit("__DEER_FLOW_EXIT_CODE_", 1)[1].split("__:", 1)[0]
-            return SimpleNamespace(
-                data=SimpleNamespace(
-                    output=(
-                        "python3: can't open file '/missing.py': [Errno 2] No such file or directory\n"
-                        f"__DEER_FLOW_EXIT_CODE_{marker}__:2"
-                    )
-                )
-            )
+        sandbox._client.shell.exec_command = MagicMock(side_effect=ApiError(status_code=404, body={"message": "Not Found"}))
 
-        sandbox._client.shell.exec_command = mock_exec
+        assert sandbox.execute_command("test").startswith("Error:")
+        sandbox._client.shell.create_session.assert_not_called()
 
-        result = sandbox.execute_command("python3 /missing.py")
 
-        assert "can't open file" in result
-        assert "Exit Code: 2" in result
+class TestBashExecUnsupportedFailFast:
+    """Regression tests for #3921: sandbox images older than all-in-one-sandbox
+    1.9.x have no ``/v1/bash/exec`` route, so every env-bearing command (skills
+    declaring ``required-secrets``) hit a bare nginx 404 that the model kept
+    retrying. The sandbox must fail fast with an actionable, operator-facing
+    error instead."""
 
-    def test_success_without_output_stays_no_output(self, sandbox):
-        """The hidden exit marker should not leak for successful silent commands."""
+    def _api_error_404(self):
+        from agent_sandbox.core.api_error import ApiError
 
-        def mock_exec(command, **kwargs):
-            marker = command.rsplit("__DEER_FLOW_EXIT_CODE_", 1)[1].split("__:", 1)[0]
-            return SimpleNamespace(data=SimpleNamespace(output=f"__DEER_FLOW_EXIT_CODE_{marker}__:0"))
+        return ApiError(
+            headers={"server": "nginx/1.18.0 (Ubuntu)"},
+            status_code=404,
+            body={"success": False, "message": "Not Found", "data": None},
+        )
 
-        sandbox._client.shell.exec_command = mock_exec
+    def test_bash_exec_404_returns_actionable_error(self, sandbox):
+        """A 404 from bash.exec must explain the image capability gap and the
+        remediation (upgrade image), not surface the raw nginx error."""
+        sandbox._client.bash.exec = MagicMock(side_effect=self._api_error_404())
 
-        assert sandbox.execute_command("true") == "(no output)"
+        out = sandbox.execute_command("echo $TOK", env={"TOK": "secret-v"})
+
+        assert out.startswith("Error:")
+        # Actionable: names the missing capability and the minimum image version.
+        assert "/v1/bash/exec" in out
+        assert "1.9.3" in out
+        assert "required-secrets" in out
+        # Not the raw upstream 404 body the model can't act on.
+        assert "nginx" not in out
+
+    def test_bash_exec_404_is_cached_and_stops_retry_storm(self, sandbox):
+        """After one 404 the capability gap is remembered on the instance:
+        follow-up env-bearing calls return the same actionable error without
+        another HTTP round-trip (the original bug produced 4 consecutive 404s
+        as the model retried variants of the command)."""
+        sandbox._client.bash.exec = MagicMock(side_effect=self._api_error_404())
+
+        first = sandbox.execute_command("cmd-1", env={"TOK": "v"})
+        second = sandbox.execute_command("cmd-2", env={"TOK": "v"})
+
+        assert sandbox._client.bash.exec.call_count == 1
+        assert first == second
+        assert "1.9.3" in second
+
+    def test_bash_exec_non_404_error_is_not_cached(self, sandbox):
+        """Transient failures (e.g. 500) must not permanently disable the env
+        path — the next env-bearing call should try bash.exec again."""
+        from agent_sandbox.core.api_error import ApiError
+
+        sandbox._client.bash.exec = MagicMock(side_effect=ApiError(status_code=500, body="boom"))
+
+        first = sandbox.execute_command("cmd-1", env={"TOK": "v"})
+        second = sandbox.execute_command("cmd-2", env={"TOK": "v"})
+
+        assert sandbox._client.bash.exec.call_count == 2
+        assert first.startswith("Error:")
+        assert "1.9.3" not in first
+        assert second.startswith("Error:")
+
+    def test_env_less_path_unaffected_after_404(self, sandbox):
+        """The legacy persistent-shell path must keep working on an image
+        without bash.exec — only env injection is unavailable there."""
+        sandbox._client.bash.exec = MagicMock(side_effect=self._api_error_404())
+        sandbox._client.shell.exec_command = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(output="plain ok")))
+
+        sandbox.execute_command("cmd", env={"TOK": "v"})
+        out = sandbox.execute_command("echo plain")
+
+        assert out == "plain ok"
+        sandbox._client.shell.exec_command.assert_called_once()
+
+    def test_bash_exec_success_does_not_mark_unsupported(self, sandbox):
+        """A healthy bash.exec keeps the env path fully enabled."""
+        sandbox._client.bash.exec = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None)))
+
+        first = sandbox.execute_command("cmd-1", env={"TOK": "v"})
+        second = sandbox.execute_command("cmd-2", env={"TOK": "v"})
+
+        assert first == "ok"
+        assert second == "ok"
+        assert sandbox._client.bash.exec.call_count == 2
+
+
+class TestConfiguredEnvironmentInjection:
+    def test_default_environment_is_injected_into_commands(self, sandbox):
+        sandbox._default_env = {
+            "IMAGE_BACKEND": "qwen",
+            "QWEN_API_KEY": "configured-key",
+        }
+        sandbox._client.bash.exec = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None)))
+
+        assert sandbox.execute_command("python generate.py") == "ok"
+        assert sandbox._client.bash.exec.call_args.kwargs["env"] == {
+            "IMAGE_BACKEND": "qwen",
+            "QWEN_API_KEY": "configured-key",
+        }
+
+    def test_request_scoped_environment_overrides_configured_environment(self, sandbox):
+        sandbox._default_env = {
+            "QWEN_API_KEY": "configured-key",
+            "IMAGE_BACKEND": "qwen",
+        }
+        sandbox._client.bash.exec = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None)))
+
+        sandbox.execute_command("python generate.py", env={"QWEN_API_KEY": "request-key"})
+
+        assert sandbox._client.bash.exec.call_args.kwargs["env"] == {
+            "QWEN_API_KEY": "request-key",
+            "IMAGE_BACKEND": "qwen",
+        }
 
 
 class TestListDirSerialization:
@@ -269,25 +417,6 @@ class TestNoChangeTimeout:
 class TestConcurrentFileWrites:
     """Verify file write paths do not lose concurrent updates."""
 
-    def test_write_file_creates_parent_directory_before_remote_write(self, sandbox):
-        exec_calls = []
-
-        def mock_exec(command, **kwargs):
-            exec_calls.append((command, kwargs))
-            return SimpleNamespace(data=SimpleNamespace(output=""))
-
-        sandbox._client.shell.exec_command = mock_exec
-        sandbox._client.file.write_file = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace()))
-
-        sandbox.write_file("/mnt/user-data/workspace/projects/demo/01.svg", "<svg />")
-
-        assert exec_calls
-        assert exec_calls[0][0] == "mkdir -p /mnt/user-data/workspace/projects/demo"
-        sandbox._client.file.write_file.assert_called_once_with(
-            file="/mnt/user-data/workspace/projects/demo/01.svg",
-            content="<svg />",
-        )
-
     def test_append_should_preserve_both_parallel_writes(self, sandbox):
         storage = {"content": "seed\n"}
         active_reads = 0
@@ -333,6 +462,40 @@ class TestConcurrentFileWrites:
             thread.join()
 
         assert storage["content"] in {"seed\nA\nB\n", "seed\nB\nA\n"}
+
+
+class TestWriteFileParents:
+    def test_write_file_creates_parent_directory(self, sandbox):
+        shell_calls = []
+        writes = []
+        sandbox._client.shell.exec_command = lambda **kwargs: shell_calls.append(kwargs) or SimpleNamespace(data=SimpleNamespace(output=""))
+        sandbox._client.file.write_file = lambda **kwargs: writes.append(kwargs)
+
+        sandbox.write_file("/mnt/user-data/workspace/project/svg_output/01.svg", "<svg/>")
+
+        assert shell_calls[0]["command"] == "mkdir -p /mnt/user-data/workspace/project/svg_output"
+        assert writes == [{"file": "/mnt/user-data/workspace/project/svg_output/01.svg", "content": "<svg/>"}]
+
+
+class TestReadFileFallback:
+    def test_file_api_parse_error_falls_back_to_shell(self, sandbox):
+        """A malformed remote error response must not hide a readable file."""
+        sandbox._client.file.read_file = MagicMock(side_effect=ValueError("invalid response"))
+        sandbox._client.shell.exec_command = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(output=f"<svg>content</svg>\n{_BASH_EXIT_SENTINEL}0\n")))
+
+        result = sandbox.read_file("/mnt/user-data/workspace/svg_output/01.svg")
+
+        assert result == "<svg>content</svg>"
+        sandbox._client.shell.exec_command.assert_called_once()
+
+    def test_file_api_parse_error_returns_normalized_shell_failure(self, sandbox):
+        """A missing file should become an actionable Error string."""
+        sandbox._client.file.read_file = MagicMock(side_effect=ValueError("invalid response"))
+        sandbox._client.shell.exec_command = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(output=f"cat: /mnt/user-data/workspace/missing.svg: No such file\n{_BASH_EXIT_SENTINEL}1\n")))
+
+        result = sandbox.read_file("/mnt/user-data/workspace/missing.svg")
+
+        assert result.startswith("Error: Bash command exited with code 1.")
 
 
 class TestDownloadFile:

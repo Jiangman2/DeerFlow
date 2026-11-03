@@ -1,0 +1,95 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: weknora-enterprise-model-defaults-v5
+  namespace: deer-flow
+  labels:
+    app: weknora-enterprise-model-defaults
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app: weknora-enterprise-model-defaults
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: apply-defaults
+          image: paradedb/paradedb:v0.22.2-pg17
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              case "${DEFAULT_CHAT_MODEL_ID}" in
+                deerflow-*)
+                  ;;
+                *)
+                  echo "invalid_default_chat_model_id=${DEFAULT_CHAT_MODEL_ID}"
+                  exit 1
+                  ;;
+              esac
+              case "${DEFAULT_EMBEDDING_MODEL_ID}" in
+                deerflow-*)
+                  ;;
+                *)
+                  echo "invalid_default_embedding_model_id=${DEFAULT_EMBEDDING_MODEL_ID}"
+                  exit 1
+                  ;;
+              esac
+              case "${DEFAULT_RERANK_MODEL_ID}" in
+                deerflow-*)
+                  ;;
+                *)
+                  echo "invalid_default_rerank_model_id=${DEFAULT_RERANK_MODEL_ID}"
+                  exit 1
+                  ;;
+              esac
+              sed \
+                -e "s|__DEERFLOW_DEFAULT_CHAT_MODEL_ID__|${DEFAULT_CHAT_MODEL_ID}|g" \
+                -e "s|__DEERFLOW_DEFAULT_EMBEDDING_MODEL_ID__|${DEFAULT_EMBEDDING_MODEL_ID}|g" \
+                -e "s|__DEERFLOW_DEFAULT_RERANK_MODEL_ID__|${DEFAULT_RERANK_MODEL_ID}|g" \
+                /sql/defaults.sql \
+                > /tmp/defaults.sql
+              if grep -q '__DEERFLOW_DEFAULT_' /tmp/defaults.sql; then
+                echo "default_model_render=FAILED"
+                exit 1
+              fi
+              attempt=1
+              while [ "$attempt" -le 120 ]; do
+                if psql \
+                  --host=weknora-postgres \
+                  --port=5432 \
+                  --username=postgres \
+                  --dbname=WeKnora \
+                  --file=/tmp/defaults.sql
+                then
+                  echo "weknora_enterprise_model_defaults=PASS"
+                  exit 0
+                fi
+                echo "waiting_for_weknora_models attempt=${attempt}/120"
+                attempt=$((attempt + 1))
+                sleep 5
+              done
+              echo "weknora_enterprise_model_defaults=FAILED"
+              exit 1
+          env:
+            - name: DEFAULT_CHAT_MODEL_ID
+              value: deerflow-qwen-plus
+            - name: DEFAULT_EMBEDDING_MODEL_ID
+              value: deerflow-dashscope-embedding
+            - name: DEFAULT_RERANK_MODEL_ID
+              value: deerflow-dashscope-rerank
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: defaults-sql
+              mountPath: /sql
+              readOnly: true
+      volumes:
+        - name: defaults-sql
+          configMap:
+            name: weknora-enterprise-model-defaults

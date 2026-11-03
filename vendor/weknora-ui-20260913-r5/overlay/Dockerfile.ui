@@ -1,0 +1,70 @@
+# syntax=m.daocloud.io/docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+
+ARG NODE_IMAGE=m.daocloud.io/docker.io/library/node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5
+ARG NGINX_IMAGE=m.daocloud.io/docker.io/library/nginx:1.30.3-alpine@sha256:0d3b80406a13a767339fbe2f41406d6c7da727ab89cf8fae399e81f780f814d1
+
+FROM ${NODE_IMAGE} AS builder
+
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+
+ENV HTTP_PROXY=${HTTP_PROXY} \
+    HTTPS_PROXY=${HTTPS_PROXY} \
+    NO_PROXY=${NO_PROXY} \
+    npm_config_audit=false \
+    npm_config_fund=false \
+    npm_config_update_notifier=false
+
+WORKDIR /src/frontend
+
+# The xlsx dependency is a repository-local package, so it must be present
+# before npm ci evaluates frontend/package-lock.json.
+COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/packages ./packages
+RUN --mount=type=secret,id=enterprise_ca,target=/run/secrets/deerflow-enterprise-ca.crt \
+    test -s /run/secrets/deerflow-enterprise-ca.crt \
+    && npm config set registry "${NPM_REGISTRY}" \
+    && NODE_EXTRA_CA_CERTS=/run/secrets/deerflow-enterprise-ca.crt \
+      npm_config_cafile=/run/secrets/deerflow-enterprise-ca.crt \
+      npm ci --no-audit --no-fund --fetch-retries=5 \
+      --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+
+COPY frontend/ ./
+COPY .deerflow-enterprise/ /enterprise/
+
+# Build the actual v0.8.0 application.  The enterprise layer is injected only
+# after the upstream tests, type checks and Vite build have all succeeded.
+RUN npm test \
+    && npm run type-check \
+    && npm run build \
+    && node /enterprise/overlay/patch-enterprise-ui.mjs \
+    && node --test \
+      /enterprise/tests/patch-enterprise-ui.test.mjs \
+      /enterprise/tests/enterprise-bootstrap-dom-guard.test.mjs \
+    && test -s dist/deerflow-enterprise-bootstrap.js \
+    && test -s dist/deerflow-enterprise.css \
+    && grep -q 'deerflow-enterprise-bootstrap.js' dist/index.html \
+    && ! grep -q 'main-BUSZvhEQ.js\|index-itUW58et.js' dist/index.html
+
+FROM ${NGINX_IMAGE}
+
+LABEL org.opencontainers.image.title="WeKnora UI 0.8.0 enterprise SSO DOM-guard candidate" \
+      org.opencontainers.image.version="0.8.0-enterprise-sso2-domguard1" \
+      org.opencontainers.image.revision="1edcd54b43606d9079bb36650efe3f68707a79ea"
+
+COPY --from=builder /src/frontend/dist /usr/share/nginx/html
+COPY frontend/nginx.conf /etc/nginx/templates/default.conf.template
+COPY frontend/nginx-api-proxy.conf /etc/nginx/api-proxy.conf
+COPY frontend/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod 0755 /docker-entrypoint.sh \
+    && test -s /usr/share/nginx/html/index.html \
+    && test -s /usr/share/nginx/html/deerflow-enterprise-bootstrap.js
+
+ENV MAX_FILE_SIZE_MB=100 \
+    MAX_SKILL_BUNDLE_SIZE_MB=256 \
+    DEFAULT_LOCALE=zh-CN
+
+EXPOSE 80
+ENTRYPOINT ["/docker-entrypoint.sh"]

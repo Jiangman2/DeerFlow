@@ -15,11 +15,20 @@ Dependencies:
 """
 
 import sys
+from pathlib import Path
 
-if __name__ == "__main__" and any(arg in {"-h", "--help", "help"} for arg in sys.argv[1:]):
+_SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from console_encoding import configure_utf8_stdio  # noqa: E402
+
+configure_utf8_stdio()
+
+if __name__ == "__main__":
     print(__doc__)
     print("Use via: python3 skills/ppt-master/scripts/image_gen.py \"prompt\" --backend gemini")
-    raise SystemExit(0)
+    raise SystemExit(0 if any(arg in {"-h", "--help", "help"} for arg in sys.argv[1:]) else 1)
 
 import os
 import time
@@ -55,7 +64,7 @@ DEFAULT_MODEL = "gemini-3.1-flash-image-preview"
 # ║  Image Generation                                               ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
-def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
+def _generate_image(api_key: str, prompt: str,
                     aspect_ratio: str = "1:1", image_size: str = "1K",
                     output_dir: str = None, filename: str = None,
                     model: str = DEFAULT_MODEL, base_url: str = None) -> str:
@@ -72,10 +81,6 @@ def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
         client = genai.Client(api_key=api_key, http_options={'base_url': base_url})
     else:
         client = genai.Client(api_key=api_key)
-
-    final_prompt = prompt
-    if negative_prompt:
-        final_prompt += f"\n\nNegative prompt: {negative_prompt}"
 
     config_kwargs = {
         "response_modalities": ["IMAGE"],
@@ -95,7 +100,7 @@ def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
     if base_url:
         print(f"  Base URL:     {base_url}")
     print(f"  Model:        {model}")
-    print(f"  Prompt:       {final_prompt[:120]}{'...' if len(final_prompt) > 120 else ''}")
+    print(f"  Prompt:       {prompt[:120]}{'...' if len(prompt) > 120 else ''}")
     print(f"  Aspect Ratio: {aspect_ratio}")
     print(f"  Image Size:   {image_size}")
     print()
@@ -121,7 +126,7 @@ def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
 
     for chunk in client.models.generate_content_stream(
         model=model,
-        contents=[final_prompt],
+        contents=[prompt],
         config=config,
     ):
         elapsed = time.time() - start_time
@@ -163,7 +168,7 @@ def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
 # ║  Public Entry Point                                             ║
 # ╚═════════════���═══════════════════════════���════════════════════════╝
 
-def generate(prompt: str, negative_prompt: str = None,
+def generate(prompt: str,
              aspect_ratio: str = "1:1", image_size: str = "1K",
              output_dir: str = None, filename: str = None,
              model: str = None, max_retries: int = MAX_RETRIES) -> str:
@@ -176,8 +181,7 @@ def generate(prompt: str, negative_prompt: str = None,
       GEMINI_MODEL (optional override)
 
     Args:
-        prompt: Positive prompt text
-        negative_prompt: Negative prompt text
+        prompt: Prompt text
         aspect_ratio: Aspect ratio (e.g. "16:9", "1:1")
         image_size: Image size ("512px", "1K", "2K", "4K", case-insensitive)
         output_dir: Output directory
@@ -210,7 +214,7 @@ def generate(prompt: str, negative_prompt: str = None,
     last_error = None
     for attempt in range(max_retries + 1):
         try:
-            return _generate_image(api_key, prompt, negative_prompt,
+            return _generate_image(api_key, prompt,
                                    aspect_ratio, image_size, output_dir,
                                    filename, model, base_url)
         except Exception as e:

@@ -1,0 +1,89 @@
+{
+  "schema": "portal-home-published-source-lock-v1",
+  "base_commit": "ff96696aebd7092af395fbcafc423499d9a8e729",
+  "source_archive_sha256": "578909778238f752bcb21c62a4694ec672a0290b1e1442aa9273f71db694f85b",
+  "source_plan_sha256": "054c6adef161262a6db336e047f654e370b98d22219aee47ab42d730591bf295",
+  "line_endings": "text hashes use LF, matching published image payloads",
+  "entries": [
+    {
+      "path": "frontend/src/app/workspace/chats/[thread_id]/page.tsx",
+      "sha256": "7874e9759e570f6f3c79dc1317b8ab890969da2b6a7a6c6b6baa5ff1e1031ccb",
+      "bytes": 21417
+    },
+    {
+      "path": "frontend/src/components/workspace/input-box.tsx",
+      "sha256": "389eab6bd3a2ec9d161ef395b0c4b5da1bfa081783c026964eec3b67801048c2",
+      "bytes": 81900
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/types.ts",
+      "sha256": "4cbdd38a84e573f9f9b005266b0ef718b1e3071034b683b429869f02ca58f4bd",
+      "bytes": 24979
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en-US.ts",
+      "sha256": "5023f677174e4c154011c666e5feae9372c315d06e52910745da2060dc35b81e",
+      "bytes": 47960
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh-CN.ts",
+      "sha256": "79659736559bd722fd31266486a9782104dc38d351c48e0a28b96873ce26eede",
+      "bytes": 46366
+    },
+    {
+      "path": "frontend/src/styles/cnooc-concept.css",
+      "sha256": "1345e5d8696a1d0076ad4b5d821a9dd31abbc3c76f14db30b7005f11e8a89d9a",
+      "bytes": 111106
+    },
+    {
+      "path": "frontend/src/core/portal-links.ts",
+      "sha256": "00204f7b69459040310aae3d84f4bc0c3373e88eb86b2e271c0e061e22c853b2",
+      "bytes": 2027
+    },
+    {
+      "path": "frontend/src/components/workspace/portal-tools-menu.tsx",
+      "sha256": "0e2d6d0dc86e9666ec2dc72c0b0c05cea6edf4fbaa7c7c2dca8ca541854d2bac",
+      "bytes": 3524
+    },
+    {
+      "path": "frontend/src/components/workspace/user-guide-button.tsx",
+      "sha256": "aa7528a1c67c488b84bcd7d578088d6e34dd3fef46dc53a57217eb961e8aae83",
+      "bytes": 775
+    },
+    {
+      "path": "frontend/public/images/portal-more.png",
+      "sha256": "049aaa17f88c17f13eb80bec1048cc28d00728fff2c4e382c671b31be4f79f90",
+      "bytes": 1071918
+    },
+    {
+      "path": "frontend/public/images/portal-proofread.png",
+      "sha256": "63829781d8ec85f999c7258dae40f086666072a87da5dec73fc77487ef55d72e",
+      "bytes": 967995
+    },
+    {
+      "path": "frontend/public/images/portal-translate.png",
+      "sha256": "ebe6c06d5a4b4b8af98065ff2e0636624e3b270afa22c029c895f97e01d9baf0",
+      "bytes": 776623
+    },
+    {
+      "path": "frontend/public/images/portal-live-transcribe.png",
+      "sha256": "4daeb9dd240bbb170feb892544ab919290f9d3876d2f6a17f72aabbd536e6862",
+      "bytes": 820583
+    },
+    {
+      "path": "frontend/public/images/portal-convert.png",
+      "sha256": "92fa0e6b764cef54d74713865a156f70593af28f6a9221f79f40a1ebcf627bf1",
+      "bytes": 855535
+    },
+    {
+      "path": "frontend/public/images/portal-record-transcribe.png",
+      "sha256": "5b4d353ebfba96d0b8cd51c8576c60ff421117b0015da56953a43029cc2f13b7",
+      "bytes": 1069766
+    },
+    {
+      "path": "frontend/public/images/portal-speech.png",
+      "sha256": "766f713becad1f3b01660c06ade167be27ea43ab5c978dea0d528317f3c0f00a",
+      "bytes": 867660
+    }
+  ]
+}

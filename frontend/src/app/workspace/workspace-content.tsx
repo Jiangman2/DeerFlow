@@ -6,7 +6,9 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AnnouncementBanner } from "@/components/workspace/announcement-banner";
 import { CommandPalette } from "@/components/workspace/command-palette";
 import { GatewayOfflineBanner } from "@/components/workspace/gateway-offline-banner";
+import { WorkspaceSettingsDialogProvider } from "@/components/workspace/settings/workspace-settings-dialog-provider";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
+import { WorkspaceViewportController } from "@/components/workspace/workspace-viewport-controller";
 
 function parseSidebarOpenCookie(
   value: string | undefined,
@@ -30,19 +32,35 @@ export async function WorkspaceContent({
 
   return (
     <QueryClientProvider>
-      <SidebarProvider
-        className="h-screen bg-[#eaf1fb]"
-        defaultOpen={initialSidebarOpen}
-      >
-        <WorkspaceSidebar />
-        <SidebarInset className="min-w-0 border-l border-[#d8e2f1] bg-white bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center">
-          <GatewayOfflineBanner gatewayUnavailable={gatewayUnavailable} />
-          {!gatewayUnavailable && <AnnouncementBanner />}
-          {children}
-        </SidebarInset>
-      </SidebarProvider>
-      <CommandPalette />
-      <Toaster position="top-center" />
+      <WorkspaceSettingsDialogProvider>
+        <SidebarProvider
+          className="app-viewport app-safe-area cnooc-workspace-shell bg-background min-h-0 overflow-hidden"
+          defaultOpen={initialSidebarOpen}
+          style={
+            {
+              // Keep the shadcn layout gap in lockstep with the branded rail.
+              // The visible frame is inset inside these reserved widths.
+              "--sidebar-width": "19rem",
+              "--sidebar-width-icon": "7rem",
+            } as React.CSSProperties
+          }
+        >
+          <WorkspaceViewportController />
+          <WorkspaceSidebar />
+          <SidebarInset className="cnooc-workspace-canvas border-border bg-background min-h-0 min-w-0 overflow-hidden bg-cover bg-center md:border-l dark:bg-none">
+            <GatewayOfflineBanner gatewayUnavailable={gatewayUnavailable} />
+            {!gatewayUnavailable && <AnnouncementBanner />}
+            {children}
+          </SidebarInset>
+        </SidebarProvider>
+        <CommandPalette />
+      </WorkspaceSettingsDialogProvider>
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          className: "max-w-[calc(100vw-2rem)] [overflow-wrap:anywhere]",
+        }}
+      />
     </QueryClientProvider>
   );
 }

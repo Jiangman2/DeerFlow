@@ -1,10 +1,10 @@
 """Regression anchors: the custom-agent router must not block the event loop.
 
 ``app.gateway.routers.agents.create_agent_endpoint`` and ``delete_agent`` are
-async route handlers that resolve the agent directory (``Paths.base_dir`` calls
-``Path.resolve``), probe it (``Path.exists``), and create/remove it (``mkdir``,
-config/SOUL writes, ``shutil.rmtree``) — all blocking IO. Both offload that work
-via ``asyncio.to_thread``; if any of it regresses back onto the event loop, the
+async route handlers that resolve the configured agent store and then create or
+remove records. Store selection may resolve ``config.yaml`` and the file backend
+resolves/probes agent directories, so both store initialization and CRUD must run
+inside ``asyncio.to_thread``. If either regresses back onto the event loop, the
 strict Blockbuster gate raises ``BlockingError`` and these tests fail.
 
 Imports live at module scope so the one-time FastAPI app construction (which
@@ -29,6 +29,27 @@ from deerflow.runtime.user_context import get_effective_user_id
 pytestmark = pytest.mark.asyncio
 
 
+@pytest.fixture(autouse=True)
+def _use_isolated_file_agent_store(tmp_path: Path, monkeypatch):
+    """Keep the blocking gate independent of a developer's SQL config.
+
+    The deliberate path probe in ``resolve_store`` also proves that callers do
+    not eagerly evaluate ``get_agent_store()`` before entering ``to_thread``.
+    """
+    from deerflow.persistence.agents.file import FileAgentStore
+
+    store = FileAgentStore()
+    store_probe = tmp_path / "agent-store-probe"
+    store_probe.mkdir()
+
+    def resolve_store() -> FileAgentStore:
+        store_probe.resolve().exists()
+        return store
+
+    monkeypatch.setattr("deerflow.persistence.agents.get_agent_store", resolve_store)
+    monkeypatch.setattr("app.gateway.routers.agents.get_agent_store", resolve_store)
+
+
 async def test_create_agent_does_not_block_event_loop(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("DEER_FLOW_HOME", str(tmp_path))
     monkeypatch.setattr("deerflow.config.paths._paths", None)
@@ -50,7 +71,6 @@ async def test_delete_agent_does_not_block_event_loop(tmp_path: Path, monkeypatc
     monkeypatch.setattr("deerflow.config.paths._paths", None)
     load_agents_api_config_from_dict({"enabled": True})
     try:
-        user_id = get_effective_user_id()
         user_id = get_effective_user_id()
         # test-side seeding (resolution offloaded; not exercised on the loop)
         agent_dir = await asyncio.to_thread(get_paths().user_agent_dir, user_id, "loop-test-agent")

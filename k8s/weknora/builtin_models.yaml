@@ -5,11 +5,37 @@ builtin_models:
     type: KnowledgeQA
     source: remote
     description: DeerFlow WeKnora chat model
+    # The reusable/local stack defaults to the externally reachable model.
+    # The enterprise defaults Job promotes internal DeepSeek after deployment.
     is_default: true
     parameters:
       base_url: ${LLM_BASE_URL}
       api_key: ${LLM_API_KEY}
       provider: ${LLM_PROVIDER}
+
+  - id: deerflow-deepseek-v4-pro
+    tenant_id: 10000
+    name: deepseek-v4-pro
+    type: KnowledgeQA
+    source: remote
+    description: DeerFlow WeKnora DeepSeek chat model
+    is_default: false
+    parameters:
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api_key: ${LLM_API_KEY}
+      provider: aliyun
+
+  - id: deerflow-cnooc-deepseek-v4-flash
+    tenant_id: 10000
+    name: DeepSeek-V4-Flash
+    type: KnowledgeQA
+    source: remote
+    description: DeerFlow WeKnora CNOOC DeepSeek chat model
+    is_default: false
+    parameters:
+      base_url: https://aiapi.cnooc.com.cn/DeepSeek-V4-Flash/FEAT-511-001/v1
+      api_key: ${DeepSeek_V4_API_KEY}
+      provider: generic
 
   - id: deerflow-dashscope-embedding
     tenant_id: 10000
@@ -25,3 +51,39 @@ builtin_models:
       embedding_parameters:
         dimension: 1024
         truncate_prompt_tokens: 0
+
+  - id: deerflow-dashscope-rerank
+    tenant_id: 10000
+    name: qwen3-rerank
+    type: Rerank
+    source: remote
+    description: DeerFlow WeKnora rerank model
+    is_default: true
+    parameters:
+      base_url: https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank
+      api_key: ${LLM_API_KEY}
+      provider: aliyun
+
+  - id: deerflow-dashscope-vlm
+    tenant_id: 10000
+    name: qwen3-vl-plus
+    type: VLLM
+    source: remote
+    description: DeerFlow WeKnora vision model
+    is_default: true
+    parameters:
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api_key: ${LLM_API_KEY}
+      provider: aliyun
+
+  - id: deerflow-dashscope-asr
+    tenant_id: 10000
+    name: qwen3-asr-flash
+    type: ASR
+    source: remote
+    description: DeerFlow WeKnora speech recognition model
+    is_default: true
+    parameters:
+      base_url: http://gateway:8001/api/weknora/bailian/v1
+      api_key: ${LLM_API_KEY}
+      provider: generic
