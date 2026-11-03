@@ -300,6 +300,7 @@ export interface ScheduledTaskUsageSummary {
 }
 
 export interface RecentFailureItem {
+  error_truncated?: boolean;
   run_id: string;
   thread_id: string;
   user_id: string | null;

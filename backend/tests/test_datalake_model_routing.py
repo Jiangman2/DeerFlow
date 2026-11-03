@@ -1,4 +1,5 @@
 """Model choice, not wording, controls authorized DataLake tool eligibility."""
+
 from types import SimpleNamespace
 
 import pytest
@@ -42,10 +43,16 @@ def test_model_choice_never_grants_authorization(enabled, tool):
 
 
 def chosen_messages():
-    return [HumanMessage("KL6-1-2井的套管程序是什么", id="u"), AIMessage("", tool_calls=[
-        {"id": "data", "name": "datalake_data_qa", "args": {"query": "井身结构"}},
-        {"id": "shell", "name": "bash", "args": {"command": "curl elsewhere"}},
-    ])]
+    return [
+        HumanMessage("KL6-1-2井的套管程序是什么", id="u"),
+        AIMessage(
+            "",
+            tool_calls=[
+                {"id": "data", "name": "datalake_data_qa", "args": {"query": "井身结构"}},
+                {"id": "shell", "name": "bash", "args": {"command": "curl elsewhere"}},
+            ],
+        ),
+    ]
 
 
 @pytest.mark.parametrize("status", [None, "success", "error"])
@@ -91,6 +98,7 @@ async def test_actual_graph_defers_to_model_with_authorization_enforced(asynchro
     from langchain.agents import create_agent
     from langchain_core.tools import tool
     from test_staged_execution import ScriptedModel, call
+
     calls = []
 
     @tool
@@ -100,8 +108,7 @@ async def test_actual_graph_defers_to_model_with_authorization_enforced(asynchro
         return "synthetic fixture"
 
     question = "KL6-1-2井的套管程序是什么"
-    graph = create_agent(ScriptedModel(responses=[call("datalake_data_qa", "data", query=question), AIMessage("done")]),
-                         tools=[datalake_data_qa], context_schema=dict, middleware=[DataLakeSourceMiddleware()])
+    graph = create_agent(ScriptedModel(responses=[call("datalake_data_qa", "data", query=question), AIMessage("done")]), tools=[datalake_data_qa], context_schema=dict, middleware=[DataLakeSourceMiddleware()])
     args = {"messages": [HumanMessage(question)]}
     kw = {"context": {"datalake_enabled": enabled, "run_id": "test"}}
     result = await graph.ainvoke(args, **kw) if asynchronous else graph.invoke(args, **kw)

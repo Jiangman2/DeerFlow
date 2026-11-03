@@ -2,6 +2,7 @@ import { throwGatewayApiError } from "@/core/api/errors";
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 
+import { readFailureResponse } from "./failure-response";
 import type {
   DashboardDateBounds,
   DashboardFilters,
@@ -179,14 +180,33 @@ export async function getDashboardFailures(
   limit = 5,
   offset = 0,
   query = "",
+  signal?: AbortSignal,
 ): Promise<FailedRunList> {
   const params = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
   });
   if (query.trim()) params.set("q", query.trim());
-  const response = await fetch(
-    `${getBackendBaseURL()}/api/admin/dashboard/failures?${params}`,
-  );
-  return readJson<FailedRunList>(response);
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  let timedOut = false;
+  signal?.addEventListener("abort", cancel, { once: true });
+  if (signal?.aborted) cancel();
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 25_000);
+  try {
+    const response = await fetch(
+      `${getBackendBaseURL()}/api/admin/dashboard/failures?${params}`,
+      { signal: controller.signal },
+    );
+    return await readFailureResponse<FailedRunList>(response);
+  } catch (error) {
+    if (timedOut) throw new Error("失败运行加载超时，请稍后重试");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
+  }
 }

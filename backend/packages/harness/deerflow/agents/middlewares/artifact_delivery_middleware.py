@@ -79,12 +79,13 @@ def _normalize_virtual_output_path(raw_path: str) -> str | None:
 
 def _referenced_output_paths(message: AIMessage) -> set[str]:
     text = _message_text(message)
-    raw_paths = {
-        *(_MARKDOWN_OUTPUT_RE.findall(text)),
-        *(_BACKTICK_OUTPUT_RE.findall(text)),
-        *(_BARE_OUTPUT_RE.findall(text)),
-        *(f"/{path}" for path in _ARTIFACT_API_OUTPUT_RE.findall(text)),
-    }
+    # A structured reference may contain spaces. Do not also interpret a prefix
+    # of that same reference as a second, nonexistent bare output path.
+    structured = [match for pattern in (_MARKDOWN_OUTPUT_RE, _BACKTICK_OUTPUT_RE) for match in pattern.finditer(text)]
+    spans = [match.span() for match in structured]
+    raw_paths = {match.group(1) for match in structured}
+    raw_paths.update(match.group(1) for match in _BARE_OUTPUT_RE.finditer(text) if not any(start <= match.start() < end for start, end in spans))
+    raw_paths.update(f"/{path}" for path in _ARTIFACT_API_OUTPUT_RE.findall(text))
     return {path for raw_path in raw_paths if (path := _normalize_virtual_output_path(raw_path))}
 
 

@@ -531,7 +531,9 @@ function RankingPagination({
   page,
   totalPages,
   onPageChange,
+  disabled = false,
 }: {
+  disabled?: boolean;
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
@@ -546,7 +548,7 @@ function RankingPagination({
         size="icon"
         variant="outline"
         className="size-7"
-        disabled={page === 0}
+        disabled={disabled || page === 0}
         onClick={() => onPageChange(page - 1)}
         aria-label="上一页"
       >
@@ -556,7 +558,7 @@ function RankingPagination({
         size="icon"
         variant="outline"
         className="size-7"
-        disabled={page >= totalPages - 1}
+        disabled={disabled || page >= totalPages - 1}
         onClick={() => onPageChange(page + 1)}
         aria-label="下一页"
       >
@@ -1184,22 +1186,28 @@ function FailedRuns({
   searchQuery,
   isLoading,
   isError,
+  isFetching,
+  errorMessage,
+  onRetry,
   onSearchChange,
   onPageChange,
 }: {
   rows: RecentFailureItem[];
-  total: number;
+  total: number | undefined;
   page: number;
   searchQuery: string;
   isLoading: boolean;
   isError: boolean;
+  isFetching: boolean;
+  errorMessage: string;
+  onRetry: () => void;
   onSearchChange: (query: string) => void;
   onPageChange: (page: number) => void;
 }) {
   const [selectedFailure, setSelectedFailure] =
     useState<RecentFailureItem | null>(null);
   const diagnosticsQuery = useRunDiagnostics(selectedFailure?.run_id ?? null);
-  const totalPages = Math.max(1, Math.ceil(total / 5));
+  const totalPages = Math.max(1, Math.ceil((total ?? 0) / 5));
   const currentPage = Math.min(page, totalPages - 1);
   return (
     <Card className="min-w-0 rounded-lg shadow-none xl:col-span-2">
@@ -1207,7 +1215,13 @@ function FailedRuns({
         <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
           <span className="flex items-center gap-2">
             <AlertTriangleIcon className="size-4" />
-            全部失败运行（{compactNumber(total)}）
+            全部失败运行（
+            {isError
+              ? "暂不可用"
+              : total === undefined
+                ? "加载中"
+                : compactNumber(total)}
+            ）
           </span>
           <span className="text-xs font-normal text-slate-500">
             全历史 · 点击可查看只读错误诊断
@@ -1233,11 +1247,30 @@ function FailedRuns({
           ) : null}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent aria-busy={isFetching}>
         {isLoading ? (
-          <EmptyState label="正在加载失败运行" />
+          <div
+            role="status"
+            className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500"
+          >
+            <LoaderCircleIcon className="size-4 animate-spin" />
+            正在加载失败运行
+          </div>
         ) : isError ? (
-          <EmptyState label="失败运行加载失败，请刷新后重试" />
+          <div
+            role="alert"
+            className="space-y-3 rounded-lg border border-dashed p-6 text-center text-sm text-slate-600"
+          >
+            <p>{errorMessage}</p>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isFetching}
+              onClick={onRetry}
+            >
+              {isFetching ? "重试中…" : "重试加载失败运行"}
+            </Button>
+          </div>
         ) : rows.length === 0 ? (
           <EmptyState
             label={
@@ -1248,6 +1281,15 @@ function FailedRuns({
           />
         ) : (
           <div className="space-y-3">
+            {isFetching && (
+              <div
+                role="status"
+                className="flex items-center gap-2 text-sm text-slate-500"
+              >
+                <LoaderCircleIcon className="size-4 animate-spin" />
+                正在更新失败运行
+              </div>
+            )}
             <div className="space-y-3 md:hidden">
               {rows.map((row) => (
                 <article
@@ -1276,6 +1318,11 @@ function FailedRuns({
                   <p className="line-clamp-3 rounded-md bg-red-50/60 p-3 leading-relaxed text-red-800">
                     {row.error ?? row.status}
                   </p>
+                  {row.error_truncated && (
+                    <p className="text-xs text-slate-500">
+                      错误摘要已截取，可查看错误详情。
+                    </p>
+                  )}
                   <p className="text-xs text-slate-500">Run：{row.run_id}</p>
                   <div className="flex flex-wrap items-center gap-3">
                     <Button
@@ -1349,6 +1396,11 @@ function FailedRuns({
                         >
                           {row.error ?? row.status}
                         </div>
+                        {row.error_truncated && (
+                          <div className="mt-1 text-slate-500">
+                            错误摘要已截取，可查看错误详情。
+                          </div>
+                        )}
                         <div className="mt-1 truncate text-slate-400">
                           Run：{row.run_id}
                         </div>
@@ -1388,6 +1440,7 @@ function FailedRuns({
               page={currentPage}
               totalPages={totalPages}
               onPageChange={onPageChange}
+              disabled={isFetching}
             />
           </div>
         )}
@@ -2068,11 +2121,20 @@ export default function DashboardPage() {
           />
           <FailedRuns
             rows={failuresQuery.data?.items ?? []}
-            total={failuresQuery.data?.total ?? 0}
+            total={failuresQuery.data?.total}
             page={failurePage}
             searchQuery={failureSearchQuery}
             isLoading={failuresQuery.isLoading}
             isError={failuresQuery.isError}
+            isFetching={failuresQuery.isFetching}
+            errorMessage={
+              failuresQuery.error instanceof Error
+                ? failuresQuery.error.message
+                : "失败运行暂时无法加载，请稍后重试"
+            }
+            onRetry={() => {
+              void failuresQuery.refetch();
+            }}
             onSearchChange={(query) => {
               setFailureSearchQuery(query);
               setFailurePage(0);

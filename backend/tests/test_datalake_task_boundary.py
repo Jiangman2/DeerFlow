@@ -41,8 +41,7 @@ def test_intent_is_not_authorization_and_local_work_remains_possible(enabled):
 
 
 def test_model_choice_establishes_source_scope_even_when_upstream_fails():
-    messages = [HumanMessage("撰写海上气藏论文"), AIMessage("", tool_calls=[{"id": "t", "name": "datalake_data_qa", "args": {}}]),
-                ToolMessage("denied", name="datalake_data_qa", tool_call_id="t", status="error")]
+    messages = [HumanMessage("撰写海上气藏论文"), AIMessage("", tool_calls=[{"id": "t", "name": "datalake_data_qa", "args": {}}]), ToolMessage("denied", name="datalake_data_qa", tool_call_id="t", status="error")]
     state = {"messages": messages}
     assert query_scope(state)["required"]
     middleware = DataLakeSourceMiddleware()

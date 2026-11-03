@@ -119,9 +119,12 @@ export function useDashboardUserSessions(
 export function useDashboardFailures(limit = 5, offset = 0, query = "") {
   return useQuery({
     queryKey: ["dashboard", "failures", limit, offset, query],
-    queryFn: () => getDashboardFailures(limit, offset, query),
+    queryFn: ({ signal }) => getDashboardFailures(limit, offset, query, signal),
+    retry: false,
+    gcTime: 0,
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    refetchInterval: (query) =>
+      query.state.status === "error" ? false : 60_000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
   });

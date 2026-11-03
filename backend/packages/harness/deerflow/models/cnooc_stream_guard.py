@@ -36,16 +36,23 @@ class CnoocStreamDecoder:
         if self.terminal_seen:
             return
         logger.warning(
-            "LLM_INCOMPLETE_STREAM thread_id=%s run_id=%s call_id=%s boundary=%s "
-            "http_status=%s sse_frames=%s finish_present=%s done_seen=%s "
-            "usage_present=%s visible_chars=%s reasoning_chars=%s tool_frames=%s",
+            "LLM_INCOMPLETE_STREAM thread_id=%s run_id=%s call_id=%s boundary=%s http_status=%s sse_frames=%s finish_present=%s done_seen=%s usage_present=%s visible_chars=%s reasoning_chars=%s tool_frames=%s",
             self.context.thread_id if self.context else "-",
             self.context.run_id if self.context else "-",
-            self.call_id, boundary, self.status_code, self.frames, self.terminal_seen,
-            self.done_seen, self.usage_seen, self.visible_chars, self.reasoning_chars, self.tool_frames,
+            self.call_id,
+            boundary,
+            self.status_code,
+            self.frames,
+            self.terminal_seen,
+            self.done_seen,
+            self.usage_seen,
+            self.visible_chars,
+            self.reasoning_chars,
+            self.tool_frames,
         )
         raise OpenAICompatibleResponseError(
-            code="INCOMPLETE_STREAM", success=False,
+            code="INCOMPLETE_STREAM",
+            success=False,
             reason="V4.1 stream ended without a terminal finish_reason",
             diagnostic=f"boundary={boundary},frames={self.frames},done={self.done_seen},finish=False",
         )

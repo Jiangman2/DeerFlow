@@ -1,0 +1,126 @@
+{
+  "schema": "released-source-delta.v1",
+  "base_commit": "0dc61aa7435ce57546e93eae81fb3d124a4ef6a7",
+  "parent_sha256": {
+    "production-source-lock-20261029.json": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
+    "work-source-candidate-20261026.json": "a97ae71c00d8bcc8ddc7205cb5d71e08d5c9928312c8280ac7fcd6bfa10a7e52",
+    "incident-source-candidate-20261031.json": "072724c8ddbf1de8b1d8d17410b8d8e38823133b879176d07225406459e8d745"
+  },
+  "source_manifest": "release/nov01-released-fixes-source-20261102/SOURCE.json",
+  "source_manifest_sha256": "3c48ddca4021d40f946b01c50af2e695882f182f14f78ae8a4367014412a3208",
+  "changes": {
+    "gateway": {
+      "backend/app/gateway/dashboard_failures.py": {
+        "base_sha256": null,
+        "released_sha256": "91f51164ee8803c15f5906a5ed063deff2d6497777e087ee83fb84eb5752acae"
+      },
+      "backend/app/gateway/routers/dashboard.py": {
+        "base_sha256": "c2b20a26ec88c57a06956dc92bb37ee809e40186674178d86ae422ba570d2076",
+        "released_sha256": "1acf068a03ce03b9ef30e9fbee18f7db4d33a454607871ff5503fa8049e7411f"
+      },
+      "backend/app/gateway/services.py": {
+        "base_sha256": "507d877a1e68cfe39c405ee3f9ac9a6c6261e1c242065e07b7eb4a59dc525f58",
+        "released_sha256": "2f81eaf4490a37a95b58efd1624a9c0deb46eb6cc983cd886fa85d01e9a3e27e"
+      },
+      "backend/packages/harness/deerflow/agents/middlewares/artifact_delivery_middleware.py": {
+        "base_sha256": "73dd5b2bbc41479f1c7f83a56e901602766b854bf97cdc5c66da27e0cd68ab84",
+        "released_sha256": "0ad708d197b16e2f1494541059bb9e2054670c921717e5c8e0b9f9372f8df0ba"
+      },
+      "backend/packages/harness/deerflow/agents/middlewares/llm_error_handling_middleware.py": {
+        "base_sha256": "8f8d1fec1234ecd1e8f0a642878905bbff2db556a361afb0bdc0742006667aee",
+        "released_sha256": "b88d9b26f1cbffd2ff969250cba2b8a803f206c06b107a2970e6867e8497181d"
+      },
+      "backend/packages/harness/deerflow/config/app_config.py": {
+        "base_sha256": "71989c70f8956b3876c707750f2f7edbff09671b454ab107b07b0337afd1264a",
+        "released_sha256": "ab3056db7657d4ee9de7fbd754f59f4d8e14be78f2535b049047d6d03cc863ad"
+      },
+      "backend/packages/harness/deerflow/models/enterprise_glm.py": {
+        "base_sha256": "310eda0d33ddcc9ec8163debedd356360c88c6cb091968a79fae8bd7a298b68f",
+        "released_sha256": "0fbb5c5ea172d19186335c4c06d52cb3cf3898d6c83206d39bc13ea0c04d13a4"
+      },
+      "backend/packages/harness/deerflow/models/output_safety.py": {
+        "base_sha256": "d168aee0299bfc6a87f852f6941d59bcd3dc4eb33e2be6d8fe0ae4cdaa34ed65",
+        "released_sha256": "364b31dde1f984541719f0a5fc2ce791595ee0c7461379a81bbabdf2eaa4967e"
+      },
+      "backend/packages/harness/deerflow/models/cnooc_stream_guard.py": {
+        "base_sha256": "a7500ca5f4bd206d23395b59a1cc1d08fe1b464ccae8f3e8ae222db5d8802a2a",
+        "released_sha256": "c6fdbde7f94007a54af6c1c80a406de3833a2cf8911c7e4fa5680a8d2b7431ac",
+        "kind": "ci-format-only"
+      },
+      "backend/packages/harness/deerflow/runtime/datalake_policy.py": {
+        "base_sha256": "bf548db225e1ef69c168d145bbee53afa6a30717b6c703140c6e90467e1cfa38",
+        "released_sha256": "ea65c2475f08d8bb2b7a2ef3a581dbf6cdb15333a99a8d7a8a0afb2b38a858b5",
+        "kind": "ci-format-only"
+      },
+      "backend/packages/harness/deerflow/runtime/journal.py": {
+        "base_sha256": "f4bf3d9b94410f849aef0b2e12413e60aad40ac07c120ced847e5bb164290ed2",
+        "released_sha256": "c48501e0737ff371a33fa8098bb487a3c9e6e9c1a7e1eb3d5ee3d5c3c753d4af",
+        "kind": "ci-format-only"
+      }
+    },
+    "frontend": {
+      "frontend/src/core/threads/run-config.ts": {
+        "base_sha256": "f175cc8aed3cdc34cb6ce292a397d0b28fd210d6cb6a7ed22fec2daa420f478f",
+        "released_sha256": "908e438c5dd7a625d152194e2c5f760ea629653a015c8defb6a5961ce0434657"
+      },
+      "frontend/src/app/workspace/admin/dashboard/page.tsx": {
+        "base_sha256": "ee496546a46ee180b8a91c8e2deab2be7786179b25a8a2645b95b442f56ab1ac",
+        "released_sha256": "7f7da506571fc596d84be0f3ec64be4aa28f834571c64d168913a79291ac2634"
+      },
+      "frontend/src/core/dashboard/api.ts": {
+        "base_sha256": "64ee999ea89029980ed91fc58a0c3f3743a0e7ef994c015e81f49164c1904477",
+        "released_sha256": "b254f9c6e3f8bc622380cc0f97ea1e0d8f4284a070e97e55b92eb90c411f8472"
+      },
+      "frontend/src/core/dashboard/hooks.ts": {
+        "base_sha256": "71b2b14428bb6ba92ac2a73fb955cb5fe65b5804fe9faa68f7877ddb74a99f3b",
+        "released_sha256": "cafa9fb7c7e8c8bb44b0f70f8f392989b171b2354a8cbdfe07025ca3fa15675c"
+      },
+      "frontend/src/core/dashboard/types.ts": {
+        "base_sha256": "1c18ba4a79914d6948885fbdb4f3eacb5e4b0149a26e3c10b030824f8b464023",
+        "released_sha256": "3e0457203e007c0ed112310391edef3d4d20e09164be2003a0cd8951a89da3b1"
+      },
+      "frontend/src/core/dashboard/failure-response.ts": {
+        "base_sha256": null,
+        "released_sha256": "aaf02a940a70ac03deab3aec6904f28b8f1af93a36d8c4edf2d543e10c52d658"
+      },
+      "frontend/src/core/data-lake/auth.ts": {
+        "base_sha256": "777ae66692d732f938cf6c4e3871ddd7f718201a70a541393ed168edf1da95b9",
+        "released_sha256": "6d8fbfcd5eb60252366f671c67cdb7580e7bd93ef0a70f6fc079c4b4c84eb2e4"
+      },
+      "frontend/src/core/settings/local.ts": {
+        "base_sha256": "ce008e523456ba86aa0ac83be048c5efaf78e88d80de764cdb78b9c88d1043ab",
+        "released_sha256": "29f434a22fd8b75fe9e66309667f69c7548a939ebd0349e049b513362afdbb17"
+      },
+      "frontend/src/core/settings/store.ts": {
+        "base_sha256": "9808069230791a0a62c1a6c35ecb7d555637e0d745fafe0cd71c37a3eee1868a",
+        "released_sha256": "5b6f32246171b966a2a3deb2fe55ef3709d73736b8fb92037a1467176461a752"
+      },
+      "frontend/src/components/workspace/shop-cart-attachments/shop-cart-attachment-button.tsx": {
+        "base_sha256": "7526a38da2f79b008e6a2aa94fe0f942738eb8700b57f32a9b641a18ba5dec98",
+        "released_sha256": "6d0a9318b5eb62f8e90d163f48a65a1ccd35271fdca9689d745065548afc35a1"
+      },
+      "frontend/tests/unit/core/dashboard/api.test.ts": {
+        "base_sha256": "e1210ff640eb6601541c540bac01038d1c3c781ab4742350e24579abf4718e56",
+        "released_sha256": "75655b2a6b8fbed9de7239f27e033e4e391835c54f7da51ff3dd979d82a6ba99",
+        "kind": "regression-test"
+      },
+      "frontend/tests/unit/core/data-lake/auth.test.ts": {
+        "base_sha256": "355123c40df462ea69d25a8d4efee26fef3e5acaafc2fa71ea31cd02d7444ef8",
+        "released_sha256": "7beed8bba033f416d78cc9bebb5c0232ea6c666071694a19e1a6471885efd15d",
+        "kind": "regression-test"
+      },
+      "frontend/tests/unit/core/settings/data-lake.test.ts": {
+        "base_sha256": "c108fa0cc9af13e80ee633ca0e15f772201c26554e54b4b2255a8bb19b908b1b",
+        "released_sha256": "6c16ae10d6e66a35086fd1ad503f0985fb4096bdebd0b0697c7ee7412e803e50",
+        "kind": "regression-test"
+      },
+      "frontend/tests/unit/core/threads/run-config.test.ts": {
+        "base_sha256": "14e33b2137ca0c5c54e454be5aeeb8af411c46151bcad9b06f10afa600899d04",
+        "released_sha256": "f012389a23f11382e5c656a529b41ad4c7a11d8229ba30600913da369433f59b",
+        "kind": "regression-test"
+      }
+    }
+  },
+  "work_datalake_deferred": true,
+  "database_migration": false
+}

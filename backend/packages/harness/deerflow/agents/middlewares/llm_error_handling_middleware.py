@@ -10,6 +10,7 @@ from collections.abc import Awaitable, Callable
 from email.utils import parsedate_to_datetime
 from typing import Any, override
 
+import httpx
 from langchain.agents import AgentState
 from langchain.agents.middleware import AgentMiddleware
 from langchain.agents.middleware.types import (
@@ -265,6 +266,11 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         if _matches_any(lowered, _BUSY_PATTERNS):
             return True, "busy"
 
+        # A bare timeout can also be a local total-deadline cancellation. Do not
+        # turn it into three fresh calls by guessing that it is a network blip.
+        if isinstance(exc, (TimeoutError, httpx.TimeoutException)):
+            return False, "timeout"
+
         return False, "generic"
 
     def _build_retry_delay_ms(self, attempt: int, exc: BaseException) -> int:
@@ -316,6 +322,8 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
             return "The configured LLM provider rejected the request because authentication or access is invalid. Please check the provider credentials and try again."
         if reason == "context":
             return "The configured LLM provider rejected the request because its context or request-size limit was exceeded. Reduce the amount of source material, split the task into smaller steps, and try again."
+        if reason == "timeout" or isinstance(exc, (TimeoutError, httpx.TimeoutException)) or type(exc).__name__ == "APITimeoutError":
+            return "模型请求等待超时，本轮任务未完成。现有信息尚不能区分网络等待与模型处理延迟；请稍后继续，或缩小单次任务范围后重试。" + PARTIAL_WORK_NOTICE
         if reason in {"busy", "transient"}:
             # Stream-drop failures (chunk-gap timeout, peer-closed connection,
             # raw read error) almost always point at a single oversized
@@ -341,7 +349,7 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
             reason=reason,
             detail=_extract_error_detail(exc),
         )
-        if isinstance(exc, ModelOutputSafetyError):
+        if isinstance(exc, (ModelOutputSafetyError, TimeoutError, httpx.TimeoutException)) or type(exc).__name__ == "APITimeoutError":
             message.additional_kwargs["deerflow_terminal_stop"] = True
         return message
 

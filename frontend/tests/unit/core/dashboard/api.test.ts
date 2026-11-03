@@ -54,6 +54,7 @@ describe("dashboard failures api", () => {
     });
     expect(mockedFetch).toHaveBeenCalledWith(
       "/backend/api/admin/dashboard/failures?limit=5&offset=5",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 
@@ -69,7 +70,45 @@ describe("dashboard failures api", () => {
 
     expect(mockedFetch).toHaveBeenCalledWith(
       "/backend/api/admin/dashboard/failures?limit=5&offset=0&q=%E5%BC%A0+%E4%B8%89",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
+  });
+  test("cancels a superseded failed-run page without another request", async () => {
+    const controller = new AbortController();
+    mockedFetch.mockImplementationOnce(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("Aborted", "AbortError")),
+          );
+        }),
+    );
+    const pending = getDashboardFailures(5, 195, "", controller.signal);
+    controller.abort();
+    await expect(pending).rejects.toThrow("Aborted");
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+  });
+
+  test("ends an unresponsive failed-run page with a recoverable timeout", async () => {
+    rs.useFakeTimers();
+    try {
+      mockedFetch.mockImplementationOnce(
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("Aborted", "AbortError")),
+            );
+          }),
+      );
+      const result = expect(getDashboardFailures(5, 195)).rejects.toThrow(
+        "失败运行加载超时",
+      );
+      await rs.advanceTimersByTimeAsync(25_000);
+      await result;
+      expect(mockedFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      rs.useRealTimers();
+    }
   });
 });
 

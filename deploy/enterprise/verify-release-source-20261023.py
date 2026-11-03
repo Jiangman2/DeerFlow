@@ -19,6 +19,7 @@ FORMAT_BASELINE = 'release/production-source-20261023/gateway-format-baseline/'
 TEST_BASELINE = 'release/production-source-20261026/frontend-test-baseline/'
 CANDIDATE = 'deploy/enterprise/work-source-candidate-20261026.json'
 INCIDENT_DELTA = 'deploy/enterprise/incident-source-candidate-20261031.json'
+RELEASED_DELTA = 'deploy/enterprise/released-source-delta-20261101.json'
 
 
 def candidate_overrides(lock, manifest, lock_digest):
@@ -61,6 +62,46 @@ def incident_overrides(lock, prior, manifest, lock_digest, prior_digest):
             assert '\\' not in name and PurePosixPath(name).as_posix() == name and '..' not in PurePosixPath(name).parts
             assert change['base_sha256'] == expected, (name, 'INCIDENT_PARENT_MISMATCH')
             digest = change['candidate_sha256']
+            assert len(digest) == 64 and all(c in '0123456789abcdef' for c in digest)
+            result[component][name] = digest
+    return result
+
+
+
+def released_overrides(lock, prior, incident, manifest, read):
+    """Validate the separately sealed November 1 release without rewriting history."""
+    assert manifest['schema'] == 'released-source-delta.v1'
+    assert manifest['work_datalake_deferred'] is True and manifest['database_migration'] is False
+    assert set(manifest['parent_sha256']) == {Path(LOCK).name, Path(CANDIDATE).name, Path(INCIDENT_DELTA).name}
+    for name, digest in manifest['parent_sha256'].items():
+        assert hashlib.sha256(read('deploy/enterprise/' + name).replace(b'\r\n', b'\n')).hexdigest() == digest, 'RELEASE_PARENT_CHANGED'
+    source_path = 'release/nov01-released-fixes-source-20261102/SOURCE.json'
+    assert manifest['source_manifest'] == source_path
+    assert hashlib.sha256(read(source_path).replace(b'\r\n', b'\n')).hexdigest() == manifest['source_manifest_sha256'], 'RELEASE_SOURCE_SEAL_CHANGED'
+    sealed = json.loads(read(source_path))['sources']
+    runtime = {name: row for name, row in sealed.items() if name.startswith(('backend/', 'frontend/src/'))}
+    formatting = json.loads(read(source_path)).get('ci_formatting', {})
+    runtime.update(formatting)
+    declared = {name: row for changes in manifest['changes'].values() for name, row in changes.items() if not name.startswith('frontend/tests/')}
+    assert set(declared) == set(runtime), 'RELEASE_DELTA_SCOPE_CHANGED'
+    for name, row in declared.items():
+        assert row['released_sha256'] == runtime[name]['source_sha256'] and row['base_sha256'] == runtime[name]['base_sha256'], 'RELEASE_DELTA_SOURCE_CHANGED'
+    assert set(manifest['changes']) == {'gateway', 'frontend'}
+    result = {'gateway': {}, 'frontend': {}}
+    for component, changes in manifest['changes'].items():
+        for name, change in changes.items():
+            assert '\\' not in name and '..' not in PurePosixPath(name).parts
+            if component == 'gateway':
+                assert name.startswith(('backend/app/', 'backend/packages/harness/')) and name.endswith('.py')
+                previous = prior.get(name, lock.get('format_normalizations', {}).get(name, {}).get('formatted_sha256', lock['source_sets'][component].get(name)))
+            else:
+                assert name.startswith(('frontend/src/', 'frontend/tests/')) and name.endswith(('.ts', '.tsx'))
+                if name.startswith('frontend/tests/'):
+                    assert change.get('kind') == 'regression-test' and name in lock['source_sets']['frontend'], 'RELEASE_TEST_SCOPE_CHANGED'
+                previous = lock.get('line_ending_normalizations', {}).get(name, {}).get('lf_sha256', lock.get('qualification_test_overrides', {}).get(name, {}).get('current_sha256', lock['source_sets'][component].get(name)))
+            previous = incident[component].get(name, previous)
+            assert change['base_sha256'] == previous, (name, 'RELEASE_PARENT_SOURCE_CHANGED')
+            digest = change['released_sha256']
             assert len(digest) == 64 and all(c in '0123456789abcdef' for c in digest)
             result[component][name] = digest
     return result
@@ -148,7 +189,7 @@ def verify(ref=None, lock_path=LOCK):
                      *selected_lock['runtime_patch']['qualified_source_files'], selected_lock['current_observation']['path']]
         extra += [row['baseline_path'] for row in selected_lock.get('qualification_test_overrides', {}).values()]
         extra += [row['baseline_path'] for row in selected_lock.get('line_ending_normalizations', {}).values()]
-        for manifest_path in (CANDIDATE, INCIDENT_DELTA):
+        for manifest_path in (CANDIDATE, INCIDENT_DELTA, RELEASED_DELTA, "release/nov01-released-fixes-source-20261102/SOURCE.json"):
             if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, manifest_path], cwd=ROOT).strip():
                 extra.append(manifest_path)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
@@ -164,11 +205,14 @@ def verify(ref=None, lock_path=LOCK):
     has_incident = INCIDENT_DELTA in archived if archived is not None else (ROOT / INCIDENT_DELTA).is_file()
     delta = json.loads(read(INCIDENT_DELTA)) if has_incident else None
     incident = incident_overrides(lock, overrides, delta, hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest(), hashlib.sha256(read(CANDIDATE).replace(b'\r\n', b'\n')).hexdigest()) if delta else {'gateway': {}, 'frontend': {}}
+    has_release = RELEASED_DELTA in archived if archived is not None else (ROOT / RELEASED_DELTA).is_file()
+    release_manifest = json.loads(read(RELEASED_DELTA)) if has_release else None
+    released = released_overrides(lock, overrides, incident, release_manifest, read) if release_manifest else {'gateway': {}, 'frontend': {}}
     normalizations = lock.get('format_normalizations', {})
     assert set(lock.get('qualification_test_overrides', {})) <= set(lock['source_sets']['frontend']), 'UNKNOWN_QUALIFICATION_TEST'
     results = []
     for component, expected in lock['source_sets'].items():
-        component_overrides = {**(overrides if component == 'gateway' else {}), **incident.get(component, {})}
+        component_overrides = {**(overrides if component == 'gateway' else {}), **incident.get(component, {}), **released.get(component, {})}
         expected = {**expected, **component_overrides}
         prefix = RUNNER if component == 'ppt-master-runner' else ''
         if component != 'frontend':
@@ -227,6 +271,7 @@ def verify(ref=None, lock_path=LOCK):
     return {'status': 'CANDIDATE_SOURCE_VERIFIED' if manifest else 'RELEASE_SOURCE_VERIFIED', 'git_ref': ref, 'lock_file': lock_path, 'results': results,
             'post_release_test_only_corrections': len(lock.get('qualification_test_overrides', {})),
             'scope': lock['scope'], 'production_modified': False,
+            'released_delta': {'source_manifest': release_manifest['source_manifest'], 'frontend_runtime_paths': sorted(n for n in released['frontend'] if n.startswith('frontend/src/')), 'changed_sources': sum(map(len, released.values()))} if release_manifest else None,
             'candidate': {'status': 'NOT_DEPLOYED', 'base_commit': manifest['base_commit'], 'changed_sources': len(overrides), 'incident_delta': {'base_commit': delta['base_commit'], 'changed_sources': sum(len(v) for v in incident.values()), 'frontend_runtime_paths': sorted(n for n in incident['frontend'] if n.startswith('frontend/src/'))} if delta else None} if manifest else None}
 
 

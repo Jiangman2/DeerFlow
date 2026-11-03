@@ -1,0 +1,27 @@
+name: November 1 released fixes
+on:
+  pull_request:
+    paths:
+      - 'skills/public/data-analysis/**'
+      - 'tests/skills/test_data_analysis_offline.py'
+      - 'release/nov01-released-fixes-source-20261102/**'
+      - 'deploy/enterprise/*nov01*20261102.py'
+      - 'deploy/enterprise/released-source-delta-20261101.json'
+      - '.github/workflows/nov01-released-fixes.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-analysis-and-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest duckdb==1.5.5 openpyxl==3.1.5
+      - run: python -m pytest tests/skills/test_data_analysis_offline.py -q
+      - run: python deploy/enterprise/test_nov01_source_delta.py
+      - run: python deploy/enterprise/verify-nov01-released-source-20261102.py --ref HEAD
+      - run: python deploy/enterprise/verify-production-baseline-20261029.py --ref HEAD
