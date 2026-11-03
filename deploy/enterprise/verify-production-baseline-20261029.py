@@ -97,6 +97,8 @@ def verify(ref=None):
         expected.update(result['released_delta']['frontend_runtime_paths'])
     if result.get('released_delta_nov02'):
         expected.update(result['released_delta_nov02']['frontend_runtime_paths'])
+    if result.get('dashboard_navigation_candidate'):
+        expected.update(result['dashboard_navigation_candidate']['frontend_runtime_paths'])
     if ref:
         names = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, 'frontend/src', 'frontend/public'], cwd=ROOT).decode().splitlines()
         actual = set(names)
@@ -123,6 +125,10 @@ def verify(ref=None):
         result.update(status='ENTERPRISE_SOURCE_FOLLOWUP_ON_HISTORICAL_BASELINE_VERIFIED',
                       runtime_accepted=False, candidate_deployed=False,
                       scope='Committed November 3 source successor; historical evidence preserved; no new deployment acceptance')
+    if result.get('dashboard_navigation_candidate'):
+        result.update(status='DASHBOARD_NAVIGATION_CANDIDATE_ON_HISTORICAL_BASELINE_VERIFIED',
+                      runtime_accepted=False, candidate_deployed=False,
+                      scope='Scoped frontend candidate; no new production acceptance')
     return result
 
 

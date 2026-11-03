@@ -1,5 +1,14 @@
 # AGENTS.md
 
+The November 3 dashboard-navigation candidate retains one shared preset/custom
+range across overview, run diagnostics, users/employees and knowledge. Model and
+OA panels own independent intervals. Preserve filters and pagination across tab
+switches, but disable inactive queries so hidden panels do not poll. Keep the
+manual refresh serialization and bounded failure-detail reads below. URL fragments
+identify sections, not credentials or filters. Custom date controls are collapsible;
+the applied range stays visible. Source qualification is additive and does not
+claim deployment: see `../docs/dashboard-navigation-20261103.md`.
+
 The October 31 failed-run detail candidate uses a streamed 2 MiB response bound
 before JSON parsing, a 20-second deadline, and the query cancellation signal.
 Keep diagnostic queries free of automatic retries, focus refetches and retained

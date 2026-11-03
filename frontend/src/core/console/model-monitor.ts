@@ -59,11 +59,11 @@ const monitorSchema = z.object({
 });
 export type ModelMonitorData = z.infer<typeof monitorSchema>;
 
-export function useModelMonitor(minutes: 15 | 60) {
+export function useModelMonitor(minutes: 15 | 60, enabled = true) {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["admin-model-monitor", user?.id, minutes],
-    enabled: !!user?.id,
+    enabled: enabled && !!user?.id,
     queryFn: async ({ signal }) => {
       const response = await fetch(
         `${getBackendBaseURL()}/api/admin/model-monitor?minutes=${minutes}`,

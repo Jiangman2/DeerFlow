@@ -51,10 +51,6 @@ export default function ChatsPage() {
   const [search, setSearch] = useState("");
   const isSearching = search.trim().length > 0;
 
-  useEffect(() => {
-    document.title = `${t.pages.chats} - ${t.pages.appName}`;
-  }, [t.pages.chats, t.pages.appName]);
-
   const filteredThreads = useMemo(() => {
     return threads.filter((thread) => {
       return titleOfThread(thread).toLowerCase().includes(search.toLowerCase());
@@ -86,6 +82,7 @@ export default function ChatsPage() {
 
   return (
     <WorkspaceContainer>
+      <title>{`${t.pages.chats} - ${t.pages.appName}`}</title>
       <WorkspaceHeader></WorkspaceHeader>
       <WorkspaceBody>
         <Tabs

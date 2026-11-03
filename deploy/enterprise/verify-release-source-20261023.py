@@ -206,11 +206,14 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(_nov02.CI_ARCHIVE)
         if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, _nov02.followup.MANIFEST], cwd=ROOT).strip():
             extra.append(_nov02.followup.ARCHIVE)
+        if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, _nov02.followup.navigation.MANIFEST], cwd=ROOT).strip():
+            extra.append(_nov02.followup.navigation.ARCHIVE)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
     read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    navigation = _nov02.followup.navigation.qualify(read)
     followup = _nov02.followup.qualify(read)
     read = _nov02.followup.historical_read(read)
     lock_raw = read(lock_path)
@@ -292,6 +295,7 @@ def verify(ref=None, lock_path=LOCK):
         results.append(patch_result)
     return {'status': 'CANDIDATE_SOURCE_VERIFIED' if manifest else 'RELEASE_SOURCE_VERIFIED', 'git_ref': ref, 'lock_file': lock_path, 'results': results,
             'enterprise_source_followup': _nov02.followup.summary(followup),
+            'dashboard_navigation_candidate': _nov02.followup.navigation.summary(navigation),
             'post_release_test_only_corrections': len(lock.get('qualification_test_overrides', {})),
             'scope': lock['scope'], 'production_modified': False,
             'released_delta': {'source_manifest': release_manifest['source_manifest'], 'frontend_runtime_paths': sorted(n for n in released['frontend'] if n.startswith('frontend/src/')), 'changed_sources': sum(map(len, released.values()))} if release_manifest else None,

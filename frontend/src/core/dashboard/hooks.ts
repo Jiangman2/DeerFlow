@@ -11,8 +11,9 @@ import {
 } from "./api";
 import type { DashboardFilters } from "./types";
 
-export function useDashboardDateBounds() {
+export function useDashboardDateBounds(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: ["dashboard", "date-bounds"],
     queryFn: ({ signal }) => getDashboardDateBounds(signal),
     staleTime: 60_000,
@@ -30,12 +31,16 @@ export function dashboardRefreshInterval(
   return 60_000;
 }
 
-export function useDashboardSummary(filters: DashboardFilters | number = 168) {
+export function useDashboardSummary(
+  filters: DashboardFilters | number = 168,
+  enabled = true,
+) {
   const resolved =
     typeof filters === "number" ? { hours: filters } : { ...filters };
 
   return useQuery({
     queryKey: ["dashboard", "summary", resolved],
+    enabled,
     queryFn: ({ signal }) => getDashboardSummary(resolved, signal),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
@@ -48,12 +53,14 @@ export function useDashboardSummary(filters: DashboardFilters | number = 168) {
 
 export function useDashboardKnowledge(
   filters: DashboardFilters | number = 168,
+  enabled = true,
 ) {
   const resolved =
     typeof filters === "number" ? { hours: filters } : { ...filters };
 
   return useQuery({
     queryKey: ["dashboard", "knowledge", resolved],
+    enabled,
     queryFn: () => getDashboardKnowledge(resolved),
     placeholderData: keepPreviousData,
     staleTime: 5 * 60_000,
@@ -82,8 +89,14 @@ export function useDashboardRunRankings(
   });
 }
 
-export function useDashboardUsers(limit = 5, offset = 0, query = "") {
+export function useDashboardUsers(
+  limit = 5,
+  offset = 0,
+  query = "",
+  enabled = true,
+) {
   return useQuery({
+    enabled,
     queryKey: ["dashboard", "registered-users", limit, offset, query],
     queryFn: () => getDashboardUsers(limit, offset, query),
     staleTime: 5 * 60_000,
@@ -97,6 +110,7 @@ export function useDashboardUserSessions(
   userId: string | null,
   limit = 5,
   offset = 0,
+  enabled = true,
 ) {
   return useQuery({
     queryKey: [
@@ -108,7 +122,7 @@ export function useDashboardUserSessions(
       offset,
     ],
     queryFn: () => getDashboardUserSessions(userId ?? "", limit, offset),
-    enabled: Boolean(userId),
+    enabled: enabled && Boolean(userId),
     staleTime: 20_000,
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
@@ -116,8 +130,14 @@ export function useDashboardUserSessions(
   });
 }
 
-export function useDashboardFailures(limit = 5, offset = 0, query = "") {
+export function useDashboardFailures(
+  limit = 5,
+  offset = 0,
+  query = "",
+  enabled = true,
+) {
   return useQuery({
+    enabled,
     queryKey: ["dashboard", "failures", limit, offset, query],
     queryFn: ({ signal }) => getDashboardFailures(limit, offset, query, signal),
     retry: false,

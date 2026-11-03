@@ -17,6 +17,8 @@ def verify(ref=None):
         extra = [CI_ARCHIVE] if subprocess.check_output(["git", "ls-tree", "--name-only", ref, CI_MANIFEST], cwd=ROOT).strip() else []
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.MANIFEST], cwd=ROOT).strip():
             extra.append(followup.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.navigation.MANIFEST], cwd=ROOT).strip():
+            extra.append(followup.navigation.ARCHIVE)
         raw = subprocess.check_output(["git", "archive", ref, "backend/app", "backend/packages/harness", "backend/tests", "frontend/src", "frontend/tests", ARCHIVE, DELTA, PARENT_DELTA, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             cache = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}

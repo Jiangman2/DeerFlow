@@ -145,7 +145,7 @@ for (const [size, width, height] of [
     await modelSquareFixture(page);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto("/workspace/admin/dashboard");
+    await page.goto("/workspace/admin/dashboard#users");
     const actors = page.getByTestId("feedback-actors-panel"),
       clicks = page.getByTestId("employee-clicks-panel");
     await expect(actors).toContainText("示例用户01");

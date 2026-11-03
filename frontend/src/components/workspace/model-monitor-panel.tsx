@@ -122,15 +122,17 @@ function Trend({
 
 export function ModelMonitorPanel({
   scope = "models",
+  enabled = true,
 }: {
   scope?: "models" | "oa";
+  enabled?: boolean;
 }) {
   const { locale } = useI18n();
   const copy =
     scope === "oa" ? oaMonitorCopy(locale) : modelMonitorCopy(locale);
   const [minutes, setMinutes] = useState<15 | 60>(15);
   const [selected, setSelected] = useState("");
-  const query = useModelMonitor(minutes);
+  const query = useModelMonitor(minutes, enabled);
   const data = query.isError ? undefined : query.data;
   const observed = data?.status === "observed";
   const rows = observed

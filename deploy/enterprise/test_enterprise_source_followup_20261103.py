@@ -25,7 +25,7 @@ class EnterpriseFollowupTests(unittest.TestCase):
 
     def test_each_current_source_and_test_is_enforced(self):
         for path in followup.qualify(self.read)["changes"]:
-            with self.subTest(path=path), self.assertRaisesRegex(AssertionError, "ENTERPRISE_FOLLOWUP_CURRENT_CHANGED"):
+            with self.subTest(path=path), self.assertRaisesRegex(AssertionError, "ENTERPRISE_FOLLOWUP_CURRENT_CHANGED|DASHBOARD_NAVIGATION_CURRENT_CHANGED"):
                 load(self.changed(path))
 
     def test_each_parent_snapshot_is_enforced(self):
