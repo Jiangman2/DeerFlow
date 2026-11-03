@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <rect width="1600" height="900" fill="#000000"/>
+  <style>
+    text { font-family: Arial, sans-serif; fill: #111111; }
+    .worker { fill: #f7e2cc; stroke: none; }
+    .nginx { fill: #ffe5a4; stroke: #111111; stroke-width: 2; }
+    .api { fill: #9bbbf0; stroke: #111111; stroke-width: 2; }
+    .component { fill: #d9e6f2; stroke: #111111; stroke-width: 2; }
+    .etcd { fill: #b7d8a8; stroke: #111111; stroke-width: 2; }
+    .node { fill: #eeeeee; fill-opacity: .96; stroke: #bbbbbb; stroke-width: 2; stroke-dasharray: 7 5; }
+    .etcd-band { fill: #dbeed3; fill-opacity: .9; stroke: #9ebc94; stroke-width: 2; stroke-dasharray: 10 6; }
+    .label { font-size: 24px; }
+    .small { font-size: 18px; }
+    .tiny { font-size: 15px; }
+    .line { stroke: #111111; stroke-width: 2.5; fill: none; }
+    .dashed { stroke: #555555; stroke-width: 2; stroke-dasharray: 8 6; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 z" fill="#222222"/>
+    </marker>
+  </defs>
+
+  <!-- Worker nodes -->
+  <g>
+    <rect class="worker" x="80" y="55" width="220" height="72"/>
+    <rect class="worker" x="380" y="55" width="220" height="72"/>
+    <rect class="worker" x="680" y="55" width="220" height="72"/>
+    <rect class="worker" x="980" y="55" width="220" height="72"/>
+    <rect class="worker" x="1280" y="55" width="220" height="72"/>
+    <text class="label" x="190" y="99" text-anchor="middle">worker node</text>
+    <text class="label" x="490" y="99" text-anchor="middle">worker node</text>
+    <text class="label" x="790" y="99" text-anchor="middle">worker node</text>
+    <text class="label" x="1090" y="99" text-anchor="middle">worker node</text>
+    <text class="label" x="1390" y="99" text-anchor="middle">worker node</text>
+  </g>
+
+  <!-- Engineering entry annotation, deliberately not a single shared LB -->
+  <rect class="nginx" x="570" y="177" width="460" height="62"/>
+  <text class="label" x="800" y="216" text-anchor="middle">NGINX load balancing (one per control-plane node)</text>
+  <text fill="#eeeeee" class="small" x="800" y="265" text-anchor="middle">DNS round-robin / client endpoint list reaches any node</text>
+
+  <!-- Worker traffic fan-out -->
+  <path class="dashed" d="M190 127 V155 H1410 V127"/>
+  <path class="dashed" d="M490 127 V155"/>
+  <path class="dashed" d="M790 127 V155"/>
+  <path class="dashed" d="M1090 127 V155"/>
+  <path class="line" marker-end="url(#arrow)" d="M290 155 V375"/>
+  <path class="line" marker-end="url(#arrow)" d="M800 155 V375"/>
+  <path class="line" marker-end="url(#arrow)" d="M1310 155 V375"/>
+
+  <!-- Stacked etcd cluster background -->
+  <rect class="etcd-band" x="42" y="672" width="1516" height="165"/>
+  <text class="small" x="800" y="823" text-anchor="middle">stacked etcd cluster</text>
+
+  <!-- Control plane node 1 -->
+  <g>
+    <rect class="node" x="42" y="330" width="496" height="505"/>
+    <text class="small" x="58" y="359">control plane node 1</text>
+    <rect class="nginx" x="108" y="375" width="364" height="58"/>
+    <text class="label" x="290" y="413" text-anchor="middle">NGINX (local)</text>
+    <rect class="api" x="108" y="433" width="364" height="62"/>
+    <text class="label" x="290" y="473" text-anchor="middle">apiserver</text>
+    <rect class="component" x="108" y="495" width="364" height="62"/>
+    <text class="label" x="290" y="535" text-anchor="middle">controller-manager</text>
+    <rect class="component" x="108" y="557" width="364" height="62"/>
+    <text class="label" x="290" y="597" text-anchor="middle">scheduler</text>
+    <rect class="etcd" x="108" y="672" width="364" height="64"/>
+    <ellipse cx="145" cy="704" rx="16" ry="7" fill="#eef7ff" stroke="#111111" stroke-width="2"/>
+    <path d="M129 704 V720 C129 728 161 728 161 720 V704" fill="#eef7ff" stroke="#111111" stroke-width="2"/>
+    <text class="label" x="300" y="713" text-anchor="middle">etcd-1</text>
+    <path class="line" marker-end="url(#arrow)" d="M290 495 V672"/>
+  </g>
+
+  <!-- Control plane node 2 -->
+  <g>
+    <rect class="node" x="552" y="330" width="496" height="505"/>
+    <text class="small" x="568" y="359">control plane node 2</text>
+    <rect class="nginx" x="618" y="375" width="364" height="58"/>
+    <text class="label" x="800" y="413" text-anchor="middle">NGINX (local)</text>
+    <rect class="api" x="618" y="433" width="364" height="62"/>
+    <text class="label" x="800" y="473" text-anchor="middle">apiserver</text>
+    <rect class="component" x="618" y="495" width="364" height="62"/>
+    <text class="label" x="800" y="535" text-anchor="middle">controller-manager</text>
+    <rect class="component" x="618" y="557" width="364" height="62"/>
+    <text class="label" x="800" y="597" text-anchor="middle">scheduler</text>
+    <rect class="etcd" x="618" y="672" width="364" height="64"/>
+    <ellipse cx="655" cy="704" rx="16" ry="7" fill="#eef7ff" stroke="#111111" stroke-width="2"/>
+    <path d="M639 704 V720 C639 728 671 728 671 720 V704" fill="#eef7ff" stroke="#111111" stroke-width="2"/>
+    <text class="label" x="810" y="713" text-anchor="middle">etcd-2</text>
+    <path class="line" marker-end="url(#arrow)" d="M800 495 V672"/>
+  </g>
+
+  <!-- Control plane node 3 -->
+  <g>
+    <rect class="node" x="1062" y="330" width="496" height="505"/>
+    <text class="small" x="1078" y="359">control plane node 3</text>
+    <rect class="nginx" x="1128" y="375" width="364" height="58"/>
+    <text class="label" x="1310" y="413" text-anchor="middle">NGINX (local)</text>
+    <rect class="api" x="1128" y="433" width="364" height="62"/>
+    <text class="label" x="1310" y="473" text-anchor="middle">apiserver</text>
+    <rect class="component" x="1128" y="495" width="364" height="62"/>
+    <text class="label" x="1310" y="535" text-anchor="middle">controller-manager</text>
+    <rect class="component" x="1128" y="557" width="364" height="62"/>
+    <text class="label" x="1310" y="597" text-anchor="middle">scheduler</text>
+    <rect class="etcd" x="1128" y="672" width="364" height="64"/>
+    <ellipse cx="1165" cy="704" rx="16" ry="7" fill="#eef7ff" stroke="#111111" stroke-width="2"/>
+    <path d="M1149 704 V720 C1149 728 1181 728 1181 720 V704" fill="#eef7ff" stroke="#111111" stroke-width="2"/>
+    <text class="label" x="1320" y="713" text-anchor="middle">etcd-3</text>
+    <path class="line" marker-end="url(#arrow)" d="M1310 495 V672"/>
+  </g>
+
+  <!-- NGINX upstream fan-out: every local proxy knows all API servers -->
+  <path class="dashed" marker-end="url(#arrow)" d="M290 433 C500 445 600 445 800 433"/>
+  <path class="dashed" marker-end="url(#arrow)" d="M290 433 C650 470 930 470 1310 433"/>
+  <path class="dashed" marker-end="url(#arrow)" d="M800 433 C980 445 1110 445 1310 433"/>
+  <text fill="#eeeeee" class="tiny" x="800" y="314" text-anchor="middle">Each local NGINX health-checks and forwards to API-1 / API-2 / API-3</text>
+
+  <!-- etcd peer replication -->
+  <path class="line" marker-end="url(#arrow)" d="M472 704 H618"/>
+  <path class="line" marker-end="url(#arrow)" d="M982 704 H1128"/>
+  <path class="line" marker-end="url(#arrow)" d="M1200 758 C950 805 650 805 400 758"/>
+</svg>

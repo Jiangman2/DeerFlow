@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: weknora-enterprise-mineru-defaults-v2
+  namespace: deer-flow
+  labels:
+    app: weknora-enterprise-mineru-defaults
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app: weknora-enterprise-mineru-defaults
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: apply-defaults
+          image: paradedb/paradedb:v0.22.2-pg17
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              attempt=1
+              while [ "$attempt" -le 120 ]; do
+                if psql \
+                  --host=weknora-postgres \
+                  --port=5432 \
+                  --username=postgres \
+                  --dbname=WeKnora \
+                  --file=/sql/defaults.sql
+                then
+                  echo "weknora_enterprise_mineru_defaults=PASS"
+                  exit 0
+                fi
+                echo "waiting_for_weknora_schema attempt=${attempt}/120"
+                attempt=$((attempt + 1))
+                sleep 5
+              done
+              echo "weknora_enterprise_mineru_defaults=FAILED"
+              exit 1
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: defaults-sql
+              mountPath: /sql
+              readOnly: true
+      volumes:
+        - name: defaults-sql
+          configMap:
+            name: weknora-mineru-defaults

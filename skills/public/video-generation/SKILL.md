@@ -1,157 +1,53 @@
 ---
 name: video-generation
-description: Use this skill when the user requests to generate, create, or imagine videos. Supports structured prompts and reference image for guided generation.
+description: Generate a new text-to-video or image-to-video clip with the platform-managed video model. Use when the user asks to create, animate, render, or synthesize a video clip.
+allowed-tools:
+  - generate_video
 ---
 
-# Video Generation Skill
+# Platform Video Generation
 
-## Overview
-
-This skill generates high-quality videos using structured prompts and a Python script. The workflow includes creating JSON-formatted prompts and executing video generation with optional reference image.
-
-## Core Capabilities
-
-- Create structured JSON prompts for AIGC video generation
-- Support reference image as guidance or the first/last frame of the video
-- Generate videos through automated Python script execution
+Use the built-in asynchronous `generate_video` tool. The platform owns the
+endpoint, optional credential, safe reference handling, durable job state,
+download, and artifact publication.
 
 ## Workflow
 
-### Step 1: Understand Requirements
+1. Convert the request into one complete English shot prompt covering subject,
+   action, setting, camera movement, composition, lighting, visual style, and
+   temporal continuity.
+2. Choose generation settings. Defaults are `832x480`, 24 fps, and 81 frames.
+   Video dimensions must be divisible by 16. Use either `num_frames` or
+   `seconds`, never both.
+3. For text-to-video, call `generate_video` with the prompt and settings. For
+   image-to-video, add exactly one of:
+   - `reference_image`: a current-thread PNG/JPEG/WebP path under uploads,
+     workspace, or outputs;
+   - `reference_url`: a public HTTP(S) image URL.
+4. If the result is pending, retain the returned `job_id` and call
+   `generate_video` again with that `job_id`. Never resubmit the prompt merely
+   because the first call did not finish within its bounded wait.
+5. When completed, the tool downloads and publishes the MP4 itself. Do not call
+   Bash, direct HTTP requests, provider SDKs, or `present_files` for that video.
 
-When a user requests video generation, identify:
+## Job and Failure Contract
 
-- Subject/content: What should be in the image
-- Style preferences: Art style, mood, color palette
-- Technical specs: Aspect ratio, composition, lighting
-- Reference image: Any image to guide generation
-- You don't need to check the folder under `/mnt/user-data`
+- Never invent or edit a `job_id`.
+- Job ownership is scoped to the current thread; a job from another thread is
+  rejected.
+- The remote service keeps job records only in memory. If it restarts and loses
+  a known job, report that condition instead of silently creating a duplicate.
+- Deleting a remote record is not cancellation, so this Skill never uses the
+  DELETE route.
+- A failed/canceled result is terminal for that submitted job. Report the
+  bounded error and ask before creating a new billable job.
+- Do not inspect secrets, probe model catalogs, or switch providers.
 
-### Step 2: Create Structured Prompt
+## Output Quality
 
-Generate a structured JSON file in `/mnt/user-data/workspace/` with naming pattern: `{descriptive-name}.json`
-
-### Step 3: Create Reference Image (Optional when image-generation skill is available)
-
-Generate reference image for the video generation.
-
-- If only 1 image is provided, use it as the guided frame of the video
-
-### Step 3: Execute Generation
-
-Call the Python script:
-```bash
-python /mnt/skills/public/video-generation/scripts/generate.py \
-  --prompt-file /mnt/user-data/workspace/prompt-file.json \
-  --reference-images /path/to/ref1.jpg \
-  --output-file /mnt/user-data/outputs/generated-video.mp4 \
-  --aspect-ratio 16:9
-```
-
-Parameters:
-
-- `--prompt-file`: Absolute path to JSON prompt file (required)
-- `--reference-images`: Absolute paths to reference image (optional)
-- `--output-file`: Absolute path to output image file (required)
-- `--aspect-ratio`: Aspect ratio of the generated image (optional, default: 16:9)
-
-[!NOTE]
-Do NOT read the python file, instead just call it with the parameters.
-
-## Video Generation Example
-
-User request: "Generate a short video clip depicting the opening scene from "The Chronicles of Narnia: The Lion, the Witch and the Wardrobe"
-
-Step 1: Search for the opening scene of "The Chronicles of Narnia: The Lion, the Witch and the Wardrobe" online
-
-Step 2: Create a JSON prompt file with the following content:
-
-```json
-{
-  "title": "The Chronicles of Narnia - Train Station Farewell",
-  "background": {
-    "description": "World War II evacuation scene at a crowded London train station. Steam and smoke fill the air as children are being sent to the countryside to escape the Blitz.",
-    "era": "1940s wartime Britain",
-    "location": "London railway station platform"
-  },
-  "characters": ["Mrs. Pevensie", "Lucy Pevensie"],
-  "camera": {
-    "type": "Close-up two-shot",
-    "movement": "Static with subtle handheld movement",
-    "angle": "Profile view, intimate framing",
-    "focus": "Both faces in focus, background soft bokeh"
-  },
-  "dialogue": [
-    {
-      "character": "Mrs. Pevensie",
-      "text": "You must be brave for me, darling. I'll come for you... I promise."
-    },
-    {
-      "character": "Lucy Pevensie",
-      "text": "I will be, mother. I promise."
-    }
-  ],
-  "audio": [
-    {
-      "type": "Train whistle blows (signaling departure)",
-      "volume": 1
-    },
-    {
-      "type": "Strings swell emotionally, then fade",
-      "volume": 0.5
-    },
-    {
-      "type": "Ambient sound of the train station",
-      "volume": 0.5
-    }
-  ]
-}
-```
-
-Step 3: Use the image-generation skill to generate the reference image
-
-Load the image-generation skill and generate a single reference image `narnia-farewell-scene-01.jpg` according to the skill.
-
-Step 4: Use the generate.py script to generate the video
-```bash
-python /mnt/skills/public/video-generation/scripts/generate.py \
-  --prompt-file /mnt/user-data/workspace/narnia-farewell-scene.json \
-  --reference-images /mnt/user-data/outputs/narnia-farewell-scene-01.jpg \
-  --output-file /mnt/user-data/outputs/narnia-farewell-scene-01.mp4 \
-  --aspect-ratio 16:9
-```
-> Do NOT read the python file, just call it with the parameters.
-
-## Output Handling
-
-After generation:
-
-- Videos are typically saved in `/mnt/user-data/outputs/`
-- Share generated videos (come first) with user as well as generated image if applicable, using `present_files` tool
-- Provide brief description of the generation result
-- Offer to iterate if adjustments needed
-
-## Notes
-
-- Always use English for prompts regardless of user's language
-- JSON format ensures structured, parsable prompts
-- Reference image enhance generation quality significantly
-- Iterative refinement is normal for optimal results
-
-## Providers (Gemini / DashScope / MiniMax)
-
-Auto-selected by environment variables (CLI unchanged):
-
-- `GEMINI_API_KEY` set → Gemini Veo (default, unchanged).
-- Only `DASHSCOPE_API_KEY` set → DashScope Wan text-to-video.
-- Only `MINIMAX_API_KEY` set → MiniMax video (`/v1/video_generation`, async 3-step poll/download).
-- Force with `VIDEO_GENERATION_PROVIDER=gemini|dashscope|minimax`.
-
-DashScope overrides: `DASHSCOPE_BASE_URL` (default `https://dashscope.aliyuncs.com/api/v1`),
-`DASHSCOPE_VIDEO_MODEL` (default `wan2.6-t2v`), `DASHSCOPE_VIDEO_SIZE`
-(default derived from `--aspect-ratio`), `DASHSCOPE_VIDEO_DURATION` (default `5`).
-The DashScope path uses Wan text-to-video and ignores local `--reference-images`.
-
-MiniMax overrides: `MINIMAX_API_HOST` (default `https://api.minimaxi.com`),
-`MINIMAX_VIDEO_MODEL` (default `MiniMax-Hailuo-2.3`). The first reference image is used
-as MiniMax `first_frame_image`. MiniMax ignores `--aspect-ratio` (it uses resolution/duration).
+- Prefer one coherent shot for a short clip; avoid packing many scene changes
+  into a few seconds.
+- State motion and camera behavior explicitly and use `negative_prompt` for
+  common temporal defects when useful.
+- Do not claim synchronized dialogue, audio, or exact lettering unless the
+  configured model actually returns it in the generated artifact.

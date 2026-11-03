@@ -12,6 +12,7 @@ from app.channels.base import Channel
 from app.channels.commands import is_known_channel_command
 from app.channels.connection_identity import attach_connection_identity
 from app.channels.message_bus import InboundMessageType, MessageBus, OutboundMessage, ResolvedAttachment
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -395,7 +396,7 @@ class SlackChannel(Channel):
             },
             status="connected",
         )
-        await self._post_connection_reply(channel_id, "Slack connected to DeerFlow.", thread_ts)
+        await self._post_connection_reply(channel_id, f"Slack已连接至{ENTERPRISE_PRODUCT_NAME}。", thread_ts)
         return True
 
     async def _post_connection_reply(self, channel_id: str, text: str, thread_ts: str | None = None) -> None:

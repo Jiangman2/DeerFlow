@@ -1,0 +1,12 @@
+FROM media-generation-gateway-base
+
+COPY payload/backend/app/gateway/routers/artifacts.py /app/backend/app/gateway/routers/artifacts.py
+COPY payload/backend/packages/harness/deerflow/community/media_generation /app/backend/packages/harness/deerflow/community/media_generation
+COPY payload/backend/packages/harness/deerflow/tools/tools.py /app/backend/packages/harness/deerflow/tools/tools.py
+
+RUN --network=none cd /app/backend \
+    && PYTHONPATH=packages/harness:. .venv/bin/python -m py_compile \
+       app/gateway/routers/artifacts.py \
+       packages/harness/deerflow/community/media_generation/__init__.py \
+       packages/harness/deerflow/community/media_generation/tools.py \
+       packages/harness/deerflow/tools/tools.py

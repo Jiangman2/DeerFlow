@@ -1,0 +1,37 @@
+本集标题：Skill 系统与 MCP 系统。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：12.1 Skill 是“可加载知识和工作流”，不是普通工具。
+
+Skill 通常以目录形式存在，核心文件是 SKILL.md，还可以包含：
+
+参考资料。 - 脚本。 - 模板。 - 资源文件。
+
+Skill 的作用是改变 Agent 的工作方式：告诉模型何时使用某个流程、怎样操作文件、如何检查结果、哪些限制必须遵守。
+
+下面进入小节：12.2 Skill 的加载层次。
+
+图示口述：这张图展示了Skill Storage 扫描、读取名称、描述、路径、用户/Agent allowed-tools 与权限、Skill 索引/描述、describe_skill / 延迟发现、读取 SKILL.md、skill_context 轻量引用、注入当前 Agent 上下文之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+为了避免 checkpoint 变得巨大，skill_context 存的是 Skill 的 name/path/description 引用，而不是整个 SKILL.md 正文。
+
+下面进入小节：12.3 Skill 安全边界。
+
+Skill 是模型可读的指令来源，因此需要：
+
+隔离系统指令和 Skill 内容的优先级。 - 过滤或审查不安全工具声明。 - 防止 Skill 诱导模型泄露 secret。 - 对可下载 Skill 包检查 ZIP 结构和 SKILL.md。 - 避免把平台内部凭据写入 Skill。
+
+下面进入小节：12.4 MCP 是外部工具协议。
+
+MCP 服务器提供外部工具，DeerFlow 在应用启动时初始化并缓存工具定义。运行时 get_available_tools 从缓存读取 MCP 工具，再进行名称去重、策略过滤和延迟工具装配。
+
+图示口述：这张图展示了MCP Server、MCP Client、MCP Tool Cache、get_available_tools、权限/Skill/Agent 工具策略、Lead Agent之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+MCP 配置可以通过 Gateway API 修改；工具装配需要读取最新 extensions 配置，否则独立进程之间会出现“管理端已改、Agent 仍使用旧配置”的问题。
+
+下面进入小节：12.5 Skill 与 MCP 的区别。
+
+表格口述：项目，Skill，MCP；核心内容，指令、流程、参考资料、脚本，可调用的外部工具协议；主要影响，模型如何完成任务，模型能调用什么外部能力；载体，SKILL.md 目录包，MCP Server；是否有工具，可以声明/使用工具，本身就是工具来源；典型问题，指令冲突、恶意 Skill，工具权限、远程连接、数据泄露。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

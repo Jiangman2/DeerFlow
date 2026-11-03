@@ -3,8 +3,10 @@
 import logging
 
 import pytest
+from sqlalchemy import select
 
-from deerflow.persistence.thread_meta import InvalidMetadataFilterError, ThreadMetaRepository
+from deerflow.persistence.thread_meta import THREAD_ARCHIVED_METADATA_KEY, THREAD_PINNED_METADATA_KEY, InvalidMetadataFilterError, ThreadMetaRepository
+from deerflow.persistence.thread_meta.model import ThreadCreationRow
 
 
 @pytest.fixture
@@ -115,6 +117,20 @@ class TestThreadMetaRepository:
         assert await repo.get("t1") is None
 
     @pytest.mark.anyio
+    async def test_creation_ledger_survives_thread_deletion(self, repo):
+        await repo.create("t1", user_id="user1", assistant_id="agent1")
+        await repo.delete("t1", user_id="user1")
+
+        async with repo._sf() as session:
+            creation = await session.scalar(
+                select(ThreadCreationRow).where(ThreadCreationRow.thread_id == "t1"),
+            )
+
+        assert creation is not None
+        assert creation.user_id == "user1"
+        assert creation.assistant_id == "agent1"
+
+    @pytest.mark.anyio
     async def test_delete_nonexistent_is_noop(self, repo):
         await repo.delete("nonexistent")  # should not raise
 
@@ -138,6 +154,41 @@ class TestThreadMetaRepository:
         await repo.update_metadata("nonexistent", {"k": "v"})  # should not raise
 
     @pytest.mark.anyio
+    async def test_update_metadata_touch_false_preserves_updated_at(self, repo):
+        await repo.create("t1", metadata={"a": 1})
+        original = (await repo.get("t1"))["updated_at"]
+
+        await repo.update_metadata("t1", {THREAD_PINNED_METADATA_KEY: True}, touch=False)
+
+        record = await repo.get("t1")
+        assert record["metadata"] == {"a": 1, THREAD_PINNED_METADATA_KEY: True}
+        assert record["updated_at"] == original
+
+    @pytest.mark.anyio
+    async def test_search_orders_pinned_before_newer_unpinned(self, repo):
+        await repo.create("older-pinned", metadata={THREAD_PINNED_METADATA_KEY: True})
+        await repo.create("newer-unpinned")
+
+        results = await repo.search(limit=1)
+
+        assert [record["thread_id"] for record in results] == ["older-pinned"]
+
+    @pytest.mark.anyio
+    async def test_search_archive_filter_includes_legacy_active_rows(self, repo):
+        await repo.create("legacy-active")
+        await repo.create("active", metadata={THREAD_ARCHIVED_METADATA_KEY: False})
+        await repo.create("archived", metadata={THREAD_ARCHIVED_METADATA_KEY: True})
+
+        active = await repo.search(archived=False)
+        archived = await repo.search(archived=True)
+
+        assert {record["thread_id"] for record in active} == {
+            "legacy-active",
+            "active",
+        }
+        assert [record["thread_id"] for record in archived] == ["archived"]
+
+    @pytest.mark.anyio
     async def test_update_owner_with_bypass_moves_row(self, repo):
         await repo.create("t1", user_id="default", metadata={"source": "channel"})
         await repo.update_owner("t1", "owner-1", user_id=None)
@@ -149,6 +200,10 @@ class TestThreadMetaRepository:
         assert owner_row["user_id"] == "owner-1"
         assert owner_row["metadata"] == {"source": "channel"}
         assert default_row is None
+        async with repo._sf() as session:
+            creation = await session.get(ThreadCreationRow, "t1")
+        assert creation is not None
+        assert creation.user_id == "owner-1"
 
     # --- search with metadata filter (SQL push-down) ---
 

@@ -9,7 +9,10 @@ export interface DashboardOverview {
   new_users: number;
   active_users: number;
   threads: number;
+  all_time_threads: number;
+  existing_threads: number;
   runs: number;
+  terminal_runs: number;
   successful_runs: number;
   failed_runs: number;
   running_runs: number;
@@ -26,9 +29,56 @@ export interface DashboardOverview {
 
 export interface UserActivityPoint {
   date: string;
+  end_date: string;
   active_users: number;
   threads: number;
   runs: number;
+}
+
+export interface UserUsageItem {
+  user_id: string;
+  email: string | null;
+  display_name: string | null;
+  organization_name: string | null;
+  runs: number;
+  threads: number;
+  total_tokens: number;
+  success_rate: number;
+}
+
+export interface ExternalAgentClickItem {
+  name: string;
+  clicks: number;
+  users: number;
+}
+
+export interface ExternalPlatformSourceMetric {
+  source: string;
+  today_users: number;
+  total_users: number;
+  today_clicks: number;
+  total_clicks: number;
+}
+
+export interface ExternalPlatformAgentMetric {
+  name: string;
+  today_users: number;
+  total_users: number;
+  today_clicks: number;
+  total_clicks: number;
+  by_source: ExternalPlatformSourceMetric[];
+}
+
+export interface ExternalPlatformClickSummary {
+  available: boolean;
+  error: string | null;
+  today: string;
+  days: number;
+  agents: ExternalPlatformAgentMetric[];
+  trend: {
+    dates: string[];
+    series: Record<string, number[]>;
+  };
 }
 
 export interface FeatureUsageItem {
@@ -57,6 +107,8 @@ export interface ModelUsageItem {
 
 export interface DashboardFilters {
   hours?: number;
+  start_at?: string;
+  end_at?: string;
   status?: string;
   model?: string;
   agent?: string;
@@ -134,15 +186,111 @@ export interface FeedbackSummary {
 }
 
 export interface KnowledgeUsageSummary {
+  available: boolean;
+  error: string | null;
+  current_users: number;
+  registered_users: number;
+  current_knowledge_bases: number;
+  created_knowledge_bases: number;
+  current_documents: number;
+  uploaded_documents: number;
+  current_conversation_sessions: number;
+  conversation_sessions: number;
+  current_question_turns: number;
+  question_turns: number;
+  current_shared_spaces: number;
+  created_shared_spaces: number;
+  current_shared_space_members: number;
+  joined_shared_space_members: number;
+  current_shared_knowledge_bases: number;
+  shared_knowledge_bases: number;
+  current_shared_documents: number;
+  uploaded_shared_documents: number;
+  pending_shared_space_requests: number;
+  shared_space_join_requests: number;
+  file_formats: KnowledgeFileFormatUsageItem[];
+  knowledge_bases: KnowledgeBaseUsageItem[];
+  users: KnowledgeUserUsageItem[];
+  shared_spaces: SharedSpaceUsageItem[];
+}
+
+export interface KnowledgeFileFormatUsageItem {
+  format: string;
+  current_count: number;
+  uploaded_count: number;
+}
+
+export interface KnowledgeBaseUsageItem {
+  knowledge_base_id: string;
+  name: string;
+  creator_email: string | null;
+  creator_name: string | null;
+  current_documents: number;
+  uploaded_documents: number;
+  current_conversation_sessions: number;
+  conversation_sessions: number;
+  current_question_turns: number;
+  question_turns: number;
+  file_formats: KnowledgeFileFormatUsageItem[];
+}
+
+export interface KnowledgeUserUsageItem {
+  weknora_user_id: string;
+  email: string | null;
+  name: string | null;
+  current_knowledge_bases: number;
+  created_knowledge_bases: number;
+  current_documents: number;
+  uploaded_documents: number;
+  conversation_sessions: number;
+  question_turns: number;
+}
+
+export interface SharedSpaceUsageItem {
+  shared_space_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  owner_email: string | null;
+  owner_name: string | null;
+  current_members: number;
+  joined_members: number;
+  admins: number;
+  editors: number;
+  viewers: number;
+  current_knowledge_bases: number;
+  shared_knowledge_bases: number;
+  current_documents: number;
+  uploaded_documents: number;
+  pending_requests: number;
+  join_requests: number;
+}
+
+export interface ScheduledTaskUserUsageItem {
+  user_id: string;
+  email: string | null;
+  display_name: string | null;
+  organization_name: string | null;
+  current_tasks: number;
+  created_tasks: number;
+  enabled_tasks: number;
+  paused_tasks: number;
   runs: number;
-  tool_calls: number;
-  recent_tool_calls: Array<{
-    run_id: string;
-    thread_id: string;
-    created_at: string;
-    event_type: string;
-    snippet: string;
-  }>;
+  successful_runs: number;
+  failed_runs: number;
+  skipped_runs: number;
+}
+
+export interface ScheduledTaskUsageSummary {
+  current_tasks: number;
+  created_tasks: number;
+  enabled_tasks: number;
+  paused_tasks: number;
+  runs: number;
+  successful_runs: number;
+  failed_runs: number;
+  skipped_runs: number;
+  users: ScheduledTaskUserUsageItem[];
 }
 
 export interface RecentFailureItem {
@@ -150,6 +298,7 @@ export interface RecentFailureItem {
   thread_id: string;
   user_id: string | null;
   email: string | null;
+  display_name: string | null;
   status: string;
   error: string | null;
   assistant_id: string | null;
@@ -159,7 +308,13 @@ export interface RecentFailureItem {
   duration_ms: number;
   disposition_status: string | null;
   diagnostics_url: string;
-  chat_url: string;
+  can_open: boolean;
+  chat_url: string | null;
+}
+
+export interface FailedRunList {
+  items: RecentFailureItem[];
+  total: number;
 }
 
 export interface RecentBusinessEventItem {
@@ -171,10 +326,36 @@ export interface RecentBusinessEventItem {
   snippet: string;
 }
 
+export interface DashboardAggregationInfo {
+  source: "raw" | "rollup" | "rollup+raw" | string;
+  schema_version: number;
+  rollup_days: number;
+  rollup_hours: number;
+  raw_segments: number;
+}
+
+export interface DashboardRunRankingItem {
+  run_id: string;
+  thread_id: string;
+  model: string | null;
+  agent: string | null;
+  duration_ms: number;
+  tokens: number;
+}
+
+export interface DashboardRunRankings {
+  slow_runs: DashboardRunRankingItem[];
+  high_token_runs: DashboardRunRankingItem[];
+}
+
 export interface DashboardSummary {
   window: DashboardWindow;
   overview: DashboardOverview;
+  activity_bucket: "day" | "week" | string;
   user_activity: UserActivityPoint[];
+  user_usage: UserUsageItem[];
+  external_agent_clicks: ExternalAgentClickItem[];
+  external_platform_agent_clicks: ExternalPlatformClickSummary;
   feature_usage: FeatureUsageItem[];
   recent_business_events: RecentBusinessEventItem[];
   agent_usage: AgentUsageItem[];
@@ -183,5 +364,54 @@ export interface DashboardSummary {
   artifact_summary: ArtifactSummary;
   feedback: FeedbackSummary;
   knowledge_usage: KnowledgeUsageSummary;
+  scheduled_task_usage: ScheduledTaskUsageSummary;
   recent_failures: RecentFailureItem[];
+  aggregation: DashboardAggregationInfo;
+}
+
+export interface RegisteredUserSessionSummary {
+  user_id: string;
+  email: string;
+  display_name: string | null;
+  organization_name: string | null;
+  system_role: string;
+  is_disabled: boolean;
+  registered_at: string;
+  last_login_at: string | null;
+  existing_threads: number;
+  runs: number;
+  terminal_runs: number;
+  successful_runs: number;
+  failed_runs: number;
+  running_runs: number;
+  last_active_at: string | null;
+}
+
+export interface RegisteredUserSessionList {
+  items: RegisteredUserSessionSummary[];
+  total: number;
+}
+
+export interface ExistingSessionItem {
+  thread_id: string;
+  title: string | null;
+  assistant_id: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  runs: number;
+  terminal_runs: number;
+  successful_runs: number;
+  failed_runs: number;
+  running_runs: number;
+  last_run_at: string | null;
+  last_run_status: string | null;
+  can_open: boolean;
+  chat_url: string | null;
+}
+
+export interface ExistingSessionList {
+  user_id: string;
+  items: ExistingSessionItem[];
+  total: number;
 }

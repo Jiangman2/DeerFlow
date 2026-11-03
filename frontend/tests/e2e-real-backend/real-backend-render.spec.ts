@@ -11,13 +11,15 @@ const here = dirname(fileURLToPath(import.meta.url));
  * API key) and assert the browser renders the backend's data correctly.
  *
  * The prompt is read from the same fixture the gateway replays, so the input
- * hash matches and the recorded turns (write_file -> auto-title -> read_file ->
- * final answer) reproduce deterministically.
+ * hash matches and the recorded model turns reproduce deterministically. The
+ * default auto-title is local fallback state, not a replayed model turn.
  */
 // Register through the frontend origin (same-origin proxy) so the auth cookies
-// are stored for and sent to localhost:3000 — the gateway is reached via the
+// are stored for and sent to the browser origin — the gateway is reached via the
 // next.config rewrite, never cross-origin from the browser.
-const APP = "http://localhost:3000";
+const APP =
+  process.env.E2E_APP_URL ??
+  `http://localhost:${process.env.E2E_FRONTEND_PORT ?? "3000"}`;
 const fixture = JSON.parse(
   readFileSync(
     join(
@@ -28,14 +30,13 @@ const fixture = JSON.parse(
   ),
 ) as {
   prompt: string;
-  turns: Array<{ output: { data: { content?: unknown } } }>;
+  turns: Array<{ caller?: string; output: { data: { content?: unknown } } }>;
 };
 
 const PROMPT = fixture.prompt;
-// Derive the assertions from the fixture so a re-record auto-updates them. Both
-// are model-generated strings absent from the user prompt, so a pass proves the
-// replay drove the render (not a prompt echo): the first plain-text turn is the
-// in-graph auto-title; the JSON-array turn is the follow-up suggestions.
+
+// Suggestions and the title both come from the recorded replay fixture.
+// Read the title turn by its middleware caller so the expectation matches the real backend contract.
 const textTurns = fixture.turns
   .map((t) => t.output?.data?.content)
   .filter((c): c is string => typeof c === "string" && c.trim().length > 0);
@@ -52,7 +53,9 @@ const EXPECTED_SUGGESTION = ((): string => {
     return "";
   }
 })();
-const EXPECTED_TITLE = textTurns.find((c) => !c.trim().startsWith("[")) ?? "";
+const titleRaw = fixture.turns.find((t) => t.caller === "middleware:title")
+  ?.output.data.content;
+const EXPECTED_TITLE = typeof titleRaw === "string" ? titleRaw : "";
 
 test.describe("real backend render (replay, no API key)", () => {
   test.beforeEach(async ({ context }) => {
@@ -66,7 +69,7 @@ test.describe("real backend render (replay, no API key)", () => {
     expect(resp.status(), await resp.text()).toBe(201);
   });
 
-  test("renders the replayed auto-title + suggestions from a real backend", async ({
+  test("renders the local auto-title + replayed suggestions from a real backend", async ({
     page,
   }) => {
     // ultra mode so the context the frontend sends (is_plan_mode + subagent_enabled)
@@ -80,31 +83,45 @@ test.describe("real backend render (replay, no API key)", () => {
 
     await page.goto("/workspace/chats/new");
 
-    const textarea = page.getByPlaceholder(/how can i assist you/i);
+    const textarea = page.locator(".cnooc-composer-textarea");
     await expect(textarea).toBeVisible({ timeout: 30_000 });
     await textarea.fill(PROMPT);
     await textarea.press("Enter");
 
-    // Replay-only DOM assertions (derived from the fixture): both are
-    // model-generated strings absent from the user prompt, so they render only if
-    // the recorded turns replayed AND the real frontend rendered them — the
-    // in-graph auto-title and the post-answer follow-up suggestion. Together they
-    // prove the whole pipeline (replay backend -> real frontend render). The
-    // record spec waits for the /suggestions response, so a re-recorded fixture
-    // always captures the suggestion turn — a missing one is a broken recording
-    // and must fail loud here, not pass silently.
+    // The title is the default local fallback, while the suggestion is a
+    // replayed model output absent from the prompt. Together they prove the
+    // backend state update and the replayed post-answer model call both render
+    // through the real frontend.
     expect(
       EXPECTED_TITLE,
-      "fixture should contain an auto-title turn",
+      "fixture should contain a middleware:title replay turn",
     ).not.toBe("");
     expect(
       EXPECTED_SUGGESTION,
       "fixture should contain a suggestions turn (re-record; the record spec waits for /suggestions)",
     ).not.toBe("");
     const chat = page.locator("#chat");
-    await expect(chat.getByText(EXPECTED_TITLE)).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect
+      .poll(
+        async () => {
+          const threadId = new URL(page.url()).pathname.split("/").at(-1);
+          if (!threadId || threadId === "new") return null;
+
+          const response = await page
+            .context()
+            .request.get(`${APP}/api/threads/${threadId}`);
+          if (!response.ok()) return null;
+
+          const payload = (await response.json()) as {
+            values?: { title?: unknown };
+          };
+          return typeof payload.values?.title === "string"
+            ? payload.values.title
+            : null;
+        },
+        { timeout: 60_000 },
+      )
+      .toBe(EXPECTED_TITLE);
     await expect(chat.getByText(EXPECTED_SUGGESTION)).toBeVisible({
       timeout: 30_000,
     });

@@ -1,0 +1,40 @@
+{
+  "base_commit": "83a749fc8191ffb425625261d4cd6cce272b7dad",
+  "production_snapshot_commit": "330ce1227e05f24b944f3efde36906234bd71196",
+  "coverage": "verified_runtime_source_only",
+  "counts": {
+    "gateway": {
+      "same": 434,
+      "changed": 108,
+      "added": 2
+    },
+    "frontend": {
+      "same": 574,
+      "changed": 43,
+      "added": 9
+    },
+    "skills": {
+      "same": 13294,
+      "changed": 2,
+      "added": 0
+    },
+    "provisioner": {
+      "same": 0,
+      "changed": 1,
+      "added": 0
+    },
+    "deer-flow-mineru-adapter": {
+      "same": 2,
+      "changed": 1,
+      "added": 0
+    },
+    "agent-host-scripts": {
+      "same": 0,
+      "changed": 1,
+      "added": 2
+    },
+    "ordinary-aio-markdown-tool": {
+      "added": 1
+    }
+  }
+}

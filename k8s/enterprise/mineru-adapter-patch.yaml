@@ -1,0 +1,219 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deer-flow-mineru-adapter
+  namespace: deer-flow
+spec:
+  replicas: 6
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Six serialized workers are spread two-per-node. One bounded surge Pod
+      # keeps upgrades available without weakening the per-process parse lock.
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        deerflow.cnooc/mineru-role: worker
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: deer-flow-mineru-adapter
+              deerflow.cnooc/mineru-role: worker
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - deer-flow-mineru-adapter
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: adapter
+          image: deer-flow-mineru-adapter:enterprise
+          imagePullPolicy: Never
+          envFrom:
+            - secretRef:
+                name: deer-flow-mineru
+          env:
+            # Replace local development endpoint/token placeholders entirely.
+            - $patch: replace
+            - name: MINERU_ADAPTER_MODE
+              value: worker
+            - name: MINERU_LISTEN_PORT
+              value: "50052"
+            - name: MINERU_REQUEST_MODE
+              # MinerU-2605 now guarantees that accepted /tasks IDs remain
+              # queryable. Submit once, then poll that same task until its
+              # result is ready; never duplicate the parse request.
+              value: async
+            - name: MINERU_TIMEOUT_SECONDS
+              value: "1800"
+            - name: MINERU_POLL_INTERVAL_SECONDS
+              value: "3"
+            - name: MINERU_TRANSIENT_POLL_RETRIES
+              # Bound short task-registration/result-publication races (HTTP
+              # 404 or business code 20006) without submitting a second task.
+              value: "20"
+            - name: MINERU_SYNC_MAX_PAGES_PER_REQUEST
+              # Retained as an explicit emergency rollback setting. It is
+              # inactive while MINERU_REQUEST_MODE=async.
+              value: "20"
+            - name: MINERU_SYNC_TRANSIENT_RETRIES
+              # Retry only the failed bounded page batch; never restart the
+              # already completed batches of the same document.
+              value: "2"
+            - name: MINERU_SYNC_RETRY_DELAY_SECONDS
+              value: "2"
+            - name: MINERU_SYNC_RETRY_MAX_ELAPSED_SECONDS
+              # A provider-side disconnect may arrive after several minutes.
+              # The 20-page cap keeps each retry bounded and avoids a
+              # whole-document retry.
+              value: "600"
+            - name: MINERU_TRUST_ENV
+              value: "false"
+            - name: MALLOC_ARENA_MAX
+              # PDFium, Pillow and LibreOffice all allocate native memory. Keep
+              # glibc arena growth bounded so released per-page buffers are
+              # reusable during long visual-document conversions.
+              value: "2"
+            # PDFium/DocReader use native libraries that are unsafe under
+            # concurrent in-process parsing. The adapter serializes parse jobs
+            # while its threaded HTTP server keeps health probes responsive.
+            - name: LIBREOFFICE_TIMEOUT_SECONDS
+              value: "180"
+            - name: MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED
+              # Native DOC/DOCX extraction is the normal success path. Only
+              # empty/failed native parses fall back to LibreOffice + MinerU,
+              # so visual conversion cannot turn readable Word files into
+              # 180-second failures or occupy every worker slot.
+              value: "false"
+            - name: DEERFLOW_ANYDOC_WORD_ENABLED
+              # Conversation DOCX attachments use local AnyDoc first. Large
+              # knowledge-base DOCX files may use the same bounded fast path.
+              value: "true"
+            - name: DEERFLOW_ANYDOC_KNOWLEDGE_WORD_ENABLED
+              # Preserve the configured knowledge route for ordinary files;
+              # only structurally large DOCX enters the AnyDoc fast path.
+              value: "true"
+            - name: DEERFLOW_ANYDOC_WORD_EXTENSIONS
+              # Legacy binary DOC remains on the proven DocReader route.
+              value: docx
+            - name: DEERFLOW_ANYDOC_WORD_TIMEOUT_SECONDS
+              value: "120"
+            - name: DEERFLOW_ANYDOC_WORD_MIN_TEXT_CHARACTERS
+              value: "32"
+            - name: DEERFLOW_DOCREADER_WORD_TIMEOUT_SECONDS
+              # DocReader 0.8 stays outside the HTTP worker process. Large
+              # DOCX bypasses its unbounded StdMarkitdownParser first stage.
+              value: "120"
+            - name: DEERFLOW_DOCX_MARKITDOWN_MAX_INPUT_BYTES
+              value: "16777216"
+            - name: DEERFLOW_DOCX_MARKITDOWN_MAX_UNCOMPRESSED_BYTES
+              value: "67108864"
+            - name: DEERFLOW_DOCX_MARKITDOWN_MAX_DOCUMENT_XML_BYTES
+              value: "33554432"
+            - name: DEERFLOW_DOCX_STREAM_TIMEOUT_SECONDS
+              value: "60"
+            - name: DEERFLOW_DOCX_STREAM_MAX_DOCUMENT_XML_BYTES
+              value: "536870912"
+            - name: DEERFLOW_DOCX_STREAM_MAX_TEXT_CHARACTERS
+              value: "20000000"
+            - name: DEERFLOW_WORD_LIBREOFFICE_TIMEOUT_SECONDS
+              value: "120"
+            - name: DEERFLOW_WORD_MINERU_FALLBACK_TIMEOUT_SECONDS
+              value: "120"
+            - name: MINERU_MAX_UPLOAD_BYTES
+              value: "104857600"
+            - name: MINERU_MAX_INLINE_IMAGE_BYTES
+              value: "20971520"
+            - name: MINERU_SOURCE_PAGE_DPI
+              value: "110"
+            - name: MINERU_SOURCE_PAGE_JPEG_QUALITY
+              value: "82"
+            - name: MINERU_MAX_SOURCE_PAGE_IMAGES
+              value: "200"
+            - name: MINERU_MULTILINGUAL_FIGURE_CAPTURE
+              value: "true"
+            - name: MINERU_VISUAL_PAGE_MIN_IMAGE_RATIO
+              value: "0.01"
+            - name: MINERU_VISUAL_PAGE_MIN_VECTOR_OBJECTS
+              value: "12"
+            - name: MINERU_VISUAL_PAGE_MIN_VECTOR_AREA_RATIO
+              value: "0.05"
+            - name: MINERU_MAX_SEARCHABLE_VISUAL_PAGES
+              value: "80"
+            - name: PDF_SCAN_IMAGE_RATIO
+              value: "0.5"
+            - name: PDF_SCAN_MIN_CHARS_PER_PAGE
+              value: "10"
+            - name: PDF_SCAN_LOW_TEXT_IMAGE_RATIO
+              value: "0.1"
+            - name: SSL_CERT_FILE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: CURL_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+          readinessProbe:
+            httpGet:
+              # Keep a parsing Pod in discovery. The dispatcher separately
+              # calls /ready before assignment, so a busy worker is skipped
+              # without making the Deployment 0/6 Ready or stalling rollout.
+              path: /live
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 10
+            # /live does not acquire the parser lock. Six consecutive failures
+            # therefore indicate a wedged process rather than normal parsing.
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              # Visual completeness is fail-closed. A 2 GiB cgroup limit was
+              # observed to OOM-kill all three production Adapter Pods while
+              # converting image-heavy Office/PDF documents, which surfaced to
+              # WeKnora as an EOF. Retain one active parse per Pod and provide
+              # enough headroom for LibreOffice plus PDFium page rendering.
+              memory: 4Gi
+          volumeMounts:
+            - name: enterprise-ca
+              mountPath: /etc/deerflow-ca
+              readOnly: true
+      volumes:
+        - name: enterprise-ca
+          secret:
+            secretName: deer-flow-enterprise-ca
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deer-flow-mineru-adapter
+  namespace: deer-flow
+spec:
+  selector:
+    app: deer-flow-mineru-dispatcher

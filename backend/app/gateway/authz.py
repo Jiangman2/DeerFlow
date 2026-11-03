@@ -25,6 +25,10 @@ Inspired by LangGraph Auth system: https://github.com/langchain-ai/langgraph/blo
 - runs:create   - Run agent
 - runs:read     - View run
 - runs:cancel   - Cancel run
+
+Administrators may pass thread ownership checks for ``read`` actions only.
+This supports audited cross-user conversation review without granting
+cross-user create, write, cancel, or delete authority.
 """
 
 from __future__ import annotations
@@ -275,7 +279,8 @@ def require_permission(
             # ``user_id`` is NULL (shared / pre-auth data), so this is
             # strict-deny rather than strict-allow — only an *existing*
             # row with a *different* user_id triggers 404.
-            if owner_check:
+            admin_read_only = action == "read" and getattr(auth.user, "system_role", None) == "admin"
+            if owner_check and not admin_read_only:
                 from app.gateway.internal_auth import INTERNAL_OWNER_USER_ID_HEADER_NAME, INTERNAL_SYSTEM_ROLE
 
                 thread_id = kwargs.get("thread_id")

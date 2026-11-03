@@ -30,6 +30,9 @@ class RunEventRow(Base):
 
     __table_args__ = (
         UniqueConstraint("thread_id", "seq", name="uq_events_thread_seq"),
+        Index("ix_run_events_created_at", "created_at"),
+        Index("ix_run_events_type_created_at", "event_type", "created_at"),
+        Index("ix_run_events_run_created_at", "run_id", "created_at"),
         Index("ix_events_thread_cat_seq", "thread_id", "category", "seq"),
         Index("ix_events_run", "thread_id", "run_id", "seq"),
     )

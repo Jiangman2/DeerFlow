@@ -1,0 +1,86 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dashboard-rollup-maintenance
+  namespace: deer-flow
+spec:
+  # Release-safe default: installing the manifest never starts analytics work.
+  # Enable only after the local/status checks in the operations guide pass.
+  suspend: true
+  # Closed-hour facts are refreshed every five minutes. Each invocation is
+  # strictly bounded and uses one short-lived NullPool connection.
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 900
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: dashboard-rollup-maintenance
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: dashboard-rollup-maintenance
+              image: deer-flow-gateway
+              imagePullPolicy: IfNotPresent
+              workingDir: /app/backend
+              command:
+                - uv
+              args:
+                - run
+                - --no-sync
+                - python
+                - scripts/manage_dashboard_rollups.py
+                - maintain
+                - --max-changed-days
+                - "1"
+                - --max-backfill-days
+                - "0"
+                - --max-changed-hours
+                - "2"
+                - --max-backfill-hours
+                - "2"
+              envFrom:
+                - secretRef:
+                    name: deer-flow-env
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: deer-flow-postgres
+                      key: DATABASE_URL
+                - name: DEER_FLOW_DASHBOARD_DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: deer-flow-dashboard-postgres
+                      key: DATABASE_URL
+                      optional: true
+                - name: DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA
+                  value: "false"
+                - name: DEER_FLOW_CONFIG_PATH
+                  value: /app/backend/config.yaml
+                - name: PYTHONPATH
+                  value: .
+                - name: DEER_FLOW_DASHBOARD_ROLLUP_STATEMENT_TIMEOUT_MS
+                  value: "30000"
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  cpu: 100m
+                  memory: 256Mi
+              volumeMounts:
+                - name: config
+                  mountPath: /app/backend/config.yaml
+                  subPath: config.yaml
+                  readOnly: true
+          volumes:
+            - name: config
+              configMap:
+                name: deer-flow-config

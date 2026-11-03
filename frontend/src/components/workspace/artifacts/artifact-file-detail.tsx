@@ -38,15 +38,18 @@ import {
   HTML_PREVIEW_SCROLL_MESSAGE_SOURCE,
 } from "@/core/artifacts/preview";
 import {
+  filterUserVisibleArtifacts,
   findPreviewPdfPath,
-  guessPreviewPdfPath,
+  guessPreviewPdfPaths,
   urlOfArtifact,
+  urlOfPdfArtifactPreview,
 } from "@/core/artifacts/utils";
+import { useAuth } from "@/core/auth/AuthProvider";
+import { extractCitationSources } from "@/core/citations/sources";
 import { writeTextToClipboard } from "@/core/clipboard";
 import { useI18n } from "@/core/i18n/hooks";
 import { findToolCallResult } from "@/core/messages/utils";
-import { installSkill } from "@/core/skills/api";
-import { streamdownPlugins } from "@/core/streamdown";
+import { installSkill, SkillRequestError } from "@/core/skills/api";
 import { SafeStreamdown } from "@/core/streamdown/components";
 import {
   canBrowserPreviewFile,
@@ -59,12 +62,16 @@ import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
 import { ArtifactLink } from "../citations/artifact-link";
+import { CitationSourcesPanel } from "../citations/citation-sources-panel";
 import { useThread } from "../messages/context";
 import { Tooltip } from "../tooltip";
 
 import { useArtifacts } from "./context";
+import { artifactMarkdownPlugins } from "./markdown-preview-plugins";
 
 const WRITE_FILE_PREVIEW_REFRESH_INTERVAL_MS = 3000;
+const OFFICE_PREVIEW_PROBE_DELAYS_MS = [0, 300, 900] as const;
+const ARTIFACT_PREVIEW_LOAD_TIMEOUT_MS = 30_000;
 
 export function ArtifactFileDetail({
   className,
@@ -76,7 +83,9 @@ export function ArtifactFileDetail({
   threadId: string;
 }) {
   const { t } = useI18n();
-  const { artifacts, setOpen, select } = useArtifacts();
+  const { user } = useAuth();
+  const isAdmin = user?.system_role === "admin";
+  const { artifacts, open, setOpen, select } = useArtifacts();
   const { thread, isMock } = useThread();
   const isWriteFile = useMemo(() => {
     return filepathFromProps.startsWith("write-file:");
@@ -88,6 +97,42 @@ export function ArtifactFileDetail({
     }
     return filepathFromProps;
   }, [filepathFromProps, isWriteFile]);
+  // Keep these local because ChatBox replaces context artifacts with thread state.
+  const [openedPresentedFilepaths, setOpenedPresentedFilepaths] = useState<
+    string[]
+  >(() => {
+    if (isWriteFile || artifacts.includes(filepath)) {
+      return [];
+    }
+    return [filepath];
+  });
+  useEffect(() => {
+    if (isWriteFile || artifacts.includes(filepath)) {
+      return;
+    }
+    setOpenedPresentedFilepaths((current) => {
+      if (current.includes(filepath)) {
+        return current;
+      }
+      return [...current, filepath];
+    });
+  }, [artifacts, filepath, isWriteFile]);
+  const artifactOptions = useMemo(() => {
+    const visibleArtifacts = filterUserVisibleArtifacts(artifacts);
+    if (isWriteFile) {
+      return visibleArtifacts;
+    }
+    const currentIsPresented = !visibleArtifacts.includes(filepath);
+    const presentedFilepaths =
+      currentIsPresented && !openedPresentedFilepaths.includes(filepath)
+        ? [...openedPresentedFilepaths, filepath]
+        : openedPresentedFilepaths;
+    const presentedSet = new Set(presentedFilepaths);
+    return [
+      ...presentedFilepaths,
+      ...visibleArtifacts.filter((artifact) => !presentedSet.has(artifact)),
+    ];
+  }, [artifacts, filepath, isWriteFile, openedPresentedFilepaths]);
   const isSkillFile = useMemo(() => {
     return filepath.endsWith(".skill");
   }, [filepath]);
@@ -128,14 +173,112 @@ export function ArtifactFileDetail({
     enabled: isCodeFile && !isWriteFile,
   });
   const previewPathFromList = useMemo(() => {
-    return findPreviewPdfPath(filepath, artifacts ?? []);
+    return findPreviewPdfPath(filepath, artifacts);
   }, [artifacts, filepath]);
-  const guessedPreviewPath = useMemo(() => {
-    return guessPreviewPdfPath(filepath);
+  const guessedPreviewPaths = useMemo(() => {
+    return guessPreviewPdfPaths(filepath);
   }, [filepath]);
   const [resolvedPreviewPath, setResolvedPreviewPath] = useState<string | null>(
-    previewPathFromList,
+    null,
   );
+  const [isResolvingPreview, setIsResolvingPreview] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setResolvedPreviewPath(null);
+    if (isCodeFile || isWriteFile) {
+      setIsResolvingPreview(false);
+      return;
+    }
+
+    const previewCandidates = Array.from(
+      new Set(
+        [previewPathFromList, ...guessedPreviewPaths].filter(
+          (candidate): candidate is string => Boolean(candidate),
+        ),
+      ),
+    );
+    if (previewCandidates.length === 0) {
+      setIsResolvingPreview(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsResolvingPreview(true);
+    void (async () => {
+      for (const delayMs of OFFICE_PREVIEW_PROBE_DELAYS_MS) {
+        if (delayMs > 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+          if (controller.signal.aborted) {
+            return;
+          }
+        }
+
+        for (const candidate of previewCandidates) {
+          try {
+            const response = await fetch(
+              urlOfArtifact({
+                filepath: candidate,
+                threadId,
+                isMock,
+              }),
+              {
+                method: "HEAD",
+                cache: "no-store",
+                credentials: "same-origin",
+                signal: controller.signal,
+              },
+            );
+            if (response.ok) {
+              setResolvedPreviewPath(candidate);
+              setIsResolvingPreview(false);
+              return;
+            }
+          } catch {
+            if (controller.signal.aborted) {
+              return;
+            }
+          }
+        }
+      }
+
+      // Keep the Office download fallback when no sibling preview exists.
+      setIsResolvingPreview(false);
+    })();
+
+    return () => controller.abort();
+  }, [
+    guessedPreviewPaths,
+    isCodeFile,
+    isMock,
+    isWriteFile,
+    open,
+    filepath,
+    previewPathFromList,
+    threadId,
+  ]);
+
+  const browserPreviewPath = resolvedPreviewPath ?? filepath;
+  const browserPreviewUrl = useMemo(() => {
+    if (browserPreviewPath.toLowerCase().endsWith(".pdf")) {
+      return urlOfPdfArtifactPreview({
+        filepath: browserPreviewPath,
+        threadId,
+        isMock,
+      });
+    }
+    return urlOfArtifact({
+      filepath: browserPreviewPath,
+      threadId,
+      isMock,
+    });
+  }, [browserPreviewPath, isMock, threadId]);
+  const canPreviewInBrowser = useMemo(() => {
+    return canBrowserPreviewFile(browserPreviewPath);
+  }, [browserPreviewPath]);
 
   const displayContent = content ?? "";
   const isWritingFile = isWriteFile && toolResult === undefined;
@@ -152,49 +295,6 @@ export function ArtifactFileDetail({
   useEffect(() => {
     setViewMode(artifactViewState.initialViewMode);
   }, [artifactViewState.initialViewMode]);
-  useEffect(() => {
-    setResolvedPreviewPath(previewPathFromList);
-  }, [filepath, previewPathFromList]);
-  useEffect(() => {
-    if (previewPathFromList || !guessedPreviewPath || isCodeFile || isWriteFile) {
-      return;
-    }
-
-    const controller = new AbortController();
-    fetch(
-      urlOfArtifact({
-        filepath: guessedPreviewPath,
-        threadId,
-        isMock,
-      }),
-      {
-        method: "HEAD",
-        signal: controller.signal,
-      },
-    )
-      .then((response) => {
-        if (response.ok) {
-          setResolvedPreviewPath(guessedPreviewPath);
-        }
-      })
-      .catch(() => {
-        // Keep the original file selected when no sibling preview exists.
-      });
-
-    return () => controller.abort();
-  }, [
-    guessedPreviewPath,
-    isCodeFile,
-    isMock,
-    isWriteFile,
-    previewPathFromList,
-    threadId,
-  ]);
-
-  const browserPreviewPath = resolvedPreviewPath ?? filepath;
-  const canPreviewInBrowser = useMemo(() => {
-    return canBrowserPreviewFile(browserPreviewPath);
-  }, [browserPreviewPath]);
 
   const handleInstallSkill = useCallback(async () => {
     if (isInstalling) return;
@@ -212,28 +312,37 @@ export function ArtifactFileDetail({
       }
     } catch (error) {
       console.error("Failed to install skill:", error);
-      toast.error("Failed to install skill");
+      if (error instanceof SkillRequestError && error.isAdminRequired) {
+        toast.error(t.settings.skills.installAdminRequired);
+      } else {
+        toast.error("Failed to install skill");
+      }
     } finally {
       setIsInstalling(false);
     }
-  }, [threadId, filepath, isInstalling]);
+  }, [threadId, filepath, isInstalling, t]);
   return (
     <Artifact className={cn(className)}>
-      <ArtifactHeader className="px-2">
-        <div className="flex items-center gap-2">
-          <ArtifactTitle>
+      <ArtifactHeader className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] gap-2 px-2">
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+          <ArtifactTitle className="min-w-0 overflow-hidden">
             {isWriteFile ? (
-              <div className="px-2">{getFileName(filepath)}</div>
+              <div className="truncate px-2" title={getFileName(filepath)}>
+                {getFileName(filepath)}
+              </div>
             ) : (
               <Select value={filepath} onValueChange={select}>
-                <SelectTrigger className="border-none bg-transparent! shadow-none select-none focus:outline-0 active:outline-0">
+                <SelectTrigger
+                  className="w-full max-w-full min-w-0 border-none bg-transparent! shadow-none select-none focus:outline-0 active:outline-0"
+                  title={getFileName(filepath)}
+                >
                   <SelectValue placeholder="Select a file" />
                 </SelectTrigger>
                 <SelectContent className="select-none">
                   <SelectGroup>
-                    {(artifacts ?? []).map((filepath) => (
-                      <SelectItem key={filepath} value={filepath}>
-                        {getFileName(filepath)}
+                    {artifactOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {getFileName(option)}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -242,7 +351,7 @@ export function ArtifactFileDetail({
             )}
           </ArtifactTitle>
         </div>
-        <div className="flex min-w-0 grow items-center justify-center">
+        <div className="flex shrink-0 items-center justify-center">
           {artifactViewState.canPreview && (
             <ToggleGroup
               className="mx-auto"
@@ -265,9 +374,9 @@ export function ArtifactFileDetail({
             </ToggleGroup>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <ArtifactActions>
-            {!isWriteFile && filepath.endsWith(".skill") && (
+        <div className="flex shrink-0 items-center gap-2">
+          <ArtifactActions className="shrink-0">
+            {!isWriteFile && filepath.endsWith(".skill") && isAdmin && (
               <Tooltip content={t.toolCalls.skillInstallTooltip}>
                 <ArtifactAction
                   icon={isInstalling ? LoaderIcon : PackageIcon}
@@ -288,11 +397,7 @@ export function ArtifactFileDetail({
                 tooltip={t.common.openInNewWindow}
                 onClick={() => {
                   const w = window.open(
-                    urlOfArtifact({
-                      filepath: browserPreviewPath,
-                      threadId,
-                      isMock,
-                    }),
+                    browserPreviewUrl,
                     "_blank",
                     "noopener,noreferrer",
                   );
@@ -370,17 +475,23 @@ export function ArtifactFileDetail({
             readonly
           />
         )}
-        {!isCodeFile && canPreviewInBrowser && (
-          <iframe
-            className="size-full"
-            src={urlOfArtifact({
-              filepath: browserPreviewPath,
-              threadId,
-              isMock,
-            })}
+        {!isCodeFile && isResolvingPreview && (
+          <div
+            className="text-muted-foreground flex size-full items-center justify-center gap-2 text-sm"
+            role="status"
+          >
+            <LoaderIcon className="size-4 animate-spin" />
+            {t.artifactPreview.preparing}
+          </div>
+        )}
+        {!isCodeFile && !isResolvingPreview && canPreviewInBrowser && (
+          <ArtifactBrowserPreview
+            key={browserPreviewUrl}
+            isPdf={browserPreviewPath.toLowerCase().endsWith(".pdf")}
+            src={browserPreviewUrl}
           />
         )}
-        {!isCodeFile && !canPreviewInBrowser && (
+        {!isCodeFile && !isResolvingPreview && !canPreviewInBrowser && (
           <ArtifactDownloadFallback
             filepath={filepath}
             threadId={threadId}
@@ -389,6 +500,125 @@ export function ArtifactFileDetail({
         )}
       </ArtifactContent>
     </Artifact>
+  );
+}
+
+function ArtifactBrowserPreview({
+  src,
+  isPdf,
+}: {
+  src: string;
+  isPdf: boolean;
+}) {
+  const { t } = useI18n();
+  const [attempt, setAttempt] = useState(0);
+  const [status, setStatus] = useState<"loading" | "loaded" | "failed">(
+    "loading",
+  );
+  const isPdfGallery = isPdf && src.includes("/artifact-previews/pdf/");
+  const [previewHtml, setPreviewHtml] = useState<string>();
+  const previewRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!isPdfGallery) {
+      return;
+    }
+    const controller = new AbortController();
+    previewRequest.current = controller;
+    void (async () => {
+      try {
+        // iframe.onload also fires for HTTP errors. Check the real response
+        // first, then display the scriptless gallery without a second render.
+        const response = await fetch(src, {
+          credentials: "same-origin",
+          cache: "no-store",
+          redirect: "error",
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error("PDF preview request failed");
+        }
+        if (!response.headers.get("content-type")?.startsWith("text/html")) {
+          throw new Error("PDF preview response is not a gallery");
+        }
+        const html = await response.text();
+        if (!controller.signal.aborted) {
+          setPreviewHtml(html);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setStatus("failed");
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [attempt, isPdfGallery, src]);
+
+  useEffect(() => {
+    if (status !== "loading") {
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      previewRequest.current?.abort();
+      setStatus("failed");
+    }, ARTIFACT_PREVIEW_LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(timeout);
+  }, [attempt, status]);
+
+  const retry = useCallback(() => {
+    setPreviewHtml(undefined);
+    setStatus("loading");
+    setAttempt((current) => current + 1);
+  }, []);
+
+  return (
+    <div className="bg-background relative size-full">
+      {status !== "loaded" && (
+        <div
+          className="bg-background absolute inset-0 z-10 flex items-center justify-center p-6"
+          role={status === "failed" ? "alert" : "status"}
+          aria-live="polite"
+        >
+          <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+            {status === "loading" ? (
+              <>
+                <LoaderIcon className="text-primary size-6 animate-spin" />
+                <span className="text-muted-foreground text-sm">
+                  {t.artifactPreview.loadingPages}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-muted-foreground text-sm">
+                  {t.artifactPreview.loadFailed}
+                </span>
+                <Button type="button" variant="outline" onClick={retry}>
+                  {t.artifactPreview.retry}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      {(!isPdfGallery || previewHtml !== undefined) && status !== "failed" && (
+        <iframe
+          key={attempt}
+          className={cn(
+            "size-full",
+            status === "loaded" ? "visible" : "invisible",
+          )}
+          src={isPdfGallery ? undefined : src}
+          srcDoc={isPdfGallery ? previewHtml : undefined}
+          referrerPolicy="no-referrer"
+          sandbox={isPdf ? "" : undefined}
+          title="Artifact preview"
+          onLoad={() =>
+            setStatus((current) => (current === "loading" ? "loaded" : current))
+          }
+          onError={() => setStatus("failed")}
+        />
+      )}
+    </div>
   );
 }
 
@@ -455,6 +685,11 @@ export function ArtifactFilePreview({
     [scrollKey],
   );
   const [htmlPreviewUrl, setHtmlPreviewUrl] = useState<string>();
+  const citationSources = useMemo(
+    () =>
+      language === "markdown" ? extractCitationSources(content ?? "") : [],
+    [content, language],
+  );
 
   useEffect(() => {
     scrollPositionRef.current = { x: 0, y: 0 };
@@ -522,14 +757,15 @@ export function ArtifactFilePreview({
 
   if (language === "markdown") {
     return (
-      <div className="size-full px-4">
+      <div className="size-full overflow-auto px-4 py-3">
         <SafeStreamdown
-          className="size-full"
-          {...streamdownPlugins}
+          className="min-w-0"
+          {...artifactMarkdownPlugins}
           components={{ a: ArtifactLink }}
         >
           {content ?? ""}
         </SafeStreamdown>
+        <CitationSourcesPanel sources={citationSources} className="mb-4" />
       </div>
     );
   }

@@ -1,19 +1,29 @@
-FROM enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest
+ARG SANDBOX_BASE_IMAGE=enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:1.11.0
+FROM ${SANDBOX_BASE_IMAGE}
 
 USER root
 
 ARG APT_MIRROR=
-
-# Keep the sandbox runtime aligned with the ppt-master skill dependency list.
-COPY skills/public/ppt-master/requirements.txt /tmp/ppt-master-requirements.txt
+ARG PIP_INDEX_URL=
 
 # CairoSVG needs native Cairo libraries at runtime.
-RUN if [ -n "${APT_MIRROR}" ]; then \
+RUN --mount=type=secret,id=enterprise_proxy,required=false \
+    --mount=type=secret,id=enterprise_ca,required=false \
+    set -a; \
+    if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
+    set +a; \
+    apt_ca_opt=""; \
+    if [ -s /run/secrets/enterprise_ca ]; then \
+        apt_ca_opt="-o Acquire::https::CaInfo=/run/secrets/enterprise_ca"; \
+        export SSL_CERT_FILE=/run/secrets/enterprise_ca; \
+        export CURL_CA_BUNDLE=/run/secrets/enterprise_ca; \
+    fi; \
+    if [ -n "${APT_MIRROR}" ]; then \
         sed -i "s|http://archive.ubuntu.com/ubuntu|http://${APT_MIRROR}/ubuntu|g" /etc/apt/sources.list; \
         sed -i "s|http://security.ubuntu.com/ubuntu|http://${APT_MIRROR}/ubuntu|g" /etc/apt/sources.list; \
     fi \
-    && apt-get update -o Acquire::Retries=5 \
-    && apt-get install -y --no-install-recommends \
+    && apt-get ${apt_ca_opt} update -o Acquire::Retries=5 \
+    && apt-get ${apt_ca_opt} install -y --no-install-recommends -o Acquire::Retries=5 \
         libcairo2 \
         libgdk-pixbuf-2.0-0 \
         libpango-1.0-0 \
@@ -22,8 +32,18 @@ RUN if [ -n "${APT_MIRROR}" ]; then \
         fonts-wqy-zenhei \
         fontconfig \
         pandoc \
+        ffmpeg \
         librsvg2-bin \
+        libreoffice-core \
+        libreoffice-writer \
+        libreoffice-calc \
+        libreoffice-impress \
         shared-mime-info \
+    && if [ -s /run/secrets/enterprise_ca ]; then \
+         cp /run/secrets/enterprise_ca /etc/ssl/certs/deerflow-enterprise-ca-bundle.crt; \
+       else \
+         cp /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/deerflow-enterprise-ca-bundle.crt; \
+       fi \
     && printf '%s\n' \
         '<?xml version="1.0"?>' \
         '<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">' \
@@ -43,20 +63,121 @@ RUN if [ -n "${APT_MIRROR}" ]; then \
     && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
-# The upstream image already includes several requirements (python-pptx,
-# PyMuPDF, openpyxl, Pillow, numpy, requests, beautifulsoup4, curl_cffi).
-# Install the remaining ppt-master packages in cacheable groups so interrupted
-# builds can resume without redownloading everything.
-RUN python3 -m pip install --root-user-action=ignore --no-cache-dir \
-    --timeout 60 --retries 3 --prefer-binary \
-    "edge-tts>=7.2.8" "cairosvg>=2.7.0" "svglib>=1.5.0" "reportlab>=4.0.0"
+ENV SSL_CERT_FILE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
+ENV CURL_CA_BUNDLE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 
-RUN python3 -m pip install --root-user-action=ignore --no-cache-dir \
-    --timeout 60 --retries 3 --prefer-binary \
-    "mammoth>=1.6.0" "markdownify>=0.11.6" "ebooklib>=0.18" "nbconvert>=7.0.0"
+# Keep the sandbox runtime aligned with the ppt-master skill dependency list.
+# Place this after the large OS layer so skill-only requirement changes do not
+# invalidate LibreOffice, Pandoc, fonts, and other native dependencies.
+COPY vendor/ppt-master-v6.6.0/requirements.txt /tmp/ppt-master-requirements.txt
 
-RUN python3 -m pip install --root-user-action=ignore --no-cache-dir \
+# Install the complete upstream dependency list instead of relying on packages
+# that happen to be present in the base image. Playwright is an upstream
+# runtime requirement of visual_review.py and extract_svg_pictures.py, but is
+# not yet declared in the upstream requirements.txt. Pin urllib3 to the version
+# used by the v6.6.0 transport-security suite: newer urllib3 releases changed
+# the private TLS wrapper return protocol exercised by that upstream test.
+RUN --mount=type=secret,id=enterprise_proxy,required=false \
+    set -a; \
+    if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
+    set +a; \
+    python3 -m pip install --no-cache-dir \
+    ${PIP_INDEX_URL:+--index-url "$PIP_INDEX_URL"} \
     --timeout 60 --retries 3 --prefer-binary --ignore-installed \
-    "google-genai>=1.0.0" "openai>=1.0.0" "flask>=3.0.0" \
+    -r /tmp/ppt-master-requirements.txt \
+    "playwright>=1.50.0" "pydantic>=2.12.5,<3.0.0" "urllib3==2.5.0" \
+    && python3 -m playwright install --with-deps chromium \
+    && python3 -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(headless=True, args=['--no-sandbox']); page=b.new_page(); page.set_content('<title>ready</title>'); assert page.title() == 'ready'; b.close(); p.stop()" \
     && rm -rf /root/.cache/pip /tmp/pip-* /tmp/ppt-master-requirements.txt \
-    && find /usr /opt -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
+    && (find /usr /opt -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true)
+
+# Keep optional production hardening in trailing layers so an update does not
+# invalidate the large office/browser dependency layers above.
+RUN --mount=type=secret,id=enterprise_proxy,required=false \
+    set -a; \
+    if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
+    set +a; \
+    python3 -m pip install --no-cache-dir --timeout 60 --retries 3 \
+        ${PIP_INDEX_URL:+--index-url "$PIP_INDEX_URL"} \
+        "CairoSVG==2.7.1" \
+        "duckdb>=1.3,<2" \
+        "PyYAML>=6,<7" \
+    && python3 -c "import cairosvg, duckdb, pydantic, yaml; from packaging.version import Version; assert Version(pydantic.__version__) >= Version('2.12.5'), pydantic.__version__; assert duckdb.sql('select 1').fetchone() == (1,); assert yaml.safe_load('ready: true')['ready']; data = cairosvg.svg2png(bytestring=b'<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"2\" height=\"2\"><rect width=\"2\" height=\"2\"/></svg>'); assert data.startswith(b'\\x89PNG')"
+
+# Keep document and common analysis dependencies in the release image. Agent
+# turns must not install these from an external package index at runtime.
+COPY docker/sandbox-ppt-master/document-runtime-requirements.txt /tmp/document-runtime-requirements.txt
+COPY docker/sandbox-ppt-master/markdown_to_pdf.py /usr/local/bin/deerflow-markdown-to-pdf
+RUN --mount=type=secret,id=enterprise_proxy,required=false \
+    set -a; \
+    if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
+    set +a; \
+    python3 -m pip install --no-cache-dir --timeout 60 --retries 3 --prefer-binary \
+        -r /tmp/document-runtime-requirements.txt \
+    && chmod 0755 /usr/local/bin/deerflow-markdown-to-pdf \
+    && python3 -m py_compile /usr/local/bin/deerflow-markdown-to-pdf \
+    && rm -rf /root/.cache/pip /tmp/pip-* /tmp/document-runtime-requirements.txt
+
+ARG WEBSOCAT_VERSION=1.14.1
+ARG WEBSOCAT_SHA256=711a69576a2ff473fb01a90ffafb571c2ed019e55479d7ae71b12c2eadeb7011
+
+RUN --mount=type=secret,id=enterprise_proxy,required=false \
+    --mount=type=secret,id=enterprise_ca,required=false \
+    set -a; \
+    if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
+    set +a; \
+    if [ -s /run/secrets/enterprise_ca ]; then \
+        export SSL_CERT_FILE=/run/secrets/enterprise_ca; \
+        export CURL_CA_BUNDLE=/run/secrets/enterprise_ca; \
+    fi; \
+    curl --fail --location --show-error --silent \
+        --retry 5 --retry-all-errors --connect-timeout 20 --max-time 300 \
+        "https://github.com/vi/websocat/releases/download/v${WEBSOCAT_VERSION}/websocat.aarch64-unknown-linux-musl" \
+        --output /tmp/websocat \
+    && printf '%s  %s\n' "${WEBSOCAT_SHA256}" /tmp/websocat | sha256sum -c - \
+    && install -o root -g root -m 0755 /tmp/websocat /usr/local/bin/websocat \
+    && rm -f /tmp/websocat \
+    && websocat --version | grep -F "websocat ${WEBSOCAT_VERSION}"
+
+# The AIO image has an outer authentication Nginx in front of the Python
+# command service. Its stock 60-second proxy timeout can report a false 504
+# while a bounded long command (for example, batch image generation) is still
+# running and persisting output. Keep both authenticated and unauthenticated
+# upstream locations aligned with the command service; the DeerFlow client
+# still enforces its per-command hard timeout. Keep this in a trailing layer so
+# transport-only changes do not invalidate the large Office/browser layers.
+# Released bases may preserve ${AUTH_BACKEND_PORT} or render it as a concrete
+# port such as 8081. Patch either representation and remain idempotent.
+COPY docker/sandbox-ppt-master/patch_nginx_timeouts.py /tmp/patch_nginx_timeouts.py
+RUN python3 /tmp/patch_nginx_timeouts.py /opt/gem/nginx-server-with-auth.conf \
+    && rm -f /tmp/patch_nginx_timeouts.py
+
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# The same immutable image runs both containers in a provisioned Sandbox Pod:
+# the stock AIO command/browser container and this lightweight external Agent
+# host. Keeping Codex, Office/Chromium, fonts, ppt-master dependencies, CA trust,
+# and the host service in one image prevents host/runtime drift between them.
+COPY vendor/ppt-master-v6.6.0/ /opt/ppt-master-release-skill/
+COPY docker/sandbox-ppt-master/agent_host.py /opt/ppt-master-agent-host/agent_host.py
+COPY docker/sandbox-ppt-master/PPT_MASTER_UPSTREAM.env /opt/ppt-master-agent-host/PPT_MASTER_UPSTREAM.env
+COPY docker/sandbox-ppt-master/runtime_capability_probe.py /opt/ppt-master-agent-host/runtime_capability_probe.py
+COPY docker/sandbox-ppt-master/ppt_research_stdio.py /opt/ppt-master-agent-host/ppt_research_stdio.py
+RUN chmod 0755 \
+        /opt/ppt-master-agent-host/agent_host.py \
+        /opt/ppt-master-agent-host/runtime_capability_probe.py \
+        /opt/ppt-master-agent-host/ppt_research_stdio.py \
+    && test -s /opt/ppt-master-release-skill/SKILL.md \
+    && grep -Eq '^[[:space:]]+version:.*6\.6\.0' /opt/ppt-master-release-skill/SKILL.md \
+    && cd /tmp \
+    && PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+        -s /opt/ppt-master-release-skill/scripts/tests -p 'test_*.py' \
+    && python3 -m py_compile \
+        /opt/ppt-master-agent-host/agent_host.py \
+        /opt/ppt-master-agent-host/runtime_capability_probe.py \
+        /opt/ppt-master-agent-host/ppt_research_stdio.py \
+    && find /opt/ppt-master-release-skill -type d -name __pycache__ \
+        -prune -exec rm -rf {} +

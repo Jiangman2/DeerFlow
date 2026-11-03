@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ActivityIcon,
   ChevronsUpDown,
   InfoIcon,
   LayoutDashboardIcon,
@@ -28,7 +27,7 @@ import {
 import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
 
-import { SettingsDialog } from "./settings";
+import { useWorkspaceSettingsDialog } from "./settings/workspace-settings-dialog-provider";
 
 function NavMenuButtonContent({
   isSidebarOpen,
@@ -37,26 +36,25 @@ function NavMenuButtonContent({
   isSidebarOpen: boolean;
   t: ReturnType<typeof useI18n>["t"];
 }) {
-  return isSidebarOpen ? (
-    <div className="flex w-full items-center gap-2 text-left text-sm text-[#4f5967]">
-      <SettingsIcon className="size-4 text-[#8b939d]" />
-      <span>{t.workspace.settingsAndMore}</span>
-      <ChevronsUpDown className="ml-auto size-4 text-[#8b939d]" />
-    </div>
-  ) : (
-    <div className="flex size-full items-center justify-center">
-      <SettingsIcon className="size-4 text-[#8b939d]" />
-    </div>
+  return (
+    <>
+      <span aria-hidden="true" className="cnooc-sidebar-icon-tile">
+        <SettingsIcon className="cnooc-settings-icon" />
+      </span>
+      <span className="cnooc-settings-label">
+        {isSidebarOpen ? t.workspace.settingsAndMore : t.common.settings}
+      </span>
+      {isSidebarOpen ? (
+        <ChevronsUpDown className="cnooc-settings-chevron ml-auto" />
+      ) : null}
+    </>
   );
 }
 
 export function WorkspaceNavMenu() {
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsDefaultSection, setSettingsDefaultSection] = useState<
-    "appearance" | "memory" | "tools" | "skills" | "notification" | "about"
-  >("appearance");
   const [mounted, setMounted] = useState(false);
-  const { open: isSidebarOpen } = useSidebar();
+  const { open: isSidebarOpen, isMobile, setOpenMobile } = useSidebar();
+  const { openSettings } = useWorkspaceSettingsDialog();
   const { user } = useAuth();
   const { t } = useI18n();
   const isAdmin = user?.system_role === "admin";
@@ -65,13 +63,22 @@ export function WorkspaceNavMenu() {
     setMounted(true);
   }, []);
 
+  const showSettings = (section: "account" | "about") => {
+    if (!isMobile) {
+      openSettings(section);
+      return;
+    }
+
+    setOpenMobile(false);
+    // The mobile sidebar closes with a 300 ms Sheet transition. Opening the
+    // settings portal after that boundary avoids two modal overlays briefly
+    // occupying the same viewport on older enterprise browsers. The provider
+    // sits outside the Sheet, so this deferred open survives Sidebar unmount.
+    openSettings(section, 320);
+  };
+
   return (
     <>
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        defaultSection={settingsDefaultSection}
-      />
       <SidebarMenu className="w-full">
         <SidebarMenuItem>
           {mounted ? (
@@ -79,50 +86,43 @@ export function WorkspaceNavMenu() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="hover:bg-white/80 data-[state=open]:bg-white data-[state=open]:text-[#222832] data-[state=open]:shadow-sm"
+                  className="hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent data-[state=open]:text-primary data-[state=open]:shadow-sm"
                 >
                   <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-                align="end"
-                sideOffset={4}
+                className="cnooc-settings-menu"
+                data-collapsed={!isSidebarOpen}
+                data-mobile={isMobile || undefined}
+                align={isMobile ? "start" : "end"}
+                side={isMobile ? "top" : isSidebarOpen ? "top" : "right"}
+                sideOffset={isMobile ? 12 : 8}
+                collisionPadding={isMobile ? 16 : 8}
               >
                 <DropdownMenuGroup>
                   {isAdmin && (
                     <>
                       <DropdownMenuItem asChild>
-                        <Link href="/workspace/admin/dashboard">
+                        <Link
+                          href="/workspace/admin/dashboard"
+                          onClick={() => {
+                            if (isMobile) setOpenMobile(false);
+                          }}
+                        >
                           <LayoutDashboardIcon />
                           看板
                         </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/workspace/admin/observability">
-                          <ActivityIcon />
-                          运维
-                        </Link>
-                      </DropdownMenuItem>
                     </>
                   )}
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setSettingsDefaultSection("appearance");
-                      setSettingsOpen(true);
-                    }}
-                  >
+                  <DropdownMenuItem onClick={() => showSettings("account")}>
                     <Settings2Icon />
                     {t.common.settings}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSettingsDefaultSection("about");
-                    setSettingsOpen(true);
-                  }}
-                >
+                <DropdownMenuItem onClick={() => showSettings("about")}>
                   <InfoIcon />
                   {t.workspace.about}
                 </DropdownMenuItem>
@@ -131,7 +131,7 @@ export function WorkspaceNavMenu() {
           ) : (
             <SidebarMenuButton
               size="lg"
-              className="pointer-events-none hover:bg-white/80"
+              className="hover:bg-sidebar-accent pointer-events-none"
             >
               <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
             </SidebarMenuButton>

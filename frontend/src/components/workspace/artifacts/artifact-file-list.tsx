@@ -10,9 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { urlOfArtifact } from "@/core/artifacts/utils";
+import {
+  filterUserVisibleArtifacts,
+  urlOfArtifact,
+} from "@/core/artifacts/utils";
+import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
-import { installSkill } from "@/core/skills/api";
+import { installSkill, SkillRequestError } from "@/core/skills/api";
 import {
   getFileExtensionDisplayName,
   getFileIcon,
@@ -32,15 +36,25 @@ export function ArtifactFileList({
   threadId: string;
 }) {
   const { t } = useI18n();
-  const { select: selectArtifact, setOpen } = useArtifacts();
+  const { user } = useAuth();
+  const isAdmin = user?.system_role === "admin";
+  const {
+    artifacts,
+    select: selectArtifact,
+    openArtifactPanel,
+  } = useArtifacts();
   const [installingFile, setInstallingFile] = useState<string | null>(null);
+  const visibleFiles = filterUserVisibleArtifacts(
+    files,
+    artifacts.length > 0 ? artifacts : files,
+  );
 
   const handleClick = useCallback(
     (filepath: string) => {
       selectArtifact(filepath);
-      setOpen(true);
+      openArtifactPanel();
     },
-    [selectArtifact, setOpen],
+    [openArtifactPanel, selectArtifact],
   );
 
   const handleInstallSkill = useCallback(
@@ -63,19 +77,24 @@ export function ArtifactFileList({
         }
       } catch (error) {
         console.error("Failed to install skill:", error);
-        toast.error("Failed to install skill");
+        if (error instanceof SkillRequestError && error.isAdminRequired) {
+          toast.error(t.settings.skills.installAdminRequired);
+        } else {
+          toast.error("Failed to install skill");
+        }
       } finally {
         setInstallingFile(null);
       }
     },
-    [threadId, installingFile],
+    [threadId, installingFile, t],
   );
 
   return (
     <ul className={cn("flex w-full flex-col gap-4", className)}>
-      {files.map((file) => (
+      {visibleFiles.map((file) => (
         <Card
           key={file}
+          data-artifact-filepath={file}
           className="relative cursor-pointer p-3"
           onClick={() => handleClick(file)}
         >
@@ -90,7 +109,7 @@ export function ArtifactFileList({
               {getFileExtensionDisplayName(file)} file
             </CardDescription>
             <CardAction className="row-span-1 self-center">
-              {file.endsWith(".skill") && (
+              {file.endsWith(".skill") && isAdmin && (
                 <Button
                   variant="ghost"
                   disabled={installingFile === file}

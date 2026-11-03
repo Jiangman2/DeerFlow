@@ -1,5 +1,8 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
+
 import {
   Sidebar,
   SidebarHeader,
@@ -11,7 +14,7 @@ import {
 
 import { WorkspaceChannelsList } from "./channels/workspace-channels-list";
 import { RecentChatList } from "./recent-chat-list";
-import { SiteNavigationList } from "./site-navigation-list";
+import { ThreadDeleteDialogProvider } from "./thread-delete-dialog";
 import { WorkspaceHeader } from "./workspace-header";
 import { WorkspaceNavChatList } from "./workspace-nav-chat-list";
 import { WorkspaceNavMenu } from "./workspace-nav-menu";
@@ -19,29 +22,43 @@ import { WorkspaceNavMenu } from "./workspace-nav-menu";
 export function WorkspaceSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
-  const { open: isSidebarOpen } = useSidebar();
+  const { open: isSidebarOpen, isMobile, setOpenMobile } = useSidebar();
+  const pathname = usePathname();
+  const previousPathnameRef = useRef(pathname);
+  const hasObservedInitialPathnameRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasObservedInitialPathnameRef.current) {
+      hasObservedInitialPathnameRef.current = true;
+      previousPathnameRef.current = pathname;
+      return;
+    }
+    if (isMobile && previousPathnameRef.current !== pathname) {
+      setOpenMobile(false);
+    }
+    previousPathnameRef.current = pathname;
+  }, [isMobile, pathname, setOpenMobile]);
   return (
-    <>
+    <ThreadDeleteDialogProvider>
       <Sidebar
         variant="sidebar"
         collapsible="icon"
-        className="border-r border-[#d4dfef] bg-[linear-gradient(180deg,#eef5ff_0%,#e8f0fb_48%,#e3ecf8_100%)] text-[#4c5664]"
+        className="mobile-workspace-sidebar cnooc-workspace-sidebar border-sidebar-border text-sidebar-foreground border-r"
         {...props}
       >
-        <SidebarHeader className="mx-1 rounded-md border border-transparent bg-transparent py-0">
+        <SidebarHeader className="mx-1 rounded-md border border-transparent bg-transparent py-0 group-data-[collapsible=icon]:mx-0">
           <WorkspaceHeader />
         </SidebarHeader>
-        <SidebarContent className="mx-1 rounded-md border border-transparent bg-transparent">
+        <SidebarContent className="mx-1 rounded-md border border-transparent bg-transparent group-data-[collapsible=icon]:mx-0">
           <WorkspaceNavChatList />
           <WorkspaceChannelsList />
-          <SiteNavigationList />
           {isSidebarOpen && <RecentChatList />}
         </SidebarContent>
-        <SidebarFooter className="mx-1 rounded-md border border-transparent bg-transparent">
+        <SidebarFooter className="mx-1 rounded-md border border-transparent bg-transparent group-data-[collapsible=icon]:mx-0">
           <WorkspaceNavMenu />
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
-    </>
+    </ThreadDeleteDialogProvider>
   );
 }

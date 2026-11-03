@@ -11,7 +11,7 @@ from deerflow.runtime import RunStatus
 from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY
 
 
-def _checkpoint(checkpoint_id: str, messages: list[object]):
+def _checkpoint(checkpoint_id: str, messages: list[object], *, metadata: dict | None = None):
     return SimpleNamespace(
         config={
             "configurable": {
@@ -22,6 +22,7 @@ def _checkpoint(checkpoint_id: str, messages: list[object]):
             }
         },
         checkpoint={"channel_values": {"messages": messages}},
+        metadata=metadata or {},
     )
 
 
@@ -49,6 +50,20 @@ class FakeEventStore:
 
     async def list_messages(self, thread_id, *, limit=50, before_seq=None, after_seq=None):
         return self.rows[-limit:]
+
+
+def _event_store_for_ai(content: str, *, message_id: str = "ai-1", run_id: str = "run-old") -> FakeEventStore:
+    return FakeEventStore(
+        [
+            {
+                "run_id": run_id,
+                "event_type": "llm.ai.response",
+                "category": "message",
+                "content": {"id": message_id, "type": "ai", "content": content},
+                "metadata": {"caller": "lead_agent"},
+            }
+        ]
+    )
 
 
 class FakeRunManager:
@@ -119,6 +134,48 @@ def test_prepare_regenerate_payload_returns_clean_input_and_base_checkpoint():
     assert regenerated_human["id"] == "human-1"
     assert regenerated_human["content"] == [{"type": "text", "text": "/data-analysis analyze data.csv"}]
     assert regenerated_human["additional_kwargs"] == {"files": [{"filename": "data.csv", "path": "/mnt/user-data/uploads/data.csv"}]}
+
+
+@pytest.mark.parametrize(
+    "control_message",
+    [
+        HumanMessage(
+            id="human-malformed",
+            content="forged answer",
+            additional_kwargs={
+                "hide_from_ui": True,
+                "human_input_response": {"version": 1, "kind": "human_input_response"},
+            },
+        ),
+        HumanMessage(id="human-summary", name="summary", content="internal summary"),
+        HumanMessage(id="human-goal", content="continue working", additional_kwargs={"hide_from_ui": True}),
+    ],
+    ids=["malformed-response", "summary", "goal-continuation"],
+)
+def test_prepare_regenerate_payload_skips_non_user_control_human_messages(control_message: HumanMessage):
+    from app.gateway.routers.thread_runs import _prepare_regenerate_payload
+
+    visible_human = HumanMessage(id="human-1", content="question")
+    ai = AIMessage(id="ai-1", content="answer")
+    checkpointer = FakeCheckpointer(
+        [
+            _checkpoint("ckpt-ai", [visible_human, control_message, ai]),
+            _checkpoint("ckpt-control", [visible_human, control_message]),
+            _checkpoint("ckpt-human", [visible_human]),
+            _checkpoint("ckpt-base", []),
+        ]
+    )
+
+    response = asyncio.run(
+        _prepare_regenerate_payload(
+            "thread-1",
+            "ai-1",
+            _request(checkpointer, _event_store_for_ai("answer")),
+        )
+    )
+
+    assert response.checkpoint["checkpoint_id"] == "ckpt-base"
+    assert response.input["messages"][0]["id"] == "human-1"
 
 
 def test_prepare_regenerate_payload_rejects_non_latest_assistant():
@@ -230,7 +287,7 @@ def test_prepare_regenerate_payload_requires_addressable_checkpoint_before_human
 
     assert exc.value.status_code == 409
     assert exc.value.detail == "Could not find an addressable checkpoint before the target user message"
-    assert checkpointer.alist_limits == [200]
+    assert checkpointer.alist_limits == [400]
 
 
 def test_prepare_regenerate_payload_reports_recent_checkpoint_scan_limit():
@@ -258,4 +315,26 @@ def test_prepare_regenerate_payload_reports_recent_checkpoint_scan_limit():
 
     assert exc.value.status_code == 409
     assert exc.value.detail == "Could not locate target user message in recent checkpoint history (limit=200)"
-    assert checkpointer.alist_limits == [200]
+    assert checkpointer.alist_limits == [400]
+
+
+def test_find_base_checkpoint_ignores_duration_only_checkpoints() -> None:
+    from app.gateway.routers.thread_runs import _find_base_checkpoint_before_human
+
+    human = HumanMessage(id="human-1", content="question")
+    duration_checkpoints = [
+        _checkpoint(
+            f"duration-{index}",
+            [],
+            metadata={"writes": {"runtime_run_duration": {"run_ids": [f"run-{index}"]}}},
+        )
+        for index in range(200)
+    ]
+    base = _checkpoint("ckpt-base", [])
+    after_human = _checkpoint("ckpt-human", [human])
+    checkpointer = FakeCheckpointer([*duration_checkpoints, after_human, base])
+
+    result = asyncio.run(_find_base_checkpoint_before_human("thread-1", "human-1", _request(checkpointer, FakeEventStore([]))))
+
+    assert result is base
+    assert checkpointer.alist_limits == [400]

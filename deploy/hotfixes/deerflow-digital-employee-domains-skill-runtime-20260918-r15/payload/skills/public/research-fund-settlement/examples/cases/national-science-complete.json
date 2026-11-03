@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0",
+  "profile": "national_science",
+  "report": {"cutoff_date": "2026-03-31", "prepared_date": "2026-05-15", "prepared_by": "财务管理部", "reviewed_by": "课题财务负责人", "status": "final"},
+  "project": {
+    "name": "海洋工程安全保障关键技术项目",
+    "topic_name": "复杂海况下结构健康监测技术课题",
+    "code": "NST-2022YF-03",
+    "plan_name": "国家科技项目",
+    "entity_mode": null,
+    "responsible_person": "孙博",
+    "researchers": ["孙博", "许静", "杨帆"],
+    "start_date": "2022-04-01",
+    "end_date": "2026-03-31",
+    "actual_start_date": "2022-04-01",
+    "actual_end_date": "2026-03-31",
+    "research_content": ["复杂海况传感监测", "结构状态评估", "工程示范"],
+    "governance_summary": "课题负责人组织实施。",
+    "completion_summary": "课题任务已完成。",
+    "approval_document": {"title": "课题任务书", "number": "NST-2022YF-03", "date": "2022-04-08"}
+  },
+  "organizations": {
+    "lead": {"name": "海洋安全技术有限公司", "short_name": "海安公司", "affiliation": "海洋工程集团有限公司", "established_date": "2012-09-20", "unified_social_credit_code": "91110000DEMO000003", "registered_capital": "人民币20000万元", "legal_representative": "何军", "registered_address": "天津市滨海新区示例大道6号", "business_scope": "海洋工程安全技术研发与服务", "relevant_capability": "结构健康监测与风险评估"},
+    "participants": [{"name": "海洋大学", "affiliation": "教育主管部门", "registered_address": "山东省青岛市示例路20号", "relevant_capability": "海洋传感与数据分析"}],
+    "no_participants_reason": null
+  },
+  "funding": {
+    "currency": "CNY",
+    "unit": "万元",
+    "tax_basis": "not_applicable",
+    "expense_scope": "中央财政资金",
+    "approved_total": 600,
+    "adjusted_total": 600,
+    "sources": [
+      {"name": "中央财政资金", "kind": "central_finance", "approved": 500, "received": 500, "spent": 496, "audited": 480, "evidence_refs": ["E1", "E3"]},
+      {"name": "单位自筹资金", "kind": "self_funded", "approved": 100, "received": 100, "spent": 96, "audited": null, "evidence_refs": ["E1", "E3"]}
+    ],
+    "annual_appropriations": [{"year": 2022, "amount": 250, "document": "课题任务书"}, {"year": 2024, "amount": 250, "document": "中央财政拨款通知"}],
+    "adjustments": {"none_declared": true, "items": []},
+    "transfers": [{"organization": "海洋大学", "year": 2022, "amount": 120, "document": "课题合作协议"}, {"organization": "海洋大学", "year": 2024, "amount": 80, "document": "课题合作协议"}]
+  },
+  "expenses": [
+    {"code": "equipment", "name": "设备费", "budget": 80, "adjusted_budget": 80, "reported": 80, "actual": 80, "audited": 78, "description": "用于监测采集设备购置。", "variance_reason": "", "evidence_refs": ["E1", "E2", "E4"]},
+    {"code": "materials", "name": "材料费", "budget": 90, "adjusted_budget": 90, "reported": 90, "actual": 90, "audited": 88, "description": "用于传感器和样件材料。", "variance_reason": "", "evidence_refs": ["E1", "E2", "E4"]},
+    {"code": "testing_processing", "name": "测试化验加工费", "budget": 70, "adjusted_budget": 70, "reported": 70, "actual": 70, "audited": 68, "description": "用于第三方性能测试。", "variance_reason": "", "evidence_refs": ["E1", "E2", "E4"]},
+    {"code": "fuel_power", "name": "燃料动力费", "budget": 30, "adjusted_budget": 30, "reported": 30, "actual": 30, "audited": 29, "description": "用于试验装置水电消耗。", "variance_reason": "", "evidence_refs": ["E1", "E2", "E4"]},
+    {"code": "travel_meeting_cooperation", "name": "差旅/会议/国际合作交流费", "budget": 40, "adjusted_budget": 40, "reported": 40, "actual": 40, "audited": 38, "description": "用于现场调研和项目研讨。", "variance_reason": "", "evidence_refs": ["E1", "E2", "E4"]},
+    {"code": "publication_ip", "name": "出版/文献/信息传播/知识产权事务费", "budget": 20, "adjusted_budget": 20, "reported": 20, "actual": 20, "audited": 18, "description": "用于论文、专利和资料印制。", "variance_reason": "论文版面费低于预计标准。", "evidence_refs": ["E1", "E2", "E4"]},
+    {"code": "labor", "name": "劳务费", "budget": 60, "adjusted_budget": 60, "reported": 60, "actual": 60, "audited": 58, "description": "用于研究生和科研辅助人员劳务。", "variance_reason": "", "evidence_refs": ["E1", "E2", "E4"]},
+    {"code": "expert_consulting", "name": "专家咨询费", "budget": 20, "adjusted_budget": 20, "reported": 20, "actual": 20, "audited": 19, "description": "用于技术评审和方案论证。", "variance_reason": "", "evidence_refs": ["E1", "E2", "E4"]},
+    {"code": "indirect", "name": "间接费用", "budget": 90, "adjusted_budget": 90, "reported": 86, "actual": 86, "audited": 84, "description": "用于科研管理、房屋水电和绩效支出。", "variance_reason": "", "evidence_refs": ["E1", "E2", "E4"]}
+  ],
+  "management": {
+    "accounting_standard": "《企业会计准则》及国家科研项目资金管理规定",
+    "accounting_system": "科研项目辅助核算系统",
+    "cost_accounting_summary": "在研发支出和专项应付款科目下设置课题辅助明细，中央财政资金和自筹资金分开核算。",
+    "accounting_policy": "直接费用按凭证归集，间接费用按批准比例计提和使用。",
+    "internal_control_summary": "单位建立预算、资金、授权审批、报销、核算、资产、采购、合同、劳务、专家咨询、差旅、会议、间接费用和外拨经费制度，并按课题资料执行。",
+    "management_summary": "课题资金纳入统一财务管理。",
+    "finance_department_opinion": "",
+    "no_transfers_reason": null,
+    "policies": [{"name": "国家科技项目资金管理办法实施细则", "number": "海安财〔2022〕11号", "execution": "覆盖预算、核算、支出和决算"}, {"name": "外拨经费管理细则", "number": "海安财〔2022〕15号", "execution": "外拨资金按合作协议和进度审批"}]
+  },
+  "procurement": {"summary": "课题采购按单位制度执行。", "contracts": [], "tendering_summary": "", "tenders": []},
+  "audit": {"audit_org": "中正会计师事务所", "report_no": "中正专审〔2026〕205号", "reported_expenditure": 496, "audit_reduction": 16, "recognized_expenditure": 480, "payables": 0, "expected_expenditure": 5, "payables_note": "截止日无应付未付款项。", "expected_expenditure_note": "预计用于验收资料印制和成果发表。", "opinion": "中央财政资金审定支出480万元。"},
+  "assets": [],
+  "outcomes": [{"name": "结构健康监测平台", "type": "技术平台", "quantity": "1套", "status": "完成", "description": "完成工程示范"}],
+  "narratives": {},
+  "selected_sections": [],
+  "evidence": [
+    {"id": "E1", "source_file": "课题任务书.pdf", "locator": "课题基本信息与预算表", "fact": "中央财政资金预算500万元，自筹100万元。", "as_of": "2022-04-08"},
+    {"id": "E2", "source_file": "课题财务明细账.xlsx", "locator": "中央财政资金支出明细", "fact": "账面中央财政资金支出496万元。", "as_of": "2026-03-31"},
+    {"id": "E3", "source_file": "拨款及外拨台账.xlsx", "locator": "中央财政资金到账与外拨记录", "fact": "中央财政资金到位500万元，向参与单位拨付200万元。", "as_of": "2026-03-31"},
+    {"id": "E4", "source_file": "课题专项审计报告.pdf", "locator": "审定费用表", "fact": "报审496万元，审减16万元，审定480万元。", "as_of": "2026-05-08"}
+  ],
+  "conflicts": [],
+  "assumptions": []
+}

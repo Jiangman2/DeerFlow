@@ -1,0 +1,41 @@
+本集标题：LangGraph 图、AgentState、ThreadState 与 Checkpoint。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：6.1 LangGraph 的基本执行模型。
+
+LangGraph 可以看成一个带状态的有向图。每个节点读取当前状态，返回状态更新；图运行器按照边和条件继续执行。
+
+DeerFlow 使用 LangChain Agent 构造能力生成 Lead Agent 图，但最终仍然受 LangGraph 的状态、super-step、checkpoint 和 interrupt 机制约束。
+
+下面进入小节：6.2 State 更新不是覆盖，而是 reducer 合并。
+
+如果两个节点都返回：
+
+代码示例口述：这里的代码用于说明数据结构或调用顺序，重点不是逐字朗读代码，而是理解它如何把输入传给下一层，并接收处理结果。
+
+最终如何合并，取决于字段的 reducer。当前 ThreadState 的重要 reducer 包括：
+
+表格口述：字段，合并策略；sandbox，相同 ID 可幂等合并，不同 ID 直接报错；artifacts，追加并去重，保留顺序；viewed_images，合并字典，空字典表示清空；todos，新值覆盖旧值，None 表示未触碰；goal，没有新值时保留当前 Goal；promoted，按 catalog hash 隔离，避免工具目录变化后误用旧名称；delegations，按委派 ID 合并，终态不能被非终态降级，最多保留最近记录；skill_context，按路径去重，保留最近引用。
+
+这种设计解决了 Agent 中多工具、多 Middleware、并行子任务同时写状态时的冲突问题。
+
+下面进入小节：6.3 State、messages 和 UI history 不完全相同。
+
+messages 是模型上下文和 LangGraph 状态的一部分，但用户看到的历史可能经过：
+
+工具调用分组。 - 隐藏消息过滤。 - 摘要 checkpoint 与完整历史拼接。 - 乐观消息合并。 - 子任务专用显示模型。 - ToolMessage artifact 中的 human input 解析。
+
+所以前端不能简单地把所有 checkpoint 中的 messages 原样显示。
+
+下面进入小节：6.4 Checkpoint 与摘要。
+
+长对话会遇到上下文窗口限制。摘要 Middleware 可以将旧消息压缩为 summary_text，同时保留必要的最近尾部和用户关键输入。摘要是模型上下文优化，不等于删除用户可见历史；前端仍可以显示完整的历史分页。
+
+图示口述：这张图展示了旧消息、摘要模型、summary_text、最近消息尾部、下一次模型上下文、完整历史分页、前端历史之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+下面进入小节：6.5 Interrupt 与恢复。
+
+人机交互请求、确认、澄清或其他中断可以让图暂停。恢复时不是重新发送普通用户文本，而是使用 Command(resume=...) 继续图执行。这样工具调用身份、当前节点和状态不会丢失。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

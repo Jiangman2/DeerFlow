@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import secrets
+import tempfile
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -18,6 +20,7 @@ from app.channels.runtime_config_store import (
 )
 from app.gateway.deps import require_admin_user
 from deerflow.config.channel_connections_config import ChannelConnectionsConfig
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 from deerflow.persistence.channel_connections import ChannelConnectionRepository
 from deerflow.persistence.engine import get_session_factory
 
@@ -88,7 +91,7 @@ _PROVIDER_META: dict[str, dict[str, str]] = {
     "telegram": {"display_name": "Telegram", "auth_mode": "deep_link"},
     "slack": {"display_name": "Slack", "auth_mode": "binding_code"},
     "discord": {"display_name": "Discord", "auth_mode": "binding_code"},
-    "feishu": {"display_name": "Feishu", "auth_mode": "binding_code"},
+    "feishu": {"display_name": "海能 Work", "auth_mode": "binding_code"},
     "dingtalk": {"display_name": "DingTalk", "auth_mode": "binding_code"},
     "wechat": {"display_name": "WeChat", "auth_mode": "binding_code"},
     "wecom": {"display_name": "WeCom", "auth_mode": "binding_code"},
@@ -158,7 +161,7 @@ async def _get_channel_connections_config(request: Request) -> ChannelConnection
     config = getattr(request.app.state, "channel_connections_config", None)
     if not isinstance(config, ChannelConnectionsConfig):
         config = _get_app_config().channel_connections
-    config = apply_runtime_connection_config(config, store=await _get_runtime_config_store(request))
+    config = await asyncio.to_thread(apply_runtime_connection_config, config, store=await _get_runtime_config_store(request))
     request.app.state.channel_connections_config = config
     return config
 
@@ -178,7 +181,7 @@ async def _load_channels_config(request: Request, config: ChannelConnectionsConf
     extra = app_config.model_extra or {}
     channels_config = extra.get("channels")
     result = dict(channels_config) if isinstance(channels_config, dict) else {}
-    merge_runtime_channel_configs(
+    await asyncio.to_thread(merge_runtime_channel_configs, 
         result,
         config,
         store=await _get_runtime_config_store(request),
@@ -201,6 +204,13 @@ def _get_repository(request: Request, config: ChannelConnectionsConfig) -> Chann
 
 
 def _provider_config(config: ChannelConnectionsConfig, provider: str):
+    # Resolve provider configs only for known providers. An unrestricted
+    # getattr would let a request-supplied name that happens to match another
+    # config attribute (e.g. the "enabled" / "require_bound_identity" bool
+    # fields) slip past the 404 and return a non-provider value, which callers
+    # then dereference as a provider config (AttributeError -> HTTP 500).
+    if provider not in _PROVIDER_META:
+        raise HTTPException(status_code=404, detail="Unknown channel provider")
     provider_config = getattr(config, provider, None)
     if provider_config is None:
         raise HTTPException(status_code=404, detail="Unknown channel provider")
@@ -339,11 +349,11 @@ async def _create_state(
 
 def _connect_instruction(provider: str, code: str) -> str:
     if provider == "telegram":
-        return f"Send /start {code} to the DeerFlow Telegram bot."
+        return f"请向{ENTERPRISE_PRODUCT_NAME}的Telegram机器人发送 /start {code}。"
     meta = _PROVIDER_META.get(provider)
     if meta is None:
         raise HTTPException(status_code=404, detail="Unknown channel provider")
-    return f"Send /connect {code} to the DeerFlow {meta['display_name']} bot."
+    return f"请向{ENTERPRISE_PRODUCT_NAME}的{meta['display_name']}机器人发送 /connect {code}。"
 
 
 def _connect_url(config: ChannelConnectionsConfig, provider: str, code: str) -> str | None:
@@ -642,47 +652,165 @@ async def configure_channel_provider_runtime(
     body: ChannelRuntimeConfigRequest,
     request: Request,
 ) -> ChannelProviderResponse:
+    from app.channels.runtime_config_store import ChannelRuntimeConfigConflict
+
     await require_admin_user(request, detail=_ADMIN_REQUIRED_DETAIL)
     config = await _get_channel_connections_config(request)
     if not config.enabled:
         raise HTTPException(status_code=400, detail="Channel connections are disabled")
+    if not _provider_config(config, provider).enabled:
+        raise HTTPException(status_code=400, detail="Channel provider is not enabled")
 
-    provider_config = _provider_config(config, provider)
+    store = await _get_runtime_config_store(request)
+    expected = await asyncio.to_thread(store.get_provider_config, provider)
+    channels_config = await _get_channels_config(request)
+    existing = channels_config.get(provider)
+    runtime_config = dict(existing) if isinstance(existing, dict) else {}
+    if expected is not None:
+        runtime_config.update(expected)
+    values = _required_runtime_values(provider, body.values, runtime_config)
+    runtime_config["enabled"] = True
+    runtime_config.pop("_runtime_disabled", None)
+    for key in _RUNTIME_REQUIREMENTS[provider]:
+        runtime_config[key] = values[key]
+    if provider == "telegram":
+        runtime_config["bot_username"] = values["bot_username"]
+
+    # Commit under the shared-file lock before starting any new connection.
+    # A conflict must not restart the channel with stale credentials.
+    try:
+        runtime_config = await asyncio.to_thread(store.commit_provider_config, provider, runtime_config, expected)
+    except ChannelRuntimeConfigConflict:
+        raise HTTPException(status_code=409, detail="Channel configuration changed. Reload settings before saving.") from None
+
+    live_channels_config = dict(await _get_channels_config(request))
+    live_channels_config[provider] = runtime_config
+    request.app.state.channels_config = live_channels_config
+    started = await _restart_runtime_channel_if_available(provider, runtime_config)
+    if started is False:
+        # Persistence succeeded. Never roll back over another writer's update.
+        raise HTTPException(status_code=503, detail="Channel configuration saved, but local channel restart failed. Other workers were not reloaded.")
+    return _provider_response(config, live_channels_config, provider, _PROVIDER_META[provider])
+
+
+class FeishuExportThreadRequest(BaseModel):
+    thread_id: str = Field(min_length=1, max_length=128)
+    filename: str = Field(min_length=1, max_length=255)
+    content: str = Field(min_length=1)
+
+
+class FeishuExportThreadResponse(BaseModel):
+    sent: bool
+    filename: str
+
+
+# Feishu caps file uploads at 30MB; keep headroom so the channel-level check
+# never rejects a payload this route already accepted.
+_EXPORT_CONTENT_MAX_BYTES = 20 * 1024 * 1024
+
+
+def _sanitize_export_filename(name: str) -> str:
+    cleaned = "".join(ch for ch in name if ch.isalnum() or ch in "._- ").strip()
+    if not cleaned:
+        cleaned = "conversation"
+    if not cleaned.lower().endswith(".md"):
+        cleaned = f"{cleaned}.md"
+    return cleaned[:255]
+
+
+def _feishu_connection_chat_id(connection: dict[str, Any]) -> str | None:
+    metadata = connection.get("metadata")
+    if isinstance(metadata, dict):
+        chat_id = str(metadata.get("chat_id") or "").strip()
+        if chat_id:
+            return chat_id
+    workspace_id = str(connection.get("workspace_id") or "").strip()
+    return workspace_id or None
+
+
+def _write_export_temp_file(content_bytes: bytes) -> Path:
+    with tempfile.NamedTemporaryFile(mode="wb", suffix=".md", prefix="deerflow-export-", delete=False) as handle:
+        handle.write(content_bytes)
+        return Path(handle.name)
+
+
+@router.post("/feishu/export-thread", response_model=FeishuExportThreadResponse)
+async def export_thread_to_feishu(body: FeishuExportThreadRequest, request: Request) -> FeishuExportThreadResponse:
+    """Send a Markdown export of a thread to the caller's bound 海能 Work chat.
+
+    The Markdown itself is generated on the frontend by the same formatter used
+    for local downloads; this route only authenticates the caller, resolves
+    their Feishu binding, and uploads the file through the running channel.
+    """
+    config = await _get_channel_connections_config(request)
+    if not config.enabled:
+        raise HTTPException(status_code=400, detail="Channel connections are disabled")
+
+    provider_config = _provider_config(config, "feishu")
     if not provider_config.enabled:
         raise HTTPException(status_code=400, detail="Channel provider is not enabled")
 
     channels_config = await _get_channels_config(request)
-    existing = channels_config.get(provider)
-    runtime_config = dict(existing) if isinstance(existing, dict) else {}
-    values = _required_runtime_values(provider, body.values, runtime_config)
-    runtime_config["enabled"] = True
+    if not _runtime_channel_configured("feishu", channels_config):
+        raise HTTPException(status_code=400, detail=_runtime_unavailable_reason("feishu"))
 
-    for key in _RUNTIME_REQUIREMENTS[provider]:
-        runtime_config[key] = values[key]
+    content_bytes = body.content.encode("utf-8")
+    if len(content_bytes) > _EXPORT_CONTENT_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Exported conversation is too large to send via 海能 Work.")
 
-    if provider == "telegram":
-        # The deep-link username is persisted with the runtime channel config
-        # (set_provider_config below) and applied to future requests via
-        # apply_runtime_connection_config; never mutate the config instance
-        # cached by get_app_config().
-        runtime_config["bot_username"] = values["bot_username"]
+    owner_user_id = _get_user_id(request)
+    repo = _get_repository(request, config)
+    connections = await repo.list_connections(owner_user_id)
+    connection = _newest_connection_by_provider(connections).get("feishu")
+    if connection is None or connection.get("status") != "connected":
+        raise HTTPException(status_code=400, detail="海能 Work 未连接，请先在渠道设置中完成绑定。")
 
-    candidate_channels_config = dict(channels_config)
-    candidate_channels_config[provider] = runtime_config
+    chat_id = _feishu_connection_chat_id(connection)
+    if not chat_id:
+        raise HTTPException(status_code=400, detail="海能 Work 绑定缺少会话信息，请解除绑定后重新连接。")
 
-    started = await _restart_runtime_channel_if_available(provider, runtime_config)
-    if started is False:
-        display_name = _PROVIDER_META[provider]["display_name"]
-        raise HTTPException(status_code=400, detail=f"Failed to start {display_name} channel. Check the values and try again.")
+    ready = await _ensure_runtime_channel_ready_if_available("feishu", channels_config)
+    if ready is False:
+        raise HTTPException(status_code=503, detail=_runtime_not_running_reason("feishu"))
 
-    store = await _get_runtime_config_store(request)
-    await asyncio.to_thread(store.set_provider_config, provider, runtime_config)
+    from app.channels.message_bus import OutboundMessage, ResolvedAttachment
+    from app.channels.service import get_channel_service
 
-    # Re-read the live cached config and apply only this provider's change so a
-    # concurrent mutation for a different provider is not clobbered. No await
-    # may occur between this read and the reassignment.
-    live_channels_config = await _get_channels_config(request)
-    live_channels_config[provider] = runtime_config
-    request.app.state.channels_config = live_channels_config
+    service = get_channel_service()
+    channel = service.get_channel("feishu") if service is not None else None
+    if channel is None or not channel.is_running:
+        raise HTTPException(status_code=503, detail=_runtime_not_running_reason("feishu"))
 
-    return _provider_response(config, live_channels_config, provider, _PROVIDER_META[provider])
+    filename = _sanitize_export_filename(body.filename)
+    tmp_path: Path | None = None
+    try:
+        tmp_path = await asyncio.to_thread(_write_export_temp_file, content_bytes)
+        outbound = OutboundMessage(
+            channel_name="feishu",
+            chat_id=chat_id,
+            thread_id=body.thread_id,
+            text="",
+            is_final=True,
+            owner_user_id=owner_user_id,
+            connection_id=str(connection.get("id") or "") or None,
+        )
+        attachment = ResolvedAttachment(
+            virtual_path=f"/mnt/user-data/outputs/{filename}",
+            actual_path=tmp_path,
+            filename=filename,
+            mime_type="text/markdown",
+            size=len(content_bytes),
+            is_image=False,
+        )
+        sent = await channel.send_file(outbound, attachment)
+    finally:
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Failed to remove temporary export file %s", tmp_path)
+
+    if not sent:
+        raise HTTPException(status_code=502, detail="发送失败：海能 Work 机器人未能上传文件，请稍后重试。")
+    return FeishuExportThreadResponse(sent=True, filename=filename)
+

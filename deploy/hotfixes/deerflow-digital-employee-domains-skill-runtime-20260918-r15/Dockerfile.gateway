@@ -1,0 +1,18 @@
+FROM digital-domains-gateway-base
+
+COPY payload/backend/app/gateway/app.py /app/backend/app/gateway/app.py
+COPY payload/backend/app/gateway/routers/agents.py /app/backend/app/gateway/routers/agents.py
+COPY payload/backend/packages/harness/deerflow/persistence/agents/base.py /app/backend/packages/harness/deerflow/persistence/agents/base.py
+COPY payload/backend/packages/harness/deerflow/persistence/agents/file.py /app/backend/packages/harness/deerflow/persistence/agents/file.py
+COPY payload/backend/packages/harness/deerflow/persistence/agents/sql.py /app/backend/packages/harness/deerflow/persistence/agents/sql.py
+COPY payload/backend/packages/harness/deerflow/skills/installer.py /app/backend/packages/harness/deerflow/skills/installer.py
+COPY payload/backend/packages/harness/deerflow/skills/storage/local_skill_storage.py /app/backend/packages/harness/deerflow/skills/storage/local_skill_storage.py
+
+RUN --network=none cd /app/backend \
+    && PYTHONPATH=packages/harness:. .venv/bin/python -m py_compile \
+       app/gateway/app.py app/gateway/routers/agents.py \
+       packages/harness/deerflow/persistence/agents/base.py \
+       packages/harness/deerflow/persistence/agents/file.py \
+       packages/harness/deerflow/persistence/agents/sql.py \
+       packages/harness/deerflow/skills/installer.py \
+       packages/harness/deerflow/skills/storage/local_skill_storage.py

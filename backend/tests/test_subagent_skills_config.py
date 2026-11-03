@@ -476,7 +476,7 @@ class TestRegistrySkillsOverride:
 
         _reset_subagents_config()
         config = get_subagent_config("general-purpose")
-        assert config.skills is None  # Default: inherit all
+        assert config.skills == []  # Default: no inherited Skills
 
     def test_skills_override_does_not_mutate_builtin(self):
         from deerflow.subagents.builtins import BUILTIN_SUBAGENTS
@@ -490,7 +490,7 @@ class TestRegistrySkillsOverride:
             }
         )
         _ = get_subagent_config("general-purpose")
-        assert BUILTIN_SUBAGENTS["general-purpose"].skills is None
+        assert BUILTIN_SUBAGENTS["general-purpose"].skills == []
 
 
 # ---------------------------------------------------------------------------

@@ -12,42 +12,48 @@ img = load("image-generation")
 
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch):
-    for k in ["GEMINI_API_KEY", "MINIMAX_API_KEY", "IMAGE_GENERATION_PROVIDER",
-              "MINIMAX_API_HOST", "MINIMAX_IMAGE_MODEL", "QWEN_API_KEY",
-              "DASHSCOPE_API_KEY", "QWEN_MODEL", "QWEN_BASE_URL"]:
+    for k in [
+        "DASHSCOPE_API_KEY",
+        "GEMINI_API_KEY",
+        "MINIMAX_API_KEY",
+        "IMAGE_GENERATION_PROVIDER",
+        "MINIMAX_API_HOST",
+        "MINIMAX_IMAGE_MODEL",
+    ]:
         monkeypatch.delenv(k, raising=False)
 
 
-def test_resolve_prefers_gemini(monkeypatch):
+def test_resolve_defaults_to_dashscope_even_if_gemini_key_exists(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "g")
+    assert img._resolve_provider() == "dashscope"
+
+
+def test_resolve_does_not_automatically_fall_back_to_minimax(monkeypatch):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
-    assert img._resolve_provider("IMAGE_GENERATION_PROVIDER", "gemini", True) == "gemini"
+    assert img._resolve_provider() == "dashscope"
 
 
-def test_resolve_falls_back_to_minimax(monkeypatch):
-    monkeypatch.setenv("MINIMAX_API_KEY", "m")
-    assert img._resolve_provider("IMAGE_GENERATION_PROVIDER", "gemini", False) == "minimax"
-
-
-def test_resolve_prefers_qwen_before_minimax(monkeypatch):
-    monkeypatch.setenv("DASHSCOPE_API_KEY", "d")
-    monkeypatch.setenv("MINIMAX_API_KEY", "m")
-    assert img._resolve_provider("IMAGE_GENERATION_PROVIDER", "gemini", False) == "qwen"
-
-
-def test_resolve_override_wins(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "g")
+def test_resolve_explicit_minimax_override(monkeypatch):
     monkeypatch.setenv("IMAGE_GENERATION_PROVIDER", "MiniMax")
-    assert img._resolve_provider("IMAGE_GENERATION_PROVIDER", "gemini", True) == "minimax"
+    assert img._resolve_provider() == "minimax"
 
 
-def test_resolve_errors_when_none(monkeypatch):
-    with pytest.raises(ValueError):
-        img._resolve_provider("IMAGE_GENERATION_PROVIDER", "gemini", False)
+@pytest.mark.parametrize("alias", ["dashscope", "qwen", "bailian"])
+def test_resolve_bailian_aliases(monkeypatch, alias):
+    monkeypatch.setenv("IMAGE_GENERATION_PROVIDER", alias)
+    assert img._resolve_provider() == "dashscope"
+
+
+@pytest.mark.parametrize("provider", ["gemini", "google"])
+def test_resolve_rejects_gemini_image_provider(monkeypatch, provider):
+    monkeypatch.setenv("IMAGE_GENERATION_PROVIDER", provider)
+    with pytest.raises(ValueError, match="Gemini image generation is disabled"):
+        img._resolve_provider()
 
 
 def test_minimax_builds_payload_and_writes(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("IMAGE_GENERATION_PROVIDER", "minimax")
     raw = b"PNGBYTES"
     captured = {}
 
@@ -77,6 +83,7 @@ def test_minimax_builds_payload_and_writes(monkeypatch, tmp_path):
 
 def test_minimax_reference_image_as_data_url(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("IMAGE_GENERATION_PROVIDER", "minimax")
     captured = {}
 
     def fake_post(url, headers=None, json=None, **kw):
@@ -101,6 +108,7 @@ def test_minimax_reference_image_as_data_url(monkeypatch, tmp_path):
 
 def test_minimax_raises_on_base_resp_error(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("IMAGE_GENERATION_PROVIDER", "minimax")
 
     def fake_post(url, headers=None, json=None, **kw):
         return FakeResp({"base_resp": {"status_code": 1004, "status_msg": "auth failed"}})
@@ -115,6 +123,7 @@ def test_minimax_raises_on_base_resp_error(monkeypatch, tmp_path):
 
 def test_minimax_extracts_json_prompt_field(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("IMAGE_GENERATION_PROVIDER", "minimax")
     captured = {}
 
     def fake_post(url, headers=None, json=None, **kw):
@@ -138,6 +147,7 @@ def test_minimax_extracts_json_prompt_field(monkeypatch, tmp_path):
 
 def test_minimax_plaintext_prompt_passes_through(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("IMAGE_GENERATION_PROVIDER", "minimax")
     captured = {}
 
     def fake_post(url, headers=None, json=None, **kw):
@@ -155,6 +165,7 @@ def test_minimax_plaintext_prompt_passes_through(monkeypatch, tmp_path):
 
 def test_minimax_rejects_overlong_prompt_without_calling_api(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("IMAGE_GENERATION_PROVIDER", "minimax")
 
     def fake_post(url, headers=None, json=None, **kw):  # pragma: no cover
         raise AssertionError("must not call the API when the prompt is over the limit")
@@ -172,6 +183,7 @@ def test_minimax_rejects_overlong_prompt_without_calling_api(monkeypatch, tmp_pa
 
 def test_minimax_creates_nested_output_dir(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("IMAGE_GENERATION_PROVIDER", "minimax")
 
     def fake_post(url, headers=None, json=None, **kw):
         return FakeResp({"data": {"image_base64": [base64.b64encode(b"img").decode()]},
@@ -186,52 +198,8 @@ def test_minimax_creates_nested_output_dir(monkeypatch, tmp_path):
     assert out.read_bytes() == b"img"
 
 
-def test_qwen_builds_payload_and_downloads(monkeypatch, tmp_path):
-    monkeypatch.setenv("DASHSCOPE_API_KEY", "d")
-    monkeypatch.setenv("IMAGE_GENERATION_PROVIDER", "qwen")
-    monkeypatch.setenv("QWEN_MODEL", "qwen-image-2.0-pro")
-    posts = {}
-
-    def fake_post(url, headers=None, json=None, **kw):
-        posts["url"] = url
-        posts["headers"] = headers
-        posts["json"] = json
-        return FakeResp({
-            "output": {
-                "choices": [{
-                    "message": {
-                        "content": [{"image": "https://dashscope-result/img.png"}]
-                    }
-                }]
-            }
-        })
-
-    def fake_get(url, **kw):
-        assert url == "https://dashscope-result/img.png"
-        return FakeResp(content=b"PNGDATA")
-
-    monkeypatch.setattr(img.requests, "post", fake_post)
-    monkeypatch.setattr(img.requests, "get", fake_get)
-    prompt_file = tmp_path / "p.json"
-    prompt_file.write_text(
-        '{"prompt": "a blue offshore platform", "negative_prompt": "low quality"}',
-        encoding="utf-8",
-    )
-    out = tmp_path / "o.png"
-    msg = img.generate_image(str(prompt_file), [], str(out), "16:9")
-
-    assert out.read_bytes() == b"PNGDATA"
-    assert posts["url"].endswith("/services/aigc/multimodal-generation/generation")
-    assert posts["headers"]["Authorization"] == "Bearer d"
-    assert posts["json"]["model"] == "qwen-image-2.0-pro"
-    assert posts["json"]["parameters"]["size"] == "1664*928"
-    assert posts["json"]["parameters"]["negative_prompt"] == "low quality"
-    assert "Successfully generated image" in msg
-
-
 def test_unknown_provider_raises(monkeypatch, tmp_path):
     monkeypatch.setenv("IMAGE_GENERATION_PROVIDER", "openai")
-    monkeypatch.setenv("GEMINI_API_KEY", "g")
     pf = tmp_path / "p.json"
     pf.write_text("x", encoding="utf-8")
     with pytest.raises(ValueError):

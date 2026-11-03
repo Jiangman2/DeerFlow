@@ -1,0 +1,51 @@
+本集标题：学习路线、练习题与源码索引。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：21.1 分阶段学习路线。
+
+下面进入小节：阶段一：能画出全链路。
+
+目标：能够解释 Browser → Nginx → Gateway → RunManager → run_agent → Agent → LLM/Tool → StreamBridge → Browser。
+
+练习：画出一次“普通回答”和一次“工具调用”的两张时序图。
+
+下面进入小节：阶段二：能解释状态。
+
+目标：知道 messages、ThreadState、checkpoint、Run record、Store 的差别。
+
+练习：找出一次 Todo 更新从工具返回到前端显示的路径。
+
+下面进入小节：阶段三：能解释 Agent 装配。
+
+目标：知道模型、工具、Skill、MCP 和 Middleware 如何被选择。
+
+练习：配置一个只拥有指定工具组的自定义 Agent，并确认最终工具列表。
+
+下面进入小节：阶段四：能调试运行失败。
+
+目标：从一条 Run ID 追到日志、事件、checkpoint、工具和前端。
+
+练习：制造一个工具参数错误，解释它为什么变成 ToolMessage 而不是整个 Run 崩溃。
+
+下面进入小节：阶段五：能做安全扩展。
+
+目标：新增工具、Middleware 或路由时不破坏 Harness/App、凭据和权限边界。
+
+练习：实现一个只读工具，并分别测试普通用户、非交互调度和管理员审计场景。
+
+下面进入小节：21.2 核心源码索引。
+
+表格口述：主题，入口；Gateway 应用，backend/app/gateway/app.py；Gateway 运行依赖，backend/app/gateway/deps.py；Run 创建与启动，backend/app/gateway/services.py；Run API，backend/app/gateway/routers/thread_runs.py、runs.py；Runtime Worker，backend/packages/harness/deerflow/runtime/runs/worker.py；RunManager，backend/packages/harness/deerflow/runtime/runs/manager.py；StreamBridge，backend/packages/harness/deerflow/runtime/stream_bridge/；Store，backend/packages/harness/deerflow/runtime/store/；Lead Agent，backend/packages/harness/deerflow/agents/lead_agent/agent.py；ThreadState，backend/packages/harness/deerflow/agents/thread_state.py；Middleware 工厂，backend/packages/harness/deerflow/agents/factory.py。
+
+下面进入小节：21.3 最后形成的心智模型。
+
+DeerFlow 不是“一个带很多工具的聊天机器人”。更准确的描述是：
+
+> DeerFlow 是一个以 Thread 为隔离单元、以 LangGraph 为 Agent 执行引擎、以 Middleware 为策略层、以 Sandbox 为执行边界、以 StreamBridge 为事件通道、以 Checkpoint/Store/数据库为持久化基础、以 Gateway 和前端为应用界面的可扩展超级 Agent 平台。
+
+理解了这句话，就可以把任何新功能放回正确的位置：
+
+要改变模型行为：看 Lead Agent、prompt 和 Middleware。 - 要增加能力：看 Tool、MCP 或 Skill。 - 要执行代码和文件操作：看 Sandbox。 - 要并行拆解任务：看 Subagent。 - 要跨会话记住信息：看 Store/Memory。 - 要让浏览器实时看到过程：看 StreamBridge 和前端 Thread hooks。 - 要保证恢复和审计：看 Checkpoint、RunRecord 和 EventLog。 - 要接企业平台：看 Gateway adapter、认证和安全边界。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

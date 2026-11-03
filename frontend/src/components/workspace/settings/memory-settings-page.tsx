@@ -389,7 +389,7 @@ export function MemorySettingsPage() {
     try {
       setIsExporting(true);
       const exportedMemory = await exportMemory();
-      const fileName = `deerflow-memory-${(exportedMemory.lastUpdated || new Date().toISOString()).replace(/[:.]/g, "-")}.json`;
+      const fileName = `platform-memory-${(exportedMemory.lastUpdated || new Date().toISOString()).replace(/[:.]/g, "-")}.json`;
       const blob = new Blob([JSON.stringify(exportedMemory, null, 2)], {
         type: "application/json",
       });
@@ -537,6 +537,9 @@ export function MemorySettingsPage() {
         title={t.settings.memory.title}
         description={t.settings.memory.description}
       >
+        <div className="text-muted-foreground mb-4 rounded-lg border border-dashed px-4 py-3 text-sm leading-6">
+          {t.settings.memory.updateBehaviorHint}
+        </div>
         {isLoading ? (
           <div className="text-muted-foreground text-sm">
             {t.common.loading}

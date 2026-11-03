@@ -45,7 +45,7 @@ def _fix_messages(messages: list) -> list:
 
         # Wrap tool execution results in XML tags and convert to HumanMessage
         if isinstance(msg, ToolMessage):
-            tool_result_text = f"<tool_response>\n{text}\n</tool_response>"
+            tool_result_text = f"<tool_response>\n{html.escape(text, quote=False)}\n</tool_response>"
             fixed.append(HumanMessage(content=tool_result_text))
             continue
 

@@ -1,0 +1,718 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: weknora-app-nodeport
+  namespace: deer-flow
+$patch: delete
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weknora-frontend-nodeport
+  namespace: deer-flow
+$patch: delete
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: skills-sync
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: sync
+          imagePullPolicy: Never
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: provisioner
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: provisioner
+          imagePullPolicy: Never
+          env:
+            - name: SANDBOX_IMAGE
+              value: deerflow.local/deer-flow-aio-sandbox:20260817-enterprise-arm64-rc15-sandboxstorage1
+            - name: SANDBOX_SERVICE_TYPE
+              value: ClusterIP
+            - name: PPT_MASTER_AGENT_HOST_ENABLED
+              value: "true"
+            - name: PPT_MASTER_AGENT_HOST_PORT
+              value: "8788"
+            - name: PPT_MASTER_AGENT_ONLY_SECRET_ENV_KEYS
+              value: PPT_MASTER_RESPONSES_RELAY_KEY
+            - name: CODEX_CONFIG_TOML
+              value: |-
+                model = "DeepSeek-V4-Flash"
+                model_provider = "cnooc_deepseek"
+                model_context_window = 1048576
+                model_auto_compact_token_limit = 850000
+                model_reasoning_effort = "high"
+                model_catalog_json = "/mnt/user-data/workspace/.ppt-master-agent/codex-home/model-catalog.local.json"
+                web_search = "disabled"
+
+                [model_providers.cnooc_deepseek]
+                name = "CNOOC DeepSeek Responses Bridge"
+                base_url = "http://gateway:8001/api/codex/deepseek/v1"
+                env_key = "PPT_MASTER_RESPONSES_RELAY_KEY"
+                wire_api = "responses"
+                request_max_retries = 2
+                stream_max_retries = 2
+                stream_idle_timeout_ms = 900000
+            - name: CODEX_MODEL_CATALOG_JSON
+              value: |-
+                {
+                  "models": [
+                    {
+                      "slug": "DeepSeek-V4-Flash",
+                      "display_name": "DeepSeek-V4-Flash",
+                      "description": "CNOOC enterprise DeepSeek Responses bridge",
+                      "default_reasoning_level": "high",
+                      "supported_reasoning_levels": [
+                        {"effort": "low", "description": "Faster reasoning"},
+                        {"effort": "high", "description": "Deep reasoning"},
+                        {"effort": "xhigh", "description": "Maximum reasoning"}
+                      ],
+                      "context_window": 1048576,
+                      "effective_context_window_percent": 85,
+                      "supports_parallel_tool_calls": false,
+                      "supports_image_detail_original": false,
+                      "input_modalities": ["text"],
+                      "shell_type": "default",
+                      "visibility": "list",
+                      "supported_in_api": true,
+                      "priority": 1,
+                      "base_instructions": "",
+                      "support_verbosity": false,
+                      "supports_reasoning_summaries": false,
+                      "experimental_supported_tools": [],
+                      "truncation_policy": {"mode": "bytes", "limit": 10000}
+                    }
+                  ]
+                }
+            - name: SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS
+              value: "5"
+            - name: SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS
+              value: "10"
+            - name: SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD
+              value: "120"
+            - name: SANDBOX_READINESS_TIMEOUT_SECONDS
+              value: "10"
+            - name: SANDBOX_LIVENESS_TIMEOUT_SECONDS
+              value: "10"
+            - name: SANDBOX_CPU_REQUEST
+              value: "1"
+            - name: SANDBOX_MEMORY_REQUEST
+              value: 1Gi
+            - name: SANDBOX_CPU_LIMIT
+              value: "2"
+            - name: SANDBOX_MEMORY_LIMIT
+              value: 4Gi
+            - name: SANDBOX_EPHEMERAL_STORAGE_REQUEST
+              value: 2Gi
+            - name: SANDBOX_EPHEMERAL_STORAGE_LIMIT
+              value: 12Gi
+            - name: SANDBOX_SECRET_ENV_KEYS
+              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,SANDBOX_API_KEY,CODEX_API_KEY,ARK_API_KEY,OPENAI_API_KEY,PPT_MASTER_RESPONSES_RELAY_KEY,HTTP_PROXY,HTTPS_PROXY,http_proxy,https_proxy
+            # The pinned ARM64 AIO image's embedded Chromium GPU child crashes
+            # on the production kernel and its supervisor otherwise restarts it
+            # every second. DeerFlow Browser Live is Gateway-local Playwright,
+            # so disabling this separate AIO browser does not remove browser_*
+            # chat tools.
+            - name: DISABLE_BROWSER
+              value: "true"
+            - name: DISABLE_MCP_BROWSER
+              value: "true"
+            - name: SANDBOX_PASSTHROUGH_ENV_KEYS
+              value: CODEX_CONFIG_TOML,CODEX_MODEL_CATALOG_JSON,IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,QWEN_BASE_URL,QWEN_MODEL,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT,NO_PROXY,no_proxy,DISABLE_BROWSER,DISABLE_MCP_BROWSER
+            - name: NO_PROXY
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+            - name: no_proxy
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+            - name: SANDBOX_CA_SECRET_NAME
+              value: deer-flow-enterprise-ca
+            - name: SANDBOX_CA_SECRET_KEY
+              value: ca-bundle.crt
+            - name: SANDBOX_CA_MOUNT_PATH
+              value: /etc/deerflow-ca
+            - name: SANDBOX_OPENSSL_CONFIGMAP_NAME
+              value: deer-flow-gateway-openssl-compat
+            - name: SANDBOX_OPENSSL_CONFIGMAP_KEY
+              value: openssl.cnf
+            - name: SANDBOX_OPENSSL_MOUNT_PATH
+              value: /etc/deerflow-openssl
+            - name: DASHSCOPE_TLS_COMPAT
+              value: "true"
+            - name: IMAGE_BACKEND
+              value: qwen
+            - name: IMAGE_GENERATION_PROVIDER
+              value: dashscope
+            - name: QWEN_BASE_URL
+              value: https://dashscope.aliyuncs.com
+            - name: QWEN_MODEL
+              value: qwen-image-2.0-pro
+            - name: DASHSCOPE_BASE_URL
+              value: https://dashscope.aliyuncs.com/api/v1
+            - name: DASHSCOPE_IMAGE_MODEL
+              value: qwen-image-2.0-pro
+            - name: VIDEO_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_VIDEO_MODEL
+              value: wan2.7-t2v
+            - name: DASHSCOPE_VIDEO_DURATION
+              value: "5"
+            - name: DASHSCOPE_VIDEO_RESOLUTION
+              value: 720P
+            - name: PODCAST_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_TTS_MODEL
+              value: qwen3-tts-flash
+            - name: DASHSCOPE_TTS_VOICE_MALE
+              value: Ethan
+            - name: DASHSCOPE_TTS_VOICE_FEMALE
+              value: Cherry
+            - name: MUSIC_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_MUSIC_MODEL
+              value: fun-music-v1
+            - name: DASHSCOPE_MUSIC_GENDER
+              value: female
+            - name: DASHSCOPE_MUSIC_FORMAT
+              value: mp3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: deer-flow
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    spec:
+      containers:
+        - name: gateway
+          imagePullPolicy: Never
+          env:
+            - name: DEER_FLOW_SSO_ONLY
+              value: "true"
+            - name: DEER_FLOW_DASHBOARD_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-dashboard-postgres
+                  key: DATABASE_URL
+                  optional: true
+            - name: DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA
+              value: "true"
+            - name: DEER_FLOW_DASHBOARD_VERIFY_READ_REPLICA
+              value: "true"
+            - name: DEER_FLOW_DASHBOARD_MAX_CONCURRENT_QUERIES
+              value: "1"
+            - name: DEER_FLOW_DASHBOARD_QUERY_QUEUE_TIMEOUT_MS
+              value: "250"
+            - name: DEER_FLOW_DASHBOARD_STATEMENT_TIMEOUT_MS
+              value: "5000"
+            - name: DEER_FLOW_DASHBOARD_ROLLUPS_ENABLED
+              value: "true"
+            - name: DEER_FLOW_DASHBOARD_ROLLUP_MIN_DAYS
+              value: "2"
+            - name: DEER_FLOW_DASHBOARD_HOURLY_ROLLUP_MIN_HOURS
+              value: "6"
+            - name: DEER_FLOW_DASHBOARD_HOURLY_RETENTION_HOURS
+              value: "72"
+            - name: DEER_FLOW_DASHBOARD_REQUIRE_HOURLY_ROLLUPS
+              value: "true"
+            - name: SSL_CERT_FILE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: CURL_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: NO_PROXY
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+            - name: no_proxy
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+            - name: OPENSSL_CONF
+              value: /etc/deerflow-openssl/openssl.cnf
+            - name: WEKNORA_BAILIAN_TLS_COMPAT
+              value: "true"
+            - name: TAVILY_TLS_COMPAT
+              value: "true"
+            - name: DASHSCOPE_TLS_COMPAT
+              value: "true"
+            # Operator-owned image and asynchronous video endpoints. Gateway
+            # clients bypass ambient proxies and publish validated results into
+            # the current thread's outputs.
+            - name: DEERFLOW_IMAGE_GENERATION_API_URL
+              value: http://10.57.2.43:30008/v1/images/generations
+            - name: DEERFLOW_VIDEO_GENERATION_API_URL
+              value: http://10.57.2.43:30009/v1/videos
+            - name: DEERFLOW_IMAGE_GENERATION_TIMEOUT_SECONDS
+              value: "600"
+            - name: DEERFLOW_VIDEO_GENERATION_POLL_SECONDS
+              value: "3"
+            # The local base intentionally clears proxy variables for Docker
+            # Desktop. Restore them from the enterprise runtime Secret here so
+            # every enterprise render keeps Gateway external egress working.
+            - name: HTTP_PROXY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: HTTP_PROXY
+            - name: HTTPS_PROXY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: HTTPS_PROXY
+            - name: http_proxy
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: http_proxy
+            - name: https_proxy
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: https_proxy
+            - name: WEKNORA_ENTERPRISE_INTERNAL_MODELS_ONLY
+              value: "true"
+            - name: QWEN_ASR_STREAM_URL
+              value: ws://model.ai.cnooc/ws/member1/qwen3-asr-v3/stream-transcriptions
+            - name: QWEN_ASR_MODEL_NAME
+              value: Qwen3-ASR-1.7B
+            - name: QWEN_ASR_MAX_DURATION_SECONDS
+              value: "600"
+            - name: QWEN_ASR_FINAL_TIMEOUT_SECONDS
+              value: "30"
+            - name: QWEN_ASR_MAX_CONCURRENT_SESSIONS
+              value: "20"
+            - name: QWEN_ASR_MAX_AUDIO_BYTES
+              value: "20971520"
+            - name: QWEN_ASR_MAX_FRAME_BYTES
+              value: "262144"
+            - name: WEKNORA_DEFAULT_EMBEDDING_MODEL_ID
+              value: deerflow-cnooc-qwen3-embedding-8b
+            - name: WEKNORA_DEFAULT_RERANK_MODEL_ID
+              value: deerflow-cnooc-qwen3-reranker-8b
+            - name: CNOOC_EMBEDDING_DIMENSION
+              value: "1024"
+            - name: CNOOC_EMBEDDING_MRL_TRUNCATION_ENABLED
+              value: "true"
+            - name: WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY
+              value: "200"
+            - name: WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRIES
+              value: "3"
+            - name: WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRY_SECONDS
+              value: "0.75"
+            - name: CNOOC_RETRIEVAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: CNOOC_RETRIEVAL_API_KEY
+            - name: WEKNORA_INTERNAL_MODEL_RELAY_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: WEKNORA_INTERNAL_MODEL_RELAY_KEY
+            - name: PPT_MASTER_RESPONSES_RELAY_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: PPT_MASTER_RESPONSES_RELAY_KEY
+            - name: PPT_MASTER_DEEPSEEK_UPSTREAM_URL
+              value: https://aiapi.cnooc.com.cn/DeepSeek-V4-Flash/FEAT-511-001/v1/chat/completions
+            - name: PPT_MASTER_DEEPSEEK_MODEL
+              value: DeepSeek-V4-Flash
+            - name: PPT_MASTER_DEEPSEEK_MAX_OUTPUT_TOKENS
+              value: "65536"
+            - name: PPT_MASTER_DEEPSEEK_ATTEMPTS
+              value: "2"
+            - name: PPT_MASTER_DEEPSEEK_READ_TIMEOUT_SECONDS
+              value: "900"
+            - name: EMBEDDING_BASE_URL
+              value: http://gateway:8001/api/weknora/bailian/v1
+            - name: EMBEDDING_PROVIDER
+              value: generic
+            - name: WEKNORA_PRESENTATION_PARSER_ENGINE
+              value: mineru
+            - name: WEKNORA_MINERU_ENDPOINT
+              value: http://deer-flow-mineru-adapter:50052
+            - name: WEKNORA_MINERU_AUTO_CONFIGURE
+              value: "true"
+            - name: WEKNORA_MINERU_SCANNED_PDF_FALLBACK
+              value: "true"
+            - name: WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK
+              value: "true"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED
+              value: "true"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS
+              # Must remain below Nginx's 600-second upload timeout. DOCX owns
+              # a four-stage bounded Adapter chain plus dispatcher queueing;
+              # Gateway returns a controlled 503 before Nginx emits a 504.
+              value: "570"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_CONNECTIONS
+              # Six serialized parser workers are the real active capacity.
+              # Keep a small bounded waiting margin without allowing every
+              # upload request to create a fresh connection/client.
+              value: "16"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_KEEPALIVE_CONNECTIONS
+              value: "8"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED
+              value: "true"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED
+              # The Adapter already exhausts AnyDoc, DocReader,
+              # LibreOffice, and MinerU. Repeating an unbounded local parse in
+              # Gateway can outlive Nginx and surface a misleading 504.
+              value: "false"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_REQUIRE_PARSED_TEXT
+              # Enterprise chat tasks must not start with an unreadable source
+              # or a missing/empty Markdown companion. The code default stays
+              # false to preserve upstream DeerFlow behavior elsewhere.
+              value: "true"
+            - name: DEERFLOW_UPLOAD_PDF_SECURITY_MODE
+              # Keep the security boundary enabled while flattening ordinary
+              # active-content PDFs into inert image-only copies automatically.
+              value: sanitize
+            - name: DEERFLOW_UPLOAD_PDF_SANITIZE_DPI
+              value: "120"
+            - name: DEERFLOW_UPLOAD_PDF_SANITIZE_MAX_PAGES
+              value: "200"
+          volumeMounts:
+            - name: enterprise-ca
+              mountPath: /etc/deerflow-ca
+              readOnly: true
+            - name: openssl-compat
+              mountPath: /etc/deerflow-openssl
+              readOnly: true
+          resources:
+            requests:
+              # Production baseline after the 2026-09-16 saturation incident.
+              # Keep enough reserved CPU for the single Gateway endpoint while
+              # WeKnora parser traffic and PostgreSQL maintenance are active.
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              cpu: "4"
+              memory: 16Gi
+      volumes:
+        - name: enterprise-ca
+          secret:
+            secretName: deer-flow-enterprise-ca
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
+        - name: openssl-compat
+          configMap:
+            name: deer-flow-gateway-openssl-compat
+            items:
+              - key: openssl.cnf
+                path: openssl.cnf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ppt-master-runner
+  namespace: deer-flow
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          imagePullPolicy: Never
+      containers:
+        - name: ppt-master-runner
+          imagePullPolicy: Never
+          env:
+            - name: DEER_FLOW_SSO_ONLY
+              value: "true"
+            - name: SSL_CERT_FILE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: CURL_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: NO_PROXY
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+            - name: no_proxy
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+            - name: OPENSSL_CONF
+              value: /etc/deerflow-openssl/openssl.cnf
+            - name: TAVILY_TLS_COMPAT
+              value: "true"
+            - name: DASHSCOPE_TLS_COMPAT
+              value: "true"
+          volumeMounts:
+            - name: enterprise-ca
+              mountPath: /etc/deerflow-ca
+              readOnly: true
+            - name: openssl-compat
+              mountPath: /etc/deerflow-openssl
+              readOnly: true
+      volumes:
+        - name: enterprise-ca
+          secret:
+            secretName: deer-flow-enterprise-ca
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
+        - name: openssl-compat
+          configMap:
+            name: deer-flow-gateway-openssl-compat
+            items:
+              - key: openssl.cnf
+                path: openssl.cnf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: frontend
+          imagePullPolicy: Never
+          env:
+            - name: WEKNORA_FRONTEND_URL
+              value: /platform/knowledge-bases
+            - name: DEER_FLOW_UNAUTHENTICATED_HOME_URL
+              value: https://datalake.cnooc/#/home
+            - name: DEER_FLOW_SSO_ONLY
+              value: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weknora-docreader
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: docreader
+          env:
+            # URL knowledge imports are rendered by DocReader's Playwright
+            # WebKit process.  It intentionally consumes these dedicated
+            # variables rather than the conventional HTTP(S)_PROXY names.
+            - name: DOCREADER_EXTERNAL_HTTP_PROXY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: HTTP_PROXY
+            - name: DOCREADER_EXTERNAL_HTTPS_PROXY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: HTTPS_PROXY
+            # The browser subprocess inherits this verified enterprise bundle
+            # when the egress proxy inspects TLS.  File parsing remains local;
+            # these settings affect only outbound URL/subresource retrieval.
+            - name: SSL_CERT_FILE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: CURL_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+          volumeMounts:
+            - name: enterprise-ca
+              mountPath: /etc/deerflow-ca
+              readOnly: true
+      volumes:
+        - name: enterprise-ca
+          secret:
+            secretName: deer-flow-enterprise-ca
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weknora-app
+  namespace: deer-flow
+spec:
+  strategy:
+    type: Recreate
+  template:
+    spec:
+      containers:
+        - name: app
+          imagePullPolicy: Never
+          env:
+            - name: SSL_CERT_FILE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: CURL_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: EMBEDDING_BASE_URL
+              value: http://gateway:8001/api/weknora/bailian/v1
+            - name: EMBEDDING_PROVIDER
+              value: generic
+            - name: WEKNORA_PREFER_CNOOC_DEEPSEEK
+              value: "true"
+            # Six adapter Pods each serialize native parsing in-process. Four
+            # core workers plus two shared workers cap active parser calls at
+            # six; later uploads remain durable in WeKnora's Redis queue.
+            - name: WEKNORA_ASYNQ_CORE_CONCURRENCY
+              value: "4"
+            # Keep document parsing capped independently while allowing the
+            # model-heavy image/summary/graph/question fan-out to drain on its
+            # dedicated WeKnora v0.8 enrichment pool.
+            - name: WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY
+              value: "2"
+            - name: WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY
+              value: "12"
+            - name: WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY
+              value: "4"
+            - name: WEKNORA_ASYNQ_SHARED_CONCURRENCY
+              value: "2"
+            - name: WEKNORA_DOCREADER_CALL_TIMEOUT
+              value: 30m
+            - name: WEKNORA_DOCUMENT_PROCESS_TIMEOUT
+              value: 2h
+            - name: WEKNORA_INTERNAL_MODEL_RELAY_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: WEKNORA_INTERNAL_MODEL_RELAY_KEY
+            - name: NO_PROXY
+              value: "localhost,127.0.0.1,::1,gateway,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+            - name: no_proxy
+              value: "localhost,127.0.0.1,::1,gateway,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+            - name: SSRF_WHITELIST_EXTRA
+              value: deer-flow-mineru-adapter,model.ai.cnooc,gateway
+          volumeMounts:
+            - name: enterprise-ca
+              mountPath: /etc/deerflow-ca
+              readOnly: true
+      volumes:
+        - name: enterprise-ca
+          secret:
+            secretName: deer-flow-enterprise-ca
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: weknora-enterprise-model-defaults-v5
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: apply-defaults
+          env:
+            - name: DEFAULT_CHAT_MODEL_ID
+              value: deerflow-cnooc-deepseek-v4-flash
+            - name: DEFAULT_EMBEDDING_MODEL_ID
+              value: deerflow-cnooc-qwen3-embedding-8b
+            - name: DEFAULT_RERANK_MODEL_ID
+              value: deerflow-cnooc-qwen3-reranker-8b
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weknora-redis
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: redis
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: weknora-redis-data
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: weknora-postgres
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: postgres
+          imagePullPolicy: Never
+          args:
+            - -c
+            - shared_preload_libraries=pg_search
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dashboard-rollup-maintenance
+  namespace: deer-flow
+spec:
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: dashboard-rollup-maintenance
+              imagePullPolicy: Never
+              env:
+                - name: DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA
+                  value: "true"
+                - name: DEER_FLOW_DASHBOARD_VERIFY_READ_REPLICA
+                  value: "true"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: postgres
+          args:
+            - -c
+            - wal_level=replica
+            - -c
+            - max_wal_senders=4
+            - -c
+            - max_replication_slots=4
+            - -c
+            - wal_keep_size=512MB
+            - -c
+            - max_slot_wal_keep_size=4GB
+            - -c
+            - hba_file=/etc/postgresql/replication/pg_hba.conf
+          volumeMounts:
+            - name: replication-config
+              mountPath: /etc/postgresql/replication
+              readOnly: true
+      volumes:
+        - name: replication-config
+          configMap:
+            name: deer-flow-postgres-replication

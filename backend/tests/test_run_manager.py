@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy.exc import DatabaseError as SQLAlchemyDatabaseError
 
 from deerflow.runtime import DisconnectMode, RunManager, RunStatus
-from deerflow.runtime.runs.manager import ConflictError, PersistenceRetryPolicy
+from deerflow.runtime.runs.manager import CancelOutcome, ConflictError, PersistenceRetryPolicy
 from deerflow.runtime.runs.store.memory import MemoryRunStore
 
 ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
@@ -29,19 +29,19 @@ class FlakyStatusRunStore(MemoryRunStore):
         self.status_failures = status_failures
         self.status_update_attempts = 0
 
-    async def update_status(self, run_id, status, *, error=None):
+    async def update_status(self, run_id, status, *, error=None, stop_reason=None):
         self.status_update_attempts += 1
         if self.status_failures > 0:
             self.status_failures -= 1
             raise sqlite3.OperationalError("database is locked")
-        return await super().update_status(run_id, status, error=error)
+        return await super().update_status(run_id, status, error=error, stop_reason=stop_reason)
 
 
 class MissingRowStatusRunStore(MemoryRunStore):
     """Memory run store that reports a missing row for status updates."""
 
-    async def update_status(self, run_id, status, *, error=None):
-        await super().update_status(run_id, status, error=error)
+    async def update_status(self, run_id, status, *, error=None, stop_reason=None):
+        await super().update_status(run_id, status, error=error, stop_reason=stop_reason)
         return False
 
 
@@ -52,7 +52,7 @@ class PermanentStatusRunStore(MemoryRunStore):
         super().__init__()
         self.status_update_attempts = 0
 
-    async def update_status(self, run_id, status, *, error=None):
+    async def update_status(self, run_id, status, *, error=None, stop_reason=None):
         self.status_update_attempts += 1
         raise SQLAlchemyDatabaseError(
             "UPDATE runs SET status = :status WHERE run_id = :run_id",
@@ -68,7 +68,13 @@ class FailingStatusRunStore(MemoryRunStore):
         super().__init__()
         self.status_update_attempts = 0
 
-    async def update_status(self, run_id, status, *, error=None):
+    async def update_status(self, run_id, status, *, error=None, stop_reason=None):
+        self.status_update_attempts += 1
+        raise sqlite3.OperationalError("database is locked")
+
+    async def claim_for_takeover(self, run_id, *, grace_seconds, error):
+        # Reconciliation now persists the terminal status through an atomic
+        # takeover CAS, not update_status. Inject the same failure there.
         self.status_update_attempts += 1
         raise sqlite3.OperationalError("database is locked")
 
@@ -151,7 +157,7 @@ async def test_cancel(manager: RunManager):
     await manager.set_status(record.run_id, RunStatus.running)
 
     cancelled = await manager.cancel(record.run_id)
-    assert cancelled is True
+    assert cancelled == CancelOutcome.cancelled
     assert record.abort_event.is_set()
     assert record.status == RunStatus.interrupted
 
@@ -167,7 +173,7 @@ async def test_cancel_persists_interrupted_status_to_store():
     cancelled = await manager.cancel(record.run_id)
 
     stored = await store.get(record.run_id)
-    assert cancelled is True
+    assert cancelled == CancelOutcome.cancelled
     assert stored is not None
     assert stored["status"] == "interrupted"
 
@@ -323,17 +329,28 @@ async def test_reconcile_orphaned_inflight_runs_skips_rows_when_error_status_is_
 
 @pytest.mark.anyio
 async def test_cancel_not_inflight(manager: RunManager):
-    """Cancelling a completed run should return False."""
+    """Cancelling a completed run should return not_cancellable."""
     record = await manager.create("thread-1")
     await manager.set_status(record.run_id, RunStatus.success)
 
     cancelled = await manager.cancel(record.run_id)
-    assert cancelled is False
+    assert cancelled == CancelOutcome.not_cancellable
 
 
 @pytest.mark.anyio
-async def test_list_by_thread(manager: RunManager):
+async def test_list_by_thread(manager: RunManager, monkeypatch: pytest.MonkeyPatch):
     """Same thread should return multiple runs."""
+    timestamps = iter(
+        [
+            "2026-01-01T00:00:00+00:00",
+            "2026-01-01T00:00:01+00:00",
+            "2026-01-01T00:00:02+00:00",
+        ]
+    )
+    monkeypatch.setattr(
+        "deerflow.runtime.runs.manager._now_iso",
+        lambda: next(timestamps),
+    )
     r1 = await manager.create("thread-1")
     r2 = await manager.create("thread-1")
     await manager.create("thread-2")
@@ -365,6 +382,24 @@ async def test_has_inflight(manager: RunManager):
 
     await manager.set_status(record.run_id, RunStatus.success)
     assert await manager.has_inflight("thread-1") is False
+
+
+@pytest.mark.anyio
+async def test_cleanup_with_store_evicts_memory_and_preserves_history():
+    """Store-backed cleanup releases memory without losing terminal history."""
+    store = MemoryRunStore()
+    manager = RunManager(store=store)
+    record = await manager.create("thread-1")
+    run_id = record.run_id
+    await manager.set_status(run_id, RunStatus.success)
+
+    await manager.cleanup(run_id, delay=0)
+
+    assert run_id not in manager._runs
+    hydrated = await manager.get(run_id, user_id=record.user_id)
+    assert hydrated is not None
+    assert hydrated.run_id == run_id
+    assert hydrated.status is RunStatus.success
 
 
 @pytest.mark.anyio
@@ -643,7 +678,7 @@ async def test_create_or_reject_does_not_interrupt_old_run_when_new_run_store_wr
     manager = RunManager(store=store)
     old = await manager.create("thread-1")
     await manager.set_status(old.run_id, RunStatus.running)
-    store.put = AsyncMock(side_effect=RuntimeError("db down"))
+    store.create_run_atomic = AsyncMock(side_effect=RuntimeError("db down"))
 
     with pytest.raises(RuntimeError, match="db down"):
         await manager.create_or_reject("thread-1", multitask_strategy="interrupt")
@@ -664,10 +699,10 @@ async def test_create_or_reject_does_not_interrupt_old_run_when_new_run_store_wr
     old = await manager.create("thread-1")
     await manager.set_status(old.run_id, RunStatus.running)
 
-    async def cancelled_put(run_id, **kwargs):
+    async def cancelled_create(run_id, **kwargs):
         raise asyncio.CancelledError
 
-    store.put = cancelled_put
+    store.create_run_atomic = cancelled_create
 
     with pytest.raises(asyncio.CancelledError):
         await manager.create_or_reject("thread-1", multitask_strategy="interrupt")
@@ -881,9 +916,12 @@ async def test_list_by_thread_falls_back_to_store_with_user_filter():
 
 
 class _FailingPutRunStore(MemoryRunStore):
-    """Memory run store whose every ``put`` fails (non-retryably)."""
+    """Memory run store whose every ``put`` and ``create_run_atomic`` fails (non-retryably)."""
 
     async def put(self, run_id, **kwargs):
+        raise ValueError("simulated persist failure")
+
+    async def create_run_atomic(self, run_id, **kwargs):
         raise ValueError("simulated persist failure")
 
 
@@ -913,7 +951,8 @@ async def test_thread_index_preserves_insertion_order(manager: RunManager):
 
 
 @pytest.mark.anyio
-async def test_thread_index_cleanup_prunes_run_and_empty_bucket(manager: RunManager):
+async def test_thread_index_cleanup_prunes_run_and_empty_bucket():
+    manager = RunManager(store=MemoryRunStore())
     a1 = await manager.create("thread-a")
     a2 = await manager.create("thread-a")
 
@@ -924,7 +963,12 @@ async def test_thread_index_cleanup_prunes_run_and_empty_bucket(manager: RunMana
     await manager.cleanup(a2.run_id, delay=0)
     # Empty buckets are pruned so the index cannot grow without bound.
     assert "thread-a" not in manager._runs_by_thread
-    assert await manager.list_by_thread("thread-a") == []
+    # Both records remain available from the store; its ordering is not part
+    # of this index-cleanup assertion.
+    assert {run.run_id for run in await manager.list_by_thread("thread-a")} == {
+        a1.run_id,
+        a2.run_id,
+    }
 
 
 @pytest.mark.anyio

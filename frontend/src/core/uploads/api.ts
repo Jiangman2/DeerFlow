@@ -5,6 +5,8 @@
 import { fetch } from "../api/fetcher";
 import { getBackendBaseURL } from "../config";
 
+import type { UploadPurpose } from "./upload-purpose";
+
 export interface UploadedFileInfo {
   filename: string;
   size: number;
@@ -31,6 +33,12 @@ export interface ListFilesResponse {
   count: number;
 }
 
+export interface UploadLimits {
+  max_files: number;
+  max_file_size: number;
+  max_total_size: number;
+}
+
 async function readErrorDetail(
   response: Response,
   fallback: string,
@@ -45,8 +53,11 @@ async function readErrorDetail(
 export async function uploadFiles(
   threadId: string,
   files: File[],
+  uploadPurpose: UploadPurpose = "attachment",
 ): Promise<UploadResponse> {
   const formData = new FormData();
+
+  formData.append("upload_purpose", uploadPurpose);
 
   files.forEach((file) => {
     formData.append("files", file);
@@ -62,6 +73,23 @@ export async function uploadFiles(
 
   if (!response.ok) {
     throw new Error(await readErrorDetail(response, "Upload failed"));
+  }
+
+  return response.json();
+}
+
+/**
+ * Load the upload limits enforced by the gateway for a thread
+ */
+export async function getUploadLimits(threadId: string): Promise<UploadLimits> {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/threads/${threadId}/uploads/limits`,
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      await readErrorDetail(response, "Failed to load upload limits"),
+    );
   }
 
   return response.json();
@@ -94,7 +122,7 @@ export async function deleteUploadedFile(
   filename: string,
 ): Promise<{ success: boolean; message: string }> {
   const response = await fetch(
-    `${getBackendBaseURL()}/api/threads/${threadId}/uploads/${filename}`,
+    `${getBackendBaseURL()}/api/threads/${threadId}/uploads/${encodeURIComponent(filename)}`,
     {
       method: "DELETE",
     },

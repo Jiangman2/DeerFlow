@@ -9,14 +9,44 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/core/auth/AuthProvider";
+import {
+  canCreateRegularAccount,
+  fetchSetupStatus,
+  type SetupStatusResponse,
+} from "@/core/auth/setup";
 import { parseAuthError } from "@/core/auth/types";
 import { useI18n } from "@/core/i18n/hooks";
 
+/**
+ * Validate next parameter
+ * Prevent open redirect attacks
+ * Per RFC-001: Only allow relative paths starting with /
+ */
 function validateNextParam(next: string | null): string | null {
-  if (!next) return null;
-  if (!next.startsWith("/")) return null;
-  if (next.startsWith("//")) return null;
-  if (next.includes(":") && !next.startsWith("/")) return null;
+  if (!next) {
+    return null;
+  }
+
+  // Need start with / (relative path)
+  if (!next.startsWith("/")) {
+    return null;
+  }
+
+  // Disallow protocol-relative URLs
+  if (
+    next.startsWith("//") ||
+    next.startsWith("http://") ||
+    next.startsWith("https://")
+  ) {
+    return null;
+  }
+
+  // Disallow URLs with different protocols (e.g., javascript:, data:, etc)
+  if (next.includes(":") && !next.startsWith("/")) {
+    return null;
+  }
+
+  // Valid relative path
   return next;
 }
 
@@ -32,6 +62,12 @@ export default function LoginPage() {
   const [ssoProviders, setSsoProviders] = useState<
     { id: string; display_name: string; type: string }[]
   >([]);
+  const [setupStatus, setSetupStatus] = useState<SetupStatusResponse | null>(
+    null,
+  );
+  const [setupStatusChecked, setSetupStatusChecked] = useState(false);
+
+  // Extract error from query params (e.g., ?error=sso_failed)
   const errorParam = searchParams.get("error");
   const [error, setError] = useState(
     errorParam
@@ -39,29 +75,50 @@ export default function LoginPage() {
           t.login.authFailed)
       : "",
   );
+  // Soft hint shown after a failed login when SSO is configured: an SSO-only
+  // account has no local password, so the backend returns a generic
+  // "incorrect email or password" (deliberately, to avoid account enumeration).
+  // Nudge the user toward the SSO buttons without confirming the account exists.
   const [showSsoHint, setShowSsoHint] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const redirectPath = validateNextParam(searchParams.get("next")) ?? "/workspace";
+  // Get next parameter for validated redirect
+  const nextParam = searchParams.get("next");
+  const redirectPath = validateNextParam(nextParam) ?? "/workspace";
+  const regularSignupAllowed = canCreateRegularAccount({
+    checked: setupStatusChecked,
+    status: setupStatus,
+  });
+  const systemNeedsAdminSetup = setupStatus?.needs_setup === true;
 
+  // Redirect if already authenticated (client-side, post-login)
   useEffect(() => {
     if (isAuthenticated) {
       router.push(redirectPath);
     }
   }, [isAuthenticated, redirectPath, router]);
 
+  // Fetch setup state and SSO providers
   useEffect(() => {
     let cancelled = false;
 
-    void fetch("/api/v1/auth/setup-status")
-      .then((r) => r.json())
-      .then((data: { needs_setup?: boolean }) => {
-        if (!cancelled && data.needs_setup) {
-          router.push("/setup");
+    void fetchSetupStatus()
+      .then((data) => {
+        if (cancelled) return;
+        setSetupStatus(data);
+        if (data.needs_setup) {
+          setIsLogin(true);
         }
       })
       .catch(() => {
-        // Stay on the login page if setup status is temporarily unavailable.
+        if (!cancelled) {
+          setSetupStatus(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSetupStatusChecked(true);
+        }
       });
 
     void fetch("/api/v1/auth/providers")
@@ -76,19 +133,25 @@ export default function LoginPage() {
         },
       )
       .catch(() => {
-        // Ignore errors; no SSO providers shown.
+        // Ignore errors; no SSO providers shown
       });
 
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setShowSsoHint(false);
     setLoading(true);
+
+    if (!isLogin && !regularSignupAllowed) {
+      setError(t.login.adminSetupRequiredDescription);
+      setLoading(false);
+      return;
+    }
 
     try {
       const endpoint = isLogin
@@ -97,6 +160,7 @@ export default function LoginPage() {
       const body = isLogin
         ? `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
         : JSON.stringify({ email, password });
+
       const headers: HeadersInit = isLogin
         ? { "Content-Type": "application/x-www-form-urlencoded" }
         : { "Content-Type": "application/json" };
@@ -105,19 +169,22 @@ export default function LoginPage() {
         method: "POST",
         headers,
         body,
-        credentials: "include",
+        credentials: "include", // Important: include HttpOnly cookie
       });
 
       if (!res.ok) {
         const data = await res.json();
         const authError = parseAuthError(data);
         setError(authError.message);
+        // On a failed login with SSO configured, surface a hint pointing at the
+        // SSO buttons — the "wrong password" may really mean "this is an SSO account".
         if (isLogin && ssoProviders.length > 0) {
           setShowSsoHint(true);
         }
         return;
       }
 
+      // Both login and register set a cookie — redirect to workspace
       router.push(redirectPath);
     } catch {
       setError(t.login.networkError);
@@ -127,19 +194,34 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#eef7ff] px-4">
-      <div className="absolute inset-0 bg-[url('/images/home-bg-light.png')] bg-cover bg-center opacity-35" />
-      <div className="absolute inset-0 bg-white/55" />
-      <div className="relative z-10 w-full max-w-md space-y-6 rounded-lg border border-[#bfdbfe] bg-white/90 p-8 shadow-[0_24px_80px_rgba(15,42,85,0.18)] backdrop-blur">
+    <div className="bg-background relative flex min-h-screen items-center justify-center overflow-x-hidden overflow-y-auto">
+      <div className="absolute inset-0 z-0 bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center bg-no-repeat opacity-70" />
+      <div className="bg-background/70 absolute inset-0 z-0 backdrop-blur-sm" />
+      <div className="border-border/20 bg-background/5 relative z-10 w-full max-w-md space-y-5 rounded-3xl border p-6 backdrop-blur-sm sm:space-y-6 sm:p-8">
         <div className="flex flex-col items-center text-center">
           <BrandLogo variant="full" priority className="h-12 w-auto" />
-          <h1 className="mt-5 text-xl font-semibold text-slate-950">
+          <h1 className="text-foreground mt-5 text-xl font-semibold">
             {brand.shortName} 账号登录
           </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            {isLogin ? "登录后进入工作台" : "创建新的平台账号"}
+          <p className="text-muted-foreground mt-2">
+            {isLogin ? t.login.signInTitle : t.login.createAccountTitle}
           </p>
         </div>
+
+        {systemNeedsAdminSetup && (
+          <div className="border-l-2 border-blue-500 ps-3 text-sm">
+            <p className="font-medium">{t.login.adminSetupRequiredTitle}</p>
+            <p className="text-muted-foreground mt-1">
+              {t.login.adminSetupRequiredDescription}
+            </p>
+            <Link
+              href="/setup"
+              className="mt-2 inline-block font-medium text-blue-500 hover:underline"
+            >
+              {t.login.createAdminAccount}
+            </Link>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="flex flex-col space-y-1">
@@ -148,7 +230,7 @@ export default function LoginPage() {
             </label>
             <Input
               id="email"
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={t.login.emailPlaceholder}
@@ -166,7 +248,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder={t.login.passwordPlaceholder}
               required
-              minLength={isLogin ? 6 : 8}
+              minLength={isLogin ? 1 : 8}
             />
           </div>
 
@@ -189,14 +271,14 @@ export default function LoginPage() {
                   <span className="w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-slate-500">
+                  <span className="bg-background text-muted-foreground px-2">
                     {t.login.orContinueWith}
                   </span>
                 </div>
               </div>
             )}
             {showSsoHint && (
-              <p className="text-center text-sm text-slate-500">
+              <p className="text-muted-foreground text-center text-sm">
                 {t.login.ssoHint}
               </p>
             )}
@@ -208,7 +290,11 @@ export default function LoginPage() {
                 className="w-full"
                 disabled={loading}
                 onClick={() => {
-                  window.location.href = `/api/v1/auth/oauth/${provider.id}?next=${encodeURIComponent(redirectPath)}`;
+                  const route =
+                    provider.type === "iam"
+                      ? "/api/v1/auth/iam/login"
+                      : `/api/v1/auth/oauth/${provider.id}`;
+                  window.location.href = `${route}?next=${encodeURIComponent(redirectPath)}`;
                 }}
               >
                 {t.login.continueWith(provider.display_name)}
@@ -217,22 +303,24 @@ export default function LoginPage() {
           </div>
         )}
 
-        <div className="text-center text-sm">
-          <button
-            type="button"
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError("");
-              setShowSsoHint(false);
-            }}
-            className="text-blue-600 hover:underline"
-          >
-            {isLogin ? t.login.noAccountSignUp : t.login.haveAccountSignIn}
-          </button>
-        </div>
+        {regularSignupAllowed && (
+          <div className="text-center text-sm">
+            <button
+              type="button"
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError("");
+                setShowSsoHint(false);
+              }}
+              className="text-blue-500 hover:underline"
+            >
+              {isLogin ? t.login.noAccountSignUp : t.login.haveAccountSignIn}
+            </button>
+          </div>
+        )}
 
-        <div className="text-center text-xs text-slate-500">
-          <Link href={brand.links.home} className="hover:underline">
+        <div className="text-muted-foreground text-center text-xs">
+          <Link href="/" className="hover:underline">
             {t.login.backToHome}
           </Link>
         </div>

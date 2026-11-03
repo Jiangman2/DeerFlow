@@ -4,19 +4,23 @@ import { z } from "zod";
 
 export const userSchema = z.object({
   id: z.string(),
-  email: z.string().email(),
+  email: z.string(), // 本地开发允许非邮箱账号名（如 '1'），不做 email 格式校验
   system_role: z.enum(["admin", "user"]),
   needs_setup: z.boolean().optional().default(false),
   is_disabled: z.boolean().optional().default(false),
   oauth_provider: z.string().nullable().optional().default(null),
+  display_name: z.string().nullable().optional().default(null),
+  organization_name: z.string().nullable().optional().default(null),
 });
 
 export type User = Omit<
   z.infer<typeof userSchema>,
-  "oauth_provider" | "is_disabled"
+  "oauth_provider" | "is_disabled" | "display_name" | "organization_name"
 > & {
   is_disabled?: boolean;
   oauth_provider?: string | null;
+  display_name?: string | null;
+  organization_name?: string | null;
 };
 
 // ── SSR auth result (tagged union) ────────────────────────────────

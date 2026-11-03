@@ -1,0 +1,23 @@
+flowchart TD
+    A["enterprise/integration<br/>企业集成分支"] --> B["CI 构建与自动化测试"]
+    B --> C["部署到测试服务器"]
+    C --> D{"测试是否通过？"}
+    D -- "不通过" --> E["回到对应 feature / hotfix 分支<br/>修复问题并重新提交 PR"]
+    E --> A
+    D -- "通过" --> F["执行集成回归与发布检查"]
+    F --> G["创建生产 tag<br/>prod-YYYYMMDD-编号"]
+    G --> H["生产服务器部署该 tag"]
+    H --> I["记录版本、变更和回滚点"]
+
+    J["禁止直接从旧 main 发布<br/>禁止把企业 PR 提交到 upstream/main"] -. "发布规则" .- A
+
+    classDef integration fill:#fce4d6,stroke:#ed7d31,color:#1f2937;
+    classDef check fill:#eaf2f8,stroke:#5b9bd5,color:#1f2937;
+    classDef decision fill:#fff2cc,stroke:#d6b656,color:#1f2937;
+    classDef release fill:#f8f5ff,stroke:#8064a2,color:#1f2937;
+    classDef warning fill:#fce4d6,stroke:#c0504d,color:#7f1d1d;
+    class A integration;
+    class B,C,F check;
+    class D decision;
+    class G,H,I release;
+    class J warning;

@@ -1,29 +1,17 @@
-import { generateStaticParamsFor, importPage } from "nextra/pages";
+import { redirect } from "next/navigation";
 
-import { useMDXComponents as getMDXComponents } from "../../../../mdx-components";
-
-export const generateStaticParams = generateStaticParamsFor("mdxPath");
+export function generateStaticParams() {
+  return [];
+}
 
 export async function generateMetadata(props) {
   const params = await props.params;
-  const { metadata } = await importPage(params.mdxPath, params.lang);
-  return metadata;
+  return {
+    title: params.lang === "zh" ? "文档" : "Docs",
+  };
 }
 
-// eslint-disable-next-line @typescript-eslint/unbound-method
-const Wrapper = getMDXComponents().wrapper;
-
 export default async function Page(props) {
-  const params = await props.params;
-  const {
-    default: MDXContent,
-    toc,
-    metadata,
-    sourceCode,
-  } = await importPage(params.mdxPath, params.lang);
-  return (
-    <Wrapper toc={toc} metadata={metadata} sourceCode={sourceCode}>
-      <MDXContent {...props} params={params} />
-    </Wrapper>
-  );
+  await props.params;
+  redirect("/");
 }

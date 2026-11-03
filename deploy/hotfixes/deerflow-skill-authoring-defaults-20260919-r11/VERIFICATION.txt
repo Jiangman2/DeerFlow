@@ -1,0 +1,94 @@
+LOCAL VERIFICATION
+==================
+
+- Business payload unchanged from R1; its earlier focused regression evidence
+  was Backend: 120 passed, Frontend: 13 passed. No fresh server validation is
+  claimed by this document.
+- R11 retains the R2 Python 3.7 compatibility evidence and adds local contracts
+  for the expanded production topology, dynamic NFS RWX Skills PVC selection,
+  scheduler-eligible image probing, and PPT Runner lock-fix preservation.
+- R1 failure reproduced on actual CPython 3.7.9: ast.parse rejected the
+  unsupported feature_version keyword.
+- All host helper modules imported on CPython 3.7.9.
+- Model configuration extraction tested with a Python 3.7 AST (no posonlyargs).
+- Model-probe JSON stdin execution tested with stub clients, no network calls,
+  and no API-key output. Thinking on/off, direct TLS, disabled redirects, and
+  disabled automatic retry contracts verified.
+- Probe manifest rendered by real Bash; frontend paths are never evaluated
+  on the host. The command substitution is retained for the container.
+- Shell syntax: all package shell scripts pass Git Bash `bash -n`.
+- Python syntax: all package Python files compile and parse with Python 3.7
+  grammar.
+- Repository diff whitespace check: PASS.
+
+SECURITY AND MUTATION BOUNDARIES
+================================
+
+- The API key is not present in this package, image Dockerfiles, manifests, or
+  source control. It is parsed only from the separately uploaded, SHA-256-locked
+  operator file.
+- The existing Secret `deer-flow-env` is patched only at
+  `data.DeepSeek_V4_API_KEY`; all other Secret fields are preserved.
+- Secret and database backups are created under a root-only evidence directory
+  with umask 077.
+- WeKnora mutation is limited to the existing model row
+  `deerflow-cnooc-deepseek-v4-flash` parameters and is exactly reversible.
+- SkillHub mutation is limited to the 17 official global built-in descriptions.
+- SkillHub localization preserves each existing `skill.updated_by` foreign-key
+  value; it never writes a synthetic user identifier.
+- SkillHub preflight verifies the exact live 16-column relation contract. Search
+  documents are counted and updated only through
+  `skill_search_document.skill_id = skill.id`; no nonexistent denormalized
+  `slug`, namespace, or owner column is referenced.
+- No DeerFlow production database schema or data is changed.
+- No existing Sandbox Pod is changed or deleted.
+- Rollout requires zero active DeerFlow/OA work and repeats the gate after
+  backup and immediately before workload changes.
+- Errors and INT/TERM after the first mutation invoke the same exact rollback.
+- The Frontend source patch runs with the Node.js runtime available in the
+  immutable production Frontend image; it does not require Python in that image.
+- The PPT Runner preservation check opens a disposable lock through the live
+  `_open_lock_file()` helper and verifies the returned mode is exactly `a+`.
+- The image importer preserves its caller-supplied artifact directory after
+  loading immutable image names from `IMAGE_LOCKS.env`.
+- The DeerFlow model patch locates exactly one top-level
+  `name: deepseek-v4-flash` model item, accepts the exact observed 2026-09-19
+  production field order and token limit, and fails closed on an unknown line
+  or duplicate target model before any production mutation.
+- WeKnora JavaScript Unicode escape probes use fixed-string matching in both
+  immutable-image preflight and live status checks; backslashes cannot be
+  consumed as basic regular-expression escapes.
+- The automatic rollback, helper allowlists, and evidence state all use the
+  same R11 evidence namespace.
+- Gateway rollout requires the observed two-replica strategy with
+  maxUnavailable=0 and verifies two Ready Service endpoints afterward.
+- Target images are probed on every currently scheduler-eligible node; the
+  dedicated Gateway node is not omitted.
+- Skill Creator is patched through the live RWX Skills PVC selected jointly by
+  Gateway and Provisioner, never through the retired local RWO PVC.
+- The repaired PPT Runner `a+` execution-lease implementation is checked before
+  and after its credential-reload restart.
+- The WeKnora backend Deployment is never patched for a revision marker. Its
+  database-only model configuration is verified live without creating a 502
+  restart window.
+- The anonymous WeKnora system-info probe accepts only HTTP 200 or HTTP 401.
+  Production protects that route and returns 401 without a session; this proves
+  the Service and application HTTP stack are reachable without mistaking an
+  authentication boundary for an outage. Timeouts, connection failures, 5xx,
+  and all other statuses remain blocking.
+- Frontend and WeKnora runtime file checks emit one named PASS/FAIL marker per
+  contract. WeKnora frontend, static asset, and backend proxy checks retry for a
+  bounded interval and report their exact failing URL.
+
+EXPECTED FINAL STATUS MARKERS
+=============================
+
+deerflow_skill_authoring_defaults_status=PASS
+skill_authoring_required_argument_schema=ENABLED
+default_chat_mode=FLASH_FOR_UNSET_PREFERENCES
+skillhub_builtin_descriptions=CHINESE_17
+deerflow_primary_model=DeepSeek-V4-Flash_NEW_ENDPOINT_LIVE
+weknora_primary_model=DeepSeek-V4-Flash_NEW_ENDPOINT_CONFIGURED
+ppt_master_relay_model=DeepSeek-V4-Flash_NEW_ENDPOINT_CONFIGURED
+mail_digital_employee=ENABLED_DIRECT_LINK
+weknora_sidebar_labels=知识问答,自定义问答

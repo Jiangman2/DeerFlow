@@ -208,6 +208,7 @@ class LocalContainerBackend(SandboxBackend):
         container_prefix: str,
         config_mounts: list,
         environment: dict[str, str],
+        api_key: str | None = None,
     ):
         """Initialize the local container backend.
 
@@ -217,12 +218,16 @@ class LocalContainerBackend(SandboxBackend):
             container_prefix: Prefix for container names (e.g., "deer-flow-sandbox").
             config_mounts: Volume mount configurations from config (list of VolumeMountConfig).
             environment: Environment variables to inject into containers.
+            api_key: Optional AIO API key used by both the container and health checks.
         """
         self._image = image
         self._base_port = base_port
         self._container_prefix = container_prefix
         self._config_mounts = config_mounts
-        self._environment = environment
+        self._environment = dict(environment)
+        self._api_key = api_key or ""
+        if self._api_key:
+            self._environment["SANDBOX_API_KEY"] = self._api_key
         self._runtime = self._detect_runtime()
 
     @property
@@ -386,7 +391,10 @@ class LocalContainerBackend(SandboxBackend):
 
         sandbox_host = os.environ.get("DEER_FLOW_SANDBOX_HOST", "localhost")
         sandbox_url = f"http://{sandbox_host}:{port}"
-        if not wait_for_sandbox_ready(sandbox_url, timeout=5):
+        readiness_kwargs = {"timeout": 5}
+        if self._api_key:
+            readiness_kwargs["api_key"] = self._api_key
+        if not wait_for_sandbox_ready(sandbox_url, **readiness_kwargs):
             return None
 
         return SandboxInfo(

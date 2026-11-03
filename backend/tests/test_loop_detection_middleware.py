@@ -1,7 +1,9 @@
 """Tests for LoopDetectionMiddleware."""
 
 import copy
+import hashlib
 from collections import OrderedDict
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -18,6 +20,7 @@ from deerflow.agents.middlewares.loop_detection_middleware import (
     _MAX_PENDING_WARNINGS_PER_RUN,
     LoopDetectionMiddleware,
     _hash_tool_calls,
+    _problem_result_signature,
 )
 
 
@@ -190,7 +193,267 @@ class TestHashToolCalls:
         assert _hash_tool_calls([a]) != _hash_tool_calls([b])
 
 
+class TestReadFileRangeKey:
+    """Exact windows separate legitimate paging from repeated reads."""
+
+    @staticmethod
+    def _read_call(path="/w/app.py", **range_args):
+        return {
+            "name": "read_file",
+            "id": "call_read",
+            "args": {"path": path, **range_args},
+        }
+
+    def test_adjacent_pages_are_distinct_calls(self):
+        pages = [self._read_call(start_line=start, end_line=start + 39) for start in (1, 41, 81, 121, 161)]
+
+        hashes = {_hash_tool_calls([page]) for page in pages}
+
+        assert len(hashes) == len(pages)
+
+    def test_paging_through_a_file_does_not_hard_stop(self):
+        mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=5)
+        runtime = _make_runtime()
+
+        for start in range(1, 401, 40):
+            decision = mw._apply(
+                _make_state(tool_calls=[self._read_call(start_line=start, end_line=start + 39)]),
+                runtime,
+            )
+            assert decision is None
+        assert mw.consume_stop_reason("test-run") is None
+
+    def test_repeating_one_range_still_hard_stops(self):
+        mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=5)
+        runtime = _make_runtime()
+        call = [self._read_call(start_line=1, end_line=40)]
+
+        for _ in range(4):
+            assert mw._apply(_make_state(tool_calls=call), runtime) is None
+        hard_stop = mw._apply(_make_state(tool_calls=call), runtime)
+
+        assert hard_stop is not None
+        assert hard_stop["messages"][0].tool_calls == []
+        assert mw.consume_stop_reason("test-run") == "loop_capped"
+
+    def test_omitted_end_line_matches_a_bare_read_of_the_same_file(self):
+        assert _hash_tool_calls([self._read_call(start_line=1)]) == _hash_tool_calls([self._read_call()])
+
+    def test_omitted_end_line_is_not_a_single_line_read(self):
+        assert _hash_tool_calls([self._read_call(start_line=10)]) != _hash_tool_calls([self._read_call(start_line=10, end_line=10)])
+
+    def test_line_bounds_are_clamped_to_the_first_line(self):
+        assert _hash_tool_calls([self._read_call(start_line=0, end_line=40)]) == _hash_tool_calls([self._read_call(start_line=1, end_line=40)])
+
+    def test_unparsable_end_line_reads_as_open_ended(self):
+        assert _hash_tool_calls([self._read_call(start_line=5, end_line="oops")]) == _hash_tool_calls([self._read_call(start_line=5)])
+
+    def test_different_paths_stay_distinct(self):
+        assert _hash_tool_calls([self._read_call(path="/w/a.py", start_line=1, end_line=40)]) != _hash_tool_calls([self._read_call(path="/w/b.py", start_line=1, end_line=40)])
+
+
 class TestLoopDetection:
+    def test_problem_result_signature_ignores_runtime_paths_and_ids(self):
+        first = ToolMessage(
+            tool_call_id="call-1",
+            content="Error: validation failed for /mnt/user-data/workspace/a/123",
+            status="error",
+        )
+        second = ToolMessage(
+            tool_call_id="call-2",
+            content="Error: validation failed for /mnt/user-data/workspace/b/456",
+            status="error",
+        )
+
+        assert _problem_result_signature(first) == _problem_result_signature(second)
+
+    def test_unchanged_failure_across_different_calls_is_bounded(self):
+        mw = LoopDetectionMiddleware()
+        runtime = _make_runtime(thread_id="repair-thread", run_id="repair-run")
+
+        for index in range(3):
+            state = {
+                "messages": [
+                    ToolMessage(
+                        id=f"tool-{index}",
+                        tool_call_id=f"call-{index}",
+                        content="Error: validation failed for /mnt/user-data/workspace/page-123",
+                        status="error",
+                    ),
+                    AIMessage(
+                        content="I will try a different repair command.",
+                        tool_calls=[_bash_call(f"repair-{index}")],
+                    ),
+                ]
+            }
+            assert mw._apply(state, runtime) is None
+
+        warnings = mw._drain_pending_warnings(runtime)
+        assert any("NO PROGRESS DETECTED" in warning for warning in warnings)
+
+        state = {
+            "messages": [
+                ToolMessage(
+                    id="tool-4",
+                    tool_call_id="call-4",
+                    content="Error: validation failed for /mnt/user-data/workspace/page-123",
+                    status="error",
+                ),
+                AIMessage(
+                    content="I will try another repair command.",
+                    tool_calls=[_bash_call("repair-4")],
+                ),
+            ]
+        }
+        assert mw._apply(state, runtime) is None
+
+        state = {
+            "messages": [
+                ToolMessage(
+                    id="tool-5",
+                    tool_call_id="call-5",
+                    content="Error: validation failed for /mnt/user-data/workspace/page-123",
+                    status="error",
+                ),
+                AIMessage(
+                    content="I will try one more repair command.",
+                    tool_calls=[_bash_call("repair-5")],
+                ),
+            ]
+        }
+        result = mw._apply(state, runtime)
+        assert result is not None
+        assert result["messages"][0].tool_calls == []
+        assert "bounded repair limit" in result["messages"][0].content
+
+    def test_distinct_reads_after_mutation_are_not_treated_as_stall(self):
+        """Required multi-file analysis must not be capped as inspection-only."""
+        mw = LoopDetectionMiddleware(hard_limit=50, tool_freq_hard_limit=100)
+        runtime = _make_runtime(thread_id="analysis-thread", run_id="analysis-run")
+
+        write_call = {
+            "name": "write_file",
+            "id": "call-write",
+            "args": {"path": "/mnt/user-data/workspace/import.json", "content": "{}"},
+        }
+        assert mw._apply(_make_state(tool_calls=[write_call]), runtime) is None
+
+        for index in range(12):
+            read_call = {
+                "name": "read_file",
+                "id": f"call-read-{index}",
+                "args": {"path": f"/mnt/user-data/workspace/analysis-{index}.json"},
+            }
+            assert mw._apply(_make_state(tool_calls=[read_call]), runtime) is None
+
+        assert mw._drain_pending_warnings(runtime) == []
+
+    def test_changed_write_resets_identical_read_repetition_window(self):
+        """Read-before-write repair cycles are progress when each write changes the file."""
+        mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=5, tool_freq_warn=100, tool_freq_hard_limit=200)
+        runtime = _make_runtime(thread_id="repair-thread", run_id="repair-run")
+        path = "/mnt/user-data/workspace/page.svg"
+        messages: list = []
+
+        for index in range(6):
+            read_call = {
+                "name": "read_file",
+                "id": f"read-{index}",
+                "args": {"path": path},
+            }
+            messages.append(AIMessage(content="", tool_calls=[read_call]))
+            assert mw._apply({"messages": list(messages)}, runtime) is None
+
+            current = f"version-{index}"
+            messages.append(
+                ToolMessage(
+                    id=f"read-result-{index}",
+                    tool_call_id=read_call["id"],
+                    name="read_file",
+                    content=current,
+                    additional_kwargs={
+                        "deerflow_read_mark": {
+                            "path": path,
+                            "hash": hashlib.sha256(current.encode("utf-8")).hexdigest(),
+                        }
+                    },
+                )
+            )
+
+            write_call = {
+                "name": "write_file",
+                "id": f"write-{index}",
+                "args": {"path": path, "content": f"version-{index + 1}"},
+            }
+            messages.append(AIMessage(content="", tool_calls=[write_call]))
+            assert mw._apply({"messages": list(messages)}, runtime) is None
+            messages.append(
+                ToolMessage(
+                    id=f"write-result-{index}",
+                    tool_call_id=write_call["id"],
+                    name="write_file",
+                    content=f"File written successfully to {path}",
+                )
+            )
+
+        assert mw._drain_pending_warnings(runtime) == []
+
+    def test_noop_write_does_not_reset_identical_read_repetition_window(self):
+        """A successful write of unchanged content must not disguise a read/write loop."""
+        mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=10, tool_freq_warn=100, tool_freq_hard_limit=200)
+        runtime = _make_runtime(thread_id="noop-thread", run_id="noop-run")
+        path = "/mnt/user-data/workspace/page.svg"
+        content = "unchanged"
+        content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        messages: list = []
+
+        for index in range(3):
+            read_call = {"name": "read_file", "id": f"read-{index}", "args": {"path": path}}
+            messages.append(AIMessage(content="", tool_calls=[read_call]))
+            assert mw._apply({"messages": list(messages)}, runtime) is None
+            messages.append(
+                ToolMessage(
+                    id=f"read-result-{index}",
+                    tool_call_id=read_call["id"],
+                    name="read_file",
+                    content=content,
+                    additional_kwargs={"deerflow_read_mark": {"path": path, "hash": content_hash}},
+                )
+            )
+
+            write_call = {
+                "name": "write_file",
+                "id": f"write-{index}",
+                "args": {"path": path, "content": content},
+            }
+            messages.append(AIMessage(content="", tool_calls=[write_call]))
+            assert mw._apply({"messages": list(messages)}, runtime) is None
+            messages.append(
+                ToolMessage(
+                    id=f"write-result-{index}",
+                    tool_call_id=write_call["id"],
+                    name="write_file",
+                    content=f"File written successfully to {path}",
+                )
+            )
+
+        assert any("LOOP DETECTED" in warning for warning in mw._drain_pending_warnings(runtime))
+
+    def test_new_run_does_not_inherit_identical_call_history(self):
+        """Repetition accounting is run-scoped even when a thread is reused."""
+        mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=5)
+        runtime_a = _make_runtime(thread_id="shared-thread", run_id="run-a")
+        runtime_b = _make_runtime(thread_id="shared-thread", run_id="run-b")
+        call = [{"name": "read_file", "id": "read", "args": {"path": "/tmp/page.svg"}}]
+
+        mw.before_agent({"messages": []}, runtime_a)
+        assert mw._apply(_make_state(tool_calls=call), runtime_a) is None
+        assert mw._apply(_make_state(tool_calls=call), runtime_a) is None
+
+        mw.before_agent({"messages": []}, runtime_b)
+        assert mw._apply(_make_state(tool_calls=call), runtime_b) is None
+        assert mw._drain_pending_warnings(runtime_b) == []
+
     def test_no_tool_calls_returns_none(self):
         mw = LoopDetectionMiddleware()
         runtime = _make_runtime()
@@ -304,8 +567,14 @@ class TestLoopDetection:
         mw.wrap_model_call(request_a, handler)
         assert any(isinstance(message, HumanMessage) and message.name == "loop_warning" for message in captured[1].messages)
 
-    def test_missing_run_id_uses_default_pending_scope(self):
-        """When runtime has no run_id, warning handling falls back to the default run scope."""
+    def test_missing_run_id_uses_per_runtime_pending_scope(self):
+        """When runtime.context has no ``run_id`` key at all, warning handling
+        falls back to a key scoped to the runtime object's identity —
+        mirroring ``TokenBudgetMiddleware._get_run_id``'s fallback — instead
+        of a shared literal like the old ``"default"``, which would collide
+        across concurrent runs that both lack a run_id (the ``_stop_reason``
+        dict this same key derivation feeds is keyed by run_id alone, with
+        no thread scoping)."""
         mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=10)
         runtime = MagicMock()
         runtime.context = {"thread_id": "test-thread"}
@@ -314,7 +583,8 @@ class TestLoopDetection:
         for _ in range(3):
             mw._apply(_make_state(tool_calls=call), runtime)
 
-        assert mw._pending_warnings.get(_pending_key(run_id="default"))
+        fallback_run_id = str(id(runtime))
+        assert mw._pending_warnings.get(_pending_key(run_id=fallback_run_id))
 
         request = _make_request([AIMessage(content="hi")], runtime)
         captured, handler = _capture_handler()
@@ -323,7 +593,7 @@ class TestLoopDetection:
         loop_warnings = [message for message in captured[0].messages if isinstance(message, HumanMessage) and message.name == "loop_warning"]
         assert len(loop_warnings) == 1
         assert "LOOP DETECTED" in loop_warnings[0].content
-        assert not mw._pending_warnings.get(_pending_key(run_id="default"))
+        assert not mw._pending_warnings.get(_pending_key(run_id=fallback_run_id))
 
     def test_before_agent_clears_stale_pending_warnings_for_thread(self):
         """Starting a new run drops stale warnings from prior runs in the same thread."""
@@ -401,6 +671,88 @@ class TestLoopDetection:
         assert isinstance(msgs[0], AIMessage)
         assert msgs[0].tool_calls == []
         assert _HARD_STOP_MSG in msgs[0].content
+        assert msgs[0].additional_kwargs["deerflow_terminal_stop"] is True
+        assert msgs[0].additional_kwargs["error_reason"] == "loop_capped"
+
+    def test_hard_stop_stamps_loop_capped_stop_reason(self):
+        """#3875 Phase 2 (ggnnggez review): the loop hard-stop stamps
+        ``loop_capped`` on ``consume_stop_reason`` so the executor can surface
+        ``completed + loop_capped`` instead of a clean completion. Mirrors
+        ``TokenBudgetMiddleware.consume_stop_reason``."""
+        mw = LoopDetectionMiddleware(warn_threshold=2, hard_limit=4)
+        runtime = _make_runtime()  # run_id="test-run"
+        call = [_bash_call("ls")]
+
+        for _ in range(3):
+            mw._apply(_make_state(tool_calls=call), runtime)
+        # Fourth call triggers the hard stop -> stamps loop_capped.
+        hard_stop_result = mw._apply(_make_state(tool_calls=call), runtime)
+        assert hard_stop_result is not None
+
+        assert mw.consume_stop_reason("test-run") == "loop_capped"
+        # Popped on read — a second read is None (no double-report on reuse).
+        assert mw.consume_stop_reason("test-run") is None
+
+    def test_warn_only_does_not_stamp_stop_reason(self):
+        """Crossing the warn threshold (not the hard limit) keeps the run going
+        and must NOT stamp ``loop_capped`` — the run is not capped."""
+        mw = LoopDetectionMiddleware(warn_threshold=2, hard_limit=10)
+        runtime = _make_runtime()
+        call = [_bash_call("ls")]
+
+        # Two identical calls cross warn (2) but not hard (10).
+        mw._apply(_make_state(tool_calls=call), runtime)
+        mw._apply(_make_state(tool_calls=call), runtime)
+
+        assert mw.consume_stop_reason("test-run") is None
+
+    def test_tool_frequency_hard_stop_stamps_loop_capped(self):
+        """The per-tool frequency hard-stop also stamps ``loop_capped`` — it is
+        the same hard-stop path, just a different detector catching the same
+        tool *type* called many times with varying arguments."""
+        mw = LoopDetectionMiddleware(tool_freq_warn=2, tool_freq_hard_limit=3)
+        runtime = _make_runtime()
+        # Same tool type, varying args -> frequency detector, not hash detector.
+        for i in range(3):
+            result = mw._apply(_make_state(tool_calls=[_bash_call(f"cmd_{i}")]), runtime)
+            if i < 2:
+                assert result is None, f"unexpected hard stop at call {i}"
+
+        assert mw.consume_stop_reason("test-run") == "loop_capped"
+
+    def test_hard_stop_stamps_loop_capped_with_explicit_none_run_id(self):
+        """Regression: a subagent whose ``run_id`` is genuinely ``None`` must
+        still round-trip its ``loop_capped`` stop reason.
+
+        ``SubagentExecutor`` sets ``context["run_id"] = self.run_id``
+        unconditionally (no truthiness guard), so an embedded/TUI-dispatched
+        subagent — whose ``run_id`` is never assigned per ``AGENTS.md``'s
+        description of the embedded ``DeerFlowClient`` — runs with a context
+        that legitimately carries ``run_id=None`` (the key is *present*, not
+        absent). The executor later reads the reason back with the raw
+        attribute: ``consume_stop_reason(self.run_id)``, i.e.
+        ``consume_stop_reason(None)``. Before the fix, ``_get_run_id`` used a
+        truthiness check (``if run_id:``) that collapsed this present-but-None
+        state to the same literal ``"default"`` key used for a totally absent
+        run_id, so the write (``self._stop_reason["default"] = "loop_capped"``)
+        and this read (keyed by the raw ``None``) disagreed and the signal was
+        silently lost. Mirrors ``TokenBudgetMiddleware``'s key-presence-based
+        ``_get_run_id``, which does not have this bug."""
+        mw = LoopDetectionMiddleware(warn_threshold=2, hard_limit=4)
+        runtime = SimpleNamespace(context={"thread_id": "t", "run_id": None})
+        call = [_bash_call("ls")]
+
+        for _ in range(3):
+            mw._apply(_make_state(tool_calls=call), runtime)
+        hard_stop = mw._apply(_make_state(tool_calls=call), runtime)
+        assert hard_stop is not None
+
+        # Exactly what SubagentExecutor._consume_guard_stop_reason does:
+        # consume_stop_reason(self.run_id), where self.run_id is the raw,
+        # un-normalized (possibly-None) attribute value.
+        assert mw.consume_stop_reason(None) == "loop_capped"
+        # Popped on read — a second read is None (no double-report on reuse).
+        assert mw.consume_stop_reason(None) is None
 
     def test_different_calls_dont_trigger(self):
         mw = LoopDetectionMiddleware(warn_threshold=2)
@@ -493,8 +845,7 @@ class TestLoopDetection:
         mw._apply(_make_state(tool_calls=call), runtime_new)
 
         assert "thread-0" not in mw._history
-        assert "thread-0" not in mw._tool_freq
-        assert "thread-0" not in mw._tool_freq_warned
+        assert "thread-0" not in mw._tool_name_history
         assert "thread-new" in mw._history
         assert len(mw._history) == 3
 
@@ -874,6 +1225,51 @@ class TestToolFrequencyDetection:
         assert "FORCED STOP" in msg.content
         assert "read_file" in msg.content
 
+    def test_windowed_frequency_decay_avoids_hard_stop_when_interleaved(self):
+        """More than ``window_size`` total calls to one tool type must NOT hard-stop
+        as long as they are spread out.
+
+        Interleaving read_file with another tool keeps the per-window count under
+        the hard limit, so the windowed counter decays instead of accumulating
+        monotonically. The old monotonic counter would hard-stop on the 4th
+        read_file regardless of spacing.
+        """
+        mw = LoopDetectionMiddleware(tool_freq_warn=100, tool_freq_hard_limit=4, window_size=5)
+        runtime = _make_runtime()
+
+        # Alternate read_file with bash. In any window of 5 consecutive calls the
+        # read_file count peaks at 3 (< hard_limit=4), so no hard stop fires even
+        # though total read_file calls (8) exceeds window_size (5). Distinct args
+        # keep the Layer-1 hash detector from firing, isolating Layer 2.
+        read_count = 0
+        for i in range(8):
+            result = mw._apply(_make_state(tool_calls=[self._read_call(f"/file_{i}.py")]), runtime)
+            assert result is None, f"read call {i} unexpectedly hard-stopped"
+            read_count += 1
+            result = mw._apply(_make_state(tool_calls=[_bash_call(f"cmd_{i}")]), runtime)
+            assert result is None, f"bash call {i} unexpectedly hard-stopped"
+
+        assert read_count == 8  # more than window_size total read_file calls, no hard stop
+
+    def test_rapid_identical_tool_type_in_one_window_still_hard_stops(self):
+        """The decay must not weaken the guard: ``window_size``+ rapid calls to the
+        same tool type within one window still trip the frequency hard-stop."""
+        mw = LoopDetectionMiddleware(tool_freq_warn=100, tool_freq_hard_limit=4, window_size=5)
+        runtime = _make_runtime()
+
+        # Distinct args each call -> the hash-based (Layer 1) detector never fires,
+        # isolating the per-tool-type frequency layer.
+        for i in range(3):
+            assert mw._apply(_make_state(tool_calls=[self._read_call(f"/f_{i}.py")]), runtime) is None
+
+        result = mw._apply(_make_state(tool_calls=[self._read_call("/f_3.py")]), runtime)
+        assert result is not None
+        msg = result["messages"][0]
+        assert isinstance(msg, AIMessage)
+        assert msg.tool_calls == []
+        assert "FORCED STOP" in msg.content
+        assert "read_file" in msg.content
+
     def test_different_tools_tracked_independently(self):
         """read_file and bash should have independent frequency counters."""
         mw = LoopDetectionMiddleware(tool_freq_warn=3, tool_freq_hard_limit=10)
@@ -920,8 +1316,7 @@ class TestToolFrequencyDetection:
         # Reset only thread-A
         mw.reset(thread_id="thread-A")
 
-        assert "thread-A" not in mw._tool_freq
-        assert "thread-A" not in mw._tool_freq_warned
+        assert "thread-A" not in mw._tool_name_history
 
         # thread-B state should still be intact — 3rd call queues a warn.
         result = mw._apply(_make_state(tool_calls=[self._read_call("/b_2.py")]), runtime_b)
@@ -1074,3 +1469,36 @@ class TestFromConfig:
         queued = mw._pending_warnings.get(_pending_key(), [])
         assert queued
         assert "LOOP DETECTED" in queued[0]
+
+    def test_freq_window_sized_to_hard_limit_under_defaults(self):
+        """Regression for #4072: the Layer-2 frequency window must be >= the
+        largest threshold, or the warn/hard branches are dead code. With the
+        shipped defaults (window 20 < warn 30 < hard 50) the freq deque must be
+        sized to 50, not 20."""
+        mw = LoopDetectionMiddleware.from_config(self._config())
+        assert mw._tool_freq_window >= mw.tool_freq_hard_limit
+        assert mw._tool_freq_window >= mw.tool_freq_warn
+
+    def test_freq_window_covers_largest_override_hard_limit(self):
+        mw = LoopDetectionMiddleware.from_config(self._config(tool_freq_overrides={"bash": {"warn": 60, "hard_limit": 120}}))
+        assert mw._tool_freq_window >= 120
+
+    def test_tight_burst_hard_stops_under_default_config(self):
+        """Under the real default config, one tool type called many times with
+        *distinct* args (which Layer 1's name+args hash never catches) must still
+        be hard-stopped by Layer 2. This fails if the freq window is capped at
+        ``window_size`` (20) below the hard limit (50)."""
+        mw = LoopDetectionMiddleware.from_config(self._config())
+        runtime = _make_runtime()
+        hard = mw.tool_freq_hard_limit  # 50 by default
+
+        # Distinct args every call -> unique hashes -> Layer 1 (hash) never trips.
+        # Only Layer 2 (per-tool-type frequency) can catch this tight burst.
+        for i in range(hard - 1):
+            result = mw._apply(_make_state(tool_calls=[_bash_call(f"cmd_{i}")]), runtime)
+            assert result is None, f"unexpected hard stop before the limit at call {i}"
+
+        # The call that pushes freq_count to the hard limit fires the stop.
+        result = mw._apply(_make_state(tool_calls=[_bash_call(f"cmd_{hard}")]), runtime)
+        assert result is not None
+        assert mw.consume_stop_reason("test-run") == "loop_capped"
