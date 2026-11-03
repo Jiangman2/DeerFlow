@@ -75,3 +75,19 @@ client with a shorter deadline. It does not recover already failed jobs or
 enable callbacks. Timeout reconciliation, monitoring improvements and the
 separate single-job recovery are outside this PR. Database head remains 0022;
 Frontend, PPT Runner and deferred Work DataLake authorization are unchanged.
+
+## PR validation follow-up
+
+The byte-preservation attribute triggered the V4.1 preparation archive workflow.
+Its verifier compared the current adapter directly with the October 29 receipt,
+although the existing candidate/incident source manifests already qualify the
+later stream-guard changes. This produced `Installed adapter changed` before
+the workflow reached its synthetic tests.
+
+The verifier now binds that historical receipt to the October 29 source lock
+and checks the current adapter through the existing source-delta validators.
+Those validators still enforce source hashes, parent hashes and path scope;
+the workflow also retains its complete production-baseline check. New tests
+cover the original and qualified later versions, line-ending conversion and
+rejection of changed sources, rewritten receipts and broken parent bindings.
+Historical payloads, receipts, source manifests and application code are unchanged.

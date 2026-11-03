@@ -5,6 +5,7 @@ on:
     paths:
       - 'deploy/enterprise/v41-glm-20261029/**'
       - 'deploy/enterprise/verify-v41-preparation-20261029.py'
+      - 'deploy/enterprise/test_v41_preparation_archive_20261103.py'
       - '.github/workflows/v41-preparation-archive.yml'
       - '.gitattributes'
   workflow_dispatch:
@@ -23,6 +24,7 @@ jobs:
           python-version: '3.12'
       - name: Verify original bytes, delivered tools and production source baseline
         run: |
+          python -B -m unittest discover -s deploy/enterprise -p 'test_v41_preparation_archive_20261103.py' -v
           python -B deploy/enterprise/verify-v41-preparation-20261029.py --stage-tests "$RUNNER_TEMP/v41-host-tests"
           python -B deploy/enterprise/verify-production-baseline-20261029.py --ref HEAD
       - name: Run sealed host tests in a disposable local filesystem
