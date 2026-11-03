@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import unittest
 
-from released_source_20261102 import CI_MANIFEST, DELTA, SOURCE, digest, historical_read, load
+from released_source_20261102 import CI_FOLLOWUP, CI_MANIFEST, DELTA, SOURCE, digest, historical_read, load
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -63,6 +63,21 @@ class SourceDeltaTests(unittest.TestCase):
         path = "frontend/src/styles/cnooc-concept.css"
         with self.assertRaisesRegex(AssertionError, "PR26_CI_CURRENT_CHANGED"):
             load(self.replace(path, self.read(path) + b"\n/* drift */\n"))
+
+    def test_followup_seal_change_rejected(self):
+        with self.assertRaisesRegex(AssertionError, "PR26_CI_FOLLOWUP_SEAL_CHANGED"):
+            load(self.replace(CI_FOLLOWUP, self.read(CI_FOLLOWUP) + b"\n"))
+
+    def test_followup_baseline_change_rejected(self):
+        followup = json.loads(self.read(CI_FOLLOWUP))
+        path = next(iter(followup["changes"].values()))["baseline_path"]
+        with self.assertRaisesRegex(AssertionError, "PR26_CI_FOLLOWUP_BASELINE_CHANGED"):
+            load(self.replace(path, self.read(path) + b"\n"))
+
+    def test_followup_current_test_change_rejected(self):
+        path = "backend/tests/test_tool_output_budget_middleware.py"
+        with self.assertRaisesRegex(AssertionError, "PR26_CI_CURRENT_CHANGED"):
+            load(self.replace(path, self.read(path) + b"\n# drift\n"))
 
     def test_ci_baseline_drift_rejected(self):
         qualification = json.loads(self.read(CI_MANIFEST))

@@ -13,6 +13,8 @@ BASE_COMMIT = "97bd146de0fb41264eb991c15f098d0e0de395db"
 CI_ARCHIVE = "release/pr26-ci-qualification-20261103/"
 CI_MANIFEST = CI_ARCHIVE + "SOURCE.json"
 CI_MANIFEST_SHA256 = "08d28a9b6f9863f074d3138be1b8c21059efc0b922040a4712626d9e25115f1d"
+CI_FOLLOWUP = CI_ARCHIVE + "FOLLOWUP.json"
+CI_FOLLOWUP_SHA256 = "cafa45d3ad15f2f53cb5275c3769b213b879ef4c02f4672110661b3e8f9569f8"
 FORBIDDEN = (
     "backend/app/gateway/auth/data_lake_work.py",
     "backend/packages/harness/deerflow/persistence/data_lake_auth/work_grant.py",
@@ -44,12 +46,34 @@ def ci_qualification(read):
         safe_path(path)
         assert row["baseline_path"] == CI_ARCHIVE + "baseline/" + path, "PR26_CI_BASELINE_PATH"
         assert digest(read(row["baseline_path"])) == row["base_sha256"], "PR26_CI_BASELINE_CHANGED"
-        assert digest(read(path)) == row["current_sha256"], (path, "PR26_CI_CURRENT_CHANGED")
         if row["kind"] == "prettier_only":
             assert path in ("frontend/src/app/workspace/admin/dashboard/page.tsx", "frontend/src/styles/cnooc-concept.css"), "PR26_CI_FORMAT_SCOPE"
         else:
             assert row["kind"] == "test_correction" and path.startswith("frontend/tests/"), "PR26_CI_TEST_SCOPE"
-    return qualification["changes"]
+    changes = qualification["changes"]
+    try:
+        followup_raw = read(CI_FOLLOWUP)
+    except (FileNotFoundError, KeyError):
+        followup_raw = None
+    if followup_raw is not None:
+        assert digest(followup_raw) == CI_FOLLOWUP_SHA256, "PR26_CI_FOLLOWUP_SEAL_CHANGED"
+        followup = json.loads(followup_raw)
+        assert followup["schema"] == "pr26-ci-test-followup.v1", "PR26_CI_FOLLOWUP_SCHEMA"
+        assert followup["base_commit"] == "2d5fcb05d7175ec265caddbde6be616afce3c4f0", "PR26_CI_FOLLOWUP_BASE_CHANGED"
+        assert followup["parent_manifest_sha256"] == CI_MANIFEST_SHA256, "PR26_CI_FOLLOWUP_PARENT_CHANGED"
+        for path, row in followup["changes"].items():
+            safe_path(path)
+            assert row["kind"] == "test_correction" and path.startswith(("backend/tests/", "frontend/tests/")), "PR26_CI_FOLLOWUP_SCOPE"
+            assert row["baseline_path"] == CI_ARCHIVE + "followup-baseline/" + path, "PR26_CI_FOLLOWUP_BASELINE_PATH"
+            assert digest(read(row["baseline_path"])) == row["base_sha256"], "PR26_CI_FOLLOWUP_BASELINE_CHANGED"
+            if path in changes:
+                assert row["base_sha256"] == changes[path]["current_sha256"], "PR26_CI_FOLLOWUP_CHAIN_CHANGED"
+                changes[path] = {**changes[path], "current_sha256": row["current_sha256"]}
+            else:
+                changes[path] = row
+    for path, row in changes.items():
+        assert digest(read(path)) == row["current_sha256"], (path, "PR26_CI_CURRENT_CHANGED")
+    return changes
 
 
 def ci_baseline_read(read, qualification):
@@ -168,7 +192,8 @@ def overrides(lock, prior, incident, released, read):
             assert change["base_sha256"] == expected, (name, "NOV02_PARENT_CHAIN_MISMATCH")
             result[component][name] = change["released_sha256"]
     for path, row in ci_qualification(read).items():
-        result["frontend"][path] = row["current_sha256"]
+        if path.startswith("frontend/"):
+            result["frontend"][path] = row["current_sha256"]
     return result
 
 

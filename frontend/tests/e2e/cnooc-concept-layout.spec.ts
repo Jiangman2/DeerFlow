@@ -718,7 +718,8 @@ test.describe("CNOOC concept layout", () => {
           : Number.POSITIVE_INFINITY;
       })
       .toBeLessThanOrEqual(64);
-    await expect(page.getByTestId("knowledge-scope-count")).toBeHidden();
+    await expect(page.getByTestId("knowledge-scope-count")).toBeVisible();
+    await expect(page.getByTestId("knowledge-scope-count")).toHaveText("2");
     const mobileToolMetrics = await page
       .getByTestId("composer-primary-tools")
       .evaluate((element) => ({

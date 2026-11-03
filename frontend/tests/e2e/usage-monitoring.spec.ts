@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { modelSquareFixture } from "./utils/model-square-fixture";
 
@@ -123,6 +123,21 @@ async function tooltipAppearance(page: Page) {
     };
   });
 }
+
+async function hoverActivityMark(page: Page, mark: Locator) {
+  await page.mouse.move(0, 0);
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await mark.scrollIntoViewIfNeeded();
+  // Radix closes tooltips on ancestor scroll. Let the pending scroll event and
+  // its layout paint finish before generating the new pointer entry.
+  await mark.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  await mark.hover();
+}
 async function openAccount(page: Page, width: number) {
   await page.goto("/workspace/chats/new", { waitUntil: "domcontentloaded" });
   await expect(
@@ -200,7 +215,7 @@ for (const [width, height] of [
       "11月",
     ]);
     await expect(account.locator('input[type="date"]')).toHaveCount(0);
-    await account.getByTestId("activity-day").last().hover();
+    await hoverActivityMark(page, account.getByTestId("activity-day").last());
     await expect(page.getByRole("tooltip")).toContainText("2026-11-02");
     await expect(page.getByRole("tooltip")).toContainText(
       days.at(-1)!.tokens.toLocaleString("zh-CN"),
@@ -221,7 +236,7 @@ for (const [width, height] of [
       "data-mode",
       "weekly",
     );
-    await lastWeek.hover();
+    await hoverActivityMark(page, lastWeek);
     await expect(page.getByRole("tooltip")).toContainText("2026年11月2日");
     await expect(page.getByRole("tooltip")).toContainText(
       days.at(-1)!.tokens.toLocaleString("zh-CN"),
@@ -245,11 +260,7 @@ for (const [width, height] of [
         .last()
         .locator('[data-filled="true"]'),
     ).toHaveCount(7);
-    // Scrolling a short landscape dialog closes Radix tooltips. Complete the
-    // scroll before entering the next column so it tests a real pointer entry.
-    await account.getByTestId("activity-week").last().scrollIntoViewIfNeeded();
-    await page.mouse.move(0, 0);
-    await account.getByTestId("activity-week").last().hover();
+    await hoverActivityMark(page, account.getByTestId("activity-week").last());
     await expect(page.getByRole("tooltip")).toContainText("累计至");
     await expect(page.getByRole("tooltip")).toContainText(
       activity.total_tokens.toLocaleString("zh-CN"),

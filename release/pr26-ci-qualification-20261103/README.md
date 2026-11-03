@@ -21,3 +21,11 @@ No production deployment or business-request acceptance is claimed here.
 The release verifier checks that seal before reconstructing historical source
 views. These test corrections do not relax the runtime source, database-head,
 Work DataLake exclusion, or PPT Runner provenance requirements.
+
+`FOLLOWUP.json` separately records the remaining failures exposed by the full
+CI run of `2d5fcb05d7175ec265caddbde6be616afce3c4f0`; the original `SOURCE.json`
+is unchanged. Its `followup-baseline/` keeps the pre-correction test bytes.
+The follow-up checks both DataLake and web-search authorization before tool
+output budgeting, verifies the visible mobile knowledge count, and completes
+tooltip dismissal and scroll rendering before the next heatmap pointer entry.
+All heatmap value, appearance and click-detail assertions remain enabled.
