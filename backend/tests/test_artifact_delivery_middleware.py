@@ -89,6 +89,36 @@ def test_separate_unpublished_path_is_not_hidden_by_published_reference(tmp_path
     assert ArtifactDeliveryMiddleware().after_model(state, _runtime())["jump_to"] == "model"
 
 
+@pytest.mark.parametrize(
+    ("answer", "accepted"),
+    [
+        ("[下载配置包]({zip})。配置文件位于 `{directory}`。", True),
+        ("[下载配置包]({zip})\n文件目录：{directory}", True),
+        ("已交付，文件在 `{directory}`。", False),
+        ("[下载配置包]({zip}) 或 [下载目录]({directory})", False),
+        ("[下载配置包]({zip}) 或 [下载目录](/api/threads/t/artifacts{directory})", False),
+        ("[下载配置包]({zip}) 或 [遗漏的文件]({directory}遗漏.md)", False),
+        ("[下载配置包]({zip}) 或 [无效链接]({zip}/)", False),
+        ("[下载配置包]({zip}) 或 [下载根目录](/mnt/user-data/outputs/)", False),
+    ],
+)
+def test_output_directory_in_final_answer(tmp_path: Path, answer: str, accepted: bool):
+    directory = "/mnt/user-data/outputs/科研项目经费统计助手/"
+    archive = "/mnt/user-data/outputs/科研项目经费统计助手 - 配置包.zip"
+    (tmp_path / Path(archive).name).touch()
+    folder = tmp_path / "科研项目经费统计助手"
+    folder.mkdir()
+    (folder / "遗漏.md").touch()  # Exists, but was not published.
+    state = _state(tmp_path, AIMessage(content=answer.format(zip=archive, directory=directory)), artifacts=[archive])
+
+    result = ArtifactDeliveryMiddleware().after_model(state, _runtime())
+
+    if accepted:
+        assert result is None
+    else:
+        assert result and result["jump_to"] == "model"
+
+
 def test_retry_request_receives_hidden_execution_reminder(tmp_path: Path):
     middleware = ArtifactDeliveryMiddleware()
     message = AIMessage(id="fake-delivery", content="/mnt/user-data/outputs/missing.xlsx")

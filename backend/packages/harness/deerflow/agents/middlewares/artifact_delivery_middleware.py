@@ -22,11 +22,11 @@ from deerflow.run_timing import atime_middleware_after_agent, log_run_timing, ti
 logger = logging.getLogger(__name__)
 
 _OUTPUTS_PREFIX = "/mnt/user-data/outputs/"
-_MARKDOWN_OUTPUT_RE = re.compile(r"\]\(\s*(/mnt/user-data/outputs/[^)\r\n]+)\s*\)")
-_BACKTICK_OUTPUT_RE = re.compile(r"`(/mnt/user-data/outputs/[^`\r\n]+)`")
-_BARE_OUTPUT_RE = re.compile(r"(?<![\w])(/mnt/user-data/outputs/[^\s<>{}\[\]()`\"']+)")
+_MARKDOWN_OUTPUT_RE = re.compile(r"\]\(\s*<?(/mnt/user-data/outputs/[^)>\r\n]*)>?\s*\)")
+_BACKTICK_OUTPUT_RE = re.compile(r"`(/mnt/user-data/outputs/[^`\r\n]*)`")
+_BARE_OUTPUT_RE = re.compile(r"(?<![\w])(/mnt/user-data/outputs/[^\s<>{}\[\]()`\"']*)")
 _ARTIFACT_API_OUTPUT_RE = re.compile(
-    r"/api/threads/[^/\s)]+/artifacts/(mnt/user-data/outputs/[^\s<>{}\[\]()`\"']+)",
+    r"/api/threads/[^/\s)]+/artifacts/(mnt/user-data/outputs/[^\s<>{}\[\]()`\"']*)",
 )
 
 _RECOVERY_PROMPT = """<system_reminder>
@@ -36,6 +36,7 @@ _RECOVERY_PROMPT = """<system_reminder>
 - 用 bash 的 test -f、文件大小检查以及格式校验确认最终文件真实存在。
 - 最终文件必须位于 /mnt/user-data/outputs 或当前线程 workspace，并调用 present_files 发布。
 - 只有 present_files 成功后，才能在最终回答中给出文件链接。
+- 目录只能作为说明；请链接已经发布的具体文件或打包好的 ZIP，不要把目录作为下载链接。
 - 如果生成被权限、依赖或输入阻塞，请如实说明，绝不能编造文件、页数、质检结果或下载链接。
 请继续完成真实生成和发布流程。
 </system_reminder>"""
@@ -67,8 +68,12 @@ def _has_tool_call_intent(message: AIMessage) -> bool:
     return bool(additional_kwargs.get("tool_calls") or additional_kwargs.get("function_call"))
 
 
+def _output_path_text(raw_path: str) -> str:
+    return unquote(raw_path.strip()).split("?", 1)[0].split("#", 1)[0].rstrip(".,;:，。；：")
+
+
 def _normalize_virtual_output_path(raw_path: str) -> str | None:
-    path = unquote(raw_path.strip()).split("?", 1)[0].split("#", 1)[0].rstrip(".,;:，。；：")
+    path = _output_path_text(raw_path)
     if not path.startswith(_OUTPUTS_PREFIX) or "\\" in path:
         return None
     relative = PurePosixPath(path.removeprefix(_OUTPUTS_PREFIX))
@@ -79,14 +84,27 @@ def _normalize_virtual_output_path(raw_path: str) -> str | None:
 
 def _referenced_output_paths(message: AIMessage) -> set[str]:
     text = _message_text(message)
-    # A structured reference may contain spaces. Do not also interpret a prefix
-    # of that same reference as a second, nonexistent bare output path.
-    structured = [match for pattern in (_MARKDOWN_OUTPUT_RE, _BACKTICK_OUTPUT_RE) for match in pattern.finditer(text)]
-    spans = [match.span() for match in structured]
-    raw_paths = {match.group(1) for match in structured}
-    raw_paths.update(match.group(1) for match in _BARE_OUTPUT_RE.finditer(text) if not any(start <= match.start() < end for start, end in spans))
-    raw_paths.update(f"/{path}" for path in _ARTIFACT_API_OUTPUT_RE.findall(text))
-    return {path for raw_path in raw_paths if (path := _normalize_virtual_output_path(raw_path))}
+    # Consume structured references before looking for bare paths so a filename
+    # containing spaces does not yield a second, truncated reference.
+    links = set(_MARKDOWN_OUTPUT_RE.findall(text))
+    text = _MARKDOWN_OUTPUT_RE.sub(" ", text)
+    links.update(f"/{path}" for path in _ARTIFACT_API_OUTPUT_RE.findall(text))
+    text = _ARTIFACT_API_OUTPUT_RE.sub(" ", text)
+    mentions = set(_BACKTICK_OUTPUT_RE.findall(text))
+    text = _BACKTICK_OUTPUT_RE.sub(" ", text)
+    mentions.update(_BARE_OUTPUT_RE.findall(text))
+
+    required, directories = set(), set()
+    for raw in links | mentions:
+        path = _output_path_text(raw)
+        if path.endswith("/"):
+            # Keep the slash: a directory link must never match a file receipt.
+            (required if raw in links else directories).add(path)
+        elif normalized := _normalize_virtual_output_path(raw):
+            required.add(normalized)
+    # A directory can accompany a verified file, but cannot serve as the only
+    # deliverable, even if the thread already published files in a previous turn.
+    return required or directories
 
 
 def _is_published_file(path: str, state: AgentState) -> bool:
