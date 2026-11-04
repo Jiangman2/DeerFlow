@@ -28,6 +28,19 @@ TEST_BASELINE = 'release/production-source-20261026/frontend-test-baseline/'
 CANDIDATE = 'deploy/enterprise/work-source-candidate-20261026.json'
 INCIDENT_DELTA = 'deploy/enterprise/incident-source-candidate-20261031.json'
 RELEASED_DELTA = 'deploy/enterprise/released-source-delta-20261101.json'
+WORK_ROUTING_DELTA = 'deploy/enterprise/work-routing-source-candidate-20261102.json'
+WORK_TASK_AGENT_DELTA = 'deploy/enterprise/work-task-agent-source-candidate-20261102.json'
+WORK_TASK_AGENT_FIX_DELTA = 'deploy/enterprise/work-task-agent-fix-source-candidate-20261103.json'
+WORK_TASK_AGENT_MODEL_FIX_DELTA = 'deploy/enterprise/work-task-agent-model-fix-source-candidate-20261103.json'
+WORK_ROUTING_BASE_COMMIT = '0dc61aa7435ce57546e93eae81fb3d124a4ef6a7'
+WORK_RELEASE_ALIGNMENT = 'deploy/enterprise/work-release-alignment-source-candidate-20261104.json'
+WORK_RELEASE_ALIGNMENT_ARCHIVE = 'release/work-release-alignment-20261104/'
+WORK_RELEASE_BASE_COMMIT = 'ef4ce7a177a92750ceb780eb8725814328bade3d'
+WORK_RELEASE_ALIGNMENT_PATHS = frozenset({
+    'backend/app/gateway/services.py',
+    'backend/packages/harness/deerflow/agents/lead_agent/agent.py',
+})
+WORK_PARENT_MANIFESTS = (LOCK, CANDIDATE, INCIDENT_DELTA, WORK_ROUTING_DELTA, WORK_TASK_AGENT_DELTA, WORK_TASK_AGENT_FIX_DELTA, WORK_TASK_AGENT_MODEL_FIX_DELTA)
 
 
 def candidate_overrides(lock, manifest, lock_digest):
@@ -115,6 +128,152 @@ def released_overrides(lock, prior, incident, manifest, read):
     return result
 
 
+def work_routing_overrides(lock, prior, manifest, lock_digest, prior_digest):
+    """Seal the routing candidate without replacing either historical delta."""
+    required = {'schema', 'status', 'base_commit', 'base_lock_sha256', 'parent_candidate_sha256', 'changes'}
+    assert isinstance(manifest, dict) and required <= set(manifest) <= required | {'scope'}, 'WORK_ROUTING_SCHEMA'
+    assert manifest['schema'] == 'work-routing-source-candidate.v1', 'WORK_ROUTING_SCHEMA'
+    assert manifest['status'] == 'NOT_DEPLOYED', 'WORK_ROUTING_NOT_DEPLOYED_REQUIRED'
+    assert manifest['base_commit'] == WORK_ROUTING_BASE_COMMIT, 'WORK_ROUTING_BASE_COMMIT_MISMATCH'
+    assert manifest['base_lock_sha256'] == lock_digest, 'WORK_ROUTING_BASE_LOCK_MISMATCH'
+    assert manifest['parent_candidate_sha256'] == prior_digest, 'WORK_ROUTING_PARENT_CHANGED'
+    assert 'scope' not in manifest or isinstance(manifest['scope'], str), 'WORK_ROUTING_SCHEMA'
+    changes = manifest['changes']
+    assert isinstance(changes, dict) and set(changes) == {'gateway', 'frontend'}, 'WORK_ROUTING_COMPONENT_SCOPE'
+    assert isinstance(changes['gateway'], dict) and isinstance(changes['frontend'], dict) and not changes['frontend'], 'WORK_ROUTING_COMPONENT_SCOPE'
+    result = {}
+    for name, change in changes['gateway'].items():
+        assert isinstance(name, str) and name.startswith(('backend/app/', 'backend/packages/harness/')) and name.endswith('.py'), 'WORK_ROUTING_PATH_SCOPE'
+        assert '\\' not in name and PurePosixPath(name).as_posix() == name and '..' not in PurePosixPath(name).parts, 'WORK_ROUTING_PATH_SCOPE'
+        assert isinstance(change, dict) and set(change) == {'base_sha256', 'candidate_sha256'}, 'WORK_ROUTING_CHANGE_SCHEMA'
+        expected = prior.get(name, lock.get('format_normalizations', {}).get(name, {}).get('formatted_sha256', lock['source_sets']['gateway'].get(name)))
+        assert change['base_sha256'] == expected, (name, 'WORK_ROUTING_PARENT_MISMATCH')
+        digest = change['candidate_sha256']
+        assert isinstance(digest, str) and len(digest) == 64 and all(c in '0123456789abcdef' for c in digest), 'WORK_ROUTING_HASH_FORMAT'
+        result[name] = digest
+    return result
+
+
+def work_task_agent_overrides(lock, prior, manifest, lock_digest, prior_digest):
+    """Append finite-task execution evidence; keep the prior routing seal intact."""
+    required = {'schema', 'status', 'base_commit', 'base_lock_sha256', 'parent_candidate_sha256', 'changes'}
+    assert isinstance(manifest, dict) and required <= set(manifest) <= required | {'scope'}, 'WORK_TASK_AGENT_SCHEMA'
+    assert manifest['schema'] == 'work-task-agent-source-candidate.v1', 'WORK_TASK_AGENT_SCHEMA'
+    assert manifest['status'] == 'NOT_DEPLOYED', 'WORK_TASK_AGENT_NOT_DEPLOYED_REQUIRED'
+    assert manifest['base_commit'] == WORK_ROUTING_BASE_COMMIT, 'WORK_TASK_AGENT_BASE_COMMIT_MISMATCH'
+    assert manifest['base_lock_sha256'] == lock_digest, 'WORK_TASK_AGENT_BASE_LOCK_MISMATCH'
+    assert manifest['parent_candidate_sha256'] == prior_digest, 'WORK_TASK_AGENT_PARENT_CHANGED'
+    assert 'scope' not in manifest or isinstance(manifest['scope'], str), 'WORK_TASK_AGENT_SCHEMA'
+    changes = manifest['changes']
+    assert isinstance(changes, dict) and set(changes) == {'gateway', 'frontend'}, 'WORK_TASK_AGENT_COMPONENT_SCOPE'
+    assert isinstance(changes['gateway'], dict) and isinstance(changes['frontend'], dict) and not changes['frontend'], 'WORK_TASK_AGENT_COMPONENT_SCOPE'
+    result = {}
+    for name, change in changes['gateway'].items():
+        assert isinstance(name, str) and name.startswith(('backend/app/', 'backend/packages/harness/')) and name.endswith('.py'), 'WORK_TASK_AGENT_PATH_SCOPE'
+        assert '\\' not in name and PurePosixPath(name).as_posix() == name and '..' not in PurePosixPath(name).parts, 'WORK_TASK_AGENT_PATH_SCOPE'
+        assert isinstance(change, dict) and set(change) == {'base_sha256', 'candidate_sha256'}, 'WORK_TASK_AGENT_CHANGE_SCHEMA'
+        expected = prior.get(name, lock.get('format_normalizations', {}).get(name, {}).get('formatted_sha256', lock['source_sets']['gateway'].get(name)))
+        assert change['base_sha256'] == expected, (name, 'WORK_TASK_AGENT_PARENT_MISMATCH')
+        digest = change['candidate_sha256']
+        assert isinstance(digest, str) and len(digest) == 64 and all(c in '0123456789abcdef' for c in digest), 'WORK_TASK_AGENT_HASH_FORMAT'
+        result[name] = digest
+    return result
+
+
+def work_task_agent_fix_overrides(lock, prior, manifest, lock_digest, prior_digest):
+    """Seal the bounded R3 repair over R2 without revising any prior evidence."""
+    required = {'schema', 'status', 'base_commit', 'base_lock_sha256', 'parent_candidate_sha256', 'changes'}
+    assert isinstance(manifest, dict) and required <= set(manifest) <= required | {'scope'}, 'WORK_TASK_AGENT_FIX_SCHEMA'
+    assert manifest['schema'] == 'work-task-agent-fix-source-candidate.v1', 'WORK_TASK_AGENT_FIX_SCHEMA'
+    assert manifest['status'] == 'NOT_DEPLOYED', 'WORK_TASK_AGENT_FIX_NOT_DEPLOYED_REQUIRED'
+    assert manifest['base_commit'] == WORK_ROUTING_BASE_COMMIT, 'WORK_TASK_AGENT_FIX_BASE_COMMIT_MISMATCH'
+    assert manifest['base_lock_sha256'] == lock_digest, 'WORK_TASK_AGENT_FIX_BASE_LOCK_MISMATCH'
+    assert manifest['parent_candidate_sha256'] == prior_digest, 'WORK_TASK_AGENT_FIX_PARENT_CHANGED'
+    assert 'scope' not in manifest or isinstance(manifest['scope'], str), 'WORK_TASK_AGENT_FIX_SCHEMA'
+    changes = manifest['changes']
+    assert isinstance(changes, dict) and set(changes) == {'gateway', 'frontend'}, 'WORK_TASK_AGENT_FIX_COMPONENT_SCOPE'
+    assert isinstance(changes['gateway'], dict) and isinstance(changes['frontend'], dict) and not changes['frontend'], 'WORK_TASK_AGENT_FIX_COMPONENT_SCOPE'
+    result = {}
+    for name, change in changes['gateway'].items():
+        assert isinstance(name, str) and name.startswith(('backend/app/', 'backend/packages/harness/')) and name.endswith('.py'), 'WORK_TASK_AGENT_FIX_PATH_SCOPE'
+        assert '\\' not in name and PurePosixPath(name).as_posix() == name and '..' not in PurePosixPath(name).parts, 'WORK_TASK_AGENT_FIX_PATH_SCOPE'
+        assert isinstance(change, dict) and set(change) == {'base_sha256', 'candidate_sha256'}, 'WORK_TASK_AGENT_FIX_CHANGE_SCHEMA'
+        expected = prior.get(name, lock.get('format_normalizations', {}).get(name, {}).get('formatted_sha256', lock['source_sets']['gateway'].get(name)))
+        assert change['base_sha256'] == expected, (name, 'WORK_TASK_AGENT_FIX_PARENT_MISMATCH')
+        digest = change['candidate_sha256']
+        assert isinstance(digest, str) and len(digest) == 64 and all(c in '0123456789abcdef' for c in digest), 'WORK_TASK_AGENT_FIX_HASH_FORMAT'
+        result[name] = digest
+    return result
+
+
+def work_task_agent_model_fix_overrides(lock, prior, manifest, lock_digest, prior_digest):
+    """Permit only the reviewed planner file over the preserved R3 repair seal."""
+    required = {'schema', 'status', 'base_commit', 'base_lock_sha256', 'parent_candidate_sha256', 'changes'}
+    assert isinstance(manifest, dict) and required <= set(manifest) <= required | {'scope'}, 'WORK_TASK_AGENT_MODEL_FIX_SCHEMA'
+    assert manifest['schema'] == 'work-task-agent-model-fix-source-candidate.v1', 'WORK_TASK_AGENT_MODEL_FIX_SCHEMA'
+    assert manifest['status'] == 'NOT_DEPLOYED', 'WORK_TASK_AGENT_MODEL_FIX_NOT_DEPLOYED_REQUIRED'
+    assert manifest['base_commit'] == WORK_ROUTING_BASE_COMMIT, 'WORK_TASK_AGENT_MODEL_FIX_BASE_COMMIT_MISMATCH'
+    assert manifest['base_lock_sha256'] == lock_digest, 'WORK_TASK_AGENT_MODEL_FIX_BASE_LOCK_MISMATCH'
+    assert manifest['parent_candidate_sha256'] == prior_digest, 'WORK_TASK_AGENT_MODEL_FIX_PARENT_CHANGED'
+    assert 'scope' not in manifest or isinstance(manifest['scope'], str), 'WORK_TASK_AGENT_MODEL_FIX_SCHEMA'
+    changes = manifest['changes']
+    assert isinstance(changes, dict) and set(changes) == {'gateway', 'frontend'}, 'WORK_TASK_AGENT_MODEL_FIX_COMPONENT_SCOPE'
+    assert isinstance(changes['gateway'], dict) and isinstance(changes['frontend'], dict) and not changes['frontend'], 'WORK_TASK_AGENT_MODEL_FIX_COMPONENT_SCOPE'
+    name = 'backend/app/integrations/work/agent.py'
+    assert set(changes['gateway']) == {name}, 'WORK_TASK_AGENT_MODEL_FIX_PATH_SCOPE'
+    change = changes['gateway'][name]
+    assert isinstance(change, dict) and set(change) == {'base_sha256', 'candidate_sha256'}, 'WORK_TASK_AGENT_MODEL_FIX_CHANGE_SCHEMA'
+    expected = prior.get(name, lock.get('format_normalizations', {}).get(name, {}).get('formatted_sha256', lock['source_sets']['gateway'].get(name)))
+    assert change['base_sha256'] == expected, (name, 'WORK_TASK_AGENT_MODEL_FIX_PARENT_MISMATCH')
+    digest = change['candidate_sha256']
+    assert isinstance(digest, str) and len(digest) == 64 and all(c in '0123456789abcdef' for c in digest), 'WORK_TASK_AGENT_MODEL_FIX_HASH_FORMAT'
+    return {name: digest}
+
+
+def qualify_work_release_alignment(read):
+    """Check the narrow rebased candidate before exposing production parents."""
+    try:
+        raw = read(WORK_RELEASE_ALIGNMENT)
+    except (FileNotFoundError, KeyError):
+        return None
+    manifest = json.loads(raw)
+    assert isinstance(manifest, dict) and set(manifest) == {'schema', 'status', 'base_commit', 'scope', 'parent_manifests', 'changes'}, 'WORK_RELEASE_ALIGNMENT_SCHEMA'
+    assert manifest['schema'] == 'work-release-alignment-source-candidate.v1', 'WORK_RELEASE_ALIGNMENT_SCHEMA'
+    assert manifest['status'] == 'NOT_DEPLOYED', 'WORK_RELEASE_ALIGNMENT_NOT_DEPLOYED_REQUIRED'
+    assert manifest['base_commit'] == WORK_RELEASE_BASE_COMMIT, 'WORK_RELEASE_ALIGNMENT_BASE_COMMIT'
+    assert isinstance(manifest['scope'], str), 'WORK_RELEASE_ALIGNMENT_SCHEMA'
+    parents = manifest['parent_manifests']
+    assert isinstance(parents, dict) and set(parents) == set(WORK_PARENT_MANIFESTS), 'WORK_RELEASE_ALIGNMENT_PARENT_SCOPE'
+    for path, digest in parents.items():
+        assert hashlib.sha256(read(path).replace(b'\r\n', b'\n')).hexdigest() == digest, 'WORK_RELEASE_ALIGNMENT_PARENT_CHANGED'
+    changes = manifest['changes']
+    assert isinstance(changes, dict) and set(changes) == WORK_RELEASE_ALIGNMENT_PATHS, 'WORK_RELEASE_ALIGNMENT_PATH_SCOPE'
+    for path, row in changes.items():
+        assert isinstance(row, dict) and set(row) == {'base_sha256', 'work_candidate_sha256', 'candidate_sha256', 'baseline_path'}, 'WORK_RELEASE_ALIGNMENT_CHANGE_SCHEMA'
+        for field in ('base_sha256', 'work_candidate_sha256', 'candidate_sha256'):
+            digest = row[field]
+            assert isinstance(digest, str) and len(digest) == 64 and all(c in '0123456789abcdef' for c in digest), 'WORK_RELEASE_ALIGNMENT_HASH_FORMAT'
+        assert row['baseline_path'] == WORK_RELEASE_ALIGNMENT_ARCHIVE + 'production-base/' + path, 'WORK_RELEASE_ALIGNMENT_BASELINE_PATH'
+        baseline = read(row['baseline_path']).replace(b'\r\n', b'\n')
+        current = read(path).replace(b'\r\n', b'\n')
+        assert hashlib.sha256(baseline).hexdigest() == row['base_sha256'], (path, 'WORK_RELEASE_ALIGNMENT_BASELINE_CHANGED')
+        assert hashlib.sha256(current).hexdigest() == row['candidate_sha256'], (path, 'WORK_RELEASE_ALIGNMENT_CURRENT_CHANGED')
+        ast.parse(baseline, filename=row['baseline_path'])
+        ast.parse(current, filename=path)
+    return manifest
+
+
+def work_release_alignment_overrides(lock, production, work, manifest):
+    """Bind both independently verified lineages to the exact merged source."""
+    result = {}
+    for path, row in manifest['changes'].items():
+        production_parent = production.get(path, lock.get('format_normalizations', {}).get(path, {}).get('formatted_sha256', lock['source_sets']['gateway'].get(path)))
+        assert row['base_sha256'] == production_parent, (path, 'WORK_RELEASE_ALIGNMENT_PRODUCTION_PARENT')
+        assert row['work_candidate_sha256'] == work.get(path), (path, 'WORK_RELEASE_ALIGNMENT_WORK_PARENT')
+        result[path] = row['candidate_sha256']
+    return result
+
+
 def syntax_fingerprint(raw, *, import_order=False):
     """Ignore layout; optionally sort only consecutive module-level imports."""
     tree = ast.parse(raw)
@@ -161,7 +320,8 @@ def verify_runtime_patch(read, lock):
         assert hashlib.sha256(read(path).replace(b'\r\n', b'\n')).hexdigest() == expected, (path, 'RUNTIME_ARCHIVE_CHANGED')
     data = {name: read(patch['archive_prefix'] + name).decode('utf-8').replace('\r\n', '\n')
             for name in patch['payload_files']}
-    digest = lambda value: hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()).hexdigest()
+    def digest(value):
+        return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()).hexdigest()
     assert digest(data) == patch['payload_sha256'], 'RUNTIME_PAYLOAD_CHANGED'
     assert digest({'data': data, 'binaryData': {}}) == patch['configmap']['content_sha256'], 'RUNTIME_CONFIGMAP_MISMATCH'
     for path, expected in patch['qualified_source_files'].items():
@@ -197,9 +357,11 @@ def verify(ref=None, lock_path=LOCK):
                      *selected_lock['runtime_patch']['qualified_source_files'], selected_lock['current_observation']['path']]
         extra += [row['baseline_path'] for row in selected_lock.get('qualification_test_overrides', {}).values()]
         extra += [row['baseline_path'] for row in selected_lock.get('line_ending_normalizations', {}).values()]
-        for manifest_path in (CANDIDATE, INCIDENT_DELTA, RELEASED_DELTA, "release/nov01-released-fixes-source-20261102/SOURCE.json"):
+        for manifest_path in (CANDIDATE, INCIDENT_DELTA, RELEASED_DELTA, "release/nov01-released-fixes-source-20261102/SOURCE.json", WORK_ROUTING_DELTA, WORK_TASK_AGENT_DELTA, WORK_TASK_AGENT_FIX_DELTA, WORK_TASK_AGENT_MODEL_FIX_DELTA):
             if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, manifest_path], cwd=ROOT).strip():
                 extra.append(manifest_path)
+        if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, WORK_RELEASE_ALIGNMENT], cwd=ROOT).strip():
+            extra.extend((WORK_RELEASE_ALIGNMENT, WORK_RELEASE_ALIGNMENT_ARCHIVE))
         if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, NOV02_DELTA], cwd=ROOT).strip():
             extra.extend((NOV02_DELTA, NOV02_ARCHIVE, "backend/tests"))
         if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, _nov02.CI_MANIFEST], cwd=ROOT).strip():
@@ -212,7 +374,15 @@ def verify(ref=None, lock_path=LOCK):
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
-    read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    current_read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    alignment_manifest = qualify_work_release_alignment(current_read)
+    # Existing qualifiers must verify the actual latest production source, not
+    # old R4 bytes. Only these prequalified overlaps project the sealed ef4
+    # parents; current merged bytes are checked again in the final inventory.
+    alignment_paths = alignment_manifest['changes'] if alignment_manifest else {}
+    def production_read(name):
+        return current_read(alignment_paths[name]['baseline_path'] if name in alignment_paths else name)
+    read = production_read
     navigation = _nov02.followup.navigation.qualify(read)
     followup = _nov02.followup.qualify(read)
     read = _nov02.followup.historical_read(read)
@@ -229,11 +399,46 @@ def verify(ref=None, lock_path=LOCK):
     released = released_overrides(lock, overrides, incident, release_manifest, read) if release_manifest else {'gateway': {}, 'frontend': {}}
     has_nov02 = NOV02_DELTA in archived if archived is not None else (ROOT / NOV02_DELTA).is_file()
     nov02 = nov02_overrides(lock, overrides, incident, released, read) if has_nov02 else {'gateway': {}, 'frontend': {}}
+    has_routing = WORK_ROUTING_DELTA in archived if archived is not None else (ROOT / WORK_ROUTING_DELTA).is_file()
+    routing_manifest = json.loads(read(WORK_ROUTING_DELTA)) if has_routing else None
+    if has_routing:
+        assert manifest is not None and delta is not None, 'WORK_ROUTING_PARENT_REQUIRED'
+        routing = work_routing_overrides(lock, {**overrides, **incident['gateway']}, routing_manifest,
+            hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest(), hashlib.sha256(read(INCIDENT_DELTA).replace(b'\r\n', b'\n')).hexdigest())
+    else:
+        routing = {}
+    has_task_agent = WORK_TASK_AGENT_DELTA in archived if archived is not None else (ROOT / WORK_TASK_AGENT_DELTA).is_file()
+    task_agent_manifest = json.loads(read(WORK_TASK_AGENT_DELTA)) if has_task_agent else None
+    if has_task_agent:
+        assert routing_manifest is not None, 'WORK_TASK_AGENT_PARENT_REQUIRED'
+        task_agent = work_task_agent_overrides(lock, {**overrides, **incident['gateway'], **routing}, task_agent_manifest,
+            hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest(), hashlib.sha256(read(WORK_ROUTING_DELTA).replace(b'\r\n', b'\n')).hexdigest())
+    else:
+        task_agent = {}
+    has_task_agent_fix = WORK_TASK_AGENT_FIX_DELTA in archived if archived is not None else (ROOT / WORK_TASK_AGENT_FIX_DELTA).is_file()
+    task_agent_fix_manifest = json.loads(read(WORK_TASK_AGENT_FIX_DELTA)) if has_task_agent_fix else None
+    if has_task_agent_fix:
+        assert task_agent_manifest is not None, 'WORK_TASK_AGENT_FIX_PARENT_REQUIRED'
+        task_agent_fix = work_task_agent_fix_overrides(lock, {**overrides, **incident['gateway'], **routing, **task_agent}, task_agent_fix_manifest,
+            hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest(), hashlib.sha256(read(WORK_TASK_AGENT_DELTA).replace(b'\r\n', b'\n')).hexdigest())
+    else:
+        task_agent_fix = {}
+    has_model_fix = WORK_TASK_AGENT_MODEL_FIX_DELTA in archived if archived is not None else (ROOT / WORK_TASK_AGENT_MODEL_FIX_DELTA).is_file()
+    model_fix_manifest = json.loads(read(WORK_TASK_AGENT_MODEL_FIX_DELTA)) if has_model_fix else None
+    if has_model_fix:
+        assert task_agent_fix_manifest is not None, 'WORK_TASK_AGENT_MODEL_FIX_PARENT_REQUIRED'
+        model_fix = work_task_agent_model_fix_overrides(lock, {**overrides, **incident['gateway'], **routing, **task_agent, **task_agent_fix}, model_fix_manifest,
+            hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest(), hashlib.sha256(read(WORK_TASK_AGENT_FIX_DELTA).replace(b'\r\n', b'\n')).hexdigest())
+    else:
+        model_fix = {}
+    work = {**overrides, **incident['gateway'], **routing, **task_agent, **task_agent_fix, **model_fix}
+    production = {**overrides, **incident['gateway'], **released['gateway'], **nov02['gateway']}
+    aligned = work_release_alignment_overrides(lock, production, work, alignment_manifest) if alignment_manifest else {}
     normalizations = lock.get('format_normalizations', {})
     assert set(lock.get('qualification_test_overrides', {})) <= set(lock['source_sets']['frontend']), 'UNKNOWN_QUALIFICATION_TEST'
     results = []
     for component, expected in lock['source_sets'].items():
-        component_overrides = {**(overrides if component == 'gateway' else {}), **incident.get(component, {}), **released.get(component, {}), **nov02.get(component, {})}
+        component_overrides = {**(overrides if component == 'gateway' else {}), **incident.get(component, {}), **released.get(component, {}), **nov02.get(component, {}), **(routing if component == 'gateway' else {}), **(task_agent if component == 'gateway' else {}), **(task_agent_fix if component == 'gateway' else {}), **(model_fix if component == 'gateway' else {}), **(aligned if component == 'gateway' else {})}
         expected = {**expected, **component_overrides}
         prefix = RUNNER if component == 'ppt-master-runner' else ''
         if component != 'frontend':
@@ -252,7 +457,7 @@ def verify(ref=None, lock_path=LOCK):
                 raise AssertionError((component, 'SOURCE_SET_MISMATCH', sorted(actual ^ set(expected))))
         for name, digest in expected.items():
             if name in component_overrides:
-                raw = read(name).replace(b'\r\n', b'\n')
+                raw = (current_read(name) if name in aligned else read(name)).replace(b'\r\n', b'\n')
                 assert hashlib.sha256(raw).hexdigest() == digest, (name, 'CANDIDATE_HASH_MISMATCH')
                 if name.endswith('.py'):
                     ast.parse(raw, filename=name)
@@ -300,7 +505,12 @@ def verify(ref=None, lock_path=LOCK):
             'scope': lock['scope'], 'production_modified': False,
             'released_delta': {'source_manifest': release_manifest['source_manifest'], 'frontend_runtime_paths': sorted(n for n in released['frontend'] if n.startswith('frontend/src/')), 'changed_sources': sum(map(len, released.values()))} if release_manifest else None,
             'released_delta_nov02': {'source_manifest': NOV02_ARCHIVE + 'SOURCE.json', 'frontend_runtime_paths': sorted(n for n in nov02['frontend'] if n.startswith('frontend/src/')), 'changed_sources': sum(map(len, nov02.values()))} if has_nov02 else None,
-            'candidate': {'status': 'NOT_DEPLOYED', 'base_commit': manifest['base_commit'], 'changed_sources': len(overrides), 'incident_delta': {'base_commit': delta['base_commit'], 'changed_sources': sum(len(v) for v in incident.values()), 'frontend_runtime_paths': sorted(n for n in incident['frontend'] if n.startswith('frontend/src/'))} if delta else None} if manifest else None}
+            'candidate': {'status': 'NOT_DEPLOYED', 'base_commit': manifest['base_commit'], 'changed_sources': len(overrides), 'incident_delta': {'base_commit': delta['base_commit'], 'changed_sources': sum(len(v) for v in incident.values()), 'frontend_runtime_paths': sorted(n for n in incident['frontend'] if n.startswith('frontend/src/'))} if delta else None,
+                          **({'work_routing_delta': {'status': 'NOT_DEPLOYED', 'base_commit': routing_manifest['base_commit'], 'changed_sources': len(routing)}} if routing_manifest is not None else {}),
+                          **({'work_task_agent_delta': {'status': 'NOT_DEPLOYED', 'base_commit': task_agent_manifest['base_commit'], 'changed_sources': len(task_agent)}} if task_agent_manifest is not None else {}),
+                          **({'work_task_agent_fix_delta': {'status': 'NOT_DEPLOYED', 'base_commit': task_agent_fix_manifest['base_commit'], 'changed_sources': len(task_agent_fix)}} if task_agent_fix_manifest is not None else {}),
+                          **({'work_task_agent_model_fix_delta': {'status': 'NOT_DEPLOYED', 'base_commit': model_fix_manifest['base_commit'], 'changed_sources': len(model_fix)}} if model_fix_manifest is not None else {}),
+                          **({'work_release_alignment': {'status': 'NOT_DEPLOYED', 'base_commit': alignment_manifest['base_commit'], 'changed_sources': len(aligned)}} if alignment_manifest is not None else {})} if manifest else None}
 
 
 if __name__ == '__main__':

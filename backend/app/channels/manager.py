@@ -830,6 +830,7 @@ class ChannelManager:
         self._connection_repo = connection_repo
         self._require_bound_identity = require_bound_identity
         self._work_documents = None  # Opt-in Work integration; production state is shared in SQL.
+        self._work_unavailable_semaphore: asyncio.Semaphore | None = None
         self._client = None  # lazy init — langgraph_sdk async client
         self._channel_metadata_synced: set[str] = set()
         # Per-conversation locks so concurrent inbound messages for the same
@@ -964,6 +965,9 @@ class ChannelManager:
         # like ``update_agent`` are dropped when the run was triggered
         # via one. See ``_make_lead_agent`` for the gate.
         run_context_identity["channel_name"] = msg.channel_name
+        # Session configuration is not a producer of live Work availability.
+        # The Feishu chat dispatch path may supply its current server hint.
+        run_context_identity["work_capabilities"] = None
         # Single source of truth for the run identity: the same helper that scopes
         # inbound files and outbound artifacts, so the bucket the agent reads/writes
         # always matches where channel files are staged.
@@ -1536,11 +1540,32 @@ class ChannelManager:
             return
 
         if msg.channel_name == "feishu":
-            from app.integrations.work.service import active_work_service
+            from app.integrations.work.config import WorkSettings
+            from app.integrations.work.service import active_work_service, handle_unavailable_work
 
-            work_service = await active_work_service(self)
-            if work_service is not None and await work_service.handle(msg):
-                return
+            extra_context = dict(extra_context or {})
+            extra_context.pop("work_capabilities", None)
+            try:
+                work_service = await active_work_service(self)
+            except Exception:
+                # Initialization/configuration errors may contain credentials.
+                # This fallback classifies intent only; it never executes Work.
+                logger.warning("Work integration unavailable before dispatch")
+                work_service = None
+            if work_service is not None:
+                if await work_service.handle(msg):
+                    return
+            else:
+                if self._work_unavailable_semaphore is None:
+                    self._work_unavailable_semaphore = asyncio.Semaphore(2)
+                if await handle_unavailable_work(msg, send=self.bus.publish_outbound, semaphore=self._work_unavailable_semaphore):
+                    return
+            try:
+                work_enabled = WorkSettings.from_env().enabled
+            except ValueError:
+                work_enabled = False
+            if work_enabled:
+                extra_context["work_capabilities"] = {"available": bool(work_service)}
 
         client = self._get_client()
         storage_user_id = _channel_storage_user_id(msg)

@@ -7,6 +7,7 @@ import logging
 import secrets
 import time
 import uuid
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
@@ -14,8 +15,11 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .auth import Principal, TokenVault
+from .batch import BatchPayload, item_fact, outcome_text
+from .batch import preview as batch_preview
 from .client import DOC_ID_RE, DOCUMENT_HOST, WorkError
 from .scopes import ACTION_SCOPES, API_SCOPES
+from .tasks import TaskRef
 
 logger = logging.getLogger(__name__)
 MAX_DOCUMENT_CHARS = 80_000
@@ -98,15 +102,21 @@ class Plan:
     expires_at: float
     stage: str = "pending"
     receipt: str = field(default="", repr=False)
+    task_ref: TaskRef | None = field(default=None, repr=False)
+    protocol: int = 0
+    record_kind: str = field(default="plan", repr=False)
+    batch_items: list[dict] | None = field(default=None, repr=False)
+    batch_group: str = field(default="", repr=False)
 
 
 class WorkCapabilities:
-    def __init__(self, vault: TokenVault, api, *, document_host=DOCUMENT_HOST):
+    def __init__(self, vault: TokenVault, api, *, document_host=DOCUMENT_HOST, task_fencing=False, task_guard=None):
         self.vault, self.api = vault, api
         self.document_host, self.store = document_host, vault.store
         self.plans: dict[str, Plan] = {}
         self.known_events: dict[Principal, tuple[float, set[str]]] = {}
         self._signing_key = self.store.signing_key if self.store else secrets.token_bytes(32)
+        self.task_fencing, self.task_guard = task_fencing, task_guard
         # Single-process UAT execution is serialized, including duplicate confirms.
         import asyncio
 
@@ -207,8 +217,28 @@ class WorkCapabilities:
         previous = self.known_events.get(p, (0, set()))[1]
         self.known_events[p] = (now + 900, set(list(previous | {i for i in ids if i})[-100:]))
 
-    def _sign(self, p: Principal, payload: str, snapshot: str, preview: str):
-        return hmac.new(self._signing_key, encode([p.__dict__, payload, snapshot, preview]).encode(), hashlib.sha256).hexdigest()
+    async def _assert_task(self, p, task_ref):
+        ref = TaskRef.parse(task_ref)
+        if ref is None:
+            if self.task_fencing:
+                raise WorkError("task_reference_required")
+            return None
+        if self.store:
+            await self.store.assert_task(self.vault.principal_key(p), ref)
+        elif self.task_guard is None:
+            raise WorkError("task_store_unavailable")
+        if self.task_guard is not None and await self.task_guard(p, ref) is False:
+            raise WorkError("task_superseded")
+        return ref
+
+    def _sign(self, p: Principal, payload: str, snapshot: str, preview: str, task_ref=None, protocol=0):
+        data = [p.__dict__, payload, snapshot, preview]
+        ref = TaskRef.parse(task_ref)
+        if ref is not None:
+            data.append(ref.as_dict())
+        if protocol:
+            data.append({"protocol": protocol})
+        return hmac.new(self._signing_key, encode(data).encode(), hashlib.sha256).hexdigest()
 
     async def _snapshot(self, p: Principal, a: Action) -> dict:
         if a.operation in {"document_rename", "document_append", "document_replace"}:
@@ -244,8 +274,9 @@ class WorkCapabilities:
             return {}
         raise WorkError("not_a_write_operation")
 
-    async def prepare(self, p: Principal, action: Action) -> Plan:
+    async def prepare(self, p: Principal, action: Action, *, task_ref=None) -> Plan:
         self.prune()
+        ref = await self._assert_task(p, task_ref)
         if sum(plan.stage == "pending" and plan.expires_at > time.monotonic() for plan in self.plans.values()) >= 64:
             raise WorkError("plan_capacity")
         scope = ACTION_SCOPES.get(action.operation)
@@ -253,6 +284,8 @@ class WorkCapabilities:
             raise WorkError("not_a_write_operation")
         await self.vault.require(p, scope)
         snapshot = await self._snapshot(p, action)
+        # A slow discovery call must not preview work after a newer user turn.
+        await self._assert_task(p, ref)
         if action.expected_event and action.expected_event != encode(snapshot.get("event")):
             raise WorkError("target_changed_request_new_preview")
         if action.update_fields:
@@ -283,19 +316,283 @@ class WorkCapabilities:
         if action.document_id:
             preview += "\n" + doc_url(action.document_id, self.document_host)
         snap = encode(snapshot)
-        plan = Plan(secrets.token_urlsafe(16), p, payload, preview, snap, self._sign(p, payload, snap, preview), time.monotonic() + 300)
+        plan = Plan(secrets.token_urlsafe(16), p, payload, preview, snap, self._sign(p, payload, snap, preview, ref, 2), time.monotonic() + 300, task_ref=ref, protocol=2)
         self.plans[plan.id] = plan
         if self.store:
-            await self.store.purge()
-            key = self.vault.principal_key(p)
-            record = await self.store.admit("plan", plan.id, self._plan_data(plan), owner=key, ttl=300, active={"waiting", "pending"}, limit=256, owner_limit=8)
-            if not record:
+            try:
+                await self.store.purge()
+                key = self.vault.principal_key(p)
+                record = await self.store.admit("plan", plan.id, self._plan_data(plan), owner=key, ttl=300, active={"waiting", "pending"}, limit=256, owner_limit=8, task_ref=ref)
+                if not record:
+                    raise WorkError("plan_capacity")
+                pending = await self.store.change_task_record("plan", plan.id, record, owner=key, task_ref=ref, status="pending") if ref else await self.store.change("plan", plan.id, record, status="pending")
+                if not pending:
+                    raise WorkError("task_superseded" if ref else "plan_state_conflict")
+                await self._audit(plan, "preview")
+            except BaseException:
                 self.plans.pop(plan.id, None)
-                raise WorkError("plan_capacity")
-            await self.store.change("plan", plan.id, record, status="pending")
-            await self._audit(plan, "preview")
+                raise
         logger.info("work_operation operation=%s stage=preview", action.operation)
         return plan
+
+    @staticmethod
+    def _batch_actions(payload):
+        batch = BatchPayload.model_validate_json(payload) if isinstance(payload, str) else payload
+        actions = [Action.model_validate_json(encode(value)) for value in batch.items]
+        seen = set()
+        for action in actions:
+            if action.operation not in {"event_create", "event_update"} or action.document_id or action.old_text or action.followup:
+                raise WorkError("batch_calendar_only")
+            key = (action.operation, action.event_id) if action.operation == "event_update" else (action.operation, action.title, parse_time(action.start), parse_time(action.end))
+            if key in seen:
+                raise WorkError("batch_duplicate_target")
+            seen.add(key)
+        return actions
+
+    @staticmethod
+    def _check_edit_snapshot(action, snapshot):
+        if action.expected_event and action.expected_event != encode(snapshot.get("event")):
+            raise WorkError("target_changed_request_new_preview")
+        if action.update_fields:
+            before = snapshot["event"]
+            if any(key not in action.update_fields and (before.get(key) or "") != value for key, value in (("summary", action.title), ("description", action.text))):
+                raise WorkError("unchanged_event_fields_mismatch")
+            if any(key not in action.update_fields and str(before.get(key, {}).get("timestamp")) != str(parse_time(value)) for key, value in (("start_time", action.start), ("end_time", action.end))):
+                raise WorkError("unchanged_event_fields_mismatch")
+
+    async def _batch_conflicts(self, p, actions):
+        warnings, edited = [], {action.event_id for action in actions if action.event_id}
+        for index, action in enumerate(actions):
+            begin, end = parse_time(action.start), parse_time(action.end)
+            for other in range(index):
+                if begin < parse_time(actions[other].end) and parse_time(actions[other].start) < end:
+                    warnings.append(f"时间提醒：第 {other + 1}、{index + 1} 条互相重叠。")
+            events, complete = await self.query_events(p, action.start, action.end)
+            count, unknown = 0, False
+            for event in events:
+                if event.get("event_id") in edited:
+                    continue
+                try:
+                    event_start = int(event["start_time"]["timestamp"])
+                    event_end = int(event["end_time"]["timestamp"])
+                    count += event_start < end and begin < event_end
+                except (KeyError, TypeError, ValueError):
+                    unknown = True
+            if count:
+                warnings.append(f"冲突提醒：第 {index + 1} 条与现有 {count} 条日程重叠，仍需您决定是否执行。")
+            if not complete or unknown:
+                warnings.append(f"第 {index + 1} 条的冲突查询不完整，不能确认不存在其它安排。")
+        if not warnings:
+            warnings.append("预览查询未发现时间重叠；确认到执行期间仍可能出现新安排，这不是会议室或忙闲锁定。")
+        return warnings
+
+    async def prepare_batch(self, p: Principal, actions: list[Action], *, task_ref=None, summary="") -> Plan:
+        self.prune()
+        if not isinstance(actions, list) or any(not isinstance(action, Action) for action in actions):
+            raise WorkError("batch_actions_required")
+        batch = BatchPayload(items=[action.model_dump(mode="json") for action in actions], summary=summary)
+        actions = self._batch_actions(batch)
+        ref = await self._assert_task(p, task_ref)
+        if sum(plan.stage == "pending" and plan.expires_at > time.monotonic() for plan in self.plans.values()) >= 64:
+            raise WorkError("plan_capacity")
+        snapshots = []
+        for action in actions:
+            await self.vault.require(p, ACTION_SCOPES[action.operation])
+            snapshot = await self._snapshot(p, action)
+            self._check_edit_snapshot(action, snapshot)
+            snapshots.append(snapshot)
+        warnings = await self._batch_conflicts(p, actions)
+        await self._assert_task(p, ref)
+        payload, snap, preview = batch.model_dump_json(), encode(snapshots), batch_preview(actions, warnings, snapshots)
+        plan = Plan(secrets.token_urlsafe(16), p, payload, preview, snap, self._sign(p, payload, snap, preview, ref, 2), time.monotonic() + 300, task_ref=ref, protocol=2)
+        self.plans[plan.id] = plan
+        if self.store:
+            try:
+                await self.store.purge()
+                owner = self.vault.principal_key(p)
+                record = await self.store.admit("plan", plan.id, self._plan_data(plan), owner=owner, ttl=300, active={"waiting", "pending"}, limit=256, owner_limit=8, task_ref=ref)
+                if not record:
+                    raise WorkError("plan_capacity")
+                changed = await self.store.change_task_record("plan", plan.id, record, owner=owner, task_ref=ref, status="pending") if ref else await self.store.change("plan", plan.id, record, status="pending")
+                if not changed:
+                    raise WorkError("task_superseded")
+                await self._audit(plan, "preview")
+            except BaseException:
+                self.plans.pop(plan.id, None)
+                raise
+        return plan
+
+    async def _confirm_batch(self, p, plan, record, ref):
+        actions, snapshots = self._batch_actions(plan.payload_json), json.loads(plan.snapshot)
+        if not isinstance(snapshots, list) or len(actions) != len(snapshots):
+            raise WorkError("batch_snapshot_invalid")
+        for action, snapshot in zip(actions, snapshots, strict=True):
+            if action.operation == "event_update" and self.store:
+                self.remember_events(p, [action.event_id])
+            await self.vault.require(p, ACTION_SCOPES[action.operation])
+            if encode(await self._snapshot(p, action)) != encode(snapshot):
+                raise WorkError("target_changed_request_new_preview")
+        items = [{"id": digest(plan.id + ":" + str(index)), "operation": action.operation, "title": action.title, "start": action.start, "end": action.end, "status": "pending", "receipt": ""} for index, action in enumerate(actions)]
+        owner = self.vault.principal_key(p)
+        if self.store:
+            execution = {"id": plan.id, "operation": "calendar_batch", "batch": items, "protocol": 2}
+            record = await self.store.claim_plan(plan.id, record, owner=owner, task_ref=ref, value=execution) if ref else await self.store.change("plan", plan.id, record, value=execution, status="executing", ttl=90 * 86400)
+            if not record:
+                raise WorkError("confirmation_already_claimed")
+        else:
+            await self._assert_task(p, ref)
+        plan.stage, plan.batch_items = "executing", items
+        try:
+            for index, (action, snapshot) in enumerate(zip(actions, snapshots, strict=True)):
+                item = items[index]
+                try:
+                    # Recheck the live target before each bounded item, then
+                    # atomically fence its own execution admission in SQL.
+                    await self._assert_task(p, ref)
+                    if encode(await self._snapshot(p, action)) != encode(snapshot):
+                        raise WorkError("target_changed_request_new_preview")
+                    if self.store:
+                        child = await self.store.claim_batch_item(item["id"], parent_id=plan.id, owner=owner, task_ref=ref, value={"operation": action.operation, "target": action.event_id or "personal"})
+                        if child is None:
+                            raise WorkError("batch_item_already_claimed")
+                    else:
+                        await self._assert_task(p, ref)
+                except WorkError as exc:
+                    item["reason"] = exc.stage
+                    break  # No claim: this and remaining items are unexecuted.
+                item["status"] = "executing"
+                child_plan = Plan(item["id"], p, action.model_dump_json(), "", encode(snapshot), "", plan.expires_at, stage="executing", task_ref=ref, protocol=2, record_kind="batch_item", batch_group=plan.id)
+                try:
+                    await self._execute(p, action, snapshot, child_plan)
+                    child_plan.stage = "completed"
+                    item.update(status="completed", receipt=child_plan.receipt)
+                except BaseException:
+                    child_plan.stage = "uncertain"
+                    item.update(status="uncertain", receipt=child_plan.receipt)
+                    if self.store:
+                        await self._save_execution(child_plan, "uncertain")
+                    raise
+                else:
+                    if self.store:
+                        await self._save_execution(child_plan, "completed")
+                    else:
+                        self.plans[child_plan.id] = child_plan
+                finally:
+                    if self.store:
+                        await self._save_execution(plan)
+        except BaseException:
+            plan.stage = "uncertain" if any(item["status"] == "uncertain" for item in items) else "partial"
+            raise
+        else:
+            plan.stage = "completed" if all(item["status"] == "completed" for item in items) else "partial"
+            return outcome_text(items)
+        finally:
+            for item in items:
+                if item["status"] == "pending":
+                    item["status"] = "unexecuted"
+            if self.store:
+                await self._save_execution(plan, plan.stage)
+                await self._audit(plan, plan.stage)
+
+    async def recent_calendar_receipts(self, p: Principal) -> list[dict]:
+        if not await self.vault.bound(p):
+            raise WorkError("binding_changed")
+        if self.store:
+            records = await self.store.recent_calendar_records(self.vault.principal_key(p), limit=40)
+        else:
+            records = []
+            for plan in reversed(list(self.plans.values())):
+                if plan.principal == p and plan.stage == "completed":
+                    raw = json.loads(plan.payload_json)
+                    if raw.get("operation") in {"event_create", "event_update"}:
+                        action = Action.model_validate_json(plan.payload_json)
+                        records.append({"calendar_event": {**item_fact(action, event_id=plan.receipt, plan_id=plan.id, batch_group=plan.batch_group), "operation": action.operation, "status": "completed"}})
+        result, seen = [], set()
+        for value in records:
+            event = value.get("calendar_event")
+            if not isinstance(event, dict) and value.get("operation") in {"event_create", "event_update"} and isinstance(value.get("receipt"), str):
+                event = {"event_id": value["receipt"], "title": "", "start": "", "end": "", "operation": value["operation"], "plan_id": value.get("id", ""), "batch_group": "", "status": "completed"}
+            if isinstance(event, dict) and isinstance(event.get("event_id"), str) and event["event_id"] and event["event_id"] not in seen:
+                seen.add(event["event_id"])
+                result.append(dict(event))
+            if len(result) >= 10:
+                break
+        return result
+
+    async def calendar_task_execution(self, p: Principal, task_ref) -> dict:
+        """Discover prior execution for this task, across continuation versions.
+
+        A new generation fences writes, but does not erase the fact that this
+        task already wrote. Explicitly starting another task creates a new ID.
+        """
+        ref = TaskRef.parse(task_ref)
+        if ref is None:
+            raise WorkError("task_reference_required")
+        await self._assert_task(p, ref)
+        if not await self.vault.bound(p):
+            raise WorkError("binding_changed")
+        owner = self.vault.principal_key(p)
+        indexed_started = None
+        if self.store:
+            records, complete, indexed_started = await self.store.calendar_execution_records(owner, task_ref=ref)
+        else:
+            records, complete = [], True
+            for plan in reversed(list(self.plans.values())):
+                if plan.principal != p or plan.record_kind != "plan" or plan.stage not in {"executing", "completed", "partial", "uncertain"}:
+                    continue
+                raw = json.loads(plan.payload_json)
+                value = {"id": plan.id, "operation": raw.get("operation"), "receipt": plan.receipt, "task_ref": plan.task_ref.as_dict() if plan.task_ref else None}
+                if plan.batch_items is not None:
+                    value["batch"] = plan.batch_items
+                elif plan.stage == "completed" and raw.get("operation") in {"event_create", "event_update"}:
+                    action = Action.model_validate_json(plan.payload_json)
+                    value["calendar_event"] = {**item_fact(action, event_id=plan.receipt, plan_id=plan.id), "operation": action.operation, "status": "completed"}
+                records.append({"status": plan.stage, "value": value})
+                if len(records) > 100:
+                    records, complete = records[:100], False
+                    break
+        plans, events, statuses, seen = [], [], [], set()
+
+        def add_event(value):
+            event = value.get("calendar_event")
+            if not isinstance(event, dict) and value.get("operation") in {"event_create", "event_update"} and value.get("receipt"):
+                event = {"event_id": value["receipt"], "title": "", "start": "", "end": "", "operation": value["operation"], "plan_id": value.get("id", ""), "batch_group": value.get("parent_id", ""), "status": "completed"}
+            if isinstance(event, dict) and isinstance(event.get("event_id"), str) and 0 < len(event["event_id"]) <= 256 and event["event_id"] not in seen and len(events) < 10:
+                seen.add(event["event_id"])
+                events.append(dict(event))
+
+        for row in records:
+            value, status = row["value"], row["status"]
+            previous = TaskRef.parse(value.get("task_ref"))
+            if previous is None or previous.task_id != ref.task_id or value.get("operation") not in {"event_create", "event_update", "calendar_batch"}:
+                continue
+            if len(plans) >= 10:
+                complete = False
+                break
+            plans.append({"plan_id": value["id"], "status": status, "operation": value["operation"]})
+            statuses.append(status)
+            if status == "completed" and value["operation"] != "calendar_batch":
+                add_event(value)
+            if value["operation"] == "calendar_batch":
+                for item in value.get("batch", [])[:10]:
+                    if self.store:
+                        child = await self.store.read("batch_item", item["id"], owner=owner)
+                        if child is not None:
+                            statuses.append(child.status)
+                            if child.status == "completed":
+                                add_event(child.value)
+                    else:
+                        child = self.plans.get(item["id"])
+                        if child and child.principal == p and child.stage == "completed":
+                            action = Action.model_validate_json(child.payload_json)
+                            add_event({"calendar_event": {**item_fact(action, event_id=child.receipt, plan_id=child.id, batch_group=value["id"]), "operation": action.operation, "status": "completed"}})
+        await self._assert_task(p, ref)
+        if not await self.vault.bound(p):
+            raise WorkError("binding_changed")
+        state = "uncertain" if "uncertain" in statuses else "started" if "executing" in statuses else "partial" if "partial" in statuses else "completed" if statuses else "none"
+        if (not complete and state in {"none", "completed"}) or indexed_started is True and not statuses:
+            state = "unknown"
+        return {"state": state, "started": bool(plans) or indexed_started is True, "complete": complete, "plans": plans, "events": events}
 
     async def confirm(self, p: Principal, plan_id: str) -> str:
         if not self.store:
@@ -312,14 +609,18 @@ class WorkCapabilities:
             await self.store.release(name, holder)
 
     async def _confirm(self, p: Principal, plan_id: str) -> str:
-        async with self._write_lock:
+        # SQL's owner-scoped lease and atomic claims serialize one principal;
+        # unrelated users must not wait behind another person's batch HTTP.
+        async with nullcontext() if self.store else self._write_lock:
             record = None
             if self.store:
                 record = await self.store.read("plan", plan_id, owner=self.vault.principal_key(p))
                 if record and record.status != "pending":
+                    if self.task_fencing and record.status == "cancelled" and record.value.get("task_ref"):
+                        raise WorkError("task_superseded")
                     raise WorkError("confirmation_already_claimed_or_expired")
                 if record:
-                    plan = Plan(**{**record.value, "principal": p, "expires_at": time.monotonic() + record.expires_at - time.time(), "stage": record.status})
+                    plan = Plan(**{**record.value, "task_ref": TaskRef.parse(record.value.get("task_ref")), "principal": p, "expires_at": time.monotonic() + record.expires_at - time.time(), "stage": record.status})
                     self.plans[plan_id] = plan
                 else:
                     plan = None
@@ -327,9 +628,14 @@ class WorkCapabilities:
                 plan = self.plans.get(plan_id)
             if not plan or plan.principal != p or plan.stage != "pending" or plan.expires_at <= time.monotonic():
                 raise WorkError("confirmation_invalid_or_expired")
-            if not hmac.compare_digest(plan.signature, self._sign(p, plan.payload_json, plan.snapshot, plan.preview)):
+            ref = await self._assert_task(p, plan.task_ref)
+            if self.task_fencing and plan.protocol != 2:
+                raise WorkError("plan_protocol_upgrade_required")
+            if not hmac.compare_digest(plan.signature, self._sign(p, plan.payload_json, plan.snapshot, plan.preview, ref, plan.protocol)):
                 plan.stage = "rejected"
                 raise WorkError("plan_changed")
+            if json.loads(plan.payload_json).get("operation") == "calendar_batch":
+                return await self._confirm_batch(p, plan, record, ref)
             action = Action.model_validate_json(plan.payload_json)
             if self.store and action.operation == "event_update":
                 # A persisted, signed preview is trusted discovery evidence, not
@@ -340,9 +646,18 @@ class WorkCapabilities:
                 plan.stage = "rejected"
                 raise WorkError("target_changed_request_new_preview")
             if self.store:
-                record = await self.store.change("plan", plan_id, record, value={"id": plan.id, "operation": action.operation, "target": action.document_id or action.event_id or "personal"}, status="executing", ttl=90 * 86400)
+                execution = {"id": plan.id, "operation": action.operation, "target": action.document_id or action.event_id or "personal"}
+                record = (
+                    await self.store.claim_plan(plan_id, record, owner=self.vault.principal_key(p), task_ref=ref, value=execution)
+                    if ref
+                    else await self.store.change("plan", plan_id, record, value=execution, status="executing", ttl=90 * 86400)
+                )
                 if not record:
                     raise WorkError("confirmation_already_claimed")
+            else:
+                # No await between the final in-memory guard and the execution
+                # claim: another local turn cannot invalidate it in between.
+                await self._assert_task(p, ref)
             plan.stage = "executing"
             await self._audit(plan, "executing")
             logger.info("work_operation operation=%s stage=executing", action.operation)
@@ -362,32 +677,65 @@ class WorkCapabilities:
 
     @staticmethod
     def _plan_data(plan):
-        return {name: getattr(plan, name) for name in ("id", "payload_json", "preview", "snapshot", "signature", "receipt")}
+        data = {name: getattr(plan, name) for name in ("id", "payload_json", "preview", "snapshot", "signature", "receipt")}
+        data["protocol"] = plan.protocol
+        if plan.task_ref is not None:
+            data["task_ref"] = TaskRef.parse(plan.task_ref).as_dict()
+        return data
 
     async def _audit(self, plan, stage):
         if self.store:
+            if json.loads(plan.payload_json).get("operation") == "calendar_batch":
+                await self.store.audit(plan.principal, "calendar_batch", "personal", stage, plan_id=plan.id, receipt=plan.receipt)
+                return
             action = Action.model_validate_json(plan.payload_json)
             await self.store.audit(plan.principal, action.operation, action.document_id or action.event_id or "personal", stage, plan_id=plan.id, receipt=plan.receipt)
 
     async def _save_execution(self, plan, status="executing"):
         if self.store:
-            record = await self.store.read("plan", plan.id, owner=self.vault.principal_key(plan.principal))
-            if not record or record.status != "executing" or not await self.store.change("plan", plan.id, record, value={**record.value, "receipt": plan.receipt}, status=status, ttl=90 * 86400):
+            kind, owner = plan.record_kind, self.vault.principal_key(plan.principal)
+            record = await self.store.read(kind, plan.id, owner=owner)
+            value = {**record.value, "receipt": plan.receipt} if record else {}
+            if plan.batch_items is not None:
+                value["batch"] = plan.batch_items
+            raw = json.loads(plan.payload_json)
+            if status == "completed" and raw.get("operation") in {"event_create", "event_update"}:
+                action = Action.model_validate_json(plan.payload_json)
+                value["calendar_event"] = {**item_fact(action, event_id=plan.receipt, plan_id=plan.id, batch_group=value.get("parent_id", "")), "operation": action.operation, "status": "completed"}
+            if not record or record.status != "executing" or not await self.store.change(kind, plan.id, record, value=value, status=status, ttl=90 * 86400):
                 raise WorkError("execution_record_unavailable")
 
     async def cancel_shared(self, p, plan_id):
         if not self.store:
+            plan = self.plans.get(plan_id)
+            if plan is not None and plan.principal == p:
+                await self._assert_task(p, plan.task_ref)
             return self.cancel(p, plan_id)
         record = await self.store.read("plan", plan_id, owner=self.vault.principal_key(p))
-        if not record or record.status != "pending" or not await self.store.change("plan", plan_id, record, status="cancelled", ttl=900):
+        if not record or record.status != "pending":
+            raise WorkError("confirmation_invalid_or_expired")
+        ref = await self._assert_task(p, record.value.get("task_ref"))
+        changed = (
+            await self.store.change_task_record("plan", plan_id, record, owner=self.vault.principal_key(p), task_ref=ref, status="cancelled", ttl=900) if ref else await self.store.change("plan", plan_id, record, status="cancelled", ttl=900)
+        )
+        if not changed:
             raise WorkError("confirmation_invalid_or_expired")
 
     async def terminal_notice(self, p, plan_id):
         if not self.store:
+            plan = self.plans.get(plan_id)
+            if plan and plan.principal == p and plan.batch_items is not None and plan.stage in {"executing", "uncertain", "completed", "partial"}:
+                return outcome_text(plan.batch_items)
             return ""
         record = await self.store.read("plan", plan_id, owner=self.vault.principal_key(p))
-        if not record or record.status not in {"executing", "uncertain", "completed"}:
+        if not record or record.status not in {"executing", "uncertain", "completed", "partial"}:
             return ""
+        if record.value.get("operation") == "calendar_batch":
+            items = [dict(item) for item in record.value.get("batch", [])]
+            for item in items:
+                child = await self.store.read("batch_item", item["id"], owner=self.vault.principal_key(p))
+                item.update(status=child.status if child else "unexecuted", receipt=child.value.get("receipt", "") if child else "")
+            return outcome_text(items)
         text = "该操作此前已完成，不会重复执行。" if record.status == "completed" else "先前操作的执行结果尚未确认，请到 Work 核查；不会自动重试或重复执行。"
         receipt = record.value.get("receipt", "")
         return text + ("\n回执：" + receipt if receipt else "")

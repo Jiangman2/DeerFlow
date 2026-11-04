@@ -1,0 +1,29 @@
+{
+  "schema": "work-release-alignment-source-candidate.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "ef4ce7a177a92750ceb780eb8725814328bade3d",
+  "scope": "Rebase the preserved Work R4 source lineage onto the latest 0716 production source; exactly two overlapping runtime files retain both sets of changes. Source qualification only, no production deployment or business acceptance.",
+  "parent_manifests": {
+    "deploy/enterprise/production-source-lock-20261029.json": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
+    "deploy/enterprise/work-source-candidate-20261026.json": "a97ae71c00d8bcc8ddc7205cb5d71e08d5c9928312c8280ac7fcd6bfa10a7e52",
+    "deploy/enterprise/incident-source-candidate-20261031.json": "072724c8ddbf1de8b1d8d17410b8d8e38823133b879176d07225406459e8d745",
+    "deploy/enterprise/work-routing-source-candidate-20261102.json": "925f1366291da2f5480d258313a93508599781a8e3b4b2758da77a7ddcd59f37",
+    "deploy/enterprise/work-task-agent-source-candidate-20261102.json": "5431108907adf3c1c2a393ff26824f9216a493200a8a20101b44206f045ed99b",
+    "deploy/enterprise/work-task-agent-fix-source-candidate-20261103.json": "3ceb620f825e6787437bb3ecd44d833660be3824f1fbd7a75570128aaad4b111",
+    "deploy/enterprise/work-task-agent-model-fix-source-candidate-20261103.json": "cb8c266a4872ac4b56c3e2a22c855edf9164b975cd10699a82282c73cb72cd61"
+  },
+  "changes": {
+    "backend/app/gateway/services.py": {
+      "base_sha256": "1ce41123a0238f29960096cf4f6ff787a93add931714e23660ed5efd649d4980",
+      "work_candidate_sha256": "bb4280dd2cbec98e0a939f44d7ae8be9feb97ab32e2d7f868a112857acf0fcd1",
+      "candidate_sha256": "efa7048f5060da3b062b6fd9da407f732ddf6fb5031d68e0de14f6b857882374",
+      "baseline_path": "release/work-release-alignment-20261104/production-base/backend/app/gateway/services.py"
+    },
+    "backend/packages/harness/deerflow/agents/lead_agent/agent.py": {
+      "base_sha256": "ec90288229cee4e54a34e41b31b946d22be7c8d6d21a8363be790c799dad9945",
+      "work_candidate_sha256": "fbcedd391d9a31b12a2b1a8bc5a32329688f8f3e36b6ab202959924f33cf1d9d",
+      "candidate_sha256": "ec108a4b8cc9c608ba790e71bc5a1c34bbd33cd5241503c7a4ddba7a7e5e0d30",
+      "baseline_path": "release/work-release-alignment-20261104/production-base/backend/packages/harness/deerflow/agents/lead_agent/agent.py"
+    }
+  }
+}

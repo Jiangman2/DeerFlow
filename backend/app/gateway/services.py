@@ -30,6 +30,7 @@ from app.gateway.internal_auth import (
     get_internal_user,
     get_trusted_internal_owner_user_id,
 )
+from app.gateway.message_source import stamp_message_source
 from app.gateway.utils import sanitize_log_param
 from app.gateway.weknora_identity import ensure_weknora_session_for_deerflow_user
 from deerflow.agents.human_input import read_human_input_response
@@ -444,6 +445,7 @@ def inject_authenticated_user_context(
             for key in ("is_internal", "authz_attributes", "channel_user_id"):
                 values.pop(key, None)
     runtime_context["is_internal"] = is_internal
+    stamp_message_source(config, internal=is_internal, request_context=request_context)
 
     # Only an authenticated internal IM request's top-level context is the
     # platform-sender source. In particular, setdefault would let body.config

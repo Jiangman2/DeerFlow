@@ -42,6 +42,8 @@ class WorkSettings:
     max_jobs: int = 32
     per_user_jobs: int = 4
     concurrency: int = 2
+    turn_timeout: int = 90
+    turn_queue_timeout: int = 10
 
     @classmethod
     def local_uat(cls):
@@ -88,6 +90,8 @@ class WorkSettings:
             _integer("DEER_FLOW_WORK_MAX_JOBS", 32, 1, 1000),
             _integer("DEER_FLOW_WORK_PER_USER_JOBS", 4, 1, 100),
             _integer("DEER_FLOW_WORK_CONCURRENCY", 2, 1, 32),
+            _integer("DEER_FLOW_WORK_TURN_TIMEOUT", 90, 5, 180),
+            _integer("DEER_FLOW_WORK_TURN_QUEUE_TIMEOUT", 10, 1, 30),
         )
 
 
