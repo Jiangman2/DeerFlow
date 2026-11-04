@@ -848,9 +848,7 @@ def wisequery_query_tool(runtime: Runtime, query: str) -> str:
 @tool("datalake_smart_query_tool", parse_docstring=True)
 def datalake_smart_query_tool(runtime: Runtime, query: str) -> str:
     """查询海洋石油业务数据。
-
     使用 Lake Search 接口检索业务数据，例如平台数量、平台信息等。
-
     Args:
         query: 用户提出的完整自然语言问题。
     """
@@ -903,6 +901,105 @@ def datalake_smart_query_tool(runtime: Runtime, query: str) -> str:
     except Exception as exc:
         return f"执行异常：{type(exc).__name__}: {exc}"
 
+#2026.11.4 datalake_detail_metrics_qa_tool
+
+import requests
+from langchain_core.tools import tool
+
+
+@tool
+def datalake_detail_metrics_qa_tool(query: str) -> str:
+    """查询企业数据湖中的明细数据与业务指标。
+    适用于：
+    1. 明细问数：油田、平台、井等对象的基本属性、
+       数据记录、字段查询、筛选、排序及明细统计。
+    2. 指标问数：产油量、产气量、储量、完成率、
+       KPI、累计值、同比环比等业务指标查询。
+    Args:
+        query: 用户提出的完整自然语言查询问题。
+    Returns:
+        AppForge 接口返回的查询结果。
+    """
+
+    url = (
+        "http://10.77.124.142:9080"
+        "/appforge/openapi/v1/InvokeApp/app-v16p2syh"
+    )
+
+    headers = {
+        "Authorization": "Bearer 7f2e4d6364ced1e11f06abee168d1df5",
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+    }
+
+    payload = {
+        "id": "app-v16p2syh",
+        "inputs": {
+            "hytoken": "",
+            "hyaccount": "",
+        },
+        "query": query,
+        "conversationId": (
+            "SquareWorkflow_13bfeefb-0fb0-446e-b85e-8c5e5aaf0780"
+        ),
+    }
+
+    try:
+        with requests.Session() as session:
+            # 绕过服务器 HTTP/HTTPS 代理
+            # 等价于 curl --noproxy '*'
+            session.trust_env = False
+
+            with session.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=(10, 120),
+                stream=True,
+            ) as response:
+
+                response.raise_for_status()
+
+                results = []
+
+                # 读取 SSE 流式响应
+                for line in response.iter_lines(
+                    decode_unicode=True
+                ):
+                    if not line:
+                        continue
+
+                    if isinstance(line, bytes):
+                        line = line.decode(
+                            "utf-8", errors="replace"
+                        )
+
+                    if line.startswith("data:"):
+                        data = line[5:].strip()
+
+                        if data == "[DONE]":
+                            break
+
+                        results.append(data)
+
+                if results:
+                    return "\n".join(results)
+
+                return "接口调用成功，但未返回有效数据"
+
+    except requests.exceptions.Timeout:
+        return "AppForge 查询失败：接口请求超时"
+
+    except requests.exceptions.ConnectionError as e:
+        return f"AppForge 查询失败：网络连接异常，{e}"
+
+    except requests.exceptions.HTTPError as e:
+        return f"AppForge 查询失败：HTTP 请求异常，{e}"
+
+    except requests.RequestException as e:
+        return f"AppForge 查询失败：{e}"
+
+
 #路由
 @tool
 def route_datalake_tool(question: str) -> dict:
@@ -927,6 +1024,8 @@ def route_datalake_tool(question: str) -> dict:
         "datalake_md_search_tool",
         "wisequery_query_tool"
         "datalake_smart_query_tool",
+        "datalake_detail_metrics_qa_tool",
+
     }
 
     payload = {
@@ -955,6 +1054,10 @@ def route_datalake_tool(question: str) -> dict:
                     "datalake_smart_query_tool": (
                         "检索企业数据湖中的井工程文档、报告、井史、地质及完井资料，返回排序后的来源信息和附件。 模型需自行分析总结、引用来源，证据不足时说明不确定性；工具不生成最终答案。 "
                         "表字段和记录列表使用 detail QA；指标、排名、比率及总量使用 metrics QA。 参数 query：用户完整的数据湖资料检索问题。中海油有多少平台"
+                    ),
+                    "datalake_detail_metrics_qa_tool":(
+                        "查询企业数据湖中的明细数据与业务指标。适用于：1. 明细问数：油田、平台、井等对象的基本属性、数据记录、字段查询、筛选、排序及明细统计。2. 指标问数：产油量、产气量、储量、完成率、KPI、累计值、同比环比等业务指标查询。"
+                        "查询作业井基本信息表中设计井深最大的2口井。"
                     ),
                     "wisequery_query_tool": (
                         "企业数据湖的自然语言问答入口，一次性完成「生成执行计划 + 执行」两步并返回最终结果。接收自然语言问题（question），按 channel_hint 或路由策略自动分流到合适的后端通道（Cube 指标/属性、明细 SQL 或通用取数）。"
