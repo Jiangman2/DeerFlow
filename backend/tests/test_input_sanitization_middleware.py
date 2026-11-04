@@ -192,6 +192,7 @@ _FRAMEWORK_STRUCTURED_TAGS = [
     "disabled_skills",
     "memory_tool_system",
     "durable_context_data",
+    "current_channel_capabilities",
     "slash_skill_activation",
     "system_reminder",
     # Rendered into the lead-agent system prompt by tools/builtins/tool_search.py
