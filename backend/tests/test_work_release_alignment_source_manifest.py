@@ -80,7 +80,7 @@ def evidence():
             target = root / path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(value)
-        with patch.object(VERIFIER, "ROOT", root):
+        with patch.object(VERIFIER, "ROOT", root), patch.object(VERIFIER._nov02.followup.alignment, "MANIFEST_SHA256", digest(records[VERIFIER.WORK_RELEASE_ALIGNMENT])):
             yield root, alignment, records
 
 
@@ -190,6 +190,8 @@ class WorkReleaseAlignmentTests(unittest.TestCase):
 
             raw = (root / VERIFIER.WORK_RELEASE_ALIGNMENT).read_bytes()
             (root / VERIFIER.WORK_RELEASE_ALIGNMENT).unlink()
+            for row in alignment["changes"].values():
+                (root / row["baseline_path"]).unlink()
             for path in alignment["changes"]:
                 (root / path).write_bytes(b"VALUE = 3\n")
             git("init", "--quiet")
@@ -197,6 +199,8 @@ class WorkReleaseAlignmentTests(unittest.TestCase):
             git("commit", "--quiet", "-m", "synthetic sixth layer")
             old = git("rev-parse", "HEAD").decode().strip()
             (root / VERIFIER.WORK_RELEASE_ALIGNMENT).write_bytes(raw)
+            for row in alignment["changes"].values():
+                (root / row["baseline_path"]).write_bytes(b"VALUE = 1\n")
             for path in alignment["changes"]:
                 (root / path).write_bytes(b"VALUE = 7\n")
             git("add", ".")
@@ -208,6 +212,12 @@ class WorkReleaseAlignmentTests(unittest.TestCase):
             self.assertEqual(VERIFIER.verify(new)["git_ref"], new)
             with self.assertRaises(AssertionError):
                 VERIFIER.verify()
+            (root / VERIFIER.WORK_RELEASE_ALIGNMENT).unlink()
+            git("add", ".")
+            git("commit", "--quiet", "-m", "synthetic missing merge manifest")
+            incomplete = git("rev-parse", "HEAD").decode().strip()
+            with self.assertRaisesRegex(AssertionError, "WORK_RELEASE_ALIGNMENT_MISSING_MANIFEST"):
+                VERIFIER.verify(incomplete)
 
 
 if __name__ == "__main__":

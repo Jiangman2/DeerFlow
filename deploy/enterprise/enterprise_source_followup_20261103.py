@@ -13,6 +13,10 @@ _spec = importlib.util.spec_from_file_location("dashboard_navigation_source_2026
 navigation = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(navigation)
 
+_alignment_spec = importlib.util.spec_from_file_location("work_release_alignment_20261104", Path(__file__).with_name("work_release_alignment_20261104.py"))
+alignment = importlib.util.module_from_spec(_alignment_spec)
+_alignment_spec.loader.exec_module(alignment)
+
 ARCHIVE = "release/enterprise-source-followup-20261103/"
 MANIFEST = ARCHIVE + "SOURCE.json"
 MANIFEST_SHA256 = "d383005667ae3f623045ae54fe333ba98677ec3ea03096914b23daf59342d1bc"
@@ -78,7 +82,13 @@ def formatting_read(read, manifest):
 
 def qualify(read):
     if isinstance(read, HistoricalReader):
-        return read.qualification
+        verified = qualify(read.original_read)
+        assert verified == read.qualification, "ENTERPRISE_FOLLOWUP_READER_CHANGED"
+        return verified
+    return _qualify_projected(alignment.historical_read(read))
+
+
+def _qualify_projected(read):
     read = navigation.historical_read(read)
     try:
         raw = read(MANIFEST)
@@ -115,8 +125,11 @@ class HistoricalReader:
     """Only the fixed, verified changes are projected back for older audits."""
 
     def __init__(self, read, qualification):
-        self.read = read
-        self.qualification = qualification
+        verified = qualify(read)
+        assert verified and verified == qualification, "ENTERPRISE_FOLLOWUP_READER_CHANGED"
+        self.original_read = read
+        self.read = navigation.historical_read(alignment.historical_read(read))
+        self.qualification = verified
 
     def __call__(self, path):
         row = self.qualification["changes"].get(path)
@@ -129,10 +142,13 @@ class HistoricalReader:
 
 def historical_read(read):
     if isinstance(read, HistoricalReader):
+        qualify(read)
         return read
+    original = read
+    read = alignment.historical_read(read)
     read = navigation.historical_read(read)
-    qualification = qualify(read)
-    return HistoricalReader(read, qualification) if qualification else read
+    qualification = _qualify_projected(read)
+    return HistoricalReader(original, qualification) if qualification else read
 
 
 def summary(qualification):

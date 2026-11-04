@@ -231,36 +231,8 @@ def work_task_agent_model_fix_overrides(lock, prior, manifest, lock_digest, prio
 
 
 def qualify_work_release_alignment(read):
-    """Check the narrow rebased candidate before exposing production parents."""
-    try:
-        raw = read(WORK_RELEASE_ALIGNMENT)
-    except (FileNotFoundError, KeyError):
-        return None
-    manifest = json.loads(raw)
-    assert isinstance(manifest, dict) and set(manifest) == {'schema', 'status', 'base_commit', 'scope', 'parent_manifests', 'changes'}, 'WORK_RELEASE_ALIGNMENT_SCHEMA'
-    assert manifest['schema'] == 'work-release-alignment-source-candidate.v1', 'WORK_RELEASE_ALIGNMENT_SCHEMA'
-    assert manifest['status'] == 'NOT_DEPLOYED', 'WORK_RELEASE_ALIGNMENT_NOT_DEPLOYED_REQUIRED'
-    assert manifest['base_commit'] == WORK_RELEASE_BASE_COMMIT, 'WORK_RELEASE_ALIGNMENT_BASE_COMMIT'
-    assert isinstance(manifest['scope'], str), 'WORK_RELEASE_ALIGNMENT_SCHEMA'
-    parents = manifest['parent_manifests']
-    assert isinstance(parents, dict) and set(parents) == set(WORK_PARENT_MANIFESTS), 'WORK_RELEASE_ALIGNMENT_PARENT_SCOPE'
-    for path, digest in parents.items():
-        assert hashlib.sha256(read(path).replace(b'\r\n', b'\n')).hexdigest() == digest, 'WORK_RELEASE_ALIGNMENT_PARENT_CHANGED'
-    changes = manifest['changes']
-    assert isinstance(changes, dict) and set(changes) == WORK_RELEASE_ALIGNMENT_PATHS, 'WORK_RELEASE_ALIGNMENT_PATH_SCOPE'
-    for path, row in changes.items():
-        assert isinstance(row, dict) and set(row) == {'base_sha256', 'work_candidate_sha256', 'candidate_sha256', 'baseline_path'}, 'WORK_RELEASE_ALIGNMENT_CHANGE_SCHEMA'
-        for field in ('base_sha256', 'work_candidate_sha256', 'candidate_sha256'):
-            digest = row[field]
-            assert isinstance(digest, str) and len(digest) == 64 and all(c in '0123456789abcdef' for c in digest), 'WORK_RELEASE_ALIGNMENT_HASH_FORMAT'
-        assert row['baseline_path'] == WORK_RELEASE_ALIGNMENT_ARCHIVE + 'production-base/' + path, 'WORK_RELEASE_ALIGNMENT_BASELINE_PATH'
-        baseline = read(row['baseline_path']).replace(b'\r\n', b'\n')
-        current = read(path).replace(b'\r\n', b'\n')
-        assert hashlib.sha256(baseline).hexdigest() == row['base_sha256'], (path, 'WORK_RELEASE_ALIGNMENT_BASELINE_CHANGED')
-        assert hashlib.sha256(current).hexdigest() == row['candidate_sha256'], (path, 'WORK_RELEASE_ALIGNMENT_CURRENT_CHANGED')
-        ast.parse(baseline, filename=row['baseline_path'])
-        ast.parse(current, filename=path)
-    return manifest
+    """Share the strict merge qualification with the historical audit readers."""
+    return _nov02.followup.alignment.qualify(read)
 
 
 def work_release_alignment_overrides(lock, production, work, manifest):
@@ -361,7 +333,9 @@ def verify(ref=None, lock_path=LOCK):
             if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, manifest_path], cwd=ROOT).strip():
                 extra.append(manifest_path)
         if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, WORK_RELEASE_ALIGNMENT], cwd=ROOT).strip():
-            extra.extend((WORK_RELEASE_ALIGNMENT, WORK_RELEASE_ALIGNMENT_ARCHIVE))
+            extra.append(WORK_RELEASE_ALIGNMENT)
+        if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, WORK_RELEASE_ALIGNMENT_ARCHIVE], cwd=ROOT).strip():
+            extra.append(WORK_RELEASE_ALIGNMENT_ARCHIVE)
         if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, NOV02_DELTA], cwd=ROOT).strip():
             extra.extend((NOV02_DELTA, NOV02_ARCHIVE, "backend/tests"))
         if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, _nov02.CI_MANIFEST], cwd=ROOT).strip():
@@ -379,10 +353,7 @@ def verify(ref=None, lock_path=LOCK):
     # Existing qualifiers must verify the actual latest production source, not
     # old R4 bytes. Only these prequalified overlaps project the sealed ef4
     # parents; current merged bytes are checked again in the final inventory.
-    alignment_paths = alignment_manifest['changes'] if alignment_manifest else {}
-    def production_read(name):
-        return current_read(alignment_paths[name]['baseline_path'] if name in alignment_paths else name)
-    read = production_read
+    read = _nov02.followup.alignment.historical_read(current_read)
     navigation = _nov02.followup.navigation.qualify(read)
     followup = _nov02.followup.qualify(read)
     read = _nov02.followup.historical_read(read)
