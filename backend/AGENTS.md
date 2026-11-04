@@ -2271,7 +2271,89 @@ old schema/data preservation, one migration head, and Runner fresh/upgrade paths
 
 ### Work routing boundary
 
-`app/integrations/work/routing.py` owns conservative channel admission. A `None` route returns the original message and attachments to the normal channel pipeline without checking the Work rollout allowlist. Work is not inferred from generic document/calendar nouns or an outstanding clarification alone. Persistent topic exit removes the versioned principal context so another worker cannot restore a stale task. Keep routing separate from OAuth authority and confirmed write execution. Regress with `tests/test_work_routing_boundary.py`, `test_work_documents.py`, `test_work_calendar.py`, and `test_work_capabilities.py`.
+The November 4 candidate is reconciled onto enterprise ef4ce7a1 in a separate
+worktree; preserve the R4 source tree, images and all historical receipts. Read
+docs/WORK_RELEASE_PREFLIGHT_20261104.md before an upgrade. WorkAPI ignores proxy
+environment while the SDK HTTP transport uses its defaults; check both paths
+inside actual production Pods without exposing credentials. DEER_FLOW_WORK_ENABLED=false
+is not a maintenance gate for an already configured Feishu channel: it disables
+the SQL receiver guard but may leave ordinary channel sockets enabled. The owner
+allowlist runs after semantic planning and cannot isolate model traffic. Keep
+all old protocol writers stopped during cutover; this increment adds no DDL.
+The standalone deploy/enterprise/work-runtime-preflight-20261104.py defaults to
+redacted read-only inspection. Optional database checks must remain SELECT-only;
+network probes must be explicit, fixed-origin app-token/bot-info operations, never
+user calendar/document access, a second WebSocket or a test robot message.
+
+On 2026-11-03 another developer was confirmed to have connected the same UAT
+application; the earlier screenshots cannot all be attributed to r2. After
+isolating receivers, local r2 was reactivated and the user reproduced cross-day
+choice loops and planning timeouts. Preserve the r1/r2 images, source manifests
+and all original evidence; model-only and offline passes are not end-to-end bot
+acceptance. The follow-up repair remains a production-undeployed candidate.
+
+Cross-day acknowledgement binds actual normalized timing/cardinality rather than
+patch-key presence. Repeating the same interval must not clear acknowledgement;
+real changes must require a fresh business choice. Structured span choices are
+accepted only after the current server-owned question and with current input
+evidence; they never replace signed write confirmation. Every complete proposal
+passes local validation without an extra model finish round. Keep six bounded
+domain steps and at most two format repairs. Separate queue timeout (10 seconds)
+from the planner's overall deadline (90 seconds, configurable 5–180); the service
+has only a one-second watchdog, not a retry budget. Log message hashes, fixed
+stages, elapsed times and allowlisted field/category diagnostics, never raw model
+outputs, unknown field names or credentials. See docs/WORK_CALENDAR_TASK_AGENT.md.
+
+The subsequent model-only R4 repair prioritizes canonical server missing/limit
+questions before discretionary model questions, so the next turn's scoped tool
+gate cannot depend on a paraphrase. Normalize only redundant keep_duration=true
+on relative shifts without absolute time/duration; shared Changes remains strict.
+An incidental confirmation_quote must match current input and never grants span,
+reset, OAuth or write authority. Preserve all six source layers and the original
+15/20 then 20/20 model-round records. The new two-round allowance is exhausted;
+actual Work business acceptance is still separate from synthetic planning.
+
+The subsequent 2026-11-02 calendar task candidate uses explicit patch drafts and
+a bounded routing/domain-tool loop. Keep slot omission distinct from explicit
+clearing, preserve finite occurrence counts, and expand dates server-side.
+Creation/repair must receive validation feedback before finishing a proposal.
+Write dates also pass the server-owned grounding boundary: unanchored clock-only
+input cannot invent a start day. Reuse only same-task verified absolute days;
+historical relative expressions without receipt timestamps cannot be reinterpreted.
+Keep this parameter validation separate from semantic intent routing. The existing
+encrypted task JSON stores the evidence; explicit new tasks clear it.
+Continuous spans over 24 hours require the server-owned clarification flow;
+the model patch cannot set its confirmation flag. Deletion remains disabled by
+the user's current scope. Protocol-2 immutable previews and per-item SQL claims
+handle finite batches without schema changes; topic exit stops unstarted items
+but retains receipts. Historical successful receipts are locators only: read
+the target and all edit guards again. See docs/WORK_CALENDAR_TASK_AGENT.md.
+Keep the server-owned task execution index in the same SQL transaction as the
+parent claim. New tasks initialize it; continuations preserve it. Recheck after
+turn rotation so a confirmation racing the model cannot recreate an old draft.
+Legacy missing indexes stay conservative, never imply no previous execution.
+
+The 2026-11-02 semantic candidate supersedes the historical operation-word
+allowlist. Only trusted, bound Work private messages call `agent.plan_turn`;
+normal web chats, other channels, OA and scheduled work keep their old pipeline.
+`routing.py` contains the typed non-executable decision, not per-sentence lexical
+admission. Reuse the verified proposal after OAuth; missing requirements are
+asked before consent. Common date windows are server-calculated from the model's
+semantic enum. Never infer resource permission from source or a model answer.
+
+Gateway stamps runtime-only message_source and the fixed Work capability note
+from authenticated current input. Strip caller/config/checkpoint provenance;
+a web continuation of an IM-origin thread remains web. Keep existing other-channel
+policies and OAuth's original-task continuation boundary intact.
+
+Task lifecycle uses random TaskRef generations plus turn reservations and short
+transactions in the existing Work state table; no table/model/migration changes.
+Conversation exit invalidates pending jobs/states/previews, retaining grants and
+executing/uncertain receipts. Fence context saves, callbacks and confirmation
+claims across processes. Do not hold DB locks over model/provider calls or allow
+old callbacks to create a new conversation. Deploy all compatible readers before
+accepting new protocol traffic. See docs/WORK_ROUTING.md and the semantic,
+message-source, task-state, production and capability regression suites.
 
 
 ### Scoped search TLS compatibility

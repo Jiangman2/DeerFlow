@@ -1,0 +1,69 @@
+{
+  "schema": "work-routing-source-candidate.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "0dc61aa7435ce57546e93eae81fb3d124a4ef6a7",
+  "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
+  "parent_candidate_sha256": "072724c8ddbf1de8b1d8d17410b8d8e38823133b879176d07225406459e8d745",
+  "scope": "Work semantic routing and fenced conversation tasks; no schema or production deployment changes.",
+  "changes": {
+    "gateway": {
+      "backend/app/channels/manager.py": {
+        "base_sha256": "7f1046ef4fd71d126f6e3efe7a9d39267b4c5bbd9375c8d9c94699da7907e737",
+        "candidate_sha256": "ec362f03f17ee491ad3a1d37e1dfa652195d168e4f1188ad3269f5db60fbd0f4"
+      },
+      "backend/app/gateway/message_source.py": {
+        "base_sha256": null,
+        "candidate_sha256": "9d00b7a98fdf4d3a551c60510d308769ce130bdc35353e70acc5679fb45deb86"
+      },
+      "backend/app/gateway/services.py": {
+        "base_sha256": "507d877a1e68cfe39c405ee3f9ac9a6c6261e1c242065e07b7eb4a59dc525f58",
+        "candidate_sha256": "bb4280dd2cbec98e0a939f44d7ae8be9feb97ab32e2d7f868a112857acf0fcd1"
+      },
+      "backend/app/integrations/work/agent.py": {
+        "base_sha256": "ce625b2f61c765209f6db000234cce18553ec91aa81f82d51461a784dda8df41",
+        "candidate_sha256": "0eebf19bafc8d674c9125c0f7aebe1666e0dd09ca2fff7af50516a3ff92d83fa"
+      },
+      "backend/app/integrations/work/capabilities.py": {
+        "base_sha256": "f41f814b5552d1c0e473e3f3321c7548715d903c1f65b70cd1e8a97c5165044b",
+        "candidate_sha256": "92cd34ae1d8ab14814ab477ccf49969d7c867be65c3fcf72b972f61ef10e6bbe"
+      },
+      "backend/app/integrations/work/config.py": {
+        "base_sha256": "2dfc2f9198d7c4268163543c43a9e3edcd6f20bc49ec3532c6560a49c9d5c3a5",
+        "candidate_sha256": "2d9078323d2719c2507f8bcb77ddb76bb0bc28cff04ab8f5470d1a1651158362"
+      },
+      "backend/app/integrations/work/persistent.py": {
+        "base_sha256": "4e567109c5974d26d537b1505d17b02771946572db4d422aed28b9520b819a9d",
+        "candidate_sha256": "b5e473db9d98dd23a4eefb1533078598211453c7883be3b607d76c1f95a7559f"
+      },
+      "backend/app/integrations/work/routing.py": {
+        "base_sha256": "2cd39ac64ec83680df8b7a0b3cbff250d3079c3e51f71a9c2712703676e2fa4c",
+        "candidate_sha256": "5755f8454fbe78527c6d6f643210e8110511d57df9b8145cf76e17b846c5665d"
+      },
+      "backend/app/integrations/work/service.py": {
+        "base_sha256": "fe59118ba9b91433da4fe3e84f979fef325990c68527f545a9dc9469962d8fe9",
+        "candidate_sha256": "6d04054e01238ae1911b44de70d64448c61fa03143e5df07ff547410bc158de3"
+      },
+      "backend/app/integrations/work/store.py": {
+        "base_sha256": "dca53a3f9f92c8920c1ab7750a1e63b522750587b80171c1eb5fbfa4ab76ef45",
+        "candidate_sha256": "59fe9634d2557960d10869940d6ea7079a7c447b16b1ad81c8a099ee9d0f5c0e"
+      },
+      "backend/app/integrations/work/tasks.py": {
+        "base_sha256": null,
+        "candidate_sha256": "879f9b764eeea5697f106dff45225ddd51fab96f9ffa19f49019b92697a7fe78"
+      },
+      "backend/app/integrations/work/turn_state.py": {
+        "base_sha256": null,
+        "candidate_sha256": "1b415c838d2adc2a804682d2b6eb3fa81b36d323be7aaaeae4d26f37b3ffcc8b"
+      },
+      "backend/packages/harness/deerflow/agents/lead_agent/agent.py": {
+        "base_sha256": "1a5cbe048777f9498a0ce086c156d571ea7399ced2e83b34bb660eb32f54cd30",
+        "candidate_sha256": "fbcedd391d9a31b12a2b1a8bc5a32329688f8f3e36b6ab202959924f33cf1d9d"
+      },
+      "backend/packages/harness/deerflow/agents/lead_agent/channel_guidance.py": {
+        "base_sha256": null,
+        "candidate_sha256": "395f324ca45aa33202e53a67593428ef524baaafbc8356ba66001635409c35e9"
+      }
+    },
+    "frontend": {}
+  }
+}

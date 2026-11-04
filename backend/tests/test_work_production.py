@@ -31,6 +31,24 @@ def test_production_is_default_profile_but_feature_is_opt_in(clean_work_env):
     assert settings.callback_url == "https://cnoocclaw.cnooc.com.cn/api/integrations/work/oauth/callback"
 
 
+def test_turn_model_and_queue_budgets_have_separate_bounded_defaults(clean_work_env, monkeypatch):
+    assert WorkSettings.from_env().turn_timeout == 90
+    assert WorkSettings.from_env().turn_queue_timeout == 10
+    monkeypatch.setenv("DEER_FLOW_WORK_TURN_TIMEOUT", "30")
+    assert WorkSettings.from_env().turn_timeout == 30
+    monkeypatch.setenv("DEER_FLOW_WORK_TURN_TIMEOUT", "180")
+    monkeypatch.setenv("DEER_FLOW_WORK_TURN_QUEUE_TIMEOUT", "30")
+    assert WorkSettings.from_env().turn_timeout == 180
+    assert WorkSettings.from_env().turn_queue_timeout == 30
+
+
+@pytest.mark.parametrize("name,value", [("DEER_FLOW_WORK_TURN_TIMEOUT", "4"), ("DEER_FLOW_WORK_TURN_TIMEOUT", "181"), ("DEER_FLOW_WORK_TURN_QUEUE_TIMEOUT", "0"), ("DEER_FLOW_WORK_TURN_QUEUE_TIMEOUT", "31")])
+def test_turn_budgets_reject_unbounded_or_empty_execution_windows(clean_work_env, monkeypatch, name, value):
+    monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError):
+        WorkSettings.from_env()
+
+
 def test_production_full_rollout_does_not_require_an_owner_list(clean_work_env, monkeypatch):
     monkeypatch.setenv("DEER_FLOW_WORK_ENABLED", "true")
     assert WorkSettings.from_env().allowed_owners is None
@@ -202,9 +220,10 @@ def principal_message(name="A", text=None, source="message-1"):
     )
 
 
-def production_service(store, api=None, planner=None):
+def production_service(store, api=None, planner=None, turn_planner=None):
     from app.integrations.work.capabilities import Action
     from app.integrations.work.persistent import PersistentWorkService
+    from app.integrations.work.routing import WorkTurnDecision
 
     async def find(**kwargs):
         name = kwargs["external_account_id"].removeprefix("ou-")
@@ -222,7 +241,16 @@ def production_service(store, api=None, planner=None):
         api=api or AsyncMock(),
         summarize=AsyncMock(return_value="会议总结"),
         planner=planner or AsyncMock(return_value=Action(operation="document_read", document_id="doxTest123")),
+        turn_planner=turn_planner or AsyncMock(return_value=WorkTurnDecision(route="new_work", domain="document", intent=Action(operation="document_read", document_id="doxTest123"))),
     )
+
+
+async def begin_document_task(service, p, source="preview-task"):
+    """Direct tool tests still pass through production task admission."""
+    owner = service.vault.principal_key(p)
+    turn = await service.store.reserve_turn(owner, source)
+    assert turn is not None
+    return await service.store.finish_turn(owner, turn.turn_id, mode="new", task={"domain": "document"})
 
 
 @pytest.mark.asyncio
@@ -266,7 +294,8 @@ async def test_preview_survives_restart_wrong_user_rejected_and_duplicate_confir
     first, second = production_service(one), production_service(two)
     p = first._identity(principal_message())
     await first.vault.install(p, Grant("synthetic-A", time.monotonic() + 300, frozenset({"docx:document"})))
-    plan = await first.tools.prepare(p, Action(operation="document_create", title="新文档"))
+    ref = await begin_document_task(first, p)
+    plan = await first.tools.prepare(p, Action(operation="document_create", title="新文档"), task_ref=ref)
     first._api.assert_not_awaited()
     await first.close()
     writes = []
@@ -431,7 +460,8 @@ async def test_different_writes_for_one_user_are_serialized_across_processes(sto
     first.tools.api, second.tools.api = api, api
     try:
         await first.vault.install(p, Grant("synthetic-A", time.monotonic() + 300, frozenset({"docx:document"})))
-        plans = [await first.tools.prepare(p, Action(operation="document_create", title="test")) for _ in range(2)]
+        ref = await begin_document_task(first, p)
+        plans = [await first.tools.prepare(p, Action(operation="document_create", title="test"), task_ref=ref) for _ in range(2)]
         task = asyncio.create_task(first.tools.confirm(p, plans[0].id))
         await asyncio.wait_for(entered.wait(), 5)
         with pytest.raises(Exception, match="another_write_in_progress"):
@@ -482,7 +512,8 @@ async def test_uncertain_write_is_persisted_and_never_retried_after_restart(stor
     first.tools.api = AsyncMock(side_effect=TimeoutError("synthetic response lost"))
     try:
         await first.vault.install(p, Grant("synthetic-A", time.monotonic() + 300, frozenset({"docx:document"})))
-        plan = await first.tools.prepare(p, Action(operation="document_create", title="test"))
+        ref = await begin_document_task(first, p)
+        plan = await first.tools.prepare(p, Action(operation="document_create", title="test"), task_ref=ref)
         with pytest.raises(TimeoutError):
             await first.tools.confirm(p, plan.id)
         record = await stores[1].read("plan", plan.id, owner=first.vault.principal_key(p))
@@ -531,7 +562,113 @@ async def test_retained_unknown_execution_receipts_do_not_exhaust_preview_quota(
         for index in range(9):
             await stores[0].create("plan", "retained-" + str(index), {"id": "retained"}, owner=owner, ttl=90 * 86400, status="executing")
         await service.vault.install(p, Grant("synthetic-A", time.monotonic() + 300, frozenset({"docx:document"})))
-        plan = await service.tools.prepare(p, Action(operation="document_create", title="test"))
+        ref = await begin_document_task(service, p)
+        plan = await service.tools.prepare(p, Action(operation="document_create", title="test"), task_ref=ref)
         assert plan.stage == "pending"
     finally:
         await service.close()
+
+
+@pytest.mark.asyncio
+async def test_topic_exit_on_another_instance_cancels_oauth_but_preserves_existing_grant(stores):
+    from urllib.parse import parse_qs, urlsplit
+
+    from app.integrations.work.auth import Grant
+    from app.integrations.work.routing import WorkTurnDecision
+
+    first = production_service(stores[0])
+    second = production_service(stores[1], turn_planner=AsyncMock(return_value=WorkTurnDecision(route="general")))
+    p = first._identity(principal_message())
+    try:
+        # A calendar grant does not authorize this document request; topic exit
+        # must cancel only the task, without revoking an unrelated valid grant.
+        await first.vault.install(p, Grant("synthetic-calendar-A", time.monotonic() + 300, frozenset({"calendar:calendar:readonly"})))
+        assert await first.handle(principal_message())
+        ticket = next(iter(first.jobs))
+        start = await first.authorize(ticket, "")
+        state = parse_qs(urlsplit(start["authorize_url"]).query)["state"][0]
+        assert not await second.handle(principal_message(text="帮我写一段普通说明", source="general-after-oauth"))
+
+        with pytest.raises(Exception):
+            await first.callback(state=state, code="synthetic-code", browser_session=start["browser_session"])
+        first._api.assert_not_awaited()
+        first._summarize.assert_not_awaited()
+        assert (await second.vault.require(p, "calendar:calendar:readonly")).token == "synthetic-calendar-A"
+        assert (await stores[1].read("state", state)).status == "cancelled"
+        assert (await stores[1].read("job", ticket, owner=first.vault.principal_key(p))).status == "cancelled"
+    finally:
+        await first.close()
+        await second.close()
+
+
+@pytest.mark.asyncio
+async def test_topic_exit_during_code_exchange_cannot_install_grant_or_resume_on_another_instance(stores):
+    from urllib.parse import parse_qs, urlsplit
+
+    from app.integrations.work.routing import WorkTurnDecision
+
+    first = production_service(stores[0], turn_planner=AsyncMock(return_value=WorkTurnDecision(route="general")))
+    second = production_service(stores[1])
+    started, proceed = asyncio.Event(), asyncio.Event()
+    calls = []
+
+    async def api(operation, **kwargs):
+        calls.append(operation)
+        if operation == "token":
+            started.set()
+            await proceed.wait()
+            return {"access_token": "synthetic-A", "expires_in": 7200, "scope": "docx:document"}
+        if operation == "identity":
+            return {"data": {"open_id": "ou-A"}}
+        pytest.fail("A superseded OAuth task must never reach a business API")
+
+    second._api = api
+    try:
+        assert await second.handle(principal_message())
+        ticket = next(iter(second.jobs))
+        start = await second.authorize(ticket, "")
+        state = parse_qs(urlsplit(start["authorize_url"]).query)["state"][0]
+        callback = asyncio.create_task(second.callback(state=state, code="synthetic-code", browser_session=start["browser_session"]))
+        await asyncio.wait_for(started.wait(), 5)
+        assert not await first.handle(principal_message(text="帮我写一段普通说明", source="exit-during-exchange"))
+        proceed.set()
+        result = await asyncio.gather(callback, return_exceptions=True)
+        assert isinstance(result[0], Exception)
+        assert getattr(result[0], "stage", None) == "task_superseded"
+        await second.drain()
+        # A superseded task is fenced immediately after the token exchange,
+        # before even resolving the external account identity.
+        assert calls == ["token"]
+        second._summarize.assert_not_awaited()
+        assert not second.send.await_count or all("会议总结" not in call.args[0].text for call in second.send.await_args_list)
+        owner = first.vault.principal_key(first._identity(principal_message()))
+        assert await stores[0].read("grant", owner, owner=owner) is None
+    finally:
+        proceed.set()
+        await first.close()
+        await second.close()
+
+
+@pytest.mark.asyncio
+async def test_topic_exit_on_another_instance_fences_cached_preview_confirmation(stores):
+    from app.integrations.work.auth import Grant
+    from app.integrations.work.capabilities import Action
+    from app.integrations.work.routing import WorkTurnDecision
+
+    first = production_service(stores[0])
+    second = production_service(stores[1], turn_planner=AsyncMock(return_value=WorkTurnDecision(route="general")))
+    p = first._identity(principal_message())
+    try:
+        await first.vault.install(p, Grant("synthetic-A", time.monotonic() + 300, frozenset({"docx:document"})))
+        ref = await begin_document_task(first, p)
+        plan = await first.tools.prepare(p, Action(operation="document_create", title="不会创建"), task_ref=ref)
+        assert plan.stage == "pending"
+        assert not await second.handle(principal_message(text="换个话题聊一下", source="exit-after-preview"))
+        with pytest.raises(Exception, match="task_superseded"):
+            await first.tools.confirm(p, plan.id)
+        first._api.assert_not_awaited()
+        assert (await stores[0].read("plan", plan.id, owner=first.vault.principal_key(p))).status == "cancelled"
+        assert (await second.vault.require(p, "docx:document")).token == "synthetic-A"
+    finally:
+        await first.close()
+        await second.close()

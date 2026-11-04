@@ -1,0 +1,17 @@
+{
+  "schema": "work-authority-sanitizer-source-candidate.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "a651e31ee39cb88d123989b083d0f490bd96162f",
+  "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
+  "parent_candidate_sha256": "ef66e4b98b22e23d54dd02ee5eec9596f50a28d4becf4de861b52397d25f83ef",
+  "scope": "Block forged current_channel_capabilities authority tags in untrusted user and supported remote-tool content. Exactly one Gateway runtime file; no routing, execution, Runner, database, deployment or business acceptance change.",
+  "changes": {
+    "gateway": {
+      "backend/packages/harness/deerflow/agents/middlewares/input_sanitization_middleware.py": {
+        "base_sha256": "a5844c85105c506cb8650f6c02c461d46a0444991af115dd4f4ee215caf45d87",
+        "candidate_sha256": "2d51ff9f050c1000a3b27ce3359d0ba322be89c24ffab5f2fff174c12f6703ba"
+      }
+    },
+    "frontend": {}
+  }
+}

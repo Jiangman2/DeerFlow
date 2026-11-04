@@ -13,6 +13,23 @@ V = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(V)
 
 
+class ArtifactDirectoryHistoryTests(unittest.TestCase):
+    def test_only_verified_middleware_is_projected(self):
+        q = V._nov02.followup
+        read = lambda path: (ROOT / path).read_bytes()
+        projected = q.artifact_directory_historical_read(read)
+        self.assertEqual(projected(q.ARTIFACT_SOURCE), read(q.ARTIFACT_PARENT))
+        self.assertNotEqual(read(q.ARTIFACT_SOURCE), projected(q.ARTIFACT_SOURCE))
+        self.assertEqual(projected(q.ARTIFACT_TEST), read(q.ARTIFACT_TEST))
+        for path in (q.ARTIFACT_SOURCE, q.ARTIFACT_TEST, q.ARTIFACT_PARENT):
+            with self.subTest(path=path), self.assertRaisesRegex(ValueError, "ARTIFACT_DIRECTORY_SOURCE_CHANGED"):
+                q.artifact_directory_historical_read(lambda name: b"changed" if name == path else read(name))
+
+    def test_unqualified_historical_ref_keeps_original_reader(self):
+        read = {}.__getitem__
+        self.assertIs(V._nov02.followup.artifact_directory_historical_read(read), read)
+
+
 class SourceDeltaTests(unittest.TestCase):
     def setUp(self):
         self.read = lambda name: (ROOT / name).read_bytes()

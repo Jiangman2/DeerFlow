@@ -20,6 +20,8 @@ def verify(ref=None):
     archived = {}
     if ref:
         roots = ["backend/app", "backend/packages/harness", "backend/tests", "frontend/src", "frontend/tests", "skills/public/data-analysis", ARCHIVE]
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.ARTIFACT_PARENT], cwd=ROOT).strip():
+            roots.append(followup.ARTIFACT_PARENT)
         if has_nov02:
             roots.extend((NOV02_ARCHIVE, NOV02_DELTA, PARENT_DELTA))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, CI_MANIFEST], cwd=ROOT).strip():
@@ -28,6 +30,10 @@ def verify(ref=None):
             roots.append(followup.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.navigation.MANIFEST], cwd=ROOT).strip():
             roots.append(followup.navigation.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.alignment.WORK_RELEASE_ALIGNMENT], cwd=ROOT).strip():
+            roots.extend((followup.alignment.WORK_RELEASE_ALIGNMENT, *followup.alignment.WORK_PARENT_MANIFESTS))
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.alignment.WORK_RELEASE_ALIGNMENT_ARCHIVE], cwd=ROOT).strip():
+            roots.append(followup.alignment.WORK_RELEASE_ALIGNMENT_ARCHIVE)
         raw = subprocess.check_output(["git", "archive", ref, *roots], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             archived = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}
@@ -37,6 +43,7 @@ def verify(ref=None):
             return archived[path]
         return (ROOT / path).read_bytes()
 
+    read = followup.artifact_directory_historical_read(read)
     if has_nov02:
         read = historical_read(read)
 

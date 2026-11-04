@@ -1,0 +1,29 @@
+{
+  "schema": "work-task-agent-fix-source-candidate.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "0dc61aa7435ce57546e93eae81fb3d124a4ef6a7",
+  "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
+  "parent_candidate_sha256": "5431108907adf3c1c2a393ff26824f9216a493200a8a20101b44206f045ed99b",
+  "scope": "Work task-agent UAT regression fixes: conditional cross-day choices and bounded model/queue budgets; no schema or production deployment.",
+  "changes": {
+    "gateway": {
+      "backend/app/integrations/work/agent.py": {
+        "base_sha256": "c20db05e1bd6df50a74363abca161a1781d7937341ff5192e2fde113b4127062",
+        "candidate_sha256": "03fa8ff1b3cac3891d7ba90d73f5afecad6db24929c32a1b9d7d86ebe55274b3"
+      },
+      "backend/app/integrations/work/config.py": {
+        "base_sha256": "2d9078323d2719c2507f8bcb77ddb76bb0bc28cff04ab8f5470d1a1651158362",
+        "candidate_sha256": "52792a1609d8b7c393c356f0ffec7ac958871a4c059b00a7e65efea0f200d088"
+      },
+      "backend/app/integrations/work/drafts.py": {
+        "base_sha256": "9c61cce694615882ae9772473582b572504f3e336c242384ce0a7ddb0ef25a5e",
+        "candidate_sha256": "f1e5c418d28af93a51cef2e063482d9c617b98cc3785d16ae06c204b551aef64"
+      },
+      "backend/app/integrations/work/service.py": {
+        "base_sha256": "2d01f129f4d5ce378c1215b0b3cac8525da2b90ac0981ed00209693641a5084f",
+        "candidate_sha256": "17ff5f51f68965146fcb50ac17381caa7e3efcf5f56cece8c01e44ed4074c9a0"
+      }
+    },
+    "frontend": {}
+  }
+}

@@ -7,6 +7,7 @@ on:
       - 'release/nov02-released-fixes-source-20261103/**'
       - 'release/pr26-ci-qualification-20261103/**'
       - 'release/enterprise-source-followup-20261103/**'
+      - 'release/artifact-directory-20261104/**'
       - 'release/dashboard-navigation-20261103/**'
       - 'release/dashboard-navigation-20261103-r2/**'
       - 'deploy/enterprise/*dashboard*navigation*'
