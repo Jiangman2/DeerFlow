@@ -34,6 +34,24 @@ remains pending. Existing case contract versions retain their prior meaning;
 new direct-only budget execution requires reimport. This archive does not
 request another production update, Gateway rollout or database operation.
 
+## Historical November 3 Gateway 406 / Frontend 239 observation
+
+The November 3 scoped operator observation is archived in
+`release/production-observation-20261103-gw406/SOURCE.json`; see
+`docs/production-observation-406-20261103.md`. All 70 Gateway and 2 frontend Pod
+image metadata records were checked, with Python source/startup-environment
+sampling on five Gateway nodes. The 635 expected Python files per sample match
+enterprise commit `443cbd8ab` exactly or through pinned format-only proofs. OA
+startup timeout was 3600 seconds in those samples; callbacks were disabled.
+At that observation, Frontend 239 lacked the three "latest 1000" dashboard copy
+changes; their later Frontend 240 release is recorded separately in
+`docs/dashboard-navigation-20261103.md`. This historical snapshot is not the
+current production baseline or full-image/dependency, all-process, database,
+Runner or business acceptance.
+Keep original evidence immutable and run the offline observation verifier/tests
+with Python 3.12+. Do not rerun the archived production inspector or activation
+commands merely to review this record.
+
 ## November 3 enterprise successor provenance
 
 `release/enterprise-source-followup-20261103/SOURCE.json` qualifies the 7 runtime
