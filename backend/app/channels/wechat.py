@@ -26,6 +26,7 @@ from app.channels.base import Channel
 from app.channels.commands import is_known_channel_command
 from app.channels.connection_identity import attach_connection_identity
 from app.channels.message_bus import InboundMessage, InboundMessageType, MessageBus, OutboundMessage, ResolvedAttachment
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -255,11 +256,21 @@ class WechatChannel(Channel):
         self._state_dir = self._resolve_state_dir(config.get("state_dir"))
         self._cursor_path = self._state_dir / "wechat-getupdates.json" if self._state_dir else None
         self._auth_path = self._state_dir / "wechat-auth.json" if self._state_dir else None
-        self._load_state()
+        # NOTE: persisted state (auth token + cursor) is intentionally NOT loaded
+        # here. ChannelService._start_channel() constructs the channel directly
+        # on the async path, so filesystem IO in __init__ would block the event
+        # loop (the strict blocking-IO gate raises BlockingError on os.stat).
+        # State is loaded in start() via asyncio.to_thread instead.
 
     async def start(self) -> None:
         if self._running:
             return
+
+        # Load persisted state off the event loop before the bot_token check
+        # below: a token restored from the auth file must be visible here so
+        # the qrcode-login fallback isn't taken unnecessarily. __init__ defers
+        # this load precisely so construction stays IO-free on the async path.
+        await asyncio.to_thread(self._load_state)
 
         if not self._bot_token and not self._qrcode_login_enabled:
             logger.error("WeChat channel requires bot_token or qrcode_login_enabled")
@@ -267,7 +278,7 @@ class WechatChannel(Channel):
 
         self._main_loop = asyncio.get_running_loop()
         if self._state_dir:
-            self._state_dir.mkdir(parents=True, exist_ok=True)
+            await asyncio.to_thread(self._state_dir.mkdir, parents=True, exist_ok=True)
 
         await self._ensure_client()
         self._running = True
@@ -372,7 +383,7 @@ class WechatChannel(Channel):
             return False
 
         try:
-            plaintext = attachment.actual_path.read_bytes()
+            plaintext = await asyncio.to_thread(attachment.actual_path.read_bytes)
         except OSError:
             logger.exception("[WeChat] failed to read outbound image %s", attachment.actual_path)
             return False
@@ -462,7 +473,7 @@ class WechatChannel(Channel):
             return False
 
         try:
-            plaintext = attachment.actual_path.read_bytes()
+            plaintext = await asyncio.to_thread(attachment.actual_path.read_bytes)
         except OSError:
             logger.exception("[WeChat] failed to read outbound file %s", attachment.actual_path)
             return False
@@ -555,8 +566,8 @@ class WechatChannel(Channel):
                     if errcode == -14:
                         self._bot_token = ""
                         self._get_updates_buf = ""
-                        self._save_state()
-                        self._save_auth_state(status="expired", bot_token="")
+                        await asyncio.to_thread(self._save_state)
+                        await asyncio.to_thread(self._save_auth_state, status="expired", bot_token="")
                         logger.error("[WeChat] bot token expired; scan again or update bot_token and restart the channel")
                         self._running = False
                         break
@@ -571,13 +582,22 @@ class WechatChannel(Channel):
 
                 self._update_longpoll_timeout(data)
 
+                for raw_message in data.get("msgs", []):
+                    try:
+                        await self._handle_update(raw_message)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        message_id = str(raw_message.get("message_id") or "unknown")[:128] if isinstance(raw_message, dict) else "unknown"
+                        logger.exception("[WeChat] message %s failed; continuing batch", message_id)
+
+                # Commit the cursor only after every item has been attempted.
+                # Cancellation/crash mid-batch must not acknowledge unhandled
+                # siblings; a bad attachment must not discard later messages.
                 next_buf = data.get("get_updates_buf")
                 if isinstance(next_buf, str) and next_buf != self._get_updates_buf:
                     self._get_updates_buf = next_buf
-                    self._save_state()
-
-                for raw_message in data.get("msgs", []):
-                    await self._handle_update(raw_message)
+                    await asyncio.to_thread(self._save_state)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -673,7 +693,7 @@ class WechatChannel(Channel):
             },
             status="connected",
         )
-        await self._send_connection_reply(chat_id, context_token, "WeChat connected to DeerFlow.")
+        await self._send_connection_reply(chat_id, context_token, f"WeChat已连接至{ENTERPRISE_PRODUCT_NAME}。")
         return True
 
     async def _send_connection_reply(self, chat_id: str, context_token: str, text: str) -> None:
@@ -692,7 +712,7 @@ class WechatChannel(Channel):
             if self._bot_token:
                 return True
 
-            self._load_auth_state()
+            await asyncio.to_thread(self._load_auth_state)
             if self._bot_token:
                 return True
 
@@ -720,7 +740,8 @@ class WechatChannel(Channel):
         if qrcode_img_content:
             logger.warning("[WeChat] qrcode_img_content=%s", qrcode_img_content)
 
-        self._save_auth_state(
+        await asyncio.to_thread(
+            self._save_auth_state,
             status="pending",
             qrcode=qrcode,
             qrcode_img_content=qrcode_img_content or None,
@@ -742,7 +763,8 @@ class WechatChannel(Channel):
                 if ilink_bot_id:
                     self._ilink_bot_id = ilink_bot_id
 
-                return self._save_auth_state(
+                return await asyncio.to_thread(
+                    self._save_auth_state,
                     status="confirmed",
                     bot_token=token,
                     ilink_bot_id=self._ilink_bot_id,
@@ -751,7 +773,8 @@ class WechatChannel(Channel):
                 )
 
             if status in {"expired", "canceled", "cancelled", "invalid", "failed"}:
-                self._save_auth_state(
+                await asyncio.to_thread(
+                    self._save_auth_state,
                     status=status,
                     qrcode=qrcode,
                     qrcode_img_content=qrcode_img_content or None,
@@ -760,7 +783,8 @@ class WechatChannel(Channel):
 
             await asyncio.sleep(max(self._qrcode_poll_interval, 0.1))
 
-        self._save_auth_state(
+        await asyncio.to_thread(
+            self._save_auth_state,
             status="timeout",
             qrcode=qrcode,
             qrcode_img_content=qrcode_img_content or None,
@@ -1046,7 +1070,7 @@ class WechatChannel(Channel):
         detected_image = _detect_image_extension_and_mime(decrypted)
         image_extension = detected_image[0] if detected_image else ".jpg"
         filename = _safe_media_filename("wechat-image", image_extension, message_id=message_id, index=index)
-        stored_path = self._stage_downloaded_file(filename, decrypted)
+        stored_path = await asyncio.to_thread(self._stage_downloaded_file, filename, decrypted)
         if stored_path is None:
             return None
 
@@ -1097,7 +1121,7 @@ class WechatChannel(Channel):
             logger.warning("[WeChat] inbound file exceeds size limit (%d bytes), skipping message_id=%s", len(decrypted), message_id)
             return None
 
-        stored_path = self._stage_downloaded_file(filename, decrypted)
+        stored_path = await asyncio.to_thread(self._stage_downloaded_file, filename, decrypted)
         if stored_path is None:
             return None
 

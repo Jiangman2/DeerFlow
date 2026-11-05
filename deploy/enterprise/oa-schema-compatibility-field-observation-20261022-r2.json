@@ -1,0 +1,63 @@
+{
+  "schema": "portal-oa-schema-compatibility-field-observation.v1",
+  "evidence_origin": "OPERATOR_PASTED_RESULT",
+  "observed_date": "2026-10-22",
+  "checker_sha256": "c4a42a6499416614d078ff75ff35db588e1366373a586efd2aeb028001b1a04c",
+  "consumers": [
+    {
+      "deployment": "gateway",
+      "generation": 382,
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1",
+      "spec_sha256": "699119d2d3e7a2e30aad980d5c4f37560be9022b00059a2712b6512e4b3816ff",
+      "observation": {
+        "status": "SYNTHETIC_SCHEMA_COMPATIBILITY_ACCEPTED",
+        "baseline_bootstrap_sha256": "b852ea3bd215124e605e8c5a276c1cc99343a67d4165136121d885ea3def9449",
+        "candidate_bootstrap_sha256": "611dff501f59b3b94bccd4b3f9b31309955eb5e38356ed257882ead79d8e1fb1",
+        "candidate_helper_sha256": "2dd04bfafc29856c0f646926043aed7b713d79d69744a9053ff99fdf6af24c8b",
+        "source_commit": "a161e84e0",
+        "checks": [
+          "baseline_unknown_revision_reproduced",
+          "compatible_0020_consumer_restarts_on_0021",
+          "revision_and_legacy_row_preserved",
+          "incomplete_expansion_rejected",
+          "unknown_successor_rejected",
+          "existing_0020_startup_preserved"
+        ],
+        "candidate_only_in_child": true,
+        "production_database_access": false,
+        "temporary_files_cleaned": true,
+        "synthetic_database": "TEMPORARY_SQLITE"
+      }
+    },
+    {
+      "deployment": "ppt-master-runner",
+      "generation": 54,
+      "uid": "4115f178-0599-445e-89c3-9d9452ddc26a",
+      "spec_sha256": "a1ba61f7c0339e23788b2ce8629ac5d90c0f71c8bf82cec6958b01c02ca31b94",
+      "observation": {
+        "status": "SYNTHETIC_SCHEMA_COMPATIBILITY_ACCEPTED",
+        "baseline_bootstrap_sha256": "990e6381692083a00a856a61c19f072e81f57f4ec41b232db4d8e8ebecf3ab86",
+        "candidate_bootstrap_sha256": "7b704c7f4434556d354f9bbbd326dfdb15f935dbb5b1d8b1fd7908866f02e612",
+        "candidate_helper_sha256": "2dd04bfafc29856c0f646926043aed7b713d79d69744a9053ff99fdf6af24c8b",
+        "source_commit": "9df7b5d41cf367e09be3bffce325079d918220c3",
+        "checks": [
+          "baseline_unknown_revision_reproduced",
+          "compatible_0020_consumer_restarts_on_0021",
+          "revision_and_legacy_row_preserved",
+          "incomplete_expansion_rejected",
+          "unknown_successor_rejected",
+          "existing_0020_startup_preserved"
+        ],
+        "candidate_only_in_child": true,
+        "production_database_access": false,
+        "temporary_files_cleaned": true,
+        "synthetic_database": "TEMPORARY_SQLITE"
+      }
+    }
+  ],
+  "status": "SCHEMA_COMPATIBILITY_CHECKED_NOT_DEPLOYED",
+  "production_database_access": false,
+  "workload_modified": false,
+  "provider_requests": 0,
+  "ready_for_rollout": false
+}

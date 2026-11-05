@@ -1,0 +1,28 @@
+# Append after existing models; preserve the current default and GLM profile.
+# Inject the key using a required Gateway Kubernetes Secret reference.
+models:
+  - name: deepseek-v4.1-flash
+    display_name: DeepSeek-V4.1-Flash
+    description: "企业 DeepSeek V4.1 · 闪速与深度思考 · 图片理解"
+    use: deerflow.models.enterprise_deepseek_v41:EnterpriseDeepSeekV41Chat
+    model: DeepSeek-V4.1-Flash
+    base_url: https://aiapi.cnooc.com.cn/DeepSeek-V4.1-Flash/FCV-41/v1
+    api_key: $DEEPSEEK_V4_1_FLASH_API_KEY
+    use_responses_api: false
+    supports_thinking: true
+    thinking_always_on: false
+    supports_vision: true
+    supports_reasoning_effort: false
+    extra_body:
+      enable_thinking: false
+    when_thinking_enabled:
+      extra_body:
+        enable_thinking: true
+    when_thinking_disabled:
+      extra_body:
+        enable_thinking: false
+    streaming: true
+    stream_usage: true
+    timeout: 180
+    stream_chunk_timeout: 180
+    max_retries: 0

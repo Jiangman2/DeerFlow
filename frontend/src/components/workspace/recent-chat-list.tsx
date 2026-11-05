@@ -1,17 +1,27 @@
 "use client";
 
 import {
+  Archive,
   Download,
   FileJson,
   FileText,
   MoreHorizontal,
   Pencil,
+  Pin,
+  PinOff,
   Share2,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams, usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -42,7 +52,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { resetThreadChatAfterDelete } from "@/components/workspace/chats/use-thread-chat";
 import { getAPIClient } from "@/core/api";
 import { writeTextToClipboard } from "@/core/clipboard";
 import { useI18n } from "@/core/i18n/hooks";
@@ -51,40 +60,45 @@ import {
   exportThreadAsMarkdown,
 } from "@/core/threads/export";
 import {
-  useDeleteThread,
   useInfiniteThreads,
+  usePinThread,
   useRenameThread,
 } from "@/core/threads/hooks";
 import type { AgentThread, AgentThreadState } from "@/core/threads/types";
 import {
   channelSourceOfThread,
+  isThreadPinned,
   pathOfThread,
+  sortPinnedThreads,
   titleOfThread,
 } from "@/core/threads/utils";
 import { env } from "@/env";
 import { isIMEComposing } from "@/lib/ime";
 
 import { ThreadChannelIcon } from "./thread-channel-source";
+import { useThreadDeleteDialog } from "./thread-delete-dialog";
+import { useThreadArchiveAction } from "./use-thread-archive-action";
 
 export function RecentChatList() {
   const { t } = useI18n();
-  const router = useRouter();
   const pathname = usePathname();
-  const { thread_id: threadIdFromPath, agent_name: agentNameFromPath } =
-    useParams<{
-      thread_id: string;
-      agent_name?: string;
-    }>();
+  const archiveAction = useThreadArchiveAction();
+  const requestDelete = useThreadDeleteDialog();
   const {
     data: infiniteThreads,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteThreads();
-  const threads = useMemo(
-    () => infiniteThreads?.pages.flat() ?? [],
-    [infiniteThreads],
-  );
+  } = useInfiniteThreads({
+    archived:
+      env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ? undefined : false,
+  });
+  const threads = useMemo(() => {
+    return (infiniteThreads?.pages.flat() ?? []).filter(
+      (thread) => thread.metadata?.demo !== true,
+    );
+  }, [infiniteThreads]);
+  const displayedThreads = useMemo(() => sortPinnedThreads(threads), [threads]);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -104,51 +118,13 @@ export function RecentChatList() {
     return () => observer.disconnect();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const { mutate: deleteThread } = useDeleteThread();
   const { mutate: renameThread } = useRenameThread();
+  const { mutate: updatePinnedThread } = usePinThread();
 
   // Rename dialog state
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameThreadId, setRenameThreadId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-
-  const handleDelete = useCallback(
-    (thread: AgentThread) => {
-      const currentPathname =
-        typeof window === "undefined" ? pathname : window.location.pathname;
-      const threadPath = pathOfThread(thread);
-      const nextThreadPath = pathOfThread("new", {
-        agent_name: agentNameFromPath,
-      });
-      const isNewThreadPath = currentPathname === nextThreadPath;
-      const isCurrentThread =
-        thread.thread_id === threadIdFromPath ||
-        threadPath === currentPathname ||
-        (isNewThreadPath && threads[0]?.thread_id === thread.thread_id);
-
-      deleteThread({
-        threadId: thread.thread_id,
-        onRemoteDeleted: isCurrentThread
-          ? () => {
-              resetThreadChatAfterDelete({
-                deletedThreadId: thread.thread_id,
-                nextPath: nextThreadPath,
-                force: true,
-              });
-              void router.replace(nextThreadPath);
-            }
-          : undefined,
-      });
-    },
-    [
-      agentNameFromPath,
-      deleteThread,
-      pathname,
-      router,
-      threadIdFromPath,
-      threads,
-    ],
-  );
 
   const handleRenameClick = useCallback(
     (threadId: string, currentTitle: string) => {
@@ -168,15 +144,30 @@ export function RecentChatList() {
     }
   }, [renameThread, renameThreadId, renameValue]);
 
+  const handleTogglePin = useCallback(
+    (thread: AgentThread) => {
+      updatePinnedThread(
+        {
+          threadId: thread.thread_id,
+          pinned: !isThreadPinned(thread),
+        },
+        {
+          onError: (error) => {
+            toast.error(
+              error instanceof Error && error.message
+                ? error.message
+                : t.chats.pinChatFailed,
+            );
+          },
+        },
+      );
+    },
+    [t.chats.pinChatFailed, updatePinnedThread],
+  );
+
   const handleShare = useCallback(
     async (thread: AgentThread) => {
-      // Always use Vercel URL for sharing so others can access
-      const VERCEL_URL = "https://deer-flow-v2.vercel.app";
-      const isLocalhost =
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1";
-      // On localhost: use Vercel URL; On production: use current origin
-      const baseUrl = isLocalhost ? VERCEL_URL : window.location.origin;
+      const baseUrl = window.location.origin;
       const shareUrl = `${baseUrl}${pathOfThread(thread)}`;
       try {
         const didCopy = await writeTextToClipboard(shareUrl);
@@ -196,7 +187,7 @@ export function RecentChatList() {
   const handleExport = useCallback(
     async (thread: AgentThread, format: "markdown" | "json") => {
       try {
-        const apiClient = getAPIClient();
+        const apiClient = getAPIClient(undefined, thread.thread_id);
         const state = await apiClient.threads.getState<AgentThreadState>(
           thread.thread_id,
         );
@@ -224,113 +215,157 @@ export function RecentChatList() {
   return (
     <>
       <SidebarGroup>
-        <SidebarGroupLabel>
-          {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true"
-            ? t.sidebar.recentChats
-            : t.sidebar.demoChats}
-        </SidebarGroupLabel>
+        <SidebarGroupLabel>对话</SidebarGroupLabel>
         <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
           <SidebarMenu>
             <div className="flex w-full flex-col gap-1">
-              {threads.map((thread) => {
+              {displayedThreads.map((thread, index) => {
                 const isActive = pathOfThread(thread) === pathname;
                 const channelSource = channelSourceOfThread(thread);
+                const pinned = isThreadPinned(thread);
                 return (
-                  <SidebarMenuItem
-                    key={thread.thread_id}
-                    className="group/side-menu-item"
-                  >
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      className="text-[#4f5967] hover:bg-white/80 hover:text-[#222832] data-[active=true]:bg-white data-[active=true]:text-[#222832] data-[active=true]:shadow-sm"
-                      asChild
-                    >
-                      <Link
-                        className="flex min-w-0 w-full items-center gap-1.5 pr-7 whitespace-nowrap group-hover/side-menu-item:overflow-hidden"
-                        href={pathOfThread(thread)}
+                  <Fragment key={thread.thread_id}>
+                    {index === 0 && (
+                      <div className="text-muted-foreground/70 mt-3 mb-1 px-2 text-[11px] font-medium tracking-wide first:mt-0">
+                        最近对话
+                      </div>
+                    )}
+                    <SidebarMenuItem className="group/side-menu-item">
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary data-[active=true]:shadow-sm"
+                        asChild
                       >
-                        <ThreadChannelIcon source={channelSource} />
-                        <span className="min-w-0 truncate">
-                          {titleOfThread(thread)}
-                        </span>
-                        {channelSource && (
-                          <span
-                            className="bg-muted text-muted-foreground ml-auto inline-flex h-5 max-w-14 shrink-0 items-center rounded-md px-1.5 text-[10px] font-medium"
-                            title={`${channelSource.label} channel`}
-                          >
-                            <span className="truncate">
-                              {channelSource.label}
-                            </span>
-                          </span>
-                        )}
-                      </Link>
-                    </SidebarMenuButton>
-                    {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true" && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <SidebarMenuAction
-                            showOnHover
-                            className="bg-background/50 hover:bg-background after:left-0!"
-                          >
-                            <MoreHorizontal />
-                            <span className="sr-only">{t.common.more}</span>
-                          </SidebarMenuAction>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          className="w-48 rounded-lg"
-                          side={"right"}
-                          align={"start"}
+                        <Link
+                          className="text-muted-foreground min-w-0 whitespace-nowrap group-hover/side-menu-item:overflow-hidden"
+                          href={pathOfThread(thread)}
                         >
-                          <DropdownMenuItem
-                            onSelect={() =>
-                              handleRenameClick(
-                                thread.thread_id,
-                                titleOfThread(thread),
-                              )
-                            }
-                          >
-                            <Pencil className="text-muted-foreground" />
-                            <span>{t.common.rename}</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() => handleShare(thread)}
-                          >
-                            <Share2 className="text-muted-foreground" />
-                            <span>{t.common.share}</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger>
-                              <Download className="text-muted-foreground" />
-                              <span>{t.common.export}</span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent>
+                          <ThreadChannelIcon source={channelSource} />
+                          {pinned ? (
+                            <Pin
+                              aria-hidden="true"
+                              className="text-muted-foreground size-3.5 shrink-0"
+                            />
+                          ) : null}
+                          <span className="min-w-0 truncate">
+                            {titleOfThread(thread)}
+                          </span>
+                          {channelSource && (
+                            <span
+                              className="bg-muted text-muted-foreground ml-auto inline-flex h-5 max-w-14 shrink-0 items-center rounded-md px-1.5 text-[10px] font-medium"
+                              title={`${channelSource.label} channel`}
+                            >
+                              <span className="truncate">
+                                {channelSource.label}
+                              </span>
+                            </span>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
+                      {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true" &&
+                        thread.metadata?.demo !== true && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <SidebarMenuAction
+                                showOnHover
+                                className="bg-background/50 hover:bg-background after:left-0!"
+                              >
+                                <MoreHorizontal />
+                                <span className="sr-only">{t.common.more}</span>
+                              </SidebarMenuAction>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              className="w-48 rounded-lg"
+                              side={"right"}
+                              align={"start"}
+                            >
+                              <DropdownMenuItem
+                                onSelect={() => handleTogglePin(thread)}
+                              >
+                                {pinned ? (
+                                  <PinOff className="text-muted-foreground" />
+                                ) : (
+                                  <Pin className="text-muted-foreground" />
+                                )}
+                                <span>
+                                  {pinned ? t.chats.unpinChat : t.chats.pinChat}
+                                </span>
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 onSelect={() =>
-                                  handleExport(thread, "markdown")
+                                  handleRenameClick(
+                                    thread.thread_id,
+                                    titleOfThread(thread),
+                                  )
                                 }
                               >
-                                <FileText className="text-muted-foreground" />
-                                <span>{t.common.exportAsMarkdown}</span>
+                                <Pencil className="text-muted-foreground" />
+                                <span>{t.common.rename}</span>
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onSelect={() => handleExport(thread, "json")}
+                                onSelect={() => handleShare(thread)}
                               >
-                                <FileJson className="text-muted-foreground" />
-                                <span>{t.common.exportAsJSON}</span>
+                                <Share2 className="text-muted-foreground" />
+                                <span>{t.common.share}</span>
                               </DropdownMenuItem>
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onSelect={() => handleDelete(thread)}
-                          >
-                            <Trash2 className="text-muted-foreground" />
-                            <span>{t.common.delete}</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </SidebarMenuItem>
+                              <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                  <Download className="text-muted-foreground" />
+                                  <span>{t.common.export}</span>
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent>
+                                  <DropdownMenuItem
+                                    onSelect={() =>
+                                      handleExport(thread, "markdown")
+                                    }
+                                  >
+                                    <FileText className="text-muted-foreground" />
+                                    <span>{t.common.exportAsMarkdown}</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() =>
+                                      handleExport(thread, "json")
+                                    }
+                                  >
+                                    <FileJson className="text-muted-foreground" />
+                                    <span>{t.common.exportAsJSON}</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuSubContent>
+                              </DropdownMenuSub>
+                              <DropdownMenuItem
+                                disabled={archiveAction.isPending}
+                                onSelect={() =>
+                                  archiveAction.setArchived(
+                                    thread.thread_id,
+                                    true,
+                                  )
+                                }
+                              >
+                                <Archive className="text-muted-foreground" />
+                                <span>{t.chats.archiveChat}</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onSelect={() =>
+                                  requestDelete({
+                                    thread,
+                                    // Pinned display order does not identify the
+                                    // newest live chat in the original query order.
+                                    recentThreadId: threads.find(
+                                      (candidate) =>
+                                        candidate.metadata?.demo !== true,
+                                    )?.thread_id,
+                                  })
+                                }
+                              >
+                                <Trash2 className="text-muted-foreground" />
+                                <span>{t.common.delete}</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                    </SidebarMenuItem>
+                  </Fragment>
                 );
               })}
               {hasNextPage && (

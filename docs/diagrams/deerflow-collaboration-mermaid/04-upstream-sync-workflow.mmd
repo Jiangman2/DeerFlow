@@ -1,0 +1,27 @@
+flowchart LR
+    A["官方 DeerFlow<br/>bytedance/deer-flow<br/>upstream/main"] -->|"git fetch upstream"| B["团队 GitHub<br/>vendor/upstream-main<br/>官方代码镜像 / 同步指针"]
+    B -->|"创建同步分支"| C["本地 sync/upstream-日期<br/>或 sync/upstream-版本"]
+    C --> D["解决冲突<br/>确认企业功能、配置和部署没有被破坏"]
+    D --> E["make test<br/>pnpm check<br/>集成验证"]
+    E --> F{"验证是否通过？"}
+    F -- "不通过" --> G["修复同步冲突或兼容性问题"]
+    G --> D
+    F -- "通过" --> H["创建 PR<br/>sync/upstream-日期 → enterprise/integration"]
+    H --> I["Review + CI 通过"]
+    I --> J["合并官方更新到企业集成基线"]
+    J --> K["通知开发者更新本地 Feature 分支"]
+
+    L["旧 main<br/>历史产品分支"] -. "不作为官方同步目标" .- H
+
+    classDef official fill:#e2f0d9,stroke:#70ad47,color:#1f2937;
+    classDef mirror fill:#fff2cc,stroke:#d6b656,color:#1f2937;
+    classDef sync fill:#d9eaf7,stroke:#5b9bd5,color:#1f2937;
+    classDef decision fill:#fff2cc,stroke:#d6b656,color:#1f2937;
+    classDef integration fill:#fce4d6,stroke:#ed7d31,color:#1f2937;
+    classDef legacy fill:#fce4d6,stroke:#c0504d,color:#7f1d1d;
+    class A official;
+    class B mirror;
+    class C,D,E,G,K sync;
+    class F decision;
+    class H,I,J integration;
+    class L legacy;

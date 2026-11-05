@@ -1,0 +1,57 @@
+{
+  "schema": "portal-v41-glm-preparation-operator-summary.v1",
+  "source": "Operator-pasted final JSON from datax-01, received 2026-10-29; summary, not the original server report bytes",
+  "status": "V41_CONFIG_PREPARED_NOT_ACTIVATED",
+  "bundle_id": "6d373b2547ec8ffda1e3155e706bd142053dc2fca3c0f3f53079ad9ff097962b",
+  "local_prepare_and_rollout_bundle_match": true,
+  "server_report": {
+    "path": "/var/lib/portal-v41-glm-preparation-20261029-r1/REPORT.json",
+    "bytes": 9871,
+    "sha256": "3fe88df30ff1801f1732264d77a178e9d6b0577a678cfc09870de25915c946fd"
+  },
+  "candidate_configmap": {
+    "name": "deer-flow-config-v41-glm-20261029-83f63163c359",
+    "uid": "c36badad-02bf-4c4b-8ad5-6994ff0522e5",
+    "payload_sha256": "1d56a755f69d6c9e6cff29700fa4588ae653ccbb3eaa9a8811f2c416f5c0652a",
+    "config_sha256": "4b10ae7d9d3b508db2f5f6495b5cacf5c51c4f74166c7e089de6581b2e4dde11"
+  },
+  "source_configmap": {
+    "name": "deer-flow-config-data-qa-glm-2e0fd403b23a",
+    "uid": "5aefbbbc-fee1-4745-99f9-54d092b6ad4d",
+    "payload_sha256": "00cf8df8a21b0762fb6371959118c8eccecb99478666a6906030fb3ade8174f4",
+    "preserved": true
+  },
+  "deployment_bindings": {
+    "gateway": {"generation": 389, "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1", "spec_sha256": "32ff8cd158844287f0f34d2d9d48d2dda816922dc2dc0082bfd5f97ca77ee6f3"},
+    "frontend": {"generation": 231, "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee", "spec_sha256": "a5842fa6f280bd331de31908de1f0d4914bf38133a312be0a9e747f76d8d3f14"},
+    "ppt-master-runner": {"generation": 55, "uid": "4115f178-0599-445e-89c3-9d9452ddc26a", "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd"},
+    "nginx-security-heai-20261012-r1": {"generation": 2, "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d", "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141"}
+  },
+  "candidate_models": ["deepseek-v4-flash", "glm-5.3-flash", "deepseek-v4.1-flash-1017"],
+  "default_model": "deepseek-v4-flash",
+  "default_model_changed": false,
+  "credential_source": "GLM_5_3_FLASH_API_KEY",
+  "factory_thinking_modes_verified": true,
+  "adapter_sha256": "a79d5b0e8a117223ca8b04e23e8bf6b36f737b32f43ea62c747c9193629b5930",
+  "ca_sha256": "84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af",
+  "private_file_hashes": {
+    "before.private.json": "a3731ec65e7b877264d97889135bc3f53410006f0a2b1bce82f2fa02541c3d09",
+    "candidate.private.json": "ac29096e060d4772fae450e8dcd3f9a0322dd0cab27e625e4a6ffa6d5f6bce29"
+  },
+  "provider_receipt_sha256": "9fb9f3e11de46b4f2441abd1e317e349537553eba963515f9bec7c0c2a0b58df",
+  "commands_executed": 31,
+  "preparation_accepted": true,
+  "once_claimed": true,
+  "gateway_rollout_required": true,
+  "gateway_rollout_started": false,
+  "activation_not_authorized_by_preparation": true,
+  "patch_request_count": 0,
+  "patch_may_have_applied": false,
+  "v41_enabled": false,
+  "workload_modified": false,
+  "image_changed": false,
+  "protected_deployments_preserved": true,
+  "provider_requests": 0,
+  "database_access_by_tool": false,
+  "credentials_exported": false
+}

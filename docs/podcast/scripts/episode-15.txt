@@ -1,0 +1,35 @@
+本集标题：Sandbox、本地执行与 Kubernetes Provisioner。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：10.1 Sandbox 抽象。
+
+Sandbox 是 Agent 与执行环境之间的抽象接口。上层工具只应依赖 Sandbox 能力，例如：
+
+bash。 - ls。 - 读文件。 - 写文件。 - 字符串替换。 - 文件上传和输出。
+
+它不应该直接假定“文件一定在宿主机”或“命令一定在当前 Python 进程执行”。
+
+下面进入小节：10.2 Local Sandbox。
+
+本地模式使用受控的本地目录。关键安全点：
+
+工作目录、上传目录和输出目录分离。 - 路径解析后必须仍位于允许根目录。 - 限制活动/服务器可执行上传扩展名。 - 不依赖浏览器 MIME 类型做安全判断。 - 宿主机 bash 默认不应因为配置工具存在就自动暴露。
+
+下面进入小节：10.3 AIO / Remote Sandbox。
+
+远程执行通常通过 HTTP API 调用 /v1/bash/exec 等能力。环境变量通过结构化命令环境传递，而不是随意写进 Pod manifest。请求作用域的 secret 应只进入真正使用它的命令。
+
+下面进入小节：10.4 Provisioner/Kubernetes 模式。
+
+图示口述：这里是一张用于说明模块关系或执行流程的架构图。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+当前分支特别强调：
+
+动态 Sandbox Pod 不应自动挂载 ServiceAccount Token。 - Sandbox API Key 通过 Secret 注入，不嵌入命令或 Pod 明文。 - Provisioner 管理的 warm sandbox 会在 Gateway 启动时重新接管并裁剪到配置数量。 - 活跃 Sandbox 可以暂时超过软容量上限，但最终由 idle timeout 回收。 - 企业代理、CA 和 TLS 兼容配置应只注入 Sandbox Pod，不应做全主机降级。
+
+下面进入小节：10.5 Sandbox 生命周期。
+
+图示口述：这里是一张用于说明模块关系或执行流程的架构图。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

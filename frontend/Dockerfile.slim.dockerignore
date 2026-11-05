@@ -1,0 +1,27 @@
+# Dockerfile-specific context. Do not change the shared Skills/backend ignore file.
+**
+!frontend/
+!frontend/**
+frontend/node_modules
+frontend/.next
+frontend/.git
+frontend/.env*
+frontend/**/.env*
+frontend/.pnpm-store
+frontend/.turbo
+frontend/coverage
+frontend/test-results
+frontend/playwright-report
+frontend/blob-report
+frontend/generated
+frontend/*.tsbuildinfo
+frontend/**/*.log
+frontend/**/*.pem
+frontend/**/*.key
+frontend/**/*.p12
+frontend/**/*.pfx
+frontend/**/*.oci.tar
+frontend/**/*.tar.gz
+frontend/**/*.zip
+frontend/AGENTS.md
+frontend/CLAUDE.md

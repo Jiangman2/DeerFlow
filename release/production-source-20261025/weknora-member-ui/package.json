@@ -1,0 +1,19 @@
+{
+  "schema": "portal-weknora-member-ui-package.v1",
+  "output": "C:\\Users\\15285\\Downloads\\activate-portal-weknora-member-ui-fix-20261025-r1.py",
+  "bytes": 72870,
+  "sha256": "cba8ad5bd7869d8e5ff480d39537c611efd11fabd6497ab4a279139050874aa4",
+  "payload_sha256": "2cc8dbfc99d4c39a7aa284fbb3e7ca5b58694043097e0e4d84a6b68fb0c59540",
+  "baseline_hashes": {
+    "assets/OrganizationList-A-11TnnH.legacy-office-r6.js": "f1fe525c2b9384c723e26c84ef7a78705ae12baa5d4d30c512f1a695a6ebccd2",
+    "assets/settings-CaJr93kK.legacy-office-r6.js": "7431ad4e795530e64189f6a609c54f5446be791dd2bb686f3b67b222ddf03f90",
+    "index.html": "3b907eaf1bc36b63f1b9b9ef25e8262c03259f89ca3cbf3671dc2f9a43d018ce"
+  },
+  "final_hashes": {
+    "assets/OrganizationList-A-11TnnH.legacy-office-r6.members-r1.js": "2f6d0e5fd7d538a809aa75988dff28d5bf3f8c42d7eb6b0f78965a20c9329861",
+    "assets/settings-CaJr93kK.legacy-office-r6.members-r1.js": "0b8be3ca843cfcb98a126255f1c2369cbae3e17e32903056c8a36edfe50725c4",
+    "index.html": "6e68cb49246c3e59fd661e4f79a8e479440743769ba67cd3ba177df9b7b58a59"
+  },
+  "production_deployed": false,
+  "installed_candidate_acceptance_pending": true
+}

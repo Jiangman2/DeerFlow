@@ -3,7 +3,6 @@ Dockerfile
 .dockerignore
 .git
 .gitignore
-.codex_tmp/
 docker/
 
 # Python
@@ -61,27 +60,48 @@ scripts/
 logs/
 docker/
 skills/
-!skills/
-skills/*
-!skills/public/
-skills/public/*
-!skills/public/ppt-master/
-skills/public/ppt-master/*
-!skills/public/ppt-master/requirements.txt
+outputs/
+.codex-ppt-build/
 frontend/.next
 frontend/node_modules
 backend/.venv
-backend/.deer-flow
-backend/.pytest_cache
-backend/.ruff_cache
-backend/__pycache__
-backend/sandbox
-backend/config.yaml
-backend/C*/
-backend/C*/**
 backend/htmlcov
 backend/.coverage
+backend/config.yaml
+backend/extensions_config.json
+backend/.deer-flow
+backend/.langgraph_api
+backend/.pytest_cache
+backend/.ruff_cache
 *.md
 !README.md
 !frontend/README.md
 !backend/README.md
+
+# Local incremental frontend image (Dockerfile.codex-frontend-live-preview)
+!frontend/.next/
+!frontend/.next/**
+frontend/.next/dev/
+frontend/.next/dev/**
+frontend/.next/cache/
+frontend/.next/cache/**
+
+# Runtime overlay/full builds need these exact service sources. Keep the rest
+# of docker/ excluded so unrelated deployment assets do not inflate contexts.
+!docker/
+docker/*
+!docker/sandbox-ppt-master/
+docker/sandbox-ppt-master/*
+!docker/sandbox-ppt-master/agent_host.py
+!docker/provisioner/
+docker/provisioner/*
+!docker/provisioner/app.py
+!docker/mineru_adapter/
+docker/mineru_adapter/*
+!docker/mineru_adapter/app.py
+
+# The documented Skills seed build copies the complete shipped Skills tree.
+# The Sandbox uses a named ppt-master build context, so this rule also keeps the
+# root build command functional without depending on ignored source files.
+!skills/
+!skills/**

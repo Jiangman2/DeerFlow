@@ -1,0 +1,30 @@
+{
+  "schema": "portal-oa-schema-expansion-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_SUMMARY_NOT_DIRECT_CLUSTER_READ",
+  "observation": {
+    "status": "OA_SCHEMA_EXPANSION_ACCEPTED_FEATURE_NOT_DEPLOYED",
+    "schema": "portal-oa-schema-expansion.v1",
+    "schema_revision": "0021_oa_result_sets",
+    "schema_migrated": true,
+    "schema_migration_requested": true,
+    "migration_outcome": "committed",
+    "migration_commit_reported": true,
+    "expansion_acknowledged": true,
+    "expand_requests": 1,
+    "inspected": 6,
+    "verified": 6,
+    "old_consumer_compatibility_verified": true,
+    "configuration_metadata_preserved": true,
+    "frontend_preserved": true,
+    "feature_deployed": false,
+    "production_workload_mutation": false,
+    "provider_requests": 0,
+    "active_tasks_allowed": true,
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "once_claimed": true,
+    "report_path": "/var/lib/portal-oa-schema-expansion-20261022-r1/REPORT.json",
+    "report_bytes": 53986,
+    "report_sha256": "1bd741e9db0465a8274c95e9d2e3d21f9ea1770b66b5d00af476dd761a98cba5"
+  }
+}

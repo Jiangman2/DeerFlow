@@ -1,0 +1,34 @@
+name: Production operations archive
+
+on:
+  pull_request:
+    paths:
+      - 'release/production-ops-20261028/**'
+      - 'deploy/enterprise/*production*ops*archive*20261029.py'
+      - '.github/workflows/production-ops-archive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-and-synthetic-operations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify archived sources and operator receipts
+        run: |
+          python deploy/enterprise/verify-production-ops-archive-20261029.py --ref HEAD
+          python -B -m unittest discover -s deploy/enterprise -p test_production_ops_archive_20261029.py
+      - name: Install native synthetic-test dependency
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends logrotate
+      - name: Run original synthetic operations tests
+        # Root ownership is part of metadata-preservation tests. All writes are
+        # to temporary directories; service/container operations are mocked.
+        run: sudo -- "$(command -v python)" -B -m unittest discover -s release/production-ops-20261028/historical -p 'test_*.py' -v

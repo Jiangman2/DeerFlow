@@ -63,6 +63,29 @@ def _make_minimal_config(tools):
     return config
 
 
+@patch("deerflow.tools.tools.is_host_bash_allowed", return_value=True)
+def test_skill_authoring_tools_are_registered_only_when_skill_evolution_is_enabled(_mock_bash):
+    config = _make_minimal_config([])
+
+    with patch("deerflow.tools.tools.BUILTIN_TOOLS", []):
+        disabled_names = {item.name for item in get_available_tools(include_mcp=False, app_config=config)}
+
+        config.skill_evolution.enabled = True
+        enabled_names = {item.name for item in get_available_tools(include_mcp=False, app_config=config)}
+
+    expected = {
+        "skill_create",
+        "skill_edit",
+        "skill_patch",
+        "skill_delete",
+        "skill_write_file",
+        "skill_remove_file",
+    }
+    assert expected.isdisjoint(disabled_names)
+    assert expected.issubset(enabled_names)
+    assert "skill_manage" not in enabled_names
+
+
 @patch("deerflow.tools.tools.get_app_config")
 @patch("deerflow.tools.tools.is_host_bash_allowed", return_value=True)
 def test_config_loaded_async_only_tool_gets_sync_wrapper(mock_bash, mock_cfg):

@@ -1,0 +1,405 @@
+{
+  "schema": "portal-oa-callback-operator-evidence.v2",
+  "evidence_source": "operator_pasted_output_not_live_cluster_read",
+  "transcript_sha256": "140c224b06b2a345ed275c3d4a91c5f5210601ad8cf142bf94ca4416811e8845",
+  "observation": {
+    "automatic_retry": false,
+    "business_callback_requests": 0,
+    "callback_head_requests": 4,
+    "callback_requests": 0,
+    "configuration_modified": false,
+    "credentials_exported": false,
+    "deployments": {
+      "frontend": {
+        "generation": 226,
+        "spec_sha256": "ecf0297bd8609f104a6b549d484d84b7d658c71b4a0b100a5c66149e821fb3a3",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 384,
+        "spec_sha256": "20f242c560879f8eb70b77c0d85367f614fe839bad76917637bcefc9d67eebd3",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "ppt-master-runner": {
+        "generation": 55,
+        "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      }
+    },
+    "diagnostic_revision": "r2_native_ca_file_loading",
+    "exitcode": 0,
+    "files_modified": false,
+    "job_submissions": 0,
+    "maximum_callback_head_requests": 4,
+    "maximum_loopback_get_requests": 0,
+    "oa_environment_sources": {
+      "env_from": [
+        {
+          "kind": "secretRef",
+          "name": "deer-flow-env",
+          "prefix": ""
+        }
+      ],
+      "explicit": []
+    },
+    "production_database_access": false,
+    "provider_requests": 0,
+    "samples": [
+      {
+        "identity": {
+          "container_id": "containerd://6a3e1053f98b17da05cc2ceff3bd6c0df7df8d63e87a7fb23c1ebcb888ad4c80",
+          "node": "ecs-zdz-pro-0021",
+          "pod": "gateway-d9ddb8b55-29zc7",
+          "restart_count": 0,
+          "uid": "32fe9703-8921-453c-ba89-46887c8ab9c9"
+        },
+        "observation": {
+          "agent_configured": true,
+          "application_started": false,
+          "callback_ca_configured": false,
+          "callback_diagnosis": {
+            "ca_inventory": [
+              {
+                "configured": false,
+                "path_exported": false,
+                "variable": "OA_POLICY_FLOW_CALLBACK_CA_BUNDLE"
+              },
+              {
+                "bytes": 228306,
+                "ca_count": 143,
+                "certificate_count": 143,
+                "configured": true,
+                "loading_method": "OPENSSL_CAFILE",
+                "path_exported": false,
+                "sha256": "84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af",
+                "status": "USABLE",
+                "variable": "SSL_CERT_FILE"
+              },
+              {
+                "bytes": 228306,
+                "ca_count": 143,
+                "certificate_count": 143,
+                "configured": true,
+                "loading_method": "OPENSSL_CAFILE",
+                "path_exported": false,
+                "sha256": "84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af",
+                "status": "USABLE",
+                "variable": "REQUESTS_CA_BUNDLE"
+              },
+              {
+                "bytes": 228306,
+                "ca_count": 143,
+                "certificate_count": 143,
+                "configured": true,
+                "loading_method": "OPENSSL_CAFILE",
+                "path_exported": false,
+                "sha256": "84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af",
+                "status": "USABLE",
+                "variable": "DEERFLOW_BROWSER_CA_BUNDLE"
+              }
+            ],
+            "configuration_modified": false,
+            "current_transport": {
+              "ca_source": "HTTPX_DEFAULT_TRUST_ENV_FALSE",
+              "category": "TLS_CERTIFICATE_VERIFICATION",
+              "credentials_sent": false,
+              "elapsed_seconds": 0.155,
+              "exception_chain": [
+                {
+                  "error_class": "ConnectError"
+                },
+                {
+                  "error_class": "ConnectError"
+                },
+                {
+                  "certificate_verify_category": "SELF_SIGNED_LEAF",
+                  "certificate_verify_code": 18,
+                  "errno": 1,
+                  "error_class": "SSLCertVerificationError"
+                }
+              ],
+              "head_requests": 1,
+              "hostname_verification": "REQUIRED",
+              "proxy_used": false,
+              "raw_error_exported": false,
+              "redirects_followed": false,
+              "response_body_exported": false,
+              "response_headers_exported": false,
+              "status": "INCOMPLETE",
+              "tls_verification": "REQUIRED"
+            },
+            "dns": {
+              "addresses": [
+                "10.72.68.182"
+              ],
+              "status": "PASS"
+            },
+            "existing_ca_comparison": {
+              "ca_source": "SSL_CERT_FILE",
+              "category": "TLS_CERTIFICATE_VERIFICATION",
+              "credentials_sent": false,
+              "diagnostic_only_not_applied": true,
+              "elapsed_seconds": 0.011,
+              "exception_chain": [
+                {
+                  "error_class": "ConnectError"
+                },
+                {
+                  "error_class": "ConnectError"
+                },
+                {
+                  "certificate_verify_category": "SELF_SIGNED_LEAF",
+                  "certificate_verify_code": 18,
+                  "errno": 1,
+                  "error_class": "SSLCertVerificationError"
+                }
+              ],
+              "head_requests": 1,
+              "hostname_verification": "REQUIRED",
+              "proxy_used": false,
+              "raw_error_exported": false,
+              "redirects_followed": false,
+              "response_body_exported": false,
+              "response_headers_exported": false,
+              "status": "INCOMPLETE",
+              "tls_verification": "REQUIRED"
+            },
+            "head_requests": 2,
+            "path_and_query_exported": false,
+            "proxy_policy": "DIRECT_TRUST_ENV_FALSE",
+            "scope": "TRANSPORT_DIAGNOSIS_NOT_OA_BUSINESS_ACCEPTANCE",
+            "status": "CALLBACK_TRANSPORT_DIAGNOSED_NOT_ENABLED",
+            "target_host": "grc-web.apps.shdev.ocpx.cnooc",
+            "target_port": 443,
+            "tcp": {
+              "address": "10.72.68.182",
+              "attempts": 1,
+              "elapsed_seconds": 0.001,
+              "status": "PASS"
+            }
+          },
+          "callback_enabled": false,
+          "callback_requests": 0,
+          "callback_target": {
+            "hostname": "grc-web.apps.shdev.ocpx.cnooc",
+            "path_and_query_exported": false,
+            "path_present": true,
+            "port": 443,
+            "query_present": false,
+            "scheme": "https"
+          },
+          "configuration_modified": false,
+          "credential_presence": {
+            "callback_bearer": false,
+            "callback_signing_secret": true,
+            "ingest_key": true
+          },
+          "credentials_exported": false,
+          "database_direct_access": false,
+          "enabled": true,
+          "job_submissions": 0,
+          "local_route": {
+            "requests": 0,
+            "status": "NOT_REQUESTED"
+          },
+          "max_callback_attempts": 8,
+          "max_result_bytes": 10485760,
+          "max_result_files": 10,
+          "max_total_result_bytes": 52428800,
+          "multi_result_enabled": false,
+          "oa_recursion_limit": 1000,
+          "owner_configured": true,
+          "provider_requests": 0,
+          "run_timeout_seconds": 1800,
+          "sources_verified": true,
+          "status": "OA_CONFIGURATION_OBSERVED_NOT_BUSINESS_ACCEPTED"
+        }
+      },
+      {
+        "identity": {
+          "container_id": "containerd://c89f016d2523c32fbda84e90f4b4a2dd66a6ac6ce43908d2ba1159f7cf71b11a",
+          "node": "ecs-zdz-pro-0019",
+          "pod": "gateway-d9ddb8b55-2lkbm",
+          "restart_count": 0,
+          "uid": "e90a3475-a92e-4ba3-ab42-4167e167190d"
+        },
+        "observation": {
+          "agent_configured": true,
+          "application_started": false,
+          "callback_ca_configured": false,
+          "callback_diagnosis": {
+            "ca_inventory": [
+              {
+                "configured": false,
+                "path_exported": false,
+                "variable": "OA_POLICY_FLOW_CALLBACK_CA_BUNDLE"
+              },
+              {
+                "bytes": 228306,
+                "ca_count": 143,
+                "certificate_count": 143,
+                "configured": true,
+                "loading_method": "OPENSSL_CAFILE",
+                "path_exported": false,
+                "sha256": "84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af",
+                "status": "USABLE",
+                "variable": "SSL_CERT_FILE"
+              },
+              {
+                "bytes": 228306,
+                "ca_count": 143,
+                "certificate_count": 143,
+                "configured": true,
+                "loading_method": "OPENSSL_CAFILE",
+                "path_exported": false,
+                "sha256": "84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af",
+                "status": "USABLE",
+                "variable": "REQUESTS_CA_BUNDLE"
+              },
+              {
+                "bytes": 228306,
+                "ca_count": 143,
+                "certificate_count": 143,
+                "configured": true,
+                "loading_method": "OPENSSL_CAFILE",
+                "path_exported": false,
+                "sha256": "84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af",
+                "status": "USABLE",
+                "variable": "DEERFLOW_BROWSER_CA_BUNDLE"
+              }
+            ],
+            "configuration_modified": false,
+            "current_transport": {
+              "ca_source": "HTTPX_DEFAULT_TRUST_ENV_FALSE",
+              "category": "TLS_CERTIFICATE_VERIFICATION",
+              "credentials_sent": false,
+              "elapsed_seconds": 0.174,
+              "exception_chain": [
+                {
+                  "error_class": "ConnectError"
+                },
+                {
+                  "error_class": "ConnectError"
+                },
+                {
+                  "certificate_verify_category": "SELF_SIGNED_LEAF",
+                  "certificate_verify_code": 18,
+                  "errno": 1,
+                  "error_class": "SSLCertVerificationError"
+                }
+              ],
+              "head_requests": 1,
+              "hostname_verification": "REQUIRED",
+              "proxy_used": false,
+              "raw_error_exported": false,
+              "redirects_followed": false,
+              "response_body_exported": false,
+              "response_headers_exported": false,
+              "status": "INCOMPLETE",
+              "tls_verification": "REQUIRED"
+            },
+            "dns": {
+              "addresses": [
+                "10.72.68.182"
+              ],
+              "status": "PASS"
+            },
+            "existing_ca_comparison": {
+              "ca_source": "SSL_CERT_FILE",
+              "category": "TLS_CERTIFICATE_VERIFICATION",
+              "credentials_sent": false,
+              "diagnostic_only_not_applied": true,
+              "elapsed_seconds": 0.01,
+              "exception_chain": [
+                {
+                  "error_class": "ConnectError"
+                },
+                {
+                  "error_class": "ConnectError"
+                },
+                {
+                  "certificate_verify_category": "SELF_SIGNED_LEAF",
+                  "certificate_verify_code": 18,
+                  "errno": 1,
+                  "error_class": "SSLCertVerificationError"
+                }
+              ],
+              "head_requests": 1,
+              "hostname_verification": "REQUIRED",
+              "proxy_used": false,
+              "raw_error_exported": false,
+              "redirects_followed": false,
+              "response_body_exported": false,
+              "response_headers_exported": false,
+              "status": "INCOMPLETE",
+              "tls_verification": "REQUIRED"
+            },
+            "head_requests": 2,
+            "path_and_query_exported": false,
+            "proxy_policy": "DIRECT_TRUST_ENV_FALSE",
+            "scope": "TRANSPORT_DIAGNOSIS_NOT_OA_BUSINESS_ACCEPTANCE",
+            "status": "CALLBACK_TRANSPORT_DIAGNOSED_NOT_ENABLED",
+            "target_host": "grc-web.apps.shdev.ocpx.cnooc",
+            "target_port": 443,
+            "tcp": {
+              "address": "10.72.68.182",
+              "attempts": 1,
+              "elapsed_seconds": 0.013,
+              "status": "PASS"
+            }
+          },
+          "callback_enabled": false,
+          "callback_requests": 0,
+          "callback_target": {
+            "hostname": "grc-web.apps.shdev.ocpx.cnooc",
+            "path_and_query_exported": false,
+            "path_present": true,
+            "port": 443,
+            "query_present": false,
+            "scheme": "https"
+          },
+          "configuration_modified": false,
+          "credential_presence": {
+            "callback_bearer": false,
+            "callback_signing_secret": true,
+            "ingest_key": true
+          },
+          "credentials_exported": false,
+          "database_direct_access": false,
+          "enabled": true,
+          "job_submissions": 0,
+          "local_route": {
+            "requests": 0,
+            "status": "NOT_REQUESTED"
+          },
+          "max_callback_attempts": 8,
+          "max_result_bytes": 10485760,
+          "max_result_files": 10,
+          "max_total_result_bytes": 52428800,
+          "multi_result_enabled": false,
+          "oa_recursion_limit": 1000,
+          "owner_configured": true,
+          "provider_requests": 0,
+          "run_timeout_seconds": 1800,
+          "sources_verified": true,
+          "status": "OA_CONFIGURATION_OBSERVED_NOT_BUSINESS_ACCEPTED"
+        }
+      }
+    ],
+    "schema": "portal-oa-callback-transport-diagnosis.v2",
+    "scope": "TWO_READY_GATEWAY_NODES_NOT_ALL_REPLICAS",
+    "secret_api_reads": 0,
+    "status": "CALLBACK_TRANSPORT_DIAGNOSED_NOT_ENABLED",
+    "workload_modified": false
+  },
+  "assessment": {
+    "existing_ca_loads_successfully": true,
+    "existing_ca_validates_callback": false,
+    "confirmed_failure": "UNTRUSTED_SELF_SIGNED_LEAF_WITH_DEFAULT_AND_EXISTING_CA",
+    "direct_transport": true,
+    "callback_enabled": false,
+    "multi_result_enabled": false,
+    "certificate_identity_and_san_not_recorded": true,
+    "next_dependency": "OA_CONFIRMED_ENDPOINT_AND_TRUST_CERTIFICATES"
+  }
+}

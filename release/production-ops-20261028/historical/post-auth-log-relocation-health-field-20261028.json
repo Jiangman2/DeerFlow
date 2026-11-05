@@ -1,0 +1,36 @@
+{
+  "schema": "portal-post-log-relocation-controller-health.v1",
+  "evidence_origin": "OPERATOR_PASTED_KUBECTL_TABLES_NOT_DIRECT_CLUSTER_READ",
+  "observed_local_date": "2026-10-28",
+  "all_reported_controllers_meet_desired": true,
+  "business_requests_checked": false,
+  "individual_sandbox_pods_checked": false,
+  "samples": {
+    "frontend": "2/2",
+    "gateway": "70/70",
+    "gateway-run-dispatcher": "2/2",
+    "ppt-master-runner": "1/1",
+    "weknora-app": "2/2",
+    "weknora-frontend": "1/1",
+    "skillhub-server": "1/1",
+    "skillhub-web": "1/1",
+    "postgres": "1/1",
+    "alloy": "4/4"
+  },
+  "legacy_zero_desired_controllers": [
+    "deer-flow-mineru-adapter",
+    "deer-flow-mineru-dispatcher"
+  ],
+  "nodes": {
+    "datax-01": {
+      "ready": true,
+      "disk_pressure": false,
+      "memory_pressure": false
+    },
+    "ecs-zdz-pro-0015": {
+      "ready": true,
+      "disk_pressure": false,
+      "memory_pressure": false
+    }
+  }
+}

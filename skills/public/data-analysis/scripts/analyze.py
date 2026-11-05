@@ -1,51 +1,72 @@
 """
 Data Analysis Script using DuckDB.
 
-Analyzes Excel (.xlsx/.xls) and CSV files using DuckDB's in-process SQL engine.
+Analyzes Excel (.xlsx) and CSV files using DuckDB's in-process SQL engine.
 Supports schema inspection, SQL queries, statistical summaries, and result export.
 """
 
 import argparse
+import csv
+import datetime as dt
 import hashlib
 import json
 import logging
 import os
 import re
-import subprocess
 import sys
 import tempfile
+import uuid
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
 try:
     import duckdb
-except ImportError:
-    logger.error("duckdb is not installed. Installing...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "duckdb", "openpyxl", "-q"], check=True)
-    import duckdb
+except ImportError as exc:
+    raise SystemExit(
+        "DEPENDENCY_MISSING: duckdb must be provided by the sandbox image; no runtime install attempted."
+    ) from exc
 
 try:
     import openpyxl  # noqa: F401
-except ImportError:
-    subprocess.run([sys.executable, "-m", "pip", "install", "openpyxl", "-q"], check=True)
+except ImportError as exc:
+    raise SystemExit(
+        "DEPENDENCY_MISSING: openpyxl must be provided by the sandbox image; no runtime install attempted."
+    ) from exc
 
 # Cache directory for persistent DuckDB databases
-CACHE_DIR = os.path.join(tempfile.gettempdir(), ".data-analysis-cache")
+CACHE_DIR = os.path.join(
+    "/mnt/user-data/workspace"
+    if os.path.isdir("/mnt/user-data/workspace")
+    else tempfile.gettempdir(),
+    ".data-analysis-cache",
+)
 TABLE_MAP_SUFFIX = ".table_map.json"
 
 
 def compute_files_hash(files: list[str]) -> str:
     """Compute a combined SHA256 hash of all input files for cache key."""
-    hasher = hashlib.sha256()
-    for file_path in sorted(files):
-        try:
-            with open(file_path, "rb") as f:
-                while chunk := f.read(8192):
-                    hasher.update(chunk)
-        except OSError:
-            # Include path as fallback if file can't be read
-            hasher.update(file_path.encode())
+    hasher = hashlib.sha256(b"offline-loader-v2\0")
+    for file_path in files:
+        # Names and order determine table names, even when contents are identical.
+        hasher.update(
+            json.dumps(
+                [os.path.abspath(file_path), os.path.getsize(file_path)],
+                ensure_ascii=False,
+            ).encode()
+        )
+        with open(file_path, "rb") as f:
+            digest = (
+                hashlib.file_digest(f, "sha256").digest()
+                if hasattr(hashlib, "file_digest")
+                else None
+            )
+            if digest is None:
+                part = hashlib.sha256()
+                while chunk := f.read(65536):
+                    part.update(chunk)
+                digest = part.digest()
+            hasher.update(digest)
     return hasher.hexdigest()
 
 
@@ -63,8 +84,14 @@ def get_table_map_path(files_hash: str) -> str:
 def save_table_map(files_hash: str, table_map: dict[str, str]) -> None:
     """Save table map to a JSON file alongside the cached DB."""
     path = get_table_map_path(files_hash)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(table_map, f, ensure_ascii=False)
+    temporary = path + "." + uuid.uuid4().hex + ".tmp"
+    try:
+        with open(temporary, "w", encoding="utf-8") as f:
+            json.dump(table_map, f, ensure_ascii=False)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.remove(temporary)
 
 
 def load_table_map(files_hash: str) -> dict[str, str] | None:
@@ -84,7 +111,23 @@ def sanitize_table_name(name: str) -> str:
     sanitized = re.sub(r"[^\w]", "_", name)
     if sanitized and sanitized[0].isdigit():
         sanitized = f"t_{sanitized}"
-    return sanitized
+    return sanitized or "data"
+
+
+def quote_identifier(value: str) -> str:
+    return '"' + value.replace('"', '""') + '"'
+
+
+def _table_names(name, table_map):
+    table = sanitize_table_name(name)
+    base, counter = table, 1
+    while table.casefold() in {v.casefold() for v in table_map.values()}:
+        table = f"{base}_{counter}"
+        counter += 1
+    key = name if name not in table_map else table
+    while key in table_map:
+        key += "_"
+    return key, table
 
 
 def load_files(con: duckdb.DuckDBPyConnection, files: list[str]) -> dict[str, str]:
@@ -93,22 +136,26 @@ def load_files(con: duckdb.DuckDBPyConnection, files: list[str]) -> dict[str, st
 
     Returns a mapping of original_name -> sanitized_table_name.
     """
-    con.execute("INSTALL spatial; LOAD spatial;")
     table_map: dict[str, str] = {}
 
+    # Fail before importing any subset; an absent input must not become a valid cache.
     for file_path in files:
-        if not os.path.exists(file_path):
-            logger.error(f"File not found: {file_path}")
-            continue
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(file_path)
 
+    for file_path in files:
         ext = os.path.splitext(file_path)[1].lower()
 
-        if ext in (".xlsx", ".xls"):
+        if ext == ".xlsx":
             _load_excel(con, file_path, table_map)
+        elif ext == ".xls":
+            raise ValueError(
+                "Legacy .xls requires conversion to .xlsx or CSV; the source file was not changed."
+            )
         elif ext == ".csv":
             _load_csv(con, file_path, table_map)
         else:
-            logger.warning(f"Unsupported file format: {ext} ({file_path})")
+            raise ValueError(f"Unsupported file format: {ext}")
 
     return table_map
 
@@ -116,43 +163,99 @@ def load_files(con: duckdb.DuckDBPyConnection, files: list[str]) -> dict[str, st
 def _load_excel(
     con: duckdb.DuckDBPyConnection, file_path: str, table_map: dict[str, str]
 ) -> None:
-    """Load all sheets from an Excel file into DuckDB tables."""
-    import openpyxl
+    """Stream XLSX through installed openpyxl and DuckDB's built-in CSV reader.
 
+    Infer types over every row, not only a sample. This preserves late text,
+    string identifiers (including leading zeroes), dates, and empty cells without
+    holding the workbook in memory or downloading GDAL/spatial extensions.
+    """
     wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
-    sheet_names = wb.sheetnames
-    wb.close()
-
-    for sheet_name in sheet_names:
-        table_name = sanitize_table_name(sheet_name)
-
-        # Handle duplicate table names
-        original_table_name = table_name
-        counter = 1
-        while table_name in table_map.values():
-            table_name = f"{original_table_name}_{counter}"
-            counter += 1
-
-        try:
-            con.execute(
-                f"""
-                CREATE TABLE "{table_name}" AS
-                SELECT * FROM st_read(
-                    '{file_path}',
-                    layer = '{sheet_name}',
-                    open_options = ['HEADERS=FORCE', 'FIELD_TYPES=AUTO']
+    try:
+        for sheet in wb:
+            sheet.reset_dimensions()
+            rows = sheet.iter_rows(values_only=True)
+            headers = list(next(rows, ()))
+            types = [None] * len(headers)
+            key, table = _table_names(sheet.title, table_map)
+            with tempfile.TemporaryDirectory(prefix="data-analysis-xlsx-") as folder:
+                path = os.path.join(folder, "rows.csv")
+                null = "__NULL_" + uuid.uuid4().hex + "__"
+                count = 0
+                with open(path, "w", encoding="utf-8", newline="") as stream:
+                    writer = csv.writer(stream)
+                    for row in rows:
+                        if not any(value is not None for value in row):
+                            continue
+                        while len(types) < len(row):
+                            headers.append(None)
+                            types.append(None)
+                        for i, value in enumerate(row):
+                            types[i] = _merge_type(types[i], _value_type(value))
+                        writer.writerow(
+                            [null if value is None else str(value) for value in row]
+                        )
+                        count += 1
+                if not headers:
+                    continue
+                names = []
+                for i, header in enumerate(headers):
+                    name = (
+                        str(header)
+                        if header is not None and str(header)
+                        else f"column_{i + 1}"
+                    )
+                    base, suffix = name, 1
+                    while name.casefold() in {n.casefold() for n in names}:
+                        name = f"{base}_{suffix}"
+                        suffix += 1
+                    names.append(name)
+                columns = {name: typ or "VARCHAR" for name, typ in zip(names, types)}
+                if count:
+                    con.execute(
+                        f"CREATE TABLE {quote_identifier(table)} AS SELECT * FROM read_csv(?, header=false, auto_detect=false, delim=',', quote='\"', escape='\"', columns=?, nullstr=?, null_padding=true, parallel=false)",
+                        [path, columns, null],
+                    )
+                else:
+                    schema = ", ".join(
+                        f"{quote_identifier(n)} {t}" for n, t in columns.items()
+                    )
+                    con.execute(f"CREATE TABLE {quote_identifier(table)} ({schema})")
+                table_map[key] = table
+                logger.info(
+                    "  Loaded sheet %r -> table %r (%d rows)", sheet.title, table, count
                 )
-            """
-            )
-            table_map[sheet_name] = table_name
-            row_count = con.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[
-                0
-            ]
-            logger.info(
-                f"  Loaded sheet '{sheet_name}' -> table '{table_name}' ({row_count} rows)"
-            )
-        except Exception as e:
-            logger.warning(f"  Failed to load sheet '{sheet_name}': {e}")
+    finally:
+        wb.close()
+
+
+def _value_type(value):
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return "BOOLEAN"
+    if isinstance(value, int):
+        return "BIGINT" if -(2**63) <= value < 2**63 else "VARCHAR"
+    if isinstance(value, float):
+        return "DOUBLE"
+    if isinstance(value, dt.datetime):
+        return "TIMESTAMP"
+    if isinstance(value, dt.date):
+        return "DATE"
+    if isinstance(value, dt.time):
+        return "TIME"
+    return "VARCHAR"
+
+
+def _merge_type(left, right):
+    if left is None:
+        return right
+    if right is None or left == right:
+        return left
+    if {left, right} <= {"BIGINT", "DOUBLE"}:
+        return "DOUBLE"
+    if {left, right} <= {"DATE", "TIMESTAMP"}:
+        return "TIMESTAMP"
+    return "VARCHAR"
 
 
 def _load_csv(
@@ -160,29 +263,16 @@ def _load_csv(
 ) -> None:
     """Load a CSV file into a DuckDB table."""
     base_name = os.path.splitext(os.path.basename(file_path))[0]
-    table_name = sanitize_table_name(base_name)
-
-    # Handle duplicate table names
-    original_table_name = table_name
-    counter = 1
-    while table_name in table_map.values():
-        table_name = f"{original_table_name}_{counter}"
-        counter += 1
-
-    try:
-        con.execute(
-            f"""
-            CREATE TABLE "{table_name}" AS
-            SELECT * FROM read_csv_auto('{file_path}')
-        """
-        )
-        table_map[base_name] = table_name
-        row_count = con.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[0]
-        logger.info(
-            f"  Loaded CSV '{base_name}' -> table '{table_name}' ({row_count} rows)"
-        )
-    except Exception as e:
-        logger.warning(f"  Failed to load CSV '{base_name}': {e}")
+    key, table_name = _table_names(base_name, table_map)
+    con.execute(
+        f"CREATE TABLE {quote_identifier(table_name)} AS SELECT * FROM read_csv_auto(?)",
+        [file_path],
+    )
+    table_map[key] = table_name
+    row_count = con.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[0]
+    logger.info(
+        "  Loaded CSV %r -> table %r (%d rows)", base_name, table_name, row_count
+    )
 
 
 def action_inspect(con: duckdb.DuckDBPyConnection, table_map: dict[str, str]) -> str:
@@ -211,7 +301,9 @@ def action_inspect(con: duckdb.DuckDBPyConnection, table_map: dict[str, str]) ->
         col_names = [col[0] for col in columns]
         non_null_parts = []
         for c in col_names:
-            non_null_parts.append(f'COUNT("{c}") as "{c}"')
+            non_null_parts.append(
+                f"COUNT({quote_identifier(c)}) as {quote_identifier(c)}"
+            )
         non_null_sql = f'SELECT {", ".join(non_null_parts)} FROM "{table_name}"'
         try:
             non_null_counts = con.execute(non_null_sql).fetchone()
@@ -245,21 +337,10 @@ def action_query(
     output_file: str | None = None,
 ) -> str:
     """Execute a SQL query and return/export results."""
-    # Replace original sheet/file names with sanitized table names in SQL
-    modified_sql = sql
-    for original_name, table_name in sorted(
-        table_map.items(), key=lambda x: len(x[0]), reverse=True
-    ):
-        if original_name != table_name:
-            # Replace occurrences not already quoted
-            modified_sql = re.sub(
-                rf"\b{re.escape(original_name)}\b",
-                f'"{table_name}"',
-                modified_sql,
-            )
-
     try:
-        result = con.execute(modified_sql)
+        # Use the SQL names printed by inspect. Regex rewriting can corrupt
+        # quoted identifiers and literal data values in filters.
+        result = con.execute(sql)
         columns = [desc[0] for desc in result.description]
         rows = result.fetchall()
     except Exception as e:
@@ -269,7 +350,7 @@ def action_query(
             col_names = [c[0] for c in cols]
             error_msg += f'  "{tbl}" ({orig}): {", ".join(col_names)}\n'
         print(error_msg)
-        return error_msg
+        raise ValueError(error_msg) from e
 
     # Format output
     if output_file:
@@ -483,7 +564,7 @@ def main():
         "--files",
         nargs="+",
         required=True,
-        help="Paths to Excel (.xlsx/.xls) or CSV files",
+        help="Paths to Excel (.xlsx) or CSV files; convert legacy .xls first",
     )
     parser.add_argument(
         "--action",
@@ -533,34 +614,41 @@ def main():
     else:
         # Cache miss: load files and persist to DB
         logger.info("Loading files (first time, will cache for future use)...")
-        con = duckdb.connect(db_path)
-        table_map = load_files(con, args.files)
-
-        if not table_map:
-            logger.error("No tables were loaded. Check file paths and formats.")
-            # Clean up empty DB file
+        temporary = db_path + "." + uuid.uuid4().hex + ".tmp.duckdb"
+        con = duckdb.connect(temporary)
+        try:
+            table_map = load_files(con, args.files)
+            if not table_map:
+                raise ValueError("No tables were loaded. Check file paths and formats.")
             con.close()
-            if os.path.exists(db_path):
-                os.remove(db_path)
-            sys.exit(1)
-
-        # Save table map for future cache lookups
-        save_table_map(files_hash, table_map)
+            os.replace(temporary, db_path)
+            save_table_map(files_hash, table_map)
+        finally:
+            con.close()
+            for owned_path in (temporary, temporary + ".wal"):
+                if os.path.exists(owned_path):
+                    os.remove(owned_path)
+        con = duckdb.connect(db_path, read_only=True)
         logger.info(
             f"\nLoaded {len(table_map)} table(s): {', '.join(table_map.keys())}"
         )
         logger.info(f"Cached database saved to: {db_path}")
 
     # Perform action
-    if args.action == "inspect":
-        action_inspect(con, table_map)
-    elif args.action == "query":
-        action_query(con, args.sql, table_map, args.output_file)
-    elif args.action == "summary":
-        action_summary(con, args.table, table_map)
-
-    con.close()
+    try:
+        if args.action == "inspect":
+            action_inspect(con, table_map)
+        elif args.action == "query":
+            action_query(con, args.sql, table_map, args.output_file)
+        elif args.action == "summary":
+            action_summary(con, args.table, table_map)
+    finally:
+        con.close()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:
+        logger.error("DATA_ANALYSIS_FAILED [%s]: %s", type(exc).__name__, exc)
+        sys.exit(1)

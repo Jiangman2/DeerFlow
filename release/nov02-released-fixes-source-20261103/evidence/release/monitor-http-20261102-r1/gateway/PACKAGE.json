@@ -1,0 +1,40 @@
+{
+  "patch_bytes": 663,
+  "patch_sha256": "653d07b10bce3fe26d1d234157be4b831dc6d9837986beecf18caf80fbb99ab4",
+  "production_writes": 0,
+  "qualification": {
+    "accepted_runtime_report": {
+      "bytes": 84417,
+      "path": "/var/lib/portal-gateway-usage-monitor-recheck-20261102-r1/REPORT.json",
+      "sha256": "6fc3c18bdf713b483ca06d5fb6ff50cfea72b13e75875eb8d8c0e623d983da79"
+    },
+    "base_generation": 402,
+    "base_manifest": "sha256:da8cbc4733f22c33c753910722f6a50452ba0147f6372dbf038447e0747af8eb",
+    "base_spec_sha256": "ab096882d8a9e5c63686cd2fbcaf55dec8ab938a46685a19bb67a7a3be55a667",
+    "business_requests": 0,
+    "collector_changed": false,
+    "database_version_preserved": "0022_work_integration_state",
+    "http_query_validation_repair": true,
+    "installed_image_acceptance_pending": true,
+    "personal_usage_changed": false,
+    "preload_only": true,
+    "production_config_change_required": [],
+    "production_schema_migration_required": false,
+    "ready_for_rollout": false,
+    "required_migration": null,
+    "runner_update_required": false,
+    "source_base_sha256": {
+      "app/gateway/routers/model_monitor.py": "a05dc59cf1a65162bd99058c216ea3b4fe58f6ab0c861f7845d9e7d9364df15b"
+    },
+    "source_files": {
+      "app/backend/app/gateway/routers/model_monitor.py": {
+        "bytes": 1052,
+        "sha256": "5a00ce3e82d430aa49d0c173536994d60315d41ade8ac4da183268c4f017f279"
+      }
+    },
+    "work_datalake_deferred": true
+  },
+  "schema": "portal-monitor-http-gateway-package.v1",
+  "script_bytes": 148987,
+  "script_sha256": "123fd1401b6ff1ccc5cafd9dfdb8b4a58a39ae67a7f19f8719e99858cd784c8e"
+}

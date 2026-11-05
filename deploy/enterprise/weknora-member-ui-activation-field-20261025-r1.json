@@ -1,0 +1,22 @@
+{
+  "schema": "portal-weknora-member-ui-operator-receipt.v1",
+  "evidence_origin": "USER_PASTED_SUMMARY_IN_CHAT_NOT_DIRECT_SERVER_REPORT",
+  "status": "WEKNORA_MEMBER_UI_RUNTIME_ACCEPTED_BROWSER_PENDING",
+  "generation_before": 38,
+  "generation_after": 39,
+  "configmap_name": "weknora-members-fix-20261025-2cc8dbfc99d4",
+  "configmap_uid": "4b8a7053-9074-48ba-b904-e80b45377990",
+  "runtime_accepted": true,
+  "other_deployments_preserved": true,
+  "old_image_preserved": true,
+  "old_preview_patch_preserved": true,
+  "membership_writes": 0,
+  "database_access": false,
+  "provider_requests": 0,
+  "server_report": {
+    "path": "/var/lib/portal-weknora-member-ui-fix-20261025-r1/REPORT.json",
+    "bytes": 4255,
+    "sha256": "b4f5e0fa5cbd6c15f2563d0bcfc9ff0e7138973305b75df2d2c3d0d74104bd8f"
+  },
+  "subsequent_user_browser_feedback": "User confirmed shared-space settings no longer stutter; not a full browser or business regression."
+}

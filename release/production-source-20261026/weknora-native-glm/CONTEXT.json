@@ -1,0 +1,83 @@
+{
+  "anydoc_patch": {
+    "changed_upstream_files": [
+      "src/lib.rs"
+    ],
+    "lib_rs_after_sha256": "fc421fd943329590ebcd2441cb10a2dff2ac68e9516104eca1f95f3298a8b323",
+    "lib_rs_before_sha256": "5be6847bf3f63721dae2c3c70f6770e3054a3482e2d9b9b9b48fa7ce830b3e44"
+  },
+  "context_assembled": true,
+  "credentials_included": false,
+  "input_files": 5961,
+  "input_receipts": {
+    "builder": {
+      "config_digest": "sha256:5649722a935c0dd8b543f301053da62b1a9024fc35740193fba2526eacafad07",
+      "image_executed": false,
+      "layers": 7,
+      "manifest_digest": "sha256:581f0292073059289b736d46d572ba4c515e0b511f8645963e0b0adf232680a1",
+      "uncompressed_bytes": 871867904
+    },
+    "crates": {
+      "anydoc_sha256": "93a8b0dbecf79be9329111093b493d256db2a573ed3f1cc827c96bdbbe32a936",
+      "archives_extracted": false,
+      "cargo_lock_sha256": "d60c6791a8b8dcebf6b64086687d90a4f8d2f101dd43a0f6eb0f2dbba8f62bf8",
+      "registry_packages": 166
+    },
+    "go": {
+      "checksum_database": "sum.golang.org",
+      "compile_performed": false,
+      "go_mod_sha256": "2f2555453ee70e6bd86e2edaf89be7bf4c85bf9f40f72206b1ad1ab239f2d34b",
+      "go_sum_sha256": "0effbd17b64fd6da32e0cc9ce2fe89fe2a18d92a0384303ecfcec92bd7a6329c",
+      "modules": 300,
+      "scope": "LINUX_ARM64_APP_AND_QUALIFICATION_TEST_CLOSURE",
+      "targets": [
+        "./cmd/server",
+        "./cmd/glm-vlm-probe",
+        "./cmd/anydoc-probe",
+        "./internal/models/vlm",
+        "./internal/infrastructure/docparser/...",
+        "./internal/utils"
+      ]
+    },
+    "go-offline": {
+      "anydoc_tag": true,
+      "cgo_enabled": true,
+      "compile_performed": false,
+      "empty_cache_dependency_resolution": "PASS",
+      "platform": "linux/arm64",
+      "proxy": "LOCAL_FILES_ONLY_NO_FALLBACK",
+      "targets": [
+        "./cmd/server",
+        "./cmd/glm-vlm-probe",
+        "./cmd/anydoc-probe",
+        "./internal/models/vlm",
+        "./internal/infrastructure/docparser/...",
+        "./internal/utils"
+      ]
+    },
+    "rust": [
+      {
+        "bytes": 68717724,
+        "component": "rustc",
+        "sha256": "acdcdfe09ae1f103aa9a2b7f88903a9588bc2e99288af10e6fbf5514e2e49f25"
+      },
+      {
+        "bytes": 10588432,
+        "component": "cargo",
+        "sha256": "5156832e0c1254e9b49a79edabdc6d4c35f32f8fc1cf3ca700f268ff96087ab0"
+      },
+      {
+        "bytes": 31796492,
+        "component": "rust-std",
+        "sha256": "e25668477083d6a9ddb87b9beb9c00742225f38233ccb4bfba3afa7a07427f52"
+      }
+    ]
+  },
+  "isolated_build_driver": "SEPARATE_CHECKSUM_BOUND_SERVER_PACKAGE_REQUIRED",
+  "linux_build_executed": false,
+  "offline_manifest_sha256": "79f8d2186e07ce5778dfcd5fe43aa188f3899425f0798cc20efcb7cfdd88acb2",
+  "ready_for_build": false,
+  "ready_for_rollout": false,
+  "source_files": 1999,
+  "source_manifest_sha256": "43b8484b6ef5a18ed76a6a13ab3faf8a13eca8a76589d454ae0687293971e1b0"
+}

@@ -1,0 +1,75 @@
+DeepSeek V4.1 Flash 应用端现场排查记录（2026-10-21 下午）
+
+一、结论与范围
+本批次在两个 Gateway 节点顺序执行了 6 个合成请求：1 个真实 HTTP 503、2 个成功的完整 SSE 流、3 个应用诊断期限到达后取消的请求。后三个请求没有收到 HTTP 响应头，不能记作服务端 503。工具续接和多图阶段未完成，当前不具备生产接入验收条件。
+未创建 Secret，未修改配置、数据库或生产服务；未执行业务工具。以下记录不含密钥、Cookie、业务问答或模型正文。
+
+二、请求目标和连接方式
+POST https://aiapi.cnooc.com.cn/DeepSeek-V4.1-Flash/FCV-41/v1/chat/completions
+model: DeepSeek-V4.1-Flash
+本批次客户端明确 trust_env=false，不使用环境代理、不跟随重定向，保留证书及主机名校验。
+两个节点 DNS 结果：10.74.5.12。收到响应的连接 peer：10.74.5.12:443，TLSv1.3。
+证书 SHA256：b4100f894fff50e818b7a3f22b5bd111041363bee2491c976bda7f7fcde94cdd
+TCP 和 TLS 阶段约 18–37 毫秒完成。环境绕过检查也显示该域名被绕过，但实际直连结论依据客户端配置和连接记录，不是仅依据 NO_PROXY。
+本结论仅针对这些显式直连的诊断请求，不代表未来生产 SDK 默认路由已验收。
+
+三、逐请求关联记录（全部为北京时间 UTC+08:00）
+客户端请求 ID 前缀：portal-v41-ce9c7e15fa854b4da7d417a01e774f96
+该 ID 由应用通过 X-Request-ID 发送，不是服务端分配的 ID，也不能证明服务端收到它。
+
+节点 ecs-zdz-pro-0021，Pod gateway-6f94755b8-2nk5d，Pod IP 10.244.5.49：
+1. raw_flash，客户端 ID 后缀 -1-1
+   开始 14:41:43.466759；响应头 14:42:01.013797，等待约 17.547 秒。
+   HTTP 503，JSON 正文 144 字节；脱敏分类命中 unavailable、no_fallback；code=503。
+   未记录到上游请求 ID；响应未带 Via。
+   正文 SHA256：b4ea1c6240ae2858f71b69240189d233326f7417a0a98784b1ef166a417e57ce
+   本记录未导出原始正文；上述分类不是原文引用，无法据此确定错误生成层。
+   请求使用文档字段 max_tokens=1000、stream=false、enable_thinking=false。
+   请求字节数 174，SHA256：3d93fdd605512484c075e445b8ca78208bd650ba9f2b32f0b68be96432055dee
+2. flash，客户端 ID 后缀 -1-2
+   开始 14:42:01.375130；响应头 14:42:41.301974，等待约 39.927 秒。
+   HTTP 200，SSE 完整 stop + [DONE]，无推理内容；总耗时约 39.96 秒。
+   服务端返回 x-request-id：dd921952bdcb9aaffb4580c594e82eea
+   响应带 Via。请求由应用适配器发出，字段为 max_completion_tokens，enable_thinking=false。
+   请求字节数 224，SHA256：b826d99bb16ea4cb3e108058fb1a7b6ddfd4cc447bde93539b64ad617e556884
+3. thinking，客户端 ID 后缀 -1-3
+   开始 14:42:41.322872；响应头 14:43:22.377705，等待约 41.055 秒。
+   HTTP 200，SSE 完整 stop + [DONE]，存在推理内容；总耗时约 41.07 秒。
+   服务端返回 x-request-id：a7bfa8fe81e633d273d1b5f7facae7bb
+   响应带 Via。请求字段为 max_completion_tokens，enable_thinking=true。
+   请求字节数 223，SHA256：6640a39c3be7e8aa4af6ccea2fe3ec20044fcd93a70559722deacbc837b1c6bb
+4. tool_call，客户端 ID 后缀 -1-4
+   开始 14:43:22.394175；约 90.086 秒后被本地诊断期限取消。
+   TCP/TLS 已建立，未收到 HTTP 响应头；没有状态码或服务端请求 ID。
+   请求包含一个合成工具，tool_choice=auto；没有执行实际业务工具。
+   请求字节数 586，SHA256：5b246999c418a7112302739d2a1d764c4d822395e38556df755200a906aed9ab
+
+节点 ecs-zdz-pro-0020，Pod gateway-6f94755b8-2w4fd，Pod IP 10.244.6.42：
+5. raw_flash，客户端 ID 后缀 -2-1
+   开始 14:44:55.344310；约 45.045 秒后被本地诊断期限取消。
+   TLS 约 0.022 秒完成，未收到 HTTP 响应头。请求内容摘要同第 1 项。
+6. flash，客户端 ID 后缀 -2-2
+   开始 14:45:40.722672；约 90.009 秒后被本地诊断期限取消。
+   TLS 约 0.018 秒完成，未收到 HTTP 响应头。请求内容摘要同第 2 项。
+
+这些 Pod IP 不是经过 NAT 后的出口地址。两个节点的测试时间不同，不能据此断言某一个节点故障。
+成功流之后的 GeneratorExit 是 SDK 关闭流时的记录；既已观测到 stop 和 [DONE]，不能将其视为异常断流。
+
+四、应用侧发现及修正
+供方文档描述 max_tokens，但应用使用的 LangChain 父适配器将其序列化为 max_completion_tokens。
+已准备仅针对新增 V4.1 模型的参数兼容修正，保留闪速/思考开关、工具关联、多图及其他模型行为；尚未部署。
+这个差异不能解释全部失败：第 1、5 项直接使用文档中的 max_tokens，仍分别收到 503 和发生本地等待超时。成功请求接受 max_completion_tokens 也不证明服务端按该字段正确限制了输出。
+下一版临时验证使用修正后的候选适配器，逐请求检查真实发送字段，并将诊断总期限恢复到原接入验证的 180 秒。它不是修改生产超时，也不是通过自动重试掩盖故障。
+
+五、请服务侧协助核查
+请按以上时间（北京/UTC 注意相差 8 小时）、Host、完整路径、目标 10.74.5.12 和两个真实 x-request-id，联合检查 API 入口、VIP/转发层和模型上游日志。
+重点确认：503 的 code/data/message 包装由哪一层生成；no_fallback/unavailable 对应何种路由或上游选择；无响应头请求是否进入队列、在哪一层等待；成功与 503 响应的 Via 差异是否对应不同处理路径。
+Via 差异只是待核查线索，不是某一跳生成错误的证明。仅查看模型进程是否健康不足以排除入口、转发或排队问题；本记录也没有证明模型进程本身故障。
+
+六、原始脱敏回执定位
+operation: ce9c7e15fa854b4da7d417a01e774f96
+Gateway generation 382，前后相同；spec SHA256：699119d2d3e7a2e30aad980d5c4f37560be9022b00059a2712b6512e4b3816ff
+Gateway image：sha256:eeeb190145dd6677e0da372bbdf36ab207a6826d89960eca2ed49de15d40dcc5
+服务器报告：/var/lib/portal-deepseek-v41-transport-ce9c7e15fa854b4da7d417a01e774f96/REPORT.json
+原报告 12241 字节，SHA256：c07805d387be55cd12fefc01495da39d47719dfb060722f6fdd8193f9cadb7d6
+本文是基于用户返回脱敏回执的摘要，不是原报告的逐字副本；原报告摘要不用于校验本文。

@@ -8,6 +8,7 @@ sync/async code paths.
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 from types import SimpleNamespace
@@ -27,9 +28,11 @@ from deerflow.agents.middlewares.tool_output_budget_middleware import (
     _needs_budget,
     _patch_model_messages,
     _sanitize_tool_name,
+    _snap_start_to_line_boundary,
     _snap_to_line_boundary,
     _tool_message_over_budget,
 )
+from deerflow.agents.middlewares.tool_output_synopsis import build_tool_output_synopsis
 from deerflow.config.app_config import AppConfig
 from deerflow.config.sandbox_config import SandboxConfig
 from deerflow.config.tool_output_config import ToolOutputConfig
@@ -37,6 +40,20 @@ from deerflow.config.tool_output_config import ToolOutputConfig
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _lines_then_long_line(total: int, newline_ratio: float = 0.6) -> str:
+    """Content that is line-oriented for the first *newline_ratio*, then one unbroken line.
+
+    Mirrors real bash/web_fetch output that logs progress lines and then dumps a
+    single-line artifact (minified JSON, base64 blob). The last newline lands in
+    the second half of the content, which is what exercises line snapping around
+    the tail offset.
+    """
+    head_len = int(total * newline_ratio)
+    lines = "".join(f"[info] step {i} ok\n" for i in range(head_len // 18 + 1))[:head_len]
+    lines = lines[:-1] + "\n" if not lines.endswith("\n") else lines
+    return lines + "A" * (total - len(lines))
 
 
 def _make_request(tool_name: str = "remote_executor", tool_call_id: str = "tc-1", outputs_path: str | None = None) -> SimpleNamespace:
@@ -99,6 +116,28 @@ class TestSnapToLineBoundary:
         assert _snap_to_line_boundary("abc", 10) == 10
 
 
+class TestSnapStartToLineBoundary:
+    def test_snaps_forward_to_newline(self):
+        text = "line1\nline2\nline3"
+        result = _snap_start_to_line_boundary(text, 2)  # inside "line1"
+        assert text[result - 1] == "\n"
+        assert result >= 2
+
+    def test_never_moves_backwards(self):
+        text = "aaaa\n" + "b" * 20
+        for pos in range(1, len(text)):
+            assert _snap_start_to_line_boundary(text, pos) >= pos
+
+    def test_no_snap_when_no_newline_in_range(self):
+        assert _snap_start_to_line_boundary("abcdefghij", 2) == 2
+
+    def test_zero_pos(self):
+        assert _snap_start_to_line_boundary("a\nbc", 0) == 0
+
+    def test_pos_beyond_length(self):
+        assert _snap_start_to_line_boundary("abc", 10) == 10
+
+
 class TestExternalize:
     def test_writes_file_and_returns_virtual_path(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -120,18 +159,14 @@ class TestExternalize:
             with open(os.path.join(storage_dir, files[0]), encoding="utf-8") as f:
                 assert f.read() == "full content here"
 
-    def test_returns_none_on_invalid_path(self):
-        # ``/dev/null`` is a character device on both Linux and macOS, so
-        # ``os.makedirs`` cannot create any subdirectory under it for any
-        # user (including root). The previously-used ``/nonexistent/...``
-        # path was silently created by ``mkdir -p`` when the test process
-        # ran as root inside the CI container, which made this test fail
-        # in CI independently of the externalization logic under test.
+    def test_returns_none_on_invalid_path(self, tmp_path):
+        blocking_parent = tmp_path / "not-a-directory"
+        blocking_parent.write_text("file", encoding="utf-8")
         path = _externalize(
             "data",
             tool_name="test",
             tool_call_id="tc-1",
-            outputs_path="/dev/null/cannot-mkdir-here",
+            outputs_path=str(blocking_parent / "cannot-mkdir-here"),
             storage_subdir=".tool-results",
         )
         assert path is None
@@ -253,6 +288,124 @@ class TestBuildPreview:
         assert "10000 chars" in preview
 
 
+class TestToolOutputSynopsis:
+    def test_code_synopsis_extracts_imports_and_symbols(self):
+        content = "import os\nfrom pathlib import Path\n\nclass Runner:\n    pass\n\ndef main():\n    return Path(os.getcwd())\n"
+        synopsis = build_tool_output_synopsis(content, tool_name="python")
+        assert synopsis.kind == "code"
+        assert "line count" in synopsis.structure[0]
+        assert any("imports: os, pathlib" in item for item in synopsis.structure)
+        assert "class Runner" in synopsis.notable_items
+        assert "def main" in synopsis.notable_items
+
+    def test_yaml_synopsis_extracts_top_level_keys(self):
+        content = "name: deer\nsettings:\n  enabled: true\n  retries: 3\nitems:\n  - alpha\n"
+        synopsis = build_tool_output_synopsis(content, tool_name="config")
+        assert synopsis.kind == "yaml"
+        assert "Top-level keys: name, settings, items" in synopsis.summary
+        assert "settings: object" in synopsis.structure
+        assert "items: array" in synopsis.structure
+
+    def test_xml_synopsis_extracts_root_and_children(self):
+        content = '<feed><entry id="1"/><entry id="2"/><meta/></feed>'
+        synopsis = build_tool_output_synopsis(content, tool_name="xml")
+        assert synopsis.kind == "xml"
+        assert "XML document with root tag feed." in synopsis.summary
+        assert "root tag: feed" in synopsis.structure
+        assert "entry: 2" in synopsis.structure
+
+    # ------------------------------------------------------------------
+    # Regression tests for the @willem-bd review of PR #3377.
+    # Each test pins one of the eight findings so a future change cannot
+    # silently regress the fix.
+    # ------------------------------------------------------------------
+
+    def test_review_5_log_lines_are_not_misclassified_as_yaml(self):
+        # 200 lines of log output shaped like "LEVEL: message". The previous
+        # _looks_yaml counted 2 'key:' lines and accepted it; _try_yaml then
+        # produced a "YAML object with 3 top-level keys: INFO, ERROR, WARN"
+        # summary that hid every line, count, and middle-of-log signal.
+        content = "INFO: starting service\nERROR: failed to connect\nWARN: retrying\nINFO: connected\n" * 200
+        synopsis = build_tool_output_synopsis(content, tool_name="bash")
+        assert synopsis.kind == "text", f"expected text, got {synopsis.kind!r}: {synopsis.summary}"
+
+    def test_review_7_scalar_examples_respects_depth_cap(self):
+        # build_tool_output_synopsis used to recurse without a depth cap
+        # in _scalar_examples, which could trigger RecursionError on
+        # deeply nested JSON. The cap is now mirrored from
+        # _JSON_STRUCTURE_DEPTH.
+        deep = {"k": 1}
+        for _ in range(500):
+            deep = {"k": deep}
+        # Should not raise.
+        synopsis = build_tool_output_synopsis(json.dumps(deep))
+        assert synopsis.kind == "json"
+
+    def test_review_8_csv_first_row_quoted_cells_round_trip(self):
+        # delimiter.join(rows[1]) silently re-split cells containing the
+        # delimiter inside a quoted cell, misleading the model about
+        # column count.
+        header = "name,description,score"
+        rows = [
+            'Ada,"a fine, brilliant logician",98',
+            'Grace,"a creator, of compilers",99',
+            'Alan,"a pioneer, of computing",95',
+            'Kurt,"a poet, of logic",91',
+            'Ada2,"another, fine mind",97',
+            'Grace2,"yet another, creator",93',
+        ]
+        content = header + "\n" + "\n".join(rows) + "\n"
+        synopsis = build_tool_output_synopsis(content, tool_name="csv_tool")
+        assert synopsis.kind == "csv"
+        first_row = next((line for line in synopsis.structure if line.startswith("first data row:")), "")
+        # All three columns must be present, and the quoted cell must
+        # round-trip without losing the embedded comma.
+        assert "name=Ada" in first_row
+        assert "score=98" in first_row
+        assert "a fine, brilliant logician" in first_row
+        # The re-joined comma-broken row is the failure mode we are guarding.
+        assert "Ada,a fine, brilliant" not in first_row
+
+    def test_review_9_tsv_detector_rejects_tab_indented_bash(self):
+        # Tab-indented output (ls -l, tree, indented logs) used to be
+        # accepted as TSV because _try_table only checked that the
+        # delimiter is present and rows agree on width.
+        row = "drwxr-xr-x  2 user  group   64 Jun 24 17:00 dir"
+        bash_out = "ls -l output:\n\ttotal 0\n" + "\n".join(f"\t{row}{i}" for i in range(1, 6)) + "\n"
+        synopsis = build_tool_output_synopsis(bash_out, tool_name="bash")
+        assert synopsis.kind == "text", f"expected text, got {synopsis.kind!r}: {synopsis.summary}"
+
+    def test_review_11_short_text_does_not_duplicate_excerpts(self):
+        # For inputs shorter than 2 * _TEXT_EXCERPT_CHARS, the previous
+        # opener/closer slices overlapped and the model saw the same
+        # body twice. build_tool_output_synopsis is reachable directly
+        # from tests and other callers that pass small inputs.
+        short = "hello world " * 30  # ~360 chars
+        synopsis = build_tool_output_synopsis(short)
+        opener_line = next((ln for ln in synopsis.summary if ln.startswith("Opening excerpt: ")), "")
+        # Closer is now suppressed entirely for short inputs.
+        assert all(not ln.startswith("Closing excerpt: ") for ln in synopsis.summary), f"unexpected closer for short input: {synopsis.summary}"
+        assert opener_line, "opening excerpt should still be present"
+
+    def test_review_12_preview_head_tail_chars_are_operational(self):
+        # preview_head_chars / preview_tail_chars were silently no-op
+        # for every non-binary kind. The fix plumbs them through
+        # render_tool_output_preview as an explicit 'Raw sample' section.
+        content = "alpha " * 1000  # 6000 chars
+        preview = _build_preview(
+            content,
+            tool_name="bash",
+            virtual_path="/mnt/test/run.log",
+            head_chars=300,
+            tail_chars=300,
+        )
+        # The head sample should contain 'alpha' more times than the
+        # tail (or split-count), proving head_chars=300 took effect.
+        # The full document has 1000 'alpha' tokens; without head_chars
+        # we'd see fewer than 50 in the head sample.
+        assert preview.count("alpha") >= 50
+
+
 class TestBuildFallback:
     def test_short_content_unchanged(self):
         assert _build_fallback("short", tool_name="t", max_chars=100, head_chars=50, tail_chars=50) == "short"
@@ -280,6 +433,32 @@ class TestBuildFallback:
             content = "x" * 50000
             result = _build_fallback(content, tool_name="long_tool_name", max_chars=max_chars, head_chars=max_chars // 2, tail_chars=max_chars // 4)
             assert len(result) <= max_chars, f"max_chars={max_chars}: got {len(result)}"
+
+    def test_result_never_exceeds_max_chars_with_newlines(self):
+        """Same guarantee as above, on content that actually exercises line snapping.
+
+        ``test_result_never_exceeds_max_chars`` passes newline-free content, so the
+        tail offset is never snapped. Real bash/web_fetch output has newlines.
+        """
+        for total in [50_000, 200_000, 1_000_000]:
+            content = _lines_then_long_line(total)
+            result = _build_fallback(content, tool_name="bash", max_chars=30_000, head_chars=8_000, tail_chars=3_000)
+            assert len(result) <= 30_000, f"total={total}: got {len(result)}"
+
+    def test_fallback_forward_snaps_tail_onto_line_boundary(self):
+        """The tail must begin *after* the newline, never before it.
+
+        The bound test above never moves the tail offset: its content has no
+        newline inside the snap window, so it would pass even with the snap
+        removed. Placing a newline in the window pins the direction instead —
+        a backward snap leaves the tail starting mid-line.
+        """
+        total, newline_pos = 100_000, 98_000  # window is [97_000, 98_500)
+        content = "A" * newline_pos + "\n" + "B" * (total - newline_pos - 1)
+        result = _build_fallback(content, tool_name="bash", max_chars=30_000, head_chars=8_000, tail_chars=3_000)
+        assert len(result) <= 30_000
+        tail = result.rsplit("]\n\n", 1)[1]
+        assert tail.startswith("B"), f"tail begins mid-line: {tail[:20]!r}"
 
     def test_very_small_max_chars_does_not_crash(self):
         content = "x" * 1000
@@ -344,6 +523,167 @@ class TestWrapToolCallExternalize:
             assert result.content.startswith("HEADPART_")
             assert "_TAILPART" in result.content
 
+    def test_weknora_search_keeps_ranked_images_and_citations_inline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = ToolOutputConfig(
+                externalize_min_chars=1_000,
+                preview_head_chars=100,
+                preview_tail_chars=100,
+            )
+            mw = ToolOutputBudgetMiddleware(config=config)
+            image_url = "/api/weknora/knowledge-bases/kb-images/files?file_path=resource%3A%2F%2Fstandalone-image"
+            payload = {
+                "query": "显示抗日战争纪念馆图片",
+                "total_results": 2,
+                "results": [
+                    {
+                        "content": "纪念馆图片说明 " + "长文本" * 6_000,
+                        "score": 0.91,
+                        "knowledge_id": "image-doc",
+                        "knowledge_base_id": "kb-images",
+                        "knowledge_title": "纪念馆.jpg",
+                        "chunk_id": "image-chunk",
+                        "chunk_type": "text",
+                        "resource_images": [
+                            {
+                                "resource_uri": "resource://standalone-image",
+                                "url": image_url,
+                                "alt": "纪念馆",
+                                "markdown": f"![纪念馆]({image_url})",
+                            }
+                        ],
+                        "citation_markdown": ("[citation:纪念馆.jpg](/platform/knowledge-bases/kb-images?knowledge_id=image-doc)"),
+                    },
+                    {
+                        "content": "第二条普通文档命中 " + "正文" * 2_000,
+                        "score": 0.72,
+                        "knowledge_id": "text-doc",
+                        "knowledge_base_id": "kb-images",
+                        "knowledge_title": "说明.docx",
+                        "chunk_id": "text-chunk",
+                        "chunk_type": "text",
+                        "resource_images": [],
+                        "citation_markdown": ("[citation:说明.docx](/platform/knowledge-bases/kb-images?knowledge_id=text-doc)"),
+                    },
+                ],
+            }
+            content = json.dumps(payload, ensure_ascii=False)
+            msg = _tm(content, name="weknora_search")
+            req = _make_request(
+                tool_name="weknora_search",
+                outputs_path=tmpdir,
+            )
+
+            result = mw.wrap_tool_call(req, lambda _: msg)
+
+            assert isinstance(result, ToolMessage)
+            compact = json.loads(result.content)
+            assert compact["query"] == payload["query"]
+            assert compact["total_results"] == 2
+            assert len(compact["results"]) == 2
+            assert compact["results"][0]["resource_images"][0]["markdown"] == (f"![纪念馆]({image_url})")
+            assert compact["results"][0]["citation_markdown"] == (payload["results"][0]["citation_markdown"])
+            assert compact["results"][0]["content_truncated"] is True
+            assert compact["results"][1]["knowledge_title"] == "说明.docx"
+            assert compact["full_output"]["path"].startswith("/mnt/user-data/outputs/.tool-results/weknora_search-")
+            assert len(result.content) < len(content)
+
+            storage_dir = os.path.join(tmpdir, ".tool-results")
+            files = os.listdir(storage_dir)
+            assert len(files) == 1
+            with open(os.path.join(storage_dir, files[0]), encoding="utf-8") as f:
+                assert f.read() == content
+
+    def test_weknora_ask_keeps_answer_images_and_references_inline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = ToolOutputConfig(externalize_min_chars=1_000)
+            mw = ToolOutputBudgetMiddleware(config=config)
+            image_url = "/api/weknora/knowledge-bases/kb-1/files?file_path=resource%3A%2F%2Ffigure-6"
+            payload = {
+                "answer": "图 6 展示了四维元数据体系。" + "回答" * 5_000,
+                "references": [
+                    {
+                        "content": "图 6 的详细说明。" + "引用" * 4_000,
+                        "score": 0.93,
+                        "knowledge_id": "doc-1",
+                        "knowledge_base_id": "kb-1",
+                        "knowledge_title": "报告.docx",
+                        "chunk_id": "chunk-1",
+                        "resource_images": [
+                            {
+                                "resource_uri": "resource://figure-6",
+                                "url": image_url,
+                                "alt": "图 6",
+                                "markdown": f"![图 6]({image_url})",
+                            }
+                        ],
+                        "citation_markdown": ("[citation:报告.docx](/platform/knowledge-bases/kb-1?knowledge_id=doc-1)"),
+                    }
+                ],
+                "answer_images": [
+                    {
+                        "resource_uri": "resource://figure-6",
+                        "url": image_url,
+                        "markdown": f"![图 6]({image_url})",
+                    }
+                ],
+            }
+            content = json.dumps(payload, ensure_ascii=False)
+            msg = _tm(content, name="weknora_ask")
+            req = _make_request(
+                tool_name="weknora_ask",
+                outputs_path=tmpdir,
+            )
+
+            result = mw.wrap_tool_call(req, lambda _: msg)
+
+            assert isinstance(result, ToolMessage)
+            compact = json.loads(result.content)
+            assert compact["answer"].startswith("图 6 展示了四维元数据体系")
+            assert compact["answer_truncated"] is True
+            assert compact["references"][0]["knowledge_title"] == "报告.docx"
+            assert compact["references"][0]["resource_images"][0]["url"] == image_url
+            assert compact["answer_images"][0]["markdown"] == f"![图 6]({image_url})"
+            assert compact["full_output"]["path"].startswith("/mnt/user-data/outputs/.tool-results/weknora_ask-")
+            assert len(result.content) < len(content)
+
+    def test_weknora_agent_keeps_tool_receipts_and_pending_actions_inline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = ToolOutputConfig(externalize_min_chars=500)
+            mw = ToolOutputBudgetMiddleware(config=config)
+            payload = {
+                "query": "分析数据",
+                "agent_id": "builtin-data-analyst",
+                "session_id": "session-1",
+                "answer": "分析完成" + "结果" * 2_000,
+                "references": [],
+                "answer_images": [],
+                "tool_calls": [{"tool_name": "data_schema", "arguments": {}}],
+                "tool_results": [{"tool_name": "data_schema", "content": "ready"}],
+                "pending_actions": [
+                    {
+                        "type": "tool_approval_required",
+                        "content": "approval required",
+                        "data": {"pending_id": "approval-1"},
+                    }
+                ],
+            }
+            content = json.dumps(payload, ensure_ascii=False)
+            msg = _tm(content, name="weknora_invoke_agent")
+            req = _make_request(
+                tool_name="weknora_invoke_agent",
+                outputs_path=tmpdir,
+            )
+
+            result = mw.wrap_tool_call(req, lambda _: msg)
+
+            assert isinstance(result, ToolMessage)
+            compact = json.loads(result.content)
+            assert compact["agent_id"] == "builtin-data-analyst"
+            assert compact["tool_calls"][0]["tool_name"] == "data_schema"
+            assert compact["pending_actions"][0]["data"]["pending_id"] == "approval-1"
+            assert compact["full_output"]["path"].startswith("/mnt/user-data/outputs/.tool-results/weknora_invoke_agent-")
+
 
 class TestWrapToolCallFallback:
     def test_fallback_when_no_outputs_path(self):
@@ -366,7 +706,7 @@ class TestWrapToolCallFallback:
         assert "Persistent storage unavailable" in result.content
         assert len(result.content) < len(content)
 
-    def test_fallback_when_disk_write_fails(self):
+    def test_fallback_when_disk_write_fails(self, tmp_path):
         config = ToolOutputConfig(
             externalize_min_chars=50,
             fallback_max_chars=200,
@@ -376,7 +716,9 @@ class TestWrapToolCallFallback:
         mw = ToolOutputBudgetMiddleware(config=config)
         content = "x" * 500
         msg = _tm(content, name="tool")
-        req = _make_request(outputs_path="/dev/null/cannot-mkdir-here")
+        blocking_parent = tmp_path / "not-a-directory"
+        blocking_parent.write_text("file", encoding="utf-8")
+        req = _make_request(outputs_path=str(blocking_parent / "cannot-mkdir-here"))
 
         result = mw.wrap_tool_call(req, lambda _: msg)
 
@@ -850,18 +1192,24 @@ class TestPreScanHelpers:
 
 
 class TestMiddlewareChainIntegration:
-    def test_budget_middleware_is_first_in_chain(self):
+    def test_budget_middleware_follows_source_guard_in_subagent_chain(self):
         from deerflow.agents.middlewares.tool_error_handling_middleware import build_subagent_runtime_middlewares
 
         app_config = AppConfig(sandbox=SandboxConfig(use="test"))
         middlewares = build_subagent_runtime_middlewares(app_config=app_config, lazy_init=False)
 
         # InputSanitizationMiddleware is the outermost wrap_model_call wrapper;
-        # ToolOutputBudgetMiddleware is the first wrap_tool_call handler.
+        # Source and web-search authorization reject forbidden calls before output budgeting.
+        from deerflow.agents.middlewares.datalake_source_middleware import DataLakeSourceMiddleware
         from deerflow.agents.middlewares.input_sanitization_middleware import InputSanitizationMiddleware
+        from deerflow.agents.middlewares.platform_confidentiality_middleware import PlatformConfidentialityMiddleware
+        from deerflow.agents.middlewares.web_search_middleware import WebSearchMiddleware
 
         assert isinstance(middlewares[0], InputSanitizationMiddleware)
-        assert isinstance(middlewares[1], ToolOutputBudgetMiddleware)
+        assert isinstance(middlewares[1], PlatformConfidentialityMiddleware)
+        assert isinstance(middlewares[2], DataLakeSourceMiddleware)
+        assert isinstance(middlewares[3], WebSearchMiddleware)
+        assert isinstance(middlewares[4], ToolOutputBudgetMiddleware)
 
     def test_budget_middleware_in_lead_chain(self):
         from deerflow.agents.middlewares.tool_error_handling_middleware import build_lead_runtime_middlewares
@@ -869,10 +1217,16 @@ class TestMiddlewareChainIntegration:
         app_config = AppConfig(sandbox=SandboxConfig(use="test"))
         middlewares = build_lead_runtime_middlewares(app_config=app_config, lazy_init=False)
 
+        from deerflow.agents.middlewares.datalake_source_middleware import DataLakeSourceMiddleware
         from deerflow.agents.middlewares.input_sanitization_middleware import InputSanitizationMiddleware
+        from deerflow.agents.middlewares.platform_confidentiality_middleware import PlatformConfidentialityMiddleware
+        from deerflow.agents.middlewares.web_search_middleware import WebSearchMiddleware
 
         assert isinstance(middlewares[0], InputSanitizationMiddleware)
-        assert isinstance(middlewares[1], ToolOutputBudgetMiddleware)
+        assert isinstance(middlewares[1], PlatformConfidentialityMiddleware)
+        assert isinstance(middlewares[2], DataLakeSourceMiddleware)
+        assert isinstance(middlewares[3], WebSearchMiddleware)
+        assert isinstance(middlewares[4], ToolOutputBudgetMiddleware)
 
 
 # ===========================================================================
@@ -918,7 +1272,13 @@ class _FakeSandbox:
         self._write_ok = write_ok
         self._check_result = check_result
 
-    def execute_command(self, command: str) -> str:
+    def execute_command(
+        self,
+        command: str,
+        env: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> str:
+        del env, timeout
         self.commands.append(command)
         if command.startswith("test -s"):
             return self._check_result

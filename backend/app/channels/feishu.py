@@ -8,11 +8,18 @@ import logging
 import re
 import threading
 import time
+from collections import OrderedDict
 from typing import Any, Literal
 
+from app.channels.audit import (
+    ACTION_MESSAGE_SKIPPED,
+    schedule_channel_audit,
+    text_preview,
+)
 from app.channels.base import Channel
-from app.channels.commands import is_known_channel_command
+from app.channels.commands import is_known_channel_command, strip_leading_mentions
 from app.channels.connection_identity import attach_connection_identity
+from app.channels.feishu_transport import observed_client
 from app.channels.message_bus import (
     PENDING_CLARIFICATION_METADATA_KEY,
     RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY,
@@ -23,11 +30,14 @@ from app.channels.message_bus import (
     ResolvedAttachment,
 )
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.sandbox.sandbox_provider import get_sandbox_provider
 
 logger = logging.getLogger(__name__)
 PENDING_CLARIFICATION_TTL_SECONDS = 30 * 60
+FEISHU_INBOUND_BATCH_WINDOW_SECONDS = 0.75
+SOURCE_PREVIEW_METADATA_KEY = "feishu_source_preview"
 
 
 def _is_feishu_command(text: str) -> bool:
@@ -46,15 +56,20 @@ class FeishuChannel(Channel):
 
     Message flow:
         1. User sends a message → bot adds "OK" emoji reaction
-        2. Bot replies in thread: "Working on it......"
+        2. Bot replies with a card: "Working on it......"
         3. Agent processes the message and returns a result
-        4. Bot replies in thread with the result
+        4. Bot updates the card with the result
         5. Bot adds "DONE" emoji reaction to the original message
     """
 
     def __init__(self, bus: MessageBus, config: dict[str, Any]) -> None:
         super().__init__(name="feishu", bus=bus, config=config)
         self._thread: threading.Thread | None = None
+        self._ws_loop: asyncio.AbstractEventLoop | None = None
+        self._ws_client = None
+        self._ws_connected = threading.Event()
+        self._ws_stop_requested = threading.Event()
+        self._ws_failure = None
         self._main_loop: asyncio.AbstractEventLoop | None = None
         self._api_client = None
         self._CreateMessageReactionRequest = None
@@ -65,13 +80,26 @@ class FeishuChannel(Channel):
         self._background_tasks: set[asyncio.Task] = set()
         self._running_card_ids: dict[str, str] = {}
         self._running_card_tasks: dict[str, asyncio.Task] = {}
+        self._prepared_inbound: OrderedDict[tuple[str, str, str], float] = OrderedDict()
         self._pending_clarifications: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        self._pending_inbound_batches: dict[tuple[str, str], dict[str, Any]] = {}
         self._CreateFileRequest = None
         self._CreateFileRequestBody = None
         self._CreateImageRequest = None
         self._CreateImageRequestBody = None
         self._GetMessageResourceRequest = None
         self._thread_lock = threading.Lock()
+        # In group chats, only respond when the bot itself is @-mentioned.
+        # Defaults to True because the majority of Feishu group bots are
+        # expected to stay silent unless explicitly addressed. Set to False
+        # in ``channels.feishu`` to opt back into "reply to everything".
+        self._mention_only_in_group: bool = bool(config.get("mention_only_in_group", True))
+        # Bot's own open_id, resolved lazily via ``/open-apis/bot/v3/info``.
+        # Used to precisely detect whether an inbound ``mentions[]`` entry
+        # targets this bot. ``None`` before resolution — the mention filter
+        # falls back to a heuristic in that case (see ``_message_mentions_bot``).
+        self._bot_open_id: str | None = None
+        self._bot_open_id_lock = threading.Lock()
 
     @staticmethod
     def _non_empty_str(value: Any) -> str | None:
@@ -83,6 +111,164 @@ class FeishuChannel(Channel):
     def _pending_key(chat_id: str, user_id: str) -> tuple[str, str]:
         return (chat_id, user_id)
 
+    @staticmethod
+    def _should_include_source_preview(
+        *,
+        chat_type: str | None,
+        root_id: str | None,
+        parent_id: str | None,
+        thread_id: str | None,
+    ) -> bool:
+        if chat_type == "p2p":
+            return False
+        return bool(root_id or parent_id or thread_id)
+
+    @staticmethod
+    def _compact_source_preview(text: str) -> str | None:
+        stripped = text.strip()
+        if not stripped:
+            return None
+
+        lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+        if not lines:
+            return None
+        preview = "\n".join(lines[:3])
+        if len(preview) > 240:
+            preview = preview[:237].rstrip() + "..."
+        return preview
+
+    @classmethod
+    def _compose_card_text(cls, text: str, metadata: dict[str, Any] | None = None) -> str:
+        """Compose the final card markdown body.
+
+        Two decorations are applied on top of the raw *text* when the
+        corresponding metadata is present:
+
+        1. **Group-reply @ prefix**: when ``metadata['chat_type'] == 'group'``
+           and ``metadata['user_id']`` holds the asker's ``open_id``, prepend
+           ``<at id={open_id}></at>`` so the asker gets a mention notification.
+           This is the Feishu card-markdown @ syntax; P2P replies skip it to
+           avoid noise in DMs.
+        2. **Quoted source preview**: when ``metadata[SOURCE_PREVIEW_METADATA_KEY]``
+           is set (a reply/topic continuation in a group), inline the first few
+           lines of the source message as a markdown blockquote so the reader
+           can see which turn we're answering.
+        """
+        preview = None
+        at_prefix = ""
+        if isinstance(metadata, dict):
+            raw_preview = metadata.get(SOURCE_PREVIEW_METADATA_KEY)
+            if isinstance(raw_preview, str) and raw_preview.strip():
+                preview = raw_preview.strip()
+
+            chat_type = metadata.get("chat_type")
+            sender_open_id = metadata.get("user_id")
+            if chat_type == "group" and isinstance(sender_open_id, str) and sender_open_id:
+                # Card markdown @ syntax: ``<at id=ou_xxx></at>``. The trailing
+                # blank line keeps the mention visually separated from the body.
+                at_prefix = f"<at id={sender_open_id}></at>\n\n"
+
+        if preview:
+            quoted_preview = "\n".join(f"> {line}" for line in preview.splitlines())
+            return f"{at_prefix}{quoted_preview}\n\n{text}"
+        if at_prefix:
+            return f"{at_prefix}{text}"
+        return text
+
+    async def _fetch_bot_open_id(self, app_id: str, app_secret: str, domain: str) -> None:
+        """Resolve the bot's own ``open_id`` via ``/open-apis/bot/v3/info``.
+
+        Cached in ``self._bot_open_id`` and used by ``_message_mentions_bot`` to
+        precisely detect whether an inbound group message @-mentions this bot.
+        Any failure is logged and swallowed — the caller falls back to a
+        heuristic (bot mentions have no ``user_id``), so a transient network
+        issue must not brick the whole channel.
+        """
+        try:
+            import httpx
+        except ImportError:
+            logger.warning("[Feishu] httpx not available; cannot resolve bot open_id, falling back to heuristic mention detection")
+            return
+
+        base = (domain or "https://open.feishu.cn").rstrip("/")
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                token_resp = await client.post(
+                    f"{base}/open-apis/auth/v3/tenant_access_token/internal",
+                    json={"app_id": app_id, "app_secret": app_secret},
+                )
+                token_data = token_resp.json()
+                if token_data.get("code") != 0:
+                    logger.warning(
+                        "[Feishu] tenant_access_token fetch failed: code=%s msg=%s",
+                        token_data.get("code"),
+                        token_data.get("msg"),
+                    )
+                    return
+                token = token_data.get("tenant_access_token")
+                if not isinstance(token, str) or not token:
+                    logger.warning("[Feishu] tenant_access_token missing in response")
+                    return
+
+                info_resp = await client.get(
+                    f"{base}/open-apis/bot/v3/info",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+                info_data = info_resp.json()
+                if info_data.get("code") != 0:
+                    logger.warning(
+                        "[Feishu] bot/v3/info failed: code=%s msg=%s",
+                        info_data.get("code"),
+                        info_data.get("msg"),
+                    )
+                    return
+                bot = info_data.get("bot") or {}
+                open_id = bot.get("open_id")
+                if isinstance(open_id, str) and open_id:
+                    with self._bot_open_id_lock:
+                        self._bot_open_id = open_id
+                    logger.info(
+                        "[Feishu] bot open_id resolved: %s (app_name=%s)",
+                        open_id,
+                        bot.get("app_name"),
+                    )
+                else:
+                    logger.warning("[Feishu] bot/v3/info returned no open_id: %s", info_data)
+        except Exception:
+            logger.exception("[Feishu] failed to fetch bot open_id; group mention filter will use heuristic")
+
+    def _message_mentions_bot(self, message) -> bool:
+        """Return True when *message* @-mentions this bot.
+
+        Strategy:
+            1. Preferred: exact match on ``mention.id.open_id`` against the
+               cached ``self._bot_open_id``.
+            2. Fallback (when ``_bot_open_id`` is not resolved yet, e.g. the
+               ``bot/v3/info`` call failed or is still in flight): treat any
+               mention with a non-empty ``open_id`` but empty ``user_id`` as a
+               bot mention. Regular users always carry a ``user_id``, while
+               Feishu bots do not — so this heuristic is safe in practice.
+        """
+        mentions = getattr(message, "mentions", None) or []
+        if not mentions:
+            return False
+
+        bot_open_id = self._bot_open_id
+        for mention in mentions:
+            mention_id = getattr(mention, "id", None)
+            if mention_id is None:
+                continue
+            open_id = getattr(mention_id, "open_id", None)
+            user_id = getattr(mention_id, "user_id", None)
+            if bot_open_id:
+                if isinstance(open_id, str) and open_id == bot_open_id:
+                    return True
+            else:
+                # Heuristic fallback: bots have open_id but no user_id.
+                if isinstance(open_id, str) and open_id and not user_id:
+                    return True
+        return False
+
     @property
     def supports_streaming(self) -> bool:
         return True
@@ -91,7 +277,12 @@ class FeishuChannel(Channel):
     def is_running(self) -> bool:
         if not self._running:
             return False
-        return self._thread is not None and self._thread.is_alive()
+        return bool(self._api_client) if self.config.get("_work_send_only") else self._thread is not None and self._thread.is_alive()
+
+    @property
+    def transport_connected(self) -> bool:
+        """Actual successful handshake, not merely an alive SDK retry thread."""
+        return bool(self.config.get("_work_receiver_ready")) if self.config.get("_work_send_only") else self._ws_connected.is_set()
 
     def _build_event_handler(self, lark):
         return (
@@ -107,6 +298,10 @@ class FeishuChannel(Channel):
     async def start(self) -> None:
         if self._running:
             return
+        if self._thread and self._thread.is_alive():
+            raise RuntimeError("Previous Work receiver has not stopped; refusing duplicate worker")
+        self._ws_stop_requested.clear()
+        self._ws_connected.clear()
 
         try:
             import lark_oapi as lark
@@ -161,6 +356,18 @@ class FeishuChannel(Channel):
         self._running = True
         self.bus.subscribe_outbound(self._on_outbound)
 
+        if self.config.get("_work_send_only"):
+            logger.info("Work HTTP sender ready; another process owns the receiver lease")
+            return
+
+        # Resolve the bot's own open_id so ``_message_mentions_bot`` can do a
+        # precise match against ``message.mentions[].id.open_id``. Fire-and-forget:
+        # if this call fails the mention filter still works via a heuristic
+        # fallback (bot mentions have no ``user_id``), so we never block start().
+        if self._mention_only_in_group:
+            bot_info_task = asyncio.create_task(self._fetch_bot_open_id(app_id, app_secret, domain))
+            self._track_background_task(bot_info_task, name="fetch_bot_open_id", msg_id="<startup>")
+
         # Both ws.Client construction and start() must happen in a dedicated
         # thread with its own event loop.  lark-oapi caches the running loop
         # at construction time and later calls loop.run_until_complete(),
@@ -188,6 +395,19 @@ class FeishuChannel(Channel):
         """
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        self._ws_loop = loop
+
+        def guarded_task_factory(worker_loop, coroutine, **kwargs):
+            task = asyncio.Task(coroutine, loop=worker_loop, **kwargs)
+            # SDK start() creates ping/select tasks *after* its handshake
+            # run_until_complete returns. stop() can race in that gap and
+            # otherwise cancel only the old task snapshot, leaving new tasks
+            # running forever. Fence all newly created SDK tasks after stop.
+            if self._ws_stop_requested.is_set():
+                task.cancel()
+            return task
+
+        loop.set_task_factory(guarded_task_factory)
         try:
             import lark_oapi as lark
             import lark_oapi.ws.client as _ws_client_mod
@@ -198,24 +418,55 @@ class FeishuChannel(Channel):
             _ws_client_mod.loop = loop
 
             event_handler = self._build_event_handler(lark)
-            ws_client = lark.ws.Client(
+            client_type = observed_client(lark.ws.Client, self)
+            ws_client = client_type(
                 app_id=app_id,
                 app_secret=app_secret,
                 event_handler=event_handler,
                 log_level=lark.LogLevel.INFO,
                 domain=domain,
             )
+            self._ws_client = ws_client
+            if self._ws_stop_requested.is_set():
+                return
             ws_client.start()
+        except asyncio.CancelledError:
+            pass
         except Exception:
             if self._running:
-                logger.exception("Feishu WebSocket error")
+                logger.error("Feishu WebSocket worker stopped; handshake=%s", self._ws_failure)
+        finally:
+            loop.set_task_factory(None)  # Cleanup coroutines must still run.
+            self._ws_connected.clear()
             self._running = False
+            if self._ws_client is not None:
+                self._ws_client._auto_reconnect = False
+            tasks = asyncio.all_tasks(loop)
+            for task in tasks:
+                task.cancel()
+            if tasks:
+                loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+            if self._ws_client is not None:
+                connection = getattr(self._ws_client, "_conn", None)
+                try:
+                    loop.run_until_complete(asyncio.wait_for(self._ws_client._disconnect(), timeout=5))
+                except Exception:
+                    logger.warning("Work WebSocket shutdown required transport abort")
+                finally:
+                    transport = getattr(connection, "transport", None)
+                    if transport is not None:
+                        transport.abort()
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.close()
+            self._ws_client = None
 
     def _on_ignored_message_event(self, event) -> None:
         logger.debug("[Feishu] ignoring non-content message event: %s", type(event).__name__)
 
     async def stop(self) -> None:
         self._running = False
+        self._ws_stop_requested.set()
+        self._ws_connected.clear()
         self.bus.unsubscribe_outbound(self._on_outbound)
         for task in list(self._background_tasks):
             task.cancel()
@@ -224,7 +475,21 @@ class FeishuChannel(Channel):
             task.cancel()
         self._running_card_tasks.clear()
         if self._thread:
-            self._thread.join(timeout=5)
+
+            def cancel_worker():
+                if self._ws_client is not None:
+                    self._ws_client._auto_reconnect = False
+                for task in asyncio.all_tasks(self._ws_loop):
+                    task.cancel()
+
+            if self._ws_loop is not None and not self._ws_loop.is_closed():
+                try:
+                    self._ws_loop.call_soon_threadsafe(cancel_worker)
+                except RuntimeError:
+                    pass  # The worker completed between the check and scheduling.
+            await asyncio.to_thread(self._thread.join, 15)
+            if self._thread.is_alive():
+                raise RuntimeError("Work receiver did not stop; refusing a second worker")
             self._thread = None
         logger.info("Feishu channel stopped")
 
@@ -269,7 +534,7 @@ class FeishuChannel(Channel):
                 content = json.dumps({"file_key": file_key})
 
             if msg.thread_ts:
-                request = self._ReplyMessageRequest.builder().message_id(msg.thread_ts).request_body(self._ReplyMessageRequestBody.builder().msg_type(msg_type).content(content).reply_in_thread(False).build()).build()
+                request = self._ReplyMessageRequest.builder().message_id(msg.thread_ts).request_body(self._ReplyMessageRequestBody.builder().msg_type(msg_type).content(content).build()).build()
                 await asyncio.to_thread(self._api_client.im.v1.message.reply, request)
             else:
                 request = self._CreateMessageRequest.builder().receive_id_type("chat_id").request_body(self._CreateMessageRequestBody.builder().receive_id(msg.chat_id).msg_type(msg_type).content(content).build()).build()
@@ -460,8 +725,11 @@ class FeishuChannel(Channel):
             return None
 
         content = self._build_card_content(text)
-        request = self._ReplyMessageRequest.builder().message_id(message_id).request_body(self._ReplyMessageRequestBody.builder().msg_type("interactive").content(content).reply_in_thread(False).build()).build()
+        request = self._ReplyMessageRequest.builder().message_id(message_id).request_body(self._ReplyMessageRequestBody.builder().msg_type("interactive").content(content).build()).build()
         response = await asyncio.to_thread(self._api_client.im.v1.message.reply, request)
+        code = getattr(response, "code", None)
+        if isinstance(code, int) and code != 0:
+            raise RuntimeError(f"Work card reply was rejected (code={code})")
         response_data = getattr(response, "data", None)
         return getattr(response_data, "message_id", None)
 
@@ -481,7 +749,12 @@ class FeishuChannel(Channel):
 
         content = self._build_card_content(text)
         request = self._PatchMessageRequest.builder().message_id(message_id).request_body(self._PatchMessageRequestBody.builder().content(content).build()).build()
-        await asyncio.to_thread(self._api_client.im.v1.message.patch, request)
+        response = await asyncio.to_thread(self._api_client.im.v1.message.patch, request)
+        # SDK returns business failures rather than raising; do not claim a card
+        # was updated while it actually remains stuck at its initial placeholder.
+        code = getattr(response, "code", None)
+        if isinstance(code, int) and code != 0:
+            raise RuntimeError("Work card update was rejected")
 
     def _track_background_task(self, task: asyncio.Task, *, name: str, msg_id: str) -> None:
         """Keep a strong reference to fire-and-forget tasks and surface errors."""
@@ -492,9 +765,15 @@ class FeishuChannel(Channel):
         self._background_tasks.discard(task)
         self._log_task_error(task, name, msg_id)
 
-    async def _create_running_card(self, source_message_id: str, text: str) -> str | None:
+    async def _create_running_card(
+        self,
+        source_message_id: str,
+        text: str,
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> str | None:
         """Create the running card and cache its message ID when available."""
-        running_card_id = await self._reply_card(source_message_id, text)
+        running_card_id = await self._reply_card(source_message_id, self._compose_card_text(text, metadata))
         if running_card_id:
             self._running_card_ids[source_message_id] = running_card_id
             logger.info("[Feishu] running card created: source=%s card=%s", source_message_id, running_card_id)
@@ -502,7 +781,13 @@ class FeishuChannel(Channel):
             logger.warning("[Feishu] running card creation returned no message_id for source=%s, subsequent updates will fall back to new replies", source_message_id)
         return running_card_id
 
-    def _ensure_running_card_started(self, source_message_id: str, text: str = "Working on it...") -> asyncio.Task | None:
+    def _ensure_running_card_started(
+        self,
+        source_message_id: str,
+        text: str = "thinking...",
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> asyncio.Task | None:
         """Start running-card creation once per source message."""
         running_card_id = self._running_card_ids.get(source_message_id)
         if running_card_id:
@@ -512,7 +797,7 @@ class FeishuChannel(Channel):
         if running_card_task:
             return running_card_task
 
-        running_card_task = asyncio.create_task(self._create_running_card(source_message_id, text))
+        running_card_task = asyncio.create_task(self._create_running_card(source_message_id, text, metadata=metadata))
         self._running_card_tasks[source_message_id] = running_card_task
         running_card_task.add_done_callback(lambda done_task, mid=source_message_id: self._finalize_running_card_task(mid, done_task))
         return running_card_task
@@ -522,21 +807,31 @@ class FeishuChannel(Channel):
             self._running_card_tasks.pop(source_message_id, None)
         self._log_task_error(task, "create_running_card", source_message_id)
 
-    async def _ensure_running_card(self, source_message_id: str, text: str = "Working on it...") -> str | None:
+    async def _ensure_running_card(
+        self,
+        source_message_id: str,
+        text: str = "thinking...",
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> str | None:
         """Ensure the in-thread running card exists and track its message ID."""
         running_card_id = self._running_card_ids.get(source_message_id)
         if running_card_id:
             return running_card_id
 
-        running_card_task = self._ensure_running_card_started(source_message_id, text)
+        running_card_task = self._ensure_running_card_started(
+            source_message_id,
+            text,
+            metadata=metadata,
+        )
         if running_card_task is None:
             return self._running_card_ids.get(source_message_id)
         return await running_card_task
 
-    async def _send_running_reply(self, message_id: str) -> None:
+    async def _send_running_reply(self, message_id: str, *, metadata: dict[str, Any] | None = None) -> None:
         """Reply to a message in-thread with a running card."""
         try:
-            await self._ensure_running_card(message_id)
+            await self._ensure_running_card(message_id, metadata=metadata)
         except Exception:
             logger.exception("[Feishu] failed to send running reply for message %s", message_id)
 
@@ -554,8 +849,9 @@ class FeishuChannel(Channel):
                     running_card_id = await running_card_task
 
             if running_card_id:
+                card_text = self._compose_card_text(msg.text, msg.metadata)
                 try:
-                    await self._update_card(running_card_id, msg.text)
+                    await self._update_card(running_card_id, card_text)
                 except Exception:
                     if not msg.is_final:
                         raise
@@ -563,7 +859,7 @@ class FeishuChannel(Channel):
                         "[Feishu] failed to patch running card %s, falling back to final reply",
                         running_card_id,
                     )
-                    fallback_card_id = await self._reply_card(source_message_id, msg.text)
+                    fallback_card_id = await self._reply_card(source_message_id, card_text)
                     self._remember_thread_mapping(msg, source_message_id, fallback_card_id)
                     self._remember_pending_clarification(msg, fallback_card_id)
                 else:
@@ -571,7 +867,10 @@ class FeishuChannel(Channel):
                     self._remember_pending_clarification(msg, running_card_id)
                     logger.info("[Feishu] running card updated: source=%s card=%s", source_message_id, running_card_id)
             elif msg.is_final:
-                final_card_id = await self._reply_card(source_message_id, msg.text)
+                final_card_id = await self._reply_card(
+                    source_message_id,
+                    self._compose_card_text(msg.text, msg.metadata),
+                )
                 self._remember_thread_mapping(msg, source_message_id, final_card_id)
                 self._remember_pending_clarification(msg, final_card_id)
             elif awaited_running_card_task:
@@ -580,7 +879,11 @@ class FeishuChannel(Channel):
                     source_message_id,
                 )
             else:
-                created_card_id = await self._ensure_running_card(source_message_id, msg.text)
+                created_card_id = await self._ensure_running_card(
+                    source_message_id,
+                    msg.text,
+                    metadata=msg.metadata,
+                )
                 self._remember_thread_mapping(msg, source_message_id, created_card_id)
 
             if msg.is_final:
@@ -716,6 +1019,115 @@ class FeishuChannel(Channel):
         return root_id or msg_id, False
 
     @staticmethod
+    def _is_batchable_file_inbound(
+        *,
+        msg_type: InboundMessageType,
+        text: str,
+        files: list[dict[str, Any]],
+        root_id: str | None,
+        parent_id: str | None,
+        thread_id: str | None,
+    ) -> bool:
+        return msg_type == InboundMessageType.CHAT and text in {"[file]", "[image]"} and len(files) == 1 and not (root_id or parent_id or thread_id)
+
+    def _schedule_prepare_inbound(
+        self,
+        msg_id: str,
+        inbound: InboundMessage,
+        *,
+        source_message_ids: list[str] | None = None,
+    ) -> None:
+        if self._main_loop and self._main_loop.is_running():
+            logger.info("[Feishu] publishing inbound message to bus (type=%s, msg_id=%s)", inbound.msg_type.value, msg_id)
+            fut = asyncio.run_coroutine_threadsafe(
+                self._prepare_inbound(msg_id, inbound, source_message_ids=source_message_ids),
+                self._main_loop,
+            )
+            fut.add_done_callback(lambda f, mid=msg_id: self._log_future_error(f, "prepare_inbound", mid))
+        else:
+            logger.warning("[Feishu] main loop not running, cannot publish inbound message")
+
+    def _schedule_batch_flush(self, key: tuple[str, str], source_message_id: str) -> None:
+        if self._main_loop and self._main_loop.is_running():
+            fut = asyncio.run_coroutine_threadsafe(self._flush_pending_inbound_batch_after(key, source_message_id), self._main_loop)
+            fut.add_done_callback(lambda f, mid=source_message_id: self._log_future_error(f, "flush_inbound_batch", mid))
+        else:
+            logger.warning("[Feishu] main loop not running, cannot flush inbound batch")
+
+    def _queue_file_inbound_batch(self, msg_id: str, inbound: InboundMessage) -> bool:
+        key = self._pending_key(inbound.chat_id, inbound.user_id)
+        should_schedule_flush = False
+        expired_batch: tuple[str, InboundMessage, list[str]] | None = None
+
+        with self._thread_lock:
+            batch = self._pending_inbound_batches.get(key)
+            now = time.time()
+            if batch:
+                if now - batch["created_at"] <= FEISHU_INBOUND_BATCH_WINDOW_SECONDS:
+                    if msg_id in batch["message_ids"]:
+                        return True
+                    batched_inbound = batch["inbound"]
+                    batch["message_ids"].append(msg_id)
+                    batch["text_parts"].append(inbound.text)
+                    batched_inbound.text = "\n\n".join(part for part in batch["text_parts"] if part)
+                    batched_inbound.files.extend(inbound.files)
+                    batched_inbound.metadata["batched_message_ids"] = list(batch["message_ids"])
+                    logger.info(
+                        "[Feishu] batched inbound file message: chat_id=%s user_id=%s anchor=%s msg_id=%s files=%d",
+                        inbound.chat_id,
+                        inbound.user_id,
+                        batch["anchor_message_id"],
+                        msg_id,
+                        len(batched_inbound.files),
+                    )
+                    return True
+
+                expired_batch = (batch["anchor_message_id"], batch["inbound"], list(batch["message_ids"]))
+
+            self._pending_inbound_batches[key] = {
+                "anchor_message_id": msg_id,
+                "created_at": now,
+                "inbound": inbound,
+                "message_ids": [msg_id],
+                "text_parts": [inbound.text],
+            }
+            inbound.metadata["batched_message_ids"] = [msg_id]
+            should_schedule_flush = True
+
+        if should_schedule_flush:
+            self._schedule_batch_flush(key, msg_id)
+        if expired_batch:
+            anchor_message_id, expired_inbound, source_message_ids = expired_batch
+            self._schedule_prepare_inbound(anchor_message_id, expired_inbound, source_message_ids=source_message_ids)
+        return True
+
+    def _pop_pending_inbound_batch(self, key: tuple[str, str], *, anchor_message_id: str | None = None) -> tuple[str, InboundMessage, list[str]] | None:
+        with self._thread_lock:
+            batch = self._pending_inbound_batches.get(key)
+            if not batch:
+                return None
+            if anchor_message_id is not None and batch["anchor_message_id"] != anchor_message_id:
+                return None
+            self._pending_inbound_batches.pop(key, None)
+            return batch["anchor_message_id"], batch["inbound"], list(batch["message_ids"])
+
+    async def _flush_pending_inbound_batch_after(self, key: tuple[str, str], anchor_message_id: str) -> None:
+        await asyncio.sleep(FEISHU_INBOUND_BATCH_WINDOW_SECONDS)
+        batch = self._pop_pending_inbound_batch(key, anchor_message_id=anchor_message_id)
+        if not batch:
+            return
+        anchor_message_id, inbound, source_message_ids = batch
+        logger.info(
+            "[Feishu] flushing inbound file batch: chat_id=%s user_id=%s anchor=%s messages=%d files=%d",
+            inbound.chat_id,
+            inbound.user_id,
+            anchor_message_id,
+            len(source_message_ids),
+            len(inbound.files),
+        )
+        await self._prepare_inbound(anchor_message_id, inbound, source_message_ids=source_message_ids)
+
+    @staticmethod
     def _log_task_error(task: asyncio.Task, name: str, msg_id: str) -> None:
         """Callback for background asyncio tasks to surface errors."""
         try:
@@ -727,13 +1139,35 @@ class FeishuChannel(Channel):
         except Exception:
             pass
 
-    async def _prepare_inbound(self, msg_id: str, inbound) -> None:
-        """Kick off Feishu side effects without delaying inbound dispatch."""
-        inbound = await self._attach_connection_identity(inbound)
-        reaction_task = asyncio.create_task(self._add_reaction(msg_id, "OK"))
-        self._track_background_task(reaction_task, name="add_reaction", msg_id=msg_id)
-        self._ensure_running_card_started(msg_id)
-        await self.bus.publish_inbound(inbound)
+    async def _prepare_inbound(self, msg_id: str, inbound, *, source_message_ids: list[str] | None = None) -> None:
+        """Deduplicate SDK retries before any visible reaction/placeholder."""
+        guard = self.config.get("_work_receiver_guard")
+        if guard is not None and not await guard():
+            return
+        now = time.monotonic()
+        while self._prepared_inbound:
+            oldest, at = next(iter(self._prepared_inbound.items()))
+            if now - at <= 600 and len(self._prepared_inbound) <= 4096:
+                break
+            self._prepared_inbound.pop(oldest, None)
+        keys = [(inbound.chat_id, inbound.user_id, value) for value in (source_message_ids or [msg_id])]
+        if any(key in self._prepared_inbound for key in keys):
+            return
+        # Claim synchronously, before awaits, including concurrent SDK deliveries.
+        for key in keys:
+            self._prepared_inbound[key] = now
+        try:
+            inbound = await self._attach_connection_identity(inbound)
+            reaction_message_ids = source_message_ids or [msg_id]
+            for reaction_message_id in reaction_message_ids:
+                reaction_task = asyncio.create_task(self._add_reaction(reaction_message_id, "OK"))
+                self._track_background_task(reaction_task, name="add_reaction", msg_id=reaction_message_id)
+            self._ensure_running_card_started(msg_id, metadata=inbound.metadata)
+            await self.bus.publish_inbound(inbound)
+        except BaseException:
+            for key in keys:
+                self._prepared_inbound.pop(key, None)
+            raise
 
     async def _attach_connection_identity(self, inbound: InboundMessage) -> InboundMessage:
         return await attach_connection_identity(
@@ -744,16 +1178,19 @@ class FeishuChannel(Channel):
         )
 
     async def _bind_connection_from_connect_code(self, *, message_id: str, chat_id: str, user_id: str, code: str) -> bool:
+        guard = self.config.get("_work_receiver_guard")
+        if guard is not None and not await guard():
+            return True
         if self._connection_repo is None or not code:
             return False
 
         state = await self._connection_repo.consume_oauth_state(provider="feishu", state=code)
         if state is None:
-            await self._reply_card(message_id, "Feishu connection code is invalid or expired.")
+            await self._reply_card(message_id, "海能 Work连接码无效或已过期。")
             return True
 
         if not user_id or not chat_id:
-            await self._reply_card(message_id, "Feishu connection could not be completed from this message.")
+            await self._reply_card(message_id, "无法通过此消息完成海能 Work连接。")
             return True
 
         await self._connection_repo.upsert_connection(
@@ -767,11 +1204,13 @@ class FeishuChannel(Channel):
             },
             status="connected",
         )
-        await self._reply_card(message_id, "Feishu connected to DeerFlow.")
+        await self._reply_card(message_id, f"海能 Work已连接至{ENTERPRISE_PRODUCT_NAME}。")
         return True
 
     def _on_message(self, event) -> None:
         """Called by lark-oapi when a message is received (runs in lark thread)."""
+        if self._ws_stop_requested.is_set():
+            return
         try:
             logger.info("[Feishu] raw event received: type=%s", type(event).__name__)
             message = event.event.message
@@ -779,9 +1218,8 @@ class FeishuChannel(Channel):
             msg_id = message.message_id
             sender_id = event.event.sender.sender_id.open_id
 
-            # root_id is set when the message is a reply within a Feishu thread.
-            # Use it as topic_id so all replies share the same DeerFlow thread.
-            root_id = self._non_empty_str(getattr(message, "root_id", None))
+            root_id = getattr(message, "root_id", None) or None
+            chat_type = getattr(message, "chat_type", None)
             parent_id = self._non_empty_str(getattr(message, "parent_id", None))
             feishu_thread_id = self._non_empty_str(getattr(message, "thread_id", None))
 
@@ -823,6 +1261,13 @@ class FeishuChannel(Channel):
                                     text_value = element.get("text", "")
                                     if text_value:
                                         paragraph_text_parts.append(text_value)
+                                elif element.get("tag") == "a":
+                                    href = element.get("href")
+                                    label = element.get("text")
+                                    if isinstance(label, str) and label:
+                                        paragraph_text_parts.append(label)
+                                    if isinstance(href, str) and href:
+                                        paragraph_text_parts.append(href)
                                 elif element.get("tag") == "img":
                                     image_key = element.get("image_key")
                                     if isinstance(image_key, str) and image_key:
@@ -844,12 +1289,13 @@ class FeishuChannel(Channel):
             text = text.strip()
 
             logger.info(
-                "[Feishu] parsed message: chat_id=%s, msg_id=%s, root_id=%s, parent_id=%s, thread_id=%s, sender=%s, text_len=%d",
+                "[Feishu] parsed message: chat_id=%s, msg_id=%s, root_id=%s, parent_id=%s, thread_id=%s, chat_type=%s, sender=%s, text_len=%d",
                 chat_id,
                 msg_id,
                 root_id,
                 parent_id,
                 feishu_thread_id,
+                chat_type,
                 sender_id,
                 len(text or ""),
             )
@@ -858,6 +1304,12 @@ class FeishuChannel(Channel):
                 logger.info("[Feishu] empty text, ignoring message")
                 return
 
+            # Connect-code binding MUST be checked before the group @-mention
+            # gate (see Channel._pending_connect_code contract): a browser-
+            # initiated ``/connect <code>`` bootstraps an external identity the
+            # bot has never seen, so it cannot be required to @-mention first.
+            # All other adapters (dingtalk/discord/slack/wechat/wecom) likewise
+            # consume the connect code before any allowed_users/mention gate.
             connect_code = self._pending_connect_code(text)
             if connect_code:
                 if self._main_loop and self._main_loop.is_running():
@@ -875,16 +1327,66 @@ class FeishuChannel(Channel):
                     logger.warning("[Feishu] main loop not running, cannot bind channel connection")
                 return
 
+            # Group-chat gate: when ``mention_only_in_group`` is enabled, drop
+            # any group message that does not @-mention the bot. This is the
+            # earliest safe point — we've parsed the message enough to inspect
+            # ``mentions`` but have not yet emitted any side effects (no
+            # reaction, no running card, no bus publish). P2P chats skip this
+            # check entirely so DMs still work without @.
+            #
+            # NOTE: there is deliberately NO "pending clarification" bypass here.
+            # A previous version exempted this ``(chat_id, user_id)`` from the
+            # @-requirement whenever a clarification was remembered, so the user
+            # could answer the bot's question without re-@ing. But the LLM ends
+            # most turns with a fresh clarifying question, which re-armed the
+            # exemption every turn (its TTL refreshed each time) and permanently
+            # disabled the gate — the bot then answered *every* group message
+            # with no @ at all. Group multi-turn clarification now requires an
+            # explicit @ each turn. P2P still continues clarification answers
+            # without @ because it skips this gate entirely.
+            if (
+                chat_type == "group"
+                and self._mention_only_in_group
+                and not self._message_mentions_bot(message)
+            ):
+                logger.debug(
+                    "[Feishu] skipping group message without @-mention: chat_id=%s msg_id=%s sender=%s",
+                    chat_id,
+                    msg_id,
+                    sender_id,
+                )
+                # This drop happens inside the adapter, before the manager ever
+                # sees the message, so it has to be audited here or it leaves no
+                # trace at all.
+                schedule_channel_audit(
+                    action=ACTION_MESSAGE_SKIPPED,
+                    channel_name=self.name,
+                    result="failure",
+                    status_code=204,
+                    error="group message without @-mention",
+                    details={
+                        "reason": "mention_only_in_group",
+                        "chat_id": chat_id,
+                        "chat_type": chat_type,
+                        "platform_user_id": sender_id,
+                        "message_id": msg_id,
+                        "text_preview": text_preview(text),
+                    },
+                )
+                return
+
             # Only treat known slash commands as commands; absolute paths and
             # other slash-prefixed text should be handled as normal chat.
-            if _is_feishu_command(text):
+            command_text = strip_leading_mentions(text)
+            if _is_feishu_command(command_text):
                 msg_type = InboundMessageType.COMMAND
+                text = command_text
             else:
                 msg_type = InboundMessageType.CHAT
 
-            # Prefer any platform message id that already maps to a DeerFlow
-            # thread. This keeps replies to bot clarification cards in the
-            # original conversation even when Feishu reports the card as root.
+            # topic_id determines which LangGraph thread the message maps to.
+            # P2P chats: topic_id=None so all messages share one thread (like Telegram DMs).
+            # But check stored mappings first for backward compatibility with pre-upgrade P2P threads.
             topic_id, resolved_from_stored_mapping = self._resolve_topic_id(
                 chat_id,
                 msg_id,
@@ -892,6 +1394,8 @@ class FeishuChannel(Channel):
                 parent_id=parent_id,
                 thread_id=feishu_thread_id,
             )
+            if chat_type == "p2p" and not resolved_from_stored_mapping:
+                topic_id = None
             resolved_from_pending = False
             if msg_type == InboundMessageType.CHAT and not resolved_from_stored_mapping:
                 pending = self._consume_pending_clarification(chat_id, sender_id)
@@ -901,6 +1405,28 @@ class FeishuChannel(Channel):
                     self._ensure_pending_thread_mapping(chat_id, sender_id, pending)
                     resolved_from_pending = True
 
+            source_preview = None
+            if self._should_include_source_preview(
+                chat_type=chat_type,
+                root_id=root_id,
+                parent_id=parent_id,
+                thread_id=feishu_thread_id,
+            ):
+                source_preview = self._compact_source_preview(text)
+
+            metadata = {
+                "message_id": msg_id,
+                "root_id": root_id,
+                "parent_id": parent_id,
+                "thread_id": feishu_thread_id,
+                "topic_id": topic_id,
+                "user_id": sender_id,
+                "chat_type": chat_type,
+                RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY: resolved_from_pending,
+            }
+            if source_preview:
+                metadata[SOURCE_PREVIEW_METADATA_KEY] = source_preview
+
             inbound = self._make_inbound(
                 chat_id=chat_id,
                 user_id=sender_id,
@@ -908,24 +1434,21 @@ class FeishuChannel(Channel):
                 msg_type=msg_type,
                 thread_ts=msg_id,
                 files=files_list,
-                metadata={
-                    "message_id": msg_id,
-                    "root_id": root_id,
-                    "parent_id": parent_id,
-                    "thread_id": feishu_thread_id,
-                    "topic_id": topic_id,
-                    "user_id": sender_id,
-                    RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY: resolved_from_pending,
-                },
+                metadata=metadata,
             )
             inbound.topic_id = topic_id
 
-            # Schedule on the async event loop
-            if self._main_loop and self._main_loop.is_running():
-                logger.info("[Feishu] publishing inbound message to bus (type=%s, msg_id=%s)", msg_type.value, msg_id)
-                fut = asyncio.run_coroutine_threadsafe(self._prepare_inbound(msg_id, inbound), self._main_loop)
-                fut.add_done_callback(lambda f, mid=msg_id: self._log_future_error(f, "prepare_inbound", mid))
-            else:
-                logger.warning("[Feishu] main loop not running, cannot publish inbound message")
+            if self._is_batchable_file_inbound(
+                msg_type=msg_type,
+                text=text,
+                files=files_list,
+                root_id=root_id,
+                parent_id=parent_id,
+                thread_id=feishu_thread_id,
+            ):
+                self._queue_file_inbound_batch(msg_id, inbound)
+                return
+
+            self._schedule_prepare_inbound(msg_id, inbound)
         except Exception:
             logger.exception("[Feishu] error processing message")

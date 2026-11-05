@@ -1,74 +1,75 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useMemo } from "react";
 
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
-import { AuroraText } from "../ui/aurora-text";
+import { CnoocAssistantAvatar } from "./cnooc-assistant-avatar";
 
 function WelcomeDescription({ children }: { children: string }) {
-  const lines = children.split("\n");
-  if (lines.length === 1) {
-    return (
-      <p className="max-w-full text-wrap break-words whitespace-pre-line">
-        {children}
-      </p>
-    );
-  }
   return (
-    <div className="flex max-w-full flex-col items-center">
-      {lines.map((line) => (
-        <span key={line} className="whitespace-normal sm:whitespace-nowrap">
-          {line}
-        </span>
-      ))}
-    </div>
+    <p className="max-w-full text-wrap break-words whitespace-pre-line">
+      {children}
+    </p>
   );
 }
 
 export function Welcome({
   className,
-  mode,
 }: {
   className?: string;
   mode?: "ultra" | "pro" | "thinking" | "flash";
 }) {
   const { t } = useI18n();
   const searchParams = useSearchParams();
-  const isUltra = useMemo(() => mode === "ultra", [mode]);
-  const colors = useMemo(() => {
-    if (isUltra) {
-      return ["#005bac", "#00a3e0", "#f2b705"];
-    }
-    return ["var(--color-foreground)"];
-  }, [isUltra]);
+  const isSkillMode = searchParams.get("mode") === "skill";
 
-  const skillMode = searchParams.get("mode") === "skill";
-  const description = skillMode
-    ? t.welcome.createYourOwnSkillDescription
-    : t.welcome.description;
+  if (isSkillMode) {
+    return (
+      <section
+        className={cn(
+          "cnooc-welcome-skill mx-auto flex w-full max-w-full flex-col items-center justify-center gap-2 px-4 py-4 text-center sm:px-8",
+          className,
+        )}
+        data-testid="welcome-panel"
+      >
+        <h1 className="max-w-full text-2xl font-bold">
+          {t.welcome.createYourOwnSkill}
+        </h1>
+        <div className="text-muted-foreground max-w-full text-sm">
+          <WelcomeDescription>
+            {t.welcome.createYourOwnSkillDescription}
+          </WelcomeDescription>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <div
-      className={cn(
-        "mx-auto flex w-full max-w-full flex-col items-center justify-center gap-2 px-4 py-4 text-center sm:px-8",
-        className,
-      )}
+    <section
+      className={cn("cnooc-welcome-panel", className)}
+      data-testid="welcome-panel"
     >
-      <div className="max-w-full text-2xl font-bold">
-        {skillMode ? (
-          <span>{t.welcome.createYourOwnSkill}</span>
-        ) : (
-          <div className="flex max-w-full flex-wrap items-center justify-center gap-2">
-            <AuroraText colors={colors}>{t.welcome.greeting}</AuroraText>
-          </div>
-        )}
+      <div className="cnooc-desktop-welcome-copy">
+        <h1>海能通用智能体</h1>
+        <p>您好！我是您的智能助手，有什么可以帮助您？</p>
       </div>
-      <div className="text-muted-foreground max-w-[min(96vw,1400px)] text-sm leading-6">
-        <WelcomeDescription>{description}</WelcomeDescription>
+
+      <div className="cnooc-mobile-welcome-card">
+        <CnoocAssistantAvatar className="cnooc-welcome-mascot" />
+        <div className="cnooc-mobile-welcome-copy">
+          <p className="cnooc-mobile-welcome-eyebrow">hi,您好呀~</p>
+          <h1>
+            你好，我是您的
+            <strong>海油智能助手</strong>
+          </h1>
+          <p className="cnooc-mobile-welcome-description">
+            很高兴遇到你，我将时刻为您答疑解惑，助力高效工作。
+          </p>
+        </div>
+        <span aria-hidden="true" className="cnooc-mobile-welcome-wave" />
       </div>
-    </div>
+    </section>
   );
 }

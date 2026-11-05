@@ -1,0 +1,23 @@
+{
+  "schema": "portal-weknora-company-activation-preparation.v1",
+  "status": "FORMAL_PACKAGE_TESTED_NOT_DEPLOYED",
+  "linux_python37_tests_passed": 18,
+  "local_runtime_checks_passed": 3,
+  "ruff": "PASS",
+  "sources": {
+    "activate-weknora-company.py": "06adca7e441ca59b83c499e38c97dc134d380dad659b63dcd53c421ea0c9a997",
+    "package-weknora-company-activation.py": "8fd2c4e7e55cda06e444e2d46e5dbfeef8a46bab665b0e29c9c9e95d4d846fac",
+    "weknora-company-live-check.py": "f14fe65039398bf2970363996b95b9488ea74e76736418e8422e3f6a03d165d4",
+    "test_weknora_company_activation.py": "d0b51b66a5172f3138fdf826fcbf9bbf7dcfa8b90b45ebc0ac71e42c159f29e3",
+    "activate-oa-compat.py": "35c1aa5ee5f840044e76e591d678e157415c9e7a0910e2be0a1a3eac846de958",
+    "oa-compat-node-gate.py": "4fa4a1261f24e3084931e9a40aef56c888f57adbe3bd5d0ef8b59883d9912b07",
+    "oa-compat-live-check.py": "f4e9d23d915126b0931000d54317250f4ec532fcf322ddf82b6b6866455c3eca"
+  },
+  "installed_image_field_receipt": "weknora-company-image-check-field-20261024-r1.json",
+  "bulk_final_receipt_received": true,
+  "production_package_generated": true,
+  "production_workload_modified": false,
+  "auto_enrollment_deployed": false,
+  "formal_package_record": "weknora-company-activation-package-20261024-r1.json",
+  "bulk_field_receipt": "weknora-company-enrollment-field-20261024-r1.json"
+}

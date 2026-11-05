@@ -12,6 +12,7 @@ import React, {
 
 import { isStaticWebsiteOnly } from "../static-mode";
 
+import { resetLocalSettingsForLogout } from "./logout";
 import { type User, buildLoginUrl } from "./types";
 
 // Re-export for consumers
@@ -108,6 +109,7 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
   const logout = useCallback(async () => {
     // Immediately clear local state to prevent UI flicker
     setUser(null);
+    resetLocalSettingsForLogout();
 
     if (staticMode) {
       router.push("/");

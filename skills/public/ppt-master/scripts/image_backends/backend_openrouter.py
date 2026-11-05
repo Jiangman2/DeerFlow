@@ -9,13 +9,21 @@ Configuration keys:
 """
 
 import sys
+from pathlib import Path
 
-if __name__ == "__main__" and any(arg in {"-h", "--help", "help"} for arg in sys.argv[1:]):
+_SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from console_encoding import configure_utf8_stdio  # noqa: E402
+
+configure_utf8_stdio()
+
+if __name__ == "__main__":
     print(__doc__)
     print("Use via: python3 skills/ppt-master/scripts/image_gen.py \"prompt\" --backend openrouter")
-    raise SystemExit(0)
+    raise SystemExit(0 if any(arg in {"-h", "--help", "help"} for arg in sys.argv[1:]) else 1)
 
-import base64
 import os
 import time
 import threading
@@ -23,6 +31,8 @@ import requests
 
 from image_backends.backend_common import (
     MAX_RETRIES,
+    decode_data_uri,
+    find_data_uri,
     is_rate_limit_error,
     normalize_image_size,
     resolve_output_path,
@@ -54,7 +64,25 @@ def _resolve_url(base_url: str) -> str:
     """Resolve the OpenRouter generation endpoint."""
     return base_url.rstrip("/") + "/chat/completions"
 
-def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
+def _message_image_uri(message: dict) -> str | None:
+    """
+    Locate the generated image in a chat completion message.
+
+    OpenRouter returns it in a dedicated `images` array; other OpenAI-compatible endpoints
+    reachable through OPENROUTER_BASE_URL inline it in the message content instead.
+    """
+    images = message.get("images")
+    if images:
+        url = images[0].get("image_url")
+        if isinstance(url, dict):
+            url = url.get("url")
+        if url:
+            return url
+
+    return find_data_uri(message.get("content"))
+
+
+def _generate_image(api_key: str, prompt: str,
                     aspect_ratio: str = "1:1", image_size: str = "1K",
                     output_dir: str = None, filename: str = None,
                     model: str = DEFAULT_MODEL, base_url: str = DEFAULT_ENDPOINT) -> str:
@@ -63,10 +91,6 @@ def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
     """
 
     url = _resolve_url(base_url)
-
-    final_prompt = prompt
-    if negative_prompt:
-        final_prompt += f"\n\nAvoid the following: {negative_prompt}"
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -78,7 +102,7 @@ def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
         "messages": [
             {
                 "role": "user",
-                "content": final_prompt
+                "content": prompt
             }
         ],
         "modalities": ["image", "text"],
@@ -90,7 +114,7 @@ def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
 
     print(f"[OpenRouter]")
     print(f"  Model:        {model}")
-    print(f"  Prompt:       {final_prompt[:120]}{'...' if len(final_prompt) > 120 else ''}")
+    print(f"  Prompt:       {prompt[:120]}{'...' if len(prompt) > 120 else ''}")
     print(f"  Aspect Ratio: {aspect_ratio}")
     print(f"  Image Size:   {image_size}")
     print()
@@ -122,11 +146,11 @@ def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
 
     if result.get("choices"):
         message = result["choices"][0]["message"]
-        if message.get("images"):
+        image_uri = _message_image_uri(message)
+        if image_uri:
+            image_data, content_type = decode_data_uri(image_uri)
             path = resolve_output_path(prompt, output_dir, filename, ".png")
-            # strip "data:image/png;base64,"
-            image_data = base64.urlsafe_b64decode(message["images"][0]["image_url"]["url"][22:])
-            return save_image_bytes(image_data, path)
+            return save_image_bytes(image_data, path, content_type)
 
     raise RuntimeError("No image was generated. The server may have refused the request.")
 
@@ -135,7 +159,7 @@ def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
 # ║  Public Entry Point                                             ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
-def generate(prompt: str, negative_prompt: str = None,
+def generate(prompt: str,
              aspect_ratio: str = "1:1", image_size: str = "1K",
              output_dir: str = None, filename: str = None,
              model: str = None, max_retries: int = MAX_RETRIES) -> str:
@@ -169,7 +193,7 @@ def generate(prompt: str, negative_prompt: str = None,
     last_error = None
     for attempt in range(max_retries + 1):
         try:
-            return _generate_image(api_key, prompt, negative_prompt,
+            return _generate_image(api_key, prompt,
                                    aspect_ratio, image_size, output_dir,
                                    filename, model, base_url)
         except Exception as e:

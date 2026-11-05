@@ -6,7 +6,40 @@ These functions truncate long tool outputs to prevent context window overflow.
 - _truncate_ls_output: head-truncation, for ls tool
 """
 
-from deerflow.sandbox.tools import _truncate_bash_output, _truncate_ls_output, _truncate_read_file_output
+from deerflow.config.sandbox_config import SandboxConfig
+from deerflow.sandbox.tools import _read_file_output_max_chars, _truncate_bash_output, _truncate_ls_output, _truncate_read_file_output
+
+
+class TestReadFileOutputLimit:
+    def test_skill_markdown_uses_dedicated_larger_limit(self):
+        config = SandboxConfig(
+            use="test",
+            read_file_output_max_chars=50_000,
+            skill_file_output_max_chars=150_000,
+        )
+
+        assert _read_file_output_max_chars("/mnt/skills/public/ppt-master/SKILL.md", config) == 150_000
+
+    def test_skill_reference_uses_dedicated_larger_limit(self):
+        config = SandboxConfig(
+            use="test",
+            read_file_output_max_chars=50_000,
+            skill_file_output_max_chars=150_000,
+            skill_reference_output_max_chars=150_000,
+        )
+
+        assert _read_file_output_max_chars("/mnt/skills/public/ppt-master/references/strategist.md", config) == 150_000
+
+    def test_non_skill_file_named_skill_md_keeps_normal_limit(self):
+        config = SandboxConfig(
+            use="test",
+            read_file_output_max_chars=50_000,
+            skill_file_output_max_chars=150_000,
+            skill_reference_output_max_chars=150_000,
+        )
+
+        assert _read_file_output_max_chars("/mnt/user-data/uploads/SKILL.md", config) == 50_000
+
 
 # ---------------------------------------------------------------------------
 # _truncate_bash_output

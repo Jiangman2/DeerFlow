@@ -1,0 +1,28 @@
+{
+  "schema": "portal-oa-feature-activation-package.v1",
+  "status": "LOCAL_QUALIFICATION_ACCEPTED_NOT_EXECUTED_ON_PRODUCTION",
+  "artifact": "activate-portal-gateway-oa-data-qa-20261022-r1.py",
+  "bytes": 91829,
+  "sha256": "4fd46a6290c455545f3f43879fd6f5a6fdb1e302b911abfe7bf65c01ef3b9e18",
+  "feature_child_sha256": "a6fcec2e12c4170a053d5bab99acb16335bcd887e2cc4851d0c33865245d1169",
+  "qualification": {
+    "exact_packaged_linux_python37_host_tests": 31,
+    "linux_runtime_exact_source_fixture_tests": 17,
+    "final_schema_comparison_cases": 4,
+    "independent_review": "NO_BLOCKING_FINDINGS",
+    "production_access": false,
+    "provider_requests": 0
+  },
+  "candidate_image": "deerflow.local/deer-flow-gateway@sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c",
+  "bound_gateway_generation": 383,
+  "expected_gateway_generation_after": 384,
+  "bound_runner_generation": 55,
+  "bound_frontend_generation": 225,
+  "required_database_revision": "0021_oa_result_sets",
+  "schema_migration_requested": false,
+  "requested_v2_enabled": false,
+  "automatic_retry": false,
+  "automatic_rollback": false,
+  "task_policy": "ALLOW_ACTIVE_TASK_INTERRUPTION",
+  "success_status": "GATEWAY_OA_DATA_QA_RUNTIME_ACCEPTED_FRONTEND_AND_OA_PENDING"
+}

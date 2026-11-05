@@ -1,0 +1,10 @@
+{
+  "component": "gateway-run-dispatcher",
+  "source_commit": "149d659d9b25b9519db2f4d37e988f1617b9166d",
+  "source_path": "backend/app/gateway/run_placement.py",
+  "sha256": "69f42286d66b6b8fe1bb627c93389662e33406c1df5d45279452035fa79db5f2",
+  "owner_route_version": "owner-cancel-20261004-r1",
+  "source_evidence": "docs/production-gateway-reconciliation-20261004.md",
+  "image_tag_observed": "deerflow.local/deer-flow-run-dispatcher:20261004-owner-cancel-r1",
+  "fresh_runtime_source_hash_collected": false
+}

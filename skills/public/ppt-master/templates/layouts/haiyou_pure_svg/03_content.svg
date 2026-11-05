@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1280 720">
-  <image x="0" y="0" width="1280" height="720" href="content_bg_user.png" xlink:href="content_bg_user.png"/>
-  <rect x="0" y="0" width="1280" height="720" fill="#FFFFFF" fill-opacity="0.04"/>
-
-  <text x="56" y="78" fill="#004C8B" font-size="40" font-family="Microsoft YaHei" font-weight="700">{{PAGE_TITLE}}</text>
-
-  <text x="56" y="118" fill="#004C8B" font-size="24" font-family="Microsoft YaHei" font-weight="700">{{CONTENT_AREA_LINE}}</text>
-</svg>

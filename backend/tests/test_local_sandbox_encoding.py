@@ -2,13 +2,19 @@ import builtins
 from types import SimpleNamespace
 
 import deerflow.sandbox.local.local_sandbox as local_sandbox
-from deerflow.sandbox.local.local_sandbox import LocalSandbox
+from deerflow.sandbox.local.local_sandbox import LocalSandbox, _BoundedPipeCapture
 
 
 def _open(base, file, mode="r", *args, **kwargs):
     if "b" in mode:
         return base(file, mode, *args, **kwargs)
     return base(file, mode, *args, encoding=kwargs.pop("encoding", "gbk"), **kwargs)
+
+
+def test_bounded_pipe_capture_preserves_posix_newlines_by_default():
+    capture = _BoundedPipeCapture()
+    capture.append(b"crlf\r\nbare-cr\rlf\n")
+    assert capture.read() == "crlf\r\nbare-cr\rlf\n"
 
 
 def test_read_file_uses_utf8_on_windows_locale(tmp_path, monkeypatch):
@@ -86,12 +92,16 @@ def test_execute_command_uses_powershell_command_mode_on_windows(monkeypatch):
         return SimpleNamespace(stdout="ok", stderr="", returncode=0)
 
     monkeypatch.setattr(local_sandbox.os, "name", "nt")
+    monkeypatch.setattr(local_sandbox.os, "environ", {"PATH": r"C:\Windows", "OPENAI_API_KEY": "should-not-leak"})
     monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(lambda: r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"))
     monkeypatch.setattr(local_sandbox.subprocess, "run", fake_run)
 
     output = LocalSandbox("t").execute_command("Write-Output hello")
 
     assert output == "ok"
+    # Platform secrets are scrubbed from the inherited environment even on the
+    # Windows PowerShell path (#3861); benign PATH is preserved and the env is an
+    # explicit scrubbed dict, no longer None.
     assert calls == [
         (
             [
@@ -105,7 +115,7 @@ def test_execute_command_uses_powershell_command_mode_on_windows(monkeypatch):
                 "capture_output": True,
                 "text": True,
                 "timeout": 600,
-                "env": None,
+                "env": {"PATH": r"C:\Windows"},
             },
         )
     ]
@@ -152,13 +162,17 @@ def test_execute_command_does_not_set_msys_env_for_non_msys_posix_shell_on_windo
         return SimpleNamespace(stdout="ok", stderr="", returncode=0)
 
     monkeypatch.setattr(local_sandbox.os, "name", "nt")
+    monkeypatch.setattr(local_sandbox.os, "environ", {"PATH": r"C:\tools"})
     monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(lambda: r"C:\tools\busybox\sh.exe"))
     monkeypatch.setattr(local_sandbox.subprocess, "run", fake_run)
 
     output = LocalSandbox("t").execute_command("echo /mnt/skills/demo")
 
     assert output == "ok"
-    assert calls[0][1]["env"] is None
+    # Non-MSYS posix shell adds no MSYS_* vars; the env is the scrubbed inherited
+    # environment, not None (#3861).
+    assert calls[0][1]["env"] == {"PATH": r"C:\tools"}
+    assert "MSYS_NO_PATHCONV" not in calls[0][1]["env"]
 
 
 def test_execute_command_uses_cmd_command_mode_on_windows(monkeypatch):
@@ -169,12 +183,15 @@ def test_execute_command_uses_cmd_command_mode_on_windows(monkeypatch):
         return SimpleNamespace(stdout="ok", stderr="", returncode=0)
 
     monkeypatch.setattr(local_sandbox.os, "name", "nt")
+    monkeypatch.setattr(local_sandbox.os, "environ", {"PATH": r"C:\Windows", "GITHUB_TOKEN": "should-not-leak"})
     monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(lambda: r"C:\Windows\System32\cmd.exe"))
     monkeypatch.setattr(local_sandbox.subprocess, "run", fake_run)
 
     output = LocalSandbox("t").execute_command("echo hello")
 
     assert output == "ok"
+    # Platform secrets are scrubbed even on the Windows cmd path (#3861); the env
+    # is an explicit scrubbed dict, no longer None.
     assert calls == [
         (
             [r"C:\Windows\System32\cmd.exe", "/c", "echo hello"],
@@ -183,36 +200,7 @@ def test_execute_command_uses_cmd_command_mode_on_windows(monkeypatch):
                 "capture_output": True,
                 "text": True,
                 "timeout": 600,
-                "env": None,
+                "env": {"PATH": r"C:\Windows"},
             },
         )
     ]
-
-
-def test_command_chainer_uses_semicolon_for_powershell(monkeypatch):
-    """PowerShell 5.1 rejects '&&'; the chainer must fall back to ';'."""
-    monkeypatch.setattr(local_sandbox.os, "name", "nt")
-    monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(lambda: r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"))
-    assert LocalSandbox("t").command_chainer() == ";"
-
-
-def test_command_chainer_uses_and_for_posix_shell(monkeypatch):
-    """POSIX shells accept '&&' (and short-circuit on a failed cd)."""
-    monkeypatch.setattr(local_sandbox.os, "name", "nt")
-    monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(lambda: r"C:\Program Files\Git\bin\sh.exe"))
-    assert LocalSandbox("t").command_chainer() == "&&"
-
-
-def test_command_chainer_uses_and_for_cmd_shell(monkeypatch):
-    """cmd.exe accepts '&&' as a statement separator."""
-    monkeypatch.setattr(local_sandbox.os, "name", "nt")
-    monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(lambda: r"C:\Windows\System32\cmd.exe"))
-    assert LocalSandbox("t").command_chainer() == "&&"
-
-
-def test_command_chainer_falls_back_to_and_when_no_shell(monkeypatch):
-    """When no shell can be resolved, keep the portable '&&' default."""
-    def _raise() -> str:
-        raise RuntimeError("no shell")
-    monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(_raise))
-    assert LocalSandbox("t").command_chainer() == "&&"

@@ -1,0 +1,359 @@
+{
+  "source_file_sha256": "82d8d5035b3ea47ea2b2af6c784cfc3b325618529a12b56be85a0a82ead311a5",
+  "operator_result": {
+    "accepted_pods": [
+      {
+        "node": "datax-02",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 12,
+          "status": "PASS"
+        },
+        "pod": "frontend-548c8d886d-8tqq5",
+        "uid": "c5d60f08-0f81-4637-aa1c-769e18c9cadc"
+      },
+      {
+        "node": "ecs-zdz-pro-0015",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 12,
+          "status": "PASS"
+        },
+        "pod": "frontend-548c8d886d-d5qdw",
+        "uid": "e66cc4a4-8a97-4a37-9c87-f33c4caa9fca"
+      }
+    ],
+    "after": {
+      "frontend": {
+        "generation": 237,
+        "spec_sha256": "31a76fa9e58afbf676b4690e320cd05ba27ef494c690c5dc1724d2d6df1a7ac5",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 401,
+        "spec_sha256": "843aa3df896935f07e3da274619a648ad2426fd5c4ca17bcd5b3ee5dfad4d6a1",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx": {
+        "generation": 116,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+      },
+      "nginx-security-heai-20261012-r1": {
+        "generation": 2,
+        "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+        "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d"
+      },
+      "ppt-master-runner": {
+        "generation": 58,
+        "spec_sha256": "8602f3a5cf40ff97c3f9ee36d792e0c76ae37be53469b8146be41d3409719934",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      },
+      "provisioner": {
+        "generation": 85,
+        "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+        "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+      }
+    },
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "before": {
+      "frontend": {
+        "generation": 236,
+        "spec_sha256": "b6632dd94dbae06ec79f1952e0fa5ccc299a0410d9e4d533ebcf6589648945d5",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 401,
+        "spec_sha256": "843aa3df896935f07e3da274619a648ad2426fd5c4ca17bcd5b3ee5dfad4d6a1",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx": {
+        "generation": 116,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+      },
+      "nginx-security-heai-20261012-r1": {
+        "generation": 2,
+        "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+        "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d"
+      },
+      "ppt-master-runner": {
+        "generation": 58,
+        "spec_sha256": "8602f3a5cf40ff97c3f9ee36d792e0c76ae37be53469b8146be41d3409719934",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      },
+      "provisioner": {
+        "generation": 85,
+        "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+        "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+      }
+    },
+    "browser_acceptance_pending": true,
+    "cache_checks": [
+      {
+        "job": "portal-composer-controls-cache-60f7d014137a44ec-0",
+        "job_uid": "981493ce-2969-4258-8c77-16a5cf8cec99",
+        "node": "datax-02",
+        "node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+        "observation": {
+          "files_verified": 15,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "status": "LOCAL_PRELOADED_IMAGE_EXECUTED"
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "[deerflow.local/deer-flow-frontend@sha256:458c15afe850e72ece3451e4ccb22f0349f9b4a03c1c888439a648d9161aa992](http://deerflow.local/deer-flow-frontend@sha256:458c15afe850e72ece3451e4ccb22f0349f9b4a03c1c888439a648d9161aa992)",
+                "restart_count": 0,
+                "waiting_reason": null
+              }
+            ],
+            "node": "datax-02",
+            "phase": "Succeeded",
+            "pod": "portal-composer-controls-cache-60f7d014137a44ec-0-nh8df",
+            "uid": "90daa964-21ea-4f9f-ac8d-737f855d91a9"
+          }
+        ],
+        "status": "PASS"
+      },
+      {
+        "job": "portal-composer-controls-cache-60f7d014137a44ec-1",
+        "job_uid": "131ac922-b52f-4245-ad60-93bea5650ed2",
+        "node": "ecs-zdz-pro-0015",
+        "node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+        "observation": {
+          "files_verified": 15,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "status": "LOCAL_PRELOADED_IMAGE_EXECUTED"
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "[deerflow.local/deer-flow-frontend@sha256:458c15afe850e72ece3451e4ccb22f0349f9b4a03c1c888439a648d9161aa992](http://deerflow.local/deer-flow-frontend@sha256:458c15afe850e72ece3451e4ccb22f0349f9b4a03c1c888439a648d9161aa992)",
+                "restart_count": 0,
+                "waiting_reason": null
+              }
+            ],
+            "node": "ecs-zdz-pro-0015",
+            "phase": "Succeeded",
+            "pod": "portal-composer-controls-cache-60f7d014137a44ec-1-s78t5",
+            "uid": "30a9337c-e3a9-40e2-9bb7-76379f5e770a"
+          }
+        ],
+        "status": "PASS"
+      }
+    ],
+    "cache_config": "sha256:570799dcffc37ae48493b80297dff1f57dffafcb64671a9e17c355a1e98b8346",
+    "cache_manifest": "sha256:458c15afe850e72ece3451e4ccb22f0349f9b4a03c1c888439a648d9161aa992",
+    "check_job_ttl_seconds": 3600,
+    "database_access": false,
+    "directory": "/var/lib/portal-frontend-composer-controls-activation-20261102-r4-60f7d014137a44ec9226e821baacd569",
+    "elapsed_seconds": 46.571,
+    "exitcode": 0,
+    "fresh_nodes_after": [
+      {
+        "candidate_in_node_status": false,
+        "name": "datax-02",
+        "reported_images": 50,
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "candidate_in_node_status": true,
+        "name": "ecs-zdz-pro-0015",
+        "reported_images": 50,
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      }
+    ],
+    "fresh_nodes_before": [
+      {
+        "candidate_in_node_status": false,
+        "name": "datax-02",
+        "reported_images": 50,
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "candidate_in_node_status": true,
+        "name": "ecs-zdz-pro-0015",
+        "reported_images": 50,
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      }
+    ],
+    "frontend_node_coverage": {
+      "additional_nodes": [
+        "datax-01",
+        "datax-03",
+        "ecs-zdz-pro-0000",
+        "ecs-zdz-pro-0005",
+        "ecs-zdz-pro-0008",
+        "ecs-zdz-pro-0011",
+        "ecs-zdz-pro-0012",
+        "ecs-zdz-pro-0013",
+        "ecs-zdz-pro-0014",
+        "ecs-zdz-pro-0016",
+        "ecs-zdz-pro-0017",
+        "ecs-zdz-pro-0018",
+        "ecs-zdz-pro-0019",
+        "ecs-zdz-pro-0020",
+        "ecs-zdz-pro-0021",
+        "ecs-zdz-pro-0022"
+      ],
+      "missing_pinned_nodes": [],
+      "observed_node_count": 18,
+      "preloaded_node_count": 2,
+      "role_matrix": {
+        "frontend": {
+          "excluded_nodes": {
+            "datax-01": [
+              "required_node_affinity"
+            ],
+            "datax-03": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0000": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0005": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0008": [
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0011": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0012": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0013": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0014": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0016": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0017": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0018": [
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0019": [
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0020": [
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0021": [
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0022": [
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ]
+          },
+          "potential_nodes": [
+            "datax-02",
+            "ecs-zdz-pro-0015"
+          ],
+          "uncovered_nodes": []
+        }
+      },
+      "status": "ROLE_NODE_COVERAGE_ACCEPTED",
+      "uid_mismatches": [],
+      "unhealthy_pinned_nodes": []
+    },
+    "gateway_accepted_binding": {
+      "generation": 401,
+      "spec_sha256": "843aa3df896935f07e3da274619a648ad2426fd5c4ca17bcd5b3ee5dfad4d6a1",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "gateway_completed_receipt": {
+      "bytes": 48104,
+      "path": "/var/lib/portal-gateway-composer-controls-activation-20261102-r1/REPORT.json",
+      "sha256": "fadbb50c977fea2a884a5a74c10de55a5c96b5329a9c7fdd3b8ab939ffbf0b03"
+    },
+    "image_pull_policy": "Never",
+    "once_claimed": true,
+    "operation": "60f7d014137a44ec9226e821baacd569",
+    "other_workload_mutation": false,
+    "patch_acknowledged_by_readback": true,
+    "patch_dispatched": true,
+    "patch_may_have_applied": true,
+    "patch_request_count": 1,
+    "patch_requested": true,
+    "preflight_retry_available": false,
+    "prior_frontend_receipt": {
+      "path": "/var/lib/portal-gateway-composer-controls-activation-20261102-r1/REPORT.json"
+    },
+    "provider_requests": 0,
+    "report_bytes": 33613,
+    "report_path": "/var/lib/portal-frontend-composer-controls-activation-20261102-r4-60f7d014137a44ec9226e821baacd569/REPORT.json",
+    "report_sha256": "2ac8b2647d136b56ee892d708b69678e760100d6e6402361715803268f9c77c6",
+    "runtime": [
+      {
+        "node": "datax-02",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 12,
+          "status": "PASS"
+        },
+        "pod": "frontend-548c8d886d-8tqq5",
+        "uid": "c5d60f08-0f81-4637-aa1c-769e18c9cadc"
+      },
+      {
+        "node": "ecs-zdz-pro-0015",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 12,
+          "status": "PASS"
+        },
+        "pod": "frontend-548c8d886d-d5qdw",
+        "uid": "e66cc4a4-8a97-4a37-9c87-f33c4caa9fca"
+      }
+    ],
+    "schema": "portal-frontend-composer-controls-activation.v1",
+    "schema_migration_requested": false,
+    "services_preserved": true,
+    "stage_passed": true,
+    "status": "FRONTEND_COMPOSER_CONTROLS_RUNTIME_ACCEPTED_BROWSER_PENDING",
+    "temporary_jobs_created": [
+      {
+        "creation_requested": true,
+        "name": "portal-composer-controls-cache-60f7d014137a44ec-0"
+      },
+      {
+        "creation_requested": true,
+        "name": "portal-composer-controls-cache-60f7d014137a44ec-1"
+      }
+    ],
+    "tool_revision": "r4",
+    "unrelated_specs_preserved": true,
+    "work_datalake_activated": false
+  }
+}

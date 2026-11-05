@@ -5,6 +5,8 @@ export interface Model {
   display_name: string;
   description?: string | null;
   supports_thinking?: boolean;
+  thinking_always_on?: boolean;
+  supports_vision?: boolean;
   supports_reasoning_effort?: boolean;
 }
 

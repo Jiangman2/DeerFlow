@@ -1,0 +1,17 @@
+# Build only after independently checking RUNNER_BASE_IMAGE against
+# RUNNER-LOCK.json. The base is the accepted 2026-09-27 R2 Runner image.
+ARG RUNNER_BASE_IMAGE
+FROM ${RUNNER_BASE_IMAGE}
+
+RUN printf '%s  %s\n' \
+    '4d7a880aa863f3cfd490b47e89dc80604068e5248afa6d253a937228a26554ef' \
+    /app/backend/packages/harness/deerflow/agents/ppt_master_runner/agent.py \
+    | sha256sum -c -
+
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/agents/ppt_master_runner/agent.py \
+    /app/backend/packages/harness/deerflow/agents/ppt_master_runner/agent.py
+
+RUN printf '%s  %s\n' \
+    '2c5c21575c9380f081fe408073142de9a17de7418efd38198c1dd85d343395a8' \
+    /app/backend/packages/harness/deerflow/agents/ppt_master_runner/agent.py \
+    | sha256sum -c -

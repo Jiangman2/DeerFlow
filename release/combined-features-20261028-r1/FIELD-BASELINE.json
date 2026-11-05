@@ -1,0 +1,2638 @@
+{
+  "schema": "portal-combined-features-field-baseline.v1",
+  "evidence_origin": "operator_supplied_log_34",
+  "source_file_sha256": "e48c483f7e9d4df3c5972ae2e284ae1a7dfb5ea5bb13ad7ab835ef0047b69c8a",
+  "observation": {
+    "commands": 27,
+    "configmaps": [
+      {
+        "keys": [
+          "config.yaml"
+        ],
+        "name": "deer-flow-config-data-qa-glm-2e0fd403b23a",
+        "payload_sha256": "6aa7302e0c3f0dab8c46f8ca162ba559b6d7a6f2f746020c310d5ab7cf83e81f",
+        "raw_data_exported": false,
+        "uid": "5aefbbbc-fee1-4745-99f9-54d092b6ad4d"
+      }
+    ],
+    "configuration_modified": false,
+    "credentials_exported": false,
+    "database_modified": false,
+    "deployments": {
+      "frontend": {
+        "affinity": {
+          "nodeAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "nodeSelectorTerms": [
+                {
+                  "matchExpressions": [
+                    {
+                      "key": "kubernetes.io/hostname",
+                      "operator": "In",
+                      "values": [
+                        "datax-02",
+                        "ecs-zdz-pro-0015"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "podAntiAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "labelSelector": {
+                  "matchLabels": {
+                    "app": "frontend"
+                  }
+                },
+                "matchLabelKeys": [
+                  "pod-template-hash"
+                ],
+                "topologyKey": "kubernetes.io/hostname"
+              }
+            ]
+          }
+        },
+        "containers": [
+          {
+            "env_from": [
+              {
+                "secretRef": {
+                  "name": "deer-flow-env"
+                }
+              }
+            ],
+            "env_names": [
+              "WEKNORA_FRONTEND_URL",
+              "DEER_FLOW_UNAUTHENTICATED_HOME_URL",
+              "DEER_FLOW_SSO_ONLY",
+              "DEER_FLOW_INTERNAL_GATEWAY_BASE_URL",
+              "NEXT_PUBLIC_STATIC_WEBSITE_ONLY",
+              "HAINENG_MODEL_CALL_COUNT_URL",
+              "HAINENG_MODEL_CALL_COUNT_APP_ID",
+              "HAINENG_MODEL_CALL_COUNT_APP_KEY"
+            ],
+            "env_sha256": "7036bb72f9506f0e7eb75886cca8a6da3dea3f978efa52d7d673073079674f35",
+            "image": "deerflow.local/deer-flow-frontend@sha256:1d0f917d767bcb80e9dbb6e9a6281b6730442511fcb1a1e3a35b203f049daf3b",
+            "name": "frontend",
+            "resources": {
+              "limits": {
+                "cpu": "1",
+                "memory": "1Gi"
+              },
+              "requests": {
+                "cpu": "100m",
+                "memory": "256Mi"
+              }
+            },
+            "volume_mounts": [
+              {
+                "mountPath": "/app/frontend/public/demo/threads/1490ac9e-1573-479d-875c-bd5680f3ba66",
+                "name": "static-demo-assets",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "availableReplicas": 2,
+          "observedGeneration": 230,
+          "readyReplicas": 2,
+          "replicas": 2,
+          "terminatingReplicas": 0,
+          "updatedReplicas": 2
+        },
+        "desired": 2,
+        "generation": 230,
+        "node_selector": null,
+        "paused": false,
+        "spec_sha256": "379f069cff9f0a55131867ecefd9d94b91f48ed4304a2f1386cbd5775da23c23",
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee",
+        "volumes": [
+          {
+            "configmap": null,
+            "name": "static-demo-assets",
+            "pvc": null,
+            "secret_present": false
+          }
+        ]
+      },
+      "gateway": {
+        "affinity": {
+          "nodeAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "nodeSelectorTerms": [
+                {
+                  "matchExpressions": [
+                    {
+                      "key": "kubernetes.io/hostname",
+                      "operator": "In",
+                      "values": [
+                        "ecs-zdz-pro-0018",
+                        "ecs-zdz-pro-0019",
+                        "ecs-zdz-pro-0020",
+                        "ecs-zdz-pro-0021",
+                        "ecs-zdz-pro-0022"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "containers": [
+          {
+            "env_from": [
+              {
+                "secretRef": {
+                  "name": "deer-flow-env"
+                }
+              }
+            ],
+            "env_names": [
+              "FEISHU_APP_ID",
+              "FEISHU_APP_SECRET",
+              "DEERFLOW_IMAGE_GENERATION_API_URL",
+              "DEERFLOW_VIDEO_GENERATION_API_URL",
+              "DEERFLOW_IMAGE_GENERATION_TIMEOUT_SECONDS",
+              "DEERFLOW_VIDEO_GENERATION_POLL_SECONDS",
+              "DEER_FLOW_SSO_ONLY",
+              "SSL_CERT_FILE",
+              "REQUESTS_CA_BUNDLE",
+              "CURL_CA_BUNDLE",
+              "NODE_EXTRA_CA_CERTS",
+              "NO_PROXY",
+              "no_proxy",
+              "OPENSSL_CONF",
+              "WEKNORA_BAILIAN_TLS_COMPAT",
+              "TAVILY_TLS_COMPAT",
+              "DASHSCOPE_TLS_COMPAT",
+              "WEKNORA_ENTERPRISE_INTERNAL_MODELS_ONLY",
+              "WEKNORA_DEFAULT_EMBEDDING_MODEL_ID",
+              "WEKNORA_DEFAULT_RERANK_MODEL_ID",
+              "CNOOC_EMBEDDING_DIMENSION",
+              "CNOOC_EMBEDDING_MRL_TRUNCATION_ENABLED",
+              "WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY",
+              "WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRIES",
+              "WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRY_SECONDS",
+              "CNOOC_RETRIEVAL_API_KEY",
+              "WEKNORA_INTERNAL_MODEL_RELAY_KEY",
+              "PPT_MASTER_RESPONSES_RELAY_KEY",
+              "PPT_MASTER_DEEPSEEK_UPSTREAM_URL",
+              "PPT_MASTER_DEEPSEEK_MODEL",
+              "PPT_MASTER_DEEPSEEK_MAX_OUTPUT_TOKENS",
+              "PPT_MASTER_DEEPSEEK_ATTEMPTS",
+              "PPT_MASTER_DEEPSEEK_READ_TIMEOUT_SECONDS",
+              "EMBEDDING_BASE_URL",
+              "EMBEDDING_PROVIDER",
+              "WEKNORA_PRESENTATION_PARSER_ENGINE",
+              "WEKNORA_MINERU_ENDPOINT",
+              "WEKNORA_MINERU_AUTO_CONFIGURE",
+              "WEKNORA_MINERU_SCANNED_PDF_FALLBACK",
+              "WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK",
+              "DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS",
+              "DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED",
+              "DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED",
+              "CI",
+              "GATEWAY_PORT",
+              "PPT_MASTER_RUNNER_INTERNAL_URL",
+              "DATABASE_URL",
+              "DEER_FLOW_PROJECT_ROOT",
+              "DEER_FLOW_HOME",
+              "DEER_FLOW_CONFIG_PATH",
+              "DEER_FLOW_EXTENSIONS_CONFIG_PATH",
+              "DEER_FLOW_CHANNELS_LANGGRAPH_URL",
+              "DEER_FLOW_CHANNELS_GATEWAY_URL",
+              "WEKNORA_DB_HOST",
+              "WEKNORA_DB_PORT",
+              "WEKNORA_DB_USER",
+              "WEKNORA_DB_NAME",
+              "WEKNORA_DB_CONNECT_TIMEOUT_SECONDS",
+              "WEKNORA_DB_PASSWORD",
+              "LLM_MODEL_NAME",
+              "LLM_BASE_URL",
+              "LLM_PROVIDER",
+              "LLM_API_KEY",
+              "EMBEDDING_MODEL_NAME",
+              "EMBEDDING_API_KEY",
+              "DeepSeek_V4_API_KEY",
+              "HTTP_PROXY",
+              "HTTPS_PROXY",
+              "http_proxy",
+              "https_proxy",
+              "QWEN_ASR_STREAM_URL",
+              "QWEN_ASR_MODEL_NAME",
+              "QWEN_ASR_MAX_DURATION_SECONDS",
+              "QWEN_ASR_FINAL_TIMEOUT_SECONDS",
+              "QWEN_ASR_MAX_CONCURRENT_SESSIONS",
+              "QWEN_ASR_MAX_AUDIO_BYTES",
+              "QWEN_ASR_MAX_FRAME_BYTES",
+              "DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_CONNECTIONS",
+              "DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_KEEPALIVE_CONNECTIONS",
+              "DEERFLOW_UPLOAD_DOCUMENT_REQUIRE_PARSED_TEXT",
+              "DEERFLOW_UPLOAD_PDF_SECURITY_MODE",
+              "DEERFLOW_UPLOAD_PDF_SANITIZE_DPI",
+              "DEERFLOW_UPLOAD_PDF_SANITIZE_MAX_PAGES",
+              "DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED",
+              "DEERFLOW_BROWSER_CA_BUNDLE",
+              "DEER_FLOW_STREAM_BRIDGE_REDIS_URL",
+              "DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MIN_SIZE",
+              "DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MAX_SIZE",
+              "DEERFLOW_CHECKPOINTER_POSTGRES_POOL_CONCURRENT_CURSOR",
+              "DEERFLOW_FEISHU_DOMAIN",
+              "PPT_CONFIRMATION_TRANSPORT_ENABLED",
+              "DEERFLOW_EMPLOYEE_FEATURED_PATH",
+              "GLM_5_3_FLASH_API_KEY",
+              "APPFORGE_DATA_QA_API_KEY",
+              "OA_POLICY_FLOW_MULTI_RESULT_ENABLED",
+              "OA_POLICY_FLOW_CALLBACK_ENABLED",
+              "WEKNORA_COMPANY_KB_ENABLED",
+              "WEKNORA_COMPANY_KB_ORGANIZATION_IDS",
+              "GATEWAY_ENABLE_DOCS"
+            ],
+            "env_sha256": "d3b57fa13bb8b82a627ef1de47fd8422f7cddb33acf5b7ee0451a24fd7eb47c6",
+            "image": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "resources": {
+              "limits": {
+                "cpu": "4",
+                "memory": "4Gi"
+              },
+              "requests": {
+                "cpu": "2",
+                "memory": "3Gi"
+              }
+            },
+            "volume_mounts": [
+              {
+                "mountPath": "/etc/deerflow-ca",
+                "name": "enterprise-ca",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/etc/deerflow-openssl",
+                "name": "openssl-compat",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/app/backend/config.yaml",
+                "name": "config",
+                "readOnly": true,
+                "subPath": "config.yaml"
+              },
+              {
+                "mountPath": "/app/backend/extensions_config.json",
+                "name": "extensions-config",
+                "readOnly": true,
+                "subPath": "extensions_config.json"
+              },
+              {
+                "mountPath": "/app/backend/.deer-flow",
+                "name": "userdata",
+                "subPath": "deer-flow"
+              },
+              {
+                "mountPath": "/app/skills",
+                "name": "skills",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/dev/shm",
+                "name": "digitalemployee-browser-shm"
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "availableReplicas": 70,
+          "observedGeneration": 388,
+          "readyReplicas": 70,
+          "replicas": 70,
+          "terminatingReplicas": 0,
+          "updatedReplicas": 70
+        },
+        "desired": 70,
+        "generation": 388,
+        "node_selector": {
+          "workload": "gateway"
+        },
+        "paused": false,
+        "spec_sha256": "5f6183a4cfa152834ddf33d9dcacf76ca6977ea4e12da9b3b4280700e5e31476",
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1",
+        "volumes": [
+          {
+            "configmap": null,
+            "name": "enterprise-ca",
+            "pvc": null,
+            "secret_present": true
+          },
+          {
+            "configmap": "deer-flow-gateway-openssl-compat",
+            "name": "openssl-compat",
+            "pvc": null,
+            "secret_present": false
+          },
+          {
+            "configmap": "deer-flow-config-data-qa-glm-2e0fd403b23a",
+            "name": "config",
+            "pvc": null,
+            "secret_present": false
+          },
+          {
+            "configmap": "deer-flow-extensions-config",
+            "name": "extensions-config",
+            "pvc": null,
+            "secret_present": false
+          },
+          {
+            "configmap": null,
+            "name": "userdata",
+            "pvc": {
+              "claimName": "deer-flow-userdata-rwx-pvc"
+            },
+            "secret_present": false
+          },
+          {
+            "configmap": null,
+            "name": "skills",
+            "pvc": {
+              "claimName": "deer-flow-skills-rwx-pvc",
+              "readOnly": true
+            },
+            "secret_present": false
+          },
+          {
+            "configmap": null,
+            "name": "digitalemployee-browser-shm",
+            "pvc": null,
+            "secret_present": false
+          }
+        ]
+      },
+      "nginx-security-heai-20261012-r1": {
+        "affinity": null,
+        "containers": [
+          {
+            "env_from": [],
+            "env_names": [],
+            "env_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "image": "m.daocloud.io/docker.io/library/nginx@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+            "name": "nginx",
+            "resources": {
+              "limits": {
+                "cpu": "2",
+                "memory": "1Gi"
+              },
+              "requests": {
+                "cpu": "1",
+                "memory": "512Mi"
+              }
+            },
+            "volume_mounts": [
+              {
+                "mountPath": "/etc/nginx/nginx.conf.template",
+                "name": "nginx-config",
+                "readOnly": true,
+                "subPath": "nginx.conf"
+              },
+              {
+                "mountPath": "/etc/nginx/tls",
+                "name": "nginx-tls",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "availableReplicas": 1,
+          "observedGeneration": 2,
+          "readyReplicas": 1,
+          "replicas": 1,
+          "terminatingReplicas": 0,
+          "updatedReplicas": 1
+        },
+        "desired": 1,
+        "generation": 2,
+        "node_selector": {
+          "kubernetes.io/hostname": "datax-01"
+        },
+        "paused": false,
+        "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d",
+        "volumes": [
+          {
+            "configmap": "deer-flow-nginx-baseline-20261027201316",
+            "name": "nginx-config",
+            "pvc": null,
+            "secret_present": false
+          },
+          {
+            "configmap": null,
+            "name": "nginx-tls",
+            "pvc": null,
+            "secret_present": true
+          }
+        ]
+      },
+      "ppt-master-runner": {
+        "affinity": null,
+        "containers": [
+          {
+            "env_from": [
+              {
+                "secretRef": {
+                  "name": "deer-flow-env"
+                }
+              }
+            ],
+            "env_names": [
+              "DEERFLOW_UNIFIED_MODEL_CONFIG_REVISION",
+              "DEER_FLOW_SSO_ONLY",
+              "SSL_CERT_FILE",
+              "REQUESTS_CA_BUNDLE",
+              "CURL_CA_BUNDLE",
+              "NODE_EXTRA_CA_CERTS",
+              "NO_PROXY",
+              "no_proxy",
+              "OPENSSL_CONF",
+              "TAVILY_TLS_COMPAT",
+              "DASHSCOPE_TLS_COMPAT",
+              "CI",
+              "GATEWAY_PORT",
+              "DEER_FLOW_RUNTIME_PROFILE",
+              "DATABASE_URL",
+              "DEER_FLOW_PROJECT_ROOT",
+              "DEER_FLOW_HOME",
+              "DEER_FLOW_CONFIG_PATH",
+              "DEER_FLOW_EXTENSIONS_CONFIG_PATH",
+              "HTTP_PROXY",
+              "HTTPS_PROXY",
+              "http_proxy",
+              "https_proxy",
+              "DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED"
+            ],
+            "env_sha256": "a7913e955abb85572af2f28047123e3088bad5616e15c5528b0b6a5a32f2b6a6",
+            "image": "deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+            "name": "ppt-master-runner",
+            "resources": {
+              "limits": {
+                "cpu": "2",
+                "memory": "4Gi"
+              },
+              "requests": {
+                "cpu": "250m",
+                "memory": "1Gi"
+              }
+            },
+            "volume_mounts": [
+              {
+                "mountPath": "/etc/deerflow-ca",
+                "name": "enterprise-ca",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/etc/deerflow-openssl",
+                "name": "openssl-compat",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/app/backend/config.yaml",
+                "name": "config",
+                "readOnly": true,
+                "subPath": "config.yaml"
+              },
+              {
+                "mountPath": "/app/backend/extensions_config.json",
+                "name": "extensions-config",
+                "readOnly": true,
+                "subPath": "extensions_config.json"
+              },
+              {
+                "mountPath": "/app/backend/.deer-flow",
+                "name": "userdata",
+                "subPath": "deer-flow"
+              },
+              {
+                "mountPath": "/app/skills",
+                "name": "skills",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/app/backend/packages/harness/deerflow/persistence/migrations/versions/0018_scheduled_task_reliability.py",
+                "name": "ppt-runner-migration-compatibility",
+                "readOnly": true,
+                "subPath": "0018_scheduled_task_reliability.py"
+              },
+              {
+                "mountPath": "/app/backend/packages/harness/deerflow/persistence/migrations/versions/0019_digital_employee_agents.py",
+                "name": "ppt-runner-migration-compatibility",
+                "readOnly": true,
+                "subPath": "0019_digital_employee_agents.py"
+              },
+              {
+                "mountPath": "/app/backend/app/gateway/deps.py",
+                "name": "ppt-runner-migration-compatibility",
+                "readOnly": true,
+                "subPath": "deps.py"
+              },
+              {
+                "mountPath": "/app/backend/packages/harness/deerflow/community/aio_sandbox/aio_sandbox_provider.py",
+                "name": "ppt-runner-execution-lease-fd",
+                "readOnly": true,
+                "subPath": "aio_sandbox_provider.py"
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "availableReplicas": 1,
+          "observedGeneration": 55,
+          "readyReplicas": 1,
+          "replicas": 1,
+          "terminatingReplicas": 0,
+          "updatedReplicas": 1
+        },
+        "desired": 1,
+        "generation": 55,
+        "node_selector": null,
+        "paused": false,
+        "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd",
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a",
+        "volumes": [
+          {
+            "configmap": null,
+            "name": "enterprise-ca",
+            "pvc": null,
+            "secret_present": true
+          },
+          {
+            "configmap": "deer-flow-gateway-openssl-compat",
+            "name": "openssl-compat",
+            "pvc": null,
+            "secret_present": false
+          },
+          {
+            "configmap": "deer-flow-config-ppt-runner-heartbeat-20261004-r1",
+            "name": "config",
+            "pvc": null,
+            "secret_present": false
+          },
+          {
+            "configmap": "deer-flow-extensions-config",
+            "name": "extensions-config",
+            "pvc": null,
+            "secret_present": false
+          },
+          {
+            "configmap": null,
+            "name": "userdata",
+            "pvc": {
+              "claimName": "deer-flow-userdata-rwx-pvc"
+            },
+            "secret_present": false
+          },
+          {
+            "configmap": null,
+            "name": "skills",
+            "pvc": {
+              "claimName": "deer-flow-skills-rwx-pvc",
+              "readOnly": true
+            },
+            "secret_present": false
+          },
+          {
+            "configmap": "ppt-runner-startup-safety-542a3c2ca306c7a2",
+            "name": "ppt-runner-migration-compatibility",
+            "pvc": null,
+            "secret_present": false
+          },
+          {
+            "configmap": "ppt-runner-execution-lease-fd-9b703c4c17847f34",
+            "name": "ppt-runner-execution-lease-fd",
+            "pvc": null,
+            "secret_present": false
+          }
+        ]
+      }
+    },
+    "files_modified": false,
+    "frontend_pods": [
+      {
+        "containers": [
+          {
+            "containerID": "containerd://caa61a12075f40e329847808fabc7522bfc489210907d3ca6374f42230cd94a2",
+            "imageID": "deerflow.local/deer-flow-frontend@sha256:1d0f917d767bcb80e9dbb6e9a6281b6730442511fcb1a1e3a35b203f049daf3b",
+            "name": "frontend",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "datax-02",
+        "pod": "frontend-6fb58ff677-8lwcm",
+        "uid": "e0faf21f-585a-4dbf-8be4-fb31e692d92f"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://1a2710cfee80ad5bddc1310a5cee7889070136e0538eba7a0bc3c34961417a57",
+            "imageID": "deerflow.local/deer-flow-frontend@sha256:1d0f917d767bcb80e9dbb6e9a6281b6730442511fcb1a1e3a35b203f049daf3b",
+            "name": "frontend",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0015",
+        "pod": "frontend-6fb58ff677-p5rtt",
+        "uid": "fac8fc2e-b896-4039-b283-e679134426ed"
+      }
+    ],
+    "gateway_pods": [
+      {
+        "containers": [
+          {
+            "containerID": "containerd://725dc71fb4bf6ec743edcf82b2fac7dc9107ccda30469dc9f4a1e25d4b269078",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-2pbfv",
+        "uid": "44e10cd4-be3f-47fa-8ec6-556772904ec5"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://65314b218639b4a50fe44ddadf496df2d30fc721c25663f8ffab85d9f57abaa8",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 1
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-48lc9",
+        "uid": "46a92b37-8e18-41f4-aa32-3f1604b210e2"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://ec638ca8ef38f9c3580a01f11364bd308903d0ee49206d209b835681b2019812",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-5z5xn",
+        "uid": "218ef4a7-5d82-4fe4-8c1d-3b842ab43866"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://144069391494daaf60698207d5fe4f2734bc4b04f9a132cc84d1b0103bfbfcdc",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-629m9",
+        "uid": "ea7e2936-4690-4bc7-b9dd-c239d5835ea2"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://444bacbafd4a1029a7b8509e556c6069df392064982cd984b6a6d7fb12d507ab",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-6b7gx",
+        "uid": "fa0c06a6-6e79-4ec0-a5a0-ef41dd513cca"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://184a5bbea007bcee7819df97b741aa4d6ca2e6103848eb14e6846ec0e327f643",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-6dkwm",
+        "uid": "96360a5c-895d-4e95-ae0b-6688c4db54ca"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://6b461f6244b9105355bb6cce911f4109667f72dc9cac87cb9cda871191bd0c1b",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 1
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-6tm2t",
+        "uid": "5292337b-5414-479f-bf6c-7b860f595ad0"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://135669e71c8d130ccc9ab0808904c784193679d1e0cd4c32ba76425618a211f9",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 1
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-75m2h",
+        "uid": "40dc766c-f933-46b4-905a-b2f3b0871864"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://c9290459c28e045bf773c7933ba70297e13b225790debd733aa12d2293f47114",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-7ddzc",
+        "uid": "1ec4f40a-2640-4ab4-8db1-d8592868f0f4"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://eb2daf1eda6eb4a5aae474104f395e102e0d39afb1e03387e8e32f0b5df0ddb8",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-7r7rg",
+        "uid": "9def8f36-b0ae-4b4c-bf36-98a4a79f8620"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://4fc39f40f539c8dcf41c44f7efab2630270aa7a960735a4e6cffe316f638cae0",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-7t4z6",
+        "uid": "5b0d311d-39e5-446b-a5ca-1108ce60af36"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://724a75dd719f2e804520e49b3006002ad99be1d899cc752d64e9d22e56bf04dc",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 1
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-8nvnd",
+        "uid": "1bbc4492-bbec-4f5e-9689-28e2479dda32"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://c3262fcd3053e93fcc1e02b7f977b6ee2d6bc72da20b66a3726d07d7e62cef18",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-94g5m",
+        "uid": "d7c5268d-e073-4daf-b22b-9d46997344c0"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://e37bfab74277728d4a85fcc9c8b2d8e0f48cfe407839de010175d333139e742b",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-9926s",
+        "uid": "5ec3e7a2-d941-4265-8745-86e1c6a371aa"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://a4fe04a5eb90815fb456cd43d7230ca729f9affadc4a2f41f19167e4a4d8c1b4",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-9fwwf",
+        "uid": "84dd30e7-ae6a-41b2-8659-23a9e852fefc"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://4272d3ba3eea490d826a26901747e1549093a47bb38b7d9552cad742b6ac19e6",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-9nsqt",
+        "uid": "c6c6defb-5507-44b8-8191-16b00cc24c9b"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://3db9d093823b8b2f28c2ac7569ada425a5a79b415468a2931a6da5e96a36925d",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-9zw5z",
+        "uid": "248b3be6-c67c-4691-94d0-8c98e0d349e3"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://85358e5db6a311629583bf7367e4320c8aefd3bfc5e9c999b1d248a7b2c3e2a7",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-b6gwm",
+        "uid": "c5ee33d3-3ed3-4a18-a0e7-548b2152d9a7"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://a9f4f17bb1a4e6b873ddfac1c961bb2a17eb0b757d86bf58ed32ac5f8664ef6e",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-bhlk8",
+        "uid": "be1761bc-a80c-4d30-8810-6a0c3e6f1ae2"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://3826cb02cdc4a346d9d7b2eea7dd2b39b9cb965b44c26055e79b6e1c6977cda9",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-bp42f",
+        "uid": "31455083-83f0-4bb7-8fe5-cfe055e3a4b3"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://5262207b6a61ad6c2cd09199215b969ebf4a2c3b20ade450441291494abc303e",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-brwd8",
+        "uid": "cbff69cc-4f4c-425f-b0bc-3b76c929466a"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://f787fb7b5243cf159dc0e645ed97531b1dea5d83bc2194355d50c1389f48ea14",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-c5b64",
+        "uid": "b48623a4-9a68-4efa-a392-339230fa5abb"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://74f25cf3329a07730d4a87e3362e8fe3c6ea24721e31d8d82aeec98e3650492b",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-c7dd5",
+        "uid": "b4e02dad-5582-4075-8aa9-aebf96e5d918"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://abb6eacbf5942d31b17dacfbff58fb9132f0942b81e49c801dfef6994e82569b",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-ctf6f",
+        "uid": "77858788-ab8c-4178-a58b-53df75959f0c"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://86c6dfb1fe92c63e5c887a16c6a9a55c1f98ae8f6f7338e27767e624adf86e41",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 1
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-dcjk7",
+        "uid": "04b5fa5f-f5e2-4c54-858a-e4893804b629"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://66857a0e26c4e5906dfd7fb065e50e48f8c1ab81a011e75b69f164b4ce375f0f",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-fcmlw",
+        "uid": "c9a72b20-fa96-4f10-acd8-3b2aa2bc1522"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://1a1fe508bc4f57f0f61d12728e3ad741d0753da74e0b0788ccb8630f35064134",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 1
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-fdd8m",
+        "uid": "babef88d-5d1a-44a5-a7b2-87289bbb49fe"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://76064093c950093d7c8343e0ef098100761c9077ed554a96bea889684f90c2e3",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 1
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-frzbl",
+        "uid": "b1003e36-230b-461d-92a3-04c8499234d8"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://317fbca700addcef82c59dff9481975d6b26665dd99848e8e6d82825ebfe4eec",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-g4gdr",
+        "uid": "557418ac-b7a1-49da-98c6-5942204ebcb8"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://c3103b7a7ecf41e13129d86afa817b133dea1a32a1623a6ab8915fcc1130c28e",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-g6xsj",
+        "uid": "bf964de2-1509-4d8b-a8bf-c61374b2d794"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://8bce6509f7ed34ebb02d69e5aeee47df26495a2406b6bd0c90c19350cc4b27dc",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-g8lb4",
+        "uid": "9c3d1482-dfda-4e42-a7a9-63ec343482b5"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://c0f6014067290e71d2aba5ce0d8429daf7639c34a6d527194476e994178de370",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 1
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-gv5ws",
+        "uid": "16479b7b-80a0-40df-bf9d-89ee0ce8136d"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://b6975785f8bc46606cdd99462ce1cdcefb25324cd1ed2a77400e6b3230648e3f",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-h62kk",
+        "uid": "acb1e50b-5b91-49a6-82f9-84b2b90510f4"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://c883ec195c98a6c57b240dc7ce6ca9d92729bbab9b914117ccf6301c1e34fc3c",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-hgllz",
+        "uid": "9a2efbed-d924-4c11-a41f-774916d2bcb1"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://1b8a64ffeb12c8b00bfdbd2474cf23c3d86c13a707a6fa0cc4627f4c63e92595",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-hs428",
+        "uid": "4fd8908e-a8cb-4928-a3c7-c8f5d303c60d"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://889e8d91c3486270b31bab76cb5cacf16b4bf6cb23af86ad2b2313a56b7750e1",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-j8zsr",
+        "uid": "bfce863c-0d05-46f1-86a7-f85f650d25aa"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://36d38ae55ef6134d28d3fcffdb68728e2cdb7b94ba6f608bf90487a4f06ff4b1",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-jtn89",
+        "uid": "5e90ec89-b081-4c6d-b033-3d02f13b3a91"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://617b376734b0a8acdd409372f25ba068782f2eea1e1b794e9f5fc85110be024d",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-kfp6p",
+        "uid": "58f4e8ea-9e73-47c5-832f-c02c702240af"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://2ddcee51832a4b8b8de91e30214bdd45d789065bce8127c60dee7ac42de27ac3",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-kh29x",
+        "uid": "bbffa0d3-47d6-4505-a2ef-3ac1f4c2050a"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://ac6f778ec0bfbd50be4e29e2ccb84fe447009c82a50b26954dd58e6ffb5d1ece",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-ljb84",
+        "uid": "0a4b590d-531d-44a4-bc7e-6e84d08443ac"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://3ab375bc43589db29e7c846f353251de7332f01690b7b7a61e23d3af69014b1e",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-lnxzl",
+        "uid": "48a93a13-bfdf-4eba-8634-6aeac3dd70e0"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://5a277be94f7a11b8574430640ef73177a493cc4c94779c38f47350b1c431f784",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 1
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-m8kvj",
+        "uid": "8acb8d20-900d-4d3a-84dd-6244e9cda569"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://b0f63af92d6b8a5b2641f04537f72abca73398ea27d8006998225952d1663f25",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-m8lgc",
+        "uid": "05629756-7e23-4feb-9501-ea2dbdd6ad3d"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://8be2ad5f3c55acb69130d2823fa369d726220e39a06eb327e7585ec8af134b47",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-ph6qr",
+        "uid": "0417c40c-4cfc-4ae9-99aa-c5c109d7a960"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://a7ec8b95d88c16c756608b8b093a4e59e264174677b92d7efe72be29aa8d3bd7",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-q2486",
+        "uid": "b48dfde2-8319-4b63-a2ee-33003894b513"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://c0b4a13cd3e7b9cee11e1da94732066bd823d376f553e08f7fd03996f8545017",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-q8jkt",
+        "uid": "221885ba-e750-4e0d-b06c-ec5a525cb934"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://0c17eb8aa389a4ca021c868562b23599fc08ca733686733eaf0148ea34e43bf2",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-r5xn6",
+        "uid": "9daaf185-6278-4433-9bf7-4be90460427e"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://c573653681cccda3ca5c4ac60cb6167f5c87ece471c6474bffa2f923e835e63f",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-r9p7x",
+        "uid": "90561780-c41b-4e04-be67-452375f6a909"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://bc2b76334d33a49d4ff9bb3b10addc12fc584cbcc2d92e19650f3a0020d0cdc8",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-rgmvs",
+        "uid": "f5bdb91c-d867-425c-a579-ff28f6d2500c"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://09d6dc1e9b7b334598ec1e94d5a6bf91a93a15ab95838c018ae569e445e9b3ed",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-rkqkq",
+        "uid": "fd477069-d3f6-4a93-90e1-9a3ef9ab729e"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://7f1facebc1ac8e1451d0f70a908e538baf237ec4b518af7dedde16045816750b",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-rvbpl",
+        "uid": "90ee9da5-64cf-4267-8577-3784ed97a047"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://0f0d25141bae5d859277307c181805b8ed916253d9e3e0f76951d680b90a7460",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-sr2st",
+        "uid": "021aea19-9743-4c98-861a-f80be451834a"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://f84203ad71c7fd462317329604af4f0658616d93b63d8b7b0f83109d229b7a96",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-tkkqq",
+        "uid": "5c70cff7-73e0-447b-ae75-e806e755df9a"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://9382ae9507c4dfadcf6048aabb7d0851b145b13c8ec3bd860fa87021fa3d51a3",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-tndpv",
+        "uid": "28629f52-7210-44b3-afd7-27cb8bb43753"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://28fc429216ad2e9faaa44e9f3a23cb4c25220f2f7c68f15fea5d661b9040f763",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-ts7kt",
+        "uid": "023a478c-f954-4985-902a-2e2915d4c7c1"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://533333e3473f9ef7b1ce8c2f439d92b111eb66dc43e13cf5cad91d488d0b1d8f",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-txdz8",
+        "uid": "0a0796eb-71f9-4559-915c-6cf28ea59900"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://45facf6c1c264a08a8bef8722163deb3166312aa487371d3cc41637be213f4aa",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-v2b8m",
+        "uid": "5dc64b94-56b8-4207-8131-114ea807e509"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://9fbde5c9d8772d9245028c98ee5ce50007d416e05c4b50a767f1c2754abea4f4",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-v5mcs",
+        "uid": "74befd10-c457-4342-81be-638d42a7052f"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://dbdb64ac8ed214a3e75428697e10ea14f52ca415c675e6976ed2741f2cabc961",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 1
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-v6s7s",
+        "uid": "6141ae59-7dce-4f9e-9bbf-1af17c73425f"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://af143689181360c713ad052c2f365cf8aa821af7efa50bb2c1c7cfe0856977bd",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-vdkcd",
+        "uid": "1310fb4f-0f9a-4b61-ba7b-73a34a5041ee"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://6ba60adab37b653a3ead94251251290580e19b2a75d1a0db4b3572f72627edab",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-wl5kc",
+        "uid": "6d1c2b78-3ac6-4075-b357-f33c8a26dcac"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://ab0965869feba91b7c136e99ebbb36f055cd5c029599b3193bcb883abfcebcf7",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 1
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-wpjgr",
+        "uid": "394255e8-dd56-4625-8df8-a813af1b1144"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://5713ed1587a635cac78619304342e97980f4d9922e94233b58e850b9799e7ff1",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-wqlt8",
+        "uid": "5ec272b8-d9d4-41d5-9b14-21cb88b77399"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://9c559466cee0011f01aefdca31000668c315d1a6d841c109ce2a6b410337976b",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-wtb4m",
+        "uid": "1f29304a-7af6-4a4f-95fb-0ac1ec12daa8"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://d63ae7c3a905f9b89fa191de0f7c3b1760446326c93285ec463b264b442131aa",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-wtvx5",
+        "uid": "1ac40488-1fd0-44a1-bf68-642fbf2069b8"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://b5390818076915802b32b8e470094204a1a8afde244805914505ae8bd9ad7eee",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0021",
+        "pod": "gateway-84b84764c8-zct8s",
+        "uid": "c62afbb3-6789-4166-a5e6-159ced2137b7"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://cf75c9abf0e1466e16a1b184e135cc9997be742b54e25ad3e5d0841e46870bfa",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0020",
+        "pod": "gateway-84b84764c8-zhzll",
+        "uid": "c9fd875a-8ef4-4d16-9b7b-444234618384"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://aa469b0de40d40685b39393bb83dd28268eb441867fcb11b0e1116d494fb0628",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0018",
+        "pod": "gateway-84b84764c8-zpcc8",
+        "uid": "c923b138-2569-407c-bc46-711737ad9bad"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://e6b44825bda8ee8c5023231d4c0829d1d5d3c2c46921b5baa12f772af3f122b3",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0022",
+        "pod": "gateway-84b84764c8-zt7c9",
+        "uid": "7b9a27bd-0651-49b3-b9ef-688070884656"
+      },
+      {
+        "containers": [
+          {
+            "containerID": "containerd://c84fd4507f63466d7646947135c908ff989071529c1bf971fc5d501fa136ace1",
+            "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+            "name": "gateway",
+            "ready": true,
+            "restartCount": 1
+          }
+        ],
+        "deleting": false,
+        "node": "ecs-zdz-pro-0019",
+        "pod": "gateway-84b84764c8-zzp89",
+        "uid": "35fff8b1-17aa-486b-90c8-18f7848a68c8"
+      }
+    ],
+    "nodes": [
+      {
+        "allocatable": {
+          "cpu": "32",
+          "ephemeral-storage": "284834609500",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "132554368Ki",
+          "pods": "110"
+        },
+        "capacity": {
+          "cpu": "32",
+          "ephemeral-storage": "309065332Ki",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "132656768Ki",
+          "pods": "110"
+        },
+        "conditions": [
+          {
+            "reason": "FlannelIsUp",
+            "status": "False",
+            "type": "NetworkUnavailable"
+          },
+          {
+            "reason": "KubeletHasSufficientMemory",
+            "status": "False",
+            "type": "MemoryPressure"
+          },
+          {
+            "reason": "KubeletHasNoDiskPressure",
+            "status": "False",
+            "type": "DiskPressure"
+          },
+          {
+            "reason": "KubeletHasSufficientPID",
+            "status": "False",
+            "type": "PIDPressure"
+          },
+          {
+            "reason": "KubeletReady",
+            "status": "True",
+            "type": "Ready"
+          }
+        ],
+        "name": "datax-02",
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "allocatable": {
+          "cpu": "32",
+          "ephemeral-storage": "965894840769",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "65449664Ki",
+          "pods": "110"
+        },
+        "capacity": {
+          "cpu": "32",
+          "ephemeral-storage": "1048062980Ki",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "65552064Ki",
+          "pods": "110"
+        },
+        "conditions": [
+          {
+            "reason": "FlannelIsUp",
+            "status": "False",
+            "type": "NetworkUnavailable"
+          },
+          {
+            "reason": "KubeletHasSufficientMemory",
+            "status": "False",
+            "type": "MemoryPressure"
+          },
+          {
+            "reason": "KubeletHasNoDiskPressure",
+            "status": "False",
+            "type": "DiskPressure"
+          },
+          {
+            "reason": "KubeletHasSufficientPID",
+            "status": "False",
+            "type": "PIDPressure"
+          },
+          {
+            "reason": "KubeletReady",
+            "status": "True",
+            "type": "Ready"
+          }
+        ],
+        "name": "ecs-zdz-pro-0015",
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      },
+      {
+        "allocatable": {
+          "cpu": "32",
+          "ephemeral-storage": "46178681166",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "65449664Ki",
+          "pods": "110"
+        },
+        "capacity": {
+          "cpu": "32",
+          "ephemeral-storage": "50107076Ki",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "65552064Ki",
+          "pods": "110"
+        },
+        "conditions": [
+          {
+            "reason": "FlannelIsUp",
+            "status": "False",
+            "type": "NetworkUnavailable"
+          },
+          {
+            "reason": "KubeletHasSufficientMemory",
+            "status": "False",
+            "type": "MemoryPressure"
+          },
+          {
+            "reason": "KubeletHasNoDiskPressure",
+            "status": "False",
+            "type": "DiskPressure"
+          },
+          {
+            "reason": "KubeletHasSufficientPID",
+            "status": "False",
+            "type": "PIDPressure"
+          },
+          {
+            "reason": "KubeletReady",
+            "status": "True",
+            "type": "Ready"
+          }
+        ],
+        "name": "ecs-zdz-pro-0018",
+        "uid": "0243d097-3ee7-4abc-899a-319e57934eee"
+      },
+      {
+        "allocatable": {
+          "cpu": "32",
+          "ephemeral-storage": "46178681166",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "65449664Ki",
+          "pods": "110"
+        },
+        "capacity": {
+          "cpu": "32",
+          "ephemeral-storage": "50107076Ki",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "65552064Ki",
+          "pods": "110"
+        },
+        "conditions": [
+          {
+            "reason": "FlannelIsUp",
+            "status": "False",
+            "type": "NetworkUnavailable"
+          },
+          {
+            "reason": "KubeletHasSufficientMemory",
+            "status": "False",
+            "type": "MemoryPressure"
+          },
+          {
+            "reason": "KubeletHasNoDiskPressure",
+            "status": "False",
+            "type": "DiskPressure"
+          },
+          {
+            "reason": "KubeletHasSufficientPID",
+            "status": "False",
+            "type": "PIDPressure"
+          },
+          {
+            "reason": "KubeletReady",
+            "status": "True",
+            "type": "Ready"
+          }
+        ],
+        "name": "ecs-zdz-pro-0019",
+        "uid": "e23480a1-041d-4767-b6cb-e8b93d456ac1"
+      },
+      {
+        "allocatable": {
+          "cpu": "32",
+          "ephemeral-storage": "46178681166",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "65449664Ki",
+          "pods": "110"
+        },
+        "capacity": {
+          "cpu": "32",
+          "ephemeral-storage": "50107076Ki",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "65552064Ki",
+          "pods": "110"
+        },
+        "conditions": [
+          {
+            "reason": "FlannelIsUp",
+            "status": "False",
+            "type": "NetworkUnavailable"
+          },
+          {
+            "reason": "KubeletHasSufficientMemory",
+            "status": "False",
+            "type": "MemoryPressure"
+          },
+          {
+            "reason": "KubeletHasNoDiskPressure",
+            "status": "False",
+            "type": "DiskPressure"
+          },
+          {
+            "reason": "KubeletHasSufficientPID",
+            "status": "False",
+            "type": "PIDPressure"
+          },
+          {
+            "reason": "KubeletReady",
+            "status": "True",
+            "type": "Ready"
+          }
+        ],
+        "name": "ecs-zdz-pro-0020",
+        "uid": "d43ad71d-b5e1-49fc-a93f-3cb0aee6a6e2"
+      },
+      {
+        "allocatable": {
+          "cpu": "32",
+          "ephemeral-storage": "46178681166",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "65449664Ki",
+          "pods": "110"
+        },
+        "capacity": {
+          "cpu": "32",
+          "ephemeral-storage": "50107076Ki",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "65552064Ki",
+          "pods": "110"
+        },
+        "conditions": [
+          {
+            "reason": "FlannelIsUp",
+            "status": "False",
+            "type": "NetworkUnavailable"
+          },
+          {
+            "reason": "KubeletHasSufficientMemory",
+            "status": "False",
+            "type": "MemoryPressure"
+          },
+          {
+            "reason": "KubeletHasNoDiskPressure",
+            "status": "False",
+            "type": "DiskPressure"
+          },
+          {
+            "reason": "KubeletHasSufficientPID",
+            "status": "False",
+            "type": "PIDPressure"
+          },
+          {
+            "reason": "KubeletReady",
+            "status": "True",
+            "type": "Ready"
+          }
+        ],
+        "name": "ecs-zdz-pro-0021",
+        "uid": "181f267d-e653-4fa8-9e1f-d0138454f079"
+      },
+      {
+        "allocatable": {
+          "cpu": "32",
+          "ephemeral-storage": "46178681166",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "65449664Ki",
+          "pods": "110"
+        },
+        "capacity": {
+          "cpu": "32",
+          "ephemeral-storage": "50107076Ki",
+          "hugepages-2Mi": "0",
+          "hugepages-512Mi": "0",
+          "memory": "65552064Ki",
+          "pods": "110"
+        },
+        "conditions": [
+          {
+            "reason": "FlannelIsUp",
+            "status": "False",
+            "type": "NetworkUnavailable"
+          },
+          {
+            "reason": "KubeletHasSufficientMemory",
+            "status": "False",
+            "type": "MemoryPressure"
+          },
+          {
+            "reason": "KubeletHasNoDiskPressure",
+            "status": "False",
+            "type": "DiskPressure"
+          },
+          {
+            "reason": "KubeletHasSufficientPID",
+            "status": "False",
+            "type": "PIDPressure"
+          },
+          {
+            "reason": "KubeletReady",
+            "status": "True",
+            "type": "Ready"
+          }
+        ],
+        "name": "ecs-zdz-pro-0022",
+        "uid": "0f1fa57f-f37f-42ed-a296-047295f17856"
+      }
+    ],
+    "provider_requests": 0,
+    "ready_for_rollout": false,
+    "runtime_samples": [
+      {
+        "identity": {
+          "containers": [
+            {
+              "containerID": "containerd://725dc71fb4bf6ec743edcf82b2fac7dc9107ccda30469dc9f4a1e25d4b269078",
+              "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+              "name": "gateway",
+              "ready": true,
+              "restartCount": 0
+            }
+          ],
+          "deleting": false,
+          "node": "ecs-zdz-pro-0020",
+          "pod": "gateway-84b84764c8-2pbfv",
+          "uid": "44e10cd4-be3f-47fa-8ec6-556772904ec5"
+        },
+        "observation": {
+          "application_started": false,
+          "configuration": {
+            "certificate_bundles": [
+              {
+                "ca_count": 143,
+                "configured": true,
+                "hostname_verification": true,
+                "loadable": true,
+                "sha256": "84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af",
+                "source": "SSL_CERT_FILE"
+              },
+              {
+                "ca_count": 143,
+                "configured": true,
+                "hostname_verification": true,
+                "loadable": true,
+                "sha256": "84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af",
+                "source": "REQUESTS_CA_BUNDLE"
+              }
+            ],
+            "company_kb_enabled": true,
+            "competition_aliases_configured": false,
+            "competition_display_exists": false,
+            "competition_display_path": "/app/backend/.deer-flow/competition/display.json",
+            "competition_key_present": false,
+            "existing_v4_key_present": true,
+            "file_sha256": "dbde51e71421be4ee4544684faa77baf18a522ecd87db663b2bcb4280589c36b",
+            "first_model": "deepseek-v4-flash",
+            "models_count": 2,
+            "oa_callback_enabled": false,
+            "oa_multi_enabled": true,
+            "userdata_exists": true,
+            "userdata_path": "/app/backend/.deer-flow",
+            "v41_entries": 0,
+            "v4_models_reusing_key": 1
+          },
+          "credentials_exported": false,
+          "database": {
+            "active_callback_leases": 0,
+            "active_oa_jobs": 0,
+            "active_runs": 6,
+            "business_rows_exported": false,
+            "columns": [
+              {
+                "column_name": "id",
+                "data_type": "integer",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "created_at",
+                "data_type": "timestamp with time zone",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "user_id",
+                "data_type": "character varying",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "user_email",
+                "data_type": "character varying",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "user_role",
+                "data_type": "character varying",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "action",
+                "data_type": "character varying",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "resource_type",
+                "data_type": "character varying",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "resource_id",
+                "data_type": "character varying",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "method",
+                "data_type": "character varying",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "path",
+                "data_type": "text",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "status_code",
+                "data_type": "integer",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "result",
+                "data_type": "character varying",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "duration_ms",
+                "data_type": "integer",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "client_ip",
+                "data_type": "character varying",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "user_agent",
+                "data_type": "text",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "error",
+                "data_type": "text",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "details_json",
+                "data_type": "json",
+                "table_name": "audit_logs"
+              },
+              {
+                "column_name": "feedback_id",
+                "data_type": "character varying",
+                "table_name": "feedback"
+              },
+              {
+                "column_name": "run_id",
+                "data_type": "character varying",
+                "table_name": "feedback"
+              },
+              {
+                "column_name": "thread_id",
+                "data_type": "character varying",
+                "table_name": "feedback"
+              },
+              {
+                "column_name": "user_id",
+                "data_type": "character varying",
+                "table_name": "feedback"
+              },
+              {
+                "column_name": "message_id",
+                "data_type": "character varying",
+                "table_name": "feedback"
+              },
+              {
+                "column_name": "rating",
+                "data_type": "integer",
+                "table_name": "feedback"
+              },
+              {
+                "column_name": "comment",
+                "data_type": "text",
+                "table_name": "feedback"
+              },
+              {
+                "column_name": "created_at",
+                "data_type": "timestamp with time zone",
+                "table_name": "feedback"
+              },
+              {
+                "column_name": "run_id",
+                "data_type": "character varying",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "thread_id",
+                "data_type": "character varying",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "assistant_id",
+                "data_type": "character varying",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "user_id",
+                "data_type": "character varying",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "status",
+                "data_type": "character varying",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "model_name",
+                "data_type": "character varying",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "multitask_strategy",
+                "data_type": "character varying",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "metadata_json",
+                "data_type": "json",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "kwargs_json",
+                "data_type": "json",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "error",
+                "data_type": "text",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "stop_reason",
+                "data_type": "character varying",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "message_count",
+                "data_type": "integer",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "first_human_message",
+                "data_type": "text",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "last_ai_message",
+                "data_type": "text",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "total_input_tokens",
+                "data_type": "integer",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "total_output_tokens",
+                "data_type": "integer",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "total_tokens",
+                "data_type": "integer",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "llm_call_count",
+                "data_type": "integer",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "lead_agent_tokens",
+                "data_type": "integer",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "subagent_tokens",
+                "data_type": "integer",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "middleware_tokens",
+                "data_type": "integer",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "token_usage_by_model",
+                "data_type": "json",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "follow_up_to_run_id",
+                "data_type": "character varying",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "owner_worker_id",
+                "data_type": "character varying",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "lease_expires_at",
+                "data_type": "timestamp with time zone",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "created_at",
+                "data_type": "timestamp with time zone",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "updated_at",
+                "data_type": "timestamp with time zone",
+                "table_name": "runs"
+              },
+              {
+                "column_name": "thread_id",
+                "data_type": "character varying",
+                "table_name": "threads_meta"
+              },
+              {
+                "column_name": "assistant_id",
+                "data_type": "character varying",
+                "table_name": "threads_meta"
+              },
+              {
+                "column_name": "user_id",
+                "data_type": "character varying",
+                "table_name": "threads_meta"
+              },
+              {
+                "column_name": "display_name",
+                "data_type": "character varying",
+                "table_name": "threads_meta"
+              },
+              {
+                "column_name": "status",
+                "data_type": "character varying",
+                "table_name": "threads_meta"
+              },
+              {
+                "column_name": "metadata_json",
+                "data_type": "json",
+                "table_name": "threads_meta"
+              },
+              {
+                "column_name": "created_at",
+                "data_type": "timestamp with time zone",
+                "table_name": "threads_meta"
+              },
+              {
+                "column_name": "updated_at",
+                "data_type": "timestamp with time zone",
+                "table_name": "threads_meta"
+              },
+              {
+                "column_name": "id",
+                "data_type": "character varying",
+                "table_name": "users"
+              },
+              {
+                "column_name": "email",
+                "data_type": "character varying",
+                "table_name": "users"
+              },
+              {
+                "column_name": "password_hash",
+                "data_type": "character varying",
+                "table_name": "users"
+              },
+              {
+                "column_name": "system_role",
+                "data_type": "character varying",
+                "table_name": "users"
+              },
+              {
+                "column_name": "created_at",
+                "data_type": "timestamp with time zone",
+                "table_name": "users"
+              },
+              {
+                "column_name": "oauth_provider",
+                "data_type": "character varying",
+                "table_name": "users"
+              },
+              {
+                "column_name": "oauth_id",
+                "data_type": "character varying",
+                "table_name": "users"
+              },
+              {
+                "column_name": "needs_setup",
+                "data_type": "boolean",
+                "table_name": "users"
+              },
+              {
+                "column_name": "is_disabled",
+                "data_type": "boolean",
+                "table_name": "users"
+              },
+              {
+                "column_name": "token_version",
+                "data_type": "integer",
+                "table_name": "users"
+              },
+              {
+                "column_name": "display_name",
+                "data_type": "character varying",
+                "table_name": "users"
+              },
+              {
+                "column_name": "organization_id",
+                "data_type": "character varying",
+                "table_name": "users"
+              },
+              {
+                "column_name": "organization_code",
+                "data_type": "character varying",
+                "table_name": "users"
+              },
+              {
+                "column_name": "organization_name",
+                "data_type": "character varying",
+                "table_name": "users"
+              },
+              {
+                "column_name": "last_login_at",
+                "data_type": "timestamp with time zone",
+                "table_name": "users"
+              },
+              {
+                "column_name": "cnooc_platform_token_hash",
+                "data_type": "character varying",
+                "table_name": "users"
+              }
+            ],
+            "database_readonly": true,
+            "revisions": [
+              "0021_oa_result_sets"
+            ],
+            "schema_migrated": false,
+            "status": "PASS"
+          },
+          "files_modified": false,
+          "provider_requests": 0,
+          "sources": {
+            "checked": 583,
+            "difference_count": 0,
+            "differences": [],
+            "matches_sealed_gateway": true,
+            "source_set_sha256": "e97fb577ca461d94c94d8735ab7b002ad1b32369f73e3b808573cf7fa092724a"
+          },
+          "status": "READONLY_RUNTIME_COLLECTED"
+        }
+      },
+      {
+        "identity": {
+          "containers": [
+            {
+              "containerID": "containerd://65314b218639b4a50fe44ddadf496df2d30fc721c25663f8ffab85d9f57abaa8",
+              "imageID": "deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+              "name": "gateway",
+              "ready": true,
+              "restartCount": 1
+            }
+          ],
+          "deleting": false,
+          "node": "ecs-zdz-pro-0018",
+          "pod": "gateway-84b84764c8-48lc9",
+          "uid": "46a92b37-8e18-41f4-aa32-3f1604b210e2"
+        },
+        "observation": {
+          "application_started": false,
+          "configuration": {
+            "certificate_bundles": [
+              {
+                "ca_count": 143,
+                "configured": true,
+                "hostname_verification": true,
+                "loadable": true,
+                "sha256": "84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af",
+                "source": "SSL_CERT_FILE"
+              },
+              {
+                "ca_count": 143,
+                "configured": true,
+                "hostname_verification": true,
+                "loadable": true,
+                "sha256": "84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af",
+                "source": "REQUESTS_CA_BUNDLE"
+              }
+            ],
+            "company_kb_enabled": true,
+            "competition_aliases_configured": false,
+            "competition_display_exists": false,
+            "competition_display_path": "/app/backend/.deer-flow/competition/display.json",
+            "competition_key_present": false,
+            "existing_v4_key_present": true,
+            "file_sha256": "dbde51e71421be4ee4544684faa77baf18a522ecd87db663b2bcb4280589c36b",
+            "first_model": "deepseek-v4-flash",
+            "models_count": 2,
+            "oa_callback_enabled": false,
+            "oa_multi_enabled": true,
+            "userdata_exists": true,
+            "userdata_path": "/app/backend/.deer-flow",
+            "v41_entries": 0,
+            "v4_models_reusing_key": 1
+          },
+          "credentials_exported": false,
+          "files_modified": false,
+          "provider_requests": 0,
+          "sources": {
+            "checked": 583,
+            "difference_count": 0,
+            "differences": [],
+            "matches_sealed_gateway": true,
+            "source_set_sha256": "e97fb577ca461d94c94d8735ab7b002ad1b32369f73e3b808573cf7fa092724a"
+          },
+          "status": "READONLY_RUNTIME_COLLECTED"
+        }
+      }
+    ],
+    "sample_scope": "TWO_GATEWAY_NODES_NOT_ALL_REPLICAS",
+    "schema": "portal-combined-features-preflight.v1",
+    "secret_api_reads": 0,
+    "serving_nginx": {
+      "pod": {
+        "containers": [
+          {
+            "containerID": "containerd://fcd4d67d0aa5795914de1c7fea9c103ba8635ac7ff26727922ffbe1da07430fc",
+            "imageID": "m.daocloud.io/docker.io/library/nginx@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+            "name": "nginx",
+            "ready": true,
+            "restartCount": 0
+          }
+        ],
+        "deleting": false,
+        "node": "datax-01",
+        "pod": "nginx-security-heai-20261012-r1-5d66699595-cpq85",
+        "uid": "a795d8c9-c487-4245-80a6-d7869f603a44"
+      },
+      "runtime": {
+        "api_catchall_count": 1,
+        "auth_request_count": 3,
+        "bytes": 59291,
+        "competition_mentions": 0,
+        "frontend_dns_present": true,
+        "gateway_dns_present": true,
+        "raw_configuration_exported": false,
+        "root_locations": 1,
+        "sha256": "10b8e85a7f19ecd572a99e1b5969cd953a29784cb590125d406cd0fced74511b"
+      },
+      "service": {
+        "generation": null,
+        "selector": {
+          "app": "nginx-security-heai-20261012-r1"
+        },
+        "spec_sha256": "4466eebc5928640ecee0982ed1b90131857897e1a7a59a8e7deee6381c1a8b67",
+        "uid": "968e2c68-6635-4e60-9eba-9b13ae10647c"
+      }
+    },
+    "stable_readback": true,
+    "status": "COMBINED_FEATURE_BASELINE_COLLECTED_NOT_DEPLOYED",
+    "workload_modified": false
+  }
+}

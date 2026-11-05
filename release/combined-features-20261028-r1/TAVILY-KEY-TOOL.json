@@ -1,0 +1,28 @@
+{
+  "schema": "portal-combined-tavily-key-delivery.v1",
+  "file": "update-portal-combined-tavily-key-20261028-r1.py",
+  "bytes": 16397,
+  "sha256": "a10fd5b85c294c33678cce7c8f9d66983728adafae9d1f621fd63d4dd9e1c88e",
+  "credentials_embedded": false,
+  "input": "Hidden terminal input on datax-01; no command-line secret arguments",
+  "mutation_scope": "One JSON Patch replace of Secret deer-flow/deer-flow-env data.TAVILY_API_KEY, with UID/resourceVersion/old-value CAS tests",
+  "prior_key_retention": "Only previous field value in root-only 0600 server-local backup; excluded from report and source",
+  "provider_requests": 0,
+  "database_access": false,
+  "workload_restart_requests": 0,
+  "gateway_rollout_required_for_running_processes": true,
+  "weknora_saved_provider_entries_modified": false,
+  "v41_enabled": false,
+  "default_model_changed": false,
+  "validation": {
+    "windows_tests_passed": 10,
+    "linux_python37_tests_passed": 9,
+    "linux_python37_tests_skipped": 1,
+    "skip_reason": "Minimal host image lacks PyYAML; child binding test passed on Windows. Production Gateway includes PyYAML.",
+    "synthetic_data_only": true,
+    "network_during_tests": false,
+    "cases": ["single-field CAS", "lost reply readback without repost", "unapplied patch stops", "unrelated secret-field drift rejection", "hidden input cannot fall back to echo", "wrong host refusal", "config/env binding and overrides", "report and command argument redaction"]
+  },
+  "field_execution_pending": true,
+  "paired_release_deployed": false
+}

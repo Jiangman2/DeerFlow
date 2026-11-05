@@ -1,0 +1,61 @@
+{
+  "schema": "portal-data-qa-progress-frontend-preloads-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_SUMMARIES_NOT_DIRECT_NODE_READ",
+  "image_references_markdown_normalized": true,
+  "receipts": [
+    {
+      "schema": "portal-frontend-ui-cache-preload.v1",
+      "status": "COMPLETE_FRONTEND_UI_CACHE_PRELOAD_REVIEW_REQUIRED",
+      "hostname": "datax-02",
+      "expected_node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+      "manifest_digest": "sha256:15d1327740e688faf0617d1d8fb9f662618a963624ba7280a6d0efb54ed70475",
+      "config_digest": "sha256:377bac0b69157c9cd0b1514ca986343381a6541ef30135127df4876f350d5ffc",
+      "canonical_names_created": [
+        "deerflow.local/deer-flow-frontend:20261021-data-qa-progress-r1",
+        "deerflow.local/deer-flow-frontend@sha256:15d1327740e688faf0617d1d8fb9f662618a963624ba7280a6d0efb54ed70475"
+      ],
+      "phase_a": "PASS",
+      "phase_b": "PASS",
+      "content_and_unpack": "PASS",
+      "cri_visibility": "PASS",
+      "preclaim_passed": true,
+      "old_references_preserved": true,
+      "image_import_may_be_partial": false,
+      "production_workload_mutation": false,
+      "kubernetes_node_uid_freshly_checked": false,
+      "automatic_retry": false,
+      "exitcode": 0,
+      "operation": "731c325ead3b4d8d969a97770f88152e",
+      "report_path": "/var/lib/portal-frontend-data-qa-progress-preload-20261022-r2/REPORT.json",
+      "report_bytes": 56171,
+      "report_sha256": "209902c3d96abab01071cc137a9d721a5ac543ca2b13a3ea691ca40dec233586"
+    },
+    {
+      "schema": "portal-frontend-ui-cache-preload.v1",
+      "status": "COMPLETE_FRONTEND_UI_CACHE_PRELOAD_REVIEW_REQUIRED",
+      "hostname": "ecs-zdz-pro-0015",
+      "expected_node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+      "manifest_digest": "sha256:15d1327740e688faf0617d1d8fb9f662618a963624ba7280a6d0efb54ed70475",
+      "config_digest": "sha256:377bac0b69157c9cd0b1514ca986343381a6541ef30135127df4876f350d5ffc",
+      "canonical_names_created": [
+        "deerflow.local/deer-flow-frontend:20261021-data-qa-progress-r1",
+        "deerflow.local/deer-flow-frontend@sha256:15d1327740e688faf0617d1d8fb9f662618a963624ba7280a6d0efb54ed70475"
+      ],
+      "phase_a": "PASS",
+      "phase_b": "PASS",
+      "content_and_unpack": "PASS",
+      "cri_visibility": "PASS",
+      "preclaim_passed": true,
+      "old_references_preserved": true,
+      "image_import_may_be_partial": false,
+      "production_workload_mutation": false,
+      "kubernetes_node_uid_freshly_checked": false,
+      "automatic_retry": false,
+      "exitcode": 0,
+      "operation": "cd0734c87d2d4cc398ed6f4dadfff299",
+      "report_path": "/mnt/data/portal-frontend-data-qa-progress-preload-20261022-r2/REPORT.json",
+      "report_bytes": 50559,
+      "report_sha256": "c244ad2c30f6d6478afcd6a6b35580570c588ab061f897aa9a4e326c28783612"
+    }
+  ]
+}

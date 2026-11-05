@@ -1,0 +1,15 @@
+{
+  "schema": "portal-mobile-notice-removal-frontend-baseline.v1",
+  "evidence_origin": "OPERATOR_PASTED_READONLY_CUSTOM_COLUMNS_NOT_DIRECT_CLUSTER_READ",
+  "observation_date": "2026-10-24",
+  "deployment": "frontend",
+  "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee",
+  "generation": 227,
+  "observed_generation": 227,
+  "desired": 2,
+  "updated": 2,
+  "ready": 2,
+  "image": "deerflow.local/deer-flow-frontend@sha256:b37036e9b226f8605e3da98d9f81cb072fc30da29cb5b972702c5ed6ec535638",
+  "full_spec_observed": false,
+  "workload_modified": false
+}

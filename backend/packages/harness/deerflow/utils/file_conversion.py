@@ -16,12 +16,12 @@ No FastAPI or HTTP dependencies — pure utility functions.
 
 import asyncio
 import logging
+import os
 import re
-import shutil
-import subprocess
-import sys
 import tempfile
+from functools import wraps
 from pathlib import Path
+from threading import Lock
 
 from deerflow.config.app_config import get_app_config
 
@@ -49,6 +49,8 @@ _ASYNC_THRESHOLD_BYTES = 1 * 1024 * 1024  # 1 MB
 # yield close to 0. 50 chars/page gives a wide safety margin.
 # Falls back to absolute 200-char check when page count is unavailable.
 _MIN_CHARS_PER_PAGE = 50
+
+_XLSX_COMPAT_LOCK = Lock()
 
 
 def _pymupdf_output_too_sparse(text: str, file_path: Path) -> bool:
@@ -98,100 +100,40 @@ def _convert_pdf_with_pymupdf4llm(file_path: Path) -> str | None:
         return None
 
 
+def _install_openpyxl_default_col_width_pt_compat() -> None:
+    """Ignore only the observed formatting extension when converting XLSX.
+
+    Install lazily rather than at Python startup. The constructor remains
+    patched in this process; the lock prevents concurrent conversions from
+    stacking wrappers. Other workbook errors still propagate to the normal
+    conversion failure handler, and the uploaded workbook is never rewritten.
+    """
+    from openpyxl.worksheet.dimensions import SheetFormatProperties
+
+    marker = "__deerflow_default_col_width_pt_compat__"
+    with _XLSX_COMPAT_LOCK:
+        current_init = SheetFormatProperties.__init__
+        if getattr(current_init, marker, False):
+            return
+
+        @wraps(current_init)
+        def compatible_init(self, *args, **kwargs):
+            kwargs.pop("defaultColWidthPt", None)
+            return current_init(self, *args, **kwargs)
+
+        setattr(compatible_init, marker, True)
+        SheetFormatProperties.__init__ = compatible_init
+
+
 def _convert_with_markitdown(file_path: Path) -> str:
     """Convert any supported file to markdown text using MarkItDown."""
     from markitdown import MarkItDown
 
+    if file_path.suffix.lower() == ".xlsx":
+        _install_openpyxl_default_col_width_pt_compat()
+
     md = MarkItDown()
     return md.convert(str(file_path)).text_content
-
-
-def _which_soffice() -> str | None:
-    """Find LibreOffice across PATH and common install locations."""
-    candidates = [
-        shutil.which("soffice"),
-        shutil.which("libreoffice"),
-        r"C:\Program Files\LibreOffice\program\soffice.exe",
-        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
-        "/usr/bin/soffice",
-        "/usr/bin/libreoffice",
-        "/usr/lib/libreoffice/program/soffice",
-        "/snap/bin/libreoffice",
-        "/snap/bin/soffice",
-    ]
-    for candidate in candidates:
-        if candidate and Path(candidate).exists():
-            return candidate
-    return None
-
-
-def _convert_doc_with_pipeline(file_path: Path) -> str | None:
-    """Convert legacy .doc files without feeding binary content to MarkItDown.
-
-    MarkItDown handles modern Office formats much better than old binary .doc.
-    Prefer LibreOffice to normalize .doc to .docx, then fall back to antiword
-    plaintext extraction when LibreOffice is not available.
-    """
-    soffice = _which_soffice()
-    if soffice:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            out_dir = Path(tmp_dir)
-            profile_dir = out_dir / "lo_profile"
-            profile_dir.mkdir(parents=True, exist_ok=True)
-            try:
-                completed = subprocess.run(
-                    [
-                        soffice,
-                        "--headless",
-                        "--nologo",
-                        "--norestore",
-                        "--nolockcheck",
-                        "--nodefault",
-                        "--nofirststartwizard",
-                        f"-env:UserInstallation={profile_dir.as_uri()}",
-                        "--convert-to",
-                        "docx",
-                        "--outdir",
-                        str(out_dir),
-                        str(file_path),
-                    ],
-                    check=False,
-                    capture_output=True,
-                    timeout=180,
-                )
-                converted = out_dir / f"{file_path.stem}.docx"
-                if completed.returncode == 0 and converted.exists():
-                    logger.info("Converted legacy .doc via LibreOffice: %s", file_path.name)
-                    return _convert_with_markitdown(converted)
-                logger.warning(
-                    "LibreOffice did not produce .docx for %s: returncode=%s stdout=%s stderr=%s",
-                    file_path.name,
-                    completed.returncode,
-                    completed.stdout.decode("utf-8", errors="replace")[-1000:],
-                    completed.stderr.decode("utf-8", errors="replace")[-2000:],
-                )
-            except subprocess.TimeoutExpired:
-                logger.error("Timed out converting legacy .doc with LibreOffice: %s", file_path.name)
-            except Exception as e:
-                logger.warning("LibreOffice conversion failed for %s: %s", file_path.name, e)
-
-    antiword = shutil.which("antiword")
-    if antiword:
-        try:
-            completed = subprocess.run(
-                [antiword, str(file_path)],
-                check=True,
-                capture_output=True,
-                timeout=60,
-            )
-            logger.info("Converted legacy .doc via antiword: %s", file_path.name)
-            return completed.stdout.decode("utf-8", errors="replace")
-        except subprocess.TimeoutExpired:
-            logger.error("Timed out converting legacy .doc with antiword: %s", file_path.name)
-        except Exception as e:
-            logger.warning("antiword conversion failed for %s: %s", file_path.name, e)
-
-    return None
 
 
 def _do_convert(file_path: Path, pdf_converter: str) -> str:
@@ -227,7 +169,11 @@ def _do_convert(file_path: Path, pdf_converter: str) -> str:
     return _convert_with_markitdown(file_path)
 
 
-async def convert_file_to_markdown(file_path: Path) -> Path | None:
+async def convert_file_to_markdown(
+    file_path: Path,
+    *,
+    output_path: Path | None = None,
+) -> Path | None:
     """Convert a supported document file to Markdown.
 
     PDF files are handled with a two-converter strategy (see module docstring).
@@ -236,21 +182,13 @@ async def convert_file_to_markdown(file_path: Path) -> Path | None:
 
     Args:
         file_path: Path to the file to convert.
+        output_path: Optional pre-claimed Markdown destination. When omitted,
+            the historical same-stem destination is preserved.
 
     Returns:
         Path to the generated .md file, or None if conversion failed.
     """
     try:
-        if file_path.suffix.lower() == ".doc":
-            text = await asyncio.to_thread(_convert_doc_with_pipeline, file_path)
-            if text is None:
-                logger.warning("Legacy .doc conversion unavailable for %s", file_path.name)
-                return None
-            md_path = file_path.with_suffix(".md")
-            md_path.write_text(text, encoding="utf-8")
-            logger.info("Converted %s to markdown: %s (%d chars)", file_path.name, md_path.name, len(text))
-            return md_path
-
         pdf_converter = _get_pdf_converter()
         file_size = file_path.stat().st_size
 
@@ -259,8 +197,37 @@ async def convert_file_to_markdown(file_path: Path) -> Path | None:
         else:
             text = _do_convert(file_path, pdf_converter)
 
-        md_path = file_path.with_suffix(".md")
-        md_path.write_text(text, encoding="utf-8")
+        md_path = output_path or file_path.with_suffix(".md")
+        if not isinstance(text, str) or not text.strip():
+            # Never leave a zero-byte companion behind. Upload middleware
+            # treats the companion as authoritative, so an empty file would
+            # falsely mark parsing as successful and encourage the agent to
+            # install ad-hoc OCR tools in its Sandbox.
+            md_path.unlink(missing_ok=True)
+            logger.error(
+                "Document conversion returned no readable text for %s",
+                file_path.name,
+            )
+            return None
+
+        temp_fd, temp_path_str = tempfile.mkstemp(
+            prefix=f".{md_path.name}.convert-",
+            suffix=".tmp",
+            dir=md_path.parent,
+        )
+        temp_path = Path(temp_path_str)
+        try:
+            with os.fdopen(temp_fd, "w", encoding="utf-8", newline="\n") as handle:
+                # Preserve converter output byte-for-byte (apart from UTF-8
+                # encoding) so existing Markdown consumers do not observe a
+                # formatting change. The strip above is validation only.
+                handle.write(text)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_path, md_path)
+        except Exception:
+            temp_path.unlink(missing_ok=True)
+            raise
 
         logger.info("Converted %s to markdown: %s (%d chars)", file_path.name, md_path.name, len(text))
         return md_path
@@ -356,7 +323,7 @@ def extract_outline(md_path: Path) -> list[dict]:
     """
     outline: list[dict] = []
     try:
-        with md_path.open(encoding="utf-8") as f:
+        with md_path.open(encoding="utf-8-sig") as f:
             for lineno, line in enumerate(f, 1):
                 stripped = line.strip()
                 if not stripped:
@@ -381,7 +348,11 @@ def extract_outline(md_path: Path) -> list[dict]:
                     if title:
                         outline.append({"title": title, "line": lineno})
 
-                if len(outline) >= MAX_OUTLINE_ENTRIES:
+                if len(outline) > MAX_OUTLINE_ENTRIES:
+                    # We collected one heading beyond the limit, which proves the
+                    # document genuinely has more than MAX_OUTLINE_ENTRIES headings.
+                    # Drop that extra entry and append the truncation sentinel.
+                    outline.pop()
                     outline.append({"truncated": True})
                     break
     except Exception:

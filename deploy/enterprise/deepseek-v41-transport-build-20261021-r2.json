@@ -1,0 +1,18 @@
+{
+  "schema": "portal-deepseek-v41-candidate-diagnostic-build.v1",
+  "artifact": "diagnose-portal-deepseek-v41-transport-20261021-r2.py",
+  "bytes": 55449,
+  "sha256": "f0c4fe4b2642d233be391ddf13f445b8cbe4caab5849f268df5cd3b9426a7f8f",
+  "candidate_source_sha256": "320cb6c4b0d1f06ddb5322ce6295e514d4702c7981471695980086f591029c88",
+  "prior_receipt_sha256": "c07805d387be55cd12fefc01495da39d47719dfb060722f6fdd8193f9cadb7d6",
+  "gateway_generation": 382,
+  "maximum_provider_requests": 12,
+  "request_deadline_seconds": 180,
+  "production_mutation": false,
+  "qualification": {
+    "offline_tests": 37,
+    "host_and_embedded_python37_compile": "PASS",
+    "ruff": "PASS",
+    "field_executed": false
+  }
+}

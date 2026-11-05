@@ -1,0 +1,27 @@
+{
+  "schema": "portal-data-qa-progress-frontend-package.v1",
+  "manifest": "sha256:15d1327740e688faf0617d1d8fb9f662618a963624ba7280a6d0efb54ed70475",
+  "config": "sha256:377bac0b69157c9cd0b1514ca986343381a6541ef30135127df4876f350d5ffc",
+  "tag": "deerflow.local/deer-flow-frontend:20261021-data-qa-progress-r1",
+  "transport": {
+    "bytes": 127319040,
+    "sha256": "aeb791af15e7456ad41c1d64590e5f9796071475c5066da6bb46922418eae7b2"
+  },
+  "qualified_export_record_sha256": "6ae26c54db4244370b8d820158db79d5f52acd5254c4005308e8a4051c8b15b7",
+  "scripts": {
+    "0015": {
+      "file": "preload-portal-frontend-data-qa-progress-0015-20261021-r1.py",
+      "bytes": 74855,
+      "sha256": "37523051cf47795c4ef1454bfa3a0aaae857a41ab1d044a345f574f6401e35de",
+      "base_importer_sha256": "a68dcf1f762f6a871bde3a0319604de118eb938bd0c9e49af68544b9392268f6"
+    },
+    "datax02": {
+      "file": "preload-portal-frontend-data-qa-progress-datax02-20261021-r1.py",
+      "bytes": 76444,
+      "sha256": "c2354849999ce397dd3225def02d337d17f6243676dfc4ea6791644683cc98b5",
+      "base_importer_sha256": "d885b1a68e9427adbebe1ba1e911bbb4d3bc5ff85e965d2bc3dc1608eaf77804"
+    }
+  },
+  "workload_modified": false,
+  "ready_for_rollout": false
+}

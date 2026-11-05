@@ -1,0 +1,31 @@
+{
+  "schema": "portal-usage-heatmap-source.v1",
+  "status": "PREPARED_NOT_DEPLOYED",
+  "base_image": "sha256:f79aa01640d41beae2c249ef03accaaf64563ad45788cb7c97992a73dc11c3d2",
+  "accepted_source_inventory_sha256": "b380024ec4bd0d6c570cd2990b712d6f9b752c06abc9f9908293f774ef3172eb",
+  "changes": [
+    {
+      "path": "frontend/src/components/workspace/settings/account-activity-panel.tsx",
+      "base_sha256": "4b75bc66a8c06ef7ba94313a1d47bf2e0bb05f6c0c8f799562ab34875ad11d33",
+      "candidate_sha256": "7c781e80a27194d60a5e64ac1e04989767d3a25041b8447e3875f5da8bae9dba",
+      "bytes": 12379
+    },
+    {
+      "path": "frontend/src/core/console/account-activity.ts",
+      "base_sha256": "135accde1c1213adf6a5e23e3f08581094bfb74d91dac04d2c896fff9f172c32",
+      "candidate_sha256": "e35ed8d89cd56e8d639cc1239345de93d7e19bd0b70d14d1ef5b3eb6e66409a7",
+      "bytes": 5280
+    },
+    {
+      "path": "frontend/src/core/i18n/usage-analytics.ts",
+      "base_sha256": "dc4a9ebd05e2551058f9023e3fd65e7fb03987bf55fff324303b97ba2eeef7a4",
+      "candidate_sha256": "8414f8d82aa0b39c0c69965167855060d986ffe91ad4802f18a09d594966606f",
+      "bytes": 2726
+    }
+  ],
+  "runtime_files_changed": 3,
+  "other_source_files_preserved": 976,
+  "work_datalake_deferred": true,
+  "production_writes": 0,
+  "new_api_or_database_queries": 0
+}

@@ -11,14 +11,13 @@ const TOTAL_THREADS = 120;
 const PAGE_SIZE = 50;
 
 const THREADS = Array.from({ length: TOTAL_THREADS }, (_, i) => {
-  // Pad index so titles sort deterministically as strings. The thread-search
-  // mock returns threads in the order provided, so paging boundaries are
-  // stable across runs.
+  // Descending timestamps match the real API's updated_at ordering and keep
+  // page boundaries stable without bypassing sorting in the mock.
   const index = String(i + 1).padStart(3, "0");
   return {
     thread_id: `00000000-0000-0000-0000-0000000${index.padStart(5, "0")}`,
     title: `Conversation ${index}`,
-    updated_at: `2025-06-${String((i % 28) + 1).padStart(2, "0")}T12:00:00Z`,
+    updated_at: new Date(Date.UTC(2025, 5, 30, 12) - i * 60_000).toISOString(),
   };
 });
 
@@ -84,7 +83,9 @@ test.describe("Thread list infinite scroll (issue #3482)", () => {
     // observer and never interferes with routing.
     let searchRequestCount = 0;
     page.on("request", (request) => {
-      if (request.url().includes("/api/langgraph/threads/search")) {
+      if (
+        /\/api\/(?:langgraph\/)?threads\/search(?:\?|$)/.test(request.url())
+      ) {
         searchRequestCount += 1;
       }
     });

@@ -1,6 +1,6 @@
 ---
 name: data-analysis
-description: Use this skill when the user uploads Excel (.xlsx/.xls) or CSV files and wants to perform data analysis, generate statistics, create summaries, pivot tables, SQL queries, or any form of structured data exploration. Supports multi-sheet Excel workbooks, aggregation, filtering, joins, and exporting results to CSV/JSON/Markdown.
+description: Use this skill when the user uploads Excel (.xlsx) or CSV files and wants to perform data analysis, generate statistics, create summaries, pivot tables, SQL queries, or any form of structured data exploration. Supports multi-sheet Excel workbooks, aggregation, filtering, joins, and exporting results to CSV/JSON/Markdown. Legacy .xls files require conversion to .xlsx or CSV first.
 ---
 
 # Data Analysis Skill
@@ -98,11 +98,20 @@ Supported output formats (auto-detected from extension):
 > [!NOTE]
 > Do NOT read the Python file, just call it with the parameters.
 
+The sandbox image supplies DuckDB and openpyxl. Excel/CSV analysis runs offline;
+do not install packages or DuckDB extensions, or change proxy settings to repair
+an analysis failure. On `DATA_ANALYSIS_FAILED`, use the reported error to correct
+the file path, input format, or query, then retry the owning analysis command.
+If it reports `DEPENDENCY_MISSING`, report the missing runtime dependency rather
+than repeatedly retrying or claiming the data was analyzed. Preserve originals
+when converting legacy `.xls` files to `.xlsx` or CSV.
+
 ## Table Naming Rules
 
 - **Excel files**: Each sheet becomes a table named after the sheet (e.g., `Sheet1`, `Sales`, `Revenue`)
 - **CSV files**: Table name is the filename without extension (e.g., `data.csv` → `data`)
 - **Multiple files**: All tables from all files are available in the same query context, enabling cross-file joins
+- **Duplicate names**: Distinct sheets/files receive suffixes; use the exact SQL table names printed by `inspect`.
 - **Special characters**: Sheet/file names with spaces or special characters are auto-sanitized (spaces → underscores). Use double quotes for names that start with numbers or contain special characters, e.g., `"2024_Sales"`
 
 ## Analysis Patterns
@@ -234,7 +243,7 @@ After analysis:
 The script automatically caches loaded data to avoid re-parsing files on every call:
 
 - On first load, files are parsed and stored in a persistent DuckDB database under `/mnt/user-data/workspace/.data-analysis-cache/`
-- The cache key is a SHA256 hash of all input file contents — if files change, a new cache is created
+- The cache key includes the loader version, input paths/order and file contents — if inputs change, a new cache is created. Failed imports are not cached.
 - Subsequent calls with the same files will use the cached database directly (near-instant startup)
 - Cache is transparent — no extra parameters needed
 

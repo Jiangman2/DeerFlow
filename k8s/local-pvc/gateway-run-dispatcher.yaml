@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gateway-run-dispatcher
+  namespace: deer-flow
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gateway-run-dispatcher
+  namespace: deer-flow
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gateway-run-dispatcher
+  namespace: deer-flow
+subjects:
+  - kind: ServiceAccount
+    name: gateway-run-dispatcher
+    namespace: deer-flow
+roleRef:
+  kind: Role
+  name: gateway-run-dispatcher
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-run-dispatcher
+  namespace: deer-flow
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gateway-run-dispatcher
+  template:
+    metadata:
+      labels:
+        app: gateway-run-dispatcher
+    spec:
+      serviceAccountName: gateway-run-dispatcher
+      containers:
+        - name: dispatcher
+          # Replace this placeholder with the newly built image before apply.
+          image: deer-flow-gateway:REPLACE_WITH_TESTED_TAG
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - cd backend && PYTHONPATH=. uv run --no-sync uvicorn app.gateway.run_placement:app --host 0.0.0.0 --port 8004 --workers 1
+          ports:
+            - containerPort: 8004
+              name: http
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-postgres
+                  key: DATABASE_URL
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8004
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 250m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-run-dispatcher
+  namespace: deer-flow
+spec:
+  selector:
+    app: gateway-run-dispatcher
+  ports:
+    - name: http
+      port: 8004
+      targetPort: 8004

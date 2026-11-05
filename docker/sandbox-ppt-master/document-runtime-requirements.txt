@@ -1,0 +1,15 @@
+# Document production baseline for the immutable AIO Sandbox image.
+python-docx==1.2.0
+pdfplumber==0.11.10
+pypdf==6.19.0
+reportlab==5.0.1
+Markdown==3.10.3
+chardet==7.6.0
+# Python 3.10 compatibility for Agent Host and capability-probe TOML parsing.
+tomli==2.2.1; python_version < "3.11"
+
+# Frequently requested analysis packages. These reuse the image's pinned
+# NumPy/SciPy/Pandas stack and avoid conversation-time installation.
+statsmodels==0.14.6
+# 1.7.0 is the newest release that publishes a CPython 3.10 ARM64 wheel.
+scikit-learn==1.7.0

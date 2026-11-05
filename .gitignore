@@ -20,6 +20,12 @@ __pycache__/
 .venv
 venv/
 
+# Benchmark outputs
+bench_results.jsonl
+bench_optimized.jsonl
+results.jsonl
+backend/scripts/benchmark/*.jsonl
+
 # Environment variables
 .env
 
@@ -45,13 +51,6 @@ debug.log
 # Local git hooks (keep only on this machine, do not push)
 .githooks/
 
-# Local generated outputs, scratch checkouts, and runtime databases
-/outputs/
-/third_party/
-*.db
-*.sqlite
-*.sqlite3
-
 # pnpm
 .pnpm-store
 sandbox_image_cache.tar
@@ -65,5 +64,34 @@ config.yaml.bak
 .playwright-mcp
 /frontend/test-results/
 /frontend/playwright-report/
+.codex-ppt-build/
+outputs/
+
+# Local Codex staging, rendered review output, and release-package scratch.
+# Reproducible source, manifests, and build scripts belong in their normal
+# repository paths; generated archives and review workspaces do not.
+/.codex-*/
+/.codex_*/
+/output/
+/prototypes/
+/tmp/
+/*sha256nsha256sum
+/design-qa.md
+/docs/集团OA制度文生图接口联调参数与责任清单_V1.1.docx
+/docs/集团OA制度文生图接口联调说明_V1.0.docx
+/docs/集团OA制度文生图数据服务接口规范说明文档_V1.1.docx
+
+# The bundled read-only demo thread ships real presentation artifacts. Keep
+# these files in release source archives even though generic runtime outputs
+# remain ignored everywhere else.
+!frontend/public/demo/
+!frontend/public/demo/threads/
+!frontend/public/demo/threads/1490ac9e-1573-479d-875c-bd5680f3ba66/
+!frontend/public/demo/threads/1490ac9e-1573-479d-875c-bd5680f3ba66/user-data/
+!frontend/public/demo/threads/1490ac9e-1573-479d-875c-bd5680f3ba66/user-data/outputs/
+!frontend/public/demo/threads/1490ac9e-1573-479d-875c-bd5680f3ba66/user-data/outputs/**
 .gstack/
 .worktrees
+
+# Monocle agent-observability trace output (local file exporter)
+.monocle/

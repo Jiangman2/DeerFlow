@@ -1,0 +1,49 @@
+{
+  "schema": "portal-nonconfidential-notice-compiled-assets.v1",
+  "image": "sha256:0af4bb16a0924a02f6cfcb927c137642329b5831d01a5eded8c4f61ee8ad43f7",
+  "feature_markers": {
+    "data_qa_progress": [
+      "/app/frontend/.next/static/chunks/0klcot0e97rr9.js"
+    ],
+    "token_component": [
+      "/app/frontend/.next/static/chunks/0klcot0e97rr9.js",
+      "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js"
+    ],
+    "notice_component": [
+      "/app/frontend/.next/static/chunks/1942zspnf7hrt.js"
+    ],
+    "notice_text": [
+      "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js"
+    ],
+    "token_pending": [
+      "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js"
+    ],
+    "token_live": [
+      "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js"
+    ]
+  },
+  "source_pins": {
+    "/app/frontend/.next/BUILD_ID": {
+      "bytes": 21,
+      "sha256": "365a76acf567748167724d96548a759df2549fe3b4fcdad00d426e1d41f69c49"
+    },
+    "/app/frontend/.next/routes-manifest.json": {
+      "bytes": 10193,
+      "sha256": "9b19f00490aaa2b8ffb5d056901e9ba959518b38b1365a3ea1290c0f689647f9"
+    },
+    "/app/frontend/.next/static/chunks/0klcot0e97rr9.js": {
+      "bytes": 313134,
+      "sha256": "40e0fbb619733671d49a3e5cb326d5f91ca94956b587a388e8649fc97cbc3fba"
+    },
+    "/app/frontend/.next/static/chunks/1942zspnf7hrt.js": {
+      "bytes": 14451,
+      "sha256": "aec77bf82c427d8208b333553b1f5b32ae9c4215df3808b558488e53690320bb"
+    },
+    "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js": {
+      "bytes": 83490,
+      "sha256": "66ef9cbc42c4e7ce279445b863d17fe7bb5cc6919425ef85e15d82e391bae3db"
+    }
+  },
+  "production_modified": false,
+  "status": "COMPILED_FEATURES_PINNED_NOT_BROWSER_ACCEPTED"
+}

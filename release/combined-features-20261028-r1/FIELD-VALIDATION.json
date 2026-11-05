@@ -1,0 +1,101 @@
+{
+  "schema": "portal-combined-field-validation-summary.v1",
+  "evidence_origin": "Operator-pasted JSON summaries; original server report bytes were not read locally",
+  "production_deployed": false,
+  "ready_for_rollout": false,
+  "installed_images": {
+    "status": "COMBINED_IMAGES_ACCEPTED_NOT_DEPLOYED",
+    "candidate_manifest": "sha256:a879d9a0688099417a10d301fb41fa78664cb32d62b17a15ec1f435b943a19d4",
+    "report": {
+      "path": "/var/lib/portal-combined-installed-check-20261028-r1/REPORT.json",
+      "bytes": 3271,
+      "sha256": "f6d90a9209597bd3ae3ed10ffc61d002bcdcdae7c65936d7db2f4056a90358da"
+    },
+    "checks": [
+      {
+        "node": "ecs-zdz-pro-0018",
+        "job": "portal-combined-check-2edcb1e192dd",
+        "job_uid": "cf00a9fc-8fc5-4381-b3e4-c00b1ac8617a",
+        "pod_uid": "9e4df99b-93e9-4f80-88d7-54aa1b7e81ca",
+        "installed_source_files": 588,
+        "tests": {"passed": 251, "failed": 0, "skipped": 0, "collection_errors": 0, "exitcode": 0},
+        "status": "PASS"
+      },
+      {
+        "node": "ecs-zdz-pro-0021",
+        "job": "portal-combined-check-84ec2a2de1fb",
+        "job_uid": "02b84ca6-3e73-46af-8712-9434931a81d6",
+        "pod_uid": "1adae45a-9537-4059-9ca8-14dbb8f4e22e",
+        "installed_source_files": 588,
+        "tests": {"passed": 251, "failed": 0, "skipped": 0, "collection_errors": 0, "exitcode": 0},
+        "status": "PASS"
+      }
+    ],
+    "production_database_access": false,
+    "production_configuration_used": false,
+    "provider_requests": 0,
+    "application_started": false,
+    "schema_migrated": false,
+    "scope": "Real installed candidate source and isolated regression subset; not real business end-to-end acceptance"
+  },
+  "shared_storage": {
+    "status": "CROSS_NODE_STORE_ACCEPTED_NOT_DEPLOYED",
+    "report": {
+      "path": "/var/lib/portal-combined-storage-check-20261028-r1/REPORT.json",
+      "bytes": 3671,
+      "sha256": "78610871ae4cac4dfce1cb6e9cdc7bf917936628c102e5c382ecd872c2747f25"
+    },
+    "operation": "29aeb9d69add472e9f833430bfddc6db",
+    "nodes": ["ecs-zdz-pro-0020", "ecs-zdz-pro-0018"],
+    "pod_uids": ["44e10cd4-be3f-47fa-8ec6-556772904ec5", "46a92b37-8e18-41f4-aa32-3f1604b210e2"],
+    "directory_identity": {"st_ino": 645795844, "st_uid": 0},
+    "all_eight_phases_passed": true,
+    "stale_revision_rejected": true,
+    "contended_write_rejected": true,
+    "lock_wait_seconds": 2.044,
+    "final_revision": 3,
+    "canary_removed": true,
+    "canary_files_may_exist": false,
+    "production_display_access": false,
+    "database_access": false,
+    "provider_requests": 0,
+    "scope": "Candidate store loaded only in independent child processes on actual shared userdata"
+  },
+  "v41_provider": {
+    "status": "INCOMPLETE",
+    "report": {
+      "path": "/var/lib/portal-combined-v41-check-20261028-r1/REPORT.json",
+      "bytes": 1511,
+      "sha256": "8b2afba99d10838881a53b38dbf0a7cd38f8d5200f1f31f253de64ff263c4c28"
+    },
+    "node": "ecs-zdz-pro-0020",
+    "pod_uid": "44e10cd4-be3f-47fa-8ec6-556772904ec5",
+    "phase": "TEXT",
+    "http_status": 402,
+    "provider_requests": 1,
+    "maximum_provider_requests": 6,
+    "checks_passed": [],
+    "error_class": "APIStatusError",
+    "host_error_code": "PROVIDER_ACCEPTANCE_INCOMPLETE",
+    "strict_ca_and_hostname_verification": true,
+    "once_claimed": true,
+    "automatic_retry": false,
+    "credentials_exported": false,
+    "raw_errors_exported": false,
+    "configuration_modified": false,
+    "database_access": false,
+    "workload_modified": false,
+    "root_cause": "UNCONFIRMED_HTTP_STATUS_ALONE_DOES_NOT_ESTABLISH_QUOTA_OR_PERMISSION_FAILURE",
+    "next_step": "One separately invoked receipt-bound diagnostic; do not rerun original once-only verifier"
+  },
+  "remaining_acceptance": [
+    "V4.1 upstream error diagnosis and complete six-capability provider acceptance",
+    "Fresh active-task observation and deliberate Gateway rollout handling",
+    "Final paired deployment preparation and Frontend candidate node checks",
+    "Public board reachability through the actual Nginx entry",
+    "Post-rollout real-account permissions, click/board parity and browser acceptance"
+  ],
+  "work_update_included": false,
+  "runner_change_requested": false,
+  "database_migration_requested": false
+}

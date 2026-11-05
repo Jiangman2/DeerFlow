@@ -9,6 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getCsrfHeaders } from "@/core/api/fetcher";
 import { useAuth } from "@/core/auth/AuthProvider";
+import {
+  fetchSetupStatus,
+  isSystemAlreadyInitializedError,
+} from "@/core/auth/setup";
 import { parseAuthError } from "@/core/auth/types";
 
 type SetupMode = "loading" | "init_admin" | "change_password";
@@ -18,11 +22,14 @@ export default function SetupPage() {
   const { user, isAuthenticated } = useAuth();
   const [mode, setMode] = useState<SetupMode>("loading");
 
+  // --- Shared state ---
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // --- Change-password mode only ---
   const [currentPassword, setCurrentPassword] = useState("");
 
   useEffect(() => {
@@ -31,21 +38,23 @@ export default function SetupPage() {
     if (isAuthenticated && user?.needs_setup) {
       setMode("change_password");
     } else if (!isAuthenticated) {
-      void fetch("/api/v1/auth/setup-status")
-        .then((r) => r.json())
+      // Check if the system has no users yet
+      void fetchSetupStatus()
         .then((data: { needs_setup?: boolean }) => {
           if (cancelled) return;
           if (data.needs_setup) {
             setMode("init_admin");
           } else {
-            router.push("/login");
+            // System already set up and user is not logged in — go to login
+            router.replace("/login");
           }
         })
         .catch(() => {
-          if (!cancelled) router.push("/login");
+          if (!cancelled) router.replace("/login");
         });
     } else {
-      router.push("/workspace");
+      // Authenticated but needs_setup is false — already set up
+      router.replace("/workspace");
     }
 
     return () => {
@@ -53,6 +62,7 @@ export default function SetupPage() {
     };
   }, [isAuthenticated, user, router]);
 
+  // ── Init-admin handler ─────────────────────────────────────────────
   const handleInitAdmin = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setError("");
@@ -68,12 +78,20 @@ export default function SetupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password: newPassword }),
+        body: JSON.stringify({
+          email,
+          password: newPassword,
+        }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        setError(parseAuthError(data).message);
+        if (isSystemAlreadyInitializedError(data)) {
+          router.replace("/login");
+          return;
+        }
+        const authError = parseAuthError(data);
+        setError(authError.message);
         return;
       }
 
@@ -85,6 +103,7 @@ export default function SetupPage() {
     }
   };
 
+  // ── Change-password handler ────────────────────────────────────────
   const handleChangePassword = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setError("");
@@ -116,7 +135,8 @@ export default function SetupPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        setError(parseAuthError(data).message);
+        const authError = parseAuthError(data);
+        setError(authError.message);
         return;
       }
 
@@ -130,158 +150,134 @@ export default function SetupPage() {
 
   if (mode === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#eef7ff]">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground text-sm">Loading…</p>
       </div>
     );
   }
 
+  // ── Admin initialization form ──────────────────────────────────────
   if (mode === "init_admin") {
     return (
-      <AuthShell
-        title="Create admin account"
-        description="Set up the administrator account to get started."
-      >
-        <form onSubmit={handleInitAdmin} className="space-y-3">
-          <LabeledInput
-            id="email"
-            label="Email"
+      <div className="bg-background flex min-h-screen items-center justify-center">
+        <div className="absolute inset-0 z-0 bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center bg-no-repeat opacity-70" />
+        <div className="bg-background/70 absolute inset-0 z-0 backdrop-blur-sm" />
+        <div className="border-border/20 bg-background/5 relative z-10 w-full max-w-md space-y-5 rounded-3xl border p-6 backdrop-blur-sm sm:space-y-6 sm:p-8">
+          <div className="flex flex-col items-center text-center">
+            <BrandLogo variant="full" priority className="h-12 w-auto" />
+            <h1 className="text-foreground mt-5 text-xl font-semibold">
+              {brand.shortName}
+            </h1>
+            <p className="text-muted-foreground mt-2">创建管理员账号</p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              首次使用前需要先完成管理员初始化。
+            </p>
+          </div>
+          <form onSubmit={handleInitAdmin} className="space-y-3">
+            <div className="flex flex-col space-y-1">
+              <label htmlFor="email" className="text-sm font-medium">
+                邮箱
+              </label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col space-y-1">
+              <label htmlFor="password" className="text-sm font-medium">
+                密码
+              </label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Password (min. 8 characters)"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+            </div>
+            <div className="flex flex-col space-y-1">
+              <label htmlFor="confirmPassword" className="text-sm font-medium">
+                确认密码
+              </label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Confirm password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+            </div>
+            {error && <p className="ms-1 text-sm text-red-500">{error}</p>}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "正在创建..." : "创建管理员账号"}
+            </Button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Change-password form (needs_setup after login) ─────────────────
+  return (
+    <div className="bg-background flex min-h-screen items-center justify-center">
+      <div className="absolute inset-0 z-0 bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center bg-no-repeat opacity-70" />
+      <div className="bg-background/70 absolute inset-0 z-0 backdrop-blur-sm" />
+      <div className="border-border/20 bg-background/5 relative z-10 w-full max-w-md space-y-5 rounded-3xl border p-6 backdrop-blur-sm sm:space-y-6 sm:p-8">
+        <div className="flex flex-col items-center text-center">
+          <BrandLogo variant="full" priority className="h-12 w-auto" />
+          <h1 className="text-foreground mt-5 text-xl font-semibold">
+            {brand.shortName}
+          </h1>
+          <p className="text-muted-foreground mt-2">完成管理员账号设置</p>
+          <p className="text-muted-foreground mt-1 text-xs">
+            请设置真实邮箱和新密码。
+          </p>
+        </div>
+        <form onSubmit={handleChangePassword} className="space-y-3">
+          <Input
             type="email"
-            placeholder="you@example.com"
+            placeholder="邮箱"
             value={email}
-            onChange={setEmail}
+            onChange={(e) => setEmail(e.target.value)}
+            required
           />
-          <LabeledInput
-            id="password"
-            label="Password"
+          <Input
             type="password"
-            placeholder="Password (min. 8 characters)"
+            placeholder="当前密码"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            required
+          />
+          <Input
+            type="password"
+            placeholder="新密码"
             value={newPassword}
-            onChange={setNewPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
             minLength={8}
           />
-          <LabeledInput
-            id="confirmPassword"
-            label="Confirm Password"
+          <Input
             type="password"
-            placeholder="Confirm password"
+            placeholder="确认新密码"
             value={confirmPassword}
-            onChange={setConfirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
             minLength={8}
           />
           {error && <p className="text-sm text-red-500">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creating account..." : "Create Admin Account"}
+            {loading ? "正在设置..." : "完成设置"}
           </Button>
         </form>
-      </AuthShell>
-    );
-  }
-
-  return (
-    <AuthShell
-      title="Complete admin account setup"
-      description="Set your real email and a new password."
-    >
-      <form onSubmit={handleChangePassword} className="space-y-3">
-        <Input
-          type="email"
-          placeholder="Your email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <Input
-          type="password"
-          placeholder="Current password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          required
-        />
-        <Input
-          type="password"
-          placeholder="New password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          required
-          minLength={8}
-        />
-        <Input
-          type="password"
-          placeholder="Confirm new password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-          minLength={8}
-        />
-        {error && <p className="text-sm text-red-500">{error}</p>}
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Setting up..." : "Complete Setup"}
-        </Button>
-      </form>
-    </AuthShell>
-  );
-}
-
-function AuthShell({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#eef7ff] px-4">
-      <div className="absolute inset-0 bg-[url('/images/home-bg-light.png')] bg-cover bg-center opacity-35" />
-      <div className="absolute inset-0 bg-white/55" />
-      <div className="relative z-10 w-full max-w-md space-y-6 rounded-lg border border-[#bfdbfe] bg-white/90 p-8 shadow-[0_24px_80px_rgba(15,42,85,0.18)] backdrop-blur">
-        <div className="flex flex-col items-center text-center">
-          <BrandLogo variant="full" priority className="h-12 w-auto" />
-          <h1 className="mt-5 text-xl font-semibold text-slate-950">
-            {brand.shortName}
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">{title}</p>
-          <p className="mt-1 text-xs text-slate-400">{description}</p>
-        </div>
-        {children}
       </div>
-    </div>
-  );
-}
-
-function LabeledInput({
-  id,
-  label,
-  type,
-  placeholder,
-  value,
-  onChange,
-  minLength,
-}: {
-  id: string;
-  label: string;
-  type: string;
-  placeholder: string;
-  value: string;
-  onChange: (value: string) => void;
-  minLength?: number;
-}) {
-  return (
-    <div className="flex flex-col space-y-1">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      <Input
-        id={id}
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required
-        minLength={minLength}
-      />
     </div>
   );
 }

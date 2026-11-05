@@ -43,6 +43,17 @@ def test_build_subagent_section_includes_bash_when_available(monkeypatch) -> Non
     assert "available tools (bash, ls, read_file, web_search, etc.)" in section
 
 
+def test_build_subagent_section_requires_first_delegation_for_explicit_parallel_work(monkeypatch) -> None:
+    """Ultra-style parallel requests must not be handled by direct main-agent tools first."""
+    monkeypatch.setattr(prompt_module, "get_available_subagent_names", lambda: ["general-purpose", "bash"])
+
+    section = prompt_module._build_subagent_section(3)
+
+    assert "DELEGATION OVERRIDE FOR EXPLICIT PARALLEL REQUESTS" in section
+    assert "first tool response MUST be one batch of `task` calls" in section
+    assert "Do **not** run `bash`, `read_file`, web tools, or a Skill workflow yourself" in section
+
+
 def test_bash_subagent_prompt_mentions_workspace_relative_paths() -> None:
     from deerflow.subagents.builtins.bash_agent import BASH_AGENT_CONFIG
 
@@ -55,3 +66,26 @@ def test_general_purpose_subagent_prompt_mentions_workspace_relative_paths() -> 
 
     assert "Treat `/mnt/user-data/workspace` as the default working directory for coding and file IO" in GENERAL_PURPOSE_CONFIG.system_prompt
     assert "`hello.txt`, `../uploads/input.csv`, and `../outputs/result.md`" in GENERAL_PURPOSE_CONFIG.system_prompt
+
+
+def test_general_purpose_subagent_prompt_prohibits_task_tool() -> None:
+    """The system prompt must explicitly tell the LLM that `task` is unavailable.
+
+    Without this, subagents may attempt to call `task` after seeing the parent
+    agent use it, triggering a LangGraph tool validation error (#4159).
+    """
+    from deerflow.subagents.builtins.general_purpose import GENERAL_PURPOSE_CONFIG
+
+    prompt = GENERAL_PURPOSE_CONFIG.system_prompt
+    assert "task" in prompt.lower()
+    assert "NOT available" in prompt or "must NEVER" in prompt
+    assert "disallowed_tools" not in prompt  # don't leak internal implementation details
+
+
+def test_builtin_subagents_do_not_load_all_enabled_skills_by_default() -> None:
+    """Avoid conflicting lead-agent workflow instructions in child contexts."""
+    from deerflow.subagents.builtins.bash_agent import BASH_AGENT_CONFIG
+    from deerflow.subagents.builtins.general_purpose import GENERAL_PURPOSE_CONFIG
+
+    assert GENERAL_PURPOSE_CONFIG.skills == []
+    assert BASH_AGENT_CONFIG.skills == []

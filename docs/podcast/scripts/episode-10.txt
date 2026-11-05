@@ -1,0 +1,43 @@
+本集标题：Gateway、RunManager、run_agent 与 StreamBridge。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：5.1 Gateway 的职责边界。
+
+Gateway 不是 Agent 本身。它负责应用级问题：
+
+HTTP 路由。 - 身份认证与权限。 - CSRF 和安全响应头。 - Thread 和 Run API。 - 文件上传和 Artifact 下载。 - 配置、模型、MCP、Skill、Memory 管理。 - 数据库访问和审计。 - 将请求转换成 Harness 能理解的运行配置。
+
+Agent 核心位于 Harness，Gateway 只应把可信上下文传入 Agent。
+
+下面进入小节：5.2 RunManager 的职责。
+
+RunManager 可以理解为运行生命周期的“控制平面”：
+
+创建 Run。 - 检查冲突。 - 记录 Run 状态。 - 查找运行中的任务。 - 取消运行。 - 处理断开连接策略。 - 保存运行摘要、错误和 token usage。 - 管理恢复和历史查询。
+
+它不应该承载模型调用细节；模型调用由 run_agent 和编译出的 Agent 图完成。
+
+下面进入小节：5.3 run_agent 的职责。
+
+run_agent 是“执行平面”。它负责：
+
+组装 LangGraph runtime context。 2. 绑定 Thread、Run、Store、Checkpointer 和事件桥。 3. 调用 Agent factory。 4. 启动图流式执行。 5. 将图事件序列化成 DeerFlow 事件。 6. 处理 interrupt、cancel、error 和最终状态。 7. 在 finally 阶段完成标题、运行记录和资源清理。
+
+控制平面回答“这次 Run 是否存在、是否能取消”；执行平面回答“Agent 当前执行到哪里、状态怎样变化”。
+
+下面进入小节：5.4 StreamBridge 的设计。
+
+图示口述：这张图展示了Agent Worker，事件生产者、StreamBridge、SSE Consumer，浏览器连接、事件读取/恢复、子任务历史读取、Memory Bridge、Redis Bridge之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+MemoryStreamBridge 适合本地单进程；RedisStreamBridge 适合 Gateway 多副本或 Worker 与 HTTP 进程分离。桥接层隐藏了事件传输介质，业务代码只依赖 StreamBridge 接口。
+
+下面进入小节：5.5 取消不是简单的断开 HTTP。
+
+停止按钮通常需要：
+
+取消或标记 Run。 - 通知 Agent 执行路径。 - 终止工具或子任务的后续执行。 - 更新 Thread 与 Run 缓存。 - 等待后台任务完成清理。 - 在必要时补写终态事件。
+
+因此“浏览器连接关闭”和“Run 已经停止”不是严格同义词。当前分支对 stop 后的缓存失效和后续 refetch 有专门处理。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

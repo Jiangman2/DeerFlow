@@ -2,25 +2,26 @@ import {
   createContext,
   useCallback,
   useContext,
+  useLayoutEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
-import { useSidebar } from "@/components/ui/sidebar";
-import { env } from "@/env";
+import { findOfficeDocumentForPreviewArtifact } from "@/core/artifacts/utils";
 
 export interface ArtifactsContextType {
   artifacts: string[];
   setArtifacts: (artifacts: string[]) => void;
 
   selectedArtifact: string | null;
-  autoSelect: boolean;
-  select: (artifact: string, autoSelect?: boolean) => void;
+  select: (artifact: string) => void;
   deselect: () => void;
 
   open: boolean;
-  autoOpen: boolean;
   setOpen: (open: boolean) => void;
+  /** Open the artifact surface only from an explicit user interaction. */
+  openArtifactPanel: () => void;
 }
 
 const ArtifactsContext = createContext<ArtifactsContextType | undefined>(
@@ -29,35 +30,60 @@ const ArtifactsContext = createContext<ArtifactsContextType | undefined>(
 
 interface ArtifactsProviderProps {
   children: ReactNode;
+  scopeKey?: string;
 }
 
-export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
+export function ArtifactsProvider({
+  children,
+  scopeKey = "default",
+}: ArtifactsProviderProps) {
   const [artifacts, setArtifacts] = useState<string[]>([]);
   const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
-  const [autoSelect, setAutoSelect] = useState(true);
-  const [open, setOpen] = useState(
-    env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true",
-  );
-  const [autoOpen, setAutoOpen] = useState(true);
-  const { setOpen: setSidebarOpen } = useSidebar();
+  // Keep the conversation as the primary surface. Static demos still select
+  // their first artifact so the file button is ready, but the artifact pane
+  // must be opened deliberately instead of hiding the execution transcript.
+  const [open, setOpen] = useState(false);
+  const previousScopeKeyRef = useRef(scopeKey);
+
+  // Keep the provider mounted during client navigation so the chat does not
+  // visibly flash, but clear the previous thread's file surface before the
+  // browser paints the new route. A keyed provider remounts the whole chat
+  // subtree and was the source of a noticeable flash after the first submit.
+  useLayoutEffect(() => {
+    if (previousScopeKeyRef.current === scopeKey) {
+      return;
+    }
+    // The first persisted id after /new belongs to the same conversation. Do
+    // not erase the artifact cards while the live stream adopts that id.
+    if (previousScopeKeyRef.current === "new" && scopeKey !== "new") {
+      previousScopeKeyRef.current = scopeKey;
+      return;
+    }
+    previousScopeKeyRef.current = scopeKey;
+    setArtifacts([]);
+    setSelectedArtifact(null);
+    setOpen(false);
+  }, [scopeKey]);
 
   const select = useCallback(
-    (artifact: string, autoSelect = false) => {
-      setSelectedArtifact(artifact);
-      if (env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true") {
-        setSidebarOpen(false);
-      }
-      if (!autoSelect) {
-        setAutoSelect(false);
-      }
+    (artifact: string) => {
+      setSelectedArtifact(
+        findOfficeDocumentForPreviewArtifact(artifact, artifacts) ?? artifact,
+      );
     },
-    [setSidebarOpen, setSelectedArtifact, setAutoSelect],
+    [artifacts],
   );
 
   const deselect = useCallback(() => {
     setSelectedArtifact(null);
-    setAutoSelect(true);
     setOpen(false);
+  }, []);
+
+  // Keep opening separate from passive artifact hydration. A stream update,
+  // present_files receipt, or persisted state read may add files, but it must
+  // never make the right drawer appear by itself.
+  const openArtifactPanel = useCallback(() => {
+    setOpen(true);
   }, []);
 
   const value: ArtifactsContextType = {
@@ -65,15 +91,8 @@ export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
     setArtifacts,
 
     open,
-    autoOpen,
-    autoSelect,
-    setOpen: (isOpen: boolean) => {
-      if (!isOpen && autoOpen) {
-        setAutoOpen(false);
-        setAutoSelect(false);
-      }
-      setOpen(isOpen);
-    },
+    setOpen,
+    openArtifactPanel,
 
     selectedArtifact,
     select,

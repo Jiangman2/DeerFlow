@@ -1,0 +1,19 @@
+{
+  "source": "user-returned filtered read of retained server BUILD-RESULT.json",
+  "path": "/opt/weknora-glm-verified-ysyi3g70/BUILD-RESULT.json",
+  "observation": {
+    "archive_sha256": "471ba1fecc997ce0785da151dac47da313d256506ece353275d04cdcff168f51",
+    "build_passed": true,
+    "built_binary_sha256": "3b5a43b229460df3283aa1336ec48223f34a81832c6b59c642dc8bc83890499e",
+    "config_digest": "sha256:22b73c727cfb445ecf9fabe97f693efd5ceb7cbcb449b593c219e6407aef64c5",
+    "manifest_digest": "sha256:3bc43f4e4643fd069f59fdcd6a824ed6edb6603c3f2b957ff5b5451b853f4709",
+    "matches_supplied_live_binary": true,
+    "modified": false,
+    "receipt_matches_archive": true,
+    "receipt_sha256": "cb92bb8ebff2b7caabddbc090578d6e427613a6eea1ddd42daa228d1a8892e78"
+  },
+  "schema": "weknora-native-glm-operator-build-receipt.v1",
+  "observed_on": "2026-10-26",
+  "live_binary_sha256": "3b5a43b229460df3283aa1336ec48223f34a81832c6b59c642dc8bc83890499e",
+  "scope": "ONE_OPERATOR_SAMPLED_BINARY_AND_FILTERED_HISTORICAL_RECEIPT"
+}

@@ -1,0 +1,123 @@
+{
+  "accepted_base_package_manifest_sha256": "3959a039ee854dca81974e919d16fdece73941dbd949007fdb85094b1331a263",
+  "components": {
+    "agent-host": {
+      "archive": "/opt/deerflow-build-artifacts/ppt-runtime-repair-r2/build1/agent-host.candidate.oci.tar",
+      "archive_sha256": "ea8bfd699a29032e49fa5127d8dcdd59ad635c34bdce1cfeef006461a4a0bc65",
+      "candidate_repository": "deerflow.local/deer-flow-aio-sandbox",
+      "image": "deerflow.local/deer-flow-aio-sandbox:20260927-ppt-runtime-r2-agent-host-3959a039ee854dca",
+      "image_id": "sha256:09ea44f66e1d47269b10e05f11f933f9f08897a1e5a55222a138f0a1b1acfaea"
+    },
+    "frontend": {
+      "archive": "/opt/deerflow-build-artifacts/ppt-runtime-repair-r2/build1/frontend.candidate.oci.tar",
+      "archive_sha256": "7da352638cd60d44b4c89158623bcf22edc611733dc541a2abc8fc46fc07f7b3",
+      "candidate_repository": "deerflow.local/deer-flow-frontend",
+      "image": "deerflow.local/deer-flow-frontend:20260927-ppt-runtime-r2-frontend-3959a039ee854dca",
+      "image_id": "sha256:864f6abf2f0ef87bf32a2d5ddf1085f434a64abe09657fac58a010d0e54e2e19"
+    },
+    "gateway": {
+      "archive": "/opt/deerflow-build-artifacts/ppt-runtime-context-fix-r1/build2/gateway.candidate.oci.tar",
+      "archive_sha256": "d511026cbe4a9ce8fd408d702a90f61ea41ac4a029e5a799d916b0a145c00bc6",
+      "candidate_repository": "deerflow.local/deer-flow-gateway",
+      "image": "deerflow.local/deer-flow-gateway:20260927-ppt-context-fix-r1-gateway-5f2726f3daf0ed04",
+      "image_id": "sha256:f039c1065450e31c6e8cb114d8ad3f2e7ceb17ded59fe15c021369cac61f6063"
+    },
+    "runner": {
+      "archive": "/opt/deerflow-build-artifacts/ppt-runtime-receipt-r3/build1/runner.candidate.oci.tar",
+      "archive_sha256": "7e1b14cca33f18aff0fdfbd6b02e2d81c659b5f03801c1a96275789056b0590a",
+      "candidate_repository": "deerflow.local/deer-flow-gateway",
+      "image": "deerflow.local/deer-flow-gateway:20260928-ppt-receipt-r3-runner-c1c876c9b520a0fe",
+      "image_id": "sha256:a9cc1a5468064e51327f1ea6a43e7d8448b8b787f9ddfa56325402f1eedd3746"
+    }
+  },
+  "database_mutations": [],
+  "deployments": {
+    "frontend": {
+      "component": "frontend",
+      "container": "frontend",
+      "image": "deerflow.local/deer-flow-frontend:20260927-ppt-runtime-r2-frontend-3959a039ee854dca",
+      "replicas": 2
+    },
+    "gateway": {
+      "component": "gateway",
+      "container": "gateway",
+      "image": "deerflow.local/deer-flow-gateway:20260927-ppt-context-fix-r1-gateway-5f2726f3daf0ed04",
+      "replicas": 1
+    },
+    "ppt-master-runner": {
+      "component": "runner",
+      "container": "ppt-master-runner",
+      "image": "deerflow.local/deer-flow-gateway:20260928-ppt-receipt-r3-runner-c1c876c9b520a0fe",
+      "replicas": 1
+    },
+    "provisioner": {
+      "container": "provisioner",
+      "image": "deerflow.local/deer-flow-provisioner:20260923-enterprise-arm64-rc15-ppt-master-v660-r16-split",
+      "replicas": 1
+    }
+  },
+  "ordinary_aio_image": "deerflow.local/deer-flow-aio-sandbox:20260921-enterprise-arm64-rc15-document-runtime1",
+  "production_workloads_mutated": false,
+  "protected_live_gateway_config_digest": "sha256:f039c1065450e31c6e8cb114d8ad3f2e7ceb17ded59fe15c021369cac61f6063",
+  "protected_live_runner_config_digest": "sha256:a9cc1a5468064e51327f1ea6a43e7d8448b8b787f9ddfa56325402f1eedd3746",
+  "protected_sources": {
+    "gateway": {
+      "/app/backend/app/gateway/csrf_middleware.py": "2145cd50e44b100f80fdf5d117f4fb2b4e4f98a0dae6135873d4266d9c2a2721",
+      "/app/backend/packages/harness/deerflow/runtime/journal.py": "078b2349d1cfbf78a65d762768ff42ce2c75f1af34d504e07430c5d7a21750aa"
+    },
+    "runner": {
+      "/app/backend/packages/harness/deerflow/runtime/journal.py": "078b2349d1cfbf78a65d762768ff42ce2c75f1af34d504e07430c5d7a21750aa"
+    }
+  },
+  "provisioner_allowlists_required": {
+    "PPT_MASTER_AGENT_ONLY_SECRET_ENV_KEYS": [
+      "PPT_MASTER_RESPONSES_RELAY_KEY"
+    ],
+    "SANDBOX_PASSTHROUGH_ENV_KEYS": [
+      "CODEX_CONFIG_TOML",
+      "CODEX_MODEL_CATALOG_JSON",
+      "IMAGE_BACKEND",
+      "IMAGE_GENERATION_PROVIDER",
+      "QWEN_BASE_URL",
+      "QWEN_MODEL",
+      "DASHSCOPE_BASE_URL",
+      "DASHSCOPE_IMAGE_MODEL",
+      "VIDEO_GENERATION_PROVIDER",
+      "DASHSCOPE_VIDEO_MODEL",
+      "DASHSCOPE_VIDEO_DURATION",
+      "DASHSCOPE_VIDEO_RESOLUTION",
+      "PODCAST_GENERATION_PROVIDER",
+      "DASHSCOPE_TTS_MODEL",
+      "DASHSCOPE_TTS_VOICE_MALE",
+      "DASHSCOPE_TTS_VOICE_FEMALE",
+      "MUSIC_GENERATION_PROVIDER",
+      "DASHSCOPE_MUSIC_MODEL",
+      "DASHSCOPE_MUSIC_GENDER",
+      "DASHSCOPE_MUSIC_FORMAT",
+      "IMAGE_CONCURRENCY",
+      "IMAGE_SEARCH_CONCURRENCY",
+      "DASHSCOPE_TLS_COMPAT",
+      "NO_PROXY",
+      "no_proxy",
+      "DISABLE_BROWSER",
+      "DISABLE_MCP_BROWSER",
+      "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED",
+      "QWEN_TTS_BASE_URL"
+    ],
+    "SANDBOX_SECRET_ENV_KEYS": [
+      "DASHSCOPE_API_KEY",
+      "PEXELS_API_KEY",
+      "PIXABAY_API_KEY",
+      "SANDBOX_API_KEY",
+      "CODEX_API_KEY",
+      "ARK_API_KEY",
+      "OPENAI_API_KEY",
+      "PPT_MASTER_RESPONSES_RELAY_KEY",
+      "HTTP_PROXY",
+      "HTTPS_PROXY",
+      "http_proxy",
+      "https_proxy"
+    ]
+  },
+  "ready_for_rollout": false
+}

@@ -1,0 +1,11 @@
+{
+  "database_migrations": [],
+  "gateway_base_config_digest": "sha256:f039c1065450e31c6e8cb114d8ad3f2e7ceb17ded59fe15c021369cac61f6063",
+  "r2_manifest_sha256": "3959a039ee854dca81974e919d16fdece73941dbd949007fdb85094b1331a263",
+  "r2_package_sha256": "81ddea047d98c3f1937a6b630dd1b3963272b3d6ea6e6171b33c3ec88d58100c",
+  "ready_for_rollout": false,
+  "resource_limits_unchanged": true,
+  "runner_base_config_digest": "sha256:a9cc1a5468064e51327f1ea6a43e7d8448b8b787f9ddfa56325402f1eedd3746",
+  "scope": "GATEWAY_AND_RUNNER_ONLY",
+  "source_delta_entries": 2
+}

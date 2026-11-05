@@ -11,6 +11,8 @@ pin the actionable error contract and guard the normal text path.
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from deerflow.sandbox.local.local_sandbox import LocalSandbox
 from deerflow.sandbox.tools import read_file_tool
 
@@ -63,3 +65,43 @@ def test_read_file_tool_text_file_unaffected(tmp_path, monkeypatch) -> None:
 
     assert "hello 你好" in result, result
     assert "binary" not in result.lower(), result
+
+
+@pytest.mark.parametrize("suffix", [".png", ".JPG", ".jpeg", ".webp", ".gif", ".bmp", ".tiff", ".avif"])
+def test_known_image_rejected_without_sandbox_io(tmp_path, monkeypatch, suffix):
+    runtime = _local_runtime(tmp_path)
+    monkeypatch.setattr("deerflow.sandbox.tools.read_current_file_content", lambda *a: pytest.fail("image must not reach text endpoint"))
+    result = read_file_tool.func(runtime=runtime, path="/mnt/user-data/uploads/image" + suffix)
+    assert "READ_FILE_IMAGE_UNSUPPORTED" in result
+    assert "if" in result.lower() and "view_image" in result
+    assert "Do not retry" in result
+
+
+@pytest.mark.asyncio
+async def test_async_image_rejected_before_sandbox_startup(tmp_path, monkeypatch):
+    async def no_sandbox(*a):
+        pytest.fail("image rejection must not start/wait for sandbox")
+
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_sandbox_initialized_async", no_sandbox)
+    result = await read_file_tool.coroutine(runtime=_local_runtime(tmp_path), path="/mnt/user-data/uploads/image.png")
+    assert "READ_FILE_IMAGE_UNSUPPORTED" in result
+
+
+@pytest.mark.asyncio
+async def test_disabled_skill_still_takes_precedence(tmp_path, monkeypatch):
+    monkeypatch.setattr("deerflow.sandbox.tools._is_disabled_skill_path", lambda *a, **kw: True)
+    result = await read_file_tool.coroutine(runtime=_local_runtime(tmp_path), path="/mnt/skills/public/disabled/image.png")
+    assert "is disabled" in result
+
+
+def test_svg_source_is_still_readable_text(tmp_path, monkeypatch):
+    monkeypatch.setattr("deerflow.sandbox.tools.read_current_file_content", lambda *a: "<svg>你好</svg>")
+    assert read_file_tool.func(runtime=_local_runtime(tmp_path), path="/mnt/user-data/workspace/plot.svg") == "<svg>你好</svg>"
+
+
+@pytest.mark.parametrize("code", ["READ_FILE_TIMEOUT", "READ_FILE_TRANSPORT", "READ_FILE_IMAGE_UNSUPPORTED"])
+def test_remote_failure_is_not_hidden_by_requested_line_range(tmp_path, monkeypatch, code):
+    diagnostic = f"Error: {code}. The read failed."
+    monkeypatch.setattr("deerflow.sandbox.tools.read_current_file_content", lambda *a: diagnostic)
+    result = read_file_tool.func(runtime=_local_runtime(tmp_path), path="/mnt/user-data/workspace/notes.txt", start_line=20, end_line=30)
+    assert result == diagnostic

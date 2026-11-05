@@ -1,15 +1,48 @@
 """Middleware for injecting image details into conversation before LLM call."""
 
+import asyncio
+import base64
 import logging
+from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import override
 
 from langchain.agents.middleware import AgentMiddleware
+from langchain.agents.middleware.types import ModelCallResult, ModelRequest, ModelResponse
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.runtime import Runtime
 
 from deerflow.agents.thread_state import ThreadState
 
 logger = logging.getLogger(__name__)
+
+# Mirror the tool-side size cap as a defense-in-depth check. The tool
+# enforces this at write time; the middleware re-checks at read time in
+# case the file grew on disk between view and injection.
+_MAX_IMAGE_BYTES = 20 * 1024 * 1024
+_MAX_REQUEST_IMAGE_BYTES = 20 * 1024 * 1024
+_IMAGE_REFERENCE_KEY = "deerflow_view_image_paths"
+_IMAGE_HEADERS = ("Here are the images you've viewed:", "Here are the details of the images you've viewed:")
+
+
+def _image_context_message(message: object) -> bool:
+    """Recognize only host-generated hidden image context, never user uploads."""
+    if not isinstance(message, HumanMessage) or message.additional_kwargs.get("hide_from_ui") is not True:
+        return False
+    content = message.content
+    if isinstance(content, list):
+        content = content[0] if content else ""
+        if isinstance(content, dict):
+            content = content.get("text", "")
+    return isinstance(content, str) and content.startswith(_IMAGE_HEADERS)
+
+
+def _has_image_header(message: HumanMessage) -> bool:
+    # Do not stringify a message containing megabytes of base64 for deduplication.
+    content = message.content
+    if isinstance(content, list):
+        return any(isinstance(b, dict) and b.get("type") == "text" and isinstance(b.get("text"), str) and b["text"].startswith(_IMAGE_HEADERS) for b in content)
+    return isinstance(content, str) and content.startswith(_IMAGE_HEADERS)
 
 
 class ViewImageMiddlewareState(ThreadState):
@@ -23,8 +56,8 @@ class ViewImageMiddleware(AgentMiddleware[ViewImageMiddlewareState]):
     1. Runs before each LLM call
     2. Checks if the last assistant message contains view_image tool calls
     3. Verifies all tool calls in that message have been completed (have corresponding ToolMessages)
-    4. If conditions are met, creates a human message with all viewed image details (including base64 data)
-    5. Adds the message to state so the LLM can see and analyze the images
+    4. Persists only a hidden text receipt and the current tool call's virtual paths
+    5. Reads image bytes into a model-request copy, never checkpoint messages
 
     This enables the LLM to automatically receive and analyze images that were loaded via view_image tool,
     without requiring explicit user prompts to describe the images.
@@ -91,8 +124,44 @@ class ViewImageMiddleware(AgentMiddleware[ViewImageMiddlewareState]):
         # Check if all tool calls have been completed
         return tool_call_ids.issubset(completed_tool_ids)
 
+    @staticmethod
+    def _read_image_as_data_url(actual_path: str, mime_type: str, expected_size: int) -> str | None:
+        """Read image file and return a `data:` URL, or None on failure.
+
+        Trust assumption: ``actual_path`` is set by ``view_image_tool``
+        (server-side, validated against the allowed virtual roots at write
+        time) and held in LangGraph-controlled state. Client input cannot
+        reach this field, so the read scope is trusted. We still re-check
+        size at read time to defend against TOCTOU growth and skip files
+        exceeding ``_MAX_IMAGE_BYTES``.
+        """
+        try:
+            file_path = Path(actual_path)
+            if not file_path.exists() or not file_path.is_file():
+                return None
+            current_size = file_path.stat().st_size
+            if current_size != expected_size:
+                # File changed between view and inject - skip.
+                return None
+            if not isinstance(expected_size, int) or expected_size < 0 or current_size > _MAX_IMAGE_BYTES:
+                return None
+            with open(file_path, "rb") as f:
+                image_bytes = f.read(expected_size + 1)
+            if len(image_bytes) != expected_size:
+                return None
+            base64_data = base64.b64encode(image_bytes).decode("utf-8")
+            return f"data:{mime_type};base64,{base64_data}"
+        except OSError:
+            return None
+
     def _create_image_details_message(self, state: ViewImageMiddlewareState) -> list[str | dict]:
         """Create a formatted message with all viewed image details.
+
+        Reads image files from disk on-demand and encodes them as base64
+        for the model. The base64 data is NOT persisted in state -- only
+        lightweight metadata (path, mime_type, size) is stored in
+        ``viewed_images``, avoiding large duplicate payloads across every
+        checkpoint (see #4138).
 
         Args:
             state: Current state containing viewed_images
@@ -108,21 +177,32 @@ class ViewImageMiddleware(AgentMiddleware[ViewImageMiddlewareState]):
         # Build the message with image information
         content_blocks: list[str | dict] = [{"type": "text", "text": "Here are the images you've viewed:"}]
 
+        remaining_bytes = _MAX_REQUEST_IMAGE_BYTES
         for image_path, image_data in viewed_images.items():
             mime_type = image_data.get("mime_type", "unknown")
-            base64_data = image_data.get("base64", "")
+            actual_path = image_data.get("actual_path", "")
+            expected_size = image_data.get("size", 0)
 
             # Add text description
             content_blocks.append({"type": "text", "text": f"\n- **{image_path}** ({mime_type})"})
 
-            # Add the actual image data so LLM can "see" it
-            if base64_data:
-                content_blocks.append(
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:{mime_type};base64,{base64_data}"},
-                    }
-                )
+            if not isinstance(expected_size, int) or expected_size < 0 or expected_size > remaining_bytes:
+                content_blocks.append({"type": "text", "text": "  (image omitted: this request's image byte limit was reached; view fewer images at a time)"})
+                continue
+
+            # Read the image file on-demand and encode as base64 for the model
+            if actual_path:
+                data_url = self._read_image_as_data_url(actual_path, mime_type, expected_size)
+                if data_url:
+                    remaining_bytes -= expected_size
+                    content_blocks.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": data_url},
+                        }
+                    )
+                else:
+                    content_blocks.append({"type": "text", "text": "  (file unavailable or changed on disk)"})
 
         return content_blocks
 
@@ -157,8 +237,7 @@ class ViewImageMiddleware(AgentMiddleware[ViewImageMiddlewareState]):
         assistant_idx = messages.index(last_assistant_msg)
         for msg in messages[assistant_idx + 1 :]:
             if isinstance(msg, HumanMessage):
-                content_str = str(msg.content)
-                if "Here are the images you've viewed" in content_str or "Here are the details of the images you've viewed" in content_str:
+                if not msg.additional_kwargs.get("hide_from_ui") or _has_image_header(msg):
                     # Already added, don't add again
                     return False
 
@@ -176,15 +255,18 @@ class ViewImageMiddleware(AgentMiddleware[ViewImageMiddlewareState]):
         if not self._should_inject_image_message(state):
             return None
 
-        # Create the image details message with text and image content
-        image_content = self._create_image_details_message(state)
+        paths = self._current_image_paths(state)
+        if not paths:
+            return None
+        # The reference must not contain local filesystem paths or image bytes.
+        image_content = [{"type": "text", "text": _IMAGE_HEADERS[0]}]
+        image_content.extend({"type": "text", "text": f"\n- **{path}**"} for path in paths)
 
-        # Create a new human message with mixed content (text + images). This is
-        # internal context for the model only, so hide it from the chat UI and IM
-        # channels (matches the other middleware-injected context messages).
-        human_msg = HumanMessage(content=image_content, additional_kwargs={"hide_from_ui": True})
+        # Persist only a lightweight reference. Inline bytes are added to a
+        # transient request copy by wrap_model_call / awrap_model_call.
+        human_msg = HumanMessage(content=image_content, additional_kwargs={"hide_from_ui": True, _IMAGE_REFERENCE_KEY: paths})
 
-        logger.debug("Injecting image details message with images before LLM call")
+        logger.debug("Recording current image references before LLM call")
 
         # Return state update with the new message
         return {"messages": [human_msg]}
@@ -222,3 +304,74 @@ class ViewImageMiddleware(AgentMiddleware[ViewImageMiddlewareState]):
             State update with additional human message, or None if no update needed
         """
         return self._inject_image_message(state)
+
+    def _current_image_paths(self, state: ViewImageMiddlewareState) -> list[str]:
+        messages = state.get("messages", [])
+        assistant = self._get_last_assistant_message(messages)
+        if assistant is None or not self._has_view_image_tool(assistant) or not self._all_tools_completed(messages, assistant):
+            return []
+        tail = messages[messages.index(assistant) + 1 :]
+        if any(isinstance(m, HumanMessage) and not m.additional_kwargs.get("hide_from_ui") for m in tail):
+            return []
+        results = {m.tool_call_id: m for m in tail if isinstance(m, ToolMessage)}
+        viewed = state.get("viewed_images", {})
+        paths = []
+        for call in assistant.tool_calls:
+            result = results.get(call.get("id"))
+            # Failed repeat views must not reuse metadata from an earlier view
+            # of the same path. The tool reports its failures as Error: text.
+            if result is None or result.status != "success" or result.content != "Successfully read image":
+                continue
+            args = call.get("args")
+            path = args.get("image_path") if isinstance(args, dict) else None
+            if call.get("name") == "view_image" and isinstance(path, str) and isinstance(viewed.get(path), dict) and path not in paths:
+                paths.append(path)
+        return paths
+
+    def _model_messages(self, request: ModelRequest) -> list:
+        """Expand the current receipt only; strip legacy hidden binaries in a copy.
+
+        Historical checkpoints, actual user images, tool messages and text stay
+        untouched. Old view_image receipts keep their descriptions; the model
+        can call view_image again when it needs those files.
+        """
+        messages = list(request.messages)
+        last_assistant = max((i for i, m in enumerate(messages) if isinstance(m, AIMessage)), default=-1)
+        current_paths = self._current_image_paths(request.state)
+        expanded = False
+        for i in range(len(messages) - 1, -1, -1):
+            message = messages[i]
+            if not _image_context_message(message):
+                continue
+            content = message.content
+            if isinstance(content, list):
+                # Only replace host-injected inline images, not arbitrary user media.
+                filtered = [
+                    b for b in content if not (isinstance(b, dict) and b.get("type") == "image_url" and isinstance(b.get("image_url"), dict) and isinstance(b["image_url"].get("url"), str) and b["image_url"]["url"].startswith("data:image/"))
+                ]
+                if len(filtered) != len(content):
+                    filtered.append({"type": "text", "text": "(Earlier image bytes are omitted from this request. Use view_image on the recorded path if needed.)"})
+                    messages[i] = message.model_copy(update={"content": filtered})
+            later_user = any(isinstance(m, HumanMessage) and not m.additional_kwargs.get("hide_from_ui") for m in messages[i + 1 :])
+            if expanded or i <= last_assistant or later_user or not current_paths:
+                continue
+            refs = message.additional_kwargs.get(_IMAGE_REFERENCE_KEY)
+            # Legacy receipts have no paths field; scope them to the current real
+            # view_image call and trusted tool-owned viewed_images metadata too.
+            paths = current_paths if refs is None else [p for p in current_paths if isinstance(refs, list) and p in refs]
+            if not paths:
+                continue
+            image_content = self._create_image_details_message({"viewed_images": {p: request.state["viewed_images"][p] for p in paths}})
+            messages[i] = message.model_copy(update={"content": image_content})
+            expanded = True
+        return messages
+
+    @override
+    def wrap_model_call(self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]) -> ModelCallResult:
+        return handler(request.override(messages=self._model_messages(request)))
+
+    @override
+    async def awrap_model_call(self, request: ModelRequest, handler: Callable[[ModelRequest], Awaitable[ModelResponse]]) -> ModelCallResult:
+        # Image file I/O and base64 encoding stay off the async event loop.
+        messages = await asyncio.to_thread(self._model_messages, request)
+        return await handler(request.override(messages=messages))

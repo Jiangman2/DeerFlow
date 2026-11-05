@@ -1,0 +1,104 @@
+{
+  "schema": "portal-combined-compiled-assets.v1",
+  "status": "COMPILED_FEATURES_PINNED_NOT_BROWSER_ACCEPTED",
+  "manifest": "sha256:99a1da37496816a6abb0524587069cdf59dcec1bea4d5cc94c58f57c7817bbb2",
+  "source_pins": {
+    "/app/frontend/.next/BUILD_ID": {
+      "bytes": 21,
+      "sha256": "ae73be4c1c6a6a1ab0521764a2707ae662daec8d77d615f78b728bdd1063ef86"
+    },
+    "/app/frontend/.next/routes-manifest.json": {
+      "bytes": 10341,
+      "sha256": "e5ccb72b0e897ab8bba223d4cd7855411b3997f060c9878298c0ab0ad930a970"
+    },
+    "/app/frontend/.next/static/chunks/0wjcjr5hsamvs.js": {
+      "bytes": 69493,
+      "sha256": "1971d512a14a269d075f21811ba6eec64d6fb3d39f52971a4357ce38be444b27"
+    },
+    "/app/frontend/.next/static/chunks/1bn2alqu9loz6.js": {
+      "bytes": 112149,
+      "sha256": "be51336145e68c029ff0c5466ee6047e2d0697d86cf1fc68ed4ac47f9b2e7ee9"
+    },
+    "/app/frontend/.next/static/chunks/1gqhj46f-w2r9.css": {
+      "bytes": 117675,
+      "sha256": "7d20a5f1bd45e5c6db16b01a07fafc783b4b3e4721256d8ddc098eb4d0667c46"
+    },
+    "/app/frontend/.next/static/chunks/1zw72w8ag-djq.js": {
+      "bytes": 525153,
+      "sha256": "6f40fe7b91cfefe29667410af848311ae0d2bf715795623d6de6932056e8831d"
+    },
+    "/app/frontend/.next/static/chunks/26br6dep8_vr-.js": {
+      "bytes": 41738,
+      "sha256": "0e4c6bac87498fa31795cf583906533e77a4c5311f28417cdcdb307d6a3f4e11"
+    },
+    "/app/frontend/.next/static/chunks/297flw4fdb-i4.js": {
+      "bytes": 313468,
+      "sha256": "169be40266c39f7f753af9ad4e5b8454302c903341876c60ce204189419b1991"
+    },
+    "/app/frontend/.next/static/chunks/2fxsab57rm4z6.js": {
+      "bytes": 16507,
+      "sha256": "27f409b6ef950288fc5a79a316d87e281c6ff10c9b02832ebfa67ea4bc934419"
+    },
+    "/app/frontend/.next/static/chunks/2i_bl2ztqkuxj.js": {
+      "bytes": 28168,
+      "sha256": "f892a5ad6fa85600907d88d38f04e2371bdf953d77b3aedb1f320900b85fd744"
+    },
+    "/app/frontend/.next/static/chunks/35lv0-t61-v1v.js": {
+      "bytes": 349784,
+      "sha256": "08b5f4c78de1f3d8d48582e2ed2718186ce7cd4799375a7b7a464e022b4d6291"
+    },
+    "/app/frontend/public/images/cnooc-workspace-concept-bg.png": {
+      "bytes": 1254279,
+      "sha256": "5b00ca5a43fe16fa47dbcd15649f2ada852f383155ebe801caacbba1c64b518d"
+    },
+    "/app/frontend/public/images/haineng-work-support-qr-20261012.jpg": {
+      "bytes": 79263,
+      "sha256": "dba1ac2e618fcb5375389100359a7d49445db02cd26056418d55980cbbbc13b9"
+    }
+  },
+  "feature_markers": {
+    "feedback-actors": [
+      "/app/frontend/.next/static/chunks/0wjcjr5hsamvs.js"
+    ],
+    "employee-clicks": [
+      "/app/frontend/.next/static/chunks/0wjcjr5hsamvs.js"
+    ],
+    "/api/admin/competition": [
+      "/app/frontend/.next/static/chunks/0wjcjr5hsamvs.js"
+    ],
+    "total_tokens": [
+      "/app/frontend/.next/static/chunks/0wjcjr5hsamvs.js",
+      "/app/frontend/.next/static/chunks/1bn2alqu9loz6.js",
+      "/app/frontend/.next/static/chunks/1zw72w8ag-djq.js",
+      "/app/frontend/.next/static/chunks/26br6dep8_vr-.js",
+      "/app/frontend/.next/static/chunks/297flw4fdb-i4.js"
+    ],
+    "cnooc-portal-menu-compact": [
+      "/app/frontend/.next/static/chunks/1gqhj46f-w2r9.css",
+      "/app/frontend/.next/static/chunks/35lv0-t61-v1v.js"
+    ],
+    "--cnooc-page-gutter": [
+      "/app/frontend/.next/static/chunks/1gqhj46f-w2r9.css"
+    ],
+    "010-84521314": [
+      "/app/frontend/.next/static/chunks/2fxsab57rm4z6.js"
+    ],
+    "13520340738": [
+      "/app/frontend/.next/static/chunks/2fxsab57rm4z6.js"
+    ],
+    "/api/competition/display": [
+      "/app/frontend/.next/static/chunks/2i_bl2ztqkuxj.js"
+    ]
+  },
+  "public_pixels": {
+    "frontend/public/images/cnooc-workspace-concept-bg.png": {
+      "bytes": 1254279,
+      "sha256": "5b00ca5a43fe16fa47dbcd15649f2ada852f383155ebe801caacbba1c64b518d"
+    },
+    "frontend/public/images/haineng-work-support-qr-20261012.jpg": {
+      "bytes": 79263,
+      "sha256": "dba1ac2e618fcb5375389100359a7d49445db02cd26056418d55980cbbbc13b9"
+    }
+  },
+  "production_modified": false
+}

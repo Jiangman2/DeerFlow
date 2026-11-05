@@ -17,6 +17,7 @@ from app.channels.message_bus import (
     OutboundMessage,
     ResolvedAttachment,
 )
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +200,7 @@ class WeComChannel(Channel):
     async def _on_ws_text(self, frame: dict[str, Any]) -> None:
         body = frame.get("body", {}) or {}
         text = ((body.get("text") or {}).get("content") or "").strip()
-        quote = body.get("quote", {}).get("text", {}).get("content", "").strip()
+        quote = (((body.get("quote") or {}).get("text") or {}).get("content") or "").strip()
         if not text and not quote:
             return
         await self._publish_ws_inbound(frame, text + (f"\nQuote message: {quote}" if quote else ""))
@@ -367,7 +368,7 @@ class WeComChannel(Channel):
             },
             status="connected",
         )
-        await self._send_connection_reply(frame, "WeCom connected to DeerFlow.")
+        await self._send_connection_reply(frame, f"WeCom已连接至{ENTERPRISE_PRODUCT_NAME}。")
         return True
 
     async def _send_connection_reply(self, frame: dict[str, Any], text: str) -> None:

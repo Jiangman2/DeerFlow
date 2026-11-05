@@ -1,0 +1,339 @@
+{
+  "schema": "portal-0015-relocation-field.v1",
+  "evidence_origin": "OPERATOR_ATTACHED_TOOL_STDOUT_NOT_DIRECT_NODE_READ",
+  "input_log_sha256": "3f1e592bf01114eed438fc6a6a8c356842f81e53d99670119600c7b06ffccab3",
+  "observation": {
+    "after_root_available_bytes": 18489716736,
+    "automatic_retry": false,
+    "before_root_available_bytes": 5165887488,
+    "business_files_selected": false,
+    "containerd_commands": 0,
+    "current_preload_package_preserved": true,
+    "database_access": false,
+    "destination": "/mnt/data/portal-offline-archives-0015-20261028-r1",
+    "discovery_skips": [],
+    "elapsed_seconds": 1202.254,
+    "error_counts": {},
+    "estimated_root_reclaimed_bytes": 13333127168,
+    "log_files_selected": false,
+    "log_metadata": {
+      "omitted": 42,
+      "rows": [
+        {
+          "allocated_bytes": 5454123008,
+          "bytes": 5454111120,
+          "device": 64771,
+          "inode": 1441870,
+          "mtime_ns": 1793168968330280756,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/auth.log",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 61464576,
+          "bytes": 61458818,
+          "device": 64771,
+          "inode": 1441906,
+          "mtime_ns": 1792512061182559173,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261021",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 56832000,
+          "bytes": 56825650,
+          "device": 64771,
+          "inode": 1441904,
+          "mtime_ns": 1793116861816698589,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261028",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 53440512,
+          "bytes": 53434724,
+          "device": 64771,
+          "inode": 1444109,
+          "mtime_ns": 1792684862482721377,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261023",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 52609024,
+          "bytes": 52598140,
+          "device": 64771,
+          "inode": 1441943,
+          "mtime_ns": 1792598461076605482,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261022",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 52314112,
+          "bytes": 52308334,
+          "device": 64771,
+          "inode": 1441909,
+          "mtime_ns": 1792771261921305158,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261024",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 51879936,
+          "bytes": 51873567,
+          "device": 64771,
+          "inode": 1444443,
+          "mtime_ns": 1793030461599231188,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261027",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 51625984,
+          "bytes": 51618517,
+          "device": 64771,
+          "inode": 1441939,
+          "mtime_ns": 1792425661453032967,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261020",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 50663424,
+          "bytes": 50658848,
+          "device": 64771,
+          "inode": 1442018,
+          "mtime_ns": 1792080061077805217,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261016",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 50528256,
+          "bytes": 50528102,
+          "device": 64771,
+          "inode": 1441981,
+          "mtime_ns": 1791993661202538954,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261015",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 49537024,
+          "bytes": 49536446,
+          "device": 64771,
+          "inode": 1441914,
+          "mtime_ns": 1791907261602976987,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261014",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 47673344,
+          "bytes": 47667979,
+          "device": 64771,
+          "inode": 1441931,
+          "mtime_ns": 1792166461112550677,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261017",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 43966464,
+          "bytes": 43964387,
+          "device": 64771,
+          "inode": 1441901,
+          "mtime_ns": 1791820861713662689,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261013",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 30216192,
+          "bytes": 30214672,
+          "device": 64771,
+          "inode": 1441961,
+          "mtime_ns": 1791302461074079574,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261007",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 26996736,
+          "bytes": 26992544,
+          "device": 64771,
+          "inode": 1441861,
+          "mtime_ns": 1793168968330280756,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 26034176,
+          "bytes": 26029914,
+          "device": 64771,
+          "inode": 1443797,
+          "mtime_ns": 1792339261585871134,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261019",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 25583616,
+          "bytes": 25578338,
+          "device": 64771,
+          "inode": 1441886,
+          "mtime_ns": 1792944061243987814,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261026",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 25247744,
+          "bytes": 25239606,
+          "device": 64771,
+          "inode": 1441928,
+          "mtime_ns": 1792857661822560822,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261025",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 24801280,
+          "bytes": 24799331,
+          "device": 64771,
+          "inode": 1441910,
+          "mtime_ns": 1792252861710684408,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261018",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 23883776,
+          "bytes": 23881925,
+          "device": 64771,
+          "inode": 1441897,
+          "mtime_ns": 1791216061047052587,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261006",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 23601152,
+          "bytes": 23599541,
+          "device": 64771,
+          "inode": 1441913,
+          "mtime_ns": 1791561661732615986,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261010",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 23265280,
+          "bytes": 23262365,
+          "device": 64771,
+          "inode": 1441907,
+          "mtime_ns": 1791475261059552297,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261009",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 22671360,
+          "bytes": 22668004,
+          "device": 64771,
+          "inode": 1441919,
+          "mtime_ns": 1791734461593520970,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261012",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 22315008,
+          "bytes": 22311732,
+          "device": 64771,
+          "inode": 1441965,
+          "mtime_ns": 1791648062388944034,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261011",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 21106688,
+          "bytes": 21106494,
+          "device": 64771,
+          "inode": 1441950,
+          "mtime_ns": 1790611261468941382,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20260929",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 20803584,
+          "bytes": 20799661,
+          "device": 64771,
+          "inode": 1441952,
+          "mtime_ns": 1790697661263633423,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20260930",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 20549632,
+          "bytes": 20548572,
+          "device": 64771,
+          "inode": 1441859,
+          "mtime_ns": 1790784062034326806,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261001",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 20119552,
+          "bytes": 20115632,
+          "device": 64771,
+          "inode": 1441905,
+          "mtime_ns": 1791388861901117563,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261008",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 19918848,
+          "bytes": 19916733,
+          "device": 64771,
+          "inode": 1441884,
+          "mtime_ns": 1791129661400030806,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261005",
+          "uid": 0
+        },
+        {
+          "allocated_bytes": 19894272,
+          "bytes": 19891879,
+          "device": 64771,
+          "inode": 1441894,
+          "mtime_ns": 1791043261733601500,
+          "not_yet_checked_for_active_use": true,
+          "path": "/var/log/messages-20261004",
+          "uid": 0
+        }
+      ],
+      "status": "METADATA_ONLY_NOT_CLEANED"
+    },
+    "original_paths_preserved_as_symlinks": true,
+    "planned": 14,
+    "processed": 14,
+    "relocated": 14,
+    "report_path": "/mnt/data/portal-offline-archives-0015-20261028-r1/REPORT.json",
+    "report_sha256": "5f8e7113b7225703e377bf182d4f02e343c7a2d211d61bf1e77af6677818dec6",
+    "retained_archives_must_not_be_deleted": true,
+    "retained_directory_access": "ROOT_ONLY_USE_SUDO_FOR_RECOVERY",
+    "schema": "portal-0015-offline-archive-relocation.v1",
+    "service_restart_requests": 0,
+    "skipped_or_incomplete": 0,
+    "source_plan_sha256": "93feeab3accdc3cd9a43d0c139c404b2459d5eeaecf0ac198a247413823e8e11",
+    "status": "ARCHIVES_RELOCATED_REVIEW_REQUIRED"
+  }
+}

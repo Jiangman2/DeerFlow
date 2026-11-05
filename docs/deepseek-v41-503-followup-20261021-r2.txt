@@ -1,0 +1,63 @@
+DeepSeek V4.1 Flash 第二轮关联记录（2026-10-21 15:11–15:19 北京时间）
+
+结果：10 个请求，8 次功能检查通过，1 次 HTTP 503，1 次多图请求 HTTP 200 后触发本地输出预算中止。没有客户端 180 秒期限超时。没有创建 Secret、修改配置或滚动生产 Gateway。
+来源：用户回传 log(18).txt 内的诊断 r2 JSON。本文件是摘要，不是服务器原报告副本。
+
+所有请求均明确 trust_env=false，直连 aiapi.cnooc.com.cn，连接 peer 为 10.74.5.12:443，保留 TLS 主机名及证书校验，不跟随重定向。
+完整接口：POST https://aiapi.cnooc.com.cn/DeepSeek-V4.1-Flash/FCV-41/v1/chat/completions
+所有已发请求都包含 max_tokens=1000，不含 max_completion_tokens，也没有记录到额外未知参数。候选参数修正仅加载在临时诊断进程中，未部署。
+
+一、重点对照：完全相同的工具调用请求正文，一次 503、一次成功
+请求正文 575 字节，SHA256：8facb73144635a3b1b6f93f6d2054341718119b6e9c8175421c9cd8f433a519c
+内容为合成 probe_echo 工具，stream=true、enable_thinking=false、tool_choice=auto。没有实际业务工具执行。
+已用真实应用 SDK + 本地 MockTransport 离线重建请求正文，逐字节 SHA256 与两次现场请求一致。随附 DeepSeek-V4.1-tool-call-reproduction-20261021.json，只有合成请求正文，不包含 Authorization、密钥、Cookie 或业务数据。离线重建没有调用模型。
+正文相同不代表全部 HTTP 头、连接状态或后端路由都相同，也不能证明节点是根因。
+
+失败请求：
+  节点 ecs-zdz-pro-0021，Pod gateway-6f94755b8-2nk5d，Pod IP 10.244.5.49。
+  客户端 X-Request-ID：portal-v41-2c4cf8c607cd43568f185e34db653476-1-4
+  北京时间开始 15:13:17.526256，响应头 15:15:52.863042（UTC 07:13:17.526256 至 07:15:52.863042）。
+  TCP/TLS 约 0.018 秒完成，等待响应头 155.337 秒，实际收到 HTTP 503；不是本地 180 秒截止造成的错误。
+  响应 application/json，144 字节，脱敏分类 no_fallback、unavailable，code=503，字段 code/data/message。
+  正文 SHA256：b4ea1c6240ae2858f71b69240189d233326f7417a0a98784b1ef166a417e57ce
+  与第一轮真实 503 的正文摘要相同。未导出错误原文，分类不能当作原文引用。
+  没有记录到上游 x-request-id；没有 Via。客户端 ID 不等同于上游分配 ID。
+
+成功请求：
+  节点 ecs-zdz-pro-0020，Pod gateway-6f94755b8-2w4fd，Pod IP 10.244.6.42。
+  客户端 X-Request-ID：portal-v41-2c4cf8c607cd43568f185e34db653476-2-4
+  北京时间开始 15:16:53.216358，响应头 15:17:41.005029，总耗时约 48.09 秒。
+  HTTP 200，finish_reason=tool_calls，收到 [DONE]，工具名、参数及调用 ID 校验通过。
+  服务端返回 x-request-id：a4743556362e63b19acde22f67e23bab；响应带 Via。
+  随后的工具结果续接也通过：15:17:41.308531 开始，约 12.44 秒完成，HTTP 200 + stop + [DONE]。
+  续接服务端 x-request-id：13d33df650dac62fbc058fca4b32e21d。
+
+二、多图问题需与 503 分开排查
+节点 ecs-zdz-pro-0020，多图请求包含两张合成红/蓝色 PNG，enable_thinking=true，max_tokens=1000。
+开始 15:17:53.755046，响应头 15:18:43.503746（等待约 49.749 秒），HTTP 200 SSE。
+上游 x-request-id：7d9e46c1b83f9e0736a85d6a7973dae0。
+客户端约 78.86 秒时主动中止，错误 ProbeRejected/output_budget；已接收传输字节数 337014。
+诊断源码限制为累计序列化后的 chunk.model_dump() 字符数超过 512000，或 chunk 数超过 4096。计数包含消息结构开销，不能把 337014 个传输字节当作模型回答正文长度，也不是 max_tokens 的 token 数。
+原工具没有导出两个实际计数，无法从本回执确定触发了哪一个阈值，也不能确定内容是否主要来自思考。文档称 max_tokens 不约束思考过程，这只是需要核查的可能因素。
+中止前没有观测到终止原因或 [DONE]；因为客户端主动关闭，不能仅据此指认服务端异常断流。当前没有完整颜色答案，不能宣称多图识别通过，也不能宣称模型不支持图片。
+
+三、其他检查与结论边界
+两节点的非流式闪速基线、流式闪速、流式思考均通过。第二节点工具调用及续接通过。
+第一个节点 wire_contract_accepted=false 是完整五阶段没有跑完，并不表示已发请求仍带有错误 token 字段；第二节点 wire_contract_accepted=true，但视觉答案未完成，所以整体仍不通过。
+本次排除了这批显式直连请求误用环境代理，以及 token 字段修正未生效两种解释。相同正文既成功又 503，不支持“该工具请求格式必然失败”的判断。
+仍不能据此定位错误生成于模型、API 网关、转发层或其他基础设施；两个节点顺序执行，时间条件不同。Pod IP 也不是 NAT 出口地址证明。
+
+四、请运维核查的具体范围
+请使用失败时间段 15:13:17–15:15:53，完整 Host/路径、目标 10.74.5.12，结合成功请求 ID a4743556362e63b19acde22f67e23bab，对照入口接收、上游选择、连接池/排队、后端响应和兜底策略。
+重点定位哪一层生成上述 144 字节 JSON，是否存在约 155 秒的等待/失败路径，并解释成功响应带 Via、失败响应不带 Via 的差异。头部差异是排查线索，不是生成层的证明。
+另请按多图请求 ID 7d9e46c1b83f9e0736a85d6a7973dae0 核查其输出/思考长度与客户端中止之前的生成状态。
+本次不以自动重试、放大输出预算或只看 HTTP 200 替代完整接入验收。
+
+五、原服务器回执
+operation：2c4cf8c607cd43568f185e34db653476
+report_path：/var/lib/portal-deepseek-v41-transport-2c4cf8c607cd43568f185e34db653476/REPORT.json
+report_bytes：20300
+report_sha256：4a90e5132b6ad96bdd5ef847a303b31e0b25c500aeb431dee8403a50320f964a
+candidate_source_sha256：320cb6c4b0d1f06ddb5322ce6295e514d4702c7981471695980086f591029c88
+Gateway 前后 generation=382，spec_sha256=699119d2d3e7a2e30aad980d5c4f37560be9022b00059a2712b6512e4b3816ff。
+ready_for_rollout=false。原回执保留，不重复运行已使用的 once 工具。

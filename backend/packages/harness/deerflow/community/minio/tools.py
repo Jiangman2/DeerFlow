@@ -50,10 +50,7 @@ def _truncate_text_for_tool(text: str, requested_max_chars: int) -> str:
         return text
 
     def marker(omitted: int) -> str:
-        return (
-            f"\n\n[truncated to {max_chars} chars total; omitted {omitted} chars. "
-            "Fetch a smaller object, use a more specific key, or request a smaller excerpt.]"
-        )
+        return f"\n\n[truncated to {max_chars} chars total; omitted {omitted} chars. Fetch a smaller object, use a more specific key, or request a smaller excerpt.]"
 
     body_limit = max_chars
     while True:

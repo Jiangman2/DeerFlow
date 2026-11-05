@@ -1,0 +1,56 @@
+{
+  "evidence_origin": "OPERATOR_PASTED_SUMMARY_NOT_DIRECT_NODE_READ",
+  "observation": {
+    "schema": "portal-0015-auth-log-rotation-dryrun.v1",
+    "status": "AUTH_LOG_NATIVE_ROTATION_DRYRUN_ACCEPTED_NOT_ROTATED",
+    "logrotate_version": "3.15.1",
+    "file_identity_preserved": true,
+    "selinux_enforcing": false,
+    "xattr_names": [
+      "security.kysec"
+    ],
+    "native_debug": {
+      "returncode": 0,
+      "configuration_bytes": 259,
+      "configuration_sha256": "778db2e8ee9164e4930acf0d51015c95879959835132a1952aa68b677c70786a",
+      "output_sha256": "4ff0ba0046558bf520160b140066e193a93b964597ee3cc20fdb9b282bc49da6",
+      "auth_target_observed": true,
+      "error_line_count": 0,
+      "directive_unknown": false,
+      "postrotate_executed": false,
+      "raw_output_exported": false
+    },
+    "production_configuration_modified": false,
+    "rotation_requests": 0,
+    "service_restart_requests": 0,
+    "service_signal_requests": 0,
+    "cleanup_requests": 0,
+    "log_contents_read": false,
+    "credentials_exported": false,
+    "temporary_anonymous_configuration_only": true,
+    "before": {
+      "allocated_bytes": 5455470592,
+      "bytes": 5455461080,
+      "device": 64771,
+      "gid": 0,
+      "inode": 1441870,
+      "links": 1,
+      "mode": "0o644",
+      "regular_file": true,
+      "symlink": false,
+      "uid": 0
+    },
+    "after": {
+      "allocated_bytes": 5455470592,
+      "bytes": 5455461080,
+      "device": 64771,
+      "gid": 0,
+      "inode": 1441870,
+      "links": 1,
+      "mode": "0o644",
+      "regular_file": true,
+      "symlink": false,
+      "uid": 0
+    }
+  }
+}

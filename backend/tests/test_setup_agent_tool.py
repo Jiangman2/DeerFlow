@@ -1,7 +1,8 @@
-"""Tests for setup_agent tool - validates agent name security and data loss prevention."""
+"""Tests for setup_agent tool — validates agent name security and data loss prevention."""
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -33,9 +34,26 @@ def _make_paths_mock(tmp_path: Path):
     return paths
 
 
+@contextmanager
+def _use_file_agent_store(tmp_path: Path):
+    """Keep file-store tests independent from the developer's config.yaml."""
+    from deerflow.persistence.agents.file import FileAgentStore
+
+    paths = _make_paths_mock(tmp_path)
+    with (
+        patch("deerflow.tools.builtins.setup_agent_tool.get_paths", return_value=paths),
+        patch("deerflow.config.agents_config.get_paths", return_value=paths),
+        patch(
+            "deerflow.tools.builtins.setup_agent_tool.get_agent_store",
+            return_value=FileAgentStore(),
+        ),
+    ):
+        yield
+
+
 def _call_setup_agent(tmp_path: Path, soul: str, description: str, agent_name: str = "test-agent"):
     """Call the underlying setup_agent function directly, bypassing langchain tool wrapper."""
-    with patch("deerflow.tools.builtins.setup_agent_tool.get_paths", return_value=_make_paths_mock(tmp_path)):
+    with _use_file_agent_store(tmp_path):
         return setup_agent.func(
             soul=soul,
             description=description,
@@ -89,7 +107,7 @@ class TestSetupAgentNoDataLoss:
         old_soul = agent_dir / "SOUL.md"
         old_soul.write_text("original soul content", encoding="utf-8")
 
-        with patch("deerflow.tools.builtins.setup_agent_tool.get_paths", return_value=_make_paths_mock(tmp_path)):
+        with _use_file_agent_store(tmp_path):
             # Force soul_file.write_text to raise after directory already exists
             with patch.object(Path, "write_text", side_effect=OSError("disk full")):
                 setup_agent.func(
@@ -109,7 +127,7 @@ class TestSetupAgentNoDataLoss:
         agent_dir = tmp_path / "users" / "test-user-autouse" / "agents" / "test-agent"
         assert not agent_dir.exists()
 
-        with patch("deerflow.tools.builtins.setup_agent_tool.get_paths", return_value=_make_paths_mock(tmp_path)):
+        with _use_file_agent_store(tmp_path):
             with patch("yaml.dump", side_effect=OSError("write error")):
                 setup_agent.func(
                     soul="new soul",
@@ -122,7 +140,7 @@ class TestSetupAgentNoDataLoss:
 
     def test_successful_setup_creates_files(self, tmp_path: Path):
         """Happy path: setup_agent creates config.yaml and SOUL.md."""
-        _call_setup_agent(tmp_path, soul="# My Agent", description="测试智能体")
+        _call_setup_agent(tmp_path, soul="# My Agent", description="A test agent")
 
         agent_dir = tmp_path / "users" / "test-user-autouse" / "agents" / "test-agent"
         assert agent_dir.exists()
@@ -137,10 +155,10 @@ class TestSetupAgentNoDataLoss:
             tool_call_id="tool-3",
         )
 
-        with patch("deerflow.tools.builtins.setup_agent_tool.get_paths", return_value=_make_paths_mock(tmp_path)):
+        with _use_file_agent_store(tmp_path):
             setup_agent.func(
                 soul="# My Agent",
-                description="测试智能体",
+                description="A test agent",
                 runtime=runtime,
             )
 
@@ -185,7 +203,7 @@ class TestSetupAgentEmptySoulGuard:
         global_soul = tmp_path / "SOUL.md"
         global_soul.write_text("original global soul", encoding="utf-8")
 
-        with patch("deerflow.tools.builtins.setup_agent_tool.get_paths", return_value=_make_paths_mock(tmp_path)):
+        with _use_file_agent_store(tmp_path):
             setup_agent.func(
                 soul="",
                 description="desc",

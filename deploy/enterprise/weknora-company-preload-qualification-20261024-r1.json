@@ -1,0 +1,21 @@
+{
+  "schema": "portal-weknora-company-preload-qualification.v1",
+  "status": "LOCAL_PRELOAD_QUALIFIED_NOT_DEPLOYED",
+  "script": "preload-portal-gateway-weknora-company-20261024-r1.py",
+  "script_bytes": 216056,
+  "script_sha256": "a06550303777ab2f4eed091bdbe92addaf0821ffd8fe48b8c2600339c41fe935",
+  "base_manifest": "sha256:0a47db87acd2b219ca7bd548b8635b6f4cabd85ce34161b1935817786811006c",
+  "candidate_manifest": "sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30",
+  "linux_python37_preload_tests_passed": 12,
+  "source_file_count": 2,
+  "base_layer_count": 68,
+  "candidate_layer_count": 69,
+  "configuration_fields_preserved": true,
+  "gateway_only": true,
+  "production_schema_migration_required": false,
+  "weknora_app_or_ui_change": false,
+  "preloads_pending": true,
+  "installed_image_verification_pending": true,
+  "production_deployed": false,
+  "ready_for_rollout": false
+}

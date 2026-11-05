@@ -52,7 +52,9 @@ def test_thread_token_usage_returns_stable_shape():
             "middleware": 5,
         },
     }
-    run_store.aggregate_tokens_by_thread.assert_awaited_once_with("thread-1")
+    call = run_store.aggregate_tokens_by_thread.await_args
+    assert call.args == ("thread-1",)
+    assert isinstance(call.kwargs["user_id"], str) and call.kwargs["user_id"]
 
 
 def test_thread_token_usage_can_include_active_runs():
@@ -79,4 +81,7 @@ def test_thread_token_usage_can_include_active_runs():
     assert response.status_code == 200
     assert response.json()["total_tokens"] == 175
     assert response.json()["total_runs"] == 3
-    run_store.aggregate_tokens_by_thread.assert_awaited_once_with("thread-1", include_active=True)
+    call = run_store.aggregate_tokens_by_thread.await_args
+    assert call.args == ("thread-1",)
+    assert call.kwargs["include_active"] is True
+    assert isinstance(call.kwargs["user_id"], str) and call.kwargs["user_id"]

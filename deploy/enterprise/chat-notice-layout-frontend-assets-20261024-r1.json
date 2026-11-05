@@ -1,0 +1,55 @@
+{
+  "schema": "portal-nonconfidential-notice-compiled-assets.v1",
+  "image": "sha256:cf701f067e050f014dc4e0178252070fa22806fddc8c4a085c51049451352298",
+  "feature_markers": {
+    "notice_component": [
+      "/app/frontend/.next/static/chunks/0_kaswem69hif.js"
+    ],
+    "mobile_chat_spacing": [
+      "/app/frontend/.next/static/chunks/0_kaswem69hif.js"
+    ],
+    "desktop_welcome_notice": [
+      "/app/frontend/.next/static/chunks/0_kaswem69hif.js"
+    ],
+    "data_qa_progress": [
+      "/app/frontend/.next/static/chunks/0klcot0e97rr9.js"
+    ],
+    "token_component": [
+      "/app/frontend/.next/static/chunks/0klcot0e97rr9.js",
+      "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js"
+    ],
+    "notice_text": [
+      "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js"
+    ],
+    "token_pending": [
+      "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js"
+    ],
+    "token_live": [
+      "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js"
+    ]
+  },
+  "source_pins": {
+    "/app/frontend/.next/BUILD_ID": {
+      "bytes": 21,
+      "sha256": "eee225716d0faffbed37da6733b50bf6e53156c3b8d76c6ce20f47040ca03727"
+    },
+    "/app/frontend/.next/routes-manifest.json": {
+      "bytes": 10193,
+      "sha256": "9b19f00490aaa2b8ffb5d056901e9ba959518b38b1365a3ea1290c0f689647f9"
+    },
+    "/app/frontend/.next/static/chunks/0_kaswem69hif.js": {
+      "bytes": 16715,
+      "sha256": "00b16244cbea63a0fb96aba868691511e37baef9413b004a90754cff0ea4c986"
+    },
+    "/app/frontend/.next/static/chunks/0klcot0e97rr9.js": {
+      "bytes": 313134,
+      "sha256": "40e0fbb619733671d49a3e5cb326d5f91ca94956b587a388e8649fc97cbc3fba"
+    },
+    "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js": {
+      "bytes": 83490,
+      "sha256": "66ef9cbc42c4e7ce279445b863d17fe7bb5cc6919425ef85e15d82e391bae3db"
+    }
+  },
+  "production_modified": false,
+  "status": "COMPILED_FEATURES_PINNED_NOT_BROWSER_ACCEPTED"
+}

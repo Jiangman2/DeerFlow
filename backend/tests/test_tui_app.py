@@ -5,6 +5,8 @@ loop: keypress -> submit -> worker thread -> stream_actions -> reducer -> state.
 """
 
 import asyncio
+import threading
+from types import SimpleNamespace
 
 import pytest
 
@@ -24,6 +26,18 @@ class _FakeClient:
         yield StreamEvent(type="messages-tuple", data={"type": "ai", "content": "Hello ", "id": "m1"})
         yield StreamEvent(type="messages-tuple", data={"type": "ai", "content": "world", "id": "m1"})
         yield StreamEvent(type="end", data={"usage": {"total_tokens": 3}})
+
+
+@pytest.mark.parametrize("streaming", [True, False])
+def test_quit_orders_interruption_before_exit_only_when_streaming(streaming):
+    calls = []
+    app = SimpleNamespace(
+        _streaming=streaming,
+        _interrupt_run=lambda: calls.append("interrupt"),
+        exit=lambda: calls.append("exit"),
+    )
+    DeerFlowTUI._handle_builtin(app, "quit", "")
+    assert calls == (["interrupt", "exit"] if streaming else ["exit"])
 
 
 class _FakeSession:
@@ -120,6 +134,89 @@ async def test_escape_interrupts_an_active_run():
     assert any(r.kind == "system" and "Interrupt" in r.text for r in app.state.rows)
 
 
+# --------------------------------------------------------------------------- #
+# /quit vs. Ctrl+C during an active stream
+# --------------------------------------------------------------------------- #
+
+
+class _BlockedClient(_FakeClient):
+    """A client whose stream() blocks mid-run until the test releases it.
+
+    Unlike ``_FakeClient``, which finishes a turn synchronously, this lets a
+    test catch the app while a real worker thread is genuinely stuck inside
+    the streaming generator — the same shape as a live agent turn — instead
+    of only flipping the ``_streaming`` flag by hand.
+    """
+
+    def __init__(self):
+        self.release = threading.Event()
+
+    def stream(self, message, *, thread_id=None, **kwargs):
+        self.release.wait(timeout=5)
+        yield StreamEvent(type="messages-tuple", data={"type": "ai", "content": "done", "id": "m1"})
+        yield StreamEvent(type="end", data={"usage": {"total_tokens": 1}})
+
+
+class _BlockedSession(_FakeSession):
+    def __init__(self):
+        self.client = _BlockedClient()
+
+
+@pytest.mark.asyncio
+async def test_quit_interrupts_an_active_stream_before_exiting():
+    """/quit during a run must interrupt first, mirroring Ctrl+C.
+
+    Regression test: ``_handle_builtin``'s "quit" branch used to call
+    ``self.exit()`` unconditionally, unlike ``action_interrupt`` (Ctrl+C),
+    which checks ``self._streaming`` and interrupts before any teardown.
+    Left unfixed, the worker thread survives the app's exit; its next
+    ``call_from_thread`` call then fails silently and the in-flight turn is
+    abandoned without a trace.
+    """
+    session = _BlockedSession()
+    app = DeerFlowTUI(session, LaunchPlan(mode="tui"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("h", "i")
+        await pilot.press("enter")
+        await _wait_until(lambda: app._streaming, pilot)
+
+        for ch in "/quit":
+            await pilot.press(ch)
+        await pilot.press("enter")
+        await pilot.pause()
+
+        # The run must be interrupted (state cleaned up, message surfaced)
+        # before the app is allowed to exit — /quit still quits, but safely.
+        assert app._streaming is False
+        assert any(r.kind == "system" and "Interrupt" in r.text for r in app.state.rows)
+        assert app._exit is True
+
+    # Unblock the worker thread so it doesn't leak past the test.
+    session.client.release.set()
+
+
+@pytest.mark.asyncio
+async def test_ctrl_c_interrupts_an_active_stream_without_exiting():
+    """Contrast/control: Ctrl+C on a real blocked worker interrupts but stays open."""
+    session = _BlockedSession()
+    app = DeerFlowTUI(session, LaunchPlan(mode="tui"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("h", "i")
+        await pilot.press("enter")
+        await _wait_until(lambda: app._streaming, pilot)
+
+        await pilot.press("ctrl+c")
+        await pilot.pause()
+
+        assert app._streaming is False
+        assert any(r.kind == "system" and "Interrupt" in r.text for r in app.state.rows)
+        assert app._exit is False
+
+    session.client.release.set()
+
+
 @pytest.mark.asyncio
 async def test_tab_keeps_focus_on_composer_when_palette_closed():
     app = DeerFlowTUI(_FakeSession(), LaunchPlan(mode="tui"))
@@ -146,3 +243,112 @@ async def test_unknown_command_shows_error_system_row():
             pilot,
         )
     assert any(r.kind == "system" and r.tone == "error" for r in app.state.rows)
+
+
+# --------------------------------------------------------------------------- #
+# /goal handler
+# --------------------------------------------------------------------------- #
+
+
+class _GoalClient(_FakeClient):
+    """Records goal API calls and keeps an in-memory active goal."""
+
+    def __init__(self):
+        self.calls: list[tuple] = []
+        self.goal: dict | None = None
+
+    def get_goal(self, thread_id):
+        self.calls.append(("get", thread_id))
+        return {"goal": self.goal}
+
+    def set_goal(self, thread_id, objective):
+        self.calls.append(("set", thread_id, objective))
+        self.goal = {"objective": objective, "status": "active"}
+        return {"goal": self.goal}
+
+    def clear_goal(self, thread_id):
+        self.calls.append(("clear", thread_id))
+        self.goal = None
+        return {"goal": None}
+
+
+class _GoalSession(_FakeSession):
+    def __init__(self):
+        self.client = _GoalClient()
+
+
+def _system_rows(app):
+    return [r for r in app.state.rows if r.kind == "system"]
+
+
+@pytest.mark.asyncio
+async def test_goal_set_mints_thread_and_reports_objective():
+    session = _GoalSession()
+    app = DeerFlowTUI(session, LaunchPlan(mode="tui"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app._conv_thread_id is None
+        app._handle_goal("finish the work")
+        await pilot.pause()
+    assert app._conv_thread_id is not None
+    assert ("set", app._conv_thread_id, "finish the work") in session.client.calls
+    assert any("Goal set: finish the work" in r.text for r in _system_rows(app))
+
+
+@pytest.mark.asyncio
+async def test_goal_status_without_thread_reports_no_active_goal():
+    session = _GoalSession()
+    app = DeerFlowTUI(session, LaunchPlan(mode="tui"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._handle_goal("")
+        await pilot.pause()
+    # No thread yet -> no gateway round-trip.
+    assert session.client.calls == []
+    assert any(r.text == "No active goal." for r in _system_rows(app))
+
+
+@pytest.mark.asyncio
+async def test_goal_status_reports_active_objective():
+    session = _GoalSession()
+    session.client.goal = {"objective": "ship it", "status": "active"}
+    app = DeerFlowTUI(session, LaunchPlan(mode="tui"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._conv_thread_id = "t-1"
+        app._handle_goal("")
+        await pilot.pause()
+    assert ("get", "t-1") in session.client.calls
+    assert any("Goal: ship it" in r.text for r in _system_rows(app))
+
+
+@pytest.mark.asyncio
+async def test_goal_clear_calls_gateway_and_confirms():
+    session = _GoalSession()
+    session.client.goal = {"objective": "ship it", "status": "active"}
+    app = DeerFlowTUI(session, LaunchPlan(mode="tui"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._conv_thread_id = "t-1"
+        app._handle_goal("clear")
+        await pilot.pause()
+    assert ("clear", "t-1") in session.client.calls
+    assert any(r.text == "Goal cleared." for r in _system_rows(app))
+
+
+@pytest.mark.asyncio
+async def test_goal_set_failure_shows_error_tone():
+    class _Boom(_GoalClient):
+        def set_goal(self, thread_id, objective):
+            raise RuntimeError("gateway down")
+
+    session = _GoalSession()
+    session.client = _Boom()
+    app = DeerFlowTUI(session, LaunchPlan(mode="tui"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._conv_thread_id = "t-1"
+        app._handle_goal("do it")
+        await pilot.pause()
+    errors = [r for r in _system_rows(app) if r.tone == "error"]
+    assert any("Could not set goal." in r.text for r in errors)

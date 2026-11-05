@@ -1,0 +1,289 @@
+{
+  "status": "RENDERED_QA_PASS",
+  "browser": "Chromium Playwright",
+  "fallbackReason": "Browser plugin not available",
+  "backend": "MOCKED_NO_PROVIDER_REQUESTS",
+  "results": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900,
+      "notice": {
+        "x": 304,
+        "y": 0,
+        "width": 1136,
+        "height": 40,
+        "color": "rgb(214, 0, 0)",
+        "fontWeight": "600",
+        "scrollWidth": 1440,
+        "viewport": 1440
+      },
+      "inputBox": {
+        "x": 367,
+        "y": 523.5,
+        "width": 1010,
+        "height": 95
+      },
+      "pageErrors": [],
+      "consoleErrors": [],
+      "checks": [
+        "exact_red_notice",
+        "no_horizontal_overflow",
+        "composer_editable",
+        "existing_thread_notice"
+      ]
+    },
+    {
+      "name": "mobile320",
+      "width": 320,
+      "height": 700,
+      "notice": {
+        "x": 0,
+        "y": 76,
+        "width": 320,
+        "height": 56,
+        "color": "rgb(214, 0, 0)",
+        "fontWeight": "600",
+        "scrollWidth": 320,
+        "viewport": 320
+      },
+      "inputBox": {
+        "x": 43,
+        "y": 575,
+        "width": 234,
+        "height": 24
+      },
+      "pageErrors": [],
+      "consoleErrors": [],
+      "checks": [
+        "exact_red_notice",
+        "no_horizontal_overflow",
+        "composer_editable",
+        "existing_thread_notice",
+        "mobile_sidebar"
+      ]
+    },
+    {
+      "name": "mobile375",
+      "width": 375,
+      "height": 812,
+      "notice": {
+        "x": 0,
+        "y": 76,
+        "width": 375,
+        "height": 56,
+        "color": "rgb(214, 0, 0)",
+        "fontWeight": "600",
+        "scrollWidth": 375,
+        "viewport": 375
+      },
+      "inputBox": {
+        "x": 43,
+        "y": 687,
+        "width": 289,
+        "height": 24
+      },
+      "pageErrors": [],
+      "consoleErrors": [],
+      "checks": [
+        "exact_red_notice",
+        "no_horizontal_overflow",
+        "composer_editable",
+        "existing_thread_notice",
+        "mobile_sidebar"
+      ]
+    },
+    {
+      "name": "mobile390",
+      "width": 390,
+      "height": 844,
+      "notice": {
+        "x": 0,
+        "y": 76,
+        "width": 390,
+        "height": 56,
+        "color": "rgb(214, 0, 0)",
+        "fontWeight": "600",
+        "scrollWidth": 390,
+        "viewport": 390
+      },
+      "inputBox": {
+        "x": 43,
+        "y": 719,
+        "width": 304,
+        "height": 24
+      },
+      "pageErrors": [],
+      "consoleErrors": [],
+      "checks": [
+        "exact_red_notice",
+        "no_horizontal_overflow",
+        "composer_editable",
+        "existing_thread_notice",
+        "mobile_sidebar"
+      ]
+    },
+    {
+      "name": "mobile412",
+      "width": 412,
+      "height": 915,
+      "notice": {
+        "x": 0,
+        "y": 76,
+        "width": 412,
+        "height": 56,
+        "color": "rgb(214, 0, 0)",
+        "fontWeight": "600",
+        "scrollWidth": 412,
+        "viewport": 412
+      },
+      "inputBox": {
+        "x": 43,
+        "y": 790,
+        "width": 326,
+        "height": 24
+      },
+      "pageErrors": [],
+      "consoleErrors": [],
+      "checks": [
+        "exact_red_notice",
+        "no_horizontal_overflow",
+        "composer_editable",
+        "existing_thread_notice",
+        "mobile_sidebar"
+      ]
+    },
+    {
+      "name": "landscape",
+      "width": 844,
+      "height": 390,
+      "notice": {
+        "x": 304,
+        "y": 0,
+        "width": 540,
+        "height": 64,
+        "color": "rgb(214, 0, 0)",
+        "fontWeight": "600",
+        "scrollWidth": 844,
+        "viewport": 844
+      },
+      "inputBox": {
+        "x": 353,
+        "y": 187,
+        "width": 442,
+        "height": 65
+      },
+      "pageErrors": [],
+      "consoleErrors": [],
+      "checks": [
+        "exact_red_notice",
+        "no_horizontal_overflow",
+        "composer_editable",
+        "existing_thread_notice"
+      ]
+    },
+    {
+      "name": "mobile-landscape",
+      "width": 640,
+      "height": 360,
+      "notice": {
+        "x": 0,
+        "y": 76,
+        "width": 640,
+        "height": 40,
+        "color": "rgb(214, 0, 0)",
+        "fontWeight": "600",
+        "scrollWidth": 640,
+        "viewport": 640
+      },
+      "inputBox": {
+        "x": 43,
+        "y": 243,
+        "width": 554,
+        "height": 24
+      },
+      "pageErrors": [],
+      "consoleErrors": [],
+      "checks": [
+        "exact_red_notice",
+        "no_horizontal_overflow",
+        "composer_editable",
+        "existing_thread_notice",
+        "mobile_sidebar"
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "desktop-existing.png",
+      "bytes": 222511,
+      "sha256": "568db5916d459009df2f3b200867a27a4398af9af5f87f8112b672f85360cfe6"
+    },
+    {
+      "name": "desktop-new.png",
+      "bytes": 655177,
+      "sha256": "c50f151176d6acb9f975ee93d3aeaaf71bb788de2523bdadb344f14ccdb56e26"
+    },
+    {
+      "name": "landscape-existing.png",
+      "bytes": 127090,
+      "sha256": "b8f0e683a2dfbce7f1faad4e602caba1941c03afeddfd3452a09e4088221e774"
+    },
+    {
+      "name": "landscape-new.png",
+      "bytes": 185814,
+      "sha256": "d8a1b3115db8c61024ce9d593dd9b615ba37cac64d86fbe4d095657a9a646ba6"
+    },
+    {
+      "name": "mobile-landscape-existing.png",
+      "bytes": 44103,
+      "sha256": "f51d2f2a29941aabdc79c298a39ea7c6214834a9590b6658be6f40910474bad6"
+    },
+    {
+      "name": "mobile-landscape-new.png",
+      "bytes": 67069,
+      "sha256": "53550fb20b8d2ebb1a25a273f2ee91afc73974b95bd7a74664347a7dc4ef24ad"
+    },
+    {
+      "name": "mobile320-existing.png",
+      "bytes": 49017,
+      "sha256": "30e6e66cbea28d1149686959b6a7aa0eb76f45e1594897fe00b587abb788b5ee"
+    },
+    {
+      "name": "mobile320-new.png",
+      "bytes": 125207,
+      "sha256": "59854b10d5bb3f44036e2dc4bdabc8ab6824d44e33b722a1ff81765cee6694d3"
+    },
+    {
+      "name": "mobile375-existing.png",
+      "bytes": 55094,
+      "sha256": "fa8e9cd0f5aa8886ba9b7367bbc0bf3542f060958ecdc99938c7004b27818b87"
+    },
+    {
+      "name": "mobile375-new.png",
+      "bytes": 160582,
+      "sha256": "bb42ce905e4aa27d7f5cf896bf22b91c53ecd1aac754366bdeedf60d36f6227e"
+    },
+    {
+      "name": "mobile390-existing.png",
+      "bytes": 56147,
+      "sha256": "7465b23181f4ebe03fde88f1ee7c8476b5474e47460067f006bb94fcfe29ef5b"
+    },
+    {
+      "name": "mobile390-new.png",
+      "bytes": 169634,
+      "sha256": "08e6a047b98d9d0b1f9bd7eb59966132660458d11582457ad282daae3d70c085"
+    },
+    {
+      "name": "mobile412-existing.png",
+      "bytes": 59751,
+      "sha256": "e499cbcf2486cbf5cc8fece38525b185b766c7b64f14bb73d86deb0624d02cd3"
+    },
+    {
+      "name": "mobile412-new.png",
+      "bytes": 189930,
+      "sha256": "a6ea39353bbd634423e3f8552f5096e2b14158abdee079fb472ca5a43171775e"
+    }
+  ],
+  "scope": "LOCAL_MOCK_API_RENDERING_NOT_PRODUCTION_ACCEPTANCE"
+}

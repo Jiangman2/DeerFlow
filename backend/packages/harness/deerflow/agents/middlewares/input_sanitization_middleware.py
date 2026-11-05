@@ -1,10 +1,14 @@
 """Input guardrail middleware for prompt-injection defense (issue #3630).
 
-Escapes blocked XML-like tags in the last genuine user message (e.g.
+Escapes blocked XML-like tags in every untrusted user message (e.g.
 ``<system>`` → ``&lt;system&gt;``) so they render as literal text instead
 of structured-context markers.  This preserves the user's intent ("how do
 I use DeerFlow's <think> tag?") while neutralizing injection attempts —
 the same de-identify-don't-reject strategy as AWS Bedrock's PII ANONYMIZE.
+
+The transformation is request-scoped, so every historical user turn must be
+covered on every call. Otherwise a payload is neutralized only while it is the
+newest turn and returns to the model verbatim on the following turn.
 
 Blocked: system-reserved tags (memory, analysis, etc.) + common injection
 tags (system, instruction, role, etc.). Normal HTML/XML tags (<div>,
@@ -31,6 +35,9 @@ from langchain.agents.middleware.types import (
 from langchain_core.messages import HumanMessage
 from langgraph.errors import GraphBubbleUp
 
+from deerflow.agents.human_input import read_human_input_response
+from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY, UNTRUSTED_INPUT_KEY, message_content_to_text
+
 logger = logging.getLogger(__name__)
 
 _SUMMARY_MESSAGE_NAME = "summary"
@@ -38,20 +45,77 @@ _SUMMARY_MESSAGE_NAME = "summary"
 # Finite set of blocked tag names: system-reserved + common injection patterns.
 _BLOCKED_TAG_NAMES: frozenset[str] = frozenset(
     {
-        # System-reserved tags (used by the agent framework for structured context)
+        # Framework-injected structured/authority blocks. The lead-agent system
+        # prompt's "System-Context Confidentiality" section (agents/lead_agent/
+        # prompt.py) declares *every* such tag trusted internal data — it names a
+        # few then says "and all other structured tags". So the denylist must
+        # cover the framework's authority blocks as a class, not a hand-picked
+        # subset: any one of them, forged in untrusted input, mimics trusted
+        # framework context. Enumerated from the block tags the framework actually
+        # emits into model input (system prompt + hidden-context/reminder
+        # middlewares) and pinned against drift by
+        # test_input_sanitization_middleware.py::test_denylist_covers_framework_authority_blocks.
+        # Both spellings of the reminder block are covered: "system-reminder"
+        # (dynamic-context) and "system_reminder" (todo/terminal middlewares).
+        #
+        # Subagents share this denylist: build_subagent_runtime_middlewares reuses
+        # the same _build_runtime_middlewares base, so both sanitization paths guard
+        # subagent model input too. The subagent system-prompt blocks
+        # (file_editing_workflow / guidelines / output_format / working_directory)
+        # are therefore authority blocks of the same class as the lead-agent ones.
         "system-reminder",
+        "system_reminder",
         "memory",
         "current_date",
         "think",
         "analysis",
+        "role",
+        "soul",
+        "self_update",
+        "thinking_style",
+        "clarification_system",
+        "critical_reminders",
+        "response_style",
+        "citations",
         "subagent_system",
         "skill_system",
+        "skill_index",
+        "available_skills",
+        "disabled_skills",
+        "memory_tool_system",
         "uploaded_files",
         "todo_list_system",
+        "durable_context_data",
+        "slash_skill_activation",
+        "mcp_routing_hints",
+        "available-deferred-tools",
+        "goal_continuation",
+        "deerflow_confirmation_adapter",
+        "deerflow_execution_contract",
+        "language_policy",
+        "non_interactive_execution",
+        "original_user_request",
+        "platform_confidentiality",
+        "skill_authority_reload",
+        "skill_body",
+        "skill_confirmation_page_handoff",
+        "skill_confirmation_wait_boundary",
+        "skill_failed_gate",
+        "skill_profile_boundary",
+        "skill_route_selection",
+        "slash_skill_continuation",
+        "weknora_scope",
+        "file_editing_workflow",
+        "guidelines",
+        "output_format",
+        "working_directory",
+        # Subagent system-prompt block (general_purpose.py): declares the task
+        # tool off-limits. Forging this in untrusted input could trick the
+        # model into believing it has (or lacks) tool restrictions it does not.
+        "tool_restrictions",
         # Common prompt-injection tag patterns
         "system",
         "instruction",
-        "role",
         "important",
         "override",
         "ignore",
@@ -85,19 +149,64 @@ def _escape_tag_match(match: re.Match) -> str:
     return match.group(0).replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _neutralize_boundary_tokens(text: str) -> str:
+    """Replace real BEGIN/END USER INPUT markers with look-alike inert forms."""
+    return _BOUNDARY_TOKEN_RE.sub(
+        lambda m: _NEUTRALIZED_BEGIN if m.group(0) == _USER_INPUT_BEGIN else _NEUTRALIZED_END,
+        text,
+    )
+
+
+def neutralize_untrusted_tags(text: str) -> str:
+    """Neutralize framework/injection control tokens in untrusted text.
+
+    Shared primitive for any content that originates outside the trust boundary
+    and is about to enter the model context as *data* — currently the genuine
+    user message (via :func:`_check_user_content`) and remote tool results
+    (web_fetch / web_search and friends, via
+    :class:`ToolResultSanitizationMiddleware`).
+
+    Applies exactly the two structural defenses, and nothing else:
+
+    * blocked framework/injection tags (e.g. ``<system-reminder>``) are
+      HTML-escaped to ``&lt;system-reminder&gt;`` so they lose their structural
+      meaning while staying human-readable;
+    * the plain-text ``--- BEGIN/END USER INPUT ---`` boundary markers are
+      neutralized so untrusted content cannot forge or break out of the
+      user-input boundary.
+
+    It intentionally does **not** wrap the text in boundary markers: that
+    framing is specific to the user message. Empty/whitespace-only text is
+    returned unchanged so callers do not emit marker noise.
+    """
+    if not text.strip():
+        return text
+    text = _BLOCKED_TAG_PATTERN.sub(_escape_tag_match, text)
+    return _neutralize_boundary_tokens(text)
+
+
 def _is_genuine_user_message(message: object) -> bool:
     """Return True for real user messages, excluding system-injected HumanMessages.
 
-    System-injected context is marked via ``hide_from_ui`` or ``name == "summary"``
-    — the same convention used by DynamicContextMiddleware and TodoMiddleware.
+    ``hide_from_ui`` is also used by hidden UI replies from HumanInputCard, so
+    only skip hidden HumanMessages that do not carry a valid user response.
     """
     if not isinstance(message, HumanMessage):
         return False
-    if message.additional_kwargs.get("hide_from_ui"):
-        return False
     if message.name == _SUMMARY_MESSAGE_NAME:
         return False
+    if message.additional_kwargs.get("hide_from_ui") and read_human_input_response(message.additional_kwargs) is None:
+        return False
     return True
+
+
+def _requires_input_sanitization(message: object) -> bool:
+    """Return True for external content that must pass through the guardrail."""
+    if not isinstance(message, HumanMessage):
+        return False
+    if message.additional_kwargs.get(UNTRUSTED_INPUT_KEY):
+        return True
+    return _is_genuine_user_message(message)
 
 
 def _check_user_content(text: str) -> str:
@@ -119,20 +228,14 @@ def _check_user_content(text: str) -> str:
         # can forge the outer wrapping to bypass the neutralization below
         # and inject inner boundary markers (break-out attack).
         inner = text[len(_USER_INPUT_BEGIN) : -len(_USER_INPUT_END)]
-        neutralized_inner = _BOUNDARY_TOKEN_RE.sub(
-            lambda m: _NEUTRALIZED_BEGIN if m.group(0) == _USER_INPUT_BEGIN else _NEUTRALIZED_END,
-            inner,
-        )
+        neutralized_inner = _neutralize_boundary_tokens(inner)
         if neutralized_inner == inner:
             return text
         return f"{_USER_INPUT_BEGIN}{neutralized_inner}{_USER_INPUT_END}"
     # Neutralize any boundary tokens the user may have embedded, preventing
     # both self-suppression (begin token skips wrapping) and break-out
     # (end token creates a premature boundary inside the payload).
-    text = _BOUNDARY_TOKEN_RE.sub(
-        lambda m: _NEUTRALIZED_BEGIN if m.group(0) == _USER_INPUT_BEGIN else _NEUTRALIZED_END,
-        text,
-    )
+    text = _neutralize_boundary_tokens(text)
     return f"{_USER_INPUT_BEGIN}\n{text}\n{_USER_INPUT_END}"
 
 
@@ -142,7 +245,8 @@ class InputSanitizationMiddleware(AgentMiddleware[AgentState]):
     Blocked tags are HTML-escaped (not rejected) so the user's intent is
     preserved while the tags lose their semantic significance. Clean input
     is wrapped in plain-text boundary markers. Transformation is temporary
-    (wrap_model_call) — never written to state.
+    (wrap_model_call) — never written to state, so every historical user turn
+    is sanitized again on every model call.
     """
 
     @staticmethod
@@ -192,60 +296,97 @@ class InputSanitizationMiddleware(AgentMiddleware[AgentState]):
         result.extend(original_content[last + 1 :])
         return result
 
-    def _process_request(self, request: ModelRequest) -> ModelRequest:
-        """Return a request with the last genuine user message sanitized.
+    def _sanitize_message(self, msg: HumanMessage) -> HumanMessage | None:
+        """Return a sanitized copy of *msg*, or None when no change is needed."""
+        content = msg.content
+        text_content, text_blocks = self._extract_text_from_content(content)
 
-        Blocked tags are HTML-escaped (not rejected) so the user's intent is
-        preserved while the tags lose their semantic significance. Transformation
-        is temporary — the original request is never mutated.
-        """
+        if not text_content and not isinstance(content, str):
+            return None
+
+        # UploadsMiddleware and trusted IM callers preserve the original user
+        # suffix before adding server-owned context. Sanitize that suffix only
+        # so trusted upload blocks remain structurally intact.
+        preserved_kwargs = dict(msg.additional_kwargs or {})
+        original_user_content = preserved_kwargs.get(ORIGINAL_USER_CONTENT_KEY)
+        if isinstance(original_user_content, str) and original_user_content:
+            processed_user = _check_user_content(original_user_content)
+            if processed_user != original_user_content:
+                index = text_content.rfind(original_user_content)
+                if index >= 0:
+                    processed = text_content[:index] + processed_user
+                elif isinstance(content, list) and len(content) >= 2:
+                    logger.warning("Could not locate original user suffix; sanitizing multimodal user blocks individually")
+                    new_content: list = [content[0]]
+                    for block in content[1:]:
+                        if isinstance(block, str):
+                            new_content.append(neutralize_untrusted_tags(block))
+                        elif isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str):
+                            sanitized = neutralize_untrusted_tags(block["text"])
+                            new_content.append({**block, "text": sanitized} if sanitized != block["text"] else block)
+                        else:
+                            new_content.append(block)
+                    return HumanMessage(content=new_content, id=msg.id, name=msg.name, additional_kwargs=preserved_kwargs)
+                else:
+                    logger.warning("Could not locate original user suffix; sanitizing complete message as a fail-safe")
+                    processed = _check_user_content(text_content)
+            else:
+                processed = text_content
+        elif isinstance(original_user_content, str):
+            processed = text_content
+        else:
+            processed = _check_user_content(text_content)
+
+        if processed == text_content:
+            return None
+
+        new_content = self._rebuild_content(content, processed, text_blocks) if text_blocks else processed
+
+        if not isinstance(original_user_content, str):
+            if ORIGINAL_USER_CONTENT_KEY in preserved_kwargs:
+                logger.warning(
+                    "InputSanitizationMiddleware replaced non-string %s metadata: type=%s",
+                    ORIGINAL_USER_CONTENT_KEY,
+                    type(original_user_content).__name__,
+                )
+            preserved_kwargs[ORIGINAL_USER_CONTENT_KEY] = message_content_to_text(content)
+
+        logger.debug(
+            "InputSanitizationMiddleware: original=%r -> processed=%r",
+            content if isinstance(content, str) else "[content-blocks]",
+            processed,
+        )
+        return HumanMessage(content=new_content, id=msg.id, name=msg.name, additional_kwargs=preserved_kwargs)
+
+    def _process_request(self, request: ModelRequest) -> ModelRequest:
+        """Return a request with every untrusted human message sanitized."""
         messages = list(request.messages)
-        for i in range(len(messages) - 1, -1, -1):
-            msg = messages[i]
-            if not _is_genuine_user_message(msg):
+        changed = False
+        for index, msg in enumerate(messages):
+            if not _requires_input_sanitization(msg):
                 if isinstance(msg, HumanMessage):
                     logger.debug(
-                        "_process_request: skipping non-genuine HumanMessage at pos=%d name=%s hide_from_ui=%s content_preview=%.80r",
-                        i,
+                        "_process_request: skipping trusted HumanMessage at pos=%d name=%s hide_from_ui=%s content_preview=%.80r",
+                        index,
                         msg.name,
                         msg.additional_kwargs.get("hide_from_ui"),
                         msg.content,
                     )
                 continue
-            content = msg.content
-            logger.debug("_process_request: found genuine user message at pos=%d content=%.120r", i, content)
-
-            text_content, text_blocks = self._extract_text_from_content(content)
-
-            # No text at all (e.g. image-only message) — pass through
-            if not text_content and not isinstance(content, str):
-                logger.debug("_process_request: no text content in message — passing through")
-                return request
-
-            processed = _check_user_content(text_content)
-
-            if processed == text_content:
-                # Already wrapped — no override needed
-                return request
-
-            if text_blocks:
-                new_content = self._rebuild_content(content, processed, text_blocks)
-            else:
-                new_content = processed
-
-            messages[i] = HumanMessage(
-                content=new_content,
-                id=msg.id,
-                name=msg.name,
-                additional_kwargs=msg.additional_kwargs,
-            )
-            logger.debug(
-                "InputSanitizationMiddleware: original=%r -> processed=%r",
-                content if isinstance(content, str) else "[content-blocks]",
-                processed,
-            )
-            return request.override(messages=messages)
-        return request
+            try:
+                sanitized = self._sanitize_message(msg)
+            except GraphBubbleUp:
+                raise
+            except Exception:
+                # One malformed historical row must not disable sanitization of
+                # the newest turn. Leave only that row unchanged and continue.
+                logger.warning("Input guardrail failed on message at pos=%d", index, exc_info=True)
+                continue
+            if sanitized is None:
+                continue
+            messages[index] = sanitized
+            changed = True
+        return request.override(messages=messages) if changed else request
 
     def _try_process(self, request: ModelRequest) -> ModelRequest:
         """Sanitize request; fail-open on unexpected errors.

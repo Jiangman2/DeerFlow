@@ -1,103 +1,182 @@
-"""Configuration for memory mechanism."""
+"""Configuration for the memory mechanism (host-shared fields only).
 
-from typing import Literal
+DeerMem-private fields live in ``backends/deermem/config.py`` (``DeerMemConfig``),
+reached via ``backend_config`` (a dict the factory passes to the backend's
+``__init__``). This module holds ONLY the host-shared fields every backend /
+call site / factory reads: ``enabled`` / ``injection_enabled`` /
+``shutdown_flush_timeout_seconds`` / ``manager_class`` / ``backend_config``.
+Keeping the shared schema slim is what
+makes backends swappable and portable (DeerMem's knobs do not leak onto the
+shared contract).
+"""
 
-from pydantic import BaseModel, Field
+import logging
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field, model_validator
+
+logger = logging.getLogger(__name__)
+
+# Host-shared MemoryConfig fields (read by every backend / call site / factory).
+_SHARED_FIELDS = frozenset({"enabled", "mode", "injection_enabled", "shutdown_flush_timeout_seconds", "manager_class", "backend_config"})
+
+# DeerMem-private fields that used to live at the top level of `memory:` in
+# config.yaml (pre-abstraction). On load they are auto-migrated into
+# `backend_config` so an upgrade does NOT silently revert customized settings
+# to defaults. `model_name` maps to `backend_config.model.model` (the new nested
+# model sub-config); the rest are 1:1.
+_LEGACY_DEERMEM_FIELDS = frozenset(
+    {
+        "storage_path",
+        "storage_class",
+        "debounce_seconds",
+        "max_facts",
+        "fact_confidence_threshold",
+        "max_injection_tokens",
+        "token_counting",
+        "guaranteed_categories",
+        "guaranteed_token_budget",
+        "staleness_review_enabled",
+        "staleness_age_days",
+        "staleness_min_candidates",
+        "staleness_max_removals_per_cycle",
+        "staleness_protected_categories",
+        "staleness_max_lifetime_multiplier",
+        "staleness_max_extension_days",
+        "consolidation_enabled",
+        "consolidation_min_facts",
+        "consolidation_max_groups_per_cycle",
+        "consolidation_max_sources",
+        "model_name",
+    }
+)
+
+
+def _normalize_memory_config_dict(config_dict: dict[str, Any] | None) -> dict[str, Any]:
+    """Move legacy DeerMem keys into ``backend_config`` before validation.
+
+    ``AppConfig.model_validate`` constructs ``MemoryConfig`` before the
+    singleton loader runs. Normalizing here prevents Pydantic from dropping
+    legacy keys such as ``memory.model_name`` before they can be migrated.
+    """
+
+    normalized = dict(config_dict or {})
+    backend_config = dict(normalized.get("backend_config") or {})
+    migrated: list[str] = []
+
+    for key in list(normalized.keys()):
+        if key in _SHARED_FIELDS:
+            continue
+        if key not in _LEGACY_DEERMEM_FIELDS:
+            logger.warning(
+                "Unknown memory config key %r at top level (not a shared field %s nor a known legacy DeerMem field); ignored.",
+                key,
+                sorted(_SHARED_FIELDS),
+            )
+            normalized.pop(key)
+            continue
+
+        value = normalized.pop(key)
+        if value is None or value == "":
+            continue
+        if key == "model_name":
+            model_cfg = dict(backend_config.get("model") or {})
+            if "model" not in model_cfg:
+                model_cfg["model"] = value
+                backend_config["model"] = model_cfg
+                migrated.append(f"{key} -> backend_config.model.model")
+        elif key == "storage_path" and str(value).endswith(".json"):
+            logger.warning(
+                "Legacy memory.storage_path=%r looks like a file path; DeerMem now "
+                "treats storage_path as a root DIRECTORY (per-user memory under "
+                "{storage_path}/users/{uid}/memory.json). Dropped -- memory now "
+                "lands under the default root (runtime_home). Set "
+                "memory.backend_config.storage_path to a directory if you want a "
+                "custom location.",
+                value,
+            )
+        elif key not in backend_config:
+            backend_config[key] = value
+            migrated.append(f"{key} -> backend_config.{key}")
+
+    if migrated:
+        logger.warning(
+            "Migrated legacy top-level memory fields into backend_config; move them under memory.backend_config in config.yaml to silence this: %s",
+            ", ".join(migrated),
+        )
+    normalized["backend_config"] = backend_config
+    return normalized
 
 
 class MemoryConfig(BaseModel):
-    """Configuration for global memory mechanism."""
+    """Host-shared memory configuration (backend-agnostic)."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_deermem_fields(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            return _normalize_memory_config_dict(value)
+        return value
 
     enabled: bool = Field(
         default=True,
-        description="Whether to enable memory mechanism",
+        description="Whether to enable the memory mechanism (call-site gate).",
     )
-    storage_path: str = Field(
-        default="",
+    mode: Literal["middleware", "tool"] = Field(
+        default="middleware",
         description=(
-            "Path to store memory data. "
-            "If empty, defaults to per-user memory at `{base_dir}/users/{user_id}/memory.json`. "
-            "Absolute paths are used as-is and opt out of per-user isolation "
-            "(all users share the same file). "
-            "Relative paths are resolved against `Paths.base_dir` "
-            "(not the backend working directory). "
-            "Note: if you previously set this to `.deer-flow/memory.json`, "
-            "the file will now be resolved as `{base_dir}/.deer-flow/memory.json`; "
-            "migrate existing data or use an absolute path to preserve the old location."
+            "Memory operation mode. 'middleware': passive LLM summarization after each turn (current behavior). 'tool': model calls memory tools (memory_search, memory_add, etc.) directly. Mutually exclusive — only one mode runs at a time."
         ),
-    )
-    storage_class: str = Field(
-        default="deerflow.agents.memory.storage.FileMemoryStorage",
-        description="The class path for memory storage provider",
-    )
-    debounce_seconds: int = Field(
-        default=30,
-        ge=1,
-        le=300,
-        description="Seconds to wait before processing queued updates (debounce)",
-    )
-    model_name: str | None = Field(
-        default=None,
-        description="Model name to use for memory updates (None = use default model)",
-    )
-    max_facts: int = Field(
-        default=100,
-        ge=10,
-        le=500,
-        description="Maximum number of facts to store",
-    )
-    fact_confidence_threshold: float = Field(
-        default=0.7,
-        ge=0.0,
-        le=1.0,
-        description="Minimum confidence threshold for storing facts",
     )
     injection_enabled: bool = Field(
         default=True,
-        description="Whether to inject memory into system prompt",
+        description="Whether to inject memory into the system prompt (call-site gate).",
     )
-    max_injection_tokens: int = Field(
-        default=2000,
-        ge=100,
-        le=8000,
-        description="Maximum tokens to use for memory injection",
-    )
-    token_counting: Literal["tiktoken", "char"] = Field(
-        default="tiktoken",
+    shutdown_flush_timeout_seconds: float = Field(
+        default=30.0,
+        ge=1.0,
+        le=300.0,
         description=(
-            "Token counting strategy for memory-injection budgeting. "
-            "'tiktoken' is accurate but the encoding's BPE data may be "
-            "downloaded from a public network endpoint on first use, which "
-            "can block for a long time in network-restricted environments "
-            "(see issue #3402/#3429). 'char' uses a network-free "
-            "CJK-aware character-based estimate and never touches tiktoken."
+            "Hard time budget (seconds) for draining the memory backend's "
+            "pending-update buffer during Gateway graceful shutdown. The drain "
+            "makes one LLM call per pending item, so large IM batches may need "
+            "a higher value. Must fit inside the pod's K8s "
+            "terminationGracePeriodSeconds (together with channel/scheduler "
+            "stop) or K8s SIGKILLs the drain mid-flight. The drain runs on a "
+            "daemon thread, so on timeout the process proceeds to exit and any "
+            "unfinished tail is dropped (same failure direction as no flush, "
+            "scoped to the tail). Host-shared (not backend-private): the host "
+            "owns the lifespan budget and the K8s grace relationship."
         ),
     )
-    guaranteed_categories: list[str] = Field(
-        default_factory=lambda: ["correction"],
+    manager_class: str = Field(
+        default="deermem",
         description=(
-            "Fact categories that are always injected into the prompt regardless "
-            "of the regular token budget. These facts are allocated from a "
-            "separate reserved budget (``guaranteed_token_budget``). "
-            "This ensures high-value facts such as explicit user corrections "
-            "are never silently dropped when the token budget is tight."
+            "Memory backend selector. Either a registered backend name "
+            "(matching a `backends/<name>/` folder that exposes `MANAGER_CLASS`, "
+            "e.g. `deermem` / `noop`) or a dotted import path to a "
+            "`MemoryManager` subclass. The factory resolves this at "
+            "`get_memory_manager()` time and raises `ValueError` on failure "
+            "(fail-fast: memory is persistent state, so an unresolved "
+            "manager_class is not silently substituted with a different "
+            "storage backend)."
         ),
     )
-    guaranteed_token_budget: int = Field(
-        default=500,
-        ge=50,
-        le=2000,
+    backend_config: dict[str, Any] = Field(
+        default_factory=dict,
         description=(
-            "Token ceiling for guaranteed-category facts. "
-            "Guaranteed facts are selected first from this budget and placed at "
-            "the front of the Facts block so they cannot be evicted by regular "
-            "facts. In the common case the total output still fits within "
-            "``max_injection_tokens`` (guaranteed lines displace regular ones); "
-            "the budget becomes additive only when guaranteed lines alone push "
-            "the output past ``max_injection_tokens``, in which case the "
-            "safety-truncation ceiling is raised accordingly."
+            "Backend-private config (a dict), passed verbatim to the backend's "
+            "`__init__(backend_config=...)` by the factory. Each backend "
+            "self-interprets it (DeerMem parses it into `DeerMemConfig`). Values "
+            "live in the host config file (`config.yaml` `memory.backend_config`); "
+            "they do not belong on the shared `MemoryConfig` schema."
         ),
     )
+
+
+def should_use_memory_tools(config: MemoryConfig) -> bool:
+    """Return True when memory should use model-directed tools."""
+    return config.enabled and config.mode == "tool"
 
 
 # Global configuration instance
@@ -116,6 +195,17 @@ def set_memory_config(config: MemoryConfig) -> None:
 
 
 def load_memory_config_from_dict(config_dict: dict) -> None:
-    """Load memory configuration from a dictionary."""
+    """Load memory configuration from a dictionary.
+
+    Host-shared fields (``enabled`` / ``mode`` / ``injection_enabled`` /
+    ``manager_class`` / ``backend_config``) are read directly. DeerMem-private
+    fields that used to live at the top level of ``memory:`` in config.yaml
+    (pre-abstraction: ``storage_path``, ``max_facts``, ``debounce_seconds``,
+    ``model_name``, ``token_counting``, ``staleness_*``, ``consolidation_*``,
+    ...) are **auto-migrated into ``backend_config``** with a warning, so an
+    upgrade from a pre-abstraction config does NOT silently revert customized
+    settings to defaults. Unknown top-level keys (likely typos) are warned and
+    ignored.
+    """
     global _memory_config
-    _memory_config = MemoryConfig(**config_dict)
+    _memory_config = MemoryConfig(**_normalize_memory_config_dict(config_dict))

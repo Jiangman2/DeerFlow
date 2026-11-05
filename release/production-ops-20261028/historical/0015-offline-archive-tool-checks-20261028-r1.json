@@ -1,0 +1,12 @@
+{
+  "schema": "portal-0015-relocation-tool-checks.v1",
+  "status": "PASS",
+  "python": "3.7.17",
+  "tests_passed": 28,
+  "tests_failed": 0,
+  "network": "none",
+  "bytes": 22172,
+  "sha256": "6d6d0b802216c31e83b6227494ffef34b48ac1d32da3c17f6637284982fd75cc",
+  "production_execution": false,
+  "actual_entry_wrong_host_guard": "PASS"
+}

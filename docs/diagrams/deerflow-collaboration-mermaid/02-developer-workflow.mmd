@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant Dev as 开发人员电脑
+    participant GH as 团队 GitHub 仓库
+    participant PR as GitHub Pull Request
+    participant CI as CI / 自动检查
+    participant Reviewer as Review 维护者
+
+    Note over Dev,GH: origin = 团队仓库或个人 Fork<br/>upstream = bytedance/deer-flow，只读
+    Dev->>Dev: git clone <team-repo>
+    Dev->>Dev: git remote add upstream<br/>git fetch --all --prune
+    Dev->>GH: 拉取 enterprise/integration 最新代码
+    Dev->>Dev: git switch -c feature/xxx
+    Dev->>Dev: 修改代码、运行测试
+    Dev->>Dev: git add .<br/>git commit -m "feat: ..."
+    Dev->>GH: git push -u origin feature/xxx
+    GH->>PR: 创建 PR：feature/xxx → enterprise/integration
+    PR->>CI: 触发测试、构建、安全检查
+    CI-->>PR: 检查结果
+    Reviewer->>PR: Review 代码与设计
+    alt 检查或 Review 不通过
+        Reviewer-->>Dev: 提出修改意见
+        Dev->>Dev: 修改代码并重新测试
+        Dev->>GH: 继续 push 到同一个 feature 分支
+        GH->>PR: 更新 PR
+    else 检查和 Review 通过
+        Reviewer->>GH: Squash Merge 到 enterprise/integration
+        GH-->>Dev: 合并完成，可删除 Feature 分支
+    end

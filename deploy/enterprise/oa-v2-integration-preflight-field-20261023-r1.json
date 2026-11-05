@@ -1,0 +1,41 @@
+{
+  "schema": "portal-oa-v2-integration-preflight-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_SUMMARY_NOT_DIRECT_CLUSTER_READ",
+  "reported_status": "OA_PREFLIGHT_OBSERVED_NOT_BUSINESS_ACCEPTED",
+  "reported_exitcode": 0,
+  "selected_mode": "FULL_API_AND_CALLBACK_USER_REQUESTED",
+  "scope_correction": "User subsequently requested all interface switches enabled; callback is included in the prepared switch, not yet deployed.",
+  "sample_scope": "TWO_READY_GATEWAY_NODES_NOT_ALL_REPLICAS",
+  "samples": [
+    {"node": "ecs-zdz-pro-0021", "pod": "gateway-d9ddb8b55-29zc7", "uid": "32fe9703-8921-453c-ba89-46887c8ab9c9", "local_route_status": "AUTHENTICATED_ROUTE_ACCEPTED", "http_status": 404},
+    {"node": "ecs-zdz-pro-0019", "pod": "gateway-d9ddb8b55-2lkbm", "uid": "e90a3475-a92e-4ba3-ab42-4167e167190d", "local_route_status": "AUTHENTICATED_ROUTE_ACCEPTED", "http_status": 404}
+  ],
+  "deployments": {
+    "frontend": {"generation": 226, "spec_sha256": "ecf0297bd8609f104a6b549d484d84b7d658c71b4a0b100a5c66149e821fb3a3", "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"},
+    "gateway": {"generation": 384, "spec_sha256": "20f242c560879f8eb70b77c0d85367f614fe839bad76917637bcefc9d67eebd3", "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"},
+    "ppt-master-runner": {"generation": 55, "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd", "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"}
+  },
+  "oa_environment_sources": {"env_from": [{"kind": "secretRef", "name": "deer-flow-env", "prefix": ""}], "explicit": []},
+  "common_configuration": {
+    "enabled": true,
+    "multi_result_enabled": false,
+    "callback_enabled": false,
+    "callback_target": {"hostname": "grc-web.apps.shdev.ocpx.cnooc", "path_and_query_exported": false, "path_present": true, "port": 443, "query_present": false, "scheme": "https"},
+    "callback_ca_configured": false,
+    "credential_presence": {"callback_bearer": false, "callback_signing_secret": true, "ingest_key": true},
+    "owner_configured": true,
+    "agent_configured": true,
+    "max_callback_attempts": 8,
+    "max_result_bytes": 10485760,
+    "max_result_files": 10,
+    "max_total_result_bytes": 52428800,
+    "oa_recursion_limit": 1000,
+    "run_timeout_seconds": 1800
+  },
+  "provider_requests": 0,
+  "callback_requests": 0,
+  "job_submissions": 0,
+  "workload_modified": false,
+  "callback_reachability_tested": false,
+  "external_machine_entry_tested": false
+}

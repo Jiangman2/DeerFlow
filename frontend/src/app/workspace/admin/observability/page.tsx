@@ -14,7 +14,9 @@ import {
   RefreshCwIcon,
   RotateCcwIcon,
   SearchIcon,
+  SendIcon,
   ShieldCheckIcon,
+  SparklesIcon,
   SquareIcon,
   UsersIcon,
   WorkflowIcon,
@@ -43,18 +45,20 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  useAnalyzeChannelAudit,
+  useChannelAudit,
   useObservabilityAnalytics,
   useObservabilityAuditLogs,
   useObservabilitySnapshot,
   useObservabilityTraces,
   useRecordRunDisposition,
   useRunDiagnostics,
+  useSendChannelAudit,
   useUserActivity,
 } from "@/core/observability";
 import type {
   AuditLog,
   CostBreakdown,
-  ComponentHealth,
   ObservabilityAnalytics,
   TraceEvent,
   TraceSummary,
@@ -248,53 +252,6 @@ function MetricCard({
         </div>
       </div>
       <p className="mt-3 truncate text-xs text-slate-500">{detail}</p>
-    </section>
-  );
-}
-
-function ComponentHealthGrid({
-  components,
-}: {
-  components: ComponentHealth[];
-}) {
-  return (
-    <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-slate-950">组件健康</h2>
-        <span className="text-xs text-slate-500">实时探针</span>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {components.map((component) => (
-          <div
-            key={component.name}
-            className="rounded-md border border-slate-100 bg-slate-50 px-3 py-3"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-sm font-medium text-slate-900">
-                {component.name}
-              </span>
-              <StatusPill status={component.status} />
-            </div>
-            <p className="mt-2 line-clamp-2 text-xs text-slate-500">
-              {component.detail}
-            </p>
-            {component.metric && (
-              <p className="mt-3 text-xs font-medium text-slate-700 tabular-nums">
-                {component.metric}
-              </p>
-            )}
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
-              <span>延迟 {component.latency_ms ?? 0}ms</span>
-              <span>{shortTime(component.last_checked_at)}</span>
-            </div>
-            {component.error && (
-              <p className="mt-2 line-clamp-2 text-xs text-red-700">
-                {component.error}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
     </section>
   );
 }
@@ -955,6 +912,13 @@ export default function ObservabilityPage() {
   const [auditUser, setAuditUser] = useState("");
   const [auditOperationType, setAuditOperationType] = useState("all");
   const [dispositionNote, setDispositionNote] = useState("");
+  const [channelReport, setChannelReport] = useState<{
+    title: string;
+    body: string;
+    note: string;
+    tone: "ok" | "warn";
+    loading: boolean;
+  } | null>(null);
 
   const draftStart = isoFromDateTimeLocal(customStart);
   const draftEnd = isoFromDateTimeLocal(customEnd);
@@ -1079,6 +1043,96 @@ export default function ObservabilityPage() {
 
   const traces = tracesQuery.data ?? snapshot?.recent_traces ?? [];
   const auditLogs = auditLogsQuery.data ?? snapshot?.audit_logs ?? [];
+
+  // IM bot views reuse the audit tab's own time window and text filters, so a
+  // digest always describes exactly the rows the operator is looking at.
+  const channelAuditFilters = useMemo(
+    () => ({
+      hours,
+      start_at: rangeStart,
+      end_at: rangeEnd,
+      user_id: auditUser,
+      result: auditResult,
+      q: auditQuery,
+      error_samples: 20,
+    }),
+    [auditQuery, auditResult, auditUser, hours, rangeEnd, rangeStart],
+  );
+  const channelAuditQuery = useChannelAudit(channelAuditFilters);
+  const sendChannelAuditMutation = useSendChannelAudit();
+  const analyzeChannelAuditMutation = useAnalyzeChannelAudit();
+
+  async function pushChannelAuditDigest() {
+    setChannelReport({
+      title: "机器人使用摘要",
+      body: "正在生成并推送...",
+      note: "",
+      tone: "ok",
+      loading: true,
+    });
+    try {
+      const result = await sendChannelAuditMutation.mutateAsync(
+        channelAuditFilters,
+      );
+      const delivery = result.delivery;
+      setChannelReport({
+        title: "机器人使用摘要",
+        body: result.digest,
+        note: delivery.sent
+          ? `已推送到 ${delivery.channel}（chat_id: ${delivery.chat_id ?? "-"}）`
+          : `未推送：${delivery.reason ?? "未知原因"}`,
+        tone: delivery.sent ? "ok" : "warn",
+        loading: false,
+      });
+    } catch (error) {
+      setChannelReport({
+        title: "机器人使用摘要",
+        body: "",
+        note: error instanceof Error ? error.message : "推送失败",
+        tone: "warn",
+        loading: false,
+      });
+    }
+  }
+
+  async function analyzeChannelAuditFailures() {
+    setChannelReport({
+      title: "机器人日志分析",
+      body: "正在让模型分析这段窗口内的失败记录...",
+      note: "",
+      tone: "ok",
+      loading: true,
+    });
+    try {
+      const result = await analyzeChannelAuditMutation.mutateAsync({
+        ...channelAuditFilters,
+        // The whole point of the analysis is to land in the operator's chat, so
+        // push it by default instead of making them copy it out by hand.
+        send_to_channel: true,
+      });
+      const delivery = result.delivery;
+      const note = delivery.sent
+        ? `分析已推送到 ${delivery.channel}（chat_id: ${delivery.chat_id ?? "-"}）`
+        : `分析完成，但未推送：${delivery.reason ?? "未请求推送"}`;
+      setChannelReport({
+        title: "机器人日志分析",
+        body: result.analysis,
+        note,
+        tone: delivery.sent ? "ok" : "warn",
+        loading: false,
+      });
+    } catch (error) {
+      setChannelReport({
+        title: "机器人日志分析",
+        body: "",
+        note: error instanceof Error ? error.message : "分析失败",
+        tone: "warn",
+        loading: false,
+      });
+    }
+  }
+
+  const channelAuditTotals = channelAuditQuery.data?.summary.totals;
 
   async function recordDisposition(
     action:
@@ -1222,8 +1276,6 @@ export default function ObservabilityPage() {
             detail={`平均耗时 ${duration(snapshot.metrics.avg_run_duration_ms)} · DB ${snapshot.health.database}`}
           />
         </section>
-
-        <ComponentHealthGrid components={snapshot.component_health ?? []} />
 
         <Tabs defaultValue="overview" className="gap-4">
           <TabsList className="bg-white">
@@ -1559,6 +1611,7 @@ export default function ObservabilityPage() {
                   <SelectItem value="all">全部操作</SelectItem>
                   <SelectItem value="management">管理操作</SelectItem>
                   <SelectItem value="api">普通调用</SelectItem>
+                  <SelectItem value="channel">机器人事件</SelectItem>
                 </SelectContent>
               </Select>
               <Input
@@ -1581,6 +1634,64 @@ export default function ObservabilityPage() {
             {auditLogsQuery.isFetching && (
               <p className="text-xs text-slate-500">正在刷新审计日志...</p>
             )}
+            <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800">
+                    机器人（IM）使用情况
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    统计当前时间范围内飞书群里的收发事件。可以一键把摘要推送到飞书，或让模型分析失败原因。
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={
+                      sendChannelAuditMutation.isPending ||
+                      channelAuditQuery.isFetching
+                    }
+                    onClick={() => {
+                      void pushChannelAuditDigest();
+                    }}
+                  >
+                    <SendIcon className="mr-2 size-4" />
+                    推送摘要到飞书
+                  </Button>
+                  <Button
+                    disabled={analyzeChannelAuditMutation.isPending}
+                    onClick={() => {
+                      void analyzeChannelAuditFailures();
+                    }}
+                  >
+                    <SparklesIcon className="mr-2 size-4" />
+                    AI 分析失败原因
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <MetricCard
+                  label="机器人事件"
+                  value={String(channelAuditTotals?.events ?? 0)}
+                  detail="当前筛选窗口内的收发事件总数"
+                  icon={MessageSquareIcon}
+                />
+                <MetricCard
+                  label="失败事件"
+                  value={String(channelAuditTotals?.failure ?? 0)}
+                  detail="含被拒绝、被跳过与执行异常"
+                  icon={AlertTriangleIcon}
+                />
+                <MetricCard
+                  label="涉及用户"
+                  value={String(
+                    channelAuditQuery.data?.summary.by_user.length ?? 0,
+                  )}
+                  detail="按 DeerFlow 账号去重"
+                  icon={UsersIcon}
+                />
+              </div>
+            </section>
             <AuditTable logs={auditLogs} onSelect={setSelectedAuditLog} />
           </TabsContent>
         </Tabs>
@@ -1846,7 +1957,9 @@ export default function ObservabilityPage() {
                     "操作类型",
                     selectedAuditLog.operation_type === "management"
                       ? "管理操作"
-                      : "普通调用",
+                      : selectedAuditLog.operation_type === "channel"
+                        ? "机器人事件"
+                        : "普通调用",
                   ],
                   ["动作", selectedAuditLog.action],
                   ["资源类型", selectedAuditLog.resource_type],
@@ -1876,6 +1989,36 @@ export default function ObservabilityPage() {
                 </pre>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(channelReport)}
+        onOpenChange={(open) => {
+          if (!open) setChannelReport(null);
+        }}
+      >
+        <DialogContent className="max-h-[88vh] overflow-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{channelReport?.title ?? "机器人日志"}</DialogTitle>
+            <DialogDescription
+              className={
+                channelReport?.tone === "warn" ? "text-amber-700" : undefined
+              }
+            >
+              {channelReport?.note || "预览内容与实际推送的一致。"}
+            </DialogDescription>
+          </DialogHeader>
+          {channelReport?.loading ? (
+            <p className="flex items-center text-sm text-slate-600">
+              <RefreshCwIcon className="mr-2 size-4 animate-spin" />
+              处理中，请稍候...
+            </p>
+          ) : (
+            <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap wrap-break-word rounded-md bg-slate-50 p-4 text-sm leading-6 text-slate-800">
+              {channelReport?.body || "（无内容）"}
+            </pre>
           )}
         </DialogContent>
       </Dialog>

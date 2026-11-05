@@ -14,7 +14,7 @@ export type NewShopCartFile = {
   tipsInfo: string | null;
   extra: string | null;
   errorInfo: string | null;
-  shopType: number;
+  shopType: number | null;
 };
 
 export type DownloadableNewShopCartFile = NewShopCartFile & {
@@ -39,7 +39,8 @@ function isNewShopCartFile(value: unknown): value is NewShopCartFile {
   const record = value as Record<string, unknown>;
   const hasDownloadFields =
     typeof record.fileId === "string" && typeof record.num === "number";
-  const hasPendingDownloadFields = record.fileId === null && record.num === null;
+  const hasPendingDownloadFields =
+    record.fileId === null && record.num === null;
   const hasValidDownloadState =
     record.isComplete === 1 ? hasDownloadFields : hasPendingDownloadFields;
 
@@ -54,7 +55,7 @@ function isNewShopCartFile(value: unknown): value is NewShopCartFile {
     typeof record.ptCode === "string" &&
     typeof record.isStore === "number" &&
     (typeof record.extra === "string" || record.extra === null) &&
-    typeof record.shopType === "number"
+    (typeof record.shopType === "number" || record.shopType === null)
   );
 }
 

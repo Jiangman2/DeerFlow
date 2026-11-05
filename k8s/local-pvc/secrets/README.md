@@ -6,6 +6,12 @@ yaml` output.
 
 ## Local Docker Desktop Kubernetes
 
+Create the namespace once before creating Secrets:
+
+```powershell
+kubectl apply -f k8s/local-pvc/namespace.yaml
+```
+
 Create the application runtime Secret from your local `.env` file:
 
 ```powershell
@@ -13,6 +19,25 @@ kubectl create secret generic deer-flow-env `
   -n deer-flow `
   --from-env-file=.env `
   --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Kubernetes sandbox execution requires two distinct, non-empty keys:
+`PROVISIONER_API_KEY` protects the Provisioner control API and
+`SANDBOX_API_KEY` protects code execution inside every generated Sandbox Pod.
+Generate both values in `.env`, create `deer-flow-env` from that file, and
+reference them from `config.yaml` as `sandbox.provisioner_api_key` and
+`sandbox.sandbox_api_key`. Do not reuse one value for both boundaries.
+
+Before restarting workloads, verify the Secret contains both keys without
+printing their values:
+
+```powershell
+$secret = kubectl get secret deer-flow-env -n deer-flow -o json | ConvertFrom-Json
+@("PROVISIONER_API_KEY", "SANDBOX_API_KEY") | ForEach-Object {
+  if (-not $secret.data.PSObject.Properties.Name.Contains($_)) {
+    throw "deer-flow-env is missing required key: $_"
+  }
+}
 ```
 
 For the `local-pvc` stack, `DATABASE_URL` is owned by the
@@ -63,6 +88,9 @@ CNOOC_OAUTH_APP_ID=replace-me
 CNOOC_OAUTH_TOKEN_CHECK_API_TOKEN=replace-me
 CNOOC_OAUTH_TOKEN_CHECK_LOGIN_USER_CODE=replace-me
 CNOOC_OAUTH_USER_INFO_API_TOKEN=replace-me
+CNOOC_DATALAKE_TOKEN_API_TOKEN=replace-me
+CNOOC_DATALAKE_TOKEN_LOGIN_USER_CODE=replace-me
+CNOOC_DATALAKE_CALLBACK_ID=deerflow
 CNOOC_OAUTH_TLS_VERIFY=true
 NEXT_PUBLIC_AUTH_LOGIN_URL=https://datalake.cnooc/path/to/deerflow-login
 ```
@@ -71,6 +99,12 @@ NEXT_PUBLIC_AUTH_LOGIN_URL=https://datalake.cnooc/path/to/deerflow-login
 when an existing DeerFlow session expires. DeerFlow appends a `next` query
 parameter so the platform can redirect back through
 `/api/v1/auth/cnooc/login?token=<platform-token>&next=<path>`.
+
+The three `CNOOC_DATALAKE_*` values enable the chat composer's **Use Data
+Lake** action. Register
+`https://<deerflow-host>/api/v1/data-lake/auth/callback` with the Data Lake
+platform. Gateway stores the returned token only in the HttpOnly browser
+cookie; it is never included in the authorization response body.
 
 After changing these values, recreate `deer-flow-env` and restart Gateway:
 
@@ -83,6 +117,65 @@ kubectl create secret generic deer-flow-env `
 kubectl rollout restart deployment/gateway -n deer-flow
 ```
 
+## CNOOC DataLake tools
+
+Smart QA uses the DataLake Retrieve API and returns ranked source chunks for
+DeerFlow to analyze. Metrics and Detail continue to use the approved AppForge
+workflows. Store runtime endpoint/identity values and the AppForge credential
+in `deer-flow-env`, not as literals in `config.yaml` or a ConfigMap:
+
+```dotenv
+DATALAKE_RETRIEVE_API_URL=http://10.77.124.142:15955/rag/internal/v1/Retrieve
+DATALAKE_RETRIEVE_PROJECT_ID=proj-i7f8eref
+DATALAKE_RETRIEVE_DOCUMENT_STORE_ID=docstore_zmmAUVXW
+APPFORGE_API_URL=http://10.77.124.142:9080
+APPFORGE_API_KEY=replace-me
+APPFORGE_METRICS_QA_APP_ID=app-n9ahac7g
+APPFORGE_DETAIL_QA_APP_ID=app-5md031ia
+APPFORGE_TRUST_ENV=false
+```
+
+Restart Gateway after installing or rotating the values. Keep Metrics and
+Detail application IDs aligned with the reviewed AppForge workflows; update a
+value only when that workflow is republished under a new ID. A comma-separated
+`DATALAKE_RETRIEVE_DOCUMENT_STORE_IDS` is also accepted when multiple document
+stores are intentionally enabled.
+
+## External agent click telemetry
+
+The Haineng and collaboration platforms can report clicks to
+`POST /api/agent_click`. Generate a dedicated random
+`EXTERNAL_AGENT_CLICK_INGEST_KEY`, store it in `deer-flow-env`, and send it only
+from the trusted server-side collector:
+
+```http
+Authorization: Bearer <EXTERNAL_AGENT_CLICK_INGEST_KEY>
+Content-Type: application/json
+
+{
+  "user_name": "user",
+  "user_email": "user@example.com",
+  "agent_name": "勘探开发图文智能检索工具",
+  "source": "海能平台"
+}
+```
+
+`X-External-Agent-Click-Key` is also accepted when a collector cannot set a
+Bearer header. Valid sources are `海能平台` and `协同平台`; the dashboard keeps
+them separate and excludes `通用智能体平台`. Do not put the ingestion key in
+frontend code or a ConfigMap.
+
+## Group OA policy-flow integration
+
+The OA bridge uses `OA_POLICY_FLOW_*` values from `deer-flow-env`. Its inbound
+key, callback token, and callback signing secret are separate credentials. Pin
+the owner and agent to the server-verified values and keep the callback URL
+operator-owned; submissions must never choose any of them. Leave
+`OA_POLICY_FLOW_ENABLED=false` until the OA callback and network path have been
+tested. See
+[`docs/oa-policy-flow-integration.md`](../../../docs/oa-policy-flow-integration.md)
+for the complete API and rollout contract.
+
 ## Production
 
 Use a real secret-management workflow instead of committed Secret YAML:
@@ -94,6 +187,13 @@ Use a real secret-management workflow instead of committed Secret YAML:
 Required production rules:
 
 - Keep application secrets in `deer-flow-env`.
+
+Main-composer voice input additionally requires `QWEN_ASR_API_KEY` in
+`deer-flow-env`. Gateway consumes this key server-side for the enterprise
+Qwen3-ASR WebSocket; never place it in a ConfigMap, a `NEXT_PUBLIC_*` variable,
+or frontend JavaScript. The browser-facing DeerFlow origin must be HTTPS (or an
+explicitly audited enterprise-browser trusted origin) before `getUserMedia` is
+available.
 - Keep PostgreSQL credentials and `DATABASE_URL` in `deer-flow-postgres`.
 - Do not store `DATABASE_URL` in both Secrets.
 - Rotate all local/default credentials before exposing the app.

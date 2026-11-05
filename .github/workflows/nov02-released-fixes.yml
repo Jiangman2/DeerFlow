@@ -1,0 +1,31 @@
+name: November 2 released fixes
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'release/nov02-released-fixes-source-20261103/**'
+      - 'release/pr26-ci-qualification-20261103/**'
+      - 'deploy/enterprise/*nov02*'
+      - 'deploy/enterprise/released_source_20261102.py'
+      - 'deploy/enterprise/released-source-delta-20261102.json'
+      - 'deploy/enterprise/verify-release-source-20261023.py'
+      - 'deploy/enterprise/verify-production-baseline-20261029.py'
+      - '.github/workflows/nov02-released-fixes.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python deploy/enterprise/test_nov02_source_delta.py
+      - run: python deploy/enterprise/test_nov01_source_delta.py
+      - run: python deploy/enterprise/verify-nov02-released-source-20261103.py --ref HEAD
+      - run: python deploy/enterprise/verify-nov01-released-source-20261102.py --ref HEAD
+      - run: python deploy/enterprise/verify-production-baseline-20261029.py --ref HEAD
