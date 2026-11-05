@@ -31,10 +31,13 @@ def _payload(command) -> dict:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("format_args,expected_format,image", [
-    ({}, "png", b"\x89PNG\r\n\x1a\ngenerated"),
-    ({"output_format": "jpg"}, "jpg", b"\xff\xd8\xffgenerated\xff\xd9"),
-])
+@pytest.mark.parametrize(
+    "format_args,expected_format,image",
+    [
+        ({}, "png", b"\x89PNG\r\n\x1a\ngenerated"),
+        ({"output_format": "jpg"}, "jpg", b"\xff\xd8\xffgenerated\xff\xd9"),
+    ],
+)
 async def test_generate_image_uses_bounded_platform_contract(tmp_path, monkeypatch, format_args, expected_format, image) -> None:
     observed: dict[str, object] = {}
 
