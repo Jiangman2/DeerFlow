@@ -1,0 +1,18 @@
+[
+  {
+    "role": "0015",
+    "python": "3.7.17",
+    "exitcode": 1,
+    "error_code": "fixed_frontend_node_required",
+    "import_requested": false,
+    "marker_claimed": false
+  },
+  {
+    "role": "datax02",
+    "python": "3.7.17",
+    "exitcode": 1,
+    "error_code": "fixed_frontend_node_required",
+    "import_requested": false,
+    "marker_claimed": false
+  }
+]

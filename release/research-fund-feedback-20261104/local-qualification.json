@@ -1,0 +1,39 @@
+{
+  "schema": "research-fund-feedback-qualification.v1",
+  "windows_skill_tests": {
+    "passed": 106
+  },
+  "linux_skill_tests": {
+    "passed": 106
+  },
+  "linux_publication_tests": {
+    "passed": 20
+  },
+  "windows_host_guards": {
+    "passed": 9
+  },
+  "embedded_feedback_checks": {
+    "passed": 30
+  },
+  "embedded_profile_cli_checks": {
+    "passed": 9
+  },
+  "annual_import_docx_inspect_cases": [
+    1,
+    2,
+    5,
+    8
+  ],
+  "python37_wrong_host_guard": "PASS_NO_COMMANDS",
+  "skill_metadata_validation": "PASS",
+  "production_updated": false,
+  "operator_execution_pending": true,
+  "user_workbook_in_release": false,
+  "before_tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+  "candidate_tree_sha256": "b65fc087957f540c0ea7b04037c3f6955fbcdca18faf356d93aa996b0224b4b8",
+  "update_tool": {
+    "bytes": 768554,
+    "sha256": "71e3479c5a57ca5fd54056251b5fee57e1cef5c98ee224dfd7b85a526b19cebe"
+  },
+  "validation_limits": "Synthetic checks; business acceptance pending. User workbook retains real reconciliation issues."
+}

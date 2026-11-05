@@ -1,0 +1,19 @@
+{
+  "synthetic_only": true,
+  "docx": "synthetic-project-type.docx",
+  "validation": {
+    "status": "PASS",
+    "file": "/qa/synthetic-project-type.docx",
+    "size": 68604,
+    "selected_section_count": 9,
+    "template_fidelity": {
+      "status": "PASS",
+      "template": "group-company-example.docx",
+      "template_sha256": "85dc59c86546a68da6d2173de7662ced2769593e5db88d621a0fd7779b846a51",
+      "preserved_parts": "all except body text, case-selected zero-budget narrative paragraphs, cloned annual rows, explicit black font colors and settings updateFields",
+      "findings": []
+    },
+    "findings": []
+  },
+  "workbook_data_validations": []
+}

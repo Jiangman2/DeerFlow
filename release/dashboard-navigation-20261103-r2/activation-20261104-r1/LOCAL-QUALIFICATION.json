@@ -1,0 +1,37 @@
+{
+  "schema": "portal-dashboard-navigation-activation-local-qualification.v1",
+  "status": "LOCALLY_QUALIFIED_NOT_EXECUTED_ON_PRODUCTION",
+  "script": {
+    "name": "activate-portal-frontend-dashboard-navigation-20261104-r1.py",
+    "bytes": 91617,
+    "sha256": "c7837771aa6259f39642777d733a14befcb7eebabf49fa03163b97ed6a23d11b"
+  },
+  "candidate_manifest": "sha256:74c2e66ecc1c2e9b483faac428fc9211ff43bc0e0ed59ee141de379c678fdfb5",
+  "deterministic_package": true,
+  "windows_tests": {
+    "passed": 18,
+    "failed": 0,
+    "skipped": 0
+  },
+  "linux_tests": {
+    "passed": 17,
+    "failed": 0,
+    "skipped": 1,
+    "skip_reason": "Node not installed in python:3.12-slim; JavaScript fixture passed on Windows"
+  },
+  "python37": {
+    "status": "WRONG_HOST_REJECTED_BEFORE_MUTATION",
+    "once_claimed": false,
+    "patch_request_count": 0
+  },
+  "actual_arm64_rootless_probe": {
+    "status": "LOCAL_PRELOADED_IMAGE_EXECUTED",
+    "sources_verified": true,
+    "files_verified": 10,
+    "provider_requests": 0
+  },
+  "operator_preloads": "../PRELOAD-FIELD.json",
+  "gateway_mutation": false,
+  "database_access": false,
+  "production_commands_executed": false
+}

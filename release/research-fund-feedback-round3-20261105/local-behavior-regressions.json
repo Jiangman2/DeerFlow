@@ -1,0 +1,91 @@
+{
+  "schema": "research-fund-round3-local-regressions.v1",
+  "status": "PASS",
+  "passed": 312,
+  "failed": 0,
+  "elapsed_seconds": 99.45,
+  "runtime": "offline Python 3.12 container",
+  "network_access": false,
+  "production_actions": 0,
+  "test_source_files": [
+    {
+      "path": "tests/skills/test_research_fund_annual_budget.py",
+      "bytes": 5826,
+      "sha256": "75683b58f01815fa6eb4c490119d10ecdfb6b1aaf27be68df4e8f0c442a752ea"
+    },
+    {
+      "path": "tests/skills/test_research_fund_black_text.py",
+      "bytes": 5708,
+      "sha256": "34be6c3853159b6af3e7a817ce19c9bcbf853901826fcc2ec53b9df3cebfaecf"
+    },
+    {
+      "path": "tests/skills/test_research_fund_feedback.py",
+      "bytes": 9640,
+      "sha256": "1b00fcfbb5ab2cde7a28e795bb10a585b5b6e8b0487b9ed74129f0eafd5873ff"
+    },
+    {
+      "path": "tests/skills/test_research_fund_formula_review.py",
+      "bytes": 6758,
+      "sha256": "a0b0e7d79e9bdb8d6060e03b9e7397873aaa00e654bf97013d23df4205aa3916"
+    },
+    {
+      "path": "tests/skills/test_research_fund_nov05_import.py",
+      "bytes": 10355,
+      "sha256": "4d0aa0a4a92fc52773fca73982af148dc946030e453a8ada2cff26882361ed1b"
+    },
+    {
+      "path": "tests/skills/test_research_fund_nov05_model.py",
+      "bytes": 16588,
+      "sha256": "e174d43c560cbe79614bf29075f5246a713edbe9685eb5ffc4faaff861a70af4"
+    },
+    {
+      "path": "tests/skills/test_research_fund_nov05_roundtrip.py",
+      "bytes": 5207,
+      "sha256": "05cd0cceaf47fbed11dc546f9f26adf503f6172cea45e18ae28f11c271b74328"
+    },
+    {
+      "path": "tests/skills/test_research_fund_round3_acceptance.py",
+      "bytes": 6195,
+      "sha256": "fbc7feed3417d6789faa7f42cdb89a7ec98c656f592496266f083b1fc19c15b4"
+    },
+    {
+      "path": "tests/skills/test_research_fund_round3_computed.py",
+      "bytes": 6950,
+      "sha256": "485f91d9f6a00389727f677a839f40d586714a3aeb2319179c174312b8214a64"
+    },
+    {
+      "path": "tests/skills/test_research_fund_round3_integration.py",
+      "bytes": 7255,
+      "sha256": "a83b44875332811989d7867b7b2a654ff59f4ede9b46e98d78638aed6dc28398"
+    },
+    {
+      "path": "tests/skills/test_research_fund_round3_reasons.py",
+      "bytes": 4692,
+      "sha256": "131e989ed5e60d97e28c54f1dbe2280e1fca5dd9f8be2b7846b41453f36624b4"
+    },
+    {
+      "path": "tests/skills/test_research_fund_round3_render.py",
+      "bytes": 1635,
+      "sha256": "3e2eb30fd93a4670f9fe23ef02fd6bb26c616b78b62be08625a25045dbfd31db"
+    },
+    {
+      "path": "tests/skills/test_research_fund_settlement.py",
+      "bytes": 6971,
+      "sha256": "d9fdf00c87bbf4621037eb8c26526d62b5f57541883a84087fcaa1637b42bb3e"
+    },
+    {
+      "path": "tests/skills/test_research_fund_template_review.py",
+      "bytes": 3665,
+      "sha256": "1bf2903ec9e22ab2d0dce6b3e9d3f65b2524b507c970f7fc9d9c929281d4e321"
+    },
+    {
+      "path": "tests/skills/test_research_fund_zero_budget.py",
+      "bytes": 6717,
+      "sha256": "fc2eed6f866e03bc508ec08112e0ea9d903e90a7d92eabdce2f23e1087341745"
+    }
+  ],
+  "tested_skill_tree_before_documentation_correction": "0d8d4b6c4855951f1821e1ecc59276353e34febd3635f5b289f553b944839db9",
+  "candidate_skill_tree": "0d935a5e5c45e8bf916b6b52ee310826d68acb22fffb0cbc70ab5d3304840a4c",
+  "post_test_change": "Removed one inaccurate documentation sentence only; runtime sources and template unchanged. Final packaged qualification is separate.",
+  "historical_files_byte_verified": 39
+}

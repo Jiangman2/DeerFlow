@@ -26,6 +26,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { resetNewChatIfAlreadyOpen } from "@/components/workspace/chats/use-thread-chat";
 import { useAgentsApiEnabled } from "@/core/agents";
 import { useI18n } from "@/core/i18n/hooks";
 
@@ -77,7 +78,21 @@ export function WorkspaceNavChatList() {
             className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary data-[active=true]:shadow-sm [&>svg]:text-current"
             asChild
           >
-            <Link href="/workspace/chats/new" onClick={closeMobileSidebar}>
+            <Link
+              href="/workspace/chats/new"
+              onClick={(event) => {
+                if (
+                  event.button === 0 &&
+                  !event.ctrlKey &&
+                  !event.metaKey &&
+                  !event.shiftKey &&
+                  !event.altKey
+                ) {
+                  resetNewChatIfAlreadyOpen();
+                  closeMobileSidebar();
+                }
+              }}
+            >
               <span aria-hidden="true" className="cnooc-sidebar-icon-tile">
                 <MessageSquarePlus />
               </span>

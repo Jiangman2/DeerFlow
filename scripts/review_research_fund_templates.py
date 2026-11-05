@@ -25,7 +25,7 @@ PACKAGE = "skills/public/research-fund-settlement"
 REVIEWED = {
     "assets/reference-examples/field-rules-demo.xlsx": "4c67f86102bfe0baf3cc27d4476aaabe7d8c6842bad5c92f4d872e94eab173f8",
     "assets/reference-examples/group-company-example.docx": "85dc59c86546a68da6d2173de7662ced2769593e5db88d621a0fd7779b846a51",
-    "assets/reference-examples/group-company-standard-input.xlsx": "6f2d1341c7bf304bc4b7bbf44c960a542a441d53947e36bbde3269a15b488b7f",
+    "assets/reference-examples/group-company-standard-input.xlsx": "89d04dd9cd7840e70abbc70a4438b1ad4c499df9deb16f954c353a92d4c8a821",
     "assets/reference-examples/miit-example.docx": "34bc5dd3f8f951e6d6647f35f23f384ce95bb00b7a3a02a640a6a93a313a1b62",
     "assets/reference-examples/national-science-example.docx": "57539ce2de776ba81aa9358230e061cb9f97fb2ca441827f6dd6dae98584c883",
 }

@@ -7,13 +7,15 @@ from unittest.mock import AsyncMock
 
 import pytest
 from test_work_capabilities import fixture, message
-from test_work_documents import calendar_message, inbound, service
+from test_work_documents import calendar_message, inbound, seed_task, service, work_decision
 
 from app.integrations.work import agent
 from app.integrations.work.auth import Principal
 from app.integrations.work.calendar import CalendarIntent, CalendarResolver
 from app.integrations.work.capabilities import Action, parse_time
 from app.integrations.work.client import WorkError
+from app.integrations.work.routing import WorkTurnDecision
+from app.integrations.work.turn_state import MemoryTurns
 
 START = "2026-10-22T10:00:00+08:00"
 END = "2026-10-22T10:30:00+08:00"
@@ -34,6 +36,7 @@ def event(eid="event-123", title="技术交流"):
 
 def setup(items=None):
     vault, api, tools = fixture()
+    tools.task_fencing = True
     p = Principal.from_message("uat-app", message())
     events = {x["event_id"]: x for x in (items if items is not None else [event()])}
 
@@ -53,6 +56,20 @@ def setup(items=None):
 
     api.side_effect = call
     return p, api, tools, CalendarResolver(tools), events
+
+
+async def prepare_with_task(tools, principal, action):
+    state = MemoryTurns()
+    owner = tools.vault.principal_key(principal)
+    turn = await state.reserve_turn(owner, "preview-request")
+    ref = await state.finish_turn(owner, turn.turn_id, task={"domain": "calendar"})
+
+    async def guard(current, current_ref):
+        await state.assert_task(tools.vault.principal_key(current), current_ref)
+
+    tools.task_guard = guard
+    assert tools.task_fencing is True
+    return await tools.prepare(principal, action, task_ref=ref)
 
 
 def intent(**updates):
@@ -129,7 +146,7 @@ async def test_title_only_edit_resolves_live_target_preserves_other_fields_and_p
     assert a.event_id == "event-123" and a.title == "项目会议"
     assert a.start == START and a.end == END and a.text == "保留原有说明"
     assert a.update_fields == ("summary",)
-    plan = await tools.prepare(p, a)
+    plan = await prepare_with_task(tools, p, a)
     assert "技术交流" in plan.preview and "项目会议" in plan.preview
     assert not any(c.args[0] == "event_update" for c in api.call_args_list)
     with pytest.raises(WorkError):
@@ -193,7 +210,7 @@ async def test_empty_query_is_a_normal_result_not_a_pending_edit():
 async def test_changed_event_after_partial_preview_cannot_be_confirmed():
     p, api, tools, resolver, events = setup()
     result = await resolver.resolve(p, intent())
-    plan = await tools.prepare(p, result.action)
+    plan = await prepare_with_task(tools, p, result.action)
     events["event-123"]["description"] = "changed after preview"
     with pytest.raises(WorkError, match="target_changed"):
         await tools.confirm(p, plan.id)
@@ -245,7 +262,7 @@ async def test_resolved_target_changed_before_preview_requires_new_resolution():
     result = await resolver.resolve(p, intent())
     events["event-123"]["description"] = "另外修改过"
     with pytest.raises(WorkError, match="target_changed"):
-        await tools.prepare(p, result.action)
+        await prepare_with_task(tools, p, result.action)
 
 
 @pytest.mark.asyncio
@@ -261,7 +278,7 @@ async def test_partial_edit_cannot_silently_disagree_with_preserved_fields():
     result = await resolver.resolve(p, intent())
     altered = result.action.model_copy(update={"text": "would be inconsistent"})
     with pytest.raises(WorkError):
-        await tools.prepare(p, altered)
+        await prepare_with_task(tools, p, altered)
     assert not any(c.args[0] == "event_update" for c in api.call_args_list)
 
 
@@ -365,9 +382,9 @@ async def test_calendar_pending_followup_and_revoke_are_principal_scoped():
     from app.integrations.work.auth import Grant
 
     instance.vault.put(p, Grant("synthetic-calendar-token", time.monotonic() + 600, frozenset({"calendar:calendar:readonly", "calendar:calendar"})))
-    instance._planner.side_effect = [
-        CalendarIntent(operation="calendar_create", changes={"title": "技术交流", "start": START}),
-        CalendarIntent(operation="calendar_create", changes={"title": "技术交流", "start": START, "duration_minutes": 30}),
+    instance._turn_planner.side_effect = [
+        WorkTurnDecision(route="clarify", domain="calendar", intent=CalendarIntent(operation="calendar_create", changes={"title": "技术交流", "start": START}), question="新日程到几点结束，或需要持续多久？"),
+        work_decision(CalendarIntent(operation="calendar_create", changes={"title": "技术交流", "start": START, "duration_minutes": 30}), route="continue_work"),
     ]
     api.side_effect = None
     api.return_value = {"data": {"calendars": [{"calendar": {"calendar_id": "primary", "type": "primary", "role": "owner"}}]}}
@@ -378,7 +395,7 @@ async def test_calendar_pending_followup_and_revoke_are_principal_scoped():
         assert "结束" in send.call_args.args[0].text
         assert await instance.handle(inbound(text="半个小时就够了", thread_ts="followup"))
         await instance.drain()
-        passed = instance._planner.call_args.kwargs["calendar_context"]
+        passed = instance._turn_planner.call_args.kwargs["task_context"]
         assert passed["pending_dialogue"][0]["user"].startswith("在我的个人日历")
         assert "待确认" in send.call_args.args[0].text
         assert p not in instance._calendar_dialogues
@@ -391,16 +408,24 @@ async def test_calendar_pending_followup_and_revoke_are_principal_scoped():
 
 @pytest.mark.asyncio
 async def test_context_for_other_principal_is_never_passed_to_planner():
-    instance, _, _, _, _ = service()
+    instance, _, api, _, _ = service(turn_planner=AsyncMock(return_value=WorkTurnDecision(route="general")))
     try:
         a = instance._identity(inbound())
         instance._remember_question(a, "private-A-request", "private-A-question")
         instance.calendar.remember(a, [event()], recent_id="event-123")
+        await seed_task(instance, context=instance._context_data(a))
         # A different connection is a distinct principal even for the same sender.
         b = instance._identity(inbound(connection_id="other-connection"))
         assert b not in instance._calendar_dialogues
         assert instance.calendar.facts(b) == {"candidates": [], "recent_id": ""}
         assert "description" not in instance.calendar.contexts[a].candidates[0]
+        assert await instance.handle(inbound(connection_id="other-connection", text="你是谁", thread_ts="other-connection-turn")) is False
+        passed = instance._turn_planner.call_args.kwargs["task_context"]
+        # A distinct principal has no active task, so not even empty historical
+        # task fields are supplied to the semantic planner.
+        assert passed == {}
+        assert "private-A-request" not in repr(passed) and "private-A-question" not in repr(passed)
+        api.assert_not_awaited()
     finally:
         await instance.close()
 
@@ -414,7 +439,8 @@ async def test_declined_operation_does_not_trap_later_chat_in_calendar_dialogue(
         p = instance._identity(inbound())
         instance.vault.put(p, Grant("synthetic-token", time.monotonic() + 600, frozenset({"calendar:calendar:readonly", "calendar:calendar"})))
         instance._remember_question(p, "prior request", "prior question")
-        instance._planner.return_value = Action(operation="clarify", text="本轮不支持删除。")
+        await seed_task(instance, context=instance._context_data(p))
+        instance._turn_planner.side_effect = [WorkTurnDecision(route="unsupported", domain="calendar", question="本轮不支持删除。"), WorkTurnDecision(route="general")]
         await instance.handle(calendar_message())
         await instance.drain()
         assert p not in instance._calendar_dialogues

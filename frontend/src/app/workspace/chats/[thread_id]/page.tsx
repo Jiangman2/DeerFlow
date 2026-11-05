@@ -82,10 +82,13 @@ export default function ChatPage() {
   // the moment the user submits so the UI animates immediately, even though
   // `isNewThread` stays true until the backend actually creates the thread.
   const [isWelcomeMode, setIsWelcomeMode] = useState(isNewThread);
-  const [settings, setSettings] = useThreadSettings(threadId);
+  const [settings, setSettings] = useThreadSettings(
+    threadId,
+    isNewThread ? "deepseek-v4.1-flash-1017" : undefined,
+  );
   const [localSettings, setLocalSettings] = useLocalSettings();
   const { enabled: browserControlEnabled } = useBrowserControlEnabled();
-  const { models, tokenUsageEnabled } = useModels();
+  const { models, tokenUsageEnabled, isLoading: modelsLoading } = useModels();
   const threadTokenUsage = useThreadTokenUsage(
     isNewThread || isMock || isStaticDemo ? undefined : threadId,
     { enabled: tokenUsageEnabled && !isMock && !isStaticDemo },
@@ -548,6 +551,11 @@ export default function ChatPage() {
                         isStaticDemo ||
                         isUploading ||
                         hasOpenHumanInputCard ||
+                        (isNewThread &&
+                          (modelsLoading ||
+                            (models.length > 0 &&
+                              settings.context.model_name !==
+                                selectedModel?.name))) ||
                         (!isNewThread && isHistoryLoading)
                       }
                       onContextChange={(context) =>

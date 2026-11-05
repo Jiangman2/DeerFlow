@@ -451,7 +451,7 @@ export const enUS: Translations = {
   // Sidebar
   sidebar: {
     newChat: "New chat",
-    chats: "Chats",
+    chats: "Chat history",
     channels: "Channels",
     recentChats: "Recent chats",
     demoChats: "Demo chats",
@@ -826,7 +826,7 @@ export const enUS: Translations = {
   // Breadcrumb
   breadcrumb: {
     workspace: "Workspace",
-    chats: "Chats",
+    chats: "Chat history",
     agents: "Digital Employees",
     knowledge: "Knowledge",
     skillCenter: "Skill Center",
@@ -943,7 +943,7 @@ export const enUS: Translations = {
   // Page titles (document title)
   pages: {
     appName: "海能通用智能体",
-    chats: "Chats",
+    chats: "Chat history",
     newChat: "New chat",
     untitled: "Untitled",
   },

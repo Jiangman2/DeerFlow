@@ -1,5 +1,12 @@
 # 海能 Work 生产接入与本地 UAT 开发
 
+2026-11-04 基于最新0716的增量升级应使用 [上线前核验](WORK_RELEASE_PREFLIGHT_20261104.md)。
+该文区分首次接入和已有70 Pod升级，包含只读出口/代理检查及维护窗口限制；本次增量无新DDL。
+
+2026-11-02 的语义分流、每轮来源和任务退出候选见 [WORK_ROUTING.md](WORK_ROUTING.md)。
+该增量复用本文件的既有状态表，**不新增表、字段或数据库迁移**；下文0022建表说明属于首次Work接入。
+同日后续的日历草稿、有限批量和纠错候选见 [WORK_CALENDAR_TASK_AGENT.md](WORK_CALENDAR_TASK_AGENT.md)，删除仍保持关闭。
+
 ## 本次边界
 
 新增生产配置、Gateway 浏览器回调、共享加密状态和迁移 `0022_work_integration_state`。
@@ -67,7 +74,7 @@ Secret/App ID/profile 改变时，旧集成实例关闭并重建；状态命名�
 | `DEER_FLOW_WORK_PRODUCTION_API_URL` | 默认 `https://open.w.cnooc.com.cn`，仅受控服务端配置 |
 | `DEER_FLOW_WORK_PRODUCTION_AUTHORIZE_URL` | 默认 `https://accounts.w.cnooc.com.cn/open-apis/authen/v1/authorize` |
 | `DEER_FLOW_WORK_STATE_KEY` | 必填：32 随机字节的 URL-safe Base64 编码；所有实例一致 |
-| `DEER_FLOW_WORK_ALLOWED_OWNER_IDS` | 可选的文档/日历能力灰度名单，不限制渠道连接或普通聊天；全量开放时设为空，仍须有效绑定和本人授权 |
+| `DEER_FLOW_WORK_ALLOWED_OWNER_IDS` | 可选的文档/日历业务能力名单，不限制渠道连接；普通消息在名单校验前仍可能调用规划模型，不构成流量灰度；全量开放时设为空，仍须有效绑定和本人授权 |
 | `DEER_FLOW_WORK_MAX_JOBS` / `...PER_USER_JOBS` / `...CONCURRENCY` | 活跃任务总量32、每人4、每进程执行并发2；部署总模型并发另行评估 |
 | `DEER_FLOW_WORK_DOCS_MODEL` | 可选显式绑定现有批准模型名；不设置沿用平台默认 DeepSeek V4 |
 
@@ -100,6 +107,11 @@ token 不进入模型、Skill、Sandbox、浏览器、普通日志或配置文�
 OAuth job/state、确认预览、去重标记、少量定位上下文共享保存；绑定每次通过现有绑定仓库核验。
 容量在 SQL 事务内串行判定，已完成任务不占活跃配额，单个用户不能占满整个队列。
 执行并发2是每进程值，不应解释为全平台最多2个模型请求。
+
+Work理解请求的排队与模型执行分开限时：`DEER_FLOW_WORK_TURN_QUEUE_TIMEOUT` 默认10秒、范围1～30；
+`DEER_FLOW_WORK_TURN_TIMEOUT` 默认90秒、范围5～180，显式旧值30继续有效。
+模型总预算覆盖分类及日历领域步骤，队列满时返回明确繁忙提示；服务额外1秒watchdog不提供重试额度。
+该参数不是Work API写入重试配置。日志中的消息哈希、阶段和耗时用于关联定位，不记录用户正文或模型原始输出。
 
 预览5分钟、授权链接10分钟；SQL CAS 一次性认领授权/写入，同一用户的写入有共享租约。
 执行前复查 token、绑定及最新目标，写入后回读；Calendar 上游没有通用原子 CAS，用户在
@@ -144,7 +156,7 @@ UAT 默认文档主机 `haiyoutest.w.cnooc.com.cn`，旧 `DEER_FLOW_WORK_DOCS_UA
 1. 确认正式云文档主机、App ID、用户身份权限和已发布状态。
 2. ITC 配置完整回调及服务器固定出口IP；两者是不同要求。
 3. 备份并演练迁移；所有实例共享数据库、runtime-config 和稳定密钥，代理各层屏蔽 query。
-4. 先关闭功能部署源码/镜像/路由，再用白名单小范围启用。
+4. 已有Work接入升级按[维护窗口说明](WORK_RELEASE_PREFLIGHT_20261104.md)停旧进程后更新；不能以`WORK_ENABLED=false`代替暂停，否则已启用渠道可能失去租约保护而多开连接。首次尚未配置渠道时也应先核对实际启动条件。
 5. A/B账号分别授权；B不能读取A的私有文档、确认A的操作或使用A的浏览器授权结果。
 6. 测试回调落不同实例、重启后确认、重复确认、解绑/撤权、Secret更新、断网和滚动更新。
 7. 实测文档读/总结、受限编辑、整日查询、日程新建/编辑；修改必须有本人独立确认和回执。

@@ -1,0 +1,60 @@
+{
+  "collection_errors": [],
+  "counts": {
+    "failed": 0,
+    "passed": 7,
+    "skipped": 0
+  },
+  "docker_image_id": "sha256:a721a1d378e99172e6ae569c93c52e00fb2a17d6a0151c1aaae362d73277f5bf",
+  "elapsed_seconds": 3.212,
+  "host_skill_tree_verified_after_run": true,
+  "inputs_manifest_sha256": "d0bf422d813af652bed7cf329b946e51b3feaaa764326c11db55f7c0bfc7a980",
+  "module_origins": {
+    "report_model": "/qa/skills/public/research-fund-settlement/scripts/report_model.py",
+    "standard_input": "/qa/skills/public/research-fund-settlement/scripts/standard_input.py",
+    "workbook_formulas": "/qa/skills/public/research-fund-settlement/scripts/workbook_formulas.py"
+  },
+  "mounted_inputs_readonly": true,
+  "network": "disabled_by_docker",
+  "private_business_inputs_mounted": false,
+  "production_access": false,
+  "pytest_exitcode": 0,
+  "python": "3.12.16",
+  "schema": "research-fund-backend-seven-linux-qualification.v1",
+  "skill_bytes": 788816,
+  "skill_file_count": 30,
+  "skill_tree_sha256": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951",
+  "status": "PASS",
+  "synthetic_only": true,
+  "test_nodes": [
+    {
+      "node": "backend/tests/test_research_fund_settlement_skill.py::test_audited_blank_workbook_structure_is_accepted",
+      "outcome": "passed"
+    },
+    {
+      "node": "backend/tests/test_research_fund_settlement_skill.py::test_filled_standard_workbook_imports_without_manual_repairs",
+      "outcome": "passed"
+    },
+    {
+      "node": "backend/tests/test_research_fund_settlement_skill.py::test_changed_merge_layout_is_rejected",
+      "outcome": "passed"
+    },
+    {
+      "node": "backend/tests/test_research_fund_settlement_skill.py::test_worksheet_relationship_cannot_escape_safe_directory",
+      "outcome": "passed"
+    },
+    {
+      "node": "backend/tests/test_research_fund_settlement_skill.py::test_zip_member_path_traversal_is_rejected",
+      "outcome": "passed"
+    },
+    {
+      "node": "backend/tests/test_research_fund_settlement_skill.py::test_uncompressed_archive_limit_is_enforced",
+      "outcome": "passed"
+    },
+    {
+      "node": "backend/tests/test_research_fund_settlement_skill.py::test_complete_case_check_build_and_inspect_round_trip",
+      "outcome": "passed"
+    }
+  ],
+  "version_stable": true
+}

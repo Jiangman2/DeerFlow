@@ -5,8 +5,21 @@ This is source provenance only, not acceptance of a new production deployment.
 
 import ast
 import hashlib
+import importlib.util
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+
+_spec = importlib.util.spec_from_file_location("dashboard_navigation_source_20261103", Path(__file__).with_name("dashboard_navigation_source_20261103.py"))
+navigation = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(navigation)
+
+_alignment_spec = importlib.util.spec_from_file_location("work_release_alignment_20261104", Path(__file__).with_name("work_release_alignment_20261104.py"))
+alignment = importlib.util.module_from_spec(_alignment_spec)
+_alignment_spec.loader.exec_module(alignment)
+
+_new_chat_spec = importlib.util.spec_from_file_location("new_chat_model_source_20261105", Path(__file__).with_name("new_chat_model_source_20261105.py"))
+new_chat = importlib.util.module_from_spec(_new_chat_spec)
+_new_chat_spec.loader.exec_module(new_chat)
 
 ARCHIVE = "release/enterprise-source-followup-20261103/"
 MANIFEST = ARCHIVE + "SOURCE.json"
@@ -23,6 +36,28 @@ UNUSED_TEST_IMPORTS = {
 
 def digest(raw):
     return hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+
+
+# This projection is for pre-November-4 inventories only. The source and its
+# regression tests are pinned to commit 5eb50e329; the parent copy is from ef4ce7a17.
+ARTIFACT_SOURCE = "backend/packages/harness/deerflow/agents/middlewares/artifact_delivery_middleware.py"
+ARTIFACT_TEST = "backend/tests/test_artifact_delivery_middleware.py"
+ARTIFACT_PARENT = "release/artifact-directory-20261104/baseline/" + ARTIFACT_SOURCE
+
+
+def artifact_directory_historical_read(read):
+    try:
+        parent = read(ARTIFACT_PARENT)
+    except (FileNotFoundError, KeyError):
+        return read
+    for path, raw, expected in (
+        (ARTIFACT_PARENT, parent, "0ad708d197b16e2f1494541059bb9e2054670c921717e5c8e0b9f9372f8df0ba"),
+        (ARTIFACT_SOURCE, read(ARTIFACT_SOURCE), "f5ed5aae9d465bbda447049b559c7b8c7364542e646b07d2c858e8e32ed6a4af"),
+        (ARTIFACT_TEST, read(ARTIFACT_TEST), "e3a87278252e3fac05bdb561ac1593076d70536162e7f683ca8955631f8cb619"),
+    ):
+        if digest(raw) != expected:
+            raise ValueError(("ARTIFACT_DIRECTORY_SOURCE_CHANGED", path))
+    return lambda path: parent if path == ARTIFACT_SOURCE else read(path)
 
 
 def formatting_fingerprint(raw, path):
@@ -73,7 +108,14 @@ def formatting_read(read, manifest):
 
 def qualify(read):
     if isinstance(read, HistoricalReader):
-        return read.qualification
+        verified = qualify(read.original_read)
+        assert verified == read.qualification, "ENTERPRISE_FOLLOWUP_READER_CHANGED"
+        return verified
+    return _qualify_projected(new_chat.historical_read(alignment.historical_read(read)))
+
+
+def _qualify_projected(read):
+    read = navigation.historical_read(read)
     try:
         raw = read(MANIFEST)
     except (FileNotFoundError, KeyError):
@@ -109,8 +151,11 @@ class HistoricalReader:
     """Only the fixed, verified changes are projected back for older audits."""
 
     def __init__(self, read, qualification):
-        self.read = read
-        self.qualification = qualification
+        verified = qualify(read)
+        assert verified and verified == qualification, "ENTERPRISE_FOLLOWUP_READER_CHANGED"
+        self.original_read = read
+        self.read = navigation.historical_read(new_chat.historical_read(alignment.historical_read(read)))
+        self.qualification = verified
 
     def __call__(self, path):
         row = self.qualification["changes"].get(path)
@@ -123,9 +168,14 @@ class HistoricalReader:
 
 def historical_read(read):
     if isinstance(read, HistoricalReader):
+        qualify(read)
         return read
-    qualification = qualify(read)
-    return HistoricalReader(read, qualification) if qualification else read
+    original = read
+    read = alignment.historical_read(read)
+    read = new_chat.historical_read(read)
+    read = navigation.historical_read(read)
+    qualification = _qualify_projected(read)
+    return HistoricalReader(original, qualification) if qualification else read
 
 
 def summary(qualification):

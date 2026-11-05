@@ -1,0 +1,19 @@
+{
+  "schema": "research-fund-release-local-review.v1",
+  "status": "REVIEWED_AND_DELIVERED_PRODUCTION_EXECUTION_PENDING",
+  "artifact": {
+    "name": "update-portal-research-fund-skill-20261105-r1.py",
+    "bytes": 859382,
+    "sha256": "cb38f4492ea016fbe8da9736ec0ceab13b8b8a854c6f040337a345b71529b9f6"
+  },
+  "candidate_tree_sha256": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951",
+  "baseline_receipt_sha256": "394edcb14371c313669701836c0d57158712102f9e5eb2b059df8e12bc5dff67",
+  "linux_finance_regressions_passed": 206,
+  "linux_real_stage_publish_checks_passed": 134,
+  "windows_linux_packaging_checks_each_passed": 18,
+  "production_update_executed": false,
+  "historical_inventories_modified": false,
+  "user_business_workbook_packaged": false,
+  "gateway_rollout_in_tool": false,
+  "database_access_in_tool": false
+}

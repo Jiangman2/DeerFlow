@@ -1,0 +1,81 @@
+{
+  "by_file": {
+    "test_finance_nov05_import.py": {
+      "failed": 0,
+      "passed": 45,
+      "skipped": 0
+    },
+    "test_finance_nov05_model.py": {
+      "failed": 0,
+      "passed": 50,
+      "skipped": 0
+    },
+    "tests/skills/test_research_fund_annual_budget.py": {
+      "failed": 0,
+      "passed": 9,
+      "skipped": 0
+    },
+    "tests/skills/test_research_fund_black_text.py": {
+      "failed": 0,
+      "passed": 17,
+      "skipped": 0
+    },
+    "tests/skills/test_research_fund_feedback.py": {
+      "failed": 0,
+      "passed": 31,
+      "skipped": 0
+    },
+    "tests/skills/test_research_fund_nov05_roundtrip.py": {
+      "failed": 0,
+      "passed": 5,
+      "skipped": 0
+    },
+    "tests/skills/test_research_fund_settlement.py": {
+      "failed": 0,
+      "passed": 8,
+      "skipped": 0
+    },
+    "tests/skills/test_research_fund_template_review.py": {
+      "failed": 0,
+      "passed": 20,
+      "skipped": 0
+    },
+    "tests/skills/test_research_fund_zero_budget.py": {
+      "failed": 0,
+      "passed": 14,
+      "skipped": 0
+    }
+  },
+  "collection_errors": [],
+  "counts": {
+    "failed": 0,
+    "passed": 199,
+    "skipped": 0
+  },
+  "elapsed_seconds": 47.945,
+  "failure_nodes": [],
+  "inputs_manifest_sha256": "cc5f65f1da057a3744e6ed82e9f2313a1ce7585185636447199dc89e0e406c38",
+  "module_origins": {
+    "docx_builder": "/qa/skills/public/research-fund-settlement/scripts/docx_builder.py",
+    "group_template": "/qa/skills/public/research-fund-settlement/scripts/group_template.py",
+    "report_model": "/qa/skills/public/research-fund-settlement/scripts/report_model.py",
+    "standard_input": "/qa/skills/public/research-fund-settlement/scripts/standard_input.py",
+    "template_builder": "/qa/skills/public/research-fund-settlement/scripts/template_builder.py",
+    "text_color": "/qa/skills/public/research-fund-settlement/scripts/text_color.py",
+    "workbook_formulas": "/qa/skills/public/research-fund-settlement/scripts/workbook_formulas.py"
+  },
+  "mounted_inputs_readonly": true,
+  "network": "disabled_by_docker",
+  "private_business_inputs_mounted": false,
+  "production_access": false,
+  "pytest_exitcode": 0,
+  "python": "3.12.16",
+  "schema": "research-fund-final-linux-qualification.v1",
+  "skill_bytes": 788816,
+  "skill_file_count": 30,
+  "skill_tree_sha256": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951",
+  "status": "PASS",
+  "synthetic_only": true,
+  "version_stable": true,
+  "docker_image_id": "sha256:a721a1d378e99172e6ae569c93c52e00fb2a17d6a0151c1aaae362d73277f5bf"
+}

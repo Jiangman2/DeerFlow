@@ -1,0 +1,75 @@
+{
+  "schema": "finance-nov05-repository-test-preparation.v1",
+  "scope": "test path adaptation only; no Skill or frozen tests changed",
+  "pytest_rerun": false,
+  "files": [
+    {
+      "source": "C:\\Users\\15285\\AppData\\Local\\Temp\\finance-feedback-20261105-r1\\test_finance_nov05_import.py",
+      "target": "tests/skills/test_research_fund_nov05_import.py",
+      "source_sha256": "c8a0deba2e2006710249f261f937128f8a974723974656f3c8ed73efd80698dc",
+      "target_sha256": "4d0aa0a4a92fc52773fca73982af148dc946030e453a8ada2cff26882361ed1b",
+      "path_only_replacements": [
+        {
+          "before": "ROOT = Path(__file__).parent",
+          "after": "ROOT = Path(__file__).resolve().parents[2]"
+        },
+        {
+          "before": "SKILL = ROOT / 'skill'",
+          "after": "SKILL = ROOT / 'skills/public/research-fund-settlement'"
+        },
+        {
+          "before": "sys.path.insert(0, str(ROOT/'tests'))",
+          "after": "sys.path.insert(0, str(ROOT/'tests/skills'))"
+        }
+      ],
+      "all_functions_and_classes_ast_identical": true,
+      "definition_count": 18,
+      "source_preserved": true
+    },
+    {
+      "source": "C:\\Users\\15285\\AppData\\Local\\Temp\\finance-feedback-20261105-r1\\test_finance_nov05_model.py",
+      "target": "tests/skills/test_research_fund_nov05_model.py",
+      "source_sha256": "c38d3d87e1a0343e4d6e04fc9e3e379ca9c09ffa6de18fc94d1343e6cf00e544",
+      "target_sha256": "057facd420414bb22a0e5de55f252c530e9035bd1180dd166f9b79d87d962d0b",
+      "path_only_replacements": [
+        {
+          "before": "SKILL = Path(__file__).parent / \"skill\"",
+          "after": "SKILL = Path(__file__).resolve().parents[2] / \"skills/public/research-fund-settlement\""
+        }
+      ],
+      "all_functions_and_classes_ast_identical": true,
+      "definition_count": 27,
+      "source_preserved": true
+    },
+    {
+      "source": "C:\\Users\\15285\\AppData\\Local\\Temp\\finance-feedback-20261105-r1\\candidate\\tests\\skills\\test_research_fund_nov05_roundtrip.py",
+      "target": "tests/skills/test_research_fund_nov05_roundtrip.py",
+      "source_sha256": "05cd0cceaf47fbed11dc546f9f26adf503f6172cea45e18ae28f11c271b74328",
+      "target_sha256": "05cd0cceaf47fbed11dc546f9f26adf503f6172cea45e18ae28f11c271b74328",
+      "path_only_replacements": [],
+      "all_functions_and_classes_ast_identical": true,
+      "definition_count": 5,
+      "source_preserved": true
+    },
+    {
+      "source": "C:\\Users\\15285\\AppData\\Local\\Temp\\finance-feedback-20261105-r1\\candidate\\tests\\skills\\test_research_fund_feedback.py",
+      "target": "tests/skills/test_research_fund_feedback.py",
+      "source_sha256": "1b00fcfbb5ab2cde7a28e795bb10a585b5b6e8b0487b9ed74129f0eafd5873ff",
+      "target_sha256": "1b00fcfbb5ab2cde7a28e795bb10a585b5b6e8b0487b9ed74129f0eafd5873ff",
+      "path_only_replacements": [],
+      "all_functions_and_classes_ast_identical": true,
+      "definition_count": 14,
+      "source_preserved": true
+    },
+    {
+      "source": "C:\\Users\\15285\\AppData\\Local\\Temp\\finance-feedback-20261105-r1\\candidate\\scripts\\review_research_fund_templates.py",
+      "target": "scripts/review_research_fund_templates.py",
+      "source_sha256": "443bcdf454b2cd28ee9c04a784da77f7c46734fc7330e93d7e9712043a195a3b",
+      "target_sha256": "443bcdf454b2cd28ee9c04a784da77f7c46734fc7330e93d7e9712043a195a3b",
+      "path_only_replacements": [],
+      "all_functions_and_classes_ast_identical": true,
+      "definition_count": 3,
+      "source_preserved": true
+    }
+  ]
+}

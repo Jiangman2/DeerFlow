@@ -147,6 +147,17 @@ export function getThreadModelSnapshot(threadId: string): string | undefined {
   return threadModelNames.get(threadId);
 }
 
+export function initializeThreadModel(threadId: string, modelName: string) {
+  // Only initialize this conversation. Never replace an explicit selection or
+  // rewrite the global preference used by existing chats and other surfaces.
+  if (getThreadModelSnapshot(threadId)) {
+    return;
+  }
+  threadModelNames.set(threadId, modelName);
+  saveThreadModelName(threadId, modelName);
+  emitChange();
+}
+
 export const updateLocalSettings: LocalSettingsSetter = (key, value) => {
   ensureBaseSettingsLoaded();
   ensureStorageListenerRegistered();

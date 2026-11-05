@@ -1,16 +1,53 @@
 # AGENTS.md
 
-## November 3 Gateway 406 / Frontend 239 observation
+## November 5 default-model source registration
 
-The latest scoped operator observation is archived in
+`release/new-chat-model-source-20261105/SOURCE.json` pins the nine paths from
+enterprise commit `459b44eae` before projecting its exact parent for historical
+audits. It preserves the colleague's default-model behavior and all earlier
+inventories. Run `test_new_chat_model_source_20261105.py` plus the November 1/2
+and October 29 source verifiers. This registration performs no deployment and
+does not establish a fresh production or business-call acceptance.
+
+## November 5 later financial Skill releases
+
+`release/research-fund-late-source-20261105/SOURCE.json` records the accepted
+Round3 and project-type successors. The latest shared Skill tree is
+`28944ec28d4644acb09cd10eb8e73dc546a4250d0c21172d325b23cb713d7d43`.
+Run `python deploy/enterprise/verify-research-fund-production-source.py --ref HEAD`
+and both financial source rejection suites. Earlier inventories and operator
+receipts remain immutable; the verifier qualifies current sources before projecting
+the prior sealed source view. These are operator-reported runtime checks, not real
+financial-report business acceptance. Do not rerun archived production tools.
+
+## November 4-5 research-fund Skill release
+
+`release/research-fund-source-20261105/SOURCE.json` registers the scoped shared
+`research-fund-settlement` successor. Run
+`python deploy/enterprise/verify-research-fund-production-source.py --ref HEAD`
+and its successor rejection tests with Python 3.12+. Preserve the October 27
+lock, November 4 failed-cleanup receipt and its separate cleanup success,
+and all November 5 qualification/deployment evidence byte-for-byte.
+The operator receipts establish shared-Skill replacement, five-node file
+verification and maintenance cleanup; real financial-report user acceptance
+remains pending. Existing case contract versions retain their prior meaning;
+new direct-only budget execution requires reimport. This archive does not
+request another production update, Gateway rollout or database operation.
+
+## Historical November 3 Gateway 406 / Frontend 239 observation
+
+The November 3 scoped operator observation is archived in
 `release/production-observation-20261103-gw406/SOURCE.json`; see
 `docs/production-observation-406-20261103.md`. All 70 Gateway and 2 frontend Pod
 image metadata records were checked, with Python source/startup-environment
 sampling on five Gateway nodes. The 635 expected Python files per sample match
 enterprise commit `443cbd8ab` exactly or through pinned format-only proofs. OA
-startup timeout is 3600 seconds in those samples; callbacks remain disabled.
-Frontend 239 still lacks the three "latest 1000" dashboard copy changes. This
-is not full-image/dependency, all-process, database, Runner or business acceptance.
+startup timeout was 3600 seconds in those samples; callbacks were disabled.
+At that observation, Frontend 239 lacked the three "latest 1000" dashboard copy
+changes; their later Frontend 240 release is recorded separately in
+`docs/dashboard-navigation-20261103.md`. This historical snapshot is not the
+current production baseline or full-image/dependency, all-process, database,
+Runner or business acceptance.
 Keep original evidence immutable and run the offline observation verifier/tests
 with Python 3.12+. Do not rerun the archived production inspector or activation
 commands merely to review this record.

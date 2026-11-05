@@ -1,0 +1,17 @@
+{
+  "schema": "work-task-agent-model-fix-source-candidate.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "0dc61aa7435ce57546e93eae81fb3d124a4ef6a7",
+  "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
+  "parent_candidate_sha256": "3ceb620f825e6787437bb3ecd44d833660be3824f1fbd7a75570128aaad4b111",
+  "scope": "Planner-only repair of canonical cross-day clarification and redundant non-authoritative model metadata; no executor, schema or production deployment change.",
+  "changes": {
+    "gateway": {
+      "backend/app/integrations/work/agent.py": {
+        "base_sha256": "03fa8ff1b3cac3891d7ba90d73f5afecad6db24929c32a1b9d7d86ebe55274b3",
+        "candidate_sha256": "aae0d42893657794f53408b1631a088df876a9c41b81299b7eb2f6bd3e499abc"
+      }
+    },
+    "frontend": {}
+  }
+}

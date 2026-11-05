@@ -1,0 +1,89 @@
+{
+  "schema": "finance-inspector-local-qualification.v2",
+  "revision": "20261105-r3",
+  "scope": "synthetic_only_no_production_connection",
+  "status": "OFFLINE_VALIDATED_PRODUCTION_PREFLIGHT_PENDING",
+  "files": [
+    {
+      "path": "deploy/enterprise/inspect-portal-research-fund-skill-20261105-r3.py",
+      "bytes": 34552,
+      "sha256": "aea2cc2da6b4ae07b24e44d64cd4a3c1d155ff6e006904b2d6e679366f58c76d"
+    },
+    {
+      "path": "release/research-fund-feedback-round3-20261105/test_finance_inspection_20261105_r3.py",
+      "bytes": 18392,
+      "sha256": "4bc6436b11d7fd97044aa8af9ffbdffdb2e04b43c2f041942ed741df602ae8ba"
+    }
+  ],
+  "deployed_skill_manifest": {
+    "path": "release/research-fund-feedback-20261105/candidate-manifest.json",
+    "bytes": 5371,
+    "sha256": "b05a44e1421b66bf55e55e5a814179dfd80cd68805dc0fdbe48471affc644dbf"
+  },
+  "expected_current_deployed_skill_tree_sha256": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951",
+  "expected_current_deployed_skill_files": 30,
+  "expected_current_deployed_skill_bytes": 788816,
+  "prior_inspector": {
+    "path": "deploy/enterprise/inspect-portal-research-fund-skill-20261105-r2.py",
+    "bytes": 34134,
+    "sha256": "be891d27037df968cabc8503af0bc61dbd8830c4667696825cc9818572953947"
+  },
+  "prior_inspector_unchanged": true,
+  "old_function_and_class_asts_unchanged_except": [
+    "inspect"
+  ],
+  "old_fixed_bindings_unchanged_except": [
+    "EXPECTED_SKILL"
+  ],
+  "child_source_identical": true,
+  "current_owned_ready_selection_unchanged": true,
+  "retained_failed_terminal_and_terminating_pods_excluded": true,
+  "frontend_observation": {
+    "recorded_separately_from_skill_update_deployments": true,
+    "reads_fresh_deployment_and_rechecks_identity_and_convergence": true,
+    "historical_generation_pinned": false,
+    "synthetic_generation241_and242_pass": true,
+    "frontend_update_permitted": false
+  },
+  "windows": {
+    "tests": 38,
+    "passed": 37,
+    "skipped": 1,
+    "failed": 0,
+    "skip_reason": "Linux symlink policy check",
+    "seconds": 0.447
+  },
+  "linux": {
+    "tests": 38,
+    "passed": 38,
+    "skipped": 0,
+    "failed": 0,
+    "seconds": 0.418,
+    "image_id": "sha256:a721a1d378e99172e6ae569c93c52e00fb2a17d6a0151c1aaae362d73277f5bf",
+    "network": "none",
+    "repository_mount": "readonly",
+    "root_filesystem": "readonly",
+    "temporary_write_scope": "tmpfs /tmp synthetic fixtures only"
+  },
+  "python37_entry": {
+    "image_id": "sha256:f3d31c8677d03f0b3c724446077f229a6ce9d3ac430f5c08cd7dff00292048c3",
+    "python": "3.7.17",
+    "host_and_child_syntax": "PASS",
+    "actual_entrypoint_executed": true,
+    "expected_exitcode": 1,
+    "error_code": "WRONG_HOST",
+    "read_commands": 0,
+    "pods_created": 0,
+    "files_modified": false,
+    "database_access": false,
+    "provider_requests": 0,
+    "network": "none",
+    "repository_mount": "readonly",
+    "root_filesystem": "readonly"
+  },
+  "production_preflight_executed": false,
+  "production_release_package_sealed": false,
+  "historical_receipts_modified": false,
+  "downloads_delivery_pending": true,
+  "operator_command": "python3 inspect-portal-research-fund-skill-20261105-r3.py --inspect-readonly"
+}

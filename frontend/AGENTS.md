@@ -1,5 +1,12 @@
 # AGENTS.md
 
+Ordinary new chats initialize their thread-scoped model to
+`deepseek-v4.1-flash-1017`, even when browser preferences remember another model.
+Initialize once per new thread, before constructing the first run context, and
+preserve subsequent explicit model selection and existing-thread preferences.
+The normal model-list fallback still applies if that deployment is unavailable.
+Custom-agent model policy is unchanged.
+
 The October 31 failed-run detail candidate uses a streamed 2 MiB response bound
 before JSON parsing, a 20-second deadline, and the query cancellation signal.
 Keep diagnostic queries free of automatic retries, focus refetches and retained

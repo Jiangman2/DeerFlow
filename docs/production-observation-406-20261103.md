@@ -1,5 +1,10 @@
 # Gateway 406 / Frontend 239: November 3 read-only observation
 
+This is a historical checkpoint, not the current production baseline. The
+subsequent Frontend 240 release included the three dashboard copy changes listed
+below; see [the dashboard navigation release](dashboard-navigation-20261103.md).
+The original operator receipt and sealed source manifest remain unchanged.
+
 The operator supplied `log(21).txt` after running the read-only comparison tool
 on datax-01. This checkpoint relates the observed production sources to enterprise
 commit `443cbd8ab6e2e74298075976fa68af079c1f7100`; it is not a new deployment or
