@@ -1,0 +1,1 @@
+{"normalization":"remove chat-added Markdown URL wrappers; parse final JSON","normalized_receipt_sha256":"76b522e0745bf5b218cc5cc77c0a67d5505d76e96af29bf71f2182d163d6dda0","raw_attachment_sha256":"b032034c5d379e1c0bbf23c958bf6bf4f779f72054621de6457d9cfb2f07935f","schema":"operator-attachment-normalization.v1"}

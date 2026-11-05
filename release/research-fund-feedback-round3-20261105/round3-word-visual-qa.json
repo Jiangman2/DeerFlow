@@ -1,0 +1,276 @@
+{
+  "schema": "finance-round3-word-visual-qa.v1",
+  "status": "SCOPED_FIELDS_PASS_WITH_PREEXISTING_TEMPLATE_PAGINATION_LIMITATIONS",
+  "synthetic_data_only": true,
+  "source_document_sha256": "3d9557c99c9f3b79a0f1a1e6b5356e978f5ef5226749e41ca33aafc239fb38d9",
+  "source_document_unchanged": true,
+  "source_template_sha256": "85dc59c86546a68da6d2173de7662ced2769593e5db88d621a0fd7779b846a51",
+  "renderer": {
+    "name": "Microsoft Word",
+    "version": "16.0",
+    "hidden_separate_instance": true,
+    "read_only_open": true,
+    "macros_disabled": true,
+    "source_external_relationships": 0,
+    "source_macro_parts": 0,
+    "source_saved": false,
+    "qa_word_processes_exited": true
+  },
+  "packaged_renderer": {
+    "available": false,
+    "reason": "Parent verified render_docx.py failed because soffice.exe is unavailable"
+  },
+  "production_libreoffice_acceptance_claimed": false,
+  "rasterizer": {
+    "name": "bundled Poppler pdftoppm",
+    "dpi": 120
+  },
+  "pdf": {
+    "file": "synthetic-round3-word.pdf",
+    "bytes": 769377,
+    "sha256": "a37229826563aa31a8a2d697f1527360fae1da402e49284bd1dbcff15e6aa7a5",
+    "pages": 15,
+    "blank_pages": [
+      12,
+      14
+    ]
+  },
+  "visually_reviewed_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "key_fields": {
+    "cover_prepared_date_page": 1,
+    "budget_execution_and_parent_reason_page": 5,
+    "direct_indirect_summary_tables_page": 7,
+    "direct_budget": 100,
+    "direct_spending": 90,
+    "direct_balance": 10,
+    "indirect_budget_retained": 35,
+    "indirect_spending_retained": 30,
+    "indirect_balance_retained": 5,
+    "parent_budget": 80,
+    "parent_spending": 72,
+    "parent_balance": 8,
+    "child_reasons_visible_once_per_parent_paragraph": true,
+    "removed_indirect_explanation_absent": true,
+    "commissioned_to_direct_percent": 20,
+    "external_to_direct_percent": 10
+  },
+  "no_new_clipping_overlap_or_missing_glyphs_observed": true,
+  "limitations": [
+    {
+      "code": "PREEXISTING_BLANK_TEMPLATE_PAGES",
+      "pages": [
+        12,
+        14
+      ]
+    },
+    {
+      "code": "PREEXISTING_COVER_INSTRUCTIONS_HEADING_SPLIT",
+      "pages": [
+        1,
+        2
+      ]
+    },
+    {
+      "code": "PREEXISTING_EMPTY_BUDGET_CHANGE_PARAGRAPH_SPACE",
+      "pages": [
+        4
+      ]
+    },
+    {
+      "code": "WORD_RENDERER_ONLY",
+      "production_renderer_acceptance": false
+    }
+  ],
+  "historical_layout_evidence": {
+    "path": "release/research-fund-feedback-20261105/synthetic-word-visual-qa.json",
+    "sha256": "d25f05009ef6c537b1c719151534dd926976891fde0083d3d653c180ea6c9a5d",
+    "same_page_count_and_blank_pages": true,
+    "historical_pixel_comparison_not_repeated": true
+  },
+  "page_images": [
+    {
+      "page": 1,
+      "file": "page-01.png",
+      "bytes": 125010,
+      "sha256": "036a65da0c0a95a77be780df5d53ae30b71a0892a88a848a4fdc11de970798c0",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 2,
+      "file": "page-02.png",
+      "bytes": 468039,
+      "sha256": "d5a986dce8c826dce270b70d94c50522c9dd732743017c72c1e5b558cb260414",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 3,
+      "file": "page-03.png",
+      "bytes": 69209,
+      "sha256": "5603b8c0caec2314d892b792d838b15dec3a054d24dc75b3660855924c736788",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 4,
+      "file": "page-04.png",
+      "bytes": 129900,
+      "sha256": "f07329e7d8c32a27c0e2292910e3e1f378703a753917cff5ba7faa396cad9ba7",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 5,
+      "file": "page-05.png",
+      "bytes": 228605,
+      "sha256": "42b18221f1bab033cb9c1f40b0ceeb40e0295b603fb28041fce3dcccc23e701b",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 6,
+      "file": "page-06.png",
+      "bytes": 256492,
+      "sha256": "0a3b027d0d69c6c0c15da90aab24b701f481601e5eb4a1f45f1b06ede59e87f5",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 7,
+      "file": "page-07.png",
+      "bytes": 226216,
+      "sha256": "c037e3ef09060eadeb89f3fc0a20b116ea85134d11adc1c7c03af78e31d68c53",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 8,
+      "file": "page-08.png",
+      "bytes": 171550,
+      "sha256": "9637bf91f663c5035a92c921c1a5adfb65acf06ae5c93d488386af3a72b3caa9",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 9,
+      "file": "page-09.png",
+      "bytes": 50780,
+      "sha256": "fd14f0961817e259bfdba87098919f7ec98e13538a22765c34045a10cda8d59b",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 10,
+      "file": "page-10.png",
+      "bytes": 171289,
+      "sha256": "f67b0258ef8cd23afbf6452565e7863dbcd105fe2ade54dc63175685038fc6e5",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 11,
+      "file": "page-11.png",
+      "bytes": 152060,
+      "sha256": "4e734ae2c0a16d83c85e6ed88c24abf2d0735c8f61cae31ac23bc1d46c44d21b",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 12,
+      "file": "page-12.png",
+      "bytes": 6102,
+      "sha256": "412acb907acbb48725a580732bacd3cfd647b8bbac1103c1d18560d7bbdfebb5",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 13,
+      "file": "page-13.png",
+      "bytes": 131320,
+      "sha256": "f16aa599441ba5e71a3e901d20d67a8682f5f34012a68617264fa1f98366b8c5",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 14,
+      "file": "page-14.png",
+      "bytes": 6102,
+      "sha256": "412acb907acbb48725a580732bacd3cfd647b8bbac1103c1d18560d7bbdfebb5",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    },
+    {
+      "page": 15,
+      "file": "page-15.png",
+      "bytes": 102322,
+      "sha256": "01098dbdfd6f3208c0a33ee3d2128318062467c819181dd948df0ad061bc5c57",
+      "size": [
+        993,
+        1404
+      ],
+      "visually_reviewed": true
+    }
+  ],
+  "skill_sources_modified_by_qa": false,
+  "production_access": false,
+  "user_workbooks_opened_by_qa": false
+}

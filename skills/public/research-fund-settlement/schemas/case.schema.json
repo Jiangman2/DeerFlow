@@ -24,6 +24,7 @@
         "sources": {"type": "array", "items": {"$ref": "#/$defs/fundingSource"}},
         "annual_appropriations": {"type": "array", "items": {"type": "object"}},
         "adjustments": {"type": "object"},
+        "outsourcing": {"$ref": "#/$defs/outsourcing"},
         "transfers": {"type": "array", "items": {"type": "object"}}
       }
     },
@@ -40,6 +41,17 @@
     "assumptions": {"type": "array", "items": {"type": "object"}}
   },
   "$defs": {
+    "outsourcing": {
+      "type": "object",
+      "required": ["total", "external_amount", "external_organizations", "evidence_refs"],
+      "properties": {
+        "total": {"type": ["number", "null"], "minimum": 0},
+        "external_amount": {"type": ["number", "null"], "minimum": 0},
+        "external_share": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "external_organizations": {"type": "array", "maxItems": 3, "items": {"type": "string", "minLength": 1}},
+        "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
     "fundingSource": {
       "type": "object",
       "required": ["name", "approved", "received", "evidence_refs"],
@@ -79,12 +91,14 @@
       "required": ["kind", "version", "source_file", "source_sha256", "sheet", "status"],
       "properties": {
         "kind": {"const": "group_company_standard_workbook"},
-        "version": {"const": "2026-09"},
+        "version": {"enum": ["2026-09", "2026-11", "2026-11-05"]},
+        "budget_execution_scope": {"const": "direct_only"},
         "source_file": {"type": "string", "minLength": 1},
         "source_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
         "sheet": {"const": "Sheet2"},
         "status": {"enum": ["PASS", "FAIL"]}
-      }
+      },
+      "allOf": [{"if": {"properties": {"version": {"const": "2026-11-05"}}, "required": ["version"]}, "then": {"required": ["budget_execution_scope"]}}]
     },
     "evidence": {
       "type": "object",

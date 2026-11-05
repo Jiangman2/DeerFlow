@@ -1,0 +1,282 @@
+{
+  "accepted_production_baseline_sha256": "76b522e0745bf5b218cc5cc77c0a67d5505d76e96af29bf71f2182d163d6dda0",
+  "after_consumers": [
+    {
+      "node": "ecs-zdz-pro-0018",
+      "pod": "gateway-8498dff495-7z8fj",
+      "status": "PASS",
+      "tree_sha256": "b65fc087957f540c0ea7b04037c3f6955fbcdca18faf356d93aa996b0224b4b8",
+      "uid": "8a0e4706-30e0-40a2-be92-daead8173d0b"
+    },
+    {
+      "node": "ecs-zdz-pro-0019",
+      "pod": "gateway-8498dff495-4bz84",
+      "status": "PASS",
+      "tree_sha256": "b65fc087957f540c0ea7b04037c3f6955fbcdca18faf356d93aa996b0224b4b8",
+      "uid": "ba791da6-b09b-461c-9701-6b7e7aa50dcc"
+    },
+    {
+      "node": "ecs-zdz-pro-0020",
+      "pod": "gateway-8498dff495-5br2b",
+      "status": "PASS",
+      "tree_sha256": "b65fc087957f540c0ea7b04037c3f6955fbcdca18faf356d93aa996b0224b4b8",
+      "uid": "71bebb83-2b9a-4c0b-aff0-86db2c0b0d3d"
+    },
+    {
+      "node": "ecs-zdz-pro-0021",
+      "pod": "gateway-8498dff495-47qzh",
+      "status": "PASS",
+      "tree_sha256": "b65fc087957f540c0ea7b04037c3f6955fbcdca18faf356d93aa996b0224b4b8",
+      "uid": "d9adc175-c735-444a-84a5-05eb5c10465d"
+    },
+    {
+      "node": "ecs-zdz-pro-0022",
+      "pod": "gateway-8498dff495-2h8ql",
+      "status": "PASS",
+      "tree_sha256": "b65fc087957f540c0ea7b04037c3f6955fbcdca18faf356d93aa996b0224b4b8",
+      "uid": "177515cd-18bb-45b0-acda-eafaca145338"
+    }
+  ],
+  "after_tree_sha256": "b65fc087957f540c0ea7b04037c3f6955fbcdca18faf356d93aa996b0224b4b8",
+  "archive_sha256": "a49f7dc775bc04b128f368babb9b10f417cf2df86af5f468b45ff89f40c6b73c",
+  "automatic_retry": false,
+  "automatic_rollback": false,
+  "backup_path": "/mnt/skills/.research-fund-release-20261104-r1-9a64554cc9bd4b07bf398a4f68ce07d4/backup",
+  "before_consumers": [
+    {
+      "node": "ecs-zdz-pro-0018",
+      "pod": "gateway-8498dff495-7z8fj",
+      "status": "PASS",
+      "tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+      "uid": "8a0e4706-30e0-40a2-be92-daead8173d0b"
+    },
+    {
+      "node": "ecs-zdz-pro-0019",
+      "pod": "gateway-8498dff495-4bz84",
+      "status": "PASS",
+      "tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+      "uid": "ba791da6-b09b-461c-9701-6b7e7aa50dcc"
+    },
+    {
+      "node": "ecs-zdz-pro-0020",
+      "pod": "gateway-8498dff495-5br2b",
+      "status": "PASS",
+      "tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+      "uid": "71bebb83-2b9a-4c0b-aff0-86db2c0b0d3d"
+    },
+    {
+      "node": "ecs-zdz-pro-0021",
+      "pod": "gateway-8498dff495-47qzh",
+      "status": "PASS",
+      "tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+      "uid": "d9adc175-c735-444a-84a5-05eb5c10465d"
+    },
+    {
+      "node": "ecs-zdz-pro-0022",
+      "pod": "gateway-8498dff495-2h8ql",
+      "status": "PASS",
+      "tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+      "uid": "177515cd-18bb-45b0-acda-eafaca145338"
+    }
+  ],
+  "before_tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+  "browser_business_acceptance_pending": true,
+  "checked_deployments_unchanged": [
+    "gateway",
+    "ppt-master-runner",
+    "provisioner"
+  ],
+  "credentials_exported": false,
+  "elapsed_seconds": 26.963,
+  "error_class": "Refused",
+  "error_code": "KUBERNETES_COMMAND_NOT_ACCEPTED",
+  "exitcode": 1,
+  "maintenance_pod": "fund-skill-maint-9a64554cc9bd",
+  "maintenance_pod_create_requested": true,
+  "maintenance_pod_delete_requested": true,
+  "maintenance_pod_uid": "414ee1eb-d995-48a2-a37a-409f16960703",
+  "maintenance_seed": {
+    "image": "deerflow.local/deer-flow-aio-sandbox:20260921-enterprise-arm64-rc15-document-runtime1",
+    "image_id": "sha256:fb36911f899cc43f1228ee4d0701130761b43b3e9792320bf4e0f16f41f0bec8",
+    "node": "ecs-zdz-pro-0013",
+    "node_uid": "ad29159e-eb63-47d3-97f9-326be1446af3",
+    "source_pod_identity_sha256": "1ba3c208eb814ce62ceb4ce037864a445f9e569ef2103e48ae04b852d83752cf"
+  },
+  "once_claimed": true,
+  "operation": "9a64554cc9bd4b07bf398a4f68ce07d4",
+  "production_database_access": false,
+  "production_workload_mutation": false,
+  "provider_requests": 0,
+  "publication": {
+    "after_tree_sha256": "b65fc087957f540c0ea7b04037c3f6955fbcdca18faf356d93aa996b0224b4b8",
+    "automatic_rollback": false,
+    "backup_path": "/mnt/skills/.research-fund-release-20261104-r1-9a64554cc9bd4b07bf398a4f68ce07d4/backup",
+    "backup_verified": true,
+    "before_tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+    "credentials_exported": false,
+    "exchange_supported": false,
+    "exitcode": 0,
+    "live_manifest_verified": true,
+    "live_path": "/mnt/skills/public/research-fund-settlement",
+    "operation": "9a64554cc9bd4b07bf398a4f68ce07d4",
+    "production_database_access": false,
+    "provider_requests": 0,
+    "raw_errors_exported": false,
+    "skill_modified": true,
+    "status": "SKILL_PACKAGE_UPDATED",
+    "switch_may_have_applied": true,
+    "switch_strategy": "TWO_RENAMES_WITH_SHORT_NAME_GAP",
+    "synthetic_checks": [
+      {
+        "action": "check",
+        "exitcode": 0,
+        "profile": "group-company",
+        "status": "PASS"
+      },
+      {
+        "action": "build",
+        "exitcode": 0,
+        "profile": "group-company",
+        "status": "PASS"
+      },
+      {
+        "action": "inspect",
+        "exitcode": 0,
+        "profile": "group-company",
+        "status": "PASS"
+      },
+      {
+        "action": "check",
+        "exitcode": 0,
+        "profile": "national-science",
+        "status": "PASS"
+      },
+      {
+        "action": "build",
+        "exitcode": 0,
+        "profile": "national-science",
+        "status": "PASS"
+      },
+      {
+        "action": "inspect",
+        "exitcode": 0,
+        "profile": "national-science",
+        "status": "PASS"
+      },
+      {
+        "action": "check",
+        "exitcode": 0,
+        "profile": "miit",
+        "status": "PASS"
+      },
+      {
+        "action": "build",
+        "exitcode": 0,
+        "profile": "miit",
+        "status": "PASS"
+      },
+      {
+        "action": "inspect",
+        "exitcode": 0,
+        "profile": "miit",
+        "status": "PASS"
+      },
+      {
+        "action": "regressions",
+        "passed": 30,
+        "profile": "group-company-feedback",
+        "status": "PASS"
+      }
+    ],
+    "synthetic_files_cleaned": true
+  },
+  "read_and_maintenance_commands": 42,
+  "report_bytes": 6718,
+  "report_path": "/var/lib/portal-research-fund-skill-update-20261104-r1/REPORT.json",
+  "report_sha256": "6f8bb30e1c2c7af9ce21d65adc16b702abba666384dc07c3ee9c8b8d9f1ce910",
+  "runtime_node_views_accepted": true,
+  "schema": "portal-research-fund-skill-update.v2",
+  "scope": "one_shared_public_skill_no_deployment_rollout",
+  "skill_switch_may_have_applied": true,
+  "skill_switch_requested": true,
+  "skill_updated": true,
+  "staging": {
+    "after_tree_sha256": "b65fc087957f540c0ea7b04037c3f6955fbcdca18faf356d93aa996b0224b4b8",
+    "backup_verified": true,
+    "before_tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+    "credentials_exported": false,
+    "exchange_supported": false,
+    "exitcode": 0,
+    "operation": "9a64554cc9bd4b07bf398a4f68ce07d4",
+    "production_database_access": false,
+    "provider_requests": 0,
+    "raw_errors_exported": false,
+    "skill_modified": false,
+    "status": "STAGED_SYNTHETIC_ACCEPTED",
+    "synthetic_checks": [
+      {
+        "action": "check",
+        "exitcode": 0,
+        "profile": "group-company",
+        "status": "PASS"
+      },
+      {
+        "action": "build",
+        "exitcode": 0,
+        "profile": "group-company",
+        "status": "PASS"
+      },
+      {
+        "action": "inspect",
+        "exitcode": 0,
+        "profile": "group-company",
+        "status": "PASS"
+      },
+      {
+        "action": "check",
+        "exitcode": 0,
+        "profile": "national-science",
+        "status": "PASS"
+      },
+      {
+        "action": "build",
+        "exitcode": 0,
+        "profile": "national-science",
+        "status": "PASS"
+      },
+      {
+        "action": "inspect",
+        "exitcode": 0,
+        "profile": "national-science",
+        "status": "PASS"
+      },
+      {
+        "action": "check",
+        "exitcode": 0,
+        "profile": "miit",
+        "status": "PASS"
+      },
+      {
+        "action": "build",
+        "exitcode": 0,
+        "profile": "miit",
+        "status": "PASS"
+      },
+      {
+        "action": "inspect",
+        "exitcode": 0,
+        "profile": "miit",
+        "status": "PASS"
+      },
+      {
+        "action": "regressions",
+        "passed": 30,
+        "profile": "group-company-feedback",
+        "status": "PASS"
+      }
+    ],
+    "synthetic_files_cleaned": true
+  },
+  "status": "INCOMPLETE",
+  "workload_patch_requests": 0
+}

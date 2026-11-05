@@ -1,0 +1,213 @@
+{
+  "schema": "research-fund-source-successor.v1",
+  "status": "SOURCE_MATCHES_OPERATOR_ACCEPTED_SKILL_FILES",
+  "skill_root": "skills/public/research-fund-settlement",
+  "base_commit": "459b44eae00e671466c90fc20462dee018b6a0c0",
+  "parent_lock": "deploy/enterprise/research-fund-production-source-lock-20261027.json",
+  "parent_lock_sha256": "934c45fd078075eb1186b3eb8dbe300897cb9e3a05e8b1c5709c5a6898cd9612",
+  "candidate_manifest": "release/research-fund-feedback-20261105/candidate-manifest.json",
+  "historical_bundle": "release/research-fund-feedback-20261104/old-bundle.json",
+  "business_acceptance_pending": true,
+  "production_commands_executed_by_verifier": false,
+  "scope": "ONE_SHARED_PUBLIC_SKILL_NO_DEPLOYMENT_ROLLOUT",
+  "evidence_files": {
+    "release/research-fund-feedback-20261104/candidate-manifest.json": {
+      "bytes": 4170,
+      "sha256": "4cee63a25031a71bf6072c006d9f9fcbbcd027f3bba52b82443cfcaac5bf43f3"
+    },
+    "release/research-fund-feedback-20261104/cleanup-portal-research-fund-skill-20261104-r1.py": {
+      "bytes": 7574,
+      "sha256": "713de7591ff989742ea2476e69cec376e4a7342fc5f2cf02c70d27d7489baf3f"
+    },
+    "release/research-fund-feedback-20261104/local-qualification.json": {
+      "bytes": 1110,
+      "sha256": "27fa42b27fdb26d886b0a1965cc608763092de664e2dff07564def06f6d4784c"
+    },
+    "release/research-fund-feedback-20261104/maintenance-remote-20261104.py": {
+      "bytes": 27992,
+      "sha256": "ba57b832d1741d6922898b7c21d1adf87d7e98c97131a2228bb77e5e924e6397"
+    },
+    "release/research-fund-feedback-20261104/old-bundle.json": {
+      "bytes": 728338,
+      "sha256": "3d8a02adf8add692f8db9a44944111f0883396330cdbc625f4174fe7aa75bc6f"
+    },
+    "release/research-fund-feedback-20261104/operator-baseline-provenance.json": {
+      "bytes": 312,
+      "sha256": "15e1e72c69ae9c004bc0e83c3665908fab0b613351e11ade01e98866a1daed52"
+    },
+    "release/research-fund-feedback-20261104/production-baseline-20261104.json": {
+      "bytes": 14205,
+      "sha256": "76b522e0745bf5b218cc5cc77c0a67d5505d76e96af29bf71f2182d163d6dda0"
+    },
+    "release/research-fund-feedback-20261104/production-cleanup-20261104.json": {
+      "bytes": 802,
+      "sha256": "4c816db94f2fc4e3b9020bd35d676205f8118d5967445090bac7b8406f9ece81"
+    },
+    "release/research-fund-feedback-20261104/production-update-20261104.json": {
+      "bytes": 9204,
+      "sha256": "065edfaac7bb75d71a574f0483fe6780158103b462166d4f05a9e88fa12d53de"
+    },
+    "release/research-fund-feedback-20261104/production-update-reconciliation.json": {
+      "bytes": 1603,
+      "sha256": "589eec5e87d884d93160054b04c2460df15ace45ebf87f3f2c0221ce092b55d4"
+    },
+    "release/research-fund-feedback-20261104/qualify-research-fund-feedback-20261104.py": {
+      "bytes": 12513,
+      "sha256": "4753b955e743dd397ce03ce7845f323842cfb8158ddae7ba87aea9550ae0f909"
+    },
+    "release/research-fund-feedback-20261104/test_finance_cleanup.py": {
+      "bytes": 8182,
+      "sha256": "1b35d11291ae56d2f8783de74470837afcfc8b8b0fd338b6df57b97c8ccde56a"
+    },
+    "release/research-fund-feedback-20261104/test_finance_release.py": {
+      "bytes": 7593,
+      "sha256": "bb9a0d26c7c43d2d86ccfd66672d30c533d4f88b37f746058f8cc32a891f8a85"
+    },
+    "release/research-fund-feedback-20261104/update-portal-research-fund-skill-20261104-r1.py": {
+      "bytes": 768554,
+      "sha256": "71e3479c5a57ca5fd54056251b5fee57e1cef5c98ee224dfd7b85a526b19cebe"
+    },
+    "release/research-fund-feedback-20261105/candidate-delta.json": {
+      "bytes": 4654,
+      "sha256": "4042b1acfa135fc4dc495d1379609991a4bb34b5ba7e07dcd3671361cba4f049"
+    },
+    "release/research-fund-feedback-20261105/candidate-manifest.json": {
+      "bytes": 5371,
+      "sha256": "b05a44e1421b66bf55e55e5a814179dfd80cd68805dc0fdbe48471affc644dbf"
+    },
+    "release/research-fund-feedback-20261105/input-template-package-normalization.json": {
+      "bytes": 3365,
+      "sha256": "3d2fc84435060941cff5fac695d4f7228d1cb51d0663b46154d07c07c6c6728c"
+    },
+    "release/research-fund-feedback-20261105/inspection-local-qualification.json": {
+      "bytes": 1074,
+      "sha256": "cc2c1391532865a09c40cfc0a495d631fcd53ab05a52fdc3f67b1a50e1ec510a"
+    },
+    "release/research-fund-feedback-20261105/linux-regression-199.json": {
+      "bytes": 2641,
+      "sha256": "3ae84de830b79f7be64834e1579b12d8264813f3b37e1db926e260b8a59539f1"
+    },
+    "release/research-fund-feedback-20261105/linux-regression-aggregate-206.json": {
+      "bytes": 2011,
+      "sha256": "075b27f2a2efb599439ae0d44386ef832cea67aa9fb0028ce62dc9c8c03c975b"
+    },
+    "release/research-fund-feedback-20261105/linux-regression-backend-7.json": {
+      "bytes": 2346,
+      "sha256": "ed3192b0e462bdf28fd714197a252077ffa59161679266169243fded0910ca14"
+    },
+    "release/research-fund-feedback-20261105/local-release-review.json": {
+      "bytes": 845,
+      "sha256": "c9f0b0117f9c55087df022c2c9141b3da02c1289e892e4418f31efcacb4fa675"
+    },
+    "release/research-fund-feedback-20261105/nov05_linux_integration.py": {
+      "bytes": 2757,
+      "sha256": "527d093299c20b10961f5af47cc83f9f1d048b133ed31fae2247570490faa055"
+    },
+    "release/research-fund-feedback-20261105/nov05_qualification_summary.json": {
+      "bytes": 4437,
+      "sha256": "1492a045066e0349f3b423febcdeceb13b807aa1e1439bc4711a4aa5a2c903db"
+    },
+    "release/research-fund-feedback-20261105/nov05_qualifier_builder.py": {
+      "bytes": 7578,
+      "sha256": "515e895cb7df29f48f28370c60ea72052d77f09f76ef8ba9080af573e0595a25"
+    },
+    "release/research-fund-feedback-20261105/nov05_qualifier_template.py": {
+      "bytes": 51703,
+      "sha256": "a7aea525f5fb574b2273701c1fc4ae54214c518657a84cb247a2a140d23c9a18"
+    },
+    "release/research-fund-feedback-20261105/nov05_release_builder.py": {
+      "bytes": 10067,
+      "sha256": "23e4566230a83f4d92c4d94779b1e363c71df1058dfa071ab7bba9171fb0bc3b"
+    },
+    "release/research-fund-feedback-20261105/nov05_release_template_test.py": {
+      "bytes": 11713,
+      "sha256": "982d754d6c74cd01bc165ff1ec08b35db85dcda890cbfa8d1217040d81f6083c"
+    },
+    "release/research-fund-feedback-20261105/nov05_remote_candidate.py": {
+      "bytes": 71847,
+      "sha256": "2a7e14ff982fe37853e7bcc1ba35a9926097c9a6ee2a5fa78ed37dd8599952e4"
+    },
+    "release/research-fund-feedback-20261105/nov05_remote_template.py": {
+      "bytes": 15080,
+      "sha256": "169b9de97ec4882698ec605aeaea58851bfc19cc1f21d15d71199a08caae529e"
+    },
+    "release/research-fund-feedback-20261105/nov05_updater_template.py": {
+      "bytes": 23698,
+      "sha256": "d99624585107556494ac3333e07b44523880ef9c876ae6aced9f7a6ec57ef20c"
+    },
+    "release/research-fund-feedback-20261105/operator-baseline-provenance.json": {
+      "bytes": 413,
+      "sha256": "2fff845f772795dc12316dfaed091cf94489dc4de1d12042928676d2614c124c"
+    },
+    "release/research-fund-feedback-20261105/production-baseline-20261105-r2.json": {
+      "bytes": 48056,
+      "sha256": "394edcb14371c313669701836c0d57158712102f9e5eb2b059df8e12bc5dff67"
+    },
+    "release/research-fund-feedback-20261105/production-update-20261105.json": {
+      "bytes": 7256,
+      "sha256": "07d208117dcccf0a47e25024d192508763467652fb48a8f60a57f4f185e725ca"
+    },
+    "release/research-fund-feedback-20261105/production-update-operator-output-20261105.json": {
+      "bytes": 7538,
+      "sha256": "3b1b44d0ac8ea17c9c5c3f8a0f833f551f9dccfcbf71c2eb325682dc4c2f18aa"
+    },
+    "release/research-fund-feedback-20261105/production-update-reconciliation-20261105.json": {
+      "bytes": 792,
+      "sha256": "15fa8e4f092e878bc1e9af1267254d1bc47c6a02180b96f6527774d2a361b50e"
+    },
+    "release/research-fund-feedback-20261105/synthetic-word-visual-qa.json": {
+      "bytes": 11945,
+      "sha256": "d25f05009ef6c537b1c719151534dd926976891fde0083d3d653c180ea6c9a5d"
+    },
+    "release/research-fund-feedback-20261105/test-source-adaptation.json": {
+      "bytes": 3628,
+      "sha256": "63f0e57fb6231efdb1c30a955448a8a7efd5da062aec0a37cfe3c0a90ac4590e"
+    },
+    "release/research-fund-feedback-20261105/update-portal-research-fund-skill-20261105-r1.py": {
+      "bytes": 859382,
+      "sha256": "cb38f4492ea016fbe8da9736ec0ceab13b8b8a854c6f040337a345b71529b9f6"
+    }
+  },
+  "support_files": {
+    "deploy/enterprise/cleanup-portal-research-fund-skill-20261104-r1.py": {
+      "bytes": 7574,
+      "sha256": "713de7591ff989742ea2476e69cec376e4a7342fc5f2cf02c70d27d7489baf3f"
+    },
+    "deploy/enterprise/inspect-portal-research-fund-skill-20261104-r1.py": {
+      "bytes": 17404,
+      "sha256": "8b1801bbbaffbefb754ff9ddbab2810e7b2eea2b1aa2dbb2d618d61cf0ec7f65"
+    },
+    "deploy/enterprise/inspect-portal-research-fund-skill-20261105-r2.py": {
+      "bytes": 34134,
+      "sha256": "be891d27037df968cabc8503af0bc61dbd8830c4667696825cc9818572953947"
+    },
+    "deploy/enterprise/update-portal-research-fund-skill-20261104-r1.py": {
+      "bytes": 768554,
+      "sha256": "71e3479c5a57ca5fd54056251b5fee57e1cef5c98ee224dfd7b85a526b19cebe"
+    },
+    "deploy/enterprise/update-portal-research-fund-skill-20261105-r1.py": {
+      "bytes": 859382,
+      "sha256": "cb38f4492ea016fbe8da9736ec0ceab13b8b8a854c6f040337a345b71529b9f6"
+    },
+    "scripts/review_research_fund_templates.py": {
+      "bytes": 7752,
+      "sha256": "443bcdf454b2cd28ee9c04a784da77f7c46734fc7330e93d7e9712043a195a3b"
+    },
+    "tests/skills/test_research_fund_feedback.py": {
+      "bytes": 9640,
+      "sha256": "1b00fcfbb5ab2cde7a28e795bb10a585b5b6e8b0487b9ed74129f0eafd5873ff"
+    },
+    "tests/skills/test_research_fund_nov05_import.py": {
+      "bytes": 10355,
+      "sha256": "4d0aa0a4a92fc52773fca73982af148dc946030e453a8ada2cff26882361ed1b"
+    },
+    "tests/skills/test_research_fund_nov05_model.py": {
+      "bytes": 16631,
+      "sha256": "057facd420414bb22a0e5de55f252c530e9035bd1180dd166f9b79d87d962d0b"
+    },
+    "tests/skills/test_research_fund_nov05_roundtrip.py": {
+      "bytes": 5207,
+      "sha256": "05cd0cceaf47fbed11dc546f9f26adf503f6172cea45e18ae28f11c271b74328"
+    }
+  }
+}

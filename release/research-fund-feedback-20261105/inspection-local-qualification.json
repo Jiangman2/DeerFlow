@@ -1,0 +1,33 @@
+{
+  "files": [
+    {
+      "bytes": 34134,
+      "name": "inspect-portal-research-fund-skill-20261105-r2.py",
+      "sha256": "be891d27037df968cabc8503af0bc61dbd8830c4667696825cc9818572953947"
+    },
+    {
+      "bytes": 14791,
+      "name": "test_finance_inspection_20261105_r2.py",
+      "sha256": "9807fa19fdf6ea1195e8ed4161e607b7a585cc9c003903e203cde7004bd5cc03"
+    }
+  ],
+  "historical_failure_cause_proven": false,
+  "linux": {
+    "passed": 29,
+    "skipped": 0,
+    "tests": 29
+  },
+  "production_run_pending": true,
+  "python37_entry": "WRONG_HOST_REFUSED_BEFORE_COMMANDS",
+  "python37_host_child_syntax": true,
+  "r1_implementation_failure_reproduced": true,
+  "revision": "20261105-r2",
+  "schema": "finance-inspector-local-qualification.v1",
+  "scope": "synthetic_only_no_production_connection",
+  "selection_change": "exclude retained terminal/terminating/old-template pods; require current owned ready desired count, image identity and unchanged spec",
+  "windows": {
+    "passed": 28,
+    "skipped": 1,
+    "tests": 29
+  }
+}

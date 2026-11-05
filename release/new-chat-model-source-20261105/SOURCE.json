@@ -1,0 +1,64 @@
+{
+  "base_commit": "d63a01c9b293bad64d99055918ac3d16ffb973eb",
+  "changes": {
+    "frontend/AGENTS.md": {
+      "base_sha256": "2efdfbd5664e50a584e2fcbf61db9911a62c646a1ab7f938c7a0cd36f2f8fed3",
+      "baseline_path": "release/new-chat-model-source-20261105/baseline/frontend/AGENTS.md",
+      "current_sha256": "223dd31021fc2644d78621d9d1fbd5ce468839e3b9cd314e7a26485c4cd59e22",
+      "kind": "module-guide"
+    },
+    "frontend/src/app/workspace/chats/[thread_id]/page.tsx": {
+      "base_sha256": "cff575eb75a39fee4d413a89075cca7943c81df15159f1ea3dbc2b6e1609f004",
+      "baseline_path": "release/new-chat-model-source-20261105/baseline/frontend/src/app/workspace/chats/[thread_id]/page.tsx",
+      "current_sha256": "0f5e7916b35799fdc900ec9cae4ff09d5a77764b222bc7739145826fc99e22f7",
+      "kind": "runtime-source"
+    },
+    "frontend/src/components/workspace/chats/use-thread-chat.ts": {
+      "base_sha256": "d35e3dbf55ebc486787d1917874f6be1c7b62f9f37402fe66f3c852121c1535f",
+      "baseline_path": "release/new-chat-model-source-20261105/baseline/frontend/src/components/workspace/chats/use-thread-chat.ts",
+      "current_sha256": "2806a36d8f556c170183a52882c663a95b7211fbb35774cfbd442d9e001d7acb",
+      "kind": "runtime-source"
+    },
+    "frontend/src/components/workspace/command-palette.tsx": {
+      "base_sha256": "1e8716d5e1d350f9ed6cd38bacad4025c5f3fc7d7aaed4aec5b969659eabafa6",
+      "baseline_path": "release/new-chat-model-source-20261105/baseline/frontend/src/components/workspace/command-palette.tsx",
+      "current_sha256": "8d2044416732c68b3ab10391e6b2fdaee85587f09ab71825313a4856011770ba",
+      "kind": "runtime-source"
+    },
+    "frontend/src/components/workspace/workspace-nav-chat-list.tsx": {
+      "base_sha256": "8432345e45ad39519f9e1ab182c4a624d8947722a511781f35646b1fd792f662",
+      "baseline_path": "release/new-chat-model-source-20261105/baseline/frontend/src/components/workspace/workspace-nav-chat-list.tsx",
+      "current_sha256": "f8888124d16b7cec0f67fb779ce370484608bbe4815c717e6c5ac8d2793f7244",
+      "kind": "runtime-source"
+    },
+    "frontend/src/core/settings/hooks.ts": {
+      "base_sha256": "eb45b23ca421e03a6f87a3bf72f99859f14834794f7b0c7ddd75c210a85e36d3",
+      "baseline_path": "release/new-chat-model-source-20261105/baseline/frontend/src/core/settings/hooks.ts",
+      "current_sha256": "3a76f9b3b984e1c40704cc91c979dbfc12817c7834a3ab68033ab024359f9449",
+      "kind": "runtime-source"
+    },
+    "frontend/src/core/settings/store.ts": {
+      "base_sha256": "5b6f32246171b966a2a3deb2fe55ef3709d73736b8fb92037a1467176461a752",
+      "baseline_path": "release/new-chat-model-source-20261105/baseline/frontend/src/core/settings/store.ts",
+      "current_sha256": "f71a7c44d3364c05ffc65bb5f67ba541443e9a3bdf8b0b55643c03cb6117946b",
+      "kind": "runtime-source"
+    },
+    "frontend/tests/e2e/new-chat-default-model.spec.ts": {
+      "base_sha256": null,
+      "baseline_path": null,
+      "current_sha256": "0403ccf10552594b93fb8d26926e46ba86168c03b8f944a423d6c934fdc114b8",
+      "kind": "regression-test"
+    },
+    "frontend/tests/unit/core/settings/new-chat-model.dom.test.tsx": {
+      "base_sha256": null,
+      "baseline_path": null,
+      "current_sha256": "346a1cf68a8d8c75926361a28494ad07f3ce30846c2ed21834abdd32c904d39f",
+      "kind": "regression-test"
+    }
+  },
+  "production_acceptance_claimed": false,
+  "runtime_modified_by_registration": false,
+  "schema": "new-chat-model-source.v1",
+  "source_commit": "459b44eae00e671466c90fc20462dee018b6a0c0",
+  "status": "COMMITTED_SOURCE_NOT_DEPLOYMENT_ACCEPTANCE"
+}

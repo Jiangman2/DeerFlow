@@ -1,0 +1,17 @@
+{
+  "after_tree": "28944ec28d4644acb09cd10eb8e73dc546a4250d0c21172d325b23cb713d7d43",
+  "before_tree": "0d935a5e5c45e8bf916b6b52ee310826d68acb22fffb0cbc70ab5d3304840a4c",
+  "changed_skill_files": [
+    "SKILL.md",
+    "references/data-contract.md",
+    "references/group-company-standard-input.md",
+    "references/group-company-template-annotations.md",
+    "scripts/group_template.py",
+    "scripts/standard_input.py"
+  ],
+  "fresh_live_checks_required": true,
+  "parent_operator_capture_sha256": "fdaee894f69469209b85764c76764f0819d2a65f7fa916c16c657d7a1b78e89c",
+  "parent_updater_sha256": "7754c68871de109ab28a3a75f3439961b4b256704a290ee83edfa154bccfaf33",
+  "production_updated": false,
+  "scope": "project_type_text_only"
+}

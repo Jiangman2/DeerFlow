@@ -1,0 +1,37 @@
+[
+  {
+    "path": "skills/public/research-fund-settlement/references/data-contract.md",
+    "before_sha256": "a9e604e7bf82716a2e1257e9dc3b58ed7de6de88e176f6ea9bfe5e0e0a29c795",
+    "after_sha256": "dc7c65a79769517125fcb183c63caecd6662d141ea9f883e687bceb60202ec31"
+  },
+  {
+    "path": "skills/public/research-fund-settlement/references/group-company-standard-input.md",
+    "before_sha256": "de82694e77dc74678a9b45572b3c3ea5fda824a934bbc9927aab5b45dae56b7d",
+    "after_sha256": "b23fb015d8a05cb233a6dd38fc813af24c2ffcd09b02dbc58e1e48fd1e86e7de"
+  },
+  {
+    "path": "skills/public/research-fund-settlement/references/group-company-template-annotations.md",
+    "before_sha256": "7bfbf0fde99cba5244b5a53ae69270a636febcc243124086bfb09b5c05324127",
+    "after_sha256": "f823183012259b3c3f8561da9a9571057c4e247760c9012d1329a10d21056f84"
+  },
+  {
+    "path": "skills/public/research-fund-settlement/scripts/group_template.py",
+    "before_sha256": "b421ed079452ab86307292b4e144701f16fa5017ef87be6c5115884533fcda7a",
+    "after_sha256": "b7cc8f583165f5039c2870ce60b38cc6fced3aea3a6e6be6172f7fd1f39b1da3"
+  },
+  {
+    "path": "skills/public/research-fund-settlement/scripts/standard_input.py",
+    "before_sha256": "1187c0b9e0742e50e3a7dd4b210e6727f25e3e7b3b0d06b9abc6ec9afe3012d3",
+    "after_sha256": "a4ab51d0f2075f04804fa2653fa56228a4754f3454f14ffb752e2fd13eb5465a"
+  },
+  {
+    "path": "skills/public/research-fund-settlement/SKILL.md",
+    "before_sha256": "67dfa35ea4514ffa3a2b24f8a2c209e0e4421323ab0ab2c34ef73ba80804d85a",
+    "after_sha256": "c4f29d94a8b0c9768a08272bd959657b3ece00ae8f14137c948585048890f823"
+  },
+  {
+    "path": "tests/skills/test_research_fund_project_type_text.py",
+    "before_sha256": null,
+    "after_sha256": "c9cc11225816063be91c2fe4bfd6284029297f796204ab76a6d5d3fad26cb8e7"
+  }
+]

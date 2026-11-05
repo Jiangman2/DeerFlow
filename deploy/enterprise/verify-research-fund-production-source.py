@@ -2,6 +2,8 @@
 
 import argparse
 import hashlib
+import importlib.util
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -9,29 +11,34 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = "deploy/enterprise/research-fund-production-source-lock-20261027.json"
+_spec = importlib.util.spec_from_file_location(
+    "research_fund_source_20261105", Path(__file__).with_name("research_fund_source_20261105.py")
+)
+successor = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(successor)
+_late_spec = importlib.util.spec_from_file_location(
+    "research_fund_late_source_20261105", Path(__file__).with_name("research_fund_late_source_20261105.py")
+)
+later = importlib.util.module_from_spec(_late_spec)
+_late_spec.loader.exec_module(later)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--ref", default="HEAD")
-    args = parser.parse_args()
-    revision = subprocess.check_output(
-        ["git", "rev-parse", "--verify", args.ref + "^{commit}"], cwd=ROOT
-    ).decode().strip()
-
-    def read(path):
-        return subprocess.check_output(["git", "show", revision + ":" + path], cwd=ROOT)
-
+def verify(read, actual):
+    """Validate current successor files, then the unchanged October 27 evidence."""
+    latest, projection = later.qualify(read, actual)
+    if projection is not None:
+        current_read = read
+        read = lambda path: projection[path] if path in projection else current_read(path)
     lock = json.loads(read(LOCK))
     manifest = json.loads(read(lock["candidate_manifest"]))
     root = lock["skill_root"]
-    actual = subprocess.check_output(
-        ["git", "ls-tree", "-r", "--name-only", revision, "--", root], cwd=ROOT
-    ).decode().splitlines()
+    qualification, original = successor.qualify(read, actual)
+    skill_read = original.__getitem__ if original is not None else read
+    historical_paths = original if original is not None else actual
     expected = [root + "/" + row["path"] for row in manifest["files"]]
-    assert sorted(actual) == sorted(expected), "SKILL_FILE_SET_CHANGED"
+    assert sorted(historical_paths) == sorted(expected), "SKILL_FILE_SET_CHANGED"
     for row in manifest["files"]:
-        data = read(root + "/" + row["path"])
+        data = skill_read(root + "/" + row["path"])
         assert len(data) == row["bytes"], row["path"]
         assert hashlib.sha256(data).hexdigest() == row["sha256"], row["path"]
     tree = hashlib.sha256(json.dumps(
@@ -55,9 +62,53 @@ def main():
     cleanup = json.loads(read(lock["cleanup_receipt"]))
     assert cleanup["delete_command_acknowledged"]
     assert cleanup["original_update_report_sha256"] == lock["production_report_sha256"]
-    print(json.dumps({"status": "COMMITTED_SKILL_MATCHES_ACCEPTED_PRODUCTION_FILES",
-                      "revision": revision, "skill_files": len(expected),
-                      "tree_sha256": tree, "business_acceptance_pending": True}, sort_keys=True))
+    result = {"status": "COMMITTED_SKILL_MATCHES_ACCEPTED_PRODUCTION_FILES",
+              "skill_files": len(expected), "tree_sha256": tree,
+              "business_acceptance_pending": True}
+    if qualification:
+        result.update(qualification, historical_skill_files=len(expected),
+                      historical_tree_sha256=tree)
+    if latest:
+        result.update(latest)
+    return result
+
+
+def snapshot(ref):
+    if ref is None:
+        paths = [p.relative_to(ROOT).as_posix() for p in (ROOT / successor.SKILL).rglob("*") if p.is_file()]
+        return lambda path: (ROOT / path).read_bytes(), paths, "WORKTREE"
+    revision = subprocess.check_output(
+        ["git", "rev-parse", "--verify", ref + "^{commit}"], cwd=ROOT
+    ).decode().strip()
+    roots = [LOCK, successor.SKILL, successor.ARCHIVE, successor.NOV04, successor.NOV05,
+             "release/production-source-20261027/research-fund-settlement", *successor.SUPPORT_PATHS,
+             later.ARCHIVE, later.ROUND3, later.PROJECT_TYPE, later.INSPECTOR, *later.SUPPORT_PATHS]
+    names = subprocess.check_output(
+        ["git", "ls-tree", "-r", "--name-only", revision, "--", *roots], cwd=ROOT
+    ).decode().splitlines()
+    data = subprocess.check_output(
+        ["git", "cat-file", "--batch"], cwd=ROOT,
+        input="".join(revision + ":" + path + "\n" for path in names).encode(),
+    )
+    stream, files = io.BytesIO(data), {}
+    for path in names:
+        header = stream.readline().split()
+        successor.require(len(header) == 3 and header[1] == b"blob", "FINANCE_GIT_BLOB_MISSING")
+        files[path] = stream.read(int(header[2]))
+        successor.require(stream.read(1) == b"\n", "FINANCE_GIT_BATCH_INVALID")
+    return files.__getitem__, [p for p in names if p.startswith(successor.SKILL + "/")], revision
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--ref", default="HEAD")
+    mode.add_argument("--worktree", action="store_true", help="Verify local files before committing")
+    args = parser.parse_args()
+    read, paths, revision = snapshot(None if args.worktree else args.ref)
+    result = verify(read, paths)
+    result["revision"] = revision
+    print(json.dumps(result, sort_keys=True))
 
 
 if __name__ == "__main__":

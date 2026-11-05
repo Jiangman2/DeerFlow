@@ -1,0 +1,15 @@
+{
+  "schema": "finance-readonly-inspector-delivery.v1",
+  "revision": "20261105-r3",
+  "delivered_at": "2026-11-05T07:31:42.435073+00:00",
+  "source": "deploy/enterprise/inspect-portal-research-fund-skill-20261105-r3.py",
+  "destination": "C:\\Users\\15285\\Downloads\\inspect-portal-research-fund-skill-20261105-r3.py",
+  "bytes": 34552,
+  "sha256": "aea2cc2da6b4ae07b24e44d64cd4a3c1d155ff6e006904b2d6e679366f58c76d",
+  "copy_verified_byte_identical": true,
+  "delivery_after_offline_validation": true,
+  "qualification_record": "release/research-fund-feedback-round3-20261105/inspection-local-qualification-r3.json",
+  "production_preflight_executed": false,
+  "production_update_package_created": false,
+  "operator_command": "python3 inspect-portal-research-fund-skill-20261105-r3.py --inspect-readonly"
+}

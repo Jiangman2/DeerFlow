@@ -1,0 +1,15 @@
+{
+  "status": "COVER_TEXT_AND_LAYOUT_REVIEWED",
+  "synthetic_data_only": true,
+  "reviewed_pages": [
+    1
+  ],
+  "cover_text": "公司级自筹科研课题",
+  "exact_text_without_suffix": true,
+  "clipping_or_overlap_observed": false,
+  "renderer": "Microsoft Word 16.0",
+  "source_docx_sha256": "dee855d12c653769428ba94f6e931bf5aab2f376b03da5901bc74e0ee19cea47",
+  "cover_png_sha256": "ebf4e4413670d206f43c6f4c1d34039d8b160d8b2af5aab9f257d9e1137fb7e2",
+  "whole_document_relayout_claimed": false,
+  "production_renderer_acceptance_claimed": false
+}

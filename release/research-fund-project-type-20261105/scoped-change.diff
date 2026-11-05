@@ -1,0 +1,119 @@
+--- skills/public/research-fund-settlement/references/data-contract.md
++++ skills/public/research-fund-settlement/references/data-contract.md
+@@ -101,6 +101,7 @@
+ - `null` 表示未知；`0` 表示材料明确为零，或集团公司标准表依据用户已确认口径将空白金额归零。不得将“未知”等文本、未提供的审计结果或其他类型材料中的缺失事实归零。
+ - 集团公司导入合同 `2026-11-05` 增加编制日期和附录4，仍兼容已通过校验的 `2026-09`、`2026-11` 合同。合计、结余空白由脚本推导；原表有数值或公式时继续核对，不覆盖差异。
+ - `project.period_text` 保存集团公司表内项目周期原文并用于封面；可识别的完整日期另存 `start_date`／`end_date`，仅有年份、月份或其他说明时不补造具体日期。
++- `project.type_text` 保存附录1“项目类型”的非空原文并直接用于封面，不限定名称、不添加后缀。它与内部 `entity_mode` 模板选择分开；现有分类和金额处理保留，自定义名称沿用标准表的有限公司模板。历史 case 缺少原文字段时保留旧封面行为，重新导入原表后才采用原文，不改写历史报告。
+ - 任务书预算、正式下达预算、财务账实际支出、审计认定支出是不同概念，分别保存。
+ - 集团公司附录2的批准概算额与年度批准额之和可以不同，不作为金额冲突或勾稽错误；批准概算、各年度金额和年度实际下达汇总分别显示，其他汇总等式仍须成立。
+ - 冲突对象至少包含 `field`、`values`、`sources` 和 `resolution`。`resolution` 为空时正式稿失败。
+--- skills/public/research-fund-settlement/references/group-company-standard-input.md
++++ skills/public/research-fund-settlement/references/group-company-standard-input.md
+@@ -24,7 +24,7 @@
+ 
+ - `B2:B9`：项目编号、项目名称、项目类型、承担单位、起止时间、报告编制人、项目负责人、财务部门负责人。
+ - `B10`：“编制日期”，用于报告封面底部。可填完整日期文本（如 `2026-11-05`、`2026年11月5日`）或带日期格式的 Excel 日期值；不猜测无日期格式的纯数字。空白时导入保留缺失，正式报告仍须补充。旧版没有这一行仍可导入。
+-- 项目类型必须明确为“集团公司项目”或“有限公司项目”。
++- 项目类型可自由填写非空文字，保存为 `project.type_text` 并原样显示在封面；不补后缀、不规范化成预设分类。现有“集团公司”“有限公司”等写法仍可使用。自定义名称沿用标准表的有限公司模板口径，不产生税额换算；金额计算和既有税口径校验不变。
+ - 项目周期允许原样文本，例如 `2022年7月至2025年12月`、`2022—2025`、`以批复及延期通知为准`，直接显示于报告封面；不强制补出具体日。
+ - 如文本包含两个可识别的完整日期，仍检查先后顺序及年度范围。报告编制日期仍须有效；集团公司报告不要求或校验正式验收日期。
+ 
+--- skills/public/research-fund-settlement/references/group-company-template-annotations.md
++++ skills/public/research-fund-settlement/references/group-company-template-annotations.md
+@@ -3,7 +3,7 @@
+ 本页固化正式模板配置注释版中的填充要求。配置注释版只用于解释槽位，不作为报告模板或用户交付物。
+ 
+ - 封面顶部公司名称按承担单位及项目类型选择；承担单位名称来自标准输入表。
+-- 项目类型决定正文统一使用“集团公司”或“有限公司”。有限公司项目按不含税口径，集团公司项目按含税口径。
++- 封面“项目类型”直接使用附录1原文，不限于预设分类，不追加“科技项目”等文字。正文及税口径沿用既有模板选择：已有分类保持原行为，自定义名称使用标准表的有限公司模板，不按名称新建税务规则或换算金额。
+ - 报告编制日期优先取附录1“编制日期”，填入封面底部；旧表或空白值再补充。报告编制日期本身须有效；集团公司报告不要求正式验收日期，不再校验其格式或与编制日期的先后关系。
+ - 文中所有“任务合同书批复概预算”均以任务合同书金额为准，不得用年度下达额或实际支出替代。
+ - “概预算批准情况”保留模板表述，数据来自标准表附录2。
+--- skills/public/research-fund-settlement/scripts/group_template.py
++++ skills/public/research-fund-settlement/scripts/group_template.py
+@@ -240,7 +240,12 @@
+     _set_paragraph(paragraphs, 4, owning_company)
+     _set_paragraph(paragraphs, 5, f"科技项目(课题)验收财务{pre_marker}决算报告")
+     _set_paragraph(paragraphs, 17, f"项目(课题)名称：{project.get('name', '')}")
+-    _set_paragraph(paragraphs, 18, f"项 目 类 型：{entity_label}科技项目")
++    # Older case files do not contain the original cell text; keep their prior
++    # cover behavior until the source workbook is explicitly reimported.
++    type_text = project.get("type_text")
++    if type_text is None:
++        type_text = f"{entity_label}科技项目"
++    _set_paragraph(paragraphs, 18, f"项 目 类 型：{type_text}")
+     _set_paragraph(paragraphs, 19, f"承 担 单 位：{lead_name}")
+     _set_paragraph(
+         paragraphs,
+--- skills/public/research-fund-settlement/scripts/standard_input.py
++++ skills/public/research-fund-settlement/scripts/standard_input.py
+@@ -650,21 +650,17 @@
+ 
+ 
+ def _entity_mode(value: str | None, issues: list[dict[str, Any]]) -> str | None:
++    # This selects the existing company template variant, not the cover text.
++    # Free-form names stay on the standard workbook's limited-company variant.
++    # Known legacy labels retain their previous variant and accounting behavior.
++    if not value:
++        return None
+     compact = _plain_text(value)
+     if "有限公司" in compact:
+         return "limited_company"
+     if "集团公司" in compact or compact in {"集团", "集团项目"}:
+         return "group"
+-    issues.append(
+-        _issue(
+-            "ERROR",
+-            "INVALID_PROJECT_TYPE",
+-            "B4",
+-            "项目类型必须明确填写“集团公司项目”或“有限公司项目”",
+-            value=value,
+-        )
+-    )
+-    return None
++    return "limited_company"
+ 
+ 
+ def _check_equal(
+@@ -803,6 +799,10 @@
+     project_code = _required_text(workbook, "B2", issues)
+     project_name = _required_text(workbook, "B3", issues)
+     project_type = _required_text(workbook, "B4", issues)
++    # Validate that the cell is nonblank, then retain its text without adding a
++    # category label or a suffix when it is rendered on the report cover.
++    if project_type is not None:
++        project_type = str(workbook.get("B4"))
+     entity_mode = _entity_mode(project_type, issues)
+     lead_name = _required_text(workbook, "B5", issues)
+     period_text = _required_text(workbook, "B6", issues)
+@@ -1031,6 +1031,7 @@
+         {
+             "name": project_name,
+             "code": project_code,
++            "type_text": project_type,
+             "entity_mode": entity_mode,
+             "responsible_person": responsible_person,
+             "period_text": period_text,
+--- skills/public/research-fund-settlement/SKILL.md
++++ skills/public/research-fund-settlement/SKILL.md
+@@ -57,7 +57,7 @@
+       --profile <group_company|national_science|miit> \
+       --output "$PROJECT_ROOT/case.json"
+ 
+-若项目类型不明确，使用 `ask_clarification` 一次询问三选一。
++若报告适用的三类模板不明确，使用 `ask_clarification` 一次询问三选一。这里的模板路由不限制集团公司标准表附录1“项目类型”的填写文字。
+ 
+ 集团公司（有限公司）项目不使用空白骨架开始。用户必须按本 Skill 内置的标准输入表上传 `.xlsx`，先运行：
+ 
+@@ -72,7 +72,9 @@
+ 
+ 集团公司预算执行按本次确认的直接经费口径计算，间接经费保留并单独列示，不加入执行率。导入后保留 `input_contract.budget_execution_scope=direct_only`，不要手改口径标志、删除间接费用或覆盖真实金额。若接续旧 `case.json`，须重新导入原标准表才能采用新口径，不静默重算历史报告。
+ 
+-若命令返回非零或报告为 `FAIL`，停止生成 Word，按单元格位置向用户说明错误，并提供内置 [标准输入表](assets/reference-examples/group-company-standard-input.xlsx) 供对照修改。真实金额冲突不能通过清空数据或覆盖用户数值来消除。不得从任意账表拼装后伪造 `input_contract`。导入会从“项目类型”确定 `集团公司` 或 `有限公司` 及对应税口径。
++若命令返回非零或报告为 `FAIL`，停止生成 Word，按单元格位置向用户说明错误，并提供内置 [标准输入表](assets/reference-examples/group-company-standard-input.xlsx) 供对照修改。真实金额冲突不能通过清空数据或覆盖用户数值来消除。不得从任意账表拼装后伪造 `input_contract`。
++
++附录1“项目类型”允许项目组自由填写非空文字，导入到 `project.type_text` 并原样显示在封面，不自动补“科技项目”等后缀，也不要求改成预设名称。沿用既有公司模板与金额处理；自定义名称使用标准表原有的有限公司模板口径，不新增税额换算或追问税率。旧 `case.json` 若没有该原文字段，应重新导入原表以采用原文封面，不猜测或手改原名称。
+ 
+ ### 2. 提取事实并填写 `case.json`
+ 
