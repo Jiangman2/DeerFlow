@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 
 import {
   DEFAULT_LOCAL_SETTINGS,
@@ -8,6 +8,7 @@ import {
 import {
   getBaseSettingsSnapshot,
   getThreadModelSnapshot,
+  initializeThreadModel,
   subscribe,
   updateLocalSettings,
   updateThreadSettings,
@@ -30,6 +31,7 @@ export function useLocalSettings(): [LocalSettings, LocalSettingsSetter] {
 
 export function useThreadSettings(
   threadId: string,
+  initialModelName?: string,
 ): [LocalSettings, LocalSettingsSetter] {
   const baseSettings = useSyncExternalStore(
     subscribe,
@@ -44,9 +46,21 @@ export function useThreadSettings(
   );
 
   const settings = useMemo(
-    () => applyThreadModelOverride(baseSettings, threadModelName),
-    [baseSettings, threadModelName],
+    () =>
+      applyThreadModelOverride(
+        baseSettings,
+        threadModelName ?? initialModelName,
+      ),
+    [baseSettings, threadModelName, initialModelName],
   );
+
+  // Derive the initial context above before effects (and before the first send).
+  // Persist it per thread so leaving /new does not restore the global model.
+  useEffect(() => {
+    if (initialModelName) {
+      initializeThreadModel(threadId, initialModelName);
+    }
+  }, [threadId, initialModelName]);
 
   const setSettings = useCallback<LocalSettingsSetter>(
     (key, value) => {
