@@ -848,7 +848,9 @@ def wisequery_query_tool(runtime: Runtime, query: str) -> str:
 @tool("datalake_smart_query_tool", parse_docstring=True)
 def datalake_smart_query_tool(runtime: Runtime, query: str) -> str:
     """查询海洋石油业务数据。
+
     使用 Lake Search 接口检索业务数据，例如平台数量、平台信息等。
+
     Args:
         query: 用户提出的完整自然语言问题。
     """
@@ -915,8 +917,10 @@ def datalake_detail_metrics_qa_tool(query: str) -> str:
        数据记录、字段查询、筛选、排序及明细统计。
     2. 指标问数：产油量、产气量、储量、完成率、
        KPI、累计值、同比环比等业务指标查询。
+
     Args:
         query: 用户提出的完整自然语言查询问题。
+
     Returns:
         AppForge 接口返回的查询结果。
     """
@@ -1022,7 +1026,7 @@ def route_datalake_tool(question: str) -> dict:
         "datalake_metrics_qa",
         "datalake_detail_qa",
         "datalake_md_search_tool",
-        "wisequery_query_tool"
+        "wisequery_query_tool",
         "datalake_smart_query_tool",
         "datalake_detail_metrics_qa_tool",
 
