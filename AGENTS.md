@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## November 5 default-model source registration
+
+`release/new-chat-model-source-20261105/SOURCE.json` pins the nine paths from
+enterprise commit `459b44eae` before projecting its exact parent for historical
+audits. It preserves the colleague's default-model behavior and all earlier
+inventories. Run `test_new_chat_model_source_20261105.py` plus the November 1/2
+and October 29 source verifiers. This registration performs no deployment and
+does not establish a fresh production or business-call acceptance.
+
 ## November 5 later financial Skill releases
 
 `release/research-fund-late-source-20261105/SOURCE.json` records the accepted

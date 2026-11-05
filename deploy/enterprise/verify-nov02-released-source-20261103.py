@@ -17,6 +17,8 @@ def verify(ref=None):
         extra = [CI_ARCHIVE] if subprocess.check_output(["git", "ls-tree", "--name-only", ref, CI_MANIFEST], cwd=ROOT).strip() else []
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.MANIFEST], cwd=ROOT).strip():
             extra.append(followup.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.new_chat.MANIFEST], cwd=ROOT).strip():
+            extra.extend((followup.new_chat.ARCHIVE, followup.new_chat.GUIDE))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.navigation.MANIFEST], cwd=ROOT).strip():
             extra.append(followup.navigation.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.alignment.WORK_RELEASE_ALIGNMENT], cwd=ROOT).strip():

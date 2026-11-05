@@ -28,6 +28,8 @@ def verify(ref=None):
             roots.append(CI_ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.MANIFEST], cwd=ROOT).strip():
             roots.append(followup.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.new_chat.MANIFEST], cwd=ROOT).strip():
+            roots.extend((followup.new_chat.ARCHIVE, followup.new_chat.GUIDE))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.navigation.MANIFEST], cwd=ROOT).strip():
             roots.append(followup.navigation.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.alignment.WORK_RELEASE_ALIGNMENT], cwd=ROOT).strip():

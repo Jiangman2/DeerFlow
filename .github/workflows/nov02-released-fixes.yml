@@ -12,6 +12,8 @@ on:
       - 'release/dashboard-navigation-20261103-r2/**'
       - 'deploy/enterprise/*dashboard*navigation*'
       - 'deploy/enterprise/*enterprise_source_followup*'
+      - 'deploy/enterprise/*new_chat_model_source*'
+      - 'release/new-chat-model-source-20261105/**'
       - 'deploy/enterprise/*nov02*'
       - 'deploy/enterprise/released_source_20261102.py'
       - 'deploy/enterprise/released-source-delta-20261102.json'
@@ -32,6 +34,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - run: python -B deploy/enterprise/test_new_chat_model_source_20261105.py
       - run: python deploy/enterprise/test_nov02_source_delta.py
       - run: python deploy/enterprise/test_dashboard_navigation_source_20261103.py
       - run: python deploy/enterprise/test_dashboard_navigation_frontend_package_20261103.py

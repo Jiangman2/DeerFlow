@@ -371,6 +371,8 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(_nov02.CI_ARCHIVE)
         if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, _nov02.followup.MANIFEST], cwd=ROOT).strip():
             extra.append(_nov02.followup.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, _nov02.followup.new_chat.MANIFEST], cwd=ROOT).strip():
+            extra.extend((_nov02.followup.new_chat.ARCHIVE, _nov02.followup.new_chat.GUIDE))
         if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, _nov02.followup.navigation.MANIFEST], cwd=ROOT).strip():
             extra.append(_nov02.followup.navigation.ARCHIVE)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
@@ -378,6 +380,7 @@ def verify(ref=None, lock_path=LOCK):
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
     current_read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    new_chat_manifest = _nov02.followup.new_chat.qualify(current_read)
     alignment_manifest = qualify_work_release_alignment(current_read)
     # Existing qualifiers must verify the actual latest production source, not
     # old R4 bytes. Only these prequalified overlaps project the sealed ef4
@@ -510,6 +513,7 @@ def verify(ref=None, lock_path=LOCK):
         results.append(patch_result)
     return {'status': 'CANDIDATE_SOURCE_VERIFIED' if manifest else 'RELEASE_SOURCE_VERIFIED', 'git_ref': ref, 'lock_file': lock_path, 'results': results,
             'enterprise_source_followup': _nov02.followup.summary(followup),
+            'new_chat_model_source': _nov02.followup.new_chat.summary(new_chat_manifest),
             'dashboard_navigation_candidate': _nov02.followup.navigation.summary(navigation),
             'post_release_test_only_corrections': len(lock.get('qualification_test_overrides', {})),
             'scope': lock['scope'], 'production_modified': False,
