@@ -67,7 +67,8 @@ jobs:
   fullstack-replay-render:
     name: Layer 2 — full-stack render (no API key)
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    # Keep the host compatible with the Playwright version in pnpm-lock.yaml.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6

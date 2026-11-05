@@ -1,0 +1,27 @@
+{
+  "schema": "portal-frontend-polish-activation-noop-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_SUMMARIES_NOT_DIRECT_NODE_READ",
+  "observation": {
+    "status": "INCOMPLETE",
+    "error_code": "bounded_command_failed",
+    "once_claimed": false,
+    "patch_request_count": 0,
+    "patch_requested": false,
+    "patch_may_have_applied": false,
+    "temporary_jobs_created": [],
+    "report_path": "/var/lib/portal-frontend-polish-activation-60f0262f269a4ad78cc9c39a967f8072/REPORT.json",
+    "report_bytes": 9344,
+    "report_sha256": "228d3530389def36920cf3386eb908a1d781b8f3c19c28f4da4a693091d9ae25"
+  },
+  "confirmed_failure": {
+    "ordinal": 9,
+    "phase": "service-preservation",
+    "returncode": 1,
+    "error_code": "command_nonzero",
+    "service_not_found": [
+      "nginx-security-heai-20261012-r1"
+    ]
+  },
+  "cause": "Deployment and Service identities incorrectly shared one list; serving Service is nginx",
+  "production_deployed": false
+}

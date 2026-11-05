@@ -1,0 +1,41 @@
+本集标题：Subagent 委派与并行任务。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：11.1 为什么需要 Subagent。
+
+Lead Agent 负责总体规划和最终回答；复杂任务可以委派给更专门的子 Agent，例如：
+
+通用研究。 - Bash/代码执行。 - 文档或数据处理。 - 并行分析多个来源。
+
+子 Agent 不只是“再调用一次模型”，它通常有自己的图、工具、状态、Run 标识和事件。
+
+下面进入小节：11.2 委派结构。
+
+图示口述：这张图展示了Lead Agent、task 工具、Subagent Registry、Subagent A，研究、Subagent B，代码、Subagent C，数据、delegations ledger之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+下面进入小节：11.3 并发限制与递归限制。
+
+当前运行上下文通常包含：
+
+subagent_enabled。 - max_concurrent_subagents。 - max_total_subagents。 - LangGraph recursion_limit。
+
+前两个限制控制子任务数量，递归上限控制图的 super-step 数量。递归上限不是“允许无限模型调用”；Gateway 会对客户端值做服务器侧上限裁剪。
+
+下面进入小节：11.4 delegation ledger。
+
+delegations 是 ThreadState 中的可见账本，记录：
+
+委派 ID。 - 子 Agent 类型。 - Run ID。 - 描述。 - 状态。 - 结果摘要和引用。 - 终止原因。
+
+相同 ID 的新状态会更新原条目；终态不会被后来的运行中状态覆盖；条目数量会限制在最近窗口内。这样可以避免事件重放或并发更新把 UI 状态倒退。
+
+下面进入小节：11.5 前端子任务显示。
+
+前端不仅显示最后结果，还可以显示子任务步骤：
+
+task_started。 - task_running。 - 子 Agent 的 AI 步骤。 - 子 Agent 执行的工具步骤。 - 最终结果。
+
+历史展开时，前端可以按 run_id 和 task_id 分页读取专属事件，避免被整个 Run 的事件数量上限截断。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

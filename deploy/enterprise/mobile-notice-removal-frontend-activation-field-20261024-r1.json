@@ -1,0 +1,253 @@
+{
+  "schema": "portal-mobile-notice-removal-frontend-activation-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_SUMMARY_NOT_DIRECT_SERVER_READ",
+  "source_attachment": {
+    "path": "C:\\Users\\15285\\.codex\\attachments\\5758fe60-0fcd-41a5-a477-ae80c0e639ae\\已粘贴的文本.txt",
+    "bytes": 7334,
+    "sha256": "88a4830ff5b8988d39a3cfe6813af5d5655ef9f9e0e1710d86306bf7b4c8faf6"
+  },
+  "observation": {
+    "accepted_pods": [
+      {
+        "node": "ecs-zdz-pro-0015",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 3,
+          "status": "PASS"
+        },
+        "pod": "frontend-68847bbd78-9x5h4",
+        "uid": "85bcc49a-6f1c-4505-8b79-535722b11fc4"
+      },
+      {
+        "node": "datax-02",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 3,
+          "status": "PASS"
+        },
+        "pod": "frontend-68847bbd78-sgd9w",
+        "uid": "74b4a089-9444-4432-922d-aa3a1d7787ce"
+      }
+    ],
+    "after": {
+      "frontend": {
+        "generation": 228,
+        "spec_sha256": "2949a3564a7de10eb3630e82bfaa62c1829664b86be35f566abe6ddab304ddf1",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 386,
+        "spec_sha256": "890cc7b2aa7fc8bff6abaebfe99f6f7149ac17e17405bc7e056ecd24263516b4",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx": {
+        "generation": 116,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+      },
+      "ppt-master-runner": {
+        "generation": 55,
+        "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      },
+      "provisioner": {
+        "generation": 85,
+        "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+        "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+      }
+    },
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "before": {
+      "frontend": {
+        "generation": 227,
+        "spec_sha256": "2e290357511ad2aca7fa5d23b954c99fdba8b92527b3f7dbcef79f1293700655",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 386,
+        "spec_sha256": "890cc7b2aa7fc8bff6abaebfe99f6f7149ac17e17405bc7e056ecd24263516b4",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx": {
+        "generation": 116,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+      },
+      "ppt-master-runner": {
+        "generation": 55,
+        "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      },
+      "provisioner": {
+        "generation": 85,
+        "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+        "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+      }
+    },
+    "browser_acceptance_pending": true,
+    "cache_checks": [
+      {
+        "job": "portal-notice-cache-1912b2e76fa64581-0",
+        "job_uid": "9622b1a7-d68a-4d57-a913-556a361fbc1e",
+        "node": "datax-02",
+        "node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+        "observation": {
+          "files_verified": 5,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "status": "LOCAL_PRELOADED_IMAGE_EXECUTED"
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "[deerflow.local/deer-flow-frontend@sha256:0af4bb16a0924a02f6cfcb927c137642329b5831d01a5eded8c4f61ee8ad43f7](http://deerflow.local/deer-flow-frontend@sha256:0af4bb16a0924a02f6cfcb927c137642329b5831d01a5eded8c4f61ee8ad43f7)",
+                "restart_count": 0,
+                "waiting_reason": null
+              }
+            ],
+            "node": "datax-02",
+            "phase": "Succeeded",
+            "pod": "portal-notice-cache-1912b2e76fa64581-0-xq49j",
+            "uid": "a06fcc51-1a57-4386-9b58-beb553570738"
+          }
+        ],
+        "status": "PASS"
+      },
+      {
+        "job": "portal-notice-cache-1912b2e76fa64581-1",
+        "job_uid": "6997eb7f-9396-4fb0-909a-b0792a62347e",
+        "node": "ecs-zdz-pro-0015",
+        "node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+        "observation": {
+          "files_verified": 5,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "status": "LOCAL_PRELOADED_IMAGE_EXECUTED"
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "[deerflow.local/deer-flow-frontend@sha256:0af4bb16a0924a02f6cfcb927c137642329b5831d01a5eded8c4f61ee8ad43f7](http://deerflow.local/deer-flow-frontend@sha256:0af4bb16a0924a02f6cfcb927c137642329b5831d01a5eded8c4f61ee8ad43f7)",
+                "restart_count": 0,
+                "waiting_reason": null
+              }
+            ],
+            "node": "ecs-zdz-pro-0015",
+            "phase": "Succeeded",
+            "pod": "portal-notice-cache-1912b2e76fa64581-1-kxnx4",
+            "uid": "834671c2-8da4-438a-8aad-a6afa2056cc1"
+          }
+        ],
+        "status": "PASS"
+      }
+    ],
+    "cache_config": "sha256:536ff74930ed2ff55dbc5f00f1b337a7c6f1e99850d764cb4937a0d4f019eee9",
+    "cache_manifest": "sha256:0af4bb16a0924a02f6cfcb927c137642329b5831d01a5eded8c4f61ee8ad43f7",
+    "check_job_ttl_seconds": 3600,
+    "directory": "/var/lib/portal-frontend-mobile-notice-removal-activation-1912b2e76fa64581ac6cfa171513330a",
+    "elapsed_seconds": 39.381,
+    "exitcode": 0,
+    "fresh_nodes_after": [
+      {
+        "candidate_in_node_status": false,
+        "name": "datax-02",
+        "reported_images": 50,
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "candidate_in_node_status": true,
+        "name": "ecs-zdz-pro-0015",
+        "reported_images": 40,
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      }
+    ],
+    "fresh_nodes_before": [
+      {
+        "candidate_in_node_status": false,
+        "name": "datax-02",
+        "reported_images": 50,
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "candidate_in_node_status": true,
+        "name": "ecs-zdz-pro-0015",
+        "reported_images": 40,
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      }
+    ],
+    "image_pull_policy": "Never",
+    "once_claimed": true,
+    "operation": "1912b2e76fa64581ac6cfa171513330a",
+    "other_workload_mutation": false,
+    "patch_acknowledged_by_readback": true,
+    "patch_dispatched": true,
+    "patch_may_have_applied": true,
+    "patch_request_count": 1,
+    "patch_requested": true,
+    "prior_frontend_receipt": {
+      "bytes": 32454,
+      "path": "/var/lib/portal-frontend-nonconfidential-notice-activation-97f048ab80cf4666922a60e9e1092fce/REPORT.json",
+      "sha256": "d0c3027b09a09002cb4aedeb2db63d6d49e19d5dfde856c8e8f3c1f223999f99"
+    },
+    "provider_requests": 0,
+    "report_bytes": 32173,
+    "report_path": "/var/lib/portal-frontend-mobile-notice-removal-activation-1912b2e76fa64581ac6cfa171513330a/REPORT.json",
+    "report_sha256": "584fccd523377cda7ff4e8f7c1321d7f17a8ee3aff5a9626a95a06558258e41e",
+    "runtime": [
+      {
+        "node": "ecs-zdz-pro-0015",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 3,
+          "status": "PASS"
+        },
+        "pod": "frontend-68847bbd78-9x5h4",
+        "uid": "85bcc49a-6f1c-4505-8b79-535722b11fc4"
+      },
+      {
+        "node": "datax-02",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 3,
+          "status": "PASS"
+        },
+        "pod": "frontend-68847bbd78-sgd9w",
+        "uid": "74b4a089-9444-4432-922d-aa3a1d7787ce"
+      }
+    ],
+    "schema": "portal-frontend-mobile-notice-removal-activation.v1",
+    "schema_migration_requested": false,
+    "services_preserved": true,
+    "stage_passed": true,
+    "status": "FRONTEND_MOBILE_NOTICE_REMOVAL_RUNTIME_ACCEPTED_BROWSER_PENDING",
+    "temporary_jobs_created": [
+      {
+        "creation_requested": true,
+        "name": "portal-notice-cache-1912b2e76fa64581-0"
+      },
+      {
+        "creation_requested": true,
+        "name": "portal-notice-cache-1912b2e76fa64581-1"
+      }
+    ],
+    "unrelated_specs_preserved": true
+  },
+  "pasted_markdown_image_references_preserved": true
+}

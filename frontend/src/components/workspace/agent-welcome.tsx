@@ -1,9 +1,9 @@
 "use client";
 
-import { BotIcon } from "lucide-react";
-
 import { type Agent } from "@/core/agents";
 import { cn } from "@/lib/utils";
+
+import { DigitalEmployeeAvatar } from "./agents/digital-employee-avatar";
 
 export function AgentWelcome({
   className,
@@ -14,22 +14,30 @@ export function AgentWelcome({
   agent: Agent | null | undefined;
   agentName: string;
 }) {
-  const displayName = agent?.name ?? agentName;
+  const configuredName = agent?.display_name?.trim();
+  const displayName = configuredName?.length
+    ? configuredName
+    : (agent?.name ?? agentName);
   const description = agent?.description;
 
   return (
     <div
       className={cn(
-        "mx-auto flex w-full flex-col items-center justify-center gap-2 px-8 py-4 text-center",
+        "cnooc-agent-welcome mx-auto flex w-full flex-col items-center justify-center gap-1 px-5 py-2 text-center sm:gap-2 sm:px-8 sm:py-4",
         className,
       )}
     >
-      <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-full">
-        <BotIcon className="text-primary h-6 w-6" />
-      </div>
-      <div className="text-2xl font-bold">{displayName}</div>
+      <DigitalEmployeeAvatar
+        agent={agent ?? { name: agentName }}
+        className="cnooc-agent-welcome-icon size-16 sm:size-20"
+      />
+      <h1 className="cnooc-agent-welcome-title max-w-full text-[1.35rem] leading-tight font-semibold sm:text-2xl">
+        {displayName}
+      </h1>
       {description && (
-        <p className="text-muted-foreground max-w-sm text-sm">{description}</p>
+        <p className="cnooc-agent-welcome-description text-muted-foreground line-clamp-1 max-w-[min(22rem,85vw)] text-xs sm:line-clamp-2 sm:max-w-sm sm:text-sm">
+          {description}
+        </p>
       )}
     </div>
   );

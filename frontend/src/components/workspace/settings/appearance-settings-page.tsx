@@ -61,11 +61,8 @@ export function AppearanceSettingsPage() {
 
   return (
     <div className="space-y-8">
-      <SettingsSection
-        title={t.settings.appearance.themeTitle}
-        description={t.settings.appearance.themeDescription}
-      >
-        <div className="grid gap-3 lg:grid-cols-3">
+      <SettingsSection title={t.settings.appearance.themeTitle}>
+        <div className="grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-3">
           {themeOptions.map((option) => (
             <ThemePreviewCard
               key={option.id}
@@ -83,10 +80,7 @@ export function AppearanceSettingsPage() {
 
       <Separator />
 
-      <SettingsSection
-        title={t.settings.appearance.languageTitle}
-        description={t.settings.appearance.languageDescription}
-      >
+      <SettingsSection title={t.settings.appearance.languageTitle}>
         <Select
           value={locale}
           onValueChange={(value) => {
@@ -134,10 +128,11 @@ function ThemePreviewCard({
     <button
       type="button"
       onClick={() => onSelect(mode)}
+      aria-pressed={active}
       className={cn(
         "group flex h-full min-w-0 flex-col gap-3 overflow-hidden rounded-lg border p-4 text-left transition-all",
         active
-          ? "border-primary ring-primary/30 shadow-sm ring-2"
+          ? "border-blue-600 shadow-sm ring-2 ring-blue-200"
           : "hover:border-border hover:shadow-sm",
       )}
     >
@@ -145,7 +140,7 @@ function ThemePreviewCard({
         <div className="bg-muted rounded-md p-2">
           <Icon className="size-4" />
         </div>
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <div className="text-sm leading-none font-semibold">{label}</div>
           <p className="text-muted-foreground text-xs leading-snug">
             {description}
@@ -154,39 +149,103 @@ function ThemePreviewCard({
       </div>
       <div
         className={cn(
-          "relative h-36 min-w-0 overflow-hidden rounded-md border text-xs transition-colors",
+          "relative w-full min-w-0 overflow-hidden rounded-md border text-xs transition-colors",
           previewMode === "dark"
             ? "border-neutral-800 bg-neutral-900 text-neutral-200"
             : "border-slate-200 bg-white text-slate-900",
         )}
       >
-        <div className="border-border/50 flex items-center gap-2 border-b px-3 py-2">
+        <div
+          className={cn(
+            "flex items-center gap-2 border-b px-3 py-2",
+            previewMode === "dark" ? "border-neutral-700" : "border-slate-200",
+          )}
+        >
           <div
             className={cn(
               "h-2 w-2 rounded-full",
               previewMode === "dark" ? "bg-emerald-400" : "bg-emerald-500",
             )}
           />
-          <div className="h-2 w-10 rounded-full bg-current/20" />
-          <div className="h-2 w-6 rounded-full bg-current/15" />
+          <div
+            className={cn(
+              "h-2 w-10 rounded-full",
+              previewMode === "dark" ? "bg-neutral-500" : "bg-slate-300",
+            )}
+          />
+          <div
+            className={cn(
+              "h-2 w-6 rounded-full",
+              previewMode === "dark" ? "bg-neutral-600" : "bg-slate-200",
+            )}
+          />
         </div>
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,0.75fr)] gap-3 px-3 py-3">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(5.5rem,0.75fr)] gap-3 px-3 py-3">
           <div className="min-w-0 space-y-2">
-            <div className="h-3 w-3/4 rounded-full bg-current/15" />
-            <div className="h-3 w-1/2 rounded-full bg-current/10" />
-            <div className="h-14 rounded-md border border-current/10 bg-current/5" />
+            <div
+              className={cn(
+                "h-3 w-3/4 rounded-full",
+                previewMode === "dark" ? "bg-neutral-600" : "bg-slate-200",
+              )}
+            />
+            <div
+              className={cn(
+                "h-3 w-1/2 rounded-full",
+                previewMode === "dark" ? "bg-neutral-700" : "bg-slate-100",
+              )}
+            />
+            <div
+              className={cn(
+                "h-[90px] rounded-md border",
+                previewMode === "dark"
+                  ? "border-neutral-700 bg-neutral-800"
+                  : "border-slate-200 bg-slate-50",
+              )}
+            />
           </div>
           <div className="min-w-0 space-y-2">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-md bg-current/10" />
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="h-2 w-3/4 rounded-full bg-current/15" />
-                <div className="h-2 w-1/2 rounded-full bg-current/10" />
+              <div
+                className={cn(
+                  "h-8 w-8 rounded-md",
+                  previewMode === "dark" ? "bg-neutral-700" : "bg-slate-100",
+                )}
+              />
+              <div className="space-y-2">
+                <div
+                  className={cn(
+                    "h-2 w-14 rounded-full",
+                    previewMode === "dark" ? "bg-neutral-600" : "bg-slate-200",
+                  )}
+                />
+                <div
+                  className={cn(
+                    "h-2 w-10 rounded-full",
+                    previewMode === "dark" ? "bg-neutral-700" : "bg-slate-100",
+                  )}
+                />
               </div>
             </div>
-            <div className="flex flex-col gap-1 rounded-md border border-dashed border-current/15 p-2">
-              <div className="h-2 w-3/5 rounded-full bg-current/15" />
-              <div className="h-2 w-2/5 rounded-full bg-current/10" />
+            <div
+              className={cn(
+                "flex flex-col gap-1 rounded-md border border-dashed p-2",
+                previewMode === "dark"
+                  ? "border-neutral-600"
+                  : "border-slate-300",
+              )}
+            >
+              <div
+                className={cn(
+                  "h-2 w-3/5 rounded-full",
+                  previewMode === "dark" ? "bg-neutral-600" : "bg-slate-200",
+                )}
+              />
+              <div
+                className={cn(
+                  "h-2 w-2/5 rounded-full",
+                  previewMode === "dark" ? "bg-neutral-700" : "bg-slate-100",
+                )}
+              />
             </div>
           </div>
         </div>

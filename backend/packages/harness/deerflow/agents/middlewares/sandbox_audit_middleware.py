@@ -25,26 +25,22 @@ logger = logging.getLogger(__name__)
 _HIGH_RISK_PATTERNS: list[re.Pattern[str]] = [
     # --- original rules (retained) ---
     re.compile(r"rm\s+-[^\s]*r[^\s]*\s+(/\*?|~/?\*?|/home\b|/root\b)\s*$"),
-    re.compile(r"dd\s+if="),
+    # Raw-device writes are destructive; ordinary dd copies inside user-data
+    # remain available for document/media processing.
+    re.compile(r"\bdd\b[^\n]*\bof=(?:/dev/(?:sd|nvme|vd|xvd|mapper/)|/proc/|/sys/)", re.IGNORECASE),
     re.compile(r"mkfs"),
     re.compile(r"cat\s+/etc/shadow"),
     re.compile(r">+\s*/etc/"),
     # --- pipe to sh/bash (generalised, replaces old curl|sh rule) ---
     re.compile(r"\|\s*(ba)?sh\b"),
-    # --- command substitution (targeted – only dangerous executables) ---
-    re.compile(r"[`$]\(?\s*(curl|wget|bash|sh|python|ruby|perl|base64)"),
-    # --- base64 decode piped to execution ---
-    re.compile(r"base64\s+.*-d.*\|"),
     # --- overwrite system binaries ---
     re.compile(r">+\s*(/usr/bin/|/bin/|/sbin/)"),
     # --- overwrite shell startup files ---
     re.compile(r">+\s*~/?\.(bashrc|profile|zshrc|bash_profile)"),
     # --- process environment leakage ---
     re.compile(r"/proc/[^/]+/environ"),
-    # --- dynamic linker hijack (one-step escalation) ---
-    re.compile(r"\b(LD_PRELOAD|LD_LIBRARY_PATH)\s*="),
-    # --- bash built-in networking (bypasses tool allowlists) ---
-    re.compile(r"/dev/tcp/"),
+    # --- outbound shell stream (read-only /dev/tcp probes remain allowed) ---
+    re.compile(r">+&?\s*/dev/tcp/"),
     # --- fork bomb ---
     re.compile(r"\S+\(\)\s*\{[^}]*\|\s*\S+\s*&"),  # :(){ :|:& };:
     re.compile(r"while\s+true.*&\s*done"),  # while true; do bash & done
@@ -59,6 +55,126 @@ _MEDIUM_RISK_PATTERNS: list[re.Pattern[str]] = [
     # PATH modification: long attack chain, warn rather than block
     re.compile(r"\bPATH\s*="),
 ]
+
+_CLUSTER_CONTROL_COMMANDS = {
+    "crictl",
+    "ctr",
+    "docker",
+    "helm",
+    "kubectl",
+    "nerdctl",
+}
+
+_SENSITIVE_PLATFORM_PATH = re.compile(
+    r"(?:^|[\s'\"=])(?:"
+    r"/proc/[^/]+/environ(?:\b|$)|/etc/(?:environment|machine-id|kubernetes)(?:/|$)|"
+    r"/var/run/secrets(?:/|$)|/run/secrets(?:/|$)|/root/\.kube(?:/|$)|"
+    r"/app/(?:config\.ya?ml|extensions_config\.json|backend|frontend)(?:/|$)|"
+    r"/(?:app|root|etc)/(?:[^\s'\"]*/)?\.env(?:\.[A-Za-z0-9_-]+)?(?:$|[\s'\";])"
+    r")",
+    re.IGNORECASE,
+)
+
+_INTERNAL_SERVICE_TARGET = re.compile(
+    r"(?:[a-z][a-z0-9+.-]*://(?:[^/@\s]+@)?|--host(?:=|\s+)|\s-h\s+|\bhost\s*=\s*)(?:gateway|postgres|redis|weknora-app|"
+    r"weknora-postgres|kubernetes\.default(?:\.svc)?)(?=[:/\s'\"]|$)",
+    re.IGNORECASE,
+)
+
+_PYTHON_PLATFORM_INTROSPECTION = re.compile(
+    r"(?:subprocess\.(?:run|Popen|check_output).{0,80}(?:env|printenv|kubectl|docker)|"
+    r"open\s*\(.{0,80}(?:/proc/|/var/run/secrets|/root/\.kube|/etc/kubernetes))",
+    re.IGNORECASE,
+)
+
+_SECRET_ENV_NAME = re.compile(
+    r"(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD|CREDENTIAL|DATABASE_URL|REDIS_URL|DSN|PGPASS|MYSQL_PWD|REDISCLI_AUTH)",
+    re.IGNORECASE,
+)
+
+_PYTHON_ENV_ACCESS = re.compile(
+    r"(?:os\.getenv\s*\(|os\.environ(?:\.get)?\s*[\[(])\s*['\"]([^'\"]+)['\"]",
+    re.IGNORECASE,
+)
+
+
+def _python_environment_read_is_sensitive(command: str) -> bool:
+    """Block enumeration and literal reads of secret-looking env names only."""
+    if "os.environ" in command and not _PYTHON_ENV_ACCESS.search(command):
+        return True
+    return any(_SECRET_ENV_NAME.search(match.group(1)) for match in _PYTHON_ENV_ACCESS.finditer(command))
+
+
+_ENV_ENUMERATION = re.compile(
+    r"^\s*(?:printenv|env|set|export\s+-p|declare\s+-x)\s*$",
+    re.IGNORECASE,
+)
+
+
+def _command_tokens(command: str) -> list[str]:
+    try:
+        return shlex.split(command)
+    except ValueError:
+        return []
+
+
+def _effective_executable(tokens: list[str]) -> tuple[str, list[str]]:
+    """Return the executable after harmless ``env NAME=value`` prefixes."""
+    if not tokens:
+        return "", []
+    remaining = list(tokens)
+    if remaining[0].lower() == "env":
+        remaining = remaining[1:]
+        while remaining and (remaining[0].startswith("-") or ("=" in remaining[0] and not remaining[0].startswith("="))):
+            remaining = remaining[1:]
+        if not remaining:
+            return "env", []
+    while remaining and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", remaining[0], flags=re.DOTALL):
+        remaining = remaining[1:]
+    if not remaining:
+        return "", []
+    return remaining[0].rsplit("/", 1)[-1].lower(), remaining[1:]
+
+
+def _is_platform_introspection_command(command: str) -> bool:
+    """Detect commands that turn the sandbox into a platform operations shell."""
+    normalized = " ".join(command.split())
+    if _ENV_ENUMERATION.fullmatch(normalized):
+        return True
+    if _SENSITIVE_PLATFORM_PATH.search(command):
+        return True
+    if _INTERNAL_SERVICE_TARGET.search(command):
+        return True
+    if _PYTHON_PLATFORM_INTROSPECTION.search(command):
+        return True
+    if _python_environment_read_is_sensitive(command):
+        return True
+
+    tokens = _command_tokens(command)
+    executable, arguments = _effective_executable(tokens)
+    if executable in _CLUSTER_CONTROL_COMMANDS:
+        return True
+    if executable in {"bash", "sh", "zsh"} and any(_is_platform_introspection_command(argument) for argument in arguments if isinstance(argument, str)):
+        return True
+    return False
+
+
+_FILE_TOOLS = {"glob", "grep", "ls", "read_file", "str_replace", "write_file"}
+
+
+def _sensitive_tool_reason(tool_name: str, args: object) -> str | None:
+    """Return a block reason for non-bash platform introspection tools."""
+    if tool_name not in _FILE_TOOLS or not isinstance(args, dict):
+        return None
+    for field in ("path", "root_path", "directory", "pattern"):
+        value = args.get(field)
+        if not isinstance(value, str):
+            continue
+        if tool_name == "ls" and value.strip() in {"/", "/app", "/etc", "/root", "/var/run"}:
+            return "platform filesystem inspection is not allowed"
+        if _SENSITIVE_PLATFORM_PATH.search(f" {value}"):
+            return "platform files and runtime secrets are not accessible"
+    return None
 
 
 def _split_compound_command(command: str) -> list[str]:
@@ -138,6 +254,9 @@ def _classify_single_command(command: str) -> str:
     """Classify a single (non-compound) command. Return 'block', 'warn', or 'pass'."""
     normalized = " ".join(command.split())
 
+    if _is_platform_introspection_command(command):
+        return "block"
+
     for pattern in _HIGH_RISK_PATTERNS:
         if pattern.search(normalized):
             return "block"
@@ -174,6 +293,8 @@ def _classify_command(command: str) -> str:
     """
     # Pass 1: whole-command high-risk scan (catches multi-statement patterns)
     normalized = " ".join(command.split())
+    if _is_platform_introspection_command(command):
+        return "block"
     for pattern in _HIGH_RISK_PATTERNS:
         if pattern.search(normalized):
             return "block"
@@ -245,10 +366,11 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
 
     def _build_block_message(self, request: ToolCallRequest, reason: str) -> ToolMessage:
         tool_call_id = str(request.tool_call.get("id") or "missing_id")
+        tool_name = str(request.tool_call.get("name") or "tool")
         return ToolMessage(
             content=f"Command blocked: {reason}. Please use a safer alternative approach.",
             tool_call_id=tool_call_id,
-            name="bash",
+            name=tool_name,
             status="error",
         )
 
@@ -268,42 +390,13 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
             status=result.status,
         )
 
-    @staticmethod
-    def _tool_message_text(message: ToolMessage) -> str:
-        if isinstance(message.content, list):
-            parts = []
-            for item in message.content:
-                if isinstance(item, dict) and item.get("type") == "text":
-                    parts.append(str(item.get("text") or ""))
-                else:
-                    parts.append(str(item))
-            return "\n".join(parts)
-        return str(message.content)
-
-    def _mark_failed_bash_result(self, result: ToolMessage | Command) -> ToolMessage | Command:
-        """Preserve bash output but mark obvious command failures as tool errors."""
-        if not isinstance(result, ToolMessage):
-            return result
-        text = self._tool_message_text(result)
-        if not (text.startswith("Error:") or "\nExit Code: " in text or text.startswith("Exit Code: ")):
-            return result
-        return ToolMessage(
-            content=result.content,
-            tool_call_id=result.tool_call_id,
-            name=result.name,
-            status="error",
-            artifact=getattr(result, "artifact", None),
-        )
-
     # ------------------------------------------------------------------
     # Input sanitisation
     # ------------------------------------------------------------------
 
-    # Normal bash commands rarely exceed a few hundred characters.  10 000 is
-    # well above any legitimate use case yet a tiny fraction of Linux ARG_MAX.
-    # Anything longer is almost certainly a payload injection or base64-encoded
-    # attack string.
-    _MAX_COMMAND_LENGTH = 10_000
+    # Presentation/document workflows legitimately use large heredocs. Keep a
+    # bounded transport guard, but place it above normal generated source size.
+    _MAX_COMMAND_LENGTH = 512 * 1024
 
     def _validate_input(self, command: str) -> str | None:
         """Return ``None`` if *command* is acceptable, else a rejection reason."""
@@ -360,7 +453,12 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], ToolMessage | Command],
     ) -> ToolMessage | Command:
-        if request.tool_call.get("name") != "bash":
+        tool_name = str(request.tool_call.get("name") or "")
+        sensitive_reason = _sensitive_tool_reason(tool_name, request.tool_call.get("args", {}))
+        if sensitive_reason:
+            self._write_audit(self._get_thread_id(request), f"{tool_name} <redacted arguments>", "block")
+            return self._build_block_message(request, sensitive_reason)
+        if tool_name != "bash":
             return handler(request)
 
         command, _, verdict, reject_reason = self._pre_process(request)
@@ -368,7 +466,6 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
             reason = reject_reason or "security violation detected"
             return self._build_block_message(request, reason)
         result = handler(request)
-        result = self._mark_failed_bash_result(result)
         if verdict == "warn":
             result = self._append_warn_to_result(result, command)
         return result
@@ -379,7 +476,12 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
     ) -> ToolMessage | Command:
-        if request.tool_call.get("name") != "bash":
+        tool_name = str(request.tool_call.get("name") or "")
+        sensitive_reason = _sensitive_tool_reason(tool_name, request.tool_call.get("args", {}))
+        if sensitive_reason:
+            self._write_audit(self._get_thread_id(request), f"{tool_name} <redacted arguments>", "block")
+            return self._build_block_message(request, sensitive_reason)
+        if tool_name != "bash":
             return await handler(request)
 
         command, _, verdict, reject_reason = self._pre_process(request)
@@ -387,7 +489,6 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
             reason = reject_reason or "security violation detected"
             return self._build_block_message(request, reason)
         result = await handler(request)
-        result = self._mark_failed_bash_result(result)
         if verdict == "warn":
             result = self._append_warn_to_result(result, command)
         return result

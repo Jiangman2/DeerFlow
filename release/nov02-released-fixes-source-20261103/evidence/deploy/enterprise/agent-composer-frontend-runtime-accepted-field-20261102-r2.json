@@ -1,0 +1,114 @@
+{
+  "accepted_pods": [
+    {
+      "node": "datax-02",
+      "observation": {
+        "bytes": 7520,
+        "http_status": 307,
+        "provider_requests": 0,
+        "sources_verified": true,
+        "static_assets_verified": 12,
+        "status": "PASS"
+      },
+      "pod": "frontend-86b9c8bb9d-b6hlc",
+      "uid": "f0fb7fe7-62f7-4ba9-9558-d988dd81a92b"
+    },
+    {
+      "node": "ecs-zdz-pro-0015",
+      "observation": {
+        "bytes": 7520,
+        "http_status": 307,
+        "provider_requests": 0,
+        "sources_verified": true,
+        "static_assets_verified": 12,
+        "status": "PASS"
+      },
+      "pod": "frontend-86b9c8bb9d-w4bhb",
+      "uid": "bbf0388b-dbf1-44bd-b899-89cdd3eb0530"
+    }
+  ],
+  "activation_script_sha256": "c17ce35b7b5bcff842784b5b2019a037b60a5b40c93e45dc1bb36ae7ba45929e",
+  "after": {
+    "frontend": {
+      "generation": 236,
+      "spec_sha256": "b6632dd94dbae06ec79f1952e0fa5ccc299a0410d9e4d533ebcf6589648945d5",
+      "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+    },
+    "gateway": {
+      "generation": 400,
+      "spec_sha256": "2e323c03bedc5468bae34b7b23c8b48f03e261165522c33e8bc508d215c532d3",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "nginx": {
+      "generation": 116,
+      "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+      "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+    },
+    "nginx-security-heai-20261012-r1": {
+      "generation": 2,
+      "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+      "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d"
+    },
+    "ppt-master-runner": {
+      "generation": 58,
+      "spec_sha256": "8602f3a5cf40ff97c3f9ee36d792e0c76ae37be53469b8146be41d3409719934",
+      "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+    },
+    "provisioner": {
+      "generation": 85,
+      "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+      "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+    }
+  },
+  "before": {
+    "frontend": {
+      "generation": 235,
+      "spec_sha256": "ab4fc0aaa4a997803aae039494de260ab13b9a0d87b66291e0dc2824da487ea3",
+      "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+    },
+    "gateway": {
+      "generation": 400,
+      "spec_sha256": "2e323c03bedc5468bae34b7b23c8b48f03e261165522c33e8bc508d215c532d3",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "nginx": {
+      "generation": 116,
+      "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+      "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+    },
+    "nginx-security-heai-20261012-r1": {
+      "generation": 2,
+      "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+      "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d"
+    },
+    "ppt-master-runner": {
+      "generation": 58,
+      "spec_sha256": "8602f3a5cf40ff97c3f9ee36d792e0c76ae37be53469b8146be41d3409719934",
+      "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+    },
+    "provisioner": {
+      "generation": 85,
+      "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+      "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+    }
+  },
+  "browser_acceptance_pending": true,
+  "cache_source_files_verified_per_node": 15,
+  "database_access": false,
+  "full_private_server_report_independently_read": false,
+  "image": "sha256:b27c3d82481566e88613aad15a1033f63ff2c04a646db82cc49c2731cc4c9db6",
+  "normalization": "Markdown image reference labels only",
+  "operator_server_report": {
+    "bytes": 35140,
+    "path": "/var/lib/portal-frontend-agent-composer-activation-20261102-r2-d8ce23d6dde44bffaa2aa4d747d99525/REPORT.json",
+    "sha256": "b0ea04cad826c1648e9f133c2658d44111e4822cfa23da83c69b505f6412b75c"
+  },
+  "schema": "portal-agent-composer-runtime-field.v2",
+  "services_preserved": true,
+  "source": "operator supplied activation output",
+  "source_attachment_sha256": "f7b17814a13f605b24e2d4e5c6904afd3b70a818f9d935e7b3ee750f92089c6c",
+  "static_assets_verified_per_pod": 12,
+  "status": "RUNTIME_ACCEPTED_BROWSER_PENDING",
+  "unrelated_specs_preserved": true,
+  "work_datalake_activated": false
+}

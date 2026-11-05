@@ -1,0 +1,253 @@
+{
+  "attachment_pin": {
+    "bytes": 8300,
+    "sha256": "6a48c0febc0a06becebfb12a22eb563dccba08c4d11318fb18be21b0495ef564"
+  },
+  "evidence_origin": "OPERATOR_PASTED_SUMMARY_NOT_DIRECT_CLUSTER_READ",
+  "observation": {
+    "acceptance_receipts": {
+      "expansion": {
+        "bytes": 53986,
+        "path": "/var/lib/portal-oa-schema-expansion-20261022-r1/REPORT.json",
+        "sha256": "1bd741e9db0465a8274c95e9d2e3d21f9ea1770b66b5d00af476dd761a98cba5"
+      },
+      "image": {
+        "bytes": 1759,
+        "path": "/var/lib/portal-oa-data-qa-image-check-20261022-r1/REPORT.json",
+        "sha256": "04f0f94236e3941898c974f45e8351b5764b3f972eaf2f79cde6791c2496fc25"
+      }
+    },
+    "accepted_pod_count": 70,
+    "active_task_interruption_operator_authorized": true,
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "configuration_metadata_preserved": true,
+    "database_after": {
+      "additive_schema_verified": true,
+      "business_values_exported": false,
+      "configuration_modified": false,
+      "database_access": true,
+      "database_fingerprint": "b0fdaf30f3160cd52abf01520da71a20570c23795938bf73165153083fae9d91",
+      "database_readonly": true,
+      "oa_callback_requests": 0,
+      "provider_requests": 0,
+      "raw_errors_exported": false,
+      "revisions": [
+        "0021_oa_result_sets"
+      ],
+      "schema_migrated": false,
+      "source_hashes": {
+        "app/backend/app/gateway/oa_policy_flow_config.py": "98ba757fe20f0924c65d924d7b952ce7d3aae06e5b8de186df7029630062e0b4",
+        "app/backend/app/gateway/oa_policy_flow_results.py": "2ba213b9bbecf6aefc8f586c527afc8ea574e24007cd15cf6051e8d33260cd76",
+        "app/backend/app/gateway/oa_policy_flow_service.py": "f2d7835127d84333cd592156c6bfe7588e70a150087ca87ba048cb3eef557312",
+        "app/backend/app/gateway/routers/oa_policy_flow.py": "a494e1657b6cf2aa986bd8b5bc0fd5ea8495b85dbe686a4039c232cfeeab53f2",
+        "app/backend/app/gateway/services.py": "507d877a1e68cfe39c405ee3f9ac9a6c6261e1c242065e07b7eb4a59dc525f58",
+        "app/backend/packages/harness/deerflow/agents/middlewares/datalake_source_middleware.py": "ac65e710357fceb5d0fd528c56ea5b06ce2ed8d2f8b8780ceeaf095791722d10",
+        "app/backend/packages/harness/deerflow/agents/middlewares/tool_error_handling_middleware.py": "787d19c27993ed4b4fc141ca8afbf2b5e8b396c4bb71f1b48b1c6341330c285f",
+        "app/backend/packages/harness/deerflow/community/appforge/__init__.py": "553b621cd4518f9300620a2aea7c5593069e7deb6e4206160f9494ead3ea345b",
+        "app/backend/packages/harness/deerflow/community/appforge/data_qa_progress.py": "cf1ca9eeb13b04b536c0d476a2cd6e5dd626f973c5338dd8d8ca3e88d4ce99d3",
+        "app/backend/packages/harness/deerflow/community/appforge/data_qa_stream.py": "d0493f0b9dff204d7c931c23d9257ea86acef06d90e1e8a2a04218178317fe9c",
+        "app/backend/packages/harness/deerflow/community/appforge/tools.py": "45919fdad0e5fe0fb18fa19cb0e2ea620c7b7ce07d1cb17486b8e0a8a2d31398",
+        "app/backend/packages/harness/deerflow/config/datalake_tools.py": "2c00b516772f2fd0c7623a44dbe915b3433f5ca2fdeafd90e17a1f363942535e",
+        "app/backend/packages/harness/deerflow/config/tool_config.py": "9af1f6fe20a41021d0da8dc461c02789fb09bd6d9b1630f7f807349f8e4e1142",
+        "app/backend/packages/harness/deerflow/models/enterprise_glm.py": "310eda0d33ddcc9ec8163debedd356360c88c6cb091968a79fae8bd7a298b68f",
+        "app/backend/packages/harness/deerflow/models/glm_stream_guard.py": "f0b8127bd7217f0f4cd28ce973994deb64994e87354141cbe0c4dd3f7b475030",
+        "app/backend/packages/harness/deerflow/models/output_safety.py": "d168aee0299bfc6a87f852f6941d59bcd3dc4eb33e2be6d8fe0ae4cdaa34ed65",
+        "app/backend/packages/harness/deerflow/models/robust_openai.py": "8a41b677b843b6c8e58433f1725378c312af0315711bc1ca62422d55421f2a52",
+        "app/backend/packages/harness/deerflow/persistence/bootstrap.py": "b852ea3bd215124e605e8c5a276c1cc99343a67d4165136121d885ea3def9449",
+        "app/backend/packages/harness/deerflow/persistence/migrations/versions/0021_oa_result_sets.py": "f0f4e5571251359f12ca023b864542a69fda97f990bf476dbf366d9039657347",
+        "app/backend/packages/harness/deerflow/persistence/oa_policy_flow_jobs/model.py": "21623a05aa01b804cf7b887acaeb6aff5937ecc8c73e88f0392f69e9ca95bb2b",
+        "app/backend/packages/harness/deerflow/runtime/datalake_policy.py": "3ce9d43e3802a6d03dd0670a606d9e037e2ba5732f4d3b4205470f5b2152657c",
+        "app/backend/packages/harness/deerflow/subagents/executor.py": "e2fa000b3d54eb4f12d32bd7e177e629907cc4ec78303268c71144b5c7860a7e",
+        "app/backend/packages/harness/deerflow/tools/builtins/task_tool.py": "25f48c9c233f96c02380d8447bc682368cb62bd323a1e63e542ea897b8f1815b",
+        "app/backend/packages/harness/deerflow/tools/tools.py": "e689594bc8493f55429fcbcfafb38d783c309eb6a1f24010f287a2f2fe71be52"
+      },
+      "sources_verified": true,
+      "status": "PASS"
+    },
+    "expected_spec_sha256": "20f242c560879f8eb70b77c0d85367f614fe839bad76917637bcefc9d67eebd3",
+    "feature_image_deployed": true,
+    "frontend_acceptance_pending": true,
+    "frontend_preserved": true,
+    "gateway_after": {
+      "generation": 384,
+      "spec_sha256": "20f242c560879f8eb70b77c0d85367f614fe839bad76917637bcefc9d67eebd3",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "gateway_other_spec_preserved": true,
+    "node_coverage": {
+      "additional_nodes": [
+        "ecs-zdz-pro-0000",
+        "ecs-zdz-pro-0005",
+        "ecs-zdz-pro-0008"
+      ],
+      "missing_pinned_nodes": [],
+      "observed_node_count": 18,
+      "preloaded_node_count": 15,
+      "role_matrix": {
+        "gateway": {
+          "excluded_nodes": {
+            "datax-01": [
+              "required_node_affinity"
+            ],
+            "datax-02": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "datax-03": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0000": [
+              "node_selector",
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0005": [
+              "node_selector",
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0008": [
+              "node_selector",
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0011": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0012": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0013": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0014": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0015": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0016": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0017": [
+              "node_selector",
+              "required_node_affinity"
+            ]
+          },
+          "potential_nodes": [
+            "ecs-zdz-pro-0018",
+            "ecs-zdz-pro-0019",
+            "ecs-zdz-pro-0020",
+            "ecs-zdz-pro-0021",
+            "ecs-zdz-pro-0022"
+          ],
+          "uncovered_nodes": []
+        },
+        "ppt-master-runner": {
+          "excluded_nodes": {
+            "ecs-zdz-pro-0000": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0005": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0008": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0018": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0019": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0020": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0021": [
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0022": [
+              "untolerated_hard_taint"
+            ]
+          },
+          "potential_nodes": [
+            "datax-01",
+            "datax-02",
+            "datax-03",
+            "ecs-zdz-pro-0011",
+            "ecs-zdz-pro-0012",
+            "ecs-zdz-pro-0013",
+            "ecs-zdz-pro-0014",
+            "ecs-zdz-pro-0015",
+            "ecs-zdz-pro-0016",
+            "ecs-zdz-pro-0017"
+          ],
+          "uncovered_nodes": []
+        }
+      },
+      "status": "ROLE_NODE_COVERAGE_ACCEPTED",
+      "uid_mismatches": [],
+      "unhealthy_pinned_nodes": []
+    },
+    "oa_business_acceptance_pending": true,
+    "oa_callback_requests": 0,
+    "once_claimed": true,
+    "patch_acknowledged": true,
+    "patch_may_have_applied": true,
+    "patch_request_count": 1,
+    "patch_requested": true,
+    "preflight_compatibility": [
+      {
+        "observation": {
+          "database_fingerprint": "b0fdaf30f3160cd52abf01520da71a20570c23795938bf73165153083fae9d91",
+          "database_readonly": true,
+          "schema_revision": "0021_oa_result_sets",
+          "status": "PASS"
+        },
+        "role": "gateway"
+      },
+      {
+        "observation": {
+          "database_fingerprint": "b0fdaf30f3160cd52abf01520da71a20570c23795938bf73165153083fae9d91",
+          "database_readonly": true,
+          "schema_revision": "0021_oa_result_sets",
+          "status": "PASS"
+        },
+        "role": "ppt-master-runner"
+      }
+    ],
+    "preflight_retry_available": false,
+    "preflight_v2_disabled_pods": 70,
+    "production_workload_mutation": true,
+    "provider_requests": 0,
+    "report_bytes": 302782,
+    "report_path": "/var/lib/portal-gateway-oa-data-qa-activation-20261022-r1/REPORT.json",
+    "report_sha256": "9748159776fc431cdbaedb21da8c96eda68534532bf5a97581d03a8dd51669b0",
+    "requested_v2_enabled": false,
+    "runner_compatibility_after": {
+      "database_fingerprint": "b0fdaf30f3160cd52abf01520da71a20570c23795938bf73165153083fae9d91",
+      "database_readonly": true,
+      "schema_revision": "0021_oa_result_sets",
+      "status": "PASS"
+    },
+    "runner_preserved": true,
+    "runtime_accepted": true,
+    "schema": "portal-gateway-oa-data-qa-activation.v1",
+    "schema_migration_requested": false,
+    "schema_revision": "0021_oa_result_sets",
+    "status": "GATEWAY_OA_DATA_QA_RUNTIME_ACCEPTED_FRONTEND_AND_OA_PENDING",
+    "task_policy": "ALLOW_ACTIVE_TASK_INTERRUPTION",
+    "tasks_drained_operator_attested": false,
+    "v2_enabled": false
+  },
+  "received_local_date": "2026-10-23",
+  "schema": "portal-oa-feature-activation-field.v1"
+}

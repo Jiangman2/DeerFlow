@@ -1,0 +1,29 @@
+{
+  "status": "CANDIDATE_FROZEN_NOT_DEPLOYED",
+  "skill": "research-fund-settlement",
+  "archive": "research-fund-settlement-20261027-r1.tar.gz",
+  "archive_bytes": 513346,
+  "archive_sha256": "7cfdae4c41032f2a3a3da23786a28c561a8e481a2822bb92d45ad80256e81946",
+  "file_count": 29,
+  "unpacked_bytes": 747450,
+  "tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+  "metadata_unchanged": true,
+  "reference_assets_unchanged": true,
+  "changed_paths": [
+    "SKILL.md",
+    "evals/evals.json",
+    "references/data-contract.md",
+    "references/group-company-standard-input.md",
+    "references/group-company-template-annotations.md",
+    "references/group-company.md",
+    "references/layout-contract.md",
+    "scripts/docx_builder.py",
+    "scripts/group_build.py",
+    "scripts/group_template.py",
+    "scripts/standard_input.py",
+    "scripts/template_builder.py",
+    "scripts/text_color.py"
+  ],
+  "production_baseline_pending": true,
+  "production_modified": false
+}

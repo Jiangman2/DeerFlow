@@ -1,0 +1,61 @@
+2026-10-14 published Frontend homepage source record
+
+Scope
+This commit records ONLY the already deployed homepage actions, office-tool
+links, matching artwork and user-guide entry. It is not a snapshot of every
+production service and is not approval to deploy this entire branch.
+
+The action rail retains image/PPT generation, research and analysis; adds
+proofreading and translation as peers; removes Create and Surprise; keeps four
+other office tools in More. PPT Assistant is inside the existing PPT menu.
+Desktop/mobile guide links point to the approved Haineng Work document.
+Existing authenticated chat, knowledge selection and PPT routing are unchanged.
+
+Published source
+Base commit: ff96696aebd7092af395fbcafc423499d9a8e729
+All 16 source/assets match the frozen r3 source package after LF normalization.
+See PUBLISHED-SOURCE-LOCK.json for each SHA-256 and byte length.
+Source plan SHA-256:
+054c6adef161262a6db336e047f654e370b98d22219aee47ab42d730591bf295
+Build package manifest SHA-256:
+72ef0dba88ab1a67556578aa3a987f5228ecae1939bf1c321b7ee6bf29eee46d
+
+Server build and rollout receipts supplied by the operator
+Candidate image:
+deerflow.local/deer-flow-frontend:20261014-portal-home-r1-72ef0dba88ab1a67
+OCI archive SHA-256:
+eeac75bd6df11249807f0cf487245a87baf59e65b35e5baa0454bb0a098d4551
+Manifest digest:
+sha256:fd5dbd385b8ac05b164483e03c67a81f359a3b544274729a2b017654ced337d3
+Config digest:
+sha256:8bfd7cf971518dbec17a7c6afcc0179d1105e18bcd233b5190682fbc989d1b19
+BUILD-RESULT.json SHA-256:
+94d24811e31b9f2595c363b1bed86aa2e8424b648b9aa04c1ea5a2214256b625
+Canary: PASS, two nodes; browser not tested by that fixture.
+Canary report SHA-256:
+df0547c7e3d75903f56eb40545505593752f0bb0da4453e0c016924209f37fea
+Switch fix1: PASS; two Frontend replicas ready and candidate HTTP checks passed.
+Rollout result SHA-256:
+b59cabd04fd050a243dcc41e9cbd6c845bc4c15d6a39b9a6256e505bb9cf7878
+Runtime acceptance: PASS.
+Release acceptance: PENDING_USER_BROWSER in the last supplied server receipt.
+Do not describe real production SSO/external tool access as already accepted.
+
+Verification provenance
+Historical source qualification: Next production build and TypeScript passed;
+45 Playwright tests passed (one worker, zero retries), with mocked backend and
+external destinations. It covered desktop/mobile and narrow/zoomed layouts.
+The pre-push check revalidates all 16 published payload hashes and reruns the
+three office-link unit tests. Additional results are in COMMIT-VERIFICATION.json.
+Source fixtures and production build were run before release; preserving this
+exact published source takes precedence over unrelated refactoring here.
+
+Exclusions and continuation
+No MinerU Adapter migration or key, GLM model, featured-employee management,
+creator field, intranet-browser policy, unreleased PPT repair, database schema,
+Nginx runtime patch, Secret or production configuration is in this commit.
+The separate upgrade worktree and its branch are not switched or merged.
+This branch records the deployed delta on its verified source base. The remote
+enterprise branch has later security/support changes; it is not reset to this
+base. Any subsequent integration must preserve those changes and revalidate.
+No production action is caused by this source archival commit.

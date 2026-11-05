@@ -1,0 +1,23 @@
+ARG BASE_IMAGE=ghcr.io/iflytek/skillhub-server:v0.2.18
+FROM ${BASE_IMAGE}
+
+# The official built-in packages are served from a GlobalSign R46 chain. The
+# reviewed upstream v0.2.18 runtime predates that root, so add only the pinned
+# GlobalSign root instead of weakening Java TLS verification.
+USER root
+COPY k8s/skillhub/certs/globalsign-root-r46.pem /tmp/globalsign-root-r46.pem
+RUN set -eux; \
+    keytool_path="${JAVA_HOME:+${JAVA_HOME}/bin/}keytool"; \
+    "${keytool_path}" -importcert -noprompt -trustcacerts \
+      -alias globalsign-root-r46 \
+      -file /tmp/globalsign-root-r46.pem \
+      -cacerts -storepass changeit; \
+    "${keytool_path}" -list -cacerts -storepass changeit \
+      -alias globalsign-root-r46; \
+    rm -f /tmp/globalsign-root-r46.pem
+
+# Build skillhub-app.jar from the reviewed upstream v0.2.18 source after
+# overlaying k8s/skillhub/server-overlay. Replacing only the Spring Boot
+# artifact keeps the upstream runtime image, user, entrypoint, and healthcheck.
+COPY --chown=app:app skillhub-app.jar /app/app.jar
+USER app

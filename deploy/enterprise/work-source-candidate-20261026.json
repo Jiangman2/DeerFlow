@@ -1,0 +1,231 @@
+{
+  "schema": "production-source-candidate.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "fb5744e93602280bff62f4603186642b1fba6b18",
+  "original_work_commit": "df3584b568f2d76e9c9eede6884a3e3d003f11bd",
+  "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
+  "purpose": "Work, restored staged execution, Data Lake controls and optional search/fetch providers; NOT_DEPLOYED",
+  "changes": {
+    "backend/app/channels/runtime_config_store.py": {
+      "base_sha256": "1ad7926afea1f85821b8430e2d428463e32fd376a6d5716e35c5bbe2a83cc9a7",
+      "candidate_sha256": "c471038878b40cc0970aab5c9c1b9c79509654e6bb98a380e71dbb70c0348f97"
+    },
+    "backend/app/integrations/work/coordinator.py": {
+      "base_sha256": null,
+      "candidate_sha256": "16f942e5bb9cf0431410e228c5411fac1247abf1ac5f625d999018c42d8d0a61"
+    },
+    "backend/app/channels/feishu_transport.py": {
+      "base_sha256": null,
+      "candidate_sha256": "337d590bd754d8cfcefd69e5145c0aa4898b3d9add608f9ed922665ebfaf32ae"
+    },
+    "backend/app/channels/feishu.py": {
+      "base_sha256": "21c9a28fc9c016750d7e1d45b28618c4b658d809525db7a70f2b71bcbdad8a4a",
+      "candidate_sha256": "ae71cfac2f5fb0994403c7638285855af675f9ecc9b56ae3da64fb5df27b17e1"
+    },
+    "backend/app/channels/manager.py": {
+      "base_sha256": "87b48e103b9ef979f4c111da3c6890175cebb5c7bb47e76aebcc7d0601c5e319",
+      "candidate_sha256": "cdafc0b44f1c071a14d53a92a94869b001e15b594617ebd342488ab1d07cdc44"
+    },
+    "backend/app/channels/service.py": {
+      "base_sha256": "8026c30cb3a31ed9045c4f512a02c056af28dafd61cb909d12cb64bd0fd7a744",
+      "candidate_sha256": "d648d4942f4d9ce7a2bd33027f2129235954cdac4c6bfd5601f285ddfc66112d"
+    },
+    "backend/app/channels/work_documents.py": {
+      "base_sha256": null,
+      "candidate_sha256": "ac46a6419b6d999beffa3c6d3e7705c81094fa07d1a4e509b2dad298daccb2e9"
+    },
+    "backend/app/gateway/app.py": {
+      "base_sha256": "03ffac770ff35d8748c0ceced6fdd63276fa755624e39e2f4016281a0e6eb045",
+      "candidate_sha256": "4280b820b55625b9b08ebfe2c6a3297c87b1bf7e6279d4558f0194f8be9056c0"
+    },
+    "backend/app/gateway/auth_middleware.py": {
+      "base_sha256": "8c7b9f3ee44473c2ae02342d91307b64678008e00db954ad71d0b6dd8da9bfb8",
+      "candidate_sha256": "4752404771d967b580e5b63bf07e60f0a2d6bd4556e0042a626c910fc33465d5"
+    },
+    "backend/app/gateway/routers/channel_connections.py": {
+      "base_sha256": "a3802b11806f1e5266c6b1edaa47445f8dddc4385039b5b9bb609c8e4b943790",
+      "candidate_sha256": "15ca8ca2ce737ad8b459a976664cf7668a962ee65cdc62c4b72bec56c083936b"
+    },
+    "backend/app/gateway/routers/work_documents.py": {
+      "base_sha256": null,
+      "candidate_sha256": "c9dd02ed7db3488aa995e78792af725c9a72cfe05b233c933c92a0d7886b2271"
+    },
+    "backend/app/gateway/work_oauth_logging.py": {
+      "base_sha256": null,
+      "candidate_sha256": "bb99c5fa466ea6c33db90ede151df41bb5ff4ed68ac945dfd2ca87f8ca554086"
+    },
+    "backend/app/integrations/__init__.py": {
+      "base_sha256": null,
+      "candidate_sha256": "98665c7f2069eaf6a0d8be1f21d72b7d13a5b9f515d80a83295ccaf56a8d173c"
+    },
+    "backend/app/integrations/work/__init__.py": {
+      "base_sha256": null,
+      "candidate_sha256": "25449672ab5d4793834584e5d4d5faca21ad46ead895fd1ef832711423a60e80"
+    },
+    "backend/app/integrations/work/agent.py": {
+      "base_sha256": null,
+      "candidate_sha256": "ce625b2f61c765209f6db000234cce18553ec91aa81f82d51461a784dda8df41"
+    },
+    "backend/app/integrations/work/auth.py": {
+      "base_sha256": null,
+      "candidate_sha256": "28430af776276a8ba15914209330c5caaaf8591d2281c233c7c74972f662bf01"
+    },
+    "backend/app/integrations/work/calendar.py": {
+      "base_sha256": null,
+      "candidate_sha256": "feaab1669494ffb537e22be99e79fc0e0da496742d72f8e1616b8f51f2dffb3e"
+    },
+    "backend/app/integrations/work/capabilities.py": {
+      "base_sha256": null,
+      "candidate_sha256": "f41f814b5552d1c0e473e3f3321c7548715d903c1f65b70cd1e8a97c5165044b"
+    },
+    "backend/app/integrations/work/client.py": {
+      "base_sha256": null,
+      "candidate_sha256": "503ad0545c699f42ae3f309e07b5fcb797c3041a241309bce09027f4ccf531f5"
+    },
+    "backend/app/integrations/work/config.py": {
+      "base_sha256": null,
+      "candidate_sha256": "2dfc2f9198d7c4268163543c43a9e3edcd6f20bc49ec3532c6560a49c9d5c3a5"
+    },
+    "backend/app/integrations/work/persistent.py": {
+      "base_sha256": null,
+      "candidate_sha256": "4e567109c5974d26d537b1505d17b02771946572db4d422aed28b9520b819a9d"
+    },
+    "backend/app/integrations/work/receiver.py": {
+      "base_sha256": null,
+      "candidate_sha256": "dc365bdec3ef3cc3ae7e427771d88b25626ab4ad11bcf731caf3f128729c2658"
+    },
+    "backend/app/integrations/work/scopes.py": {
+      "base_sha256": null,
+      "candidate_sha256": "5432151ba3f90c56e2dea300efb8079b62c3fbda0fabf2df801f0912c9b9db5c"
+    },
+    "backend/app/integrations/work/service.py": {
+      "base_sha256": null,
+      "candidate_sha256": "fe59118ba9b91433da4fe3e84f979fef325990c68527f545a9dc9469962d8fe9"
+    },
+    "backend/app/integrations/work/store.py": {
+      "base_sha256": null,
+      "candidate_sha256": "dca53a3f9f92c8920c1ab7750a1e63b522750587b80171c1eb5fbfa4ab76ef45"
+    },
+    "backend/packages/harness/deerflow/persistence/migrations/versions/0022_work_integration_state.py": {
+      "base_sha256": null,
+      "candidate_sha256": "d90fb4a6fe622a4021a8ecf3f752e62b38e288d728d8265ba7ad705342b47d2c"
+    },
+    "backend/packages/harness/deerflow/persistence/models/__init__.py": {
+      "base_sha256": "fd96d822530abbcad59574ece1058896b1599b9fc7fcfa87af7cbc195747ac20",
+      "candidate_sha256": "0d1ea7e1ba39cd26c91b164c6bbbe246047597e3bfc977f2b5cd2c2ac805e534"
+    },
+    "backend/packages/harness/deerflow/persistence/work/__init__.py": {
+      "base_sha256": null,
+      "candidate_sha256": "152be9c6d302e5f1cc84bc5a0d26d2accbffaf99abee39d5308d5648cf83962f"
+    },
+    "backend/packages/harness/deerflow/persistence/work/model.py": {
+      "base_sha256": null,
+      "candidate_sha256": "cfd791be6323910292f3470c9f2a79c2ff1489ceb95848666a08128b3de45ac5"
+    },
+    "backend/app/integrations/work/routing.py": {
+      "base_sha256": null,
+      "candidate_sha256": "2cd39ac64ec83680df8b7a0b3cbff250d3079c3e51f71a9c2712703676e2fa4c"
+    },
+    "backend/packages/harness/deerflow/agents/lead_agent/agent.py": {
+      "base_sha256": "bb4ce246562ea20c2351545e2471745ae43d86bf3ec3f0333ac8fbbe3e87a039",
+      "candidate_sha256": "1a5cbe048777f9498a0ce086c156d571ea7399ced2e83b34bb660eb32f54cd30"
+    },
+    "backend/packages/harness/deerflow/agents/thread_state.py": {
+      "base_sha256": "4d0687d89283fa6879632973ac10a3cc5ac08613597b8c7c82eff2086b294687",
+      "candidate_sha256": "1b3cef668b0dca59ceec6f880316458e7fe88a79a7e019130084c636b99b7d6d"
+    },
+    "backend/packages/harness/deerflow/config/app_config.py": {
+      "base_sha256": "8a4bda9fc1000ea300ab267bd303efd284766e776eb2038923612d4f8cf32479",
+      "candidate_sha256": "71989c70f8956b3876c707750f2f7edbff09671b454ab107b07b0337afd1264a"
+    },
+    "backend/packages/harness/deerflow/agents/middlewares/staged_execution_middleware.py": {
+      "base_sha256": null,
+      "candidate_sha256": "44923be4d27c67b6aabb1de3f329904195c8236c28aebaf9f8237ff7fab822af"
+    },
+    "backend/packages/harness/deerflow/config/staged_execution_config.py": {
+      "base_sha256": null,
+      "candidate_sha256": "060f60aba2eddbc8fda9b2be3a7be73fd216d6567875a57b2124b7a9032465b9"
+    },
+    "backend/packages/harness/deerflow/runtime/datalake_policy.py": {
+      "base_sha256": "776308756f95750613f2af246f3c73c15f3b4e0293c2b9822cbbc91257da6009",
+      "candidate_sha256": "48f3ce41d1bb9f255c753fc2189a2a7751e5b93a60ee93f1ba5b67afc637c310"
+    },
+    "backend/packages/harness/deerflow/community/deepseek/__init__.py": {
+      "base_sha256": null,
+      "candidate_sha256": "81fd9daa4d621422fba950783f495aec8d053b7d7ef7e9427f59e6f0beebf342"
+    },
+    "backend/packages/harness/deerflow/community/deepseek/errors.py": {
+      "base_sha256": null,
+      "candidate_sha256": "4f6495cdbb2e6c7b89a6fa5bff6293a977935e3feb7da1409483742d70eeba7a"
+    },
+    "backend/packages/harness/deerflow/community/deepseek/tools.py": {
+      "base_sha256": null,
+      "candidate_sha256": "88c46312a48db653196e19fd9ee4175ec7320a42eb5e9c8280be43ba3de669b0"
+    },
+    "backend/packages/harness/deerflow/community/exa/tools.py": {
+      "base_sha256": "894d11d23dd8c4f804f9b5214d94d643618fa9b20aa737edfe5f49508e3871f2",
+      "candidate_sha256": "fb14cb2686e8cf8b1152cd22cb3739999a60dc54f61b13d4d08ded01f32418c2"
+    },
+    "backend/packages/harness/deerflow/community/tavily/tools.py": {
+      "base_sha256": "990967ef654db706183253f6505f526268c5681bbafbded16e37a0140e976576",
+      "candidate_sha256": "722d7518c0d54ee30c69cfd24d0c51f39e3bede56ef70e58bd7b8c20509b6b1f"
+    },
+    "backend/packages/harness/deerflow/community/url_safety.py": {
+      "base_sha256": "bca002bc8b60149928cf50f09f2d76f323a5f9709330e01ae99359caea94a5cf",
+      "candidate_sha256": "cb314cd99f3b67bd2ae67c135f480fa29e4ea3835d6749c15dccd1e5415f6565"
+    },
+    "backend/packages/harness/deerflow/community/web_fetch_output.py": {
+      "base_sha256": null,
+      "candidate_sha256": "d08001f89ec212b71d952e9bf0c07c40162e729470cf20c49b7eea01a8e06b46"
+    },
+    "backend/packages/harness/deerflow/community/web_router/__init__.py": {
+      "base_sha256": null,
+      "candidate_sha256": "14b77e1d8779434e6908de2df5ade4a7f0f168799e404b0404ba2de08f17d20f"
+    },
+    "backend/packages/harness/deerflow/community/web_router/providers.py": {
+      "base_sha256": null,
+      "candidate_sha256": "f0ac1b0289bb68f6a5999853459ab86d386ccb053aacffa799df9f8a06cf5193"
+    },
+    "backend/packages/harness/deerflow/community/web_router/tools.py": {
+      "base_sha256": null,
+      "candidate_sha256": "7c4783c005006cc48557c0000385bdf8fda593a84fb3b9fb5fc60005a8be8e53"
+    },
+    "backend/app/gateway/routers/competition_usage.py": {
+      "base_sha256": "8d3603d1e9923a363a63413b78e71c14fcfa677f3154cb6364f5941d9f2e3dfa",
+      "candidate_sha256": "1923d1d4fc7e496e576437e2e2a20fbc806815a248041029dfd21bf699a1f21b"
+    },
+    "backend/packages/harness/deerflow/config/staged_agent_scope.py": {
+      "base_sha256": null,
+      "candidate_sha256": "9455f0b49e958f6ea7f9a091b1261518e547ad0c1ac175be19bea1b705d716e9"
+    },
+    "backend/packages/harness/deerflow/runtime/journal.py": {
+      "base_sha256": "d8a6f48e57046d014c0ea9e9397ac308ea03fc05ce09130757e58be5a49fcdaf",
+      "candidate_sha256": "c5f03d378e3a1ca3128d7d0380f01f1a7309ba8fbc399ca92a31c879cc109618"
+    },
+    "backend/packages/harness/deerflow/runtime/runs/worker.py": {
+      "base_sha256": "36e2811708abae4cd6bc69b58edaededeaad35675cf2755692bf6ffad62b3eaa",
+      "candidate_sha256": "3d68400f0ba0c60aa1c63e9f771df10e33549a6660ba948f1b17071443a91c1c"
+    },
+    "backend/packages/harness/deerflow/agents/middlewares/datalake_source_middleware.py": {
+      "base_sha256": "72280aebc0c42a271e74d5626c407c856495e29d64ad7232b67842d284e510d2",
+      "candidate_sha256": "47fd8404d7ffe40f227202dea3addea815e86a9a4afb3987837d0b140980e2cb"
+    },
+    "backend/packages/harness/deerflow/community/appforge/tools.py": {
+      "base_sha256": "45919fdad0e5fe0fb18fa19cb0e2ea620c7b7ce07d1cb17486b8e0a8a2d31398",
+      "candidate_sha256": "02e7ba0ce62a38e2d92624837db075e0db1e4da3729a177c29fba0e9b5bf132a"
+    },
+    "backend/packages/harness/deerflow/models/cnooc_deepseek_v41.py": {
+      "base_sha256": "a79d5b0e8a117223ca8b04e23e8bf6b36f737b32f43ea62c747c9193629b5930",
+      "candidate_sha256": "ffce531177710ff166d97ca17a013675fd209d7b22dc0c2ea062d99e34c93445"
+    },
+    "backend/packages/harness/deerflow/models/cnooc_stream_guard.py": {
+      "base_sha256": null,
+      "candidate_sha256": "a7500ca5f4bd206d23395b59a1cc1d08fe1b464ccae8f3e8ae222db5d8802a2a"
+    },
+    "backend/packages/harness/deerflow/agents/middlewares/view_image_middleware.py": {
+      "base_sha256": "7b3770a881b46a8216baaa9838fcb68be200f70fb406071159390411634c6150",
+      "candidate_sha256": "da0f5b9320d39041c65c0b16ecbe709a822ff5a57e03765c60b778da36184d5f"
+    }
+  },
+  "search_fetch_commit": "bc7d1a4a645c8c7bd2183fb62292e1c1094b0ac2"
+}

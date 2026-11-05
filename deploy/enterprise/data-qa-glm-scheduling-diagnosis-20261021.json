@@ -1,0 +1,24 @@
+{
+  "source": "operator_supplied_readonly_observation",
+  "gateway_scheduling": {
+    "nodeSelector": {"workload": "gateway"},
+    "priorityClassName": null,
+    "schedulerName": "default-scheduler",
+    "tolerations": [{"effect": "NoSchedule", "key": "dedicated", "operator": "Equal", "value": "gateway"}]
+  },
+  "modified": false,
+  "node": {
+    "name": "ecs-zdz-pro-0018",
+    "taints": [{"effect": "NoSchedule", "key": "dedicated", "value": "gateway"}],
+    "uid": "0243d097-3ee7-4abc-899a-319e57934eee",
+    "unschedulable": false
+  },
+  "pod_events": [{
+    "categories": ["untolerated taint", "node affinity", "didn't match", "preemption"],
+    "count": null,
+    "lastTimestamp": null,
+    "pod": "portal-data-qa-check-2e0fd403b23a-0-85pxp",
+    "reason": "FailedScheduling"
+  }],
+  "pod_names": ["portal-data-qa-check-2e0fd403b23a-0-85pxp"]
+}

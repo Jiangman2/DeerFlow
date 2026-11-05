@@ -1,0 +1,18 @@
+{
+  "status": "SKILL_DEPLOYED_NODE_VIEWS_ACCEPTED_MAINTENANCE_CLEANUP_PENDING",
+  "server_report_sha256": "1fbbdcb5a75baa8253729274abb08345c34991542df4b58d23e3ea805540bf55",
+  "server_report_bytes": 6486,
+  "server_report_path": "/var/lib/portal-research-fund-skill-update-20261027-r1/REPORT.json",
+  "receipt_reconstructed_exactly": true,
+  "normalization": "Restored one Markdown autolink in maintenance_seed.image; excluded three post-persistence report metadata fields",
+  "candidate_files_verified": 29,
+  "after_tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+  "gateway_node_views_accepted": 5,
+  "synthetic_cli_checks_passed": 9,
+  "production_database_access": false,
+  "deployment_patches": 0,
+  "browser_business_acceptance_pending": true,
+  "cleanup_error_code": "KUBERNETES_COMMAND_NOT_ACCEPTED",
+  "maintenance_pod": "fund-skill-maint-a991a551af52",
+  "maintenance_pod_uid": "514544a8-7d2f-492f-b527-3a2fb478d112"
+}

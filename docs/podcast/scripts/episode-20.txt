@@ -1,0 +1,43 @@
+本集标题：前端 Thread Hooks、SSE、消息渲染与缓存。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：15.1 前端不是简单的聊天窗口。
+
+前端同时处理：
+
+Thread 创建、切换和历史分页。 - 当前 Run 的 SSE 流。 - optimistic user message。 - AI 消息块合并。 - 工具调用分组。 - 子任务步骤和结果。 - Todo、Goal、Artifact、Human Input。 - stop、cancel、branch、regenerate。 - TanStack Query cache invalidation。
+
+下面进入小节：15.2 前端状态流。
+
+图示口述：这张图展示了useThreadStream / useSubmitThread、LangGraph SDK、SSE 事件、线程状态更新、messages、tasks / subtask steps、values: todos/goal/artifacts、message grouping、MessageList / MessageResponse、Goal、Todo、Artifact 面板、TanStack Query、历史、Run、Usage API之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+下面进入小节：15.3 消息不是一维列表。
+
+前端会根据消息类型和 tool call 关系分组：
+
+普通用户消息。 - Assistant processing group。 - AI 文本与 tool_calls 同时存在的消息。 - ToolMessage。 - Human Input card。 - Subtask card。 - 最终结果。
+
+尤其要注意：AI 消息可能同时有用户可见文本和 tool_calls。不能因为存在 tool_calls 就把文本丢掉；当前分支将其作为 processing step 展示。
+
+下面进入小节：15.4 历史与实时事件的合并。
+
+历史分页、checkpoint、当前 SSE 和 optimistic message 可能同时包含同一消息的不同版本。前端需要使用稳定身份、序号和 canonical position 合并，而不能简单按 timestamp 重新排序，否则会把消息插入错误位置。
+
+下面进入小节：15.5 Stop 与缓存。
+
+停止 Run 后，前端通常需要立即失效：
+
+当前 Thread。 - Thread history。 - Token usage。 - Sidebar/search cache。
+
+然后再进行一次后续 refetch，因为 SDK stop 可能通过 abort 加后台取消完成，后端标题或终态记录可能稍后才提交。
+
+下面进入小节：15.6 Artifact 预览安全。
+
+PDF 预览 iframe 必须：
+
+不使用 allow-scripts。 - 不使用 allow-same-origin。 - 使用 no-referrer。 - 配合 Gateway 的 CSP 和 active-PDF attachment fallback。
+
+Markdown 中的 Artifact 链接如果有面板回调，应先使用惰性 #artifacts href，避免 hydration 前点击直接导航到原始文件响应。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

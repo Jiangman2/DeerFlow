@@ -1,0 +1,9 @@
+{
+  "controller_tests_linux_python37": 17,
+  "image": "deerflow.local/deer-flow-gateway@sha256:3a935533a484bd26e9bb8798ab8e446d92e9a852b593a3ce92f58c0496dd83ea",
+  "production_deployed": false,
+  "runtime_helper_tests_sdk232": 3,
+  "schema": "portal-glm-stream-activation-build.v1",
+  "script_bytes": 120634,
+  "script_sha256": "191a528ef63cd71229de1f12a02024249fa83fccfb3bde52aefe384eec039034"
+}

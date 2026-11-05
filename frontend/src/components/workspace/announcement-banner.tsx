@@ -1,99 +1,154 @@
 "use client";
 
-import {
-  AlertTriangleIcon,
-  CheckCircle2Icon,
-  InfoIcon,
-  MegaphoneIcon,
-  XIcon,
-} from "lucide-react";
+import { BellIcon, XIcon } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useActiveAnnouncement } from "@/core/announcements/hooks";
-import type {
-  Announcement,
-  AnnouncementSeverity,
-} from "@/core/announcements/types";
-import { cn } from "@/lib/utils";
+import type { Announcement } from "@/core/announcements/types";
 
 const dismissedPrefix = "deerflow:announcement:dismissed:";
+export const ANNOUNCEMENT_OPEN_EVENT = "deerflow:announcement:open";
 
-const severityStyle: Record<AnnouncementSeverity, string> = {
-  info: "border-sky-200 bg-sky-50 text-sky-950",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-950",
-  warning: "border-amber-200 bg-amber-50 text-amber-950",
-  critical: "border-rose-200 bg-rose-50 text-rose-950",
-};
-
-function SeverityIcon({ severity }: { severity: AnnouncementSeverity }) {
-  if (severity === "success") return <CheckCircle2Icon className="size-4" />;
-  if (severity === "warning" || severity === "critical") {
-    return <AlertTriangleIcon className="size-4" />;
-  }
-  return <InfoIcon className="size-4" />;
-}
-
-function getDismissedKey(announcement: Announcement): string {
+export function getAnnouncementDismissedKey(announcement: Announcement) {
   return `${dismissedPrefix}${announcement.id}:${announcement.updated_at}`;
 }
 
 export function AnnouncementBanner() {
   const { data: announcement } = useActiveAnnouncement();
   const [hiddenKey, setHiddenKey] = useState<string | null>(null);
+  const [checkedKey, setCheckedKey] = useState<string | null>();
+  const [forcedOpen, setForcedOpen] = useState(false);
 
   const dismissedKey = useMemo(
-    () => (announcement ? getDismissedKey(announcement) : null),
+    () => (announcement ? getAnnouncementDismissedKey(announcement) : null),
     [announcement],
   );
 
   useEffect(() => {
-    if (!dismissedKey || typeof window === "undefined") {
+    if (!dismissedKey) {
       setHiddenKey(null);
+      setCheckedKey(null);
       return;
     }
     setHiddenKey(
       window.localStorage.getItem(dismissedKey) ? dismissedKey : null,
     );
+    setCheckedKey(dismissedKey);
   }, [dismissedKey]);
 
-  if (!announcement || (dismissedKey && hiddenKey === dismissedKey)) {
+  useEffect(() => {
+    const reopenAnnouncement = () => {
+      setForcedOpen(true);
+      if (!dismissedKey) return;
+      setHiddenKey(null);
+      setCheckedKey(dismissedKey);
+    };
+    window.addEventListener(ANNOUNCEMENT_OPEN_EVENT, reopenAnnouncement);
+    return () => {
+      window.removeEventListener(ANNOUNCEMENT_OPEN_EVENT, reopenAnnouncement);
+    };
+  }, [dismissedKey]);
+
+  const checked = !announcement || checkedKey === dismissedKey;
+  const dismissed = Boolean(dismissedKey && hiddenKey === dismissedKey);
+  if (!forcedOpen && (!announcement || !checked || dismissed)) {
     return null;
   }
 
-  const text = `公告：${announcement.title}：${announcement.content}`;
+  const canDismiss = !announcement || announcement.dismissible;
+  const dialogTitle = "海能通用智能体公告";
+  const dialogContent = announcement?.content ?? "当前暂无公告。";
+
+  const closeAnnouncement = () => {
+    if (announcement?.dismissible && dismissedKey) {
+      window.localStorage.setItem(dismissedKey, "1");
+      setHiddenKey(dismissedKey);
+    }
+    setForcedOpen(false);
+  };
 
   return (
-    <div
-      className={cn(
-        "border-b px-4 py-2 text-sm",
-        severityStyle[announcement.severity],
-      )}
-      role="status"
+    <aside
+      className="cnooc-announcement-overlay animate-in fade-in fixed inset-0 z-50 grid place-items-center duration-300 motion-reduce:animate-none"
+      data-modal="true"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cnooc-announcement-title"
     >
-      <div className="mx-auto flex max-w-7xl items-center gap-2">
-        <MegaphoneIcon className="size-4 shrink-0" />
-        <SeverityIcon severity={announcement.severity} />
-        <div className="min-w-0 flex-1 truncate font-medium" title={text}>
-          {text}
+      <div aria-hidden="true" className="cnooc-announcement-backdrop" />
+      <div
+        className="cnooc-announcement-dialog relative w-full overflow-hidden border"
+        data-severity={announcement?.severity ?? "info"}
+      >
+        <Image
+          alt=""
+          aria-hidden="true"
+          className="cnooc-announcement-orbit"
+          height={256}
+          priority
+          src="/images/cnooc-announcement-orbit.png"
+          unoptimized
+          width={256}
+        />
+        <header className="cnooc-announcement-header">
+          <h2 id="cnooc-announcement-title">{dialogTitle}</h2>
+          {canDismiss ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="cnooc-announcement-close-icon"
+              onClick={closeAnnouncement}
+              aria-label="关闭公告"
+              title="关闭公告"
+            >
+              <XIcon className="size-4" />
+            </Button>
+          ) : null}
+        </header>
+        <div className="cnooc-announcement-body">
+          <div className="cnooc-announcement-content whitespace-pre-wrap">
+            {dialogContent}
+          </div>
+          {canDismiss ? (
+            <div className="cnooc-announcement-footer">
+              <Button
+                type="button"
+                className="cnooc-announcement-close-button"
+                onClick={closeAnnouncement}
+              >
+                关闭
+              </Button>
+            </div>
+          ) : null}
         </div>
-        {announcement.dismissible && dismissedKey ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-7 shrink-0 rounded-md hover:bg-black/5"
-            onClick={() => {
-              window.localStorage.setItem(dismissedKey, "1");
-              setHiddenKey(dismissedKey);
-            }}
-            aria-label="关闭公告"
-            title="关闭公告"
-          >
-            <XIcon className="size-4" />
-          </Button>
-        ) : null}
       </div>
-    </div>
+    </aside>
+  );
+}
+
+export function AnnouncementNotificationButton() {
+  const { data: announcement } = useActiveAnnouncement();
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="cnooc-announcement-trigger relative"
+      data-severity={announcement?.severity ?? "info"}
+      aria-label={announcement ? "查看当前公告" : "暂无公告"}
+      title={announcement ? "查看当前公告" : "暂无公告"}
+      onClick={() => {
+        window.dispatchEvent(new Event(ANNOUNCEMENT_OPEN_EVENT));
+      }}
+    >
+      <BellIcon aria-hidden="true" />
+      {announcement ? (
+        <span aria-hidden="true" className="cnooc-announcement-dot" />
+      ) : null}
+    </Button>
   );
 }

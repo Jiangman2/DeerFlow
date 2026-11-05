@@ -1,0 +1,30 @@
+{
+  "schema": "portal-chat-tls-offline-qualification.v1",
+  "script": "inspect-portal-chat-tls-20261025-r1.py",
+  "script_bytes": 29892,
+  "script_sha256": "bb227e67dfebca42d4abc74af2048ab8592fcd313dd98c0451dc2837e620b5c1",
+  "incident_thread": "678bb3ea-3106-4c81-b9bc-5b43edfd656d",
+  "offline_runtime_tests": {
+    "passed": 22,
+    "failed": 0,
+    "network": "disabled",
+    "environment": "local Gateway QA image, isolated Python"
+  },
+  "linux_python_37_tests": {
+    "passed": 15,
+    "skipped_optional_runtime_dependencies": 7,
+    "failed": 0
+  },
+  "actual_linux_runtime_inventory": "OBSERVED",
+  "production_execution": "PENDING_OPERATOR",
+  "maximum_gateway_pods": 100,
+  "maximum_concurrent_inventory_children": 2,
+  "maximum_gateway_network_nodes": 6,
+  "maximum_unauthenticated_HEAD_requests": 18,
+  "production_workload_modified": false,
+  "source_hashes": {
+    "inspect-chat-tls-child.py": "936947871412afb1bfb9439bdcddcbd396844d35dd78c03d89fe3f0c4fe9ff4b",
+    "inspect-chat-tls-host.py": "eaa3a056f5a733928f5c405ee13825a37a1bbc14ed5058e9d217e272743eb318",
+    "test_inspect_chat_tls.py": "34d9e6c6337d6728ed14d958d95fd44b9bbd3138130692d7d00a8a94251a5873"
+  }
+}

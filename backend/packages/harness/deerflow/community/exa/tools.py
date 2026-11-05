@@ -3,6 +3,8 @@ import json
 from exa_py import Exa
 from langchain.tools import tool
 
+from deerflow.community.url_safety import validate_cloud_fetch_url
+from deerflow.community.web_fetch_output import content_limit, format_page
 from deerflow.config import get_app_config
 
 
@@ -65,14 +67,19 @@ def web_fetch_tool(url: str) -> str:
         url: The URL to fetch the contents of.
     """
     try:
+        error = validate_cloud_fetch_url(url)
+        if error:
+            return error
+        config = get_app_config().get_tool_config("web_fetch")
+        limit = content_limit(config.model_extra if config else None)
         client = _get_exa_client("web_fetch")
-        res = client.get_contents([url], text={"max_characters": 4096})
+        res = client.get_contents([url], text={"max_characters": limit})
 
         if res.results:
             result = res.results[0]
             title = result.title or "Untitled"
             text = result.text or ""
-            return f"# {title}\n\n{text[:4096]}"
+            return format_page(title, text, limit)
         else:
             return "Error: No results found"
     except Exception as e:

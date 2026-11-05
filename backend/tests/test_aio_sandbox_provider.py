@@ -10,12 +10,6 @@ import pytest
 from deerflow.config.paths import Paths, join_host_path
 from deerflow.runtime.user_context import reset_current_user, set_current_user
 
-
-@pytest.fixture(autouse=True)
-def clear_host_base_dir(monkeypatch):
-    """Keep mount-path tests independent from the caller's deployment env."""
-    monkeypatch.delenv("DEER_FLOW_HOST_BASE_DIR", raising=False)
-
 # ── ensure_thread_dirs ───────────────────────────────────────────────────────
 
 
@@ -57,14 +51,37 @@ def _make_provider(tmp_path):
         provider = aio_mod.AioSandboxProvider.__new__(aio_mod.AioSandboxProvider)
         provider._config = {}
         provider._sandboxes = {}
+        provider._sandbox_infos = {}
+        provider._warm_pool = {}
         provider._lock = MagicMock()
         provider._idle_checker_stop = MagicMock()
     return provider
 
 
+def test_remote_provider_can_declare_shared_thread_data_mounts():
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    remote_mod = importlib.import_module("deerflow.community.aio_sandbox.remote_backend")
+    provider = aio_mod.AioSandboxProvider.__new__(aio_mod.AioSandboxProvider)
+    provider._backend = remote_mod.RemoteSandboxBackend("http://provisioner:8002")
+    provider._config = {"shared_thread_data_mounts": True}
+
+    assert provider.uses_thread_data_mounts is True
+
+
+def test_remote_provider_requires_explicit_shared_mount_declaration():
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    remote_mod = importlib.import_module("deerflow.community.aio_sandbox.remote_backend")
+    provider = aio_mod.AioSandboxProvider.__new__(aio_mod.AioSandboxProvider)
+    provider._backend = remote_mod.RemoteSandboxBackend("http://provisioner:8002")
+    provider._config = {}
+
+    assert provider.uses_thread_data_mounts is False
+
+
 def test_get_thread_mounts_includes_acp_workspace(tmp_path, monkeypatch):
     """_get_thread_mounts must include /mnt/acp-workspace (read-only) for docker sandbox."""
     aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    monkeypatch.delenv("DEER_FLOW_HOST_BASE_DIR", raising=False)
     monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
     monkeypatch.setattr(aio_mod, "get_effective_user_id", lambda: None)
 
@@ -95,6 +112,7 @@ def test_get_thread_mounts_includes_user_data_dirs(tmp_path, monkeypatch):
 def test_get_thread_mounts_uses_explicit_user_id(tmp_path, monkeypatch):
     """Channel runs must mount the same user bucket used for artifact delivery."""
     aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    monkeypatch.delenv("DEER_FLOW_HOST_BASE_DIR", raising=False)
     monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
     monkeypatch.setattr(aio_mod, "get_effective_user_id", lambda: "default")
 
@@ -166,7 +184,7 @@ async def test_acquire_async_uses_async_readiness_polling(monkeypatch):
     """AioSandboxProvider async creation must not use sync readiness polling."""
     aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
     provider = _make_provider(None)
-    provider._config = {"replicas": 3}
+    provider._config = {"replicas": 3, "startup_timeout": 180}
     provider._thread_locks = {}
     provider._warm_pool = {}
     provider._sandbox_infos = {}
@@ -195,7 +213,7 @@ async def test_acquire_async_uses_async_readiness_polling(monkeypatch):
     sandbox_id = await provider._create_sandbox_async("thread-async", "sandbox-async", user_id="user-async")
 
     assert sandbox_id == "sandbox-async"
-    assert async_readiness_calls == [("http://sandbox", 60)]
+    assert async_readiness_calls == [("http://sandbox", 180)]
     assert provider._backend.destroy.call_count == 0
     assert provider._thread_sandboxes[("user-async", "thread-async")] == "sandbox-async"
 
@@ -374,11 +392,12 @@ def test_remote_backend_create_forwards_effective_user_id(monkeypatch):
         def json(self):
             return {"sandbox_url": "http://sandbox.local"}
 
-    def _post(url, json, timeout):  # noqa: A002 - mirrors requests.post kwarg
+    def _post(url, json, timeout, headers=None):  # noqa: A002 - mirrors requests.post kwarg
         posted.update({"url": url, "json": json, "timeout": timeout})
         return _Response()
 
     monkeypatch.setattr(remote_mod.requests, "post", _post)
+    monkeypatch.setattr(remote_mod, "user_should_see_legacy_skills", lambda user_id: True)
 
     try:
         backend.create("thread-42", "sandbox-42")
@@ -390,6 +409,7 @@ def test_remote_backend_create_forwards_effective_user_id(monkeypatch):
         "sandbox_id": "sandbox-42",
         "thread_id": "thread-42",
         "user_id": "user-7",
+        "include_legacy_skills": True,
     }
 
 
@@ -406,61 +426,18 @@ def test_remote_backend_create_prefers_explicit_user_id(monkeypatch):
         def json(self):
             return {"sandbox_url": "http://sandbox.local"}
 
-    def _post(url, json, timeout):  # noqa: A002 - mirrors requests.post kwarg
+    def _post(url, json, timeout, headers=None):  # noqa: A002 - mirrors requests.post kwarg
         posted.update({"url": url, "json": json, "timeout": timeout})
         return _Response()
 
     monkeypatch.setattr(remote_mod.requests, "post", _post)
     monkeypatch.setattr(remote_mod, "get_effective_user_id", lambda: "default")
+    monkeypatch.setattr(remote_mod, "user_should_see_legacy_skills", lambda user_id: False)
 
     backend.create("thread-42", "sandbox-42", user_id="ou-user")
 
     assert posted["json"]["user_id"] == "ou-user"
-
-
-def test_remote_provisioner_backend_uses_thread_data_mounts(tmp_path):
-    """Provisioner sandboxes mount user-data, so uploads should not start a sync sandbox."""
-    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
-    remote_mod = importlib.import_module("deerflow.community.aio_sandbox.remote_backend")
-    provider = aio_mod.AioSandboxProvider.__new__(aio_mod.AioSandboxProvider)
-    provider._backend = remote_mod.RemoteSandboxBackend("http://provisioner:8002")
-
-    assert provider.uses_thread_data_mounts is True
-
-
-def test_create_sandbox_uses_configured_startup_timeout(tmp_path, monkeypatch):
-    """Sandbox readiness should honor sandbox.startup_timeout instead of a fixed 60s."""
-    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
-    provider = _make_provider(tmp_path)
-    provider._config = {"replicas": 3, "startup_timeout": 123}
-    provider._thread_locks = {}
-    provider._warm_pool = {}
-    provider._sandbox_infos = {}
-    provider._thread_sandboxes = {}
-    provider._last_activity = {}
-    provider._lock = aio_mod.threading.Lock()
-    provider._backend = SimpleNamespace(
-        create=MagicMock(
-            return_value=aio_mod.SandboxInfo(
-                sandbox_id="sandbox-timeout",
-                sandbox_url="http://sandbox-timeout",
-            )
-        ),
-        destroy=MagicMock(),
-    )
-
-    readiness_calls: list[tuple[str, int]] = []
-    monkeypatch.setattr(provider, "_get_extra_mounts", lambda _thread_id, *, user_id=None: [])
-    monkeypatch.setattr(
-        aio_mod,
-        "wait_for_sandbox_ready",
-        lambda sandbox_url, timeout=30: readiness_calls.append((sandbox_url, timeout)) or True,
-    )
-
-    sandbox_id = provider._create_sandbox("thread-timeout", "sandbox-timeout", user_id="user-timeout")
-
-    assert sandbox_id == "sandbox-timeout"
-    assert readiness_calls == [("http://sandbox-timeout", 123)]
+    assert posted["json"]["include_legacy_skills"] is False
 
 
 # ── Sandbox client teardown (#2872) ──────────────────────────────────────────
@@ -511,6 +488,150 @@ def test_destroy_closes_cached_sandbox_client(tmp_path):
     backend_destroy.assert_called_once()
     assert "sandbox-destroy" not in provider._sandboxes
     assert "sandbox-destroy" not in provider._sandbox_infos
+
+
+def test_cross_process_execution_lease_blocks_warm_pool_eviction(tmp_path, monkeypatch):
+    """A runner lease must stop another provider process from deleting its Pod."""
+
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
+
+    runner, _, _ = _make_provider_with_active_sandbox(tmp_path, "sandbox-shared")
+    runner._backend.is_alive = MagicMock(return_value=True)
+
+    gateway = _make_provider(tmp_path)
+    gateway._lock = aio_mod.threading.Lock()
+    info = aio_mod.SandboxInfo(
+        sandbox_id="sandbox-shared",
+        sandbox_url="http://sandbox-host",
+    )
+    gateway._warm_pool = {"sandbox-shared": (info, 0.0)}
+    gateway._backend = SimpleNamespace(destroy=MagicMock())
+
+    lease = runner.acquire_execution_lease("sandbox-shared")
+    try:
+        assert (
+            gateway._destroy_warm_entry(
+                "sandbox-shared",
+                info,
+                reason="idle_timeout",
+            )
+            is False
+        )
+        gateway._backend.destroy.assert_not_called()
+    finally:
+        runner.release_execution_lease(lease, "sandbox-shared")
+
+    assert (
+        gateway._destroy_warm_entry(
+            "sandbox-shared",
+            info,
+            reason="idle_timeout",
+        )
+        is True
+    )
+    gateway._backend.destroy.assert_called_once_with(info)
+
+
+def test_gateway_run_lease_protects_lazy_sandbox_before_local_tracking(tmp_path, monkeypatch):
+    """Another Pod cannot evict a Sandbox while its owner run is still active."""
+
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
+    running = _make_provider(tmp_path)
+    gateway = _make_provider(tmp_path)
+    gateway._lock = aio_mod.threading.Lock()
+    gateway._backend = SimpleNamespace(destroy=MagicMock())
+
+    sandbox_id, lease = running.acquire_thread_execution_lease("thread-1", user_id="user-1")
+    info = aio_mod.SandboxInfo(sandbox_id=sandbox_id, sandbox_url="http://sandbox-host")
+    gateway._warm_pool = {sandbox_id: (info, 0.0)}
+    try:
+        # The owner has not created/tracked the Sandbox yet (lazy init), but
+        # another Gateway's reconciliation has already adopted it as warm.
+        assert running._sandboxes == {}
+        assert gateway._destroy_warm_entry(sandbox_id, info, reason="replica_enforcement") is False
+        gateway._backend.destroy.assert_not_called()
+    finally:
+        running.release_execution_lease(lease, sandbox_id)
+
+    assert gateway._destroy_warm_entry(sandbox_id, info, reason="replica_enforcement") is True
+    gateway._backend.destroy.assert_called_once_with(info)
+
+
+def test_gateway_run_lease_defers_another_providers_active_idle_cleanup(tmp_path, monkeypatch):
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
+    owner = _make_provider(tmp_path)
+    sandbox_id, lease = owner.acquire_thread_execution_lease("thread-1", user_id="user-1")
+    other, sandbox, _ = _make_provider_with_active_sandbox(tmp_path, sandbox_id)
+    try:
+        other._cleanup_idle_sandboxes(1)
+        other._backend.destroy.assert_not_called()
+        sandbox.close.assert_not_called()
+        assert sandbox_id in other._sandboxes
+    finally:
+        owner.release_execution_lease(lease, sandbox_id)
+
+    other._cleanup_idle_sandboxes(1)
+    other._backend.destroy.assert_called_once()
+
+
+def test_gateway_run_lease_cleans_dead_cached_sandbox_before_shared_lock(tmp_path, monkeypatch):
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
+    sandbox_id = aio_mod.AioSandboxProvider._deterministic_sandbox_id("thread-1", "user-1")
+    provider, sandbox, _ = _make_provider_with_active_sandbox(tmp_path, sandbox_id)
+    provider._backend.is_alive = MagicMock(return_value=False)
+
+    acquired_id, lease = provider.acquire_thread_execution_lease("thread-1", user_id="user-1")
+    try:
+        assert acquired_id == sandbox_id
+        sandbox.close.assert_called_once()
+        provider._backend.destroy.assert_called_once()
+        assert sandbox_id not in provider._sandboxes
+    finally:
+        provider.release_execution_lease(lease, sandbox_id)
+
+
+def test_execution_lease_file_is_readable_writable_and_non_truncating(tmp_path):
+    """The shared side of the POSIX flock lease needs a readable descriptor."""
+
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    lock_path = tmp_path / "sandbox.lock"
+    lock_path.write_text("existing", encoding="utf-8")
+
+    lock_file = aio_mod._open_lock_file(lock_path)
+    try:
+        assert lock_file.readable() is True
+        assert lock_file.writable() is True
+        lock_file.seek(0)
+        assert lock_file.read() == "existing"
+        aio_mod._lock_file_shared(lock_file)
+        aio_mod._unlock_file(lock_file)
+    finally:
+        lock_file.close()
+
+    assert lock_path.read_text(encoding="utf-8") == "existing"
+
+
+def test_execution_lease_blocks_explicit_destroy_without_losing_tracking(tmp_path, monkeypatch):
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
+    provider, sandbox, _ = _make_provider_with_active_sandbox(tmp_path, "sandbox-busy")
+    provider._backend.is_alive = MagicMock(return_value=True)
+
+    lease = provider.acquire_execution_lease("sandbox-busy")
+    try:
+        assert provider.destroy("sandbox-busy") is False
+        provider._backend.destroy.assert_not_called()
+        sandbox.close.assert_not_called()
+        assert provider._sandboxes["sandbox-busy"] is sandbox
+    finally:
+        provider.release_execution_lease(lease, "sandbox-busy")
+
+    assert provider.destroy("sandbox-busy") is True
+    provider._backend.destroy.assert_called_once()
 
 
 def test_shutdown_closes_all_active_sandbox_clients(tmp_path):
@@ -677,3 +798,106 @@ def test_destroy_swallows_close_errors_and_still_destroys_backend(tmp_path, capl
 
     assert "Error closing sandbox sandbox-dest-err during destroy" in caplog.text
     provider._backend.destroy.assert_called_once()
+
+
+def test_cleanup_idle_sandboxes_keeps_active_cleanup_and_delegates_warm_expiry(tmp_path):
+    """AIO active-idle cleanup must remain local while warm expiry uses the shared lifecycle."""
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    provider = _make_provider(tmp_path)
+    provider._lock = aio_mod.threading.Lock()
+    provider._sandboxes = {"active-old": MagicMock()}
+    provider._sandbox_infos = {
+        "active-old": aio_mod.SandboxInfo(sandbox_id="active-old", sandbox_url="http://active-old"),
+    }
+    provider._thread_sandboxes = {("default", "thread-old"): "active-old"}
+    provider._last_activity = {"active-old": 0.0}
+    provider._warm_pool = {
+        "warm-old": (
+            aio_mod.SandboxInfo(sandbox_id="warm-old", sandbox_url="http://warm-old"),
+            0.0,
+        )
+    }
+
+    calls = []
+    provider.destroy = MagicMock(side_effect=lambda _sandbox_id: calls.append("active"))
+    provider._reap_expired_warm = MagicMock(side_effect=lambda _idle_timeout: calls.append("warm"))
+
+    provider._cleanup_idle_sandboxes(1.0)
+
+    provider.destroy.assert_called_once_with("active-old")
+    provider._reap_expired_warm.assert_called_once_with(1.0)
+    assert calls == ["active", "warm"]
+
+
+def test_create_sandbox_evicts_oldest_warm_replica_via_shared_lifecycle(tmp_path, monkeypatch):
+    """Replica enforcement must destroy the oldest warm SandboxInfo before creating another."""
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    provider = _make_provider(tmp_path)
+    provider._lock = aio_mod.threading.Lock()
+    provider._config = {"replicas": 2}
+    provider._sandboxes = {}
+    provider._sandbox_infos = {}
+    provider._thread_sandboxes = {}
+    provider._last_activity = {}
+
+    oldest_info = aio_mod.SandboxInfo(sandbox_id="warm-oldest", sandbox_url="http://warm-oldest")
+    newest_info = aio_mod.SandboxInfo(sandbox_id="warm-newest", sandbox_url="http://warm-newest")
+    created_info = aio_mod.SandboxInfo(sandbox_id="created", sandbox_url="http://created")
+    provider._warm_pool = {
+        "warm-newest": (newest_info, 20.0),
+        "warm-oldest": (oldest_info, 10.0),
+    }
+    provider._backend = SimpleNamespace(
+        create=MagicMock(return_value=created_info),
+        destroy=MagicMock(),
+    )
+    monkeypatch.setattr(aio_mod.AioSandboxProvider, "_get_extra_mounts", lambda _self, _thread_id, *, user_id=None: [])
+    monkeypatch.setattr(aio_mod, "wait_for_sandbox_ready", lambda _url, *, timeout=60: True)
+
+    sandbox_id = provider._create_sandbox(None, "created", user_id="default")
+
+    assert sandbox_id == "created"
+    provider._backend.destroy.assert_called_once_with(oldest_info)
+    assert "warm-oldest" not in provider._warm_pool
+    assert provider._warm_pool == {"warm-newest": (newest_info, 20.0)}
+    assert provider._sandbox_infos["created"] is created_info
+
+
+def test_create_sandbox_evicts_all_excess_warm_replicas(tmp_path, monkeypatch):
+    """A restart backlog must converge in one acquire, not one Pod per acquire."""
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    provider = _make_provider(tmp_path)
+    provider._lock = aio_mod.threading.Lock()
+    provider._config = {"replicas": 2}
+    provider._sandboxes = {}
+    provider._sandbox_infos = {}
+    provider._thread_sandboxes = {}
+    provider._last_activity = {}
+    warm_infos = [aio_mod.SandboxInfo(sandbox_id=f"warm-{i}", sandbox_url=f"http://warm-{i}") for i in range(4)]
+    provider._warm_pool = {info.sandbox_id: (info, float(i)) for i, info in enumerate(warm_infos)}
+    created_info = aio_mod.SandboxInfo(sandbox_id="created", sandbox_url="http://created")
+    provider._backend = SimpleNamespace(create=MagicMock(return_value=created_info), destroy=MagicMock())
+    monkeypatch.setattr(aio_mod.AioSandboxProvider, "_get_extra_mounts", lambda _self, _thread_id, *, user_id=None: [])
+    monkeypatch.setattr(aio_mod, "wait_for_sandbox_ready", lambda _url, *, timeout=60: True)
+
+    provider._create_sandbox(None, "created", user_id="default")
+
+    assert list(provider._warm_pool) == ["warm-3"]
+    assert [call.args[0].sandbox_id for call in provider._backend.destroy.call_args_list] == ["warm-0", "warm-1", "warm-2"]
+
+
+def test_reconcile_orphans_enforces_replica_limit_and_preserves_age_order(tmp_path):
+    """Gateway restart must immediately prune adopted orphan Pods to replicas."""
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    provider = _make_provider(tmp_path)
+    provider._lock = aio_mod.threading.Lock()
+    provider._config = {"replicas": 2}
+    provider._sandboxes = {}
+    provider._warm_pool = {}
+    infos = [aio_mod.SandboxInfo(sandbox_id=f"orphan-{i}", sandbox_url=f"http://orphan-{i}", created_at=float(i + 1)) for i in range(4)]
+    provider._backend = SimpleNamespace(list_running=MagicMock(return_value=infos), destroy=MagicMock())
+
+    provider._reconcile_orphans()
+
+    assert set(provider._warm_pool) == {"orphan-2", "orphan-3"}
+    assert [call.args[0].sandbox_id for call in provider._backend.destroy.call_args_list] == ["orphan-0", "orphan-1"]

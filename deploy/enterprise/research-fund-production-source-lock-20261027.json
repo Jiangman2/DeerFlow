@@ -1,0 +1,97 @@
+{
+  "schema": "research-fund-production-source-lock.v1",
+  "skill_root": "skills/public/research-fund-settlement",
+  "baseline_git_ref": "be1fa082e",
+  "candidate_manifest": "release/production-source-20261027/research-fund-settlement/candidate-manifest.json",
+  "deployed_tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+  "file_count": 29,
+  "archive_sha256": "7cfdae4c41032f2a3a3da23786a28c561a8e481a2822bb92d45ad80256e81946",
+  "production_report": "release/production-source-20261027/research-fund-settlement/production-update-20261027.json",
+  "production_report_sha256": "1fbbdcb5a75baa8253729274abb08345c34991542df4b58d23e3ea805540bf55",
+  "cleanup_receipt": "release/production-source-20261027/research-fund-settlement/cleanup-operator-receipt.json",
+  "runtime_nodes_verified": 5,
+  "business_acceptance_pending": true,
+  "scope": "ONLY_RESEARCH_FUND_SKILL_NO_WORK_ROLLOUT",
+  "evidence_files": [
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/candidate-manifest.json",
+      "bytes": 5163,
+      "sha256": "18161ddb2e66934ebe3e42b4f61d0a2a54eb95d67fad10e06bbdeb86726d8ded"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/cleanup-operator-receipt.json",
+      "bytes": 679,
+      "sha256": "acd83a5dbcdb2433ef6a77043bb8639ebfff479e6f9188efb6ed307a2ef4655a"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/delivery-summary.json",
+      "bytes": 619,
+      "sha256": "d4c303a0f4e861e829b1fd6897eb7e87deb3bea52417bf9523ecdd6127afed13"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/git-baseline-manifest.json",
+      "bytes": 5114,
+      "sha256": "f24ba4cf95ef847d4efa5d423eda8f770b5b2edbe7460f5c774aa58f5d6684e3"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/inspect-portal-research-fund-skill-20261027-r1.py",
+      "bytes": 17404,
+      "sha256": "fcfee50c2e8fc7bd2ccf5aa1bf56100de5f640f5c7b747698d57de38e975dff8"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/local-linux-cli-qualification.json",
+      "bytes": 1591,
+      "sha256": "46cd029263a0425688881b64c139e54608b8e9e7e077bb0446e25f76867dfc7c"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/operator-qualification.json",
+      "bytes": 1056,
+      "sha256": "9d881ef0ee0c943d45709de0639c87da31798ac07d8aa76ff0299b7c49f827c4"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/package-summary.json",
+      "bytes": 1032,
+      "sha256": "ce27eeb0bd32d54e9af8b5e6b0331a1fa6a679f36e5ae1fccefc8fe05ce8640a"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/production-baseline-20261027.json",
+      "bytes": 21688,
+      "sha256": "dcb4883f0514506332fb1d78daf820a9ce58c3bd0155daf918d42995e025ec55"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/production-source-reconciliation.json",
+      "bytes": 501,
+      "sha256": "56caaaf942150efffc690346453259c019ebc1a898b9eac1d09fbb0f2dbbeda8"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/production-update-20261027.json",
+      "bytes": 6486,
+      "sha256": "1fbbdcb5a75baa8253729274abb08345c34991542df4b58d23e3ea805540bf55"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/production-update-reconciliation.json",
+      "bytes": 964,
+      "sha256": "72945f947a866f18ac3f1f0d0fdacabc2cf728a4bcd63e167606006d32abd3fc"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/release-readiness.json",
+      "bytes": 4122,
+      "sha256": "0079bbceb701b297fd50725e8b7e022557b633f079311442495e2ab49eca1784"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/review-baseline.json",
+      "bytes": 6587,
+      "sha256": "91bdcb57e3f55c9e6e4d305ae5c2b8895790b5045467d19d6bc5b5dd2916f7a2"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/review-candidate.json",
+      "bytes": 8623,
+      "sha256": "c0a4c9f6ae8f7d8dd96ff8868899857482ee1f9a8020bbb911b5602b216cfe19"
+    },
+    {
+      "path": "release/production-source-20261027/research-fund-settlement/update-portal-research-fund-skill-20261027-r1.py",
+      "bytes": 745553,
+      "sha256": "895602fccdc80cc1d18912fe742253409776d991cfc2f567e6fca30b2d019ed9"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "schema": "portal-oa-v2-field-observation.v1",
+  "evidence_source": "operator_submitted_receipt",
+  "gateway_generation": 382,
+  "gateway_image": "sha256:eeeb190145dd6677e0da372bbdf36ab207a6826d89960eca2ed49de15d40dcc5",
+  "sample": {
+    "pod": "gateway-6f94755b8-2nk5d",
+    "uid": "38258a0a-327e-4885-bc47-0ede0213fb45"
+  },
+  "candidate_script_sha256": "2743a1a55fcef86fdcd4d65c79b27cf0bb5a357db2a52134047e3fd0215c4215",
+  "candidate_payload_sha256": "06e650b6723090587c2217b21cc70e6ef035e79827230dd6c34d17cc77028e14",
+  "checks": [
+    "scheduler_budget_preserved",
+    "oa_budget_1000",
+    "three_file_snapshot",
+    "snapshot_retry_stable",
+    "agent_edit_does_not_change_delivery",
+    "invalid_batch_rejected",
+    "errored_run_not_promoted"
+  ],
+  "candidate_only_in_child": true,
+  "database_access": false,
+  "provider_requests": 0,
+  "callback_requests": 0,
+  "workload_modified": false,
+  "business_values_verified": false,
+  "ready_for_rollout": false,
+  "local_validation": {
+    "related_regression_before_final_race_guard": {
+      "passed": 155,
+      "skipped": 1
+    },
+    "final_v2_tests_passed": 19,
+    "host_wrapper_tests_passed": 3,
+    "postgres16_fixture_migration": "PASS",
+    "production_database_accessed": false
+  },
+  "pending": [
+    "joint_image_runtime_acceptance",
+    "production_additive_migration",
+    "oa_receiver_signature_and_multifile_acceptance",
+    "real_oa_business_workflow",
+    "rollout_window"
+  ]
+}

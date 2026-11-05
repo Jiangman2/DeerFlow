@@ -1,0 +1,298 @@
+"""Verify committed/source trees against the accepted image-source inventory.
+
+No imports from the application, cluster calls, model calls or database access.
+Use --ref HEAD after committing to check Git objects rather than working files.
+"""
+import argparse
+import ast
+import hashlib
+import importlib.util
+import io
+import json
+from pathlib import Path, PurePosixPath
+import subprocess
+import tarfile
+
+# This verifier is also loaded by file path from backend tests. Resolve its
+# sibling explicitly so those callers need no process-wide sys.path mutation.
+_spec = importlib.util.spec_from_file_location("released_source_20261102", Path(__file__).with_name("released_source_20261102.py"))
+_nov02 = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_nov02)
+NOV02_ARCHIVE, NOV02_DELTA, nov02_overrides = _nov02.ARCHIVE, _nov02.DELTA, _nov02.overrides
+
+ROOT = Path(__file__).resolve().parents[2]
+LOCK = 'deploy/enterprise/production-source-lock-20261029.json'
+RUNNER = 'release/production-source-20261022/ppt-master-runner/'
+FORMAT_BASELINE = 'release/production-source-20261023/gateway-format-baseline/'
+TEST_BASELINE = 'release/production-source-20261026/frontend-test-baseline/'
+CANDIDATE = 'deploy/enterprise/work-source-candidate-20261026.json'
+INCIDENT_DELTA = 'deploy/enterprise/incident-source-candidate-20261031.json'
+RELEASED_DELTA = 'deploy/enterprise/released-source-delta-20261101.json'
+
+
+def candidate_overrides(lock, manifest, lock_digest):
+    """Validate an explicit undeployed delta without rewriting accepted evidence."""
+    assert manifest['schema'] == 'production-source-candidate.v1'
+    assert manifest['status'] == 'NOT_DEPLOYED'
+    assert manifest['base_lock_sha256'] == lock_digest, 'CANDIDATE_BASE_LOCK_MISMATCH'
+    assert len(manifest['base_commit']) == 40 and all(c in '0123456789abcdef' for c in manifest['base_commit'])
+    baseline = lock['source_sets']['gateway']
+    normalizations = lock.get('format_normalizations', {})
+    result = {}
+    for name, change in manifest['changes'].items():
+        assert name.startswith(('backend/app/', 'backend/packages/harness/')) and name.endswith('.py')
+        assert '\\' not in name and PurePosixPath(name).as_posix() == name and '..' not in PurePosixPath(name).parts
+        previous = normalizations.get(name, {}).get('formatted_sha256', baseline.get(name))
+        assert change['base_sha256'] == previous, (name, 'CANDIDATE_PARENT_MISMATCH')
+        digest = change['candidate_sha256']
+        assert len(digest) == 64 and all(c in '0123456789abcdef' for c in digest)
+        result[name] = digest
+    return result
+
+
+def incident_overrides(lock, prior, manifest, lock_digest, prior_digest):
+    """Layer an explicit, undeployed repair over the preserved candidate seal."""
+    assert manifest['schema'] == 'incident-source-candidate.v1'
+    assert manifest['status'] == 'NOT_DEPLOYED'
+    assert manifest['base_lock_sha256'] == lock_digest, 'INCIDENT_BASE_LOCK_MISMATCH'
+    assert manifest['parent_candidate_sha256'] == prior_digest, 'INCIDENT_PARENT_CHANGED'
+    assert len(manifest['base_commit']) == 40 and all(c in '0123456789abcdef' for c in manifest['base_commit'])
+    assert set(manifest['changes']) == {'gateway', 'frontend'}, 'INCIDENT_COMPONENT_SCOPE'
+    result = {'gateway': {}, 'frontend': {}}
+    for component, changes in manifest['changes'].items():
+        for name, change in changes.items():
+            if component == 'gateway':
+                assert name.startswith(('backend/app/', 'backend/packages/harness/')) and name.endswith('.py')
+                expected = prior.get(name, lock.get('format_normalizations', {}).get(name, {}).get('formatted_sha256', lock['source_sets'][component].get(name)))
+            else:
+                assert (name.startswith(('frontend/src/', 'frontend/tests/unit/', 'frontend/tests/e2e/')) and name.endswith(('.ts', '.tsx'))) or name in ('frontend/README.md', 'frontend/AGENTS.md')
+                expected = lock.get('line_ending_normalizations', {}).get(name, {}).get('lf_sha256', lock.get('qualification_test_overrides', {}).get(name, {}).get('current_sha256', lock['source_sets'][component].get(name)))
+            assert '\\' not in name and PurePosixPath(name).as_posix() == name and '..' not in PurePosixPath(name).parts
+            assert change['base_sha256'] == expected, (name, 'INCIDENT_PARENT_MISMATCH')
+            digest = change['candidate_sha256']
+            assert len(digest) == 64 and all(c in '0123456789abcdef' for c in digest)
+            result[component][name] = digest
+    return result
+
+
+
+def released_overrides(lock, prior, incident, manifest, read):
+    """Validate the separately sealed November 1 release without rewriting history."""
+    assert manifest['schema'] == 'released-source-delta.v1'
+    assert manifest['work_datalake_deferred'] is True and manifest['database_migration'] is False
+    assert set(manifest['parent_sha256']) == {Path(LOCK).name, Path(CANDIDATE).name, Path(INCIDENT_DELTA).name}
+    for name, digest in manifest['parent_sha256'].items():
+        assert hashlib.sha256(read('deploy/enterprise/' + name).replace(b'\r\n', b'\n')).hexdigest() == digest, 'RELEASE_PARENT_CHANGED'
+    source_path = 'release/nov01-released-fixes-source-20261102/SOURCE.json'
+    assert manifest['source_manifest'] == source_path
+    assert hashlib.sha256(read(source_path).replace(b'\r\n', b'\n')).hexdigest() == manifest['source_manifest_sha256'], 'RELEASE_SOURCE_SEAL_CHANGED'
+    sealed = json.loads(read(source_path))['sources']
+    runtime = {name: row for name, row in sealed.items() if name.startswith(('backend/', 'frontend/src/'))}
+    formatting = json.loads(read(source_path)).get('ci_formatting', {})
+    runtime.update(formatting)
+    declared = {name: row for changes in manifest['changes'].values() for name, row in changes.items() if not name.startswith('frontend/tests/')}
+    assert set(declared) == set(runtime), 'RELEASE_DELTA_SCOPE_CHANGED'
+    for name, row in declared.items():
+        assert row['released_sha256'] == runtime[name]['source_sha256'] and row['base_sha256'] == runtime[name]['base_sha256'], 'RELEASE_DELTA_SOURCE_CHANGED'
+    assert set(manifest['changes']) == {'gateway', 'frontend'}
+    result = {'gateway': {}, 'frontend': {}}
+    for component, changes in manifest['changes'].items():
+        for name, change in changes.items():
+            assert '\\' not in name and '..' not in PurePosixPath(name).parts
+            if component == 'gateway':
+                assert name.startswith(('backend/app/', 'backend/packages/harness/')) and name.endswith('.py')
+                previous = prior.get(name, lock.get('format_normalizations', {}).get(name, {}).get('formatted_sha256', lock['source_sets'][component].get(name)))
+            else:
+                assert name.startswith(('frontend/src/', 'frontend/tests/')) and name.endswith(('.ts', '.tsx'))
+                if name.startswith('frontend/tests/'):
+                    assert change.get('kind') == 'regression-test' and name in lock['source_sets']['frontend'], 'RELEASE_TEST_SCOPE_CHANGED'
+                previous = lock.get('line_ending_normalizations', {}).get(name, {}).get('lf_sha256', lock.get('qualification_test_overrides', {}).get(name, {}).get('current_sha256', lock['source_sets'][component].get(name)))
+            previous = incident[component].get(name, previous)
+            assert change['base_sha256'] == previous, (name, 'RELEASE_PARENT_SOURCE_CHANGED')
+            digest = change['released_sha256']
+            assert len(digest) == 64 and all(c in '0123456789abcdef' for c in digest)
+            result[component][name] = digest
+    return result
+
+
+def syntax_fingerprint(raw, *, import_order=False):
+    """Ignore layout; optionally sort only consecutive module-level imports."""
+    tree = ast.parse(raw)
+    if import_order:
+        start = 0
+        while start < len(tree.body):
+            if not isinstance(tree.body[start], (ast.Import, ast.ImportFrom)):
+                start += 1
+                continue
+            end = start + 1
+            while end < len(tree.body) and isinstance(tree.body[end], (ast.Import, ast.ImportFrom)):
+                end += 1
+            tree.body[start:end] = sorted(tree.body[start:end], key=ast.dump)
+            start = end
+    return ast.dump(tree, include_attributes=False)
+
+
+def qualification_source(read, lock, name):
+    """Preserve sealed test inputs while auditing later CI-only corrections."""
+    raw = read(name)
+    override = lock.get('qualification_test_overrides', {}).get(name)
+    if override is None:
+        return raw
+    allowed_test = (name.startswith('frontend/tests/e2e/') and name.endswith('.spec.ts')) or (
+        name.startswith('frontend/tests/unit/') and name.endswith(('.test.ts', '.test.tsx')))
+    assert allowed_test, 'TEST_OVERRIDE_OUTSIDE_TESTS'
+    test_prefix = lock.get('qualification_test_baseline_prefix', TEST_BASELINE)
+    assert test_prefix in (TEST_BASELINE, 'release/combined-features-20261028-r1/qualification/source/'), 'TEST_BASELINE_PREFIX'
+    assert override['baseline_path'] == test_prefix + name, 'TEST_BASELINE_PATH_MISMATCH'
+    baseline = read(override['baseline_path'])
+    if hashlib.sha256(baseline).hexdigest() != lock['source_sets']['frontend'][name]:
+        baseline = baseline.replace(b'\r\n', b'\n')
+    assert hashlib.sha256(baseline).hexdigest() == lock['source_sets']['frontend'][name], 'SEALED_TEST_BASELINE_CHANGED'
+    assert hashlib.sha256(raw.replace(b'\r\n', b'\n')).hexdigest() == override['current_sha256'], 'QUALIFICATION_TEST_CHANGED'
+    return baseline
+
+
+def verify_runtime_patch(read, lock):
+    """Bind archived runtime bytes to the independently collected ConfigMap hash."""
+    patch = lock.get('runtime_patch')
+    if not patch:
+        return None
+    for path, expected in patch['files'].items():
+        assert hashlib.sha256(read(path).replace(b'\r\n', b'\n')).hexdigest() == expected, (path, 'RUNTIME_ARCHIVE_CHANGED')
+    data = {name: read(patch['archive_prefix'] + name).decode('utf-8').replace('\r\n', '\n')
+            for name in patch['payload_files']}
+    digest = lambda value: hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()).hexdigest()
+    assert digest(data) == patch['payload_sha256'], 'RUNTIME_PAYLOAD_CHANGED'
+    assert digest({'data': data, 'binaryData': {}}) == patch['configmap']['content_sha256'], 'RUNTIME_CONFIGMAP_MISMATCH'
+    for path, expected in patch['qualified_source_files'].items():
+        assert hashlib.sha256(read(path).replace(b'\r\n', b'\n')).hexdigest() == expected, (path, 'MEMBER_UI_SOURCE_CHANGED')
+    record = lock['current_observation']
+    raw = read(record['path']).replace(b'\r\n', b'\n')
+    assert hashlib.sha256(raw).hexdigest() == record['sha256'], 'CURRENT_OBSERVATION_CHANGED'
+    observation = json.loads(raw)['observation']
+    assert observation['status'] == 'CURRENT_METADATA_COLLECTED' and observation['workload_specs_stable'], 'UNSTABLE_OBSERVATION'
+    observed_cm = next(c for c in observation['configmaps'] if c['identity']['name'] == patch['configmap']['identity']['name'])
+    assert observed_cm == patch['configmap'], 'OBSERVED_CONFIGMAP_CHANGED'
+    workloads = {w['identity']['name']: w for w in observation['workloads']}
+    for name, expected in record['bindings'].items():
+        actual = workloads[name]
+        assert all(actual['identity'][key] == expected[key] for key in ('uid', 'generation')), (name, 'WORKLOAD_IDENTITY_MISMATCH')
+        assert actual['spec_sha256'] == expected['spec_sha256'], (name, 'WORKLOAD_SPEC_MISMATCH')
+        images = [c['image'] for c in actual['containers']]
+        assert images == expected['images'], (name, 'WORKLOAD_IMAGE_MISMATCH')
+        if name in lock['images']:
+            assert lock['images'][name] in images, (name, 'RELEASE_IMAGE_MISMATCH')
+    return {'component': 'weknora-member-ui-overlay', 'files': len(patch['files']),
+            'configmap_hash': 'PASS', 'source_files': len(patch['qualified_source_files']),
+            'observation_bindings': 'PASS', 'full_base_image_source_mapping': 'NOT_PROVEN'}
+
+
+def verify(ref=None, lock_path=LOCK):
+    archived = None
+    if ref:
+        selected_lock = json.loads(subprocess.check_output(['git', 'show', ref + ':' + lock_path], cwd=ROOT))
+        extra = []
+        if selected_lock.get('runtime_patch'):
+            extra = [selected_lock['runtime_patch']['archive_prefix'],
+                     *selected_lock['runtime_patch']['qualified_source_files'], selected_lock['current_observation']['path']]
+        extra += [row['baseline_path'] for row in selected_lock.get('qualification_test_overrides', {}).values()]
+        extra += [row['baseline_path'] for row in selected_lock.get('line_ending_normalizations', {}).values()]
+        for manifest_path in (CANDIDATE, INCIDENT_DELTA, RELEASED_DELTA, "release/nov01-released-fixes-source-20261102/SOURCE.json"):
+            if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, manifest_path], cwd=ROOT).strip():
+                extra.append(manifest_path)
+        if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, NOV02_DELTA], cwd=ROOT).strip():
+            extra.extend((NOV02_DELTA, NOV02_ARCHIVE, "backend/tests"))
+        if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, _nov02.CI_MANIFEST], cwd=ROOT).strip():
+            extra.append(_nov02.CI_ARCHIVE)
+        raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
+            'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
+        with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
+            archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
+    read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    lock_raw = read(lock_path)
+    lock = json.loads(lock_raw)
+    has_candidate = CANDIDATE in archived if archived is not None else (ROOT / CANDIDATE).is_file()
+    manifest = json.loads(read(CANDIDATE)) if has_candidate else None
+    overrides = candidate_overrides(lock, manifest, hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest()) if manifest else {}
+    has_incident = INCIDENT_DELTA in archived if archived is not None else (ROOT / INCIDENT_DELTA).is_file()
+    delta = json.loads(read(INCIDENT_DELTA)) if has_incident else None
+    incident = incident_overrides(lock, overrides, delta, hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest(), hashlib.sha256(read(CANDIDATE).replace(b'\r\n', b'\n')).hexdigest()) if delta else {'gateway': {}, 'frontend': {}}
+    has_release = RELEASED_DELTA in archived if archived is not None else (ROOT / RELEASED_DELTA).is_file()
+    release_manifest = json.loads(read(RELEASED_DELTA)) if has_release else None
+    released = released_overrides(lock, overrides, incident, release_manifest, read) if release_manifest else {'gateway': {}, 'frontend': {}}
+    has_nov02 = NOV02_DELTA in archived if archived is not None else (ROOT / NOV02_DELTA).is_file()
+    nov02 = nov02_overrides(lock, overrides, incident, released, read) if has_nov02 else {'gateway': {}, 'frontend': {}}
+    normalizations = lock.get('format_normalizations', {})
+    assert set(lock.get('qualification_test_overrides', {})) <= set(lock['source_sets']['frontend']), 'UNKNOWN_QUALIFICATION_TEST'
+    results = []
+    for component, expected in lock['source_sets'].items():
+        component_overrides = {**(overrides if component == 'gateway' else {}), **incident.get(component, {}), **released.get(component, {}), **nov02.get(component, {})}
+        expected = {**expected, **component_overrides}
+        prefix = RUNNER if component == 'ppt-master-runner' else ''
+        if component != 'frontend':
+            roots = [prefix + 'backend/app/', prefix + 'backend/packages/harness/']
+            if archived is not None:
+                actual = {(n[len(prefix):] if n.startswith(prefix) else n) for n in archived
+                          if n.endswith('.py') and any(n.startswith(r) for r in roots)}
+            else:
+                actual = {p.relative_to(ROOT / prefix).as_posix() for r in roots
+                          for p in (ROOT / r).rglob('*.py') if '__pycache__' not in p.parts}
+            if actual != set(expected):
+                raise AssertionError((component, 'SOURCE_SET_MISMATCH', sorted(actual ^ set(expected))))
+        for name, digest in expected.items():
+            if name in component_overrides:
+                raw = read(name).replace(b'\r\n', b'\n')
+                assert hashlib.sha256(raw).hexdigest() == digest, (name, 'CANDIDATE_HASH_MISMATCH')
+                if name.endswith('.py'):
+                    ast.parse(raw, filename=name)
+                continue
+            raw = qualification_source(read, lock, name) if component == 'frontend' else read(prefix + name)
+            newline = lock.get('line_ending_normalizations', {}).get(name) if component == 'frontend' else None
+            if newline:
+                # Preserve the original CRLF build input while verifying Git's LF
+                # representation byte-for-byte after only newline conversion.
+                original = read(newline['baseline_path'])
+                original.decode('utf-8')
+                assert hashlib.sha256(original).hexdigest() == digest, (name, 'NEWLINE_BASELINE_CHANGED')
+                assert raw.replace(b'\r\n', b'\n') == original.replace(b'\r\n', b'\n'), (name, 'NEWLINE_CONTENT_CHANGED')
+                assert hashlib.sha256(raw.replace(b'\r\n', b'\n')).hexdigest() == newline['lf_sha256'], (name, 'NEWLINE_HASH_CHANGED')
+                raw = original
+            normalization = normalizations.get(name) if component == 'gateway' else None
+            if normalization:
+                original = read(FORMAT_BASELINE + name).replace(b'\r\n', b'\n')
+                raw = raw.replace(b'\r\n', b'\n')
+                assert hashlib.sha256(original).hexdigest() == digest, (name, 'PRODUCTION_BASELINE_MISMATCH')
+                assert hashlib.sha256(raw).hexdigest() == normalization['formatted_sha256'], (name, 'FORMATTED_HASH_MISMATCH')
+                import_order = normalization['kind'] == 'layout_and_import_order'
+                assert syntax_fingerprint(original, import_order=import_order) == syntax_fingerprint(raw, import_order=import_order), (name, 'LOGIC_CHANGED')
+                continue
+            if hashlib.sha256(raw).hexdigest() != digest:
+                # Git enforces LF for text; binary assets are always compared raw.
+                try:
+                    raw.decode('utf-8')
+                except UnicodeDecodeError:
+                    raise AssertionError((component, name, 'BINARY_HASH_MISMATCH')) from None
+                raw = raw.replace(b'\r\n', b'\n')
+                if hashlib.sha256(raw).hexdigest() != digest:
+                    raise AssertionError((component, name, 'SOURCE_HASH_MISMATCH'))
+            if name.endswith('.py'):
+                ast.parse(raw, filename=name)
+        results.append({'component': component, 'files': len(expected), 'hashes': 'PASS',
+                        'format_normalized': len(normalizations) if component == 'gateway' else 0})
+    patch_result = verify_runtime_patch(read, lock)
+    if patch_result:
+        results.append(patch_result)
+    return {'status': 'CANDIDATE_SOURCE_VERIFIED' if manifest else 'RELEASE_SOURCE_VERIFIED', 'git_ref': ref, 'lock_file': lock_path, 'results': results,
+            'post_release_test_only_corrections': len(lock.get('qualification_test_overrides', {})),
+            'scope': lock['scope'], 'production_modified': False,
+            'released_delta': {'source_manifest': release_manifest['source_manifest'], 'frontend_runtime_paths': sorted(n for n in released['frontend'] if n.startswith('frontend/src/')), 'changed_sources': sum(map(len, released.values()))} if release_manifest else None,
+            'released_delta_nov02': {'source_manifest': NOV02_ARCHIVE + 'SOURCE.json', 'frontend_runtime_paths': sorted(n for n in nov02['frontend'] if n.startswith('frontend/src/')), 'changed_sources': sum(map(len, nov02.values()))} if has_nov02 else None,
+            'candidate': {'status': 'NOT_DEPLOYED', 'base_commit': manifest['base_commit'], 'changed_sources': len(overrides), 'incident_delta': {'base_commit': delta['base_commit'], 'changed_sources': sum(len(v) for v in incident.values()), 'frontend_runtime_paths': sorted(n for n in incident['frontend'] if n.startswith('frontend/src/'))} if delta else None} if manifest else None}
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--ref', help='Verify a committed Git tree, e.g. HEAD')
+    parser.add_argument('--lock', default=LOCK, help='Repository-relative source lock; use the matching historical lock with an older ref')
+    args = parser.parse_args()
+    print(json.dumps(verify(args.ref, args.lock), ensure_ascii=False))

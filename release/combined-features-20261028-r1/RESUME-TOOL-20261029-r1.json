@@ -1,0 +1,39 @@
+{
+  "schema": "portal-combined-resume-delivery.v1",
+  "status": "LOCAL_CHECKED_OPERATOR_EXECUTION_PENDING",
+  "filename": "resume-portal-combined-features-20261029-r1.py",
+  "bytes": 157221,
+  "sha256": "8d748ae8021da8d4e3fabc1950a700e8e32e805d7372d11d4f65b36e25f7cb30",
+  "command": "sudo python3 -I -B -u /home/cnooc/resume-portal-combined-features-20261029-r1.py --resume-combined-features-once",
+  "immutable_parent_artifacts": {
+    "activation": "19c3024033ddd42c6cb2317c9aa2ad0b7ad44d687cd26cf8ea76c1addf5b5471",
+    "diagnosis": "519b1ab1cac50ff8a90ace771c484ef7c675faad71ec7fdb920e04683f4a958c"
+  },
+  "windows_tests": {"passed": 13, "failed": 0},
+  "linux_python_3_7_delivered_script_tests": {"passed": 13, "failed": 0},
+  "linux_python_3_7_wrong_host_guard": "PASS",
+  "delivery_matches_packaged_sources": true,
+  "scope": {
+    "gateway_expected_generation": 389,
+    "gateway_patch_allowed": false,
+    "gateway_runtime_checks_before_frontend_mutation": 70,
+    "new_tavily_key_checked_in_every_gateway": true,
+    "readonly_database_and_route_checks": "First Gateway only, no task-zero gate",
+    "frontend_expected_generation": 230,
+    "frontend_planned_generation": 231,
+    "frontend_only_image_compare_and_swap_patch_requests": 1,
+    "frontend_isolated_node_cache_jobs": 2,
+    "frontend_runtime_and_static_checks": 2,
+    "final_exact_verified_instance_sets_required": true,
+    "actual_nginx_service_entry_checks_required": true,
+    "schema_migration_requested": false,
+    "work_update_included": false,
+    "v41_enabled": false,
+    "model_configuration_changed": false,
+    "provider_requests": 0
+  },
+  "failure_reporting": "Persist exact sample plus structured child error and redacted transport categories before refusing; no exec or patch retry",
+  "original_server_receipts_preserved": true,
+  "browser_business_acceptance_pending": true,
+  "production_modified_by_packaging": false
+}

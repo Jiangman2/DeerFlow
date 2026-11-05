@@ -15,7 +15,15 @@ from .sandbox_info import SandboxInfo
 logger = logging.getLogger(__name__)
 
 
-def wait_for_sandbox_ready(sandbox_url: str, timeout: int = 30) -> bool:
+def _sandbox_auth_headers(api_key: str | None) -> dict[str, str] | None:
+    return {"Authorization": f"Bearer {api_key}"} if api_key else None
+
+
+def wait_for_sandbox_ready(
+    sandbox_url: str,
+    timeout: int = 30,
+    api_key: str | None = None,
+) -> bool:
     """Poll sandbox health endpoint until ready or timeout.
 
     Args:
@@ -28,7 +36,11 @@ def wait_for_sandbox_ready(sandbox_url: str, timeout: int = 30) -> bool:
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
-            response = requests.get(f"{sandbox_url}/v1/sandbox", timeout=5)
+            response = requests.get(
+                f"{sandbox_url}/v1/sandbox",
+                headers=_sandbox_auth_headers(api_key),
+                timeout=5,
+            )
             if response.status_code == 200:
                 return True
         except requests.exceptions.RequestException:
@@ -37,7 +49,12 @@ def wait_for_sandbox_ready(sandbox_url: str, timeout: int = 30) -> bool:
     return False
 
 
-async def wait_for_sandbox_ready_async(sandbox_url: str, timeout: int = 30, poll_interval: float = 1.0) -> bool:
+async def wait_for_sandbox_ready_async(
+    sandbox_url: str,
+    timeout: int = 30,
+    poll_interval: float = 1.0,
+    api_key: str | None = None,
+) -> bool:
     """Async variant of sandbox readiness polling.
 
     Use this from async runtime paths so sandbox startup waits do not block the
@@ -53,7 +70,11 @@ async def wait_for_sandbox_ready_async(sandbox_url: str, timeout: int = 30, poll
             if remaining <= 0:
                 break
             try:
-                response = await client.get(f"{sandbox_url}/v1/sandbox", timeout=min(5.0, remaining))
+                response = await client.get(
+                    f"{sandbox_url}/v1/sandbox",
+                    headers=_sandbox_auth_headers(api_key),
+                    timeout=min(5.0, remaining),
+                )
                 if response.status_code == 200:
                     return True
             except httpx.RequestError:

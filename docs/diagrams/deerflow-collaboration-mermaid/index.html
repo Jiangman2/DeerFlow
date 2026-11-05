@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DeerFlow 官方同步与企业协同开发说明</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #172033;
+        --muted: #526173;
+        --line: #d9e2ec;
+        --soft: #f7fafc;
+        --blue: #2563eb;
+        --green: #27864b;
+        --orange: #d97706;
+        --red: #b42318;
+        --purple: #6941c6;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 32px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+        color: var(--ink);
+        background: var(--soft);
+      }
+      main { max-width: 1180px; margin: 0 auto; }
+      header { margin: 0 0 24px; }
+      h1 { margin: 0 0 10px; font-size: 30px; letter-spacing: .01em; }
+      h2 { margin: 0 0 14px; font-size: 21px; }
+      h3 { margin: 22px 0 8px; font-size: 17px; }
+      p { line-height: 1.75; }
+      .subtitle { margin: 0; color: var(--muted); }
+      section {
+        margin: 0 0 24px;
+        padding: 24px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(23, 32, 51, .04);
+      }
+      .callout {
+        margin: 16px 0 0;
+        padding: 16px 18px;
+        border-left: 4px solid var(--blue);
+        border-radius: 6px;
+        background: #eff6ff;
+        line-height: 1.75;
+      }
+      code, pre.code { font-family: Consolas, "SFMono-Regular", monospace; }
+      pre.code {
+        overflow: auto;
+        margin: 10px 0 0;
+        padding: 14px;
+        border-radius: 6px;
+        background: #f8fafc;
+        line-height: 1.65;
+      }
+
+      /* Pure HTML/CSS vertical diagrams */
+      .html-diagram {
+        overflow: auto;
+        padding: 22px 16px 28px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+      .vertical-flow {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 680px;
+      }
+      .node {
+        width: min(720px, 100%);
+        padding: 15px 22px;
+        text-align: center;
+        border: 1.5px solid #98a2b3;
+        border-radius: 8px;
+        background: #fff;
+      }
+      .node .title { font-size: 18px; font-weight: 700; }
+      .node .sub { margin-top: 5px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+      .node .cmd { display: block; margin-top: 9px; color: #344054; font: 13px/1.55 Consolas, "SFMono-Regular", monospace; }
+      .node.official { border-color: #70ad47; background: #e2f0d9; }
+      .node.mirror { border-color: #d6b656; background: #fff2cc; }
+      .node.integration { border-color: #ed7d31; background: #fce4d6; }
+      .node.feature { border-color: #5b9bd5; background: #eaf2f8; }
+      .node.check { border-color: #5b9bd5; background: #eef6ff; }
+      .node.success { border-color: #70ad47; background: #eef8f0; }
+      .node.release { border-color: #8064a2; background: #f8f5ff; }
+      .node.warning { border-color: #c0504d; background: #fce4d6; color: #7f1d1d; }
+      .connector {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 62px;
+        color: #475467;
+        font-size: 13px;
+      }
+      .connector::before {
+        display: block;
+        width: 2px;
+        height: 31px;
+        background: #667085;
+        content: "";
+      }
+      .connector::after {
+        color: #475467;
+        content: "▼";
+        font-size: 16px;
+        line-height: 17px;
+      }
+      .connector span { position: absolute; top: 6px; left: calc(50% + 16px); width: 250px; text-align: left; }
+      .branch-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(180px, 1fr));
+        gap: 12px;
+        width: min(820px, 100%);
+      }
+      .branch-card {
+        padding: 13px 10px;
+        text-align: center;
+        border: 1.5px solid #5b9bd5;
+        border-radius: 8px;
+        background: #eaf2f8;
+      }
+      .branch-card strong { display: block; font-size: 15px; }
+      .branch-card span { display: block; margin-top: 5px; color: var(--muted); font-size: 13px; }
+      .branch-caption { margin: 7px 0 -2px; color: var(--muted); font-size: 13px; }
+      .decision {
+        width: 170px;
+        padding: 24px 18px;
+        text-align: center;
+        border: 1.5px solid #d6b656;
+        background: #fff2cc;
+        transform: rotate(45deg);
+      }
+      .decision > span { display: block; transform: rotate(-45deg); font-size: 15px; font-weight: 700; }
+      .decision-wrap { display: flex; align-items: center; justify-content: center; min-height: 150px; }
+      .outcomes {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 140px minmax(0, 1fr);
+        align-items: center;
+        gap: 12px;
+        width: min(900px, 100%);
+      }
+      .outcome-arrow { color: #475467; text-align: center; font-size: 13px; }
+      .outcome-arrow .arrow { display: block; font-size: 24px; }
+      .mini-node {
+        padding: 14px 12px;
+        text-align: center;
+        border: 1.5px solid #98a2b3;
+        border-radius: 8px;
+        background: #fff;
+        line-height: 1.55;
+      }
+      .mini-node.fail { border-color: #d6b656; background: #fffaf0; }
+      .mini-node.pass { border-color: #70ad47; background: #eef8f0; }
+      .mini-node strong { display: block; font-size: 15px; }
+      .mini-node span { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
+      .loop-note {
+        width: min(900px, 100%);
+        margin-top: 12px;
+        padding: 10px 14px;
+        text-align: center;
+        border: 1px dashed #d6b656;
+        border-radius: 7px;
+        background: #fffaf0;
+        color: #7a5b00;
+        font-size: 13px;
+      }
+      .rule-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .rule-card {
+        padding: 15px 16px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fbfcfe;
+        line-height: 1.6;
+      }
+      .rule-card strong { display: block; margin-bottom: 6px; }
+      .rule-card span { color: var(--muted); font-size: 14px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+      th, td { padding: 10px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; line-height: 1.6; }
+      th { background: #f1f5f9; }
+      .warning-text { color: var(--red); }
+      footer { padding: 4px 0 24px; color: var(--muted); font-size: 13px; text-align: center; }
+      @media (max-width: 800px) {
+        body { padding: 16px; }
+        section { padding: 16px; }
+        .branch-grid, .rule-grid { grid-template-columns: 1fr; }
+        .outcomes { grid-template-columns: 1fr; }
+        .outcome-arrow .arrow { transform: rotate(90deg); }
+        h1 { font-size: 25px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>DeerFlow 官方同步与企业协同开发说明</h1>
+        <p class="subtitle">纯 HTML/CSS 版流程说明，不依赖 Mermaid CDN；所有图均采用竖向流程和判断分支表达。</p>
+        <div class="callout">
+          <strong>核心原则：</strong>
+          <code>upstream/main</code> 只作为官方来源，<code>vendor/upstream-main</code> 只负责同步官方代码，<code>enterprise/integration</code> 作为官方基线与企业功能的集成入口，所有企业开发从 <code>feature/*</code> 分支开始并通过 PR 合并。
+        </div>
+      </header>
+
+      <section>
+        <h2>1. 整体协作机制图</h2>
+        <div class="html-diagram">
+          <div class="vertical-flow">
+            <div class="node official"><div class="title">DeerFlow 官方 GitHub</div><div class="sub">bytedance/deer-flow · upstream/main<br />官方原始代码，只读跟踪</div></div>
+            <div class="connector"><span>维护者获取官方更新</span></div>
+            <div class="node mirror"><div class="title">vendor/upstream-main</div><div class="sub">团队 GitHub 中保存的官方代码镜像 / 同步指针<br />只用于同步，不承载企业业务开发</div><span class="cmd">git fetch upstream --prune<br />git merge --ff-only upstream/main</span></div>
+            <div class="connector"><span>创建同步分支并完成兼容性验证</span></div>
+            <div class="node check"><div class="title">sync/upstream-日期</div><div class="sub">同步官方更新的临时分支<br />解决冲突、运行测试、确认企业功能没有被破坏</div></div>
+            <div class="connector"><span>官方同步 PR 合并</span></div>
+            <div class="node integration"><div class="title">enterprise/integration</div><div class="sub">官方基线 + 企业 Feature + 集成测试<br />实际对应：codex/enterprise-consolidation-20260716</div></div>
+            <div class="connector"><span>从企业集成分支创建功能分支</span></div>
+            <div class="branch-grid">
+              <div class="branch-card"><strong>feature/sso</strong><span>认证与 SSO</span></div>
+              <div class="branch-card"><strong>feature/weknora</strong><span>WeKnora 集成</span></div>
+              <div class="branch-card"><strong>feature/k8s</strong><span>Kubernetes / Nginx</span></div>
+            </div>
+            <div class="branch-caption">每个分支只做一类功能，完成后创建：feature/* → enterprise/integration</div>
+            <div class="connector"><span>Review、CI 通过后 Squash Merge</span></div>
+            <div class="node success"><div class="title">企业集成分支更新</div><div class="sub">集成后的代码进入测试环境，等待回归验证</div></div>
+            <div class="connector"><span>部署测试环境</span></div>
+            <div class="node release"><div class="title">prod-YYYYMMDD-编号</div><div class="sub">测试和回归通过后创建生产发布 tag</div></div>
+            <div class="connector"><span>生产部署</span></div>
+            <div class="node release"><div class="title">生产服务器</div><div class="sub">只部署经过验证的 prod-* tag，保留版本和回滚点</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>2. 开发者从拉取代码到提交 PR</h2>
+        <div class="html-diagram">
+          <div class="vertical-flow">
+            <div class="node check"><div class="title">① 克隆并配置远程仓库</div><span class="cmd">git clone &lt;team-repo&gt;<br />git remote add upstream https://github.com/bytedance/deer-flow.git<br />git fetch --all --prune</span></div>
+            <div class="connector"><span>拉取企业集成分支</span></div>
+            <div class="node check"><div class="title">② 创建本地 Feature 分支</div><span class="cmd">git switch enterprise/integration<br />git pull --ff-only<br />git switch -c feature/&lt;name&gt;</span></div>
+            <div class="connector"><span>本地开发</span></div>
+            <div class="node feature"><div class="title">③ 修改代码并测试</div><div class="sub">一个 Feature 分支只做一类功能<br />完成后执行 make test / pnpm check</div></div>
+            <div class="connector"><span>提交并推送</span></div>
+            <div class="node feature"><div class="title">④ Push 远程 Feature 分支</div><span class="cmd">git add .<br />git commit -m "feat: 描述本次功能"<br />git push -u origin feature/&lt;name&gt;</span></div>
+            <div class="connector"><span>GitHub 创建 Pull Request</span></div>
+            <div class="node integration"><div class="title">⑤ 创建 PR</div><div class="sub">源分支：feature/&lt;name&gt;<br />目标分支：enterprise/integration</div></div>
+            <div class="connector"><span>触发自动检查</span></div>
+            <div class="node check"><div class="title">⑥ CI / Review</div><div class="sub">构建、测试、安全检查、代码 Review</div></div>
+            <div class="decision-wrap"><div class="decision"><span>检查和 Review 是否通过？</span></div></div>
+            <div class="outcomes">
+              <div class="mini-node fail"><strong>不通过</strong><span>回到 Feature 分支修改<br />继续 Push，更新原 PR</span></div>
+              <div class="outcome-arrow"><span class="arrow">↘</span>处理意见</div>
+              <div class="mini-node pass"><strong>通过</strong><span>Squash Merge 到<br />enterprise/integration</span></div>
+            </div>
+            <div class="loop-note">不通过时不新建重复 PR；在同一个 Feature 分支上修改、测试和继续 Push。</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>3. 测试和生产发布流程</h2>
+        <div class="html-diagram">
+          <div class="vertical-flow">
+            <div class="node integration"><div class="title">enterprise/integration</div><div class="sub">企业集成分支</div></div>
+            <div class="connector"><span>CI 构建与自动化测试</span></div>
+            <div class="node check"><div class="title">部署到测试服务器</div><div class="sub">验证服务启动、核心功能和企业集成能力</div></div>
+            <div class="connector"><span>测试结果</span></div>
+            <div class="decision-wrap"><div class="decision"><span>测试是否通过？</span></div></div>
+            <div class="outcomes">
+              <div class="mini-node fail"><strong>不通过</strong><span>回到对应 feature / hotfix<br />修复问题并重新提交 PR</span></div>
+              <div class="outcome-arrow"><span class="arrow">↘</span>继续修复</div>
+              <div class="mini-node pass"><strong>通过</strong><span>进入集成回归和发布检查</span></div>
+            </div>
+            <div class="connector"><span>创建生产 tag</span></div>
+            <div class="node release"><div class="title">prod-YYYYMMDD-编号</div><div class="sub">生产发布版本，作为部署和回滚依据</div></div>
+            <div class="connector"><span>生产部署</span></div>
+            <div class="node release"><div class="title">生产服务器部署该 tag</div><div class="sub">记录版本、变更内容和回滚点</div></div>
+            <div class="loop-note">发布规则：禁止直接从旧 main 发布；禁止把企业 PR 提交到 upstream/main。</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>4. 同步 DeerFlow 官方更新流程</h2>
+        <div class="html-diagram">
+          <div class="vertical-flow">
+            <div class="node official"><div class="title">官方 DeerFlow</div><div class="sub">bytedance/deer-flow · upstream/main</div></div>
+            <div class="connector"><span>git fetch upstream</span></div>
+            <div class="node mirror"><div class="title">vendor/upstream-main</div><div class="sub">同步官方代码镜像，不承载企业 Feature</div><span class="cmd">git switch vendor/upstream-main<br />git merge --ff-only upstream/main<br />git push origin vendor/upstream-main</span></div>
+            <div class="connector"><span>创建本地同步分支</span></div>
+            <div class="node check"><div class="title">sync/upstream-日期</div><div class="sub">解决冲突，检查配置、部署和企业功能兼容性</div></div>
+            <div class="connector"><span>运行测试与构建检查</span></div>
+            <div class="node check"><div class="title">make test / pnpm check</div><div class="sub">确认官方更新没有破坏企业代码</div></div>
+            <div class="decision-wrap"><div class="decision"><span>验证是否通过？</span></div></div>
+            <div class="outcomes">
+              <div class="mini-node fail"><strong>不通过</strong><span>修复同步冲突或兼容性问题<br />回到同步分支继续验证</span></div>
+              <div class="outcome-arrow"><span class="arrow">↘</span>修复后重试</div>
+              <div class="mini-node pass"><strong>通过</strong><span>创建同步 PR</span></div>
+            </div>
+            <div class="connector"><span>Review + CI 通过</span></div>
+            <div class="node integration"><div class="title">合并到 enterprise/integration</div><div class="sub">官方更新正式进入企业集成基线</div></div>
+            <div class="connector"><span>通知开发者更新本地 Feature 分支</span></div>
+            <div class="node success"><div class="title">进入下一轮协同开发</div><div class="sub">官方更新 → 同步基线 → 企业集成 → Feature → PR</div></div>
+            <div class="loop-note">旧 main 只作为历史产品分支和迁移参考，不作为官方同步目标，也不作为新 Feature 的创建基线。</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>5. 分支职责和保护规则</h2>
+        <div class="rule-grid">
+          <div class="rule-card"><strong>upstream/main</strong><span>官方来源，只读跟踪，不提交企业代码。</span></div>
+          <div class="rule-card"><strong>vendor/upstream-main</strong><span>本地保存的官方代码镜像，只做同步，不做业务开发。</span></div>
+          <div class="rule-card"><strong>enterprise/integration</strong><span>官方基线和企业功能的集成入口，建议设置为保护分支。</span></div>
+          <div class="rule-card"><strong>feature/*</strong><span>一个分支只做一类功能，例如 SSO、WeKnora、Kubernetes。</span></div>
+          <div class="rule-card"><strong>prod-* tag</strong><span>经过测试和回归验证后的生产发布版本，支持回滚。</span></div>
+          <div class="rule-card"><strong class="warning-text">旧 main</strong><span class="warning-text">历史产品分支，不作为新的 Feature 创建基线。</span></div>
+        </div>
+        <table>
+          <thead><tr><th>规则</th><th>要求</th></tr></thead>
+          <tbody>
+            <tr><td>官方同步</td><td>先更新 <code>vendor/upstream-main</code>，再通过同步 PR 合并到 <code>enterprise/integration</code>。</td></tr>
+            <tr><td>功能开发</td><td>只能从 <code>enterprise/integration</code> 创建 <code>feature/*</code>，不能从旧 <code>main</code> 或 <code>upstream/main</code> 创建。</td></tr>
+            <tr><td>代码合并</td><td>所有变更必须经过 GitHub PR、代码 Review、CI 和安全检查，禁止直接 Push 集成分支。</td></tr>
+            <tr><td>发布</td><td>测试通过后创建 <code>prod-YYYYMMDD-编号</code>，生产环境部署 tag，不直接部署开发分支。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <footer>逻辑集成分支 enterprise/integration 对应当前企业集成分支 codex/enterprise-consolidation-20260716。</footer>
+    </main>
+  </body>
+</html>

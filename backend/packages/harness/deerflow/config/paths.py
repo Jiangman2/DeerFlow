@@ -175,11 +175,11 @@ class Paths:
 
     @property
     def team_agents_dir(self) -> Path:
-        """Team-shared custom agents root: `{base_dir}/team_agents/`."""
+        """Root for enterprise team-shared agents: `{base_dir}/team_agents/`."""
         return self.base_dir / "team_agents"
 
     def team_agent_dir(self, name: str) -> Path:
-        """Team-shared per-agent directory: `{base_dir}/team_agents/{name}/`."""
+        """Directory for one enterprise team-shared agent."""
         return self.team_agents_dir / name.lower()
 
     def agent_memory_file(self, name: str) -> Path:
@@ -232,17 +232,18 @@ class Paths:
         """Per-user per-agent memory: `{base_dir}/users/{user_id}/agents/{name}/memory.json`."""
         return self.user_agent_dir(user_id, agent_name) / "memory.json"
 
-    def user_knowledge_dir(self, user_id: str) -> Path:
-        """Per-user private knowledge base root: `{base_dir}/users/{user_id}/knowledge/`."""
-        return self.user_dir(user_id) / "knowledge"
+    def user_skills_dir(self, user_id: str) -> Path:
+        """Per-user root for that user's custom skills: `{base_dir}/users/{user_id}/skills/`."""
+        return self.user_dir(user_id) / "skills"
 
-    def user_knowledge_files_dir(self, user_id: str) -> Path:
-        """Original files uploaded to the user's private knowledge base."""
-        return self.user_knowledge_dir(user_id) / "files"
+    def user_custom_skills_dir(self, user_id: str) -> Path:
+        """Per-user custom skills directory: `{base_dir}/users/{user_id}/skills/custom/`.
 
-    def user_knowledge_markdown_dir(self, user_id: str) -> Path:
-        """Markdown/text extracted from private knowledge base files."""
-        return self.user_knowledge_dir(user_id) / "markdown"
+        This is the user-scoped replacement for the global ``{base_dir}/skills/custom/``
+        directory. Custom skills are written here; public skills remain under the
+        global ``{base_dir}/skills/public/`` (read-only).
+        """
+        return self.user_skills_dir(user_id) / "custom"
 
     def thread_dir(self, thread_id: str, *, user_id: str | None = None) -> Path:
         """

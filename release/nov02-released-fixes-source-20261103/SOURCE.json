@@ -1,0 +1,499 @@
+{
+  "schema": "nov02-released-source.v1",
+  "base_commit": "97bd146de0fb41264eb991c15f098d0e0de395db",
+  "gateway_generation": 403,
+  "frontend_generation": 239,
+  "scope": "22 shipped Gateway overlay files and 19 Frontend239 runtime changes relative to PR25; not a whole-backend image rebuild claim",
+  "work_datalake_deferred": true,
+  "schema_migration_requested": false,
+  "sources": {
+    "backend/app/gateway/account_activity.py": {
+      "base_sha256": null,
+      "deployed_sha256": "f3a2b60f885d0d9577a12c99c2eb3dfd7d43ee7576d9ca0b31bca7ceddd3108e",
+      "source_sha256": "f3a2b60f885d0d9577a12c99c2eb3dfd7d43ee7576d9ca0b31bca7ceddd3108e",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/app/gateway/account_activity.py",
+      "parent_source": null
+    },
+    "backend/app/gateway/app.py": {
+      "base_sha256": "4280b820b55625b9b08ebfe2c6a3297c87b1bf7e6279d4558f0194f8be9056c0",
+      "deployed_sha256": "2188bfc885035df5a78b38dafa1061f8908a8d050a88959d60114c8c45c508c2",
+      "source_sha256": "2188bfc885035df5a78b38dafa1061f8908a8d050a88959d60114c8c45c508c2",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/app/gateway/app.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/app/gateway/app.py"
+    },
+    "backend/app/gateway/codex_responses_adapter.py": {
+      "base_sha256": "5f6396dbc3f1bfeab0b2e95ac2077ce74fba38f9d5eba99861c51851b4dea192",
+      "deployed_sha256": "ba3c91a89f6efd213fed57a36556546676791a9cedbe42d0d162a811396b13fd",
+      "source_sha256": "ba3c91a89f6efd213fed57a36556546676791a9cedbe42d0d162a811396b13fd",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/app/gateway/codex_responses_adapter.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/app/gateway/codex_responses_adapter.py"
+    },
+    "backend/app/gateway/model_monitor.py": {
+      "base_sha256": null,
+      "deployed_sha256": "b61efcb08da541def289b422c35fc48b8ff1e86bd958ce97839fc11e93f6a4f3",
+      "source_sha256": "e07782e0438d25584920daf0c56e696144092129039b1b03638777350d754ec6",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/app/gateway/model_monitor.py",
+      "parent_source": null,
+      "normalization": "python_layout_ast_equal"
+    },
+    "backend/app/gateway/oa_policy_flow_metrics.py": {
+      "base_sha256": null,
+      "deployed_sha256": "e8df3b5025a75688150360f28220523c981d57c9c8fc63f2bb89719c9f5e1b58",
+      "source_sha256": "8228e1dbd821fc5ad73019fe64e0858b732dc7ac9efd14decac0ad4d34102221",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/app/gateway/oa_policy_flow_metrics.py",
+      "parent_source": null,
+      "normalization": "python_layout_ast_equal"
+    },
+    "backend/app/gateway/oa_policy_flow_service.py": {
+      "base_sha256": "f2d7835127d84333cd592156c6bfe7588e70a150087ca87ba048cb3eef557312",
+      "deployed_sha256": "4b455b4c551061e18f8b0feb33413ff8047b561021f4e3e2cc4d1e919380392a",
+      "source_sha256": "4b455b4c551061e18f8b0feb33413ff8047b561021f4e3e2cc4d1e919380392a",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/app/gateway/oa_policy_flow_service.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/app/gateway/oa_policy_flow_service.py"
+    },
+    "backend/app/gateway/routers/console.py": {
+      "base_sha256": "70e3b64fa7f3e60b574b25cb8f5f59077a18fbad94dffa42212ed465e3b0ea53",
+      "deployed_sha256": "6b5faa489c49048541d192eb614daa598d1d40ff028e02ef49c951188545b813",
+      "source_sha256": "6b5faa489c49048541d192eb614daa598d1d40ff028e02ef49c951188545b813",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/app/gateway/routers/console.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/app/gateway/routers/console.py"
+    },
+    "backend/app/gateway/routers/model_monitor.py": {
+      "base_sha256": null,
+      "deployed_sha256": "5a00ce3e82d430aa49d0c173536994d60315d41ade8ac4da183268c4f017f279",
+      "source_sha256": "5a00ce3e82d430aa49d0c173536994d60315d41ade8ac4da183268c4f017f279",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/app/gateway/routers/model_monitor.py",
+      "parent_source": null
+    },
+    "backend/app/gateway/routers/oa_policy_flow.py": {
+      "base_sha256": "a494e1657b6cf2aa986bd8b5bc0fd5ea8495b85dbe686a4039c232cfeeab53f2",
+      "deployed_sha256": "9a39a945a1d7f11a092c5b6c7d8362d5ee858158c7ef88130952fc1a5de19122",
+      "source_sha256": "9a39a945a1d7f11a092c5b6c7d8362d5ee858158c7ef88130952fc1a5de19122",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/app/gateway/routers/oa_policy_flow.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/app/gateway/routers/oa_policy_flow.py"
+    },
+    "backend/app/gateway/services.py": {
+      "base_sha256": "2f81eaf4490a37a95b58efd1624a9c0deb46eb6cc983cd886fa85d01e9a3e27e",
+      "deployed_sha256": "1ce41123a0238f29960096cf4f6ff787a93add931714e23660ed5efd649d4980",
+      "source_sha256": "1ce41123a0238f29960096cf4f6ff787a93add931714e23660ed5efd649d4980",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/app/gateway/services.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/app/gateway/services.py"
+    },
+    "backend/packages/harness/deerflow/agents/lead_agent/agent.py": {
+      "base_sha256": "1a5cbe048777f9498a0ce086c156d571ea7399ced2e83b34bb660eb32f54cd30",
+      "deployed_sha256": "ec90288229cee4e54a34e41b31b946d22be7c8d6d21a8363be790c799dad9945",
+      "source_sha256": "ec90288229cee4e54a34e41b31b946d22be7c8d6d21a8363be790c799dad9945",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/packages/harness/deerflow/agents/lead_agent/agent.py"
+    },
+    "backend/packages/harness/deerflow/agents/middlewares/tool_error_handling_middleware.py": {
+      "base_sha256": "787d19c27993ed4b4fc141ca8afbf2b5e8b396c4bb71f1b48b1c6341330c285f",
+      "deployed_sha256": "c7320a2b57589fb5c54d06a2556bf94dff69ca2184d58b9b5f4357eb0171892c",
+      "source_sha256": "c7320a2b57589fb5c54d06a2556bf94dff69ca2184d58b9b5f4357eb0171892c",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/packages/harness/deerflow/agents/middlewares/tool_error_handling_middleware.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/packages/harness/deerflow/agents/middlewares/tool_error_handling_middleware.py"
+    },
+    "backend/packages/harness/deerflow/agents/middlewares/web_search_middleware.py": {
+      "base_sha256": null,
+      "deployed_sha256": "2f06dd9beb6703ec4685163c9dc78647832f8f29ba4b2b8f493fc8dfce92b286",
+      "source_sha256": "2f06dd9beb6703ec4685163c9dc78647832f8f29ba4b2b8f493fc8dfce92b286",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/packages/harness/deerflow/agents/middlewares/web_search_middleware.py",
+      "parent_source": null
+    },
+    "backend/packages/harness/deerflow/community/aio_sandbox/aio_sandbox.py": {
+      "base_sha256": "e7d1922c025ffa7a72c2c82b277745de7dccbfb047c9bd1771723380991e1db9",
+      "deployed_sha256": "f134f32cb02fbb8a97941f7cc2055699120d9051cf6644631ee4a9828a68050b",
+      "source_sha256": "f134f32cb02fbb8a97941f7cc2055699120d9051cf6644631ee4a9828a68050b",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/packages/harness/deerflow/community/aio_sandbox/aio_sandbox.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/packages/harness/deerflow/community/aio_sandbox/aio_sandbox.py"
+    },
+    "backend/packages/harness/deerflow/community/media_generation/tools.py": {
+      "base_sha256": "c128ed50201e112a7c94f27e8d5e84dd1e5777255f0d4912fd90cb2704c8a0b7",
+      "deployed_sha256": "389d3825882825aaa7f2510721f68c52199539b2a37c0667e39a094bf1564ddb",
+      "source_sha256": "389d3825882825aaa7f2510721f68c52199539b2a37c0667e39a094bf1564ddb",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/packages/harness/deerflow/community/media_generation/tools.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/packages/harness/deerflow/community/media_generation/tools.py"
+    },
+    "backend/packages/harness/deerflow/models/factory.py": {
+      "base_sha256": "8009fc0ea267d9520aec2eef9c8a6e1daa1d454ddab028c6d70eb68da8070510",
+      "deployed_sha256": "bca1631ae23ff8837c19b621f271ae98b23bb7dc65b7544e59674de8fbcd7c8b",
+      "source_sha256": "bca1631ae23ff8837c19b621f271ae98b23bb7dc65b7544e59674de8fbcd7c8b",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/packages/harness/deerflow/models/factory.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/packages/harness/deerflow/models/factory.py"
+    },
+    "backend/packages/harness/deerflow/observability/model_metrics.py": {
+      "base_sha256": null,
+      "deployed_sha256": "b720ecf551df4764e8d5f0415f793c5e75215abdabf8a6f67e18a3e64f74f39d",
+      "source_sha256": "b720ecf551df4764e8d5f0415f793c5e75215abdabf8a6f67e18a3e64f74f39d",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/packages/harness/deerflow/observability/model_metrics.py",
+      "parent_source": null
+    },
+    "backend/packages/harness/deerflow/runtime/web_search_policy.py": {
+      "base_sha256": null,
+      "deployed_sha256": "0e08a4f62c3008e23728f5b7c6504ab4373cc7c1000c74b262fb895389571110",
+      "source_sha256": "0e08a4f62c3008e23728f5b7c6504ab4373cc7c1000c74b262fb895389571110",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/packages/harness/deerflow/runtime/web_search_policy.py",
+      "parent_source": null
+    },
+    "backend/packages/harness/deerflow/sandbox/text_read_policy.py": {
+      "base_sha256": null,
+      "deployed_sha256": "b976118b762c73ccaf083a38504991de81963b881367d12e7d9faa7ed56f56f7",
+      "source_sha256": "9c707ae4f6fe0620e4e3920e2bdd53e5ac9a8c128078af310cda7aa151f3a032",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/packages/harness/deerflow/sandbox/text_read_policy.py",
+      "parent_source": null,
+      "normalization": "python_layout_ast_equal"
+    },
+    "backend/packages/harness/deerflow/sandbox/tools.py": {
+      "base_sha256": "24a62f34e0aaf22b26f8e9bb35ab533cca4c1253a1073a7390538b0020b4d9e1",
+      "deployed_sha256": "a8e8b4f3ff94f79e2e0458414f4c2d55310bdd170a8859c00b99dd1d65ad929c",
+      "source_sha256": "a8e8b4f3ff94f79e2e0458414f4c2d55310bdd170a8859c00b99dd1d65ad929c",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/packages/harness/deerflow/sandbox/tools.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/packages/harness/deerflow/sandbox/tools.py"
+    },
+    "backend/packages/harness/deerflow/subagents/executor.py": {
+      "base_sha256": "e2fa000b3d54eb4f12d32bd7e177e629907cc4ec78303268c71144b5c7860a7e",
+      "deployed_sha256": "b1789418e46880f7e303eec4863e48b1225ad2b37eaabe7d21ecc4b4d0e12b34",
+      "source_sha256": "b1789418e46880f7e303eec4863e48b1225ad2b37eaabe7d21ecc4b4d0e12b34",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/packages/harness/deerflow/subagents/executor.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/packages/harness/deerflow/subagents/executor.py"
+    },
+    "backend/packages/harness/deerflow/tools/builtins/task_tool.py": {
+      "base_sha256": "25f48c9c233f96c02380d8447bc682368cb62bd323a1e63e542ea897b8f1815b",
+      "deployed_sha256": "c18564b1ae4a49d9485e0e3840beae87540c0bedc3f5142a6e41a2491d15bea6",
+      "source_sha256": "c18564b1ae4a49d9485e0e3840beae87540c0bedc3f5142a6e41a2491d15bea6",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/packages/harness/deerflow/tools/builtins/task_tool.py"
+    },
+    "frontend/src/app/workspace/admin/dashboard/page.tsx": {
+      "base_sha256": "7f7da506571fc596d84be0f3ec64be4aa28f834571c64d168913a79291ac2634",
+      "deployed_sha256": "37962f326c501881bae565e14623d3882435b94f2157595bfb8d0a663da035c2",
+      "source_sha256": "37962f326c501881bae565e14623d3882435b94f2157595bfb8d0a663da035c2",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/app/workspace/admin/dashboard/page.tsx",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/app/workspace/admin/dashboard/page.tsx"
+    },
+    "frontend/src/components/workspace/composer-attachment.tsx": {
+      "base_sha256": "62957fd4eecf5796179d6df988cea1dcc6f418f619ea0796f5dae099c4b0c66f",
+      "deployed_sha256": "8135aeaed34df16270c341e0c110faa36ba2285716cca768de11e762f27b648d",
+      "source_sha256": "8135aeaed34df16270c341e0c110faa36ba2285716cca768de11e762f27b648d",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/components/workspace/composer-attachment.tsx",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/components/workspace/composer-attachment.tsx"
+    },
+    "frontend/src/components/workspace/input-box.tsx": {
+      "base_sha256": "035b8b52133c7225db1994a90a894cfd1c5d8adefc0fabd40ca22e89933e6393",
+      "deployed_sha256": "2f5a0f737d9957ab1b476513141faa7f45cd960cc4a82827dfbec0e0a6b4dbcc",
+      "source_sha256": "2f5a0f737d9957ab1b476513141faa7f45cd960cc4a82827dfbec0e0a6b4dbcc",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/components/workspace/input-box.tsx",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/components/workspace/input-box.tsx"
+    },
+    "frontend/src/components/workspace/knowledge-scope-selector.tsx": {
+      "base_sha256": "29aa0fa13130666f49298acf9b8b28596039780b495f3681b76d8998b6f9d5b1",
+      "deployed_sha256": "0c72dfdb1958dc925c283e90942ca099867ec665dda48aec84f51fd199d1eb40",
+      "source_sha256": "0c72dfdb1958dc925c283e90942ca099867ec665dda48aec84f51fd199d1eb40",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/components/workspace/knowledge-scope-selector.tsx",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/components/workspace/knowledge-scope-selector.tsx"
+    },
+    "frontend/src/components/workspace/mode-selector.tsx": {
+      "base_sha256": "cd165f0b869a810f761fb3230c14599ed4a7cd10665deabbcc5c0e848a9bf810",
+      "deployed_sha256": "82e442b92a9d1206d64f1313d9841a4e56c21ddec04a20b04f14c899c60b3149",
+      "source_sha256": "82e442b92a9d1206d64f1313d9841a4e56c21ddec04a20b04f14c899c60b3149",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/components/workspace/mode-selector.tsx",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/components/workspace/mode-selector.tsx"
+    },
+    "frontend/src/components/workspace/model-monitor-panel.tsx": {
+      "base_sha256": null,
+      "deployed_sha256": "508655a4765e18f63d0e6b83bab06a51fd824eae9ae6c2eb02f9012984eb9201",
+      "source_sha256": "508655a4765e18f63d0e6b83bab06a51fd824eae9ae6c2eb02f9012984eb9201",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/components/workspace/model-monitor-panel.tsx",
+      "parent_source": null
+    },
+    "frontend/src/components/workspace/settings/account-activity-panel.tsx": {
+      "base_sha256": null,
+      "deployed_sha256": "7c781e80a27194d60a5e64ac1e04989767d3a25041b8447e3875f5da8bae9dba",
+      "source_sha256": "7c781e80a27194d60a5e64ac1e04989767d3a25041b8447e3875f5da8bae9dba",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/components/workspace/settings/account-activity-panel.tsx",
+      "parent_source": null
+    },
+    "frontend/src/components/workspace/settings/account-settings-page.tsx": {
+      "base_sha256": "5ec86ee5fdd99f79bec7afabbf272e8cf5ced88aad5083aeecff3a36cb0eacd1",
+      "deployed_sha256": "b817532e0aff72641cf791507aeeb2689fd70e4039f5fc741bcf0f38eabcc57c",
+      "source_sha256": "b817532e0aff72641cf791507aeeb2689fd70e4039f5fc741bcf0f38eabcc57c",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/components/workspace/settings/account-settings-page.tsx",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/components/workspace/settings/account-settings-page.tsx"
+    },
+    "frontend/src/components/workspace/settings/account-usage-card.tsx": {
+      "base_sha256": "ffe00384ad1e0038b3b7f43d1cf8d0eb79fc459a3e57e2b242481511df15148d",
+      "deployed_sha256": "3f9796f6a6a14ccc63621c7a5a1906c87e8e2fa3eedda831604c1f05bef8abb1",
+      "source_sha256": "3f9796f6a6a14ccc63621c7a5a1906c87e8e2fa3eedda831604c1f05bef8abb1",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/components/workspace/settings/account-usage-card.tsx",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/components/workspace/settings/account-usage-card.tsx"
+    },
+    "frontend/src/components/workspace/settings/settings-dialog.tsx": {
+      "base_sha256": "3d35e392995c6a56c8108ac710b0e2ce6df9f06230dee8c55094ae53d8445f93",
+      "deployed_sha256": "5a8261bdb0f89d258838e4f0557223a9747c2e47d12ffb8064cc3a855843cad4",
+      "source_sha256": "5a8261bdb0f89d258838e4f0557223a9747c2e47d12ffb8064cc3a855843cad4",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/components/workspace/settings/settings-dialog.tsx",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/components/workspace/settings/settings-dialog.tsx"
+    },
+    "frontend/src/core/console/account-activity.ts": {
+      "base_sha256": null,
+      "deployed_sha256": "e35ed8d89cd56e8d639cc1239345de93d7e19bd0b70d14d1ef5b3eb6e66409a7",
+      "source_sha256": "e35ed8d89cd56e8d639cc1239345de93d7e19bd0b70d14d1ef5b3eb6e66409a7",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/core/console/account-activity.ts",
+      "parent_source": null
+    },
+    "frontend/src/core/console/model-monitor.ts": {
+      "base_sha256": null,
+      "deployed_sha256": "078cb3e1ece8baa709ccf8c8c463196a028481bc8805a1a8cd56681718e1641c",
+      "source_sha256": "078cb3e1ece8baa709ccf8c8c463196a028481bc8805a1a8cd56681718e1641c",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/core/console/model-monitor.ts",
+      "parent_source": null
+    },
+    "frontend/src/core/i18n/model-monitor.ts": {
+      "base_sha256": null,
+      "deployed_sha256": "9edc338c93ac40806e2676d3b57efe771918db306f5eb032bb716ad1d70820db",
+      "source_sha256": "9edc338c93ac40806e2676d3b57efe771918db306f5eb032bb716ad1d70820db",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/core/i18n/model-monitor.ts",
+      "parent_source": null
+    },
+    "frontend/src/core/i18n/usage-analytics.ts": {
+      "base_sha256": null,
+      "deployed_sha256": "8414f8d82aa0b39c0c69965167855060d986ffe91ad4802f18a09d594966606f",
+      "source_sha256": "8414f8d82aa0b39c0c69965167855060d986ffe91ad4802f18a09d594966606f",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/core/i18n/usage-analytics.ts",
+      "parent_source": null
+    },
+    "frontend/src/core/settings/local.ts": {
+      "base_sha256": "29f434a22fd8b75fe9e66309667f69c7548a939ebd0349e049b513362afdbb17",
+      "deployed_sha256": "de1e91a4a02831d32cf9e688440a5c76e4dbbe1e337a7f4acf253ca36c7d929f",
+      "source_sha256": "de1e91a4a02831d32cf9e688440a5c76e4dbbe1e337a7f4acf253ca36c7d929f",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/core/settings/local.ts",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/core/settings/local.ts"
+    },
+    "frontend/src/core/threads/hooks.ts": {
+      "base_sha256": "50d8e02d98fe565d9e677818780f95a0a5fb2f07a73616c53d4bc0a69a36f8bf",
+      "deployed_sha256": "e5ff798d863f6eeb0cc41a28c4bd394f8d2178867ec8d636817b44088a48e02d",
+      "source_sha256": "e5ff798d863f6eeb0cc41a28c4bd394f8d2178867ec8d636817b44088a48e02d",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/core/threads/hooks.ts",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/core/threads/hooks.ts"
+    },
+    "frontend/src/core/threads/types.ts": {
+      "base_sha256": "721edeae79037d5450a7921ecbbdc2505b2f2b15bc3c9b0595b7fa035356ac89",
+      "deployed_sha256": "6faca602a856eeb89e70bd137b473f84d63751c92a086841442a0fb675eb70a7",
+      "source_sha256": "6faca602a856eeb89e70bd137b473f84d63751c92a086841442a0fb675eb70a7",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/core/threads/types.ts",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/core/threads/types.ts"
+    },
+    "frontend/src/styles/cnooc-concept.css": {
+      "base_sha256": "c6199f94bb79886768afa63057c8680600ada7a527fa82c35599bf98ebe95997",
+      "deployed_sha256": "31f98e3425062cc2719cd9c915f1e2eb32a067579d7df3869c4fa87201614799",
+      "source_sha256": "31f98e3425062cc2719cd9c915f1e2eb32a067579d7df3869c4fa87201614799",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/styles/cnooc-concept.css",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/styles/cnooc-concept.css"
+    },
+    "frontend/src/styles/globals.css": {
+      "base_sha256": "6d519f1fb0f9c51c23449e1c19a9695c152eedd087f5fe986376cc21233b7e92",
+      "deployed_sha256": "8cc8b3ca228c2abb98912cd1557c6415b49a9468494c818298b16569e30c72b0",
+      "source_sha256": "8cc8b3ca228c2abb98912cd1557c6415b49a9468494c818298b16569e30c72b0",
+      "published_source": "release/nov02-released-fixes-source-20261103/published/frontend/src/styles/globals.css",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/src/styles/globals.css"
+    }
+  },
+  "tests": {
+    "backend/tests/test_account_activity.py": {
+      "base_sha256": null,
+      "source_sha256": "3e2a9f634bf737b467ca9c56d1dea02d4cec23266c32124bb99d0786442e3957",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "backend/tests/test_account_activity_postgres.py": {
+      "base_sha256": null,
+      "source_sha256": "a2705d410cc9a8aab992bac3fa794c02886020b48067e3b3378ada4988d17a98",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "backend/tests/test_aio_sandbox.py": {
+      "base_sha256": "e0b904b872d228aad837b1fadf38a4954d85f568fadf2ba90708d596a3a07f23",
+      "source_sha256": "a49bf49779e99f7eb67180ba35b4b0aa2ceca4a8e051166b01bb591d93a58695",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/tests/test_aio_sandbox.py",
+      "kind": "regression-test"
+    },
+    "backend/tests/test_lead_agent_model_resolution.py": {
+      "base_sha256": "51e1babef46667db288b738699cc0ba96348e200df37d64d8e181aabf8642ada",
+      "source_sha256": "c2b7dca36f0e6cb27672e5fd6992669174ab30e85fcb9df218d9f24f94cbcd62",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/tests/test_lead_agent_model_resolution.py",
+      "kind": "regression-test"
+    },
+    "backend/tests/test_media_generation_tools.py": {
+      "base_sha256": "41de409fa78942b80efdcf71d96529f62da2388e2cdd5791e2623baac04f74c1",
+      "source_sha256": "8aa73b79ad8c2e03313bf45d84d9668b57e669e1cf7bfdacf1676e82ba344607",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/tests/test_media_generation_tools.py",
+      "kind": "regression-test"
+    },
+    "backend/tests/test_model_factory.py": {
+      "base_sha256": "2de911700795854dbcfc54088b6304aba3d16af8c58b74ac1f8a8dae4e961845",
+      "source_sha256": "3d4b3e8903a471373e577d6fe8cb00c38a6bad3357495c2219f8b710d85fe491",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/tests/test_model_factory.py",
+      "kind": "regression-test"
+    },
+    "backend/tests/test_model_monitor.py": {
+      "base_sha256": null,
+      "source_sha256": "1292d007292073411f6087bfb7c6d31723f371e6ccbe497c26897e5194567e81",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "backend/tests/test_model_monitor_http.py": {
+      "base_sha256": null,
+      "source_sha256": "97243b9a3db0b2e550e249d0c89b7eaf3ac7bb9a1f6eea6ba59ce7351bab867c",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "backend/tests/test_model_monitor_redis.py": {
+      "base_sha256": null,
+      "source_sha256": "3a5946011465639854447dd338fd0d0c2d787371b5f0a161d7e090c9d8b13414",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "backend/tests/test_oa_policy_flow_metrics.py": {
+      "base_sha256": null,
+      "source_sha256": "b78432b643c0126e821fbb93f7337272a4b4a6dde54f33d7e355e9e466d6fdb4",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "backend/tests/test_read_file_tool_binary.py": {
+      "base_sha256": "682557eadf022019ddff7adf67209fb74b8a2de7d201dab3af7bc81a5f8d4ef5",
+      "source_sha256": "1476b7618e75f578825c8c064fa4c87f4f86cb63fd2d36f5c5e07e3d4bf1da59",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/tests/test_read_file_tool_binary.py",
+      "kind": "regression-test"
+    },
+    "backend/tests/test_subagent_executor.py": {
+      "base_sha256": "c267259579cb187f9a65912470ca358f76c35fa99bb9c4b95821a89023f891a5",
+      "source_sha256": "49bd707046a1858e4e1e0529183cfa48187315eebd846fb4b1ac646ebc7166e9",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/tests/test_subagent_executor.py",
+      "kind": "regression-test"
+    },
+    "backend/tests/test_task_tool_core_logic.py": {
+      "base_sha256": "d1781c6c3a9653e87ce831709230bec15c3228b23c0c35706821215467ecc5c8",
+      "source_sha256": "62127581783fdd72e9fa846ba3ccb25bbcb50abf2d08d66d6af03ce346af59d1",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/tests/test_task_tool_core_logic.py",
+      "kind": "regression-test"
+    },
+    "backend/tests/test_tool_error_handling_middleware.py": {
+      "base_sha256": "1a2dba2ce8b99b6451a05d2ba3654475fb2e330176a2df058b14313da65be9f1",
+      "source_sha256": "9a0564ec95c2d5a6672ff3962f27a6a217c30419074d7c6ebcdc47edb4b1dc48",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/tests/test_tool_error_handling_middleware.py",
+      "kind": "regression-test"
+    },
+    "backend/tests/test_view_image_middleware.py": {
+      "base_sha256": "05cf954b475ce4d33532bb5d7c290588f3dbee8373a3c759be7c451b657cb08f",
+      "source_sha256": "339ffeb5f5bfabc830f90a5d6d0b191f5f6519173309336e5e733722f6c4db00",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/tests/test_view_image_middleware.py",
+      "kind": "regression-test"
+    },
+    "backend/tests/test_view_image_request_boundary.py": {
+      "base_sha256": "fa297956643e3d3d53a5bcf27808e9b07e524dc7be1d84755df05e4187672a47",
+      "source_sha256": "d1a5e621410042bf05c33831a26aa1cfb1849f0c82f8db7c94050275463743b6",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/backend/tests/test_view_image_request_boundary.py",
+      "kind": "regression-test"
+    },
+    "backend/tests/test_web_search_policy.py": {
+      "base_sha256": null,
+      "source_sha256": "2d46473023b469a8ec9fcf499976ca444c4ee4b56a16601593e7720d074c2874",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "frontend/tests/e2e/agent-composer-materials.spec.ts": {
+      "base_sha256": null,
+      "source_sha256": "0ff193a28694702c1c56e09e70ead229f8dc056e4fabf5a5e98cbe0837f60b59",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "frontend/tests/e2e/composer-controls.spec.ts": {
+      "base_sha256": null,
+      "source_sha256": "3ca8cc9ac72eca785b62800e59e54106c868d2f9d030603c761618636d95cc43",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "frontend/tests/e2e/composer-multiline-draft.spec.ts": {
+      "base_sha256": null,
+      "source_sha256": "9400a00d2e8ba2a770228b668ce97fbca30fcf91debe18ff00ffbe927178a5d8",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "frontend/tests/e2e/composer-submit-layout.spec.ts": {
+      "base_sha256": null,
+      "source_sha256": "55c9d0a99781d455211f598503d7d81bd26a951bf1bfddf714cf28cd297e06ab",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "frontend/tests/e2e/composer-tooltip.spec.ts": {
+      "base_sha256": null,
+      "source_sha256": "9d914e928a557e667bc78490574019ead3000318eafaaf8db479f69b88463325",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "frontend/tests/e2e/main-composer-materials.spec.ts": {
+      "base_sha256": null,
+      "source_sha256": "c0e8ce6e617b49daa6389f51a1f5b2542041de9d31fa4264718d71d22fe6c984",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "frontend/tests/e2e/mobile-webview.spec.ts": {
+      "base_sha256": "3748a8cfcfc254874033d9f2994558a1a13d955c43641ec0594292f03d191c61",
+      "source_sha256": "eb4bc23530c34ed253c30920e5f97db86eda934d6367813e44b7b1a5167b7d5b",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/tests/e2e/mobile-webview.spec.ts",
+      "kind": "regression-test"
+    },
+    "frontend/tests/e2e/usage-monitoring.spec.ts": {
+      "base_sha256": null,
+      "source_sha256": "3717bdce4c59ff3f6518f64fdbd428fd30779d4f6af32c29d9f6a7b1f9cac5f5",
+      "parent_source": null,
+      "kind": "regression-test"
+    },
+    "frontend/tests/e2e/utils/model-square-fixture.ts": {
+      "base_sha256": "5e26ce132bcfcd3006a4d65250964add0072d0c0675f1ccd2f35e3b69f17a20d",
+      "source_sha256": "c8b2c727bc97b87d7a1e1f06ae0c8a34eb0fd515e39d2a2336dc9e883ba1e3b1",
+      "parent_source": "release/nov02-released-fixes-source-20261103/parent/frontend/tests/e2e/utils/model-square-fixture.ts",
+      "kind": "regression-test"
+    },
+    "frontend/tests/unit/core/console/account-activity-heatmap.test.ts": {
+      "base_sha256": null,
+      "source_sha256": "a1d5881feabefd754e8551ba97922d22d34496891872176c970058852403ca80",
+      "parent_source": null,
+      "kind": "regression-test"
+    }
+  },
+  "gateway_packages": [
+    "release/nov02-released-fixes-source-20261103/evidence/release/composer-controls-20261102-r4/gateway-r2/PACKAGE.json",
+    "release/nov02-released-fixes-source-20261103/evidence/release/usage-monitor-20261102-r1/gateway/PACKAGE.json",
+    "release/nov02-released-fixes-source-20261103/evidence/release/monitor-http-20261102-r1/gateway/PACKAGE.json"
+  ],
+  "frontend_inventory": "release/nov02-released-fixes-source-20261103/evidence/release/usage-heatmap-20261102-r2/SOURCE.json",
+  "protected_sources": {
+    "frontend/src/core/auth/AuthProvider.tsx": "7571b03158688086ed4eb54f2167ebb52eada17ec42974f503c41687ef4ec38a",
+    "frontend/src/core/data-lake/auth.ts": "6d8fbfcd5eb60252366f671c67cdb7580e7bd93ef0a70f6fc079c4b4c84eb2e4",
+    "frontend/src/components/workspace/shop-cart-attachments/shop-cart-attachment-button.tsx": "6d0a9318b5eb62f8e90d163f48a65a1ccd35271fdca9689d745065548afc35a1",
+    "frontend/src/core/settings/store.ts": "5b6f32246171b966a2a3deb2fe55ef3709d73736b8fb92037a1467176461a752"
+  },
+  "evidence": {
+    "release/nov02-released-fixes-source-20261103/evidence/deploy/enterprise/agent-composer-frontend-runtime-accepted-field-20261102-r2.json": "8eb19a54b6e4ddffeaaa0604cceac7572585c006b3816cfa2f5cd98c125ed41d",
+    "release/nov02-released-fixes-source-20261103/evidence/deploy/enterprise/composer-controls-browser-acceptance-field-20261102.json": "a610008ff2c95980d2eb50296bfd3722f65732ab8f4602c58a2b8093d148d5fe",
+    "release/nov02-released-fixes-source-20261103/evidence/deploy/enterprise/composer-controls-frontend-runtime-field-20261102.json": "035d20e0d52ab704cae859a1796e50540b0c4484e6187719ccbde1f4f642bf0c",
+    "release/nov02-released-fixes-source-20261103/evidence/deploy/enterprise/composer-controls-gateway-runtime-field-20261102.json": "172b80a08dc58a09dbc04e8fd8d5ed6682265cebfa26a427ebbfc8fbbe8d0348",
+    "release/nov02-released-fixes-source-20261103/evidence/deploy/enterprise/monitor-http-heatmap-browser-acceptance-field-20261103.json": "53feb4b32ff757aadf72ba758950ebb1e3f63d8e54b3c1acc024f5c07bb01521",
+    "release/nov02-released-fixes-source-20261103/evidence/deploy/enterprise/monitor-http-installed-accepted-field-20261102-r1.json": "99f3579c54bc5bb5c19c68bc1df61f156bedaba1edb3e2ec34fd370a77852a61",
+    "release/nov02-released-fixes-source-20261103/evidence/deploy/enterprise/usage-heatmap-frontend-preload-field-20261102-r2.json": "3407ae3c0397a9a984277d4e83af02b1d6668eb9d810a222bae6f5516036c05f",
+    "release/nov02-released-fixes-source-20261103/evidence/deploy/enterprise/usage-heatmap-frontend-runtime-accepted-field-20261102-r2.json": "4d9ed8bb582c24d81220a8dbdf67bfb63d4ec7c320140d490345a336ba4a7f99",
+    "release/nov02-released-fixes-source-20261103/evidence/deploy/enterprise/usage-monitor-frontend-runtime-accepted-field-20261102-r3.json": "3c3108afbffa84e1e03355823781ac84b655de5a7ca17279033d60767ba41554",
+    "release/nov02-released-fixes-source-20261103/evidence/deploy/enterprise/usage-monitor-gateway-runtime-accepted-field-20261102-r1.json": "f932a170dc7d462a52b025b2ba3c3ce2fa63640258623eb4956c18138ae8d1e8",
+    "release/nov02-released-fixes-source-20261103/evidence/deploy/enterprise/usage-monitor-installed-accepted-field-20261102-r2.json": "ea8b9d339081e40adbdaa135bf0cfd60ec28ea7bf9ca27629c04a9a9f3ac4077",
+    "release/nov02-released-fixes-source-20261103/evidence/release/agent-composer-frontend-20261102-r2/BROWSER-ACCEPTED-FIELD-20261102.json": "24c8c627a6e211b38c8ad579c4da16eedb0077b8da44c1af645fda4f1cb2fb81",
+    "release/nov02-released-fixes-source-20261103/evidence/release/composer-controls-20261102-r4/gateway-r2/PACKAGE.json": "60581bb8c4a82ad9fc7c2266b8632699a8d8e10bca8cf439f381524ca8bfc00f",
+    "release/nov02-released-fixes-source-20261103/evidence/release/monitor-http-20261102-r1/gateway/PACKAGE.json": "e525b77daec1f7a8da8f7a0d05ed7c71945c235f113d000ff7844733ea7965a6",
+    "release/nov02-released-fixes-source-20261103/evidence/release/usage-heatmap-20261102-r2/BROWSER-ACCEPTANCE.json": "84f4058a7b9f085cee54a32b22f0d689acfc72123b860f545d42c21dabcd1caa",
+    "release/nov02-released-fixes-source-20261103/evidence/release/usage-heatmap-20261102-r2/PACKAGE.json": "b809ca1a52624d606eb1eed2270f87a123fe8c57864dfabd8ed50f3051e41c03",
+    "release/nov02-released-fixes-source-20261103/evidence/release/usage-heatmap-20261102-r2/RESULT.json": "9e1428139fc9e6edfb3502f7dadd16b90409ddee6d769b7b7e9a8c896405e2b2",
+    "release/nov02-released-fixes-source-20261103/evidence/release/usage-heatmap-20261102-r2/SOURCE-CHANGE.json": "54075c79b02d6ac31f3b0060c277c88a4ad467b9d91f482953a811626eb82117",
+    "release/nov02-released-fixes-source-20261103/evidence/release/usage-heatmap-20261102-r2/SOURCE.json": "3e2c101edb9ca05ecb0573149af6a8e4b9d839bc896d8e0a1d795263bdf181b1",
+    "release/nov02-released-fixes-source-20261103/evidence/release/usage-monitor-20261102-r1/gateway/PACKAGE.json": "94c7ad43382ae84bd8535dea9769ef7ec84a372ce9cd1cd610f6fc16385069f7"
+  }
+}

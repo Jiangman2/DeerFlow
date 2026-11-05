@@ -1,0 +1,38 @@
+{
+  "backend_receipt": {
+    "bytes": 302782,
+    "path": "/var/lib/portal-gateway-oa-data-qa-activation-20261022-r1/REPORT.json",
+    "sha256": "9748159776fc431cdbaedb21da8c96eda68534532bf5a97581d03a8dd51669b0"
+  },
+  "browser_acceptance_pending": true,
+  "candidate": {
+    "bytes": 169823,
+    "sha256": "0f45c2678a40c0812f656b667b9a7350e606e8260db919ff84acffaa6c4a74db"
+  },
+  "frontend_deployed": false,
+  "oa_v2_enabled": false,
+  "offline_package_tests": {
+    "network": "SIMULATED_CLUSTER_RESPONSES",
+    "result": "PASS",
+    "tests": 22
+  },
+  "operator_file": "C:\\Users\\15285\\Downloads\\activate-portal-frontend-data-qa-token-20261022-r1.py",
+  "output_file": "activate-portal-frontend-data-qa-token-20261022-r1.py",
+  "qualification": {
+    "checks": [
+      "isolated_import",
+      "embedded_helpers_load",
+      "actual_preload_bindings",
+      "full_backend_report_pin",
+      "qualified_image_and_asset_bindings",
+      "wrong_image_rejected",
+      "changed_uid_rejected",
+      "missing_hash_rejected",
+      "wrong_report_path_rejected"
+    ],
+    "production_modified": false,
+    "status": "PYTHON37_PACKAGE_ACCEPTED"
+  },
+  "schema": "portal-data-qa-token-frontend-activation-package.v1",
+  "status": "PACKAGE_QUALIFIED_NOT_DEPLOYED"
+}

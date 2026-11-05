@@ -1,0 +1,39 @@
+OA 制度文生图回调 HTTPS 证书核对说明
+日期：2026-10-23
+用途：供 OA 及其 HTTPS 入口维护人员排查；本说明不代表接口全部启用或业务联调通过。
+
+一、当前结论
+平台能解析并连接现有 OA 回调域名的 TCP 443，但 HTTPS 证书验证失败。默认信任库及显式加载的现有企业 CA 均返回 OpenSSL 18（SELF_SIGNED_LEAF，自签名叶证书未被信任）。检查明确采用直连，增加 NO_PROXY 无法修复此证书验证问题。
+
+二、现场证据
+目标域名：grc-web.apps.shdev.ocpx.cnooc
+端口：443 / HTTPS
+DNS 地址：10.72.68.182
+检查节点：ecs-zdz-pro-0021、ecs-zdz-pro-0019
+Gateway 版本：generation 384
+两节点 DNS 和 TCP 连接均通过，以下两组 HTTPS 检查均失败：
+  1. HTTPX 默认信任库，trust_env=false。
+  2. 显式使用 SSL_CERT_FILE 对应的现有 CA，trust_env=false。
+异常链：ConnectError → ConnectError → SSLCertVerificationError
+证书错误：verify_code=18 / SELF_SIGNED_LEAF
+请求策略：无凭据 HEAD，不跟随重定向，保留证书及主机名验证；共四次尝试。TLS 未通过，未获得 HTTP 状态，也未发送业务 POST 回调。
+
+现有 CA 文件在两个节点均由 OpenSSL 原生加载成功：
+  文件大小：228306 字节
+  证书数量：143
+  SHA-256：84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af
+SSL_CERT_FILE、REQUESTS_CA_BUNDLE、DEERFLOW_BROWSER_CA_BUNDLE 指向的内容摘要一致；OA_POLICY_FLOW_CALLBACK_CA_BUNDLE 未配置。
+旧 r1 的 UnicodeDecodeError 来自诊断脚本对整个 PEM 文件进行 ASCII 解码，r2 已改为原生加载。不能依据旧报错认定服务器 CA 文件损坏。
+
+三、请 OA / HTTPS 入口维护人员确认
+1. 上述域名是否为本次联调应使用的正式回调入口；如需更换，请提供完整 HTTPS 回调地址。
+2. 检查按该域名 SNI 返回的实际证书及入口路由，确认是否误用了默认自签名证书。此项目前只是待核对的可能原因，平台尚未取得证书元数据。
+3. 如更换证书，请使用覆盖该主机名、在有效期内的证书，并部署所需中间证书链；同时提供平台应信任的根 CA / 中间 CA 公有证书（PEM/CRT）。
+4. 如必须保留现有自签名证书，请由 OA 运维通过双方认可的渠道提供该公有证书及其 SHA-256 指纹，以便确认归属后配置专用信任。无需提供私钥、业务密钥或密码。
+
+四、平台接续步骤
+拿到确认的地址和证书后，验证证书链、主机名和有效期，再按需要配置 OA 专用 CA，复核当前部署并继续启用 v2 与回调。既有机器接口密钥和 HMAC 签名约定沿用 V1.2 文档。
+当前 API 主开关已启用，多文件开关与回调开关仍关闭。此次诊断没有修改 Gateway、前端、数据库或配置，也没有调用模型、提交制度任务或发送业务回调。此前预载和数据库迁移无需重做。
+证书通过后仍需 OA 实际验证提交、查询、逐文件下载、回调验签和全部文件持久化；TLS 通过本身不代表这些业务步骤通过。
+
+证据来源：操作员提供的 diagnose-portal-oa-callback-transport-20261023-r2.py --diagnose-readonly 回执；schema=portal-oa-callback-transport-diagnosis.v2。命令登录横幅时间不是精确请求时间，回执没有保存每次请求的墙钟时间。检查范围为两个 Gateway 节点，不代表全部 70 个副本均被逐一检测。远端证书的颁发者、SAN、有效期与指纹尚未记录，不据此认定它们已通过验证。

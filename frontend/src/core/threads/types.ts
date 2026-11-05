@@ -1,12 +1,42 @@
 import type { Message, Thread } from "@langchain/langgraph-sdk";
 
+import type { FeedbackData } from "../api/feedback";
 import type { Todo } from "../todos";
+import type { WeKnoraScopeItem, WeKnoraTagScope } from "../weknora/types";
+
+export interface GoalState {
+  objective: string;
+  status: "active";
+  created_at: string;
+  updated_at: string;
+  continuation_count: number;
+  max_continuations: number;
+  no_progress_count: number;
+  max_no_progress_continuations: number;
+  last_evaluation?: {
+    satisfied: boolean;
+    blocker:
+      | "none"
+      | "missing_evidence"
+      | "needs_user_input"
+      | "run_failed"
+      | "external_wait"
+      | "goal_not_met_yet";
+    reason: string;
+    evidence_summary?: string;
+    run_id?: string;
+    evaluated_at?: string;
+    progress_key?: string;
+    stand_down_reason?: string;
+  };
+}
 
 export interface AgentThreadState extends Record<string, unknown> {
   title: string;
   messages: Message[];
-  artifacts: string[];
+  artifacts?: string[];
   todos?: Todo[];
+  goal?: GoalState | null;
 }
 
 export interface AgentThreadContext extends Record<string, unknown> {
@@ -17,8 +47,13 @@ export interface AgentThreadContext extends Record<string, unknown> {
   subagent_enabled: boolean;
   reasoning_effort?: "minimal" | "low" | "medium" | "high";
   agent_name?: string;
+  datalake_enabled?: boolean;
+  web_search_enabled?: boolean;
   weknora_knowledge_base_ids?: string[];
   weknora_knowledge_bases?: { id: string; name: string }[];
+  weknora_knowledge_ids?: string[];
+  weknora_tag_scopes?: WeKnoraTagScope[];
+  weknora_scope_items?: WeKnoraScopeItem[];
 }
 
 export interface AgentThread extends Thread<AgentThreadState> {
@@ -29,6 +64,7 @@ export interface RunMessage {
   run_id: string;
   seq?: number;
   content: Message;
+  feedback?: FeedbackData | null;
   metadata: {
     caller: string;
     [key: string]: unknown;

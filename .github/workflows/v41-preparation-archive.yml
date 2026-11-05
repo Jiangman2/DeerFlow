@@ -1,0 +1,44 @@
+name: V4.1 preparation archive
+
+on:
+  pull_request:
+    paths:
+      - 'deploy/enterprise/v41-glm-20261029/**'
+      - 'deploy/enterprise/verify-v41-preparation-20261029.py'
+      - '.github/workflows/v41-preparation-archive.yml'
+      - '.gitattributes'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preparation-evidence-and-synthetic-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify original bytes, delivered tools and production source baseline
+        run: |
+          python -B deploy/enterprise/verify-v41-preparation-20261029.py --stage-tests "$RUNNER_TEMP/v41-host-tests"
+          python -B deploy/enterprise/verify-production-baseline-20261029.py --ref HEAD
+      - name: Run sealed host tests in a disposable local filesystem
+        # Root ownership guards are exercised; Kubernetes/service calls are mocked.
+        run: |
+          sudo -- env V41_SPLIT_TEST_DIR="$RUNNER_TEMP/v41-host-tests" \
+            "$(command -v python)" -B -m unittest discover -s "$RUNNER_TEMP/v41-host-tests" -p 'test_*.py' -v
+      - uses: astral-sh/setup-uv@v7
+      - name: Install pinned dependencies for synthetic provider and config tests
+        working-directory: backend
+        run: uv sync --locked --group dev --extra postgres
+      - name: Run original provider, reader and configuration regressions
+        env:
+          PYTHONPATH: backend/packages/harness:backend
+        run: |
+          backend/.venv/bin/python -B -m pytest -q \
+            deploy/enterprise/v41-glm-20261029/test_verification.py \
+            deploy/enterprise/v41-glm-20261029/test_reader_r2.py \
+            deploy/enterprise/v41-glm-20261029/test_enable.py

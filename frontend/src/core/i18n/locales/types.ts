@@ -1,6 +1,33 @@
 import type { LucideIcon } from "lucide-react";
 
 export interface Translations {
+  employeeDiscovery: {
+    hot: string;
+    hotOnly: string;
+    showAll: string;
+    markHot: string;
+    unmarkHot: string;
+    emptyTitle: string;
+    emptyHint: string;
+    creator: string;
+    creatorUnknown: string;
+    loadError: string;
+    saveError: string;
+    conflict: string;
+    saved: string;
+    retry: string;
+  };
+  portalTools: {
+    title: string;
+    userGuide: string;
+    ppt: string;
+    proofread: string;
+    translate: string;
+    liveTranscribe: string;
+    convert: string;
+    recordTranscribe: string;
+    speech: string;
+  };
   // Locale meta
   locale: {
     localName: string;
@@ -8,6 +35,7 @@ export interface Translations {
 
   // Common
   common: {
+    nonConfidentialNotice: string;
     home: string;
     settings: string;
     delete: string;
@@ -16,12 +44,16 @@ export interface Translations {
     share: string;
     openInNewWindow: string;
     close: string;
+    showBrowser: string;
     more: string;
     search: string;
     loadMore: string;
     download: string;
     thinking: string;
     artifacts: string;
+    noArtifactSelected: string;
+    selectArtifactToView: string;
+    todos: string;
     public: string;
     custom: string;
     notAvailableInDemoMode: string;
@@ -39,7 +71,40 @@ export interface Translations {
     exportAsMarkdown: string;
     exportAsJSON: string;
     exportSuccess: string;
+    exportToFeishu: string;
+    exportToFeishuSuccess: string;
     regenerate: string;
+    branch: string;
+    likeResponse: string;
+    dislikeResponse: string;
+    showArtifacts: string;
+  };
+
+  browser: {
+    loginBegin: string;
+    loginResume: string;
+    loginClear: string;
+    loginPrivate: string;
+    loginScope: string;
+    loginFailure: string;
+    loginUnavailable: string;
+    loginSessionLost: string;
+    loginReconnect: string;
+    title: string;
+    back: string;
+    forward: string;
+    addressPlaceholder: string;
+    stopLive: string;
+    startLive: string;
+    live: string;
+    viewAlt: string;
+    connecting: string;
+    noActivity: string;
+    waitingForFrame: string;
+    emptyDescription: string;
+    cannotOpen: string;
+    noScreenshot: string;
+    sidePanelDescription: string;
   };
 
   home: {
@@ -51,8 +116,28 @@ export interface Translations {
   welcome: {
     greeting: string;
     description: string;
+    mobileDescription: string;
     createYourOwnSkill: string;
     createYourOwnSkillDescription: string;
+    hainengPortal: string;
+    totalUsage: string;
+    todayUsage: string;
+    todayUsers: string;
+    todayTasks: string;
+    supportGroupTitle: string;
+    supportGroupName: string;
+    supportGroupQrAlt: string;
+    supportGroupScan: string;
+    usageUnavailable: string;
+    contactUs: string;
+    feedback: string;
+    supportPhone: string;
+    supportEmail: string;
+    generalAgentEmail: string;
+    aiPlatformEmail: string;
+    businessOwner: string;
+    operationsOwner: string;
+    serviceHours: string;
   };
 
   // Clipboard
@@ -63,13 +148,67 @@ export interface Translations {
     linkCopied: string;
   };
 
+  // Citations
+  citations: {
+    sourcesSummary: (count: number) => string;
+    citeCount: (count: number) => string;
+    copyReference: (title: string) => string;
+    copiedReference: (title: string) => string;
+  };
+
+  artifactPreview: {
+    preparing: string;
+    loadingPages: string;
+    loadFailed: string;
+    retry: string;
+  };
+
+  // Workspace Changes
+  workspaceChanges: {
+    title: string;
+    editedTitle: (count: number) => string;
+    badge: (count: number, additions: number, deletions: number) => string;
+    viewChanges: string;
+    showMoreFiles: (count: number) => string;
+    showFewerFiles: string;
+    created: string;
+    modified: string;
+    deleted: string;
+    openFile: string;
+    loading: string;
+    noChanges: string;
+    diffUnavailable: string;
+    binaryUnavailable: string;
+    largeUnavailable: string;
+    sensitiveUnavailable: string;
+    truncatedUnavailable: string;
+    truncatedSummary: string;
+    symlinkUnavailable: string;
+  };
+
   // Input Box
   inputBox: {
+    modelPickerTitle: string;
+    currentModel: string;
+    noMatchingModels: string;
     placeholder: string;
     createSkillPrompt: string;
     addAttachments: string;
     addShopCartAttachments: string;
     shopCart: string;
+    dataLakeFileList: string;
+    disableDataLake: string;
+    enableDataLake: string;
+    dataLakeAuthorizationFailed: string;
+    dataLakePermissionDenied: string;
+    dataLakeAuthorizing: string;
+    dataLakeAuthorizingDescription: string;
+    dataLakeAuthorizationTimeout: string;
+    dataLakeLoginDescription: string;
+    dataLakeOpenLogin: string;
+    dataLakeLoginRetry: string;
+    dataLakeLoginLater: string;
+    dataLakeLoginRequired: string;
     shopCartDialogTitle: string;
     shopCartDialogDescription: string;
     shopCartWindowDescription: string;
@@ -79,6 +218,9 @@ export interface Translations {
     newShopCartLoading: string;
     newShopCartEmpty: string;
     newShopCartRefresh: string;
+    newShopCartSearch: string;
+    newShopCartNoMatches: string;
+    newShopCartClearSelection: string;
     newShopCartLoadFailed: string;
     newShopCartComplete: string;
     newShopCartProcessing: string;
@@ -94,6 +236,27 @@ export interface Translations {
     shopCartUnknownFiles: string;
     shopCartNoKnownFiles: string;
     shopCartAddedFiles: (count: number) => string;
+    inputPolish: string;
+    inputPolishing: string;
+    inputPolishNoChanges: string;
+    inputPolishFailed: string;
+    inputPolishUndo: string;
+    inputPolishCancel: string;
+    voiceInputStartLabel: string;
+    voiceInputStopLabel: string;
+    voiceInputStart: string;
+    voiceInputStop: string;
+    voiceInputListening: string;
+    voiceInputUnsupported: string;
+    voiceInputInsecureContext: string;
+    voiceInputPermissionDenied: string;
+    voiceInputMicrophoneUnavailable: string;
+    voiceInputAuthenticationRequired: string;
+    voiceInputFinalTimeout: string;
+    voiceInputUnsupportedLanguage: string;
+    voiceInputNetworkError: string;
+    voiceInputNoSpeech: string;
+    voiceInputFailed: string;
     mode: string;
     flashMode: string;
     flashModeDescription: string;
@@ -121,8 +284,30 @@ export interface Translations {
     followupConfirmAppend: string;
     followupConfirmReplace: string;
     suggestionPlaceholderRequired: string;
+    goalCommandDescription: string;
+    compactCommandDescription: string;
+    goalLabel: string;
+    goalContinuing: string;
+    goalContinuationTooltip: string;
+    goalSet: string;
+    goalCleared: string;
+    goalNone: string;
+    goalActive: string;
+    goalFailed: string;
+    compactSuccess: string;
+    compactSkipped: string;
+    compactFailed: string;
     suggestions: {
       suggestion: string;
+      prompt: string;
+      icon: LucideIcon;
+      menu?: "ppt";
+    }[];
+    pptRouteMenuTitle: string;
+    pptRouteSuggestions: {
+      id: string;
+      suggestion: string;
+      description: string;
       prompt: string;
       icon: LucideIcon;
     }[];
@@ -136,6 +321,7 @@ export interface Translations {
           type: "separator";
         }
     )[];
+    pleaseWaitStreaming: string;
   };
 
   // Sidebar
@@ -145,38 +331,224 @@ export interface Translations {
     chats: string;
     demoChats: string;
     agents: string;
+    agentSquare: string;
+    knowledge: string;
+    skillCenter: string;
+    openSkillCenter: string;
+    scheduledTasks: string;
+    agentsDisabledTooltip: string;
     channels: string;
+  };
+
+  // Scheduled tasks
+  scheduledTasks: {
+    scheduleType: { cron: string; once: string; interval: string };
+    preset: {
+      label: string;
+      hourly: string;
+      daily: string;
+      weekly: string;
+      monthly: string;
+      custom: string;
+    };
+    fields: {
+      minute: string;
+      time: string;
+      weekday: string;
+      dayOfMonth: string;
+      cron: string;
+      cronPlaceholder: string;
+      cronHint: string;
+      runAt: string;
+      timezone: string;
+      timezoneShanghai: string;
+      intervalAmount: string;
+      intervalUnitSeconds: string;
+      intervalUnitMinutes: string;
+      intervalUnitHours: string;
+      intervalMinHint: string;
+    };
+    weekdays: {
+      mon: string;
+      tue: string;
+      wed: string;
+      thu: string;
+      fri: string;
+      sat: string;
+      sun: string;
+    };
+    preview: string;
+    cronHelp: string;
+    model: {
+      label: string;
+      placeholder: string;
+      hint: string;
+      unset: string;
+    };
+    create: {
+      title: string;
+      description: string;
+      taskTitle: string;
+      prompt: string;
+      agent: string;
+      leadAgent: string;
+      submit: string;
+      fillRequired: string;
+      adviceTitle: string;
+      adviceFresh: string;
+      adviceReuse: string;
+      adviceCron: string;
+      adviceCronFormat: string;
+      adviceCronExamples: string[];
+      adviceCronExternal: string;
+    };
+    context: {
+      fresh: string;
+      reuse: string;
+      threadIdPlaceholder: string;
+      reuseNoticeTitle: string;
+      reuseNoticeDescription: string;
+    };
+    filters: {
+      clear: string;
+      label: string;
+      allStatuses: string;
+      enabled: string;
+      paused: string;
+      completed: string;
+      failed: string;
+      allTypes: string;
+      cron: string;
+      once: string;
+      interval: string;
+    };
+    detail: {
+      retry: string;
+      loading: string;
+      loadFailureDescription: string;
+      refreshFailed: string;
+      noMatchesTitle: string;
+      noMatchesDescription: string;
+      contextMode: string;
+      agent: string;
+      thread: string;
+      lastThread: string;
+      schedule: string;
+      expression: string;
+      nextRun: string;
+      lastRun: string;
+      lastRunId: string;
+      lastError: string;
+      runsCount: string;
+      runsCountOne: string;
+      noRuns: string;
+      noSelection: string;
+      emptyTitle: string;
+      emptyDescription: string;
+      filteredByThread: string;
+      loadFailed: string;
+    };
+    actions: {
+      edit: string;
+      cancelEdit: string;
+      pause: string;
+      resume: string;
+      trigger: string;
+      duplicate: string;
+      duplicateTitleSuffix: string;
+      delete: string;
+    };
+    deleteConfirm: string;
+    errors: {
+      create: string;
+      update: string;
+      pause: string;
+      resume: string;
+      trigger: string;
+      delete: string;
+    };
+    edit: {
+      titlePlaceholder: string;
+      promptPlaceholder: string;
+      submit: string;
+    };
+    status: {
+      enabled: string;
+      paused: string;
+      running: string;
+      completed: string;
+      failed: string;
+      cancelled: string;
+    };
+    runTrigger: { scheduled: string; manual: string };
+    runStatus: {
+      queued: string;
+      launching: string;
+      running: string;
+      success: string;
+      failed: string;
+      skipped: string;
+      interrupted: string;
+    };
+    history: {
+      navigation: string;
+      newer: string;
+      older: string;
+      latest: string;
+      page: string;
+      paused: string;
+      loading: string;
+      loadFailed: string;
+      retry: string;
+    };
+    recipes: {
+      label: string;
+      trending: { title: string; desc: string };
+      news: { title: string; desc: string };
+      energyIntel: { title: string; desc: string };
+      weekly: { title: string; desc: string };
+    };
   };
 
   // Agents
   agents: {
     title: string;
     description: string;
-    myAgents: string;
-    agentSquare: string;
     newAgent: string;
+    createAgent: string;
     emptyTitle: string;
     emptyDescription: string;
-    apiDisabledTitle: string;
-    apiDisabledDescription: string;
-    chat: string;
+    featureDisabledTitle: string;
+    featureDisabledDescription: string;
+    myAgents: string;
+    agentSquare: string;
+    squareEmptyTitle: string;
+    squareEmptyDescription: string;
     openExternal: string;
+    publishToSquare: string;
+    unpublishFromSquare: string;
+    unpublishConfirm: string;
+    publishSuccess: string;
+    unpublishSuccess: string;
+    chat: string;
+    viewProfile: string;
+    profileTitle: string;
+    profileDescription: string;
+    toolGroups: string;
+    skills: string;
     delete: string;
     deleteConfirm: string;
     deleteSuccess: string;
-    publishToSquare: string;
-    publishSuccess: string;
-    unpublishFromSquare: string;
-    unpublishConfirm: string;
-    unpublishSuccess: string;
-    squareEmptyTitle: string;
-    squareEmptyDescription: string;
     newChat: string;
     createPageTitle: string;
     createPageSubtitle: string;
     nameStepTitle: string;
     nameStepHint: string;
     nameStepPlaceholder: string;
+    avatarPickerLabel: string;
+    avatarPickerHint: string;
+    expandAvatars: string;
+    collapseAvatars: string;
     nameStepContinue: string;
     nameStepInvalidError: string;
     nameStepAlreadyExistsError: string;
@@ -189,6 +561,9 @@ export interface Translations {
     changeBuilderModel: string;
     builderModelDialogTitle: string;
     nameStepBootstrapMessage: string;
+    initialDescription: string;
+    initialCategory: string;
+    initialTags: string;
     save: string;
     saving: string;
     saveRequested: string;
@@ -199,22 +574,89 @@ export interface Translations {
     agentCreated: string;
     startChatting: string;
     backToGallery: string;
+    personal: string;
+    enterprise: string;
+    noDescription: string;
+    capabilities: string;
+    edit: string;
+    settingsTitle: string;
+    settingsDescription: string;
+    displayName: string;
+    stableName: string;
+    descriptionLabel: string;
+    descriptionPlaceholder: string;
+    category: string;
+    tags: string;
+    tagsPlaceholder: string;
+    tagTooLong: string;
+    tagDuplicate: string;
+    editTag: string;
+    deleteTag: string;
+    tagInputLabel: string;
+    tagLimitReached: string;
+    addTag: string;
+    confirmTagEdit: string;
+    tagCount: string;
+    autoTag: string;
+    inferenceSettings: string;
+    settingsModel: string;
+    settingsModelDefault: string;
+    settingsTemperature: string;
+    settingsTemperatureHint: string;
+    settingsMaxTokens: string;
+    settingsMaxTokensPlaceholder: string;
+    settingsThinking: string;
+    settingsThinkingOn: string;
+    settingsThinkingOff: string;
+    settingsReasoningEffort: string;
+    settingsInherit: string;
+    settingsInvalidTemperature: string;
+    settingsInvalidMaxTokens: string;
+    updateSuccess: string;
+    avatarUploadHint: string;
+    uploadAvatar: string;
+    avatarTooLarge: string;
+    allCategories: string;
+    businessDomainCount: string;
+    expandCategories: string;
+    collapseCategories: string;
+    unifiedDomains: string;
+    unifiedDomainsHint: string;
+    distributedDomains: string;
+    distributedDomainsHint: string;
+    popularTags: string;
+    expandTags: string;
+    collapseTags: string;
+    resetFilters: string;
+    clearAll: string;
+    noTags: string;
+    searchPlaceholder: string;
+    filters: string;
+    filtersHint: string;
+    resultCount: string;
+    noResults: string;
+    noResultsHint: string;
+    loadMore: string;
+    paginationNavigation: string;
+    previousPage: string;
+    nextPage: string;
+    pageNumber: string;
+    pageSummary: string;
   };
 
   // Breadcrumb
   breadcrumb: {
     workspace: string;
     chats: string;
+    agents: string;
+    knowledge: string;
+    skillCenter: string;
+    scheduledTasks: string;
   };
 
   // Workspace
   workspace: {
-    officialWebsite: string;
-    githubTooltip: string;
     settingsAndMore: string;
-    visitGithub: string;
-    reportIssue: string;
-    contactUs: string;
     about: string;
     logout: string;
     gatewayUnavailable: string;
@@ -225,14 +667,61 @@ export interface Translations {
   conversation: {
     noMessages: string;
     startConversation: string;
+    branchCreated: string;
+    branchFailed: string;
   };
 
   // Chats
   chats: {
+    deleteChat: string;
+    deleteConfirm: (title: string) => string;
+    deleteFailed: string;
+    noActiveChats: string;
+    activeChats: string;
+    archivedChats: string;
+    archiveChat: string;
+    restoreChat: string;
+    archiveSuccess: string;
+    restoreSuccess: string;
+    archiveFailed: string;
+    archiveDescription: string;
+    undoArchive: string;
+    noArchivedChats: string;
+    noMatchingChats: string;
+    loadChatsFailed: string;
+    retryLoadChats: string;
     searchChats: string;
     loadMoreToSearch: string;
     loadingMore: string;
     loadOlderChats: string;
+    pinChat: string;
+    unpinChat: string;
+    pinChatFailed: string;
+  };
+
+  // Sidecar
+  sidecar: {
+    title: string;
+    open: string;
+    close: string;
+    delete: string;
+    deleteConfirm: string;
+    deleteSuccess: string;
+    deleteFailed: string;
+    addToConversation: string;
+    askInSideChat: string;
+    reference: string;
+    selectedTextFragment: string;
+    selectedTextFragments: string;
+    clearReferences: string;
+    emptyTitle: string;
+    emptyDescription: string;
+    placeholder: string;
+    send: string;
+    sendFailed: string;
+    noContext: string;
+    continuing: string;
+    selectionCrossesMessages: string;
   };
 
   // Channels
@@ -289,10 +778,31 @@ export interface Translations {
     skillInstallTooltip: string;
   };
 
+  humanInput: {
+    answered: string;
+    pending: string;
+    readOnly: string;
+    otherLabel: string;
+    otherPlaceholder: string;
+    submit: string;
+    emptyError: string;
+    answeredValue: (value: string) => string;
+  };
+
   // Uploads
   uploads: {
+    attachment: string;
+    removeAttachment: string;
     uploading: string;
     uploadingFiles: string;
+    limitsHint: (
+      maxFiles: number,
+      maxFileSize: string,
+      maxTotalSize: string,
+    ) => string;
+    filesTooLarge: (files: string, maxFileSize: string) => string;
+    tooManyFiles: (count: number, maxFiles: number) => string;
+    totalSizeTooLarge: (count: number, maxTotalSize: string) => string;
   };
 
   // Subtasks
@@ -302,6 +812,11 @@ export interface Translations {
     in_progress: string;
     completed: string;
     failed: string;
+    incomplete: string;
+    viewStepDetails: string;
+    hideStepDetails: string;
+    toolInput: string;
+    toolOutput: string;
   };
 
   // Token Usage
@@ -314,6 +829,9 @@ export interface Translations {
     view: string;
     unavailable: string;
     unavailableShort: string;
+    collecting: string;
+    waitingForUsage: string;
+    reportedSoFar: string;
     note: string;
     presets: {
       off: string;
@@ -365,6 +883,7 @@ export interface Translations {
     memory: {
       title: string;
       description: string;
+      updateBehaviorHint: string;
       empty: string;
       rawJson: string;
       exportButton: string;
@@ -461,10 +980,13 @@ export interface Translations {
     skills: {
       title: string;
       description: string;
+      publicReadOnly: string;
       createSkill: string;
       emptyTitle: string;
       emptyDescription: string;
       emptyButton: string;
+      adminRequired: string;
+      installAdminRequired: string;
     };
     notification: {
       title: string;
@@ -479,6 +1001,19 @@ export interface Translations {
     };
     account: {
       profileTitle: string;
+      currentAccount: string;
+      displayName: string;
+      organization: string;
+      adminRole: string;
+      userRole: string;
+      usageTitle: string;
+      totalTokens: string;
+      inputTokens: string;
+      outputTokens: string;
+      unclassifiedTokens: string;
+      usageUnavailable: string;
+      retryUsage: string;
+      usageScope: string;
       email: string;
       role: string;
       changePasswordTitle: string;
@@ -514,6 +1049,9 @@ export interface Translations {
     pleaseWait: string;
     signIn: string;
     createAccount: string;
+    createAdminAccount: string;
+    adminSetupRequiredTitle: string;
+    adminSetupRequiredDescription: string;
     orContinueWith: string;
     ssoHint: string;
     continueWith: (provider: string) => string;
@@ -522,6 +1060,9 @@ export interface Translations {
     backToHome: string;
     networkError: string;
     authFailed: string;
+    signingIn: string;
+    redirecting: string;
+    authFailedRedirecting: string;
     errors: {
       sso_failed: string;
       sso_cancelled: string;

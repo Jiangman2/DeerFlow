@@ -1,0 +1,20 @@
+# Uses only hash-verified outputs from the completed native compile. No compiler.
+FROM weknora-glm-runtime-base AS runtime-check
+ENV JIEBA_DICT_DIR=/usr/local/share/weknora/jieba
+COPY --chown=0:0 --chmod=0755 payload/WeKnora /app/WeKnora
+COPY --chown=0:0 --chmod=0755 payload/weknora-anydoc-probe /usr/local/bin/weknora-anydoc-probe
+COPY --chown=0:0 --chmod=0755 payload/weknora-glm-probe /usr/local/bin/weknora-glm-probe
+COPY --chown=0:0 --chmod=0755 dict/ /usr/local/share/weknora/jieba/
+COPY runtime_check.py /tmp/weknora-runtime-check.py
+RUN --network=none python3 -I -B /tmp/weknora-runtime-check.py
+
+FROM weknora-glm-runtime-base AS candidate
+ENV JIEBA_DICT_DIR=/usr/local/share/weknora/jieba
+COPY --from=runtime-check --chown=0:0 --chmod=0755 /app/WeKnora /app/WeKnora
+COPY --from=runtime-check --chown=0:0 --chmod=0755 /usr/local/bin/weknora-anydoc-probe /usr/local/bin/weknora-anydoc-probe
+COPY --from=runtime-check --chown=0:0 --chmod=0755 /usr/local/bin/weknora-glm-probe /usr/local/bin/weknora-glm-probe
+COPY --from=runtime-check --chown=0:0 /usr/local/share/weknora/jieba/ /usr/local/share/weknora/jieba/
+
+FROM scratch AS qualification-evidence
+COPY evidence/ /
+COPY --from=runtime-check /tmp/weknora-glm-qualification/ /runtime/

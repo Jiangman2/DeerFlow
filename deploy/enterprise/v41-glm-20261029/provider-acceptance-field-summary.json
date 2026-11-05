@@ -1,0 +1,40 @@
+{
+  "schema": "portal-v41-glm-operator-receipt-summary.v1",
+  "source": "Operator-pasted final JSON from datax-01; this is a summary, not the original report bytes",
+  "status": "V41_GLM_CAPABILITIES_ACCEPTED_NOT_ENABLED",
+  "tool_revision": "r2",
+  "server_report": {
+    "path": "/var/lib/portal-v41-glm-check-20261029-r1/REPORT.json",
+    "bytes": 7445,
+    "sha256": "9fb9f3e11de46b4f2441abd1e317e349537553eba963515f9bec7c0c2a0b58df"
+  },
+  "provider_requests": 7,
+  "all_cases_http_status": 200,
+  "all_cases_status": "PASS",
+  "checks": [
+    "native_document_request", "adapter_nonstream_text", "adapter_stream_text",
+    "stream_tool_call", "stream_tool_result", "stream_thinking", "stream_image_input"
+  ],
+  "credential_source": "GLM_5_3_FLASH_API_KEY",
+  "matches_configured_glm_reference": true,
+  "differs_from_previous_v4_key": true,
+  "installed_adapter_sha256": "a79d5b0e8a117223ca8b04e23e8bf6b36f737b32f43ea62c747c9193629b5930",
+  "ca_sha256": "84c58afec9e48e1bd7b41d832ff6986b74a6565b4473f7cc77b868900b4d76af",
+  "strict_ca_and_hostname_verification": true,
+  "gateway_generation": 389,
+  "gateway_image_manifest": "sha256:a879d9a0688099417a10d301fb41fa78664cb32d62b17a15ec1f435b943a19d4",
+  "sample": {
+    "pod": "gateway-7469f8d95d-24gmr",
+    "uid": "e2bbfef1-6182-44f8-87d4-73bbc4a22427",
+    "node": "ecs-zdz-pro-0019"
+  },
+  "v41_enabled": false,
+  "default_model": "deepseek-v4-flash",
+  "default_model_changed": false,
+  "configuration_modified": false,
+  "workload_modified": false,
+  "protected_deployments_preserved": true,
+  "credentials_exported": false,
+  "model_text_exported": false,
+  "business_acceptance_pending": true
+}

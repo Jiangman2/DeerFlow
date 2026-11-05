@@ -9,11 +9,20 @@ Configuration keys:
 """
 
 import sys
+from pathlib import Path
 
-if __name__ == "__main__" and any(arg in {"-h", "--help", "help"} for arg in sys.argv[1:]):
+_SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from console_encoding import configure_utf8_stdio  # noqa: E402
+
+configure_utf8_stdio()
+
+if __name__ == "__main__":
     print(__doc__)
     print("Use via: python3 skills/ppt-master/scripts/image_gen.py \"prompt\" --backend siliconflow")
-    raise SystemExit(0)
+    raise SystemExit(0 if any(arg in {"-h", "--help", "help"} for arg in sys.argv[1:]) else 1)
 
 import os
 import time
@@ -104,7 +113,7 @@ def _resolve_size(aspect_ratio: str, image_size: str) -> str:
     return size
 
 
-def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
+def _generate_image(api_key: str, prompt: str,
                     aspect_ratio: str = "1:1", image_size: str = "1K",
                     output_dir: str = None, filename: str = None,
                     model: str = DEFAULT_MODEL, base_url: str = DEFAULT_ENDPOINT) -> str:
@@ -120,8 +129,6 @@ def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
         "prompt": prompt,
         "image_size": size,
     }
-    if negative_prompt:
-        payload["negative_prompt"] = negative_prompt
 
     print("[SiliconFlow]")
     print(f"  Model:        {model}")
@@ -148,7 +155,7 @@ def _generate_image(api_key: str, prompt: str, negative_prompt: str = None,
     return download_image(image_url, path)
 
 
-def generate(prompt: str, negative_prompt: str = None,
+def generate(prompt: str,
              aspect_ratio: str = "1:1", image_size: str = "1K",
              output_dir: str = None, filename: str = None,
              model: str = None, max_retries: int = MAX_RETRIES) -> str:
@@ -166,7 +173,6 @@ def generate(prompt: str, negative_prompt: str = None,
             return _generate_image(
                 api_key=api_key,
                 prompt=prompt,
-                negative_prompt=negative_prompt,
                 aspect_ratio=aspect_ratio,
                 image_size=image_size,
                 output_dir=output_dir,

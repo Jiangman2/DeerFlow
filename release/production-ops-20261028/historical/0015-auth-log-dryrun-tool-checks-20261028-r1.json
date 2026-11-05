@@ -1,0 +1,12 @@
+{
+  "schema": "portal-0015-auth-log-dryrun-tool-checks.v1",
+  "bytes": 5666,
+  "sha256": "bb28512b01a5eca46c96b26dd5e4f26ac6c50b025cfe676a8cbc5b58d9d69821",
+  "linux_python37_tests": {
+    "passed": 4,
+    "failed": 0,
+    "includes_real_logrotate_debug": true
+  },
+  "production_execution": false,
+  "config_installed": false
+}

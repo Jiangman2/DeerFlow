@@ -1,0 +1,18 @@
+{
+  "schema": "portal-oa-v2-integration-preflight-package.v1",
+  "status": "READONLY_TOOL_QUALIFIED_NOT_RUN_ON_SERVER",
+  "operator_artifact": "inspect-portal-oa-v2-integration-20261023-r1.py",
+  "bytes": 14578,
+  "sha256": "cfb24463c8c561b7c1ae2415541a5c579670d53f0aac8e8f12038ec631559ab2",
+  "qualification": {
+    "offline_unit_tests": 16,
+    "python37_isolated_package_import": "PASS",
+    "python312_child_with_published_config_source": "PASS",
+    "fixture_configuration": "SYNTHETIC_OA_DISABLED",
+    "container_network": "none"
+  },
+  "production_modified": false,
+  "provider_requests": 0,
+  "callback_requests": 0,
+  "real_oa_business_accepted": false
+}

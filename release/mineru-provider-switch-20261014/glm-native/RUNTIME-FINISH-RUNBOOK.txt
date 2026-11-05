@@ -1,0 +1,49 @@
+WeKnora GLM runtime-only recovery (2026-10-16 r1)
+
+Cause confirmed by the retained glm-help.txt: gojieba.NewJieba panics while
+initializing WeKnora internal/types, before CLI help or provider submission.
+The locked gojieba v1.4.7 needs five external dictionary files. The existing
+runtime recipe copied only binaries and preserved an unset JIEBA_DICT_DIR.
+
+This recovery READS the exact retained successful compile snapshot. It verifies
+the old private package against its original PREPARED receipt, binds source
+manifest and all three binaries to the successful compile receipts, and copies
+them into a NEW private build context. It reads the five dictionary files from
+the checksum-verified original offline gojieba module ZIP, never a downloaded
+new version. It does not run Go/Rust, mutate the old cache or fabricate tests.
+
+The new image preserves the exact runtime base, entrypoint, CA and old ENV,
+except one explicit JIEBA_DICT_DIR=/usr/local/share/weknora/jieba addition (or
+replacement of an empty value). Its only file changes are the three exact
+compiled binaries and five exact dictionary files. A pre-existing different
+dictionary setting stops preparation/verification for review.
+
+Runtime checks: ARM64/glibc2.36, GLM help including global Jieba initialization,
+linked AnyDoc self-test and main server shared-library loading. Named steps
+report safe failure classes; no raw configuration or credentials are printed.
+All earlier SQLite/DWARF4/VLM/AnyDoc/SSRF test receipts remain required. The
+exported OCI archive is verified including every compressed hash/diffID and the
+strict file/config delta. A PASS is still NOT enterprise GLM or rollout approval.
+
+Upload these two files to /home/cnooc, without extracting/chmod777:
+  weknora-glm-runtime-finish-20261016-r1.tar.gz
+  START-weknora-glm-runtime-finish.sh
+Verify the starter checksum supplied with the package, then run it once as root
+on datax-01. No model key is required. Preserve the old build directory:
+  /opt/weknora-glm-dwarf-fix-qYPHEQjp/rebuild/build1
+
+The original systemd CPU/RAM/I/O restrictions, real resource canary, offline
+network, unchanged production baseline and old global build lock remain. Do not
+run alongside a colleague's current native heavy build. This is independent of
+the new opt-in local Docker build pool; that pool is not enabled on datax-01.
+
+Expected: runtime_finish_preparation=PASS, then runtime-only-no-recompile, then
+weknora_glm_candidate_build=PASS. No image import or rollout occurs. Send the
+final output and BUILD-RESULT.json. On failure use the printed --status command;
+do not rerun START, force acceptance, prune caches, change permissions broadly,
+or restart production. A missing compile snapshot causes a safe stop and never
+falls back to a long recompilation.
+
+The new work is verification/copying/runtime smoke/OCI compression, not the
+previous ~42-minute compile. Completion time depends on disk and node load;
+there is no guarantee it cannot encounter another real runtime dependency.

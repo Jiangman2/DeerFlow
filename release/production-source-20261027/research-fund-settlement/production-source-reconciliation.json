@@ -1,0 +1,9 @@
+{
+  "status": "PRODUCTION_BASELINE_EQUALS_GIT_HEAD_SKILL",
+  "file_count": 28,
+  "tree_sha256": "db91b903a0f8250aecb7aaa4bbdf2b5aeaa871686d9f08862e5dcfb21d1a5da0",
+  "five_node_samples_match": true,
+  "original_attachment_sha256": "28325f56963b62a8a65c44004f483852a9f49c2b7a0fcb763891ebd9f51c5245",
+  "normalization": "Only Markdown autolinks around file basenames in path fields were restored; reconstructed tree digest equals the server supplied digest",
+  "reference_assets_equal": true
+}

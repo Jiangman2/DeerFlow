@@ -30,14 +30,20 @@ class SandboxConfig(BaseModel):
         allow_host_bash: Enable host-side bash execution for LocalSandboxProvider.
             Dangerous and intended only for fully trusted local workflows.
 
+    AioSandboxProvider and BoxliteProvider shared options:
+        image: Sandbox image to use (Docker/AIO image or BoxLite OCI image)
+        replicas: Maximum active + warm sandboxes/VMs per gateway process (default: 3). When the limit is reached, warm/least-recently-used sandboxes are evicted to make room; active sandboxes are not forcibly stopped.
+        idle_timeout: Idle timeout in seconds before released warm sandboxes/VMs are stopped (default: 600 = 10 minutes). Set to 0 to disable.
+        environment: Environment variables to inject into the sandbox (values starting with $ are resolved from host env)
+
+    BoxliteProvider specific options:
+        health_check_skip_seconds: Optional reclaim-time skip window in seconds for recently released warm VMs. Default behavior is 0.0 = always validate before reuse.
+
     AioSandboxProvider specific options:
-        image: Docker image to use (default: enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest)
         port: Base port for sandbox containers (default: 8080)
-        replicas: Maximum number of concurrent sandbox containers (default: 3). When the limit is reached the least-recently-used sandbox is evicted to make room.
+        startup_timeout: Cold-start readiness timeout in seconds (default: 180)
         container_prefix: Prefix for container names (default: deer-flow-sandbox)
-        idle_timeout: Idle timeout in seconds before sandbox is released (default: 600 = 10 minutes). Set to 0 to disable.
         mounts: List of volume mounts to share directories with the container
-        environment: Environment variables to inject into the container (values starting with $ are resolved from host env)
     """
 
     use: str = Field(
@@ -50,15 +56,30 @@ class SandboxConfig(BaseModel):
     )
     image: str | None = Field(
         default=None,
-        description="Docker image to use for the sandbox container",
+        description="Sandbox image to use (Docker/AIO image or BoxLite OCI image)",
     )
     port: int | None = Field(
         default=None,
         description="Base port for sandbox containers",
     )
+    startup_timeout: int | None = Field(
+        default=None,
+        gt=0,
+        description="Cold-start readiness timeout in seconds for AIO sandbox containers and Pods (default: 180).",
+    )
+    shared_thread_data_mounts: bool = Field(
+        default=False,
+        description=(
+            "Declare that the Gateway and provisioner-created sandboxes mount the "
+            "same persistent thread-data storage. This lets uploads become visible "
+            "without cold-starting a sandbox and copying the file through its API. "
+            "Enable only when workspace/uploads/outputs share the same PVC or "
+            "filesystem; multi-node Kubernetes requires an RWX-capable volume."
+        ),
+    )
     replicas: int | None = Field(
         default=None,
-        description="Maximum number of concurrent sandbox containers (default: 3). When the limit is reached the least-recently-used sandbox is evicted to make room.",
+        description="Maximum active + warm sandboxes/VMs per gateway process (default: 3). Warm/least-recently-used entries are evicted to make room; active sandboxes are not forcibly stopped.",
     )
     container_prefix: str | None = Field(
         default=None,
@@ -66,7 +87,12 @@ class SandboxConfig(BaseModel):
     )
     idle_timeout: int | None = Field(
         default=None,
-        description="Idle timeout in seconds before sandbox is released (default: 600 = 10 minutes). Set to 0 to disable.",
+        description="Idle timeout in seconds before released warm sandboxes/VMs are stopped (default: 600 = 10 minutes). Set to 0 to disable.",
+    )
+    health_check_skip_seconds: float | None = Field(
+        default=None,
+        ge=0,
+        description="BoxLite-only reclaim skip window in seconds for boxes recently released by this provider instance. Set to 0 to always validate before warm reuse.",
     )
     mounts: list[VolumeMountConfig] = Field(
         default_factory=list,
@@ -87,10 +113,50 @@ class SandboxConfig(BaseModel):
         ge=0,
         description="Maximum characters to keep from read_file tool output. Output exceeding this limit is head-truncated. Set to 0 to disable truncation.",
     )
+    skill_file_output_max_chars: int = Field(
+        default=150000,
+        ge=0,
+        description=(
+            "Maximum characters to keep when read_file loads a SKILL.md under the configured skills container path. "
+            "This separate, larger budget prevents long progressive skill workflows from losing mandatory later phases. "
+            "Set to 0 to disable truncation for SKILL.md files."
+        ),
+    )
+    skill_reference_output_max_chars: int = Field(
+        default=150000,
+        ge=0,
+        description=(
+            "Maximum characters to keep when read_file loads supporting files under the configured skills container path. "
+            "This prevents long mandatory references from being cut before later workflow contracts and examples. "
+            "Set to 0 to disable truncation for skill supporting files."
+        ),
+    )
     ls_output_max_chars: int = Field(
         default=20000,
         ge=0,
         description="Maximum characters to keep from ls tool output. Output exceeding this limit is head-truncated. Set to 0 to disable truncation.",
+    )
+    bash_command_timeout: int = Field(
+        default=600,
+        gt=0,
+        description=(
+            "Maximum wall-clock seconds a host bash command may run before it is terminated, process group and all (LocalSandboxProvider). "
+            "Keeps a blocking foreground command (e.g. an un-backgrounded server) from hanging the turn; background `&` processes return immediately."
+        ),
+    )
+
+    provisioner_api_key: str | None = Field(
+        default=None,
+        description=(
+            "API key sent as X-API-Key header to the provisioner service. "
+            "Must match PROVISIONER_API_KEY on the provisioner container. "
+            "Both sides must be set to the same value; "
+            "the provisioner rejects all /api/* requests when the key is unset or mismatched."
+        ),
+    )
+    sandbox_api_key: str | None = Field(
+        default=None,
+        description=("API key used to authenticate requests to the AIO sandbox API. The AIO runtime must receive the same value as SANDBOX_API_KEY; DeerFlow sends it as an Authorization: Bearer header."),
     )
 
     model_config = ConfigDict(extra="allow")

@@ -59,32 +59,143 @@ spec:
             - name: K8S_CREATE_NAMESPACE
               value: "false"
             - name: SANDBOX_IMAGE
-              value: deer-flow-aio-sandbox:ppt-master-full-20260626-1
+              value: deer-flow-aio-sandbox:ppt-master-dev-20260811-responses-v4
             - name: SKILLS_PVC_NAME
               value: deer-flow-skills-pvc
             - name: USERDATA_PVC_NAME
               value: deer-flow-userdata-pvc
-            - name: SANDBOX_ACCESS_MODE
-              value: cluster
+            - name: SANDBOX_SERVICE_TYPE
+              value: ClusterIP
+            - name: PPT_MASTER_AGENT_HOST_ENABLED
+              value: "true"
+            - name: PPT_MASTER_AGENT_HOST_PORT
+              value: "8788"
+            - name: CODEX_CONFIG_TOML
+              value: |-
+                model = "qwen3.7-max"
+                model_provider = "model_studio"
+                model_context_window = 1000000
+                model_auto_compact_token_limit = 850000
+                model_reasoning_effort = "high"
+                model_catalog_json = "/mnt/user-data/workspace/.ppt-master-agent/codex-home/model-catalog.local.json"
+
+                [model_providers.model_studio]
+                name = "Alibaba Cloud Model Studio"
+                base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+                env_key = "DASHSCOPE_API_KEY"
+                wire_api = "responses"
+                request_max_retries = 2
+                stream_max_retries = 2
+                stream_idle_timeout_ms = 900000
+            - name: CODEX_MODEL_CATALOG_JSON
+              value: |-
+                {
+                  "models": [
+                    {
+                      "slug": "qwen3.7-max",
+                      "display_name": "qwen3.7-max",
+                      "description": "Alibaba Cloud Model Studio qwen3.7-max",
+                      "default_reasoning_level": "high",
+                      "supported_reasoning_levels": [
+                        {"effort": "low", "description": "Faster reasoning"},
+                        {"effort": "high", "description": "Deep reasoning"},
+                        {"effort": "xhigh", "description": "Maximum reasoning"}
+                      ],
+                      "context_window": 1000000,
+                      "effective_context_window_percent": 95,
+                      "supports_parallel_tool_calls": false,
+                      "supports_image_detail_original": false,
+                      "input_modalities": ["text"],
+                      "shell_type": "default",
+                      "visibility": "list",
+                      "supported_in_api": true,
+                      "priority": 1,
+                      "base_instructions": "",
+                      "support_verbosity": false,
+                      "supports_reasoning_summaries": false,
+                      "experimental_supported_tools": [],
+                      "truncation_policy": {"mode": "bytes", "limit": 10000}
+                    }
+                  ]
+                }
+            - name: SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS
+              value: "5"
+            - name: SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS
+              value: "10"
+            - name: SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD
+              value: "120"
+            - name: SANDBOX_READINESS_TIMEOUT_SECONDS
+              value: "10"
+            - name: SANDBOX_LIVENESS_TIMEOUT_SECONDS
+              value: "10"
+            - name: SANDBOX_CPU_REQUEST
+              value: "1"
+            - name: SANDBOX_MEMORY_REQUEST
+              value: 1Gi
+            - name: SANDBOX_CPU_LIMIT
+              value: "2"
+            - name: SANDBOX_MEMORY_LIMIT
+              value: 4Gi
+            - name: SANDBOX_EPHEMERAL_STORAGE_REQUEST
+              value: 2Gi
+            - name: SANDBOX_EPHEMERAL_STORAGE_LIMIT
+              value: 12Gi
             - name: KUBECONFIG_WAIT_SECONDS
               value: "0"
             - name: SANDBOX_READINESS_INITIAL_DELAY_SECONDS
-              value: "45"
+              value: "5"
+            - name: SANDBOX_READINESS_PERIOD_SECONDS
+              value: "5"
+            - name: SANDBOX_READINESS_FAILURE_THRESHOLD
+              value: "3"
             - name: SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS
-              value: "180"
+              value: "10"
+            - name: SANDBOX_LIVENESS_PERIOD_SECONDS
+              value: "10"
+            - name: SANDBOX_LIVENESS_FAILURE_THRESHOLD
+              value: "6"
+            - name: SANDBOX_ENV_SECRET_NAME
+              value: deer-flow-env
+            - name: SANDBOX_SECRET_ENV_KEYS
+              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,SANDBOX_API_KEY,CODEX_API_KEY,ARK_API_KEY,OPENAI_API_KEY,PPT_MASTER_RESPONSES_RELAY_KEY
+            - name: SANDBOX_PASSTHROUGH_ENV_KEYS
+              value: CODEX_CONFIG_TOML,CODEX_MODEL_CATALOG_JSON,IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,QWEN_BASE_URL,QWEN_MODEL,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT
             - name: IMAGE_BACKEND
               value: qwen
             - name: IMAGE_GENERATION_PROVIDER
-              value: qwen
-            - name: QWEN_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: deer-flow-env
-                  key: DASHSCOPE_API_KEY
-            - name: QWEN_MODEL
-              value: qwen-image-2.0-pro
+              value: dashscope
             - name: QWEN_BASE_URL
               value: https://dashscope.aliyuncs.com
+            - name: QWEN_MODEL
+              value: qwen-image-2.0-pro
+            - name: DASHSCOPE_BASE_URL
+              value: https://dashscope.aliyuncs.com/api/v1
+            - name: DASHSCOPE_IMAGE_MODEL
+              value: qwen-image-2.0-pro
+            - name: VIDEO_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_VIDEO_MODEL
+              value: wan2.7-t2v
+            - name: DASHSCOPE_VIDEO_DURATION
+              value: "5"
+            - name: DASHSCOPE_VIDEO_RESOLUTION
+              value: 720P
+            - name: PODCAST_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_TTS_MODEL
+              value: qwen3-tts-flash
+            - name: DASHSCOPE_TTS_VOICE_MALE
+              value: Ethan
+            - name: DASHSCOPE_TTS_VOICE_FEMALE
+              value: Cherry
+            - name: MUSIC_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_MUSIC_MODEL
+              value: fun-music-v1
+            - name: DASHSCOPE_MUSIC_GENDER
+              value: female
+            - name: DASHSCOPE_MUSIC_FORMAT
+              value: mp3
           readinessProbe:
             httpGet:
               path: /health
@@ -105,9 +216,14 @@ spec:
             httpGet:
               path: /health
               port: 8002
-            periodSeconds: 2
+            # Docker Desktop can spend several minutes faulting the Python and
+            # Kubernetes-client layers back in after its WSL VM cold-starts.
+            # Keep runtime readiness/liveness strict, but do not kill the
+            # provisioner while that one-time startup work is still running.
+            initialDelaySeconds: 10
+            periodSeconds: 5
             timeoutSeconds: 5
-            failureThreshold: 30
+            failureThreshold: 60
           resources:
             requests:
               cpu: 250m
@@ -136,6 +252,11 @@ metadata:
   namespace: deer-flow
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: gateway
@@ -144,9 +265,64 @@ spec:
       labels:
         app: gateway
     spec:
+      initContainers:
+        - name: seed-extensions-config
+          image: deer-flow-gateway:dev-20260811-ppt-task-timeline-v1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+          args:
+            - |
+              python - <<'PY'
+              import json
+              import os
+              from pathlib import Path
+
+              seed_path = Path("/seed/extensions_config.json")
+              target_path = Path("/runtime-home/runtime-config/extensions_config.json")
+              seed = json.loads(seed_path.read_text(encoding="utf-8"))
+              current = {}
+              if target_path.is_file() and target_path.stat().st_size:
+                  current = json.loads(target_path.read_text(encoding="utf-8"))
+
+              merged = dict(seed)
+              merged.update(current)
+              for key in ("mcpServers", "skills"):
+                  entries = dict(seed.get(key) or {})
+                  entries.update(current.get(key) or {})
+                  merged[key] = entries
+
+              target_path.parent.mkdir(parents=True, exist_ok=True)
+              temporary_path = target_path.with_suffix(".json.tmp")
+              temporary_path.write_text(
+                  json.dumps(merged, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              os.chmod(temporary_path, 0o600)
+              temporary_path.replace(target_path)
+              PY
+          volumeMounts:
+            - name: extensions-config
+              mountPath: /seed/extensions_config.json
+              subPath: extensions_config.json
+              readOnly: true
+            - name: userdata
+              mountPath: /runtime-home
+              subPath: deer-flow
+        - name: wait-for-skills
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - until test -f /app/skills/.deerflow-skills-ready; do sleep 2; done
+          volumeMounts:
+            - name: skills
+              mountPath: /app/skills
+              readOnly: true
       containers:
         - name: gateway
-          image: deer-flow-gateway
+          image: deer-flow-gateway:dev-20260811-ppt-task-timeline-v1
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
           args:
@@ -161,6 +337,12 @@ spec:
               value: "true"
             - name: GATEWAY_PORT
               value: "8001"
+            - name: QWEN_ASR_STREAM_URL
+              value: ws://model.ai.cnooc/ws/member1/qwen3-asr-v3/stream-transcriptions
+            - name: QWEN_ASR_MODEL_NAME
+              value: Qwen3-ASR-1.7B
+            - name: PPT_MASTER_RUNNER_INTERNAL_URL
+              value: http://ppt-master-runner:8003
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -173,7 +355,7 @@ spec:
             - name: DEER_FLOW_CONFIG_PATH
               value: /app/backend/config.yaml
             - name: DEER_FLOW_EXTENSIONS_CONFIG_PATH
-              value: /app/backend/extensions_config.json
+              value: /app/backend/.deer-flow/runtime-config/extensions_config.json
             - name: DEER_FLOW_CHANNELS_LANGGRAPH_URL
               value: http://gateway:8001/api
             - name: DEER_FLOW_CHANNELS_GATEWAY_URL
@@ -209,19 +391,47 @@ spec:
             - name: EMBEDDING_MODEL_NAME
               value: text-embedding-v4
             - name: EMBEDDING_BASE_URL
-              value: https://dashscope.aliyuncs.com/compatible-mode/v1
+              value: http://gateway:8001/api/weknora/bailian/v1
             - name: EMBEDDING_PROVIDER
-              value: aliyun
+              value: generic
             - name: EMBEDDING_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: weknora-secret
                   key: EMBEDDING_API_KEY
                   optional: true
+            - name: DeepSeek_V4_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: DeepSeek_V4_API_KEY
+                  optional: true
+            # Local Docker Desktop runs directly and must not inherit the
+            # enterprise proxy/CA values that may also exist in deer-flow-env.
+            - name: HTTP_PROXY
+              value: ""
+            - name: HTTPS_PROXY
+              value: ""
+            - name: http_proxy
+              value: ""
+            - name: https_proxy
+              value: ""
+            - name: SSL_CERT_FILE
+              value: ""
+            - name: REQUESTS_CA_BUNDLE
+              value: ""
+            - name: CURL_CA_BUNDLE
+              value: ""
+            - name: NODE_EXTRA_CA_CERTS
+              value: ""
+            - name: OPENSSL_CONF
+              value: ""
+            - name: DASHSCOPE_TLS_COMPAT
+              value: ""
             - name: NO_PROXY
-              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,.svc,.cluster.local
+              value: localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
             - name: no_proxy
-              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,.svc,.cluster.local
+              value: localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
           volumeMounts:
             - name: config
               mountPath: /app/backend/config.yaml
@@ -239,34 +449,37 @@ spec:
               readOnly: true
           readinessProbe:
             httpGet:
-              path: /api/v1/auth/setup-status
+              # Readiness is process-local. A short PostgreSQL or dependency
+              # stall must not remove the only Gateway endpoint and turn a
+              # partial degradation into cluster-wide Nginx 502 responses.
+              path: /health
               port: 8001
             initialDelaySeconds: 5
             periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 3
+            timeoutSeconds: 5
+            failureThreshold: 12
           livenessProbe:
             httpGet:
               path: /health
               port: 8001
             initialDelaySeconds: 60
             periodSeconds: 15
-            timeoutSeconds: 3
-            failureThreshold: 4
+            timeoutSeconds: 10
+            failureThreshold: 8
           startupProbe:
             httpGet:
               path: /api/v1/auth/setup-status
               port: 8001
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 60
+            failureThreshold: 180
           resources:
             requests:
               cpu: 500m
-              memory: 1Gi
+              memory: 2Gi
             limits:
               cpu: "2"
-              memory: 3Gi
+              memory: 6Gi
       volumes:
         - name: config
           configMap:
@@ -298,6 +511,232 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: ppt-master-runner
+  namespace: deer-flow
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: ppt-master-runner
+  template:
+    metadata:
+      labels:
+        app: ppt-master-runner
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: wait-for-postgres
+          # Reuse the exact Runner image so no extra network-fetched runtime is
+          # introduced. Require three successful database samples before the
+          # transport starts; transient cluster-DNS failures remain isolated
+          # from the ordinary Gateway Pod.
+          image: deer-flow-ppt-master-runner:dev-20260811-ppt-task-timeline-v1
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-ec"]
+          args:
+            - |
+              cd /app/backend
+              /app/backend/.venv/bin/python - <<'PY'
+              import os
+              import time
+              from urllib.parse import urlsplit
+
+              import psycopg
+
+              database_url = os.environ["DATABASE_URL"]
+              parsed = urlsplit(database_url)
+              host = parsed.hostname or ""
+              if not host:
+                  raise SystemExit("DATABASE_URL does not contain a host")
+              dsn = database_url.replace("postgresql+psycopg://", "postgresql://", 1)
+              deadline = time.monotonic() + 300
+              consecutive = 0
+              attempt = 0
+              while time.monotonic() < deadline:
+                  attempt += 1
+                  try:
+                      with psycopg.connect(dsn, connect_timeout=5) as connection:
+                          with connection.cursor() as cursor:
+                              cursor.execute("SELECT 1")
+                              cursor.fetchone()
+                      consecutive += 1
+                      print(
+                          f"ppt_master_runner_database_probe=PASS "
+                          f"host={host} sample={consecutive}/3 attempt={attempt}",
+                          flush=True,
+                      )
+                      if consecutive == 3:
+                          break
+                  except Exception as exc:
+                      consecutive = 0
+                      print(
+                          f"ppt_master_runner_database_probe=RETRY "
+                          f"host={host} attempt={attempt} error={type(exc).__name__}",
+                          flush=True,
+                      )
+                  time.sleep(2)
+              else:
+                  raise SystemExit("database readiness deadline exceeded")
+              PY
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-postgres
+                  key: DATABASE_URL
+        - name: wait-for-skills
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - until test -f /app/skills/.deerflow-skills-ready; do sleep 2; done
+          volumeMounts:
+            - name: skills
+              mountPath: /app/skills
+              readOnly: true
+      containers:
+        - name: ppt-master-runner
+          # Keep an independent image key so production can retain the
+          # compatibility-frozen transport image while Gateway advances.
+          image: deer-flow-ppt-master-runner:dev-20260811-ppt-task-timeline-v1
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - cd backend && PYTHONPATH=. uv run --no-sync uvicorn app.gateway.app:app --host 0.0.0.0 --port 8003 --workers 1
+          ports:
+            - containerPort: 8003
+          envFrom:
+            - secretRef:
+                name: deer-flow-env
+          env:
+            - name: CI
+              value: "true"
+            - name: GATEWAY_PORT
+              value: "8003"
+            - name: DEER_FLOW_RUNTIME_PROFILE
+              value: ppt-master-runner
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-postgres
+                  key: DATABASE_URL
+            - name: DEER_FLOW_PROJECT_ROOT
+              value: /app
+            - name: DEER_FLOW_HOME
+              value: /app/backend/.deer-flow
+            - name: DEER_FLOW_CONFIG_PATH
+              value: /app/backend/config.yaml
+            - name: DEER_FLOW_EXTENSIONS_CONFIG_PATH
+              value: /app/backend/.deer-flow/runtime-config/extensions_config.json
+            # Local Docker Desktop uses direct external access. The enterprise
+            # overlay replaces these values and mounts its audited CA bundle.
+            - name: HTTP_PROXY
+              value: ""
+            - name: HTTPS_PROXY
+              value: ""
+            - name: http_proxy
+              value: ""
+            - name: https_proxy
+              value: ""
+            - name: SSL_CERT_FILE
+              value: ""
+            - name: REQUESTS_CA_BUNDLE
+              value: ""
+            - name: CURL_CA_BUNDLE
+              value: ""
+            - name: NODE_EXTRA_CA_CERTS
+              value: ""
+            - name: OPENSSL_CONF
+              value: ""
+            - name: TAVILY_TLS_COMPAT
+              value: ""
+            - name: DASHSCOPE_TLS_COMPAT
+              value: ""
+            - name: NO_PROXY
+              value: localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
+            - name: no_proxy
+              value: localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
+          volumeMounts:
+            - name: config
+              mountPath: /app/backend/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: extensions-config
+              mountPath: /app/backend/extensions_config.json
+              subPath: extensions_config.json
+              readOnly: true
+            - name: userdata
+              mountPath: /app/backend/.deer-flow
+              subPath: deer-flow
+            - name: skills
+              mountPath: /app/skills
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 8
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 180
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+      volumes:
+        - name: config
+          configMap:
+            name: deer-flow-config
+        - name: extensions-config
+          configMap:
+            name: deer-flow-extensions-config
+        - name: userdata
+          persistentVolumeClaim:
+            claimName: deer-flow-userdata-pvc
+        - name: skills
+          persistentVolumeClaim:
+            claimName: deer-flow-skills-pvc
+            readOnly: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ppt-master-runner
+  namespace: deer-flow
+spec:
+  selector:
+    app: ppt-master-runner
+  ports:
+    - name: http
+      port: 8003
+      targetPort: 8003
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: frontend
   namespace: deer-flow
 spec:
@@ -312,7 +751,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: deer-flow-frontend
+          image: deer-flow-frontend:dev-20260811-dashboard-refresh-v1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
@@ -322,11 +761,13 @@ spec:
           env:
             - name: DEER_FLOW_INTERNAL_GATEWAY_BASE_URL
               value: http://gateway:8001
+            - name: NEXT_PUBLIC_STATIC_WEBSITE_ONLY
+              value: "false"
             - name: WEKNORA_FRONTEND_URL
-              value: http://localhost:8090/platform/knowledge-bases
+              value: http://127.0.0.1:2026/platform/knowledge-bases
           readinessProbe:
             httpGet:
-              path: /
+              path: /api/runtime-config
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 5
@@ -334,7 +775,7 @@ spec:
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /
+              path: /api/runtime-config
               port: 3000
             initialDelaySeconds: 30
             periodSeconds: 15
@@ -342,7 +783,7 @@ spec:
             failureThreshold: 4
           startupProbe:
             httpGet:
-              path: /
+              path: /api/runtime-config
               port: 3000
             periodSeconds: 5
             timeoutSeconds: 3
@@ -391,11 +832,15 @@ spec:
           args:
             - |
               cp /etc/nginx/nginx.conf.template /tmp/nginx.conf
-              sed -i 's|resolver 127.0.0.11 valid=10s ipv6=off;|# Static Kubernetes Service upstreams do not need Docker DNS.|' /tmp/nginx.conf
+              KUBERNETES_DNS="$(awk '/^nameserver[[:space:]]/{print $2; exit}' /etc/resolv.conf)"
+              test -n "$KUBERNETES_DNS"
+              sed -i "s|resolver 127.0.0.11 valid=10s ipv6=off;|resolver ${KUBERNETES_DNS} valid=10s ipv6=off;|" /tmp/nginx.conf
               sed -i 's|set $gateway_upstream gateway:8001;|# gateway upstream is a Kubernetes Service.|' /tmp/nginx.conf
+              sed -i 's|set $ppt_master_runner_upstream ppt-master-runner:8003;|# ppt-master runner upstream is a Kubernetes Service.|' /tmp/nginx.conf
               sed -i 's|set $frontend_upstream frontend:3000;|# frontend upstream is a Kubernetes Service.|' /tmp/nginx.conf
               sed -i 's|set $provisioner_upstream provisioner:8002;|# provisioner upstream is a Kubernetes Service.|' /tmp/nginx.conf
               sed -i 's|proxy_pass http://$gateway_upstream;|proxy_pass http://gateway:8001;|g' /tmp/nginx.conf
+              sed -i 's|proxy_pass http://$ppt_master_runner_upstream;|proxy_pass http://ppt-master-runner:8003;|g' /tmp/nginx.conf
               sed -i 's|proxy_pass http://$frontend_upstream;|proxy_pass http://frontend:3000;|g' /tmp/nginx.conf
               sed -i 's|proxy_pass http://$provisioner_upstream;|proxy_pass http://provisioner:8002;|g' /tmp/nginx.conf
               nginx -c /tmp/nginx.conf -g 'daemon off;'
@@ -408,24 +853,35 @@ spec:
               readOnly: true
           readinessProbe:
             httpGet:
-              path: /api/v1/auth/setup-status
+              # Keep Nginx readiness local; Gateway has its own readiness
+              # boundary and must not make the public proxy Pod unready.
+              path: /health
               port: 2026
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 3
+            failureThreshold: 6
           livenessProbe:
             httpGet:
               path: /health
               port: 2026
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 30
             periodSeconds: 15
             timeoutSeconds: 3
             failureThreshold: 4
           startupProbe:
             httpGet:
-              path: /api/v1/auth/setup-status
+              path: /health
               port: 2026
+              httpHeaders:
+                - name: Host
+                  value: localhost
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 30

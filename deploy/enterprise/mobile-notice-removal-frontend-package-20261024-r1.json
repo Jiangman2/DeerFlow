@@ -1,0 +1,40 @@
+{
+  "schema": "portal-mobile-notice-removal-frontend-package.v1",
+  "manifest": "sha256:0af4bb16a0924a02f6cfcb927c137642329b5831d01a5eded8c4f61ee8ad43f7",
+  "config": "sha256:536ff74930ed2ff55dbc5f00f1b337a7c6f1e99850d764cb4937a0d4f019eee9",
+  "tag": "deerflow.local/deer-flow-frontend:20261024-mobile-notice-removal-r1",
+  "archive": "frontend.mobile-notice-removal.full.oci.tar",
+  "transport": {
+    "bytes": 127313408,
+    "sha256": "76dec78d40d44524ef88fcfb98b8f790596bfa02606d5af5553e32e6c67abebd"
+  },
+  "scripts": {
+    "0015": {
+      "bytes": 86303,
+      "sha256": "1e0bb3e8381259a21b5ccf324706a8f53c538649415939b59603491d59679901",
+      "file": "preload-portal-frontend-mobile-notice-removal-0015-20261024-r1.py",
+      "hostname": "ecs-zdz-pro-0015",
+      "expected_node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+      "prior_script_sha256": "a5ad93252657ecbb76b769f23e8fc429607f4ed42600ac9496037dc39b2484c9"
+    },
+    "datax02": {
+      "bytes": 87888,
+      "sha256": "af17251ad04aabf1c5d903c2595a2a1f85d864975e032bff50c861b334325b50",
+      "file": "preload-portal-frontend-mobile-notice-removal-datax02-20261024-r1.py",
+      "hostname": "datax-02",
+      "expected_node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+      "prior_script_sha256": "a7bec72489e12c76a78fa44420d3c5e404d003b43476284c0e31a5899ea50b23"
+    }
+  },
+  "qualification_pin": {
+    "bytes": 2120,
+    "sha256": "56232082ea12c1a4fc3d68d45b8b77948328f0144c13e41513e987d0aac2c57e"
+  },
+  "source_change_sha256": "57252f53b5964bb5d1329e7d0c1f01ef48fed04acad023e01ac49c49e92370af",
+  "archive_blob_and_diffid_validation": "PASS",
+  "exact_host_binding": true,
+  "capacity_checked_before_once_claim": true,
+  "frontend_deployed": false,
+  "ready_for_rollout": false,
+  "fresh_node_uid_check_required_at_activation": true
+}

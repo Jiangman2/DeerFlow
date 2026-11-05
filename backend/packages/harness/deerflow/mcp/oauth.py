@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -28,7 +29,7 @@ class OAuthTokenManager:
     def __init__(self, oauth_by_server: dict[str, McpOAuthConfig]):
         self._oauth_by_server = oauth_by_server
         self._tokens: dict[str, _OAuthToken] = {}
-        self._locks: dict[str, asyncio.Lock] = {name: asyncio.Lock() for name in oauth_by_server}
+        self._locks = {name: threading.Lock() for name in oauth_by_server}
 
     @classmethod
     def from_extensions_config(cls, extensions_config: ExtensionsConfig) -> OAuthTokenManager:
@@ -54,7 +55,13 @@ class OAuthTokenManager:
             return f"{token.token_type} {token.access_token}"
 
         lock = self._locks[server_name]
-        async with lock:
+        # This manager can be shared by synchronous tool wrappers whose async
+        # calls use different event loops/threads. Never bind the lock to one
+        # loop or block a loop on acquire(). Polling non-blockingly also avoids
+        # orphaned executor acquisitions when a waiting caller is cancelled.
+        while not lock.acquire(blocking=False):
+            await asyncio.sleep(0.01)
+        try:
             token = self._tokens.get(server_name)
             if token and not self._is_expiring(token, oauth):
                 return f"{token.token_type} {token.access_token}"
@@ -63,6 +70,8 @@ class OAuthTokenManager:
             self._tokens[server_name] = fresh
             logger.info(f"Refreshed OAuth access token for MCP server: {server_name}")
             return f"{fresh.token_type} {fresh.access_token}"
+        finally:
+            lock.release()
 
     @staticmethod
     def _is_expiring(token: _OAuthToken, oauth: McpOAuthConfig) -> bool:
@@ -107,6 +116,16 @@ class OAuthTokenManager:
         if not access_token:
             raise ValueError(f"OAuth token response missing '{oauth.token_field}'")
 
+        # Persist a rotated refresh_token so subsequent refreshes use the latest
+        # value. This is an in-process update only — it is intentionally NOT
+        # written back to extensions_config.json. Providers that rotate refresh
+        # tokens (Auth0, Okta, Google, etc.) return a new refresh_token on each
+        # refresh; discarding it makes the next refresh fail with invalid_grant.
+        if oauth.grant_type == "refresh_token":
+            rotated = payload.get("refresh_token")
+            if isinstance(rotated, str) and rotated:
+                oauth.refresh_token = rotated
+
         token_type = str(payload.get(oauth.token_type_field, oauth.default_token_type) or oauth.default_token_type)
 
         expires_in_raw = payload.get(oauth.expires_in_field, 3600)
@@ -145,6 +164,16 @@ async def get_initial_oauth_headers(extensions_config: ExtensionsConfig) -> dict
 
     headers: dict[str, str] = {}
     for server_name in token_manager.oauth_server_names():
-        headers[server_name] = await token_manager.get_authorization_header(server_name) or ""
+        try:
+            value = await token_manager.get_authorization_header(server_name)
+        except Exception:
+            logger.warning(
+                "Skipping initial OAuth header for MCP server '%s' after token fetch failed",
+                server_name,
+                exc_info=True,
+            )
+            continue
+        if value:
+            headers[server_name] = value
 
     return {name: value for name, value in headers.items() if value}

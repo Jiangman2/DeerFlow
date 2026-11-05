@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import secrets
 import time
+from urllib.parse import urlsplit
 
 import jwt
 from fastapi import Request, Response
@@ -87,6 +88,23 @@ def _cookie_name(provider: str) -> str:
     return f"{OIDC_STATE_COOKIE_PREFIX}{provider}"
 
 
+def _callback_path(provider: str) -> str:
+    """Return the browser callback path that may receive this state cookie."""
+    if provider == "iam":
+        # IAM callback URIs are registered externally. Preserve the cookie path
+        # from the configured URI so a legacy `/callback/iam` registration can
+        # return its state cookie just as a newer `/iam/callback` one can.
+        from deerflow.config.app_config import get_app_config
+
+        redirect_uri = get_app_config().auth.iam.redirect_uri
+        if redirect_uri:
+            configured_path = urlsplit(redirect_uri).path
+            if configured_path.startswith("/api/v1/auth/"):
+                return configured_path
+        return "/api/v1/auth/iam/callback"
+    return f"/api/v1/auth/callback/{provider}"
+
+
 def set_state_cookie(response: Response, request: Request, payload: OIDCStatePayload) -> None:
     """Set the signed OIDC state cookie on the response."""
     signed = _sign_state_payload(payload)
@@ -98,7 +116,7 @@ def set_state_cookie(response: Response, request: Request, payload: OIDCStatePay
         secure=is_https,
         samesite="lax",
         max_age=OIDC_STATE_MAX_AGE,
-        path=f"/api/v1/auth/callback/{payload.provider}",
+        path=_callback_path(payload.provider),
     )
 
 
@@ -117,5 +135,5 @@ def delete_state_cookie(response: Response, request: Request, provider: str) -> 
         key=_cookie_name(provider),
         secure=is_https,
         samesite="lax",
-        path=f"/api/v1/auth/callback/{provider}",
+        path=_callback_path(provider),
     )

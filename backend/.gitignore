@@ -31,3 +31,11 @@ config.yaml
 
 # Claude Code settings
 .claude/settings.local.json
+
+# Test / local-only artifacts that must never land on a delivery branch:
+# pytest basetemp dirs (router.db, channels/runtime-config.json, uploaded
+# fixtures), local repair scripts, and present_files corruption backups.
+pytest-of-*/
+/pytest-of-temp/
+*.corrupted.bak
+_fix_present_files.py

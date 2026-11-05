@@ -13,6 +13,9 @@ from fastapi.testclient import TestClient
 
 from app.gateway.deps import get_config
 from app.gateway.routers import uploads
+from app.gateway.upload_document_parser import UploadDocumentParseError
+
+INERT_PDF_BYTES = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
 
 
 class ChunkedUpload:
@@ -34,6 +37,15 @@ def _mounted_provider() -> MagicMock:
     provider = MagicMock()
     provider.uses_thread_data_mounts = True
     return provider
+
+
+def _symlink_to_or_skip(link_path: Path, target_path: Path) -> None:
+    try:
+        link_path.symlink_to(target_path)
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 1314:
+            pytest.skip("Windows symlink privilege is not available")
+        raise
 
 
 def test_upload_files_writes_thread_storage_and_skips_local_sandbox_sync(tmp_path):
@@ -161,7 +173,7 @@ def test_upload_files_does_not_auto_convert_documents_by_default(tmp_path):
         patch.object(uploads, "_auto_convert_documents_enabled", return_value=False),
         patch.object(uploads, "convert_file_to_markdown", AsyncMock()) as convert_mock,
     ):
-        file = UploadFile(filename="report.pdf", file=BytesIO(b"pdf-bytes"))
+        file = UploadFile(filename="report.pdf", file=BytesIO(INERT_PDF_BYTES))
         result = asyncio.run(call_unwrapped(uploads.upload_files, "thread-local", request=MagicMock(), files=[file], config=SimpleNamespace()))
 
     assert result.success is True
@@ -172,18 +184,719 @@ def test_upload_files_does_not_auto_convert_documents_by_default(tmp_path):
     assert not (thread_uploads_dir / "report.md").exists()
 
 
+@pytest.mark.parametrize(
+    "filename",
+    ["probe.html", "probe.php", "probe.jsp", "probe.jspf", "probe.JSPF", "probe.JsPf", "probe.jspx", "probe.tag", "probe.TAG", "probe.tagf", "probe.TAGF", "probe.tagx", "probe.TAGX", "probe.py"],
+)
+def test_upload_files_rejects_active_or_server_executable_extensions(tmp_path, filename):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+    ):
+        file = UploadFile(filename=filename, file=BytesIO(b"harmless security probe"))
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(
+                call_unwrapped(
+                    uploads.upload_files,
+                    "thread-local",
+                    request=MagicMock(),
+                    files=[file],
+                    config=SimpleNamespace(),
+                )
+            )
+
+    assert exc_info.value.status_code == 415
+    assert list(thread_uploads_dir.iterdir()) == []
+
+
+def test_upload_files_rejects_pdf_without_pdf_signature(tmp_path):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+    ):
+        file = UploadFile(filename="renamed.pdf", file=BytesIO(b"<html><script>probe()</script></html>"))
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(
+                call_unwrapped(
+                    uploads.upload_files,
+                    "thread-local",
+                    request=MagicMock(),
+                    files=[file],
+                    config=SimpleNamespace(),
+                )
+            )
+
+    assert exc_info.value.status_code == 415
+    assert list(thread_uploads_dir.iterdir()) == []
+
+
+def test_upload_files_rejects_pdf_with_active_content(tmp_path):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    payload = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /OpenAction 2 0 R >>\nendobj\n2 0 obj\n<< /S /JavaScript /JS (app.alert('probe')) >>\nendobj\n%%EOF\n"
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+    ):
+        file = UploadFile(filename="active.pdf", file=BytesIO(payload))
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(
+                call_unwrapped(
+                    uploads.upload_files,
+                    "thread-local",
+                    request=MagicMock(),
+                    files=[file],
+                    config=SimpleNamespace(),
+                )
+            )
+
+    assert exc_info.value.status_code == 422
+    assert list(thread_uploads_dir.iterdir()) == []
+
+
+def test_upload_files_accepts_inert_pdf(tmp_path):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    payload = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+    ):
+        file = UploadFile(filename="inert.pdf", file=BytesIO(payload))
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-local",
+                request=MagicMock(),
+                files=[file],
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert (thread_uploads_dir / "inert.pdf").read_bytes() == payload
+
+
+def test_empty_parser_output_preserves_same_stem_user_markdown(tmp_path):
+    source_path = tmp_path / "report.docx"
+    source_path.write_bytes(b"word")
+    user_markdown = tmp_path / "report.md"
+    user_markdown.write_text("user-authored markdown", encoding="utf-8")
+    reserved_companion = tmp_path / "report_1.md"
+    reserved_companion.write_text("stale parser output", encoding="utf-8")
+
+    with pytest.raises(
+        UploadDocumentParseError,
+        match="no readable text",
+    ):
+        uploads._write_parsed_markdown(
+            source_path,
+            " \n\t",
+            output_path=reserved_companion,
+        )
+
+    assert user_markdown.read_text(encoding="utf-8") == "user-authored markdown"
+    assert not reserved_companion.exists()
+
+
+def test_upload_files_creates_markdown_companion_from_enterprise_pdf_parser(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    parser = AsyncMock(return_value="## 第 1 页\n\n扫描识别文字")
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(uploads, "_require_parsed_text_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(uploads, "parse_conversation_document", parser),
+    ):
+        file = UploadFile(filename="scan.pdf", file=BytesIO(INERT_PDF_BYTES))
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-local",
+                request=MagicMock(),
+                files=[file],
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert result.files[0].markdown_file == "scan.md"
+    assert result.files[0].processing_warning is None
+    assert "扫描识别文字" in (thread_uploads_dir / "scan.md").read_text(encoding="utf-8")
+    parser.assert_awaited_once_with(
+        endpoint="http://parser:50052/file_parse",
+        filename="scan.pdf",
+        content=INERT_PDF_BYTES,
+    )
+
+
+def test_upload_files_creates_markdown_companion_from_enterprise_pptx_parser(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    pptx_bytes = b"valid-enough-for-upload-router"
+    parser = AsyncMock(return_value="# 汇报材料\n\n第一页内容")
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(uploads, "parse_conversation_document", parser),
+    ):
+        file = UploadFile(filename="briefing.pptx", file=BytesIO(pptx_bytes))
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-local",
+                request=MagicMock(),
+                files=[file],
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert result.files[0].markdown_file == "briefing.md"
+    assert "第一页内容" in (thread_uploads_dir / "briefing.md").read_text(
+        encoding="utf-8",
+    )
+    parser.assert_awaited_once_with(
+        endpoint="http://parser:50052/file_parse",
+        filename="briefing.pptx",
+        content=pptx_bytes,
+    )
+
+
+def test_upload_files_keeps_presentation_template_out_of_document_parsers(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    pptx_bytes = b"presentation-template-bytes"
+    parser = AsyncMock(return_value="# Parsed content")
+    converter = AsyncMock()
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(uploads, "_auto_convert_documents_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(uploads, "parse_conversation_document", parser),
+        patch.object(uploads, "convert_file_to_markdown", converter),
+    ):
+        file = UploadFile(filename="brand-template.pptx", file=BytesIO(pptx_bytes))
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-local",
+                request=MagicMock(),
+                files=[file],
+                upload_purpose="presentation_template",
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert (thread_uploads_dir / "brand-template.pptx").read_bytes() == pptx_bytes
+    assert not (thread_uploads_dir / "brand-template.md").exists()
+    assert result.files[0].markdown_file is None
+    parser.assert_not_awaited()
+    converter.assert_not_awaited()
+
+
+def test_upload_files_creates_markdown_companion_from_enterprise_docx_parser(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    docx_bytes = b"valid-enough-for-upload-router"
+    parser = AsyncMock(return_value="# 文档标题\n\n正文内容")
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(uploads, "parse_conversation_document", parser),
+    ):
+        file = UploadFile(filename="report.docx", file=BytesIO(docx_bytes))
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-local",
+                request=MagicMock(),
+                files=[file],
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert result.files[0].markdown_file == "report.md"
+    assert "正文内容" in (thread_uploads_dir / "report.md").read_text(
+        encoding="utf-8",
+    )
+    parser.assert_awaited_once_with(
+        endpoint="http://parser:50052/file_parse",
+        filename="report.docx",
+        content=docx_bytes,
+    )
+
+
+def test_upload_files_reserves_parser_companion_before_same_stem_markdown(
+    tmp_path,
+):
+    """Backport upstream #4288 for the enterprise parser path."""
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    parser = AsyncMock(return_value="# Parsed Word\n\nGenerated companion")
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(uploads, "parse_conversation_document", parser),
+    ):
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-local",
+                request=MagicMock(),
+                files=[
+                    UploadFile(filename="report.docx", file=BytesIO(b"word-document")),
+                    UploadFile(filename="report.md", file=BytesIO(b"user markdown")),
+                ],
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert [item.filename for item in result.files] == [
+        "report.docx",
+        "report_1.md",
+    ]
+    assert result.files[0].markdown_file == "report.md"
+    assert (thread_uploads_dir / "report.md").read_text(encoding="utf-8").endswith("Generated companion\n")
+    assert (thread_uploads_dir / "report_1.md").read_bytes() == b"user markdown"
+
+
+def test_upload_files_rejects_pdf_when_enterprise_parser_is_unavailable(tmp_path):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(uploads, "_require_parsed_text_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(
+            uploads,
+            "parse_conversation_document",
+            AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 502")),
+        ),
+    ):
+        file = UploadFile(filename="scan.pdf", file=BytesIO(INERT_PDF_BYTES))
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(
+                call_unwrapped(
+                    uploads.upload_files,
+                    "thread-local",
+                    request=MagicMock(),
+                    files=[file],
+                    config=SimpleNamespace(),
+                )
+            )
+
+    assert exc_info.value.status_code == 503
+    assert "任务未启动" in exc_info.value.detail
+    assert not (thread_uploads_dir / "scan.pdf").exists()
+    assert not (thread_uploads_dir / "scan.md").exists()
+
+
+def test_strict_parser_failure_restores_replaced_upload_and_companion(tmp_path):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    original_pdf = b"previous accepted pdf"
+    original_markdown = "previous parsed text"
+    (thread_uploads_dir / "scan.pdf").write_bytes(original_pdf)
+    (thread_uploads_dir / "scan.md").write_text(original_markdown, encoding="utf-8")
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(uploads, "_require_parsed_text_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(
+            uploads,
+            "parse_conversation_document",
+            AsyncMock(
+                side_effect=UploadDocumentParseError(
+                    "Document parser returned HTTP 502",
+                )
+            ),
+        ),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(
+                call_unwrapped(
+                    uploads.upload_files,
+                    "thread-local",
+                    request=MagicMock(),
+                    files=[
+                        UploadFile(
+                            filename="scan.pdf",
+                            file=BytesIO(INERT_PDF_BYTES),
+                        )
+                    ],
+                    config=SimpleNamespace(),
+                )
+            )
+
+    assert exc_info.value.status_code == 503
+    assert (thread_uploads_dir / "scan.pdf").read_bytes() == original_pdf
+    assert (thread_uploads_dir / "scan.md").read_text(encoding="utf-8") == original_markdown
+    assert sorted(path.name for path in thread_uploads_dir.iterdir()) == [
+        "scan.md",
+        "scan.pdf",
+    ]
+
+
+def test_upload_files_preserves_upstream_behavior_when_parsed_text_is_not_required(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(uploads, "_require_parsed_text_enabled", return_value=False),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(
+            uploads,
+            "parse_conversation_document",
+            AsyncMock(
+                side_effect=UploadDocumentParseError(
+                    "Document parser returned HTTP 502",
+                )
+            ),
+        ),
+    ):
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-local",
+                request=MagicMock(),
+                files=[
+                    UploadFile(
+                        filename="scan.pdf",
+                        file=BytesIO(INERT_PDF_BYTES),
+                    )
+                ],
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert result.files[0].filename == "scan.pdf"
+    assert result.files[0].markdown_file is None
+    assert result.files[0].processing_warning is not None
+    assert (thread_uploads_dir / "scan.pdf").read_bytes() == INERT_PDF_BYTES
+    assert not (thread_uploads_dir / "scan.md").exists()
+
+
+def test_upload_files_rejects_whitespace_only_local_fallback(tmp_path):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+
+    async def empty_convert(
+        file_path: Path,
+        *,
+        output_path: Path | None = None,
+    ) -> Path:
+        md_path = output_path or file_path.with_suffix(".md")
+        md_path.write_text(" \n\t", encoding="utf-8")
+        return md_path
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(uploads, "_auto_convert_documents_enabled", return_value=True),
+        patch.object(uploads, "_require_parsed_text_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(
+            uploads,
+            "parse_conversation_document",
+            AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 503")),
+        ),
+        patch.object(uploads, "convert_file_to_markdown", AsyncMock(side_effect=empty_convert)),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(
+                call_unwrapped(
+                    uploads.upload_files,
+                    "thread-local",
+                    request=MagicMock(),
+                    files=[UploadFile(filename="scan.pdf", file=BytesIO(INERT_PDF_BYTES))],
+                    config=SimpleNamespace(),
+                )
+            )
+
+    assert exc_info.value.status_code == 503
+    assert "不会提交空白解析结果" in exc_info.value.detail
+    assert list(thread_uploads_dir.iterdir()) == []
+
+
+def test_upload_files_falls_back_to_local_conversion_after_enterprise_parser_failure(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+
+    async def fake_convert(
+        file_path: Path,
+        *,
+        output_path: Path | None = None,
+    ) -> Path:
+        md_path = output_path or file_path.with_suffix(".md")
+        md_path.write_text("# Local fallback\n\nRecovered Word text", encoding="utf-8")
+        return md_path
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(uploads, "_auto_convert_documents_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(
+            uploads,
+            "parse_conversation_document",
+            AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 502")),
+        ),
+        patch.object(
+            uploads,
+            "convert_file_to_markdown",
+            AsyncMock(side_effect=fake_convert),
+        ) as converter,
+    ):
+        file = UploadFile(filename="report.docx", file=BytesIO(b"word-document"))
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-local",
+                request=MagicMock(),
+                files=[file],
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert result.files[0].markdown_file == "report.md"
+    assert result.files[0].processing_warning is None
+    assert "Recovered Word text" in (thread_uploads_dir / "report.md").read_text(
+        encoding="utf-8",
+    )
+    converter.assert_awaited_once_with(
+        thread_uploads_dir / "report.docx",
+        output_path=thread_uploads_dir / "report.md",
+    )
+    assert "kept without enterprise parsed text" not in result.message
+
+
+def test_enterprise_can_disable_duplicate_gateway_parse_after_adapter_failure(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    converter = AsyncMock()
+
+    with (
+        patch.dict(
+            os.environ,
+            {"DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED": "false"},
+        ),
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(uploads, "_auto_convert_documents_enabled", return_value=True),
+        patch.object(uploads, "_require_parsed_text_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(
+            uploads,
+            "parse_conversation_document",
+            AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 503")),
+        ),
+        patch.object(uploads, "convert_file_to_markdown", converter),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(
+                call_unwrapped(
+                    uploads.upload_files,
+                    "thread-enterprise-no-duplicate",
+                    request=MagicMock(),
+                    files=[UploadFile(filename="report.docx", file=BytesIO(b"word-document"))],
+                    config=SimpleNamespace(),
+                )
+            )
+
+    assert exc_info.value.status_code == 503
+    assert "不会提交空白解析结果" in exc_info.value.detail
+    converter.assert_not_awaited()
+    assert list(thread_uploads_dir.iterdir()) == []
+
+
+def test_upload_files_recovers_legacy_doc_through_sandbox_after_local_conversion_failure(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    provider = MagicMock()
+    provider.uses_thread_data_mounts = True
+    provider.acquire_async = AsyncMock(return_value="legacy-doc-sandbox")
+    sandbox = MagicMock()
+    sandbox.download_file.return_value = b"converted-docx-bytes"
+    provider.get.return_value = sandbox
+
+    async def fake_convert(
+        file_path: Path,
+        *,
+        output_path: Path | None = None,
+    ) -> Path | None:
+        if file_path.suffix.lower() == ".doc":
+            return None
+        assert file_path.suffix.lower() == ".docx"
+        md_path = output_path or file_path.with_suffix(".md")
+        md_path.write_text("# Legacy Word\n\nRecovered DOC text", encoding="utf-8")
+        return md_path
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=provider),
+        patch.object(uploads, "_auto_convert_documents_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(
+            uploads,
+            "parse_conversation_document",
+            AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 502")),
+        ),
+        patch.object(
+            uploads,
+            "convert_file_to_markdown",
+            AsyncMock(side_effect=fake_convert),
+        ) as converter,
+    ):
+        file = UploadFile(filename="report.doc", file=BytesIO(b"legacy-word-document"))
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-legacy-doc",
+                request=MagicMock(),
+                files=[file],
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert result.files[0].markdown_file == "report.md"
+    assert result.files[0].processing_warning is None
+    assert "Recovered DOC text" in (thread_uploads_dir / "report.md").read_text(
+        encoding="utf-8",
+    )
+    provider.acquire_async.assert_awaited_once_with(
+        "thread-legacy-doc",
+        user_id="test-user-autouse",
+    )
+    assert converter.await_count == 2
+    sandbox.update_file.assert_called_once()
+    assert sandbox.download_file.call_args.args[0].endswith("/source.docx")
+    assert any("--convert-to docx" in call.args[0] for call in sandbox.execute_command.call_args_list)
+    assert "kept without enterprise parsed text" not in result.message
+
+
+def test_enterprise_environment_can_enable_document_conversion_fallback():
+    config = SimpleNamespace(uploads=SimpleNamespace(auto_convert_documents=False))
+
+    with patch.dict(
+        os.environ,
+        {"DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED": "true"},
+    ):
+        assert uploads._auto_convert_documents_enabled(config) is True
+
+
 def test_upload_files_syncs_non_local_sandbox_and_marks_markdown_file(tmp_path):
     thread_uploads_dir = tmp_path / "uploads"
     thread_uploads_dir.mkdir(parents=True)
 
     provider = MagicMock()
     provider.uses_thread_data_mounts = False
-    provider.acquire.return_value = "aio-1"
+    provider.acquire.side_effect = AssertionError("upload route should use acquire_async")
+    provider.acquire_async = AsyncMock(return_value="aio-1")
     sandbox = MagicMock()
     provider.get.return_value = sandbox
 
-    async def fake_convert(file_path: Path) -> Path:
-        md_path = file_path.with_suffix(".md")
+    async def fake_convert(
+        file_path: Path,
+        *,
+        output_path: Path | None = None,
+    ) -> Path:
+        md_path = output_path or file_path.with_suffix(".md")
         md_path.write_text("converted", encoding="utf-8")
         return md_path
 
@@ -194,7 +907,7 @@ def test_upload_files_syncs_non_local_sandbox_and_marks_markdown_file(tmp_path):
         patch.object(uploads, "_auto_convert_documents_enabled", return_value=True),
         patch.object(uploads, "convert_file_to_markdown", AsyncMock(side_effect=fake_convert)),
     ):
-        file = UploadFile(filename="report.pdf", file=BytesIO(b"pdf-bytes"))
+        file = UploadFile(filename="report.pdf", file=BytesIO(INERT_PDF_BYTES))
         result = asyncio.run(call_unwrapped(uploads.upload_files, "thread-aio", request=MagicMock(), files=[file], config=SimpleNamespace()))
 
     assert result.success is True
@@ -203,10 +916,10 @@ def test_upload_files_syncs_non_local_sandbox_and_marks_markdown_file(tmp_path):
     assert file_info.filename == "report.pdf"
     assert file_info.markdown_file == "report.md"
 
-    assert (thread_uploads_dir / "report.pdf").read_bytes() == b"pdf-bytes"
+    assert (thread_uploads_dir / "report.pdf").read_bytes() == INERT_PDF_BYTES
     assert (thread_uploads_dir / "report.md").read_text(encoding="utf-8") == "converted"
 
-    sandbox.update_file.assert_any_call("/mnt/user-data/uploads/report.pdf", b"pdf-bytes")
+    sandbox.update_file.assert_any_call("/mnt/user-data/uploads/report.pdf", INERT_PDF_BYTES)
     sandbox.update_file.assert_any_call("/mnt/user-data/uploads/report.md", b"converted")
 
 
@@ -216,12 +929,17 @@ def test_upload_files_makes_non_local_files_sandbox_writable(tmp_path):
 
     provider = MagicMock()
     provider.uses_thread_data_mounts = False
-    provider.acquire.return_value = "aio-1"
+    provider.acquire.side_effect = AssertionError("upload route should use acquire_async")
+    provider.acquire_async = AsyncMock(return_value="aio-1")
     sandbox = MagicMock()
     provider.get.return_value = sandbox
 
-    async def fake_convert(file_path: Path) -> Path:
-        md_path = file_path.with_suffix(".md")
+    async def fake_convert(
+        file_path: Path,
+        *,
+        output_path: Path | None = None,
+    ) -> Path:
+        md_path = output_path or file_path.with_suffix(".md")
         md_path.write_text("converted", encoding="utf-8")
         return md_path
 
@@ -233,7 +951,7 @@ def test_upload_files_makes_non_local_files_sandbox_writable(tmp_path):
         patch.object(uploads, "convert_file_to_markdown", AsyncMock(side_effect=fake_convert)),
         patch.object(uploads, "_make_file_sandbox_writable") as make_writable,
     ):
-        file = UploadFile(filename="report.pdf", file=BytesIO(b"pdf-bytes"))
+        file = UploadFile(filename="report.pdf", file=BytesIO(INERT_PDF_BYTES))
         result = asyncio.run(call_unwrapped(uploads.upload_files, "thread-aio", request=MagicMock(), files=[file], config=SimpleNamespace()))
 
     assert result.success is True
@@ -284,7 +1002,8 @@ def test_upload_files_acquires_non_local_sandbox_before_writing(tmp_path):
         assert user_id == "owner-upload"
         return "aio-1"
 
-    provider.acquire.side_effect = acquire_before_writes
+    provider.acquire.side_effect = AssertionError("upload route should use acquire_async")
+    provider.acquire_async = AsyncMock(side_effect=acquire_before_writes)
 
     with (
         patch.object(uploads, "get_effective_user_id", return_value="owner-upload"),
@@ -295,7 +1014,8 @@ def test_upload_files_acquires_non_local_sandbox_before_writing(tmp_path):
         result = asyncio.run(call_unwrapped(uploads.upload_files, "thread-aio", request=MagicMock(), files=[file], config=SimpleNamespace()))
 
     assert result.success is True
-    provider.acquire.assert_called_once_with("thread-aio", user_id="owner-upload")
+    provider.acquire.assert_not_called()
+    provider.acquire_async.assert_awaited_once_with("thread-aio", user_id="owner-upload")
     sandbox.update_file.assert_called_once_with("/mnt/user-data/uploads/notes.txt", b"hello uploads")
 
 
@@ -305,7 +1025,8 @@ def test_upload_files_fails_before_writing_when_non_local_sandbox_unavailable(tm
 
     provider = MagicMock()
     provider.uses_thread_data_mounts = False
-    provider.acquire.side_effect = RuntimeError("sandbox unavailable")
+    provider.acquire.side_effect = AssertionError("upload route should use acquire_async")
+    provider.acquire_async = AsyncMock(side_effect=RuntimeError("sandbox unavailable"))
     file = ChunkedUpload("notes.txt", [b"hello uploads"])
 
     with (
@@ -317,6 +1038,7 @@ def test_upload_files_fails_before_writing_when_non_local_sandbox_unavailable(tm
 
     assert list(thread_uploads_dir.iterdir()) == []
     assert file.read_calls == []
+    provider.acquire.assert_not_called()
     provider.get.assert_not_called()
 
 
@@ -390,7 +1112,8 @@ def test_upload_files_does_not_sync_non_local_sandbox_when_total_size_exceeds_li
 
     provider = MagicMock()
     provider.uses_thread_data_mounts = False
-    provider.acquire.return_value = "aio-1"
+    provider.acquire.side_effect = AssertionError("upload route should use acquire_async")
+    provider.acquire_async = AsyncMock(return_value="aio-1")
     sandbox = MagicMock()
     provider.get.return_value = sandbox
 
@@ -408,7 +1131,8 @@ def test_upload_files_does_not_sync_non_local_sandbox_when_total_size_exceeds_li
             asyncio.run(call_unwrapped(uploads.upload_files, "thread-aio", request=MagicMock(), files=files, config=SimpleNamespace()))
 
     assert exc_info.value.status_code == 413
-    provider.acquire.assert_called_once_with("thread-aio", user_id="owner-upload")
+    provider.acquire.assert_not_called()
+    provider.acquire_async.assert_awaited_once_with("thread-aio", user_id="owner-upload")
     provider.get.assert_called_once_with("aio-1")
     sandbox.update_file.assert_not_called()
 
@@ -419,7 +1143,8 @@ def test_upload_files_does_not_sync_non_local_sandbox_when_conversion_fails(tmp_
 
     provider = MagicMock()
     provider.uses_thread_data_mounts = False
-    provider.acquire.return_value = "aio-1"
+    provider.acquire.side_effect = AssertionError("upload route should use acquire_async")
+    provider.acquire_async = AsyncMock(return_value="aio-1")
     sandbox = MagicMock()
     provider.get.return_value = sandbox
 
@@ -430,12 +1155,13 @@ def test_upload_files_does_not_sync_non_local_sandbox_when_conversion_fails(tmp_
         patch.object(uploads, "_auto_convert_documents_enabled", return_value=True),
         patch.object(uploads, "convert_file_to_markdown", AsyncMock(side_effect=RuntimeError("conversion failed"))),
     ):
-        file = UploadFile(filename="report.pdf", file=BytesIO(b"pdf-bytes"))
+        file = UploadFile(filename="report.pdf", file=BytesIO(INERT_PDF_BYTES))
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(call_unwrapped(uploads.upload_files, "thread-aio", request=MagicMock(), files=[file], config=SimpleNamespace()))
 
     assert exc_info.value.status_code == 500
-    provider.acquire.assert_called_once_with("thread-aio", user_id="owner-upload")
+    provider.acquire.assert_not_called()
+    provider.acquire_async.assert_awaited_once_with("thread-aio", user_id="owner-upload")
     provider.get.assert_called_once_with("aio-1")
     sandbox.update_file.assert_not_called()
     assert not (thread_uploads_dir / "report.pdf").exists()
@@ -559,7 +1285,7 @@ def test_upload_files_rejects_preexisting_symlink_destination(tmp_path):
     thread_uploads_dir.mkdir(parents=True)
     outside_file = tmp_path / "outside.txt"
     outside_file.write_text("protected", encoding="utf-8")
-    (thread_uploads_dir / "victim.txt").symlink_to(outside_file)
+    _symlink_to_or_skip(thread_uploads_dir / "victim.txt", outside_file)
 
     provider = MagicMock()
     provider.uses_thread_data_mounts = True
@@ -584,7 +1310,7 @@ def test_upload_files_rejects_dangling_symlink_destination(tmp_path):
     thread_uploads_dir = tmp_path / "uploads"
     thread_uploads_dir.mkdir(parents=True)
     missing_target = tmp_path / "missing-target.txt"
-    (thread_uploads_dir / "victim.txt").symlink_to(missing_target)
+    _symlink_to_or_skip(thread_uploads_dir / "victim.txt", missing_target)
 
     provider = MagicMock()
     provider.uses_thread_data_mounts = True
@@ -653,6 +1379,38 @@ def test_upload_files_overwrites_existing_regular_file(tmp_path):
     assert existing_file.stat().st_nlink == 1
 
 
+def test_upload_files_oversized_replacement_preserves_existing_regular_file(tmp_path):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    existing_file = thread_uploads_dir / "a.txt"
+    existing_file.write_bytes(b"original bytes")
+
+    provider = MagicMock()
+    provider.uses_thread_data_mounts = True
+
+    with (
+        patch.object(uploads, "get_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=provider),
+    ):
+        file = ChunkedUpload("a.txt", [b"tiny", b"x" * 8])
+
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(
+                call_unwrapped(
+                    uploads.upload_files,
+                    "thread-local",
+                    request=MagicMock(),
+                    files=[file],
+                    config=SimpleNamespace(uploads={"max_file_size": 10}),
+                )
+            )
+
+    assert exc_info.value.status_code == 413
+    assert existing_file.read_bytes() == b"original bytes"
+    assert [path.name for path in thread_uploads_dir.iterdir()] == ["a.txt"]
+
+
 def test_delete_uploaded_file_removes_generated_markdown_companion(tmp_path):
     thread_uploads_dir = tmp_path / "uploads"
     thread_uploads_dir.mkdir(parents=True)
@@ -665,6 +1423,24 @@ def test_delete_uploaded_file_removes_generated_markdown_companion(tmp_path):
     assert result == {"success": True, "message": "Deleted report.pdf"}
     assert not (thread_uploads_dir / "report.pdf").exists()
     assert not (thread_uploads_dir / "report.md").exists()
+
+
+def test_delete_uploaded_file_rejects_symlink_to_sibling_upload(tmp_path):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    victim = thread_uploads_dir / "victim.pdf"
+    victim.write_bytes(b"pdf-bytes")
+    (thread_uploads_dir / "victim.md").write_text("converted", encoding="utf-8")
+    _symlink_to_or_skip(thread_uploads_dir / "alias.pdf", victim)
+
+    with patch.object(uploads, "get_uploads_dir", return_value=thread_uploads_dir):
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(call_unwrapped(uploads.delete_uploaded_file, "thread-local", "alias.pdf", request=MagicMock()))
+
+    assert exc_info.value.status_code == 404
+    assert victim.read_bytes() == b"pdf-bytes"
+    assert (thread_uploads_dir / "victim.md").exists()
+    assert (thread_uploads_dir / "alias.pdf").is_symlink()
 
 
 def test_auto_convert_documents_enabled_defaults_to_false_on_config_errors():

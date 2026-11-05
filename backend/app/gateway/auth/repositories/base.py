@@ -100,3 +100,13 @@ class UserRepository(ABC):
             User if found, None otherwise
         """
         raise NotImplementedError
+
+    @abstractmethod
+    async def bind_cnooc_platform_token(self, user_id: str, token_hash: str) -> User:
+        """Atomically bind a validated CNOOC platform-token hash to one user.
+
+        Raises:
+            UserNotFoundError: If the target user no longer exists.
+            ValueError: If the hash is invalid or belongs to another user.
+        """
+        raise NotImplementedError

@@ -1,0 +1,68 @@
+{
+  "hash_normalization": "CRLF to LF, UTF-8",
+  "files": [
+    {
+      "after": "fdafa7f76f6ec335fa4b9786ff30ae9e19cf5a9a0672b3366ea84f8d16650c9c",
+      "path": "frontend/src/components/workspace/messages/markdown-content.tsx",
+      "before": "bd1edc3c6cbab5ee86b6f1708287e155ec750ed5968d223bffa763d81a2dc9fc"
+    },
+    {
+      "after": "973b4332401df5c248a6aa8925378ea7a4d4f9e894323282ae674641af199e0f",
+      "path": "frontend/src/components/workspace/messages/message-group.tsx",
+      "before": "0c6dd7015c83026f1ac91a0aefd68cc19ca0e9f461641804ce9b22263005faf2"
+    },
+    {
+      "after": "a3d4e5fc873bfe97f2f20f15a93c305f07132de2365d7b6ab80f6eeda633100b",
+      "path": "frontend/src/components/workspace/messages/message-list-item.tsx",
+      "before": "eda41f0b646a6d3ef7a2d0139cd8de62ed4feb96d18212f98f51aa7a013beac4"
+    },
+    {
+      "after": "77575adb0f81521d5f300250ea15e3230b4a94378e4af2e0013969ff96206142",
+      "path": "frontend/src/components/workspace/messages/message-list.tsx",
+      "before": "c0d491a7fbb39036f0ca486dfaa49725bc3a8e4c44c380e97e16e278dbb4a0f4"
+    },
+    {
+      "after": "ff39c0d879201f02b1dfdda2a17874a35c4d1d8d422de27ca56d3e110a5924bb",
+      "path": "frontend/src/core/streamdown/streaming-text-buffer.ts",
+      "before": null
+    },
+    {
+      "after": "617cd1977f2cd92ea4899d9dc546e85c51cc6699d95242c2bcaf6026aa5d1a13",
+      "path": "frontend/src/core/streamdown/use-smooth-streaming-text.ts",
+      "before": null
+    },
+    {
+      "after": "9aef8345a5aceb0d312a184aacbc9947eab14114c2a766d29a75a407dbdafc79",
+      "path": "frontend/tests/unit/components/workspace/messages/markdown-content.test.ts",
+      "before": "0c3ed26d6fdb3d4cb9ad4fc1a79060bb50d386e1a8700790fc9211af09f3b67a"
+    },
+    {
+      "after": "5476d4c0ba3d52cba65cd8cf80ee5442d621d51b39c22a01be24836b5ab5d3b3",
+      "path": "frontend/tests/unit/components/workspace/messages/markdown-streaming.test.ts",
+      "before": "7f248c6259413319f115775148e2556f33b374726a2aa0a72a726bffe0f2debd"
+    },
+    {
+      "after": "c17a9a44da30e6428ea6f536f0e40fbd1633e9e0ed47056ed26184d921ed01c1",
+      "path": "frontend/tests/unit/core/streamdown/streaming-text-buffer.test.ts",
+      "before": null
+    },
+    {
+      "after": "19008e54cb535d642b73d4baf2b6acece2c17b357af8a5a640765cdb7cfe37d9",
+      "path": "frontend/tests/unit/core/streamdown/use-smooth-streaming-text.dom.test.tsx",
+      "before": null
+    },
+    {
+      "after": "f52f16324aa671453b9c4b4a32994d2b209d29a3c22f0775ae8aaed4747baf3c",
+      "path": "frontend/AGENTS.md",
+      "before": "0758c55ff9880ace8195a855c4f96c532c7ef8aab97524e9fc689e87850f503d"
+    },
+    {
+      "after": "8eba509ec053a903192ed0facd5319ae7cf97bcb1eb2e7ceeb0112861216b807",
+      "path": "docs/frontend-smooth-streaming-20261003-r2.md",
+      "before": null
+    }
+  ],
+  "base_branch": "fix/upload_test_env",
+  "release": "20261003-r2",
+  "base_commit": "e2510d6c6f9287f314ebdfc87c6691fe5a77aa5c"
+}

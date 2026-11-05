@@ -10,6 +10,8 @@ from __future__ import annotations
 import asyncio
 import sys
 
+import uvicorn
+
 
 def _configure_windows_event_loop_policy() -> None:
     if sys.platform != "win32":
@@ -24,8 +26,6 @@ def _configure_windows_event_loop_policy() -> None:
 
 
 _configure_windows_event_loop_policy()
-
-import uvicorn  # noqa: E402
 
 
 if __name__ == "__main__":

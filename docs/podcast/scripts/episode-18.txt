@@ -1,0 +1,49 @@
+本集标题：Memory、摘要、标题、Goal 与 Token Budget。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：13.1 Memory 的两层含义。
+
+DeerFlow 中的 Memory 可能同时包含：
+
+当前 Thread 内的上下文记忆：messages、summary_text、goal。 - 跨 Thread 的长期记忆：写入 Store 或专用 Memory backend。
+
+长期记忆不是本次用户请求的最高优先级指令。它只能作为背景参考，不能覆盖当前用户明确的操作要求。
+
+下面进入小节：13.2 Memory Middleware。
+
+Memory Middleware 可以在运行后将适合长期保存的信息排入队列，异步做抽取和持久化。这样主对话不必等待完整记忆处理，也避免把昂贵的记忆提取模型调用塞进每一次前台响应的关键路径。
+
+下面进入小节：13.3 摘要。
+
+摘要的目标是减少模型上下文长度，而不是删除历史。它需要考虑：
+
+保留用户最初任务。 - 保留最近消息。 - 保留未完成工具链的必要上下文。 - 不破坏 ToolMessage 和 AIMessage 的配对。 - 不将敏感信息扩散到摘要。
+
+下面进入小节：13.4 Title Middleware。
+
+标题生成通常发生在首次交换或运行完成阶段。它读取 checkpoint 中的标题信息，再更新 Thread display name。标题生成失败不应让主要任务失败，因此常作为非核心副作用处理。
+
+下面进入小节：13.5 Goal。
+
+Goal 是 Thread 级别的活动目标，可通过 /goal 设置、查询和清除。Goal reducer 的语义是：普通状态更新没有触碰 Goal 时，不能把现有目标意外清掉。
+
+/goal <condition> 既会保存目标，也会将条件作为下一次任务提交；/goal clear 和查询不启动新的 Agent Run。
+
+下面进入小节：13.6 Token Usage 与 Token Budget。
+
+Token Usage 是统计能力，Token Budget 是限制能力。
+
+图示口述：这张图展示了模型调用、记录 input/output/total tokens、继续、向上下文注入警告、移除 tool_calls、强制模型输出最终答案之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+Token budget 和 recursion_limit 解决不同问题：前者限制 token 成本，后者限制图步骤和循环深度。
+
+下面进入小节：13.7 Loop Detection。
+
+循环检测关注反复出现的工具调用和相似轨迹。诊断循环时应看完整的 tool-call trace：
+
+是否同一个参数不断重试。 - 工具是否每次都返回相同错误。 - 模型是否看不到工具结果。 - 工具结果是否被 Middleware 清洗为空。 - 子 Agent 是否反复创建。
+
+单纯把递归上限调大通常只是延迟失败。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

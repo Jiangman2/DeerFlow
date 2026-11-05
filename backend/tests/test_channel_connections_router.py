@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -16,6 +17,7 @@ from app.gateway.auth.models import User
 from app.gateway.routers import channel_connections
 from deerflow.config.app_config import AppConfig, reset_app_config, set_app_config
 from deerflow.config.channel_connections_config import ChannelConnectionsConfig
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 
 
 @pytest.fixture(autouse=True)
@@ -252,7 +254,7 @@ def test_get_providers_reports_unconfigured_when_runtime_channel_is_missing(tmp_
     assert by_provider["discord"]["configured"] is False
     assert "Discord credentials" in by_provider["discord"]["unavailable_reason"]
     assert by_provider["feishu"]["configured"] is False
-    assert "Feishu credentials" in by_provider["feishu"]["unavailable_reason"]
+    assert "海能 Work credentials" in by_provider["feishu"]["unavailable_reason"]
     assert by_provider["dingtalk"]["configured"] is False
     assert "DingTalk credentials" in by_provider["dingtalk"]["unavailable_reason"]
     assert by_provider["wechat"]["configured"] is False
@@ -494,7 +496,7 @@ def test_connect_slack_returns_binding_command_and_persists_state(tmp_path):
     assert body["mode"] == "binding_code"
     assert body["url"] is None
     assert len(body["code"]) >= 22
-    assert body["instruction"] == f"Send /connect {body['code']} to the DeerFlow Slack bot."
+    assert body["instruction"] == f"请向{ENTERPRISE_PRODUCT_NAME}的Slack机器人发送 /connect {body['code']}。"
 
     async def count_states():
         return await repo.count_oauth_states(owner_user_id=str(_user().id), provider="slack")
@@ -540,7 +542,7 @@ def test_connect_discord_returns_binding_command_and_persists_state(tmp_path):
     assert body["mode"] == "binding_code"
     assert body["url"] is None
     assert body["code"]
-    assert body["instruction"] == f"Send /connect {body['code']} to the DeerFlow Discord bot."
+    assert body["instruction"] == f"请向{ENTERPRISE_PRODUCT_NAME}的Discord机器人发送 /connect {body['code']}。"
 
     async def count_states():
         return await repo.count_oauth_states(owner_user_id=str(_user().id), provider="discord")
@@ -562,7 +564,7 @@ def test_connect_existing_binding_code_channels_return_command_and_persist_state
 
     for provider, response in responses.items():
         expected_display_name = {
-            "feishu": "Feishu",
+            "feishu": "海能 Work",
             "dingtalk": "DingTalk",
             "wechat": "WeChat",
             "wecom": "WeCom",
@@ -573,7 +575,7 @@ def test_connect_existing_binding_code_channels_return_command_and_persist_state
         assert body["mode"] == "binding_code"
         assert body["url"] is None
         assert len(body["code"]) >= 22
-        assert body["instruction"] == f"Send /connect {body['code']} to the DeerFlow {expected_display_name} bot."
+        assert body["instruction"] == f"请向{ENTERPRISE_PRODUCT_NAME}的{expected_display_name}机器人发送 /connect {body['code']}" + ("" if provider == "feishu" else "。")
 
         async def count_states(provider=provider):
             return await repo.count_oauth_states(owner_user_id=str(_user().id), provider=provider)
@@ -594,6 +596,29 @@ def test_connect_unconfigured_runtime_channel_returns_400(tmp_path):
 
     assert response.status_code == 400
     assert "Slack credentials" in response.json()["detail"]
+
+    anyio.run(repo.close)
+
+
+@pytest.mark.parametrize("provider", ["enabled", "require_bound_identity", "provider_status", "unknown_provider"])
+def test_connect_rejects_non_provider_config_attribute_with_404(tmp_path, provider):
+    import anyio
+
+    # A request-supplied provider name that collides with a real (non-provider)
+    # ChannelConnectionsConfig attribute -- e.g. the "enabled" /
+    # "require_bound_identity" bool fields, or the "provider_status" method --
+    # must resolve to the intended 404. Before the allowlist check, an
+    # unrestricted getattr returned that attribute instead of falling through to
+    # the 404, and the connect handler then dereferenced it as a provider config
+    # (AttributeError -> HTTP 500) for any authenticated user.
+    repo = anyio.run(_make_repo, tmp_path)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post(f"/api/channels/{provider}/connect")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Unknown channel provider"
 
     anyio.run(repo.close)
 
@@ -670,7 +695,7 @@ def test_runtime_config_endpoints_require_admin(tmp_path):
     anyio.run(repo.close)
 
 
-def test_configure_provider_runtime_rolls_back_visible_state_when_start_fails(tmp_path, monkeypatch):
+def test_configure_provider_runtime_retains_committed_state_when_start_fails(tmp_path, monkeypatch):
     import anyio
 
     repo = anyio.run(_make_repo, tmp_path)
@@ -702,18 +727,16 @@ def test_configure_provider_runtime_rolls_back_visible_state_when_start_fails(tm
             json={"values": {"bot_token": "xoxb-new", "app_token": "xapp-new"}},
         )
 
-    assert response.status_code == 400
-    assert "Failed to start Slack channel" in response.json()["detail"]
-    service.configure_channel.assert_awaited_once_with(
-        "slack",
-        {
-            "enabled": True,
-            "bot_token": "xoxb-new",
-            "app_token": "xapp-new",
-        },
-    )
-    assert app.state.channels_config["slack"] == existing_runtime_config
-    assert runtime_config_store.get_provider_config("slack") == existing_runtime_config
+    assert response.status_code == 503
+    assert "configuration saved, but local channel restart failed" in response.json()["detail"]
+    committed = {
+        "enabled": True,
+        "bot_token": "xoxb-new",
+        "app_token": "xapp-new",
+    }
+    service.configure_channel.assert_awaited_once_with("slack", committed)
+    assert app.state.channels_config["slack"] == committed
+    assert runtime_config_store.get_provider_config("slack") == committed
 
     anyio.run(repo.close)
 
@@ -1199,3 +1222,194 @@ def test_disconnect_connection_is_current_user_scoped(tmp_path):
     assert anyio.run(get_connection_status) == "connected"
 
     anyio.run(repo.close)
+
+
+def _export_payload(**overrides):
+    payload = {
+        "thread_id": "thread-1",
+        "filename": "测试对话.md",
+        "content": "# 测试对话\n\nhello\n",
+    }
+    payload.update(overrides)
+    return payload
+
+
+async def _seed_feishu_connection(repo) -> None:
+    await repo.upsert_connection(
+        owner_user_id=str(_user().id),
+        provider="feishu",
+        external_account_id="ou-open-id",
+        workspace_id="oc-p2p-chat",
+        metadata={"chat_id": "oc-p2p-chat"},
+        status="connected",
+    )
+
+
+def _running_feishu_service(*, send_file_result: bool = True, captured: dict | None = None):
+    async def send_file(msg, attachment):
+        if captured is not None:
+            captured["msg"] = msg
+            captured["attachment"] = attachment
+        return send_file_result
+
+    channel = SimpleNamespace(is_running=True, send_file=send_file)
+    return SimpleNamespace(
+        ensure_channel_ready=AsyncMock(return_value=True),
+        get_channel=lambda name: channel if name == "feishu" else None,
+    )
+
+
+def test_export_thread_to_feishu_sends_file_to_bound_chat(tmp_path, monkeypatch):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+
+    captured: dict = {}
+    monkeypatch.setattr(
+        "app.channels.service.get_channel_service",
+        lambda: _running_feishu_service(captured=captured),
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/api/channels/feishu/export-thread", json=_export_payload())
+
+    assert response.status_code == 200
+    assert response.json() == {"sent": True, "filename": "测试对话.md"}
+
+    msg = captured["msg"]
+    attachment = captured["attachment"]
+    assert msg.channel_name == "feishu"
+    assert msg.chat_id == "oc-p2p-chat"
+    assert msg.thread_id == "thread-1"
+    assert msg.owner_user_id == str(_user().id)
+    assert attachment.filename == "测试对话.md"
+    assert attachment.mime_type == "text/markdown"
+    assert attachment.is_image is False
+    assert attachment.size == len("# 测试对话\n\nhello\n".encode())
+    # The temporary export file must be cleaned up after the send.
+    assert not attachment.actual_path.exists()
+
+    anyio.run(repo.close)
+
+
+def test_export_thread_to_feishu_requires_connected_binding(tmp_path):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+
+    with TestClient(app) as client:
+        response = client.post("/api/channels/feishu/export-thread", json=_export_payload())
+
+    assert response.status_code == 400
+    assert "海能 Work" in response.json()["detail"]
+
+    anyio.run(repo.close)
+
+
+def test_export_thread_to_feishu_returns_502_when_send_fails(tmp_path, monkeypatch):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+    monkeypatch.setattr(
+        "app.channels.service.get_channel_service",
+        lambda: _running_feishu_service(send_file_result=False),
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/api/channels/feishu/export-thread", json=_export_payload())
+
+    assert response.status_code == 502
+
+    anyio.run(repo.close)
+
+
+def test_export_thread_to_feishu_returns_503_when_channel_not_running(tmp_path, monkeypatch):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+    service = SimpleNamespace(
+        ensure_channel_ready=AsyncMock(return_value=True),
+        get_channel=lambda name: None,
+    )
+    monkeypatch.setattr("app.channels.service.get_channel_service", lambda: service)
+
+    with TestClient(app) as client:
+        response = client.post("/api/channels/feishu/export-thread", json=_export_payload())
+
+    assert response.status_code == 503
+
+    anyio.run(repo.close)
+
+
+def test_export_thread_to_feishu_rejects_oversized_content(tmp_path, monkeypatch):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+    monkeypatch.setattr(channel_connections, "_EXPORT_CONTENT_MAX_BYTES", 8)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/channels/feishu/export-thread",
+            json=_export_payload(content="x" * 16),
+        )
+
+    assert response.status_code == 413
+
+    anyio.run(repo.close)
+
+
+def test_export_binding_picker_prefers_live_binding_over_newer_revoked():
+    """Revoking bumps ``updated_at``, so ranking by recency alone picks a dead binding."""
+    connections = [
+        {
+            "provider": "feishu",
+            "status": "connected",
+            "workspace_id": "oc-live",
+            "updated_at": datetime(2026, 1, 1, tzinfo=UTC),
+        },
+        {
+            "provider": "feishu",
+            "status": "revoked",
+            "workspace_id": "oc-dead",
+            "updated_at": datetime(2026, 6, 1, tzinfo=UTC),
+        },
+        {
+            "provider": "telegram",
+            "status": "connected",
+            "updated_at": datetime(2026, 7, 1, tzinfo=UTC),
+        },
+    ]
+
+    picked = channel_connections._newest_connected_connection(connections, "feishu")
+    assert picked is not None and picked["workspace_id"] == "oc-live"
+    # The recency-only helper would have picked the revoked row instead.
+    assert channel_connections._newest_connection_by_provider(connections)["feishu"]["workspace_id"] == "oc-dead"
+    assert channel_connections._newest_connected_connection(connections, "slack") is None
+
+
+def test_export_binding_picker_takes_newest_among_multiple_live_bindings():
+    connections = [
+        {
+            "provider": "feishu",
+            "status": "connected",
+            "workspace_id": "oc-old",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        },
+        {
+            "provider": "feishu",
+            "status": "connected",
+            "workspace_id": "oc-new",
+            "updated_at": "2026-09-01T00:00:00Z",
+        },
+    ]
+
+    picked = channel_connections._newest_connected_connection(connections, "feishu")
+    assert picked is not None and picked["workspace_id"] == "oc-new"

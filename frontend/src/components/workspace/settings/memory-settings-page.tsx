@@ -389,7 +389,7 @@ export function MemorySettingsPage() {
     try {
       setIsExporting(true);
       const exportedMemory = await exportMemory();
-      const fileName = `deerflow-memory-${(exportedMemory.lastUpdated || new Date().toISOString()).replace(/[:.]/g, "-")}.json`;
+      const fileName = `platform-memory-${(exportedMemory.lastUpdated || new Date().toISOString()).replace(/[:.]/g, "-")}.json`;
       const blob = new Blob([JSON.stringify(exportedMemory, null, 2)], {
         type: "application/json",
       });
@@ -533,10 +533,10 @@ export function MemorySettingsPage() {
 
   return (
     <>
-      <SettingsSection
-        title={t.settings.memory.title}
-        description={t.settings.memory.description}
-      >
+      <SettingsSection title={t.settings.memory.title}>
+        <div className="text-muted-foreground mb-4 rounded-lg border border-dashed px-4 py-3 text-sm leading-6">
+          {t.settings.memory.updateBehaviorHint}
+        </div>
         {isLoading ? (
           <div className="text-muted-foreground text-sm">
             {t.common.loading}
@@ -750,7 +750,7 @@ export function MemorySettingsPage() {
       </SettingsSection>
 
       <Dialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-        <DialogContent>
+        <DialogContent className="cnooc-detail-dialog cnooc-memory-dialog">
           <DialogHeader>
             <DialogTitle>{clearAllConfirmTitle}</DialogTitle>
             <DialogDescription>{clearAllConfirmDescription}</DialogDescription>
@@ -784,7 +784,10 @@ export function MemorySettingsPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent
+          className="cnooc-detail-dialog cnooc-memory-dialog"
+          aria-describedby={undefined}
+        >
           <DialogHeader>
             <DialogTitle>
               {factToEdit ? editFactTitle : addFactTitle}
@@ -894,7 +897,7 @@ export function MemorySettingsPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="cnooc-detail-dialog cnooc-memory-dialog">
           <DialogHeader>
             <DialogTitle>{factDeleteConfirmTitle}</DialogTitle>
             <DialogDescription>
@@ -938,7 +941,7 @@ export function MemorySettingsPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="cnooc-detail-dialog cnooc-memory-dialog">
           <DialogHeader>
             <DialogTitle>{t.settings.memory.importConfirmTitle}</DialogTitle>
             <DialogDescription>

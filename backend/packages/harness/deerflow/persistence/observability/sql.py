@@ -9,23 +9,31 @@ from __future__ import annotations
 import json
 import time
 from collections import Counter, deque
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
-from sqlalchemy import desc, func, or_, select, text
+from sqlalchemy import delete, desc, func, or_, select, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from deerflow.persistence.models.run_event import RunEventRow
-from deerflow.persistence.observability.model import AuditLogRow, OperationDispositionRow
+from deerflow.persistence.observability.model import AuditLogRow, ChannelDigestDedupRow, OperationDispositionRow
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.thread_meta.model import ThreadMetaRow
 from deerflow.persistence.user.model import UserRow
 from deerflow.utils.time import coerce_iso
 
 _MEMORY_AUDIT_LOGS: deque[dict[str, Any]] = deque(maxlen=1000)
+# In-memory stand-in for the channel_digest_dedup table when no DB is configured
+# (unit tests). Mirrors the unique (channel_name, window_bucket) claim guard.
+_MEMORY_DIGEST_CLAIMS: set[tuple[str, str]] = set()
 _TERMINAL_ERROR_STATUSES = {"error", "timeout", "interrupted"}
+_TERMINAL_STATUSES = {"success", *_TERMINAL_ERROR_STATUSES}
 _ACTIVE_STATUSES = {"pending", "running"}
+_BUSINESS_TIMEZONE = ZoneInfo("Asia/Shanghai")
 _MANAGEMENT_ACTIONS = {
     "announcement.create",
     "announcement.update",
@@ -48,9 +56,6 @@ _MANAGEMENT_ACTIONS = {
     "mcp.put",
     "mcp.patch",
     "mcp.delete",
-    "site_navigation.create",
-    "site_navigation.update",
-    "site_navigation.delete",
     "user.post",
     "user.put",
     "user.patch",
@@ -63,7 +68,6 @@ _MANAGEMENT_RESOURCES = {
     "config",
     "knowledge",
     "mcp",
-    "site_navigation",
     "skill",
     "user",
     "users",
@@ -148,11 +152,23 @@ def _is_management_action(data: dict[str, Any]) -> bool:
     return False
 
 
+def _operation_type(data: dict[str, Any]) -> str:
+    """Classify one audit row for the admin filters.
+
+    IM channel activity gets its own bucket (``channel``) so operators can look at
+    bot usage without the HTTP noise; everything else stays ``management`` vs
+    ``api`` as before.
+    """
+    if data.get("resource_type") == "channel":
+        return "channel"
+    return "management" if _is_management_action(data) else "api"
+
+
 def _row_dict(row: AuditLogRow) -> dict[str, Any]:
     data = row.to_dict()
     data["created_at"] = _iso(data.get("created_at"))
     data["details"] = data.pop("details_json", {}) or {}
-    data["operation_type"] = "management" if _is_management_action(data) else "api"
+    data["operation_type"] = _operation_type(data)
     data["is_management"] = data["operation_type"] == "management"
     return data
 
@@ -236,20 +252,25 @@ def _caller(metadata: dict[str, Any]) -> str | None:
     return str(value) if value is not None else None
 
 
-def _extract_tool_calls(events: list[RunEventRow]) -> list[dict[str, Any]]:
+def _extract_tool_calls(events: list[RunEventRow], *, limit: int | None = None) -> list[dict[str, Any]]:
     calls: list[dict[str, Any]] = []
     pending: dict[str, dict[str, Any]] = {}
     for event in events:
         payload = _json_content(event) or {}
         if event.event_type == "llm.ai.response":
-            for tool_call in payload.get("tool_calls") or []:
+            tool_list = payload.get("tool_calls")
+            for tool_call in tool_list if isinstance(tool_list, list) else []:
+                if limit is not None and len(calls) >= limit:
+                    break
                 if not isinstance(tool_call, dict):
                     continue
+                function = tool_call.get("function")
+                function = function if isinstance(function, dict) else {}
                 call_id = str(tool_call.get("id") or f"seq-{event.seq}")
                 entry = {
                     "id": call_id,
-                    "name": tool_call.get("name") or tool_call.get("function", {}).get("name"),
-                    "args": tool_call.get("args") or tool_call.get("function", {}).get("arguments"),
+                    "name": str(tool_call.get("name") or function.get("name") or "")[:128],
+                    "args": tool_call.get("args") or function.get("arguments"),
                     "status": "pending",
                     "started_at": _iso(event.created_at),
                     "finished_at": None,
@@ -263,6 +284,8 @@ def _extract_tool_calls(events: list[RunEventRow]) -> list[dict[str, Any]]:
             call_id = str(payload.get("tool_call_id") or f"seq-{event.seq}")
             entry = pending.get(call_id)
             if entry is None:
+                if limit is not None and len(calls) >= limit:
+                    continue
                 entry = {
                     "id": call_id,
                     "name": payload.get("name"),
@@ -275,9 +298,9 @@ def _extract_tool_calls(events: list[RunEventRow]) -> list[dict[str, Any]]:
                     "error": None,
                 }
                 calls.append(entry)
-            status = payload.get("status") or ("error" if payload.get("is_error") else "success")
+            status = str(payload.get("status") or ("error" if payload.get("is_error") else "success"))[:128]
             entry["status"] = status
-            entry["name"] = entry.get("name") or payload.get("name")
+            entry["name"] = str(entry.get("name") or payload.get("name") or "")[:128]
             entry["finished_at"] = _iso(event.created_at)
             content = payload.get("content")
             entry["result_preview"] = str(content or "")[:500]
@@ -309,15 +332,40 @@ def _tool_duration_ms(events: list[RunEventRow]) -> int:
 def _bucket_key(value: datetime | None, bucket: str) -> str:
     if value is None:
         return "unknown"
+    value = (_coerce_aware(value) or value).astimezone(_BUSINESS_TIMEZONE)
     if bucket == "day":
         return value.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
     return value.replace(minute=0, second=0, microsecond=0).isoformat()
+
+
+def _audit_bucket_key(value: Any, minutes: int) -> str:
+    """Floor an audit timestamp into a fixed-width window in business time.
+
+    Audit rows are already serialized by ``_row_dict`` (ISO strings), so this
+    parses defensively rather than assuming a ``datetime`` like
+    :func:`_bucket_key` does.
+    """
+    if isinstance(value, datetime):
+        moment: datetime | None = value
+    elif isinstance(value, str) and value:
+        try:
+            moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return "unknown"
+    else:
+        return "unknown"
+    moment = (_coerce_aware(moment) or moment).astimezone(_BUSINESS_TIMEZONE)
+    width = max(1, min(int(minutes), 1440))
+    floored = ((moment.hour * 60 + moment.minute) // width) * width
+    hour, minute = divmod(floored, 60)
+    return moment.replace(hour=hour, minute=minute, second=0, microsecond=0).isoformat()
 
 
 def _empty_metric_bucket(period_start: str) -> dict[str, Any]:
     return {
         "period_start": period_start,
         "runs": 0,
+        "terminal_runs": 0,
         "error_runs": 0,
         "error_rate": 0,
         "tokens": 0,
@@ -333,13 +381,14 @@ def _empty_metric_bucket(period_start: str) -> dict[str, Any]:
 
 def _summarize_runs(rows: list[RunRow]) -> dict[str, Any]:
     runs = len(rows)
+    terminal_rows = [row for row in rows if row.status in _TERMINAL_STATUSES]
     error_runs = sum(1 for row in rows if row.status in _TERMINAL_ERROR_STATUSES)
-    durations = [_duration_ms(row.created_at, row.updated_at) for row in rows]
+    durations = [_duration_ms(row.created_at, row.updated_at) for row in terminal_rows]
     durations = [value for value in durations if value]
     return {
         "runs": runs,
         "error_runs": error_runs,
-        "error_rate": round(error_runs / runs, 4) if runs else 0,
+        "error_rate": round(error_runs / len(terminal_rows), 4) if terminal_rows else 0,
         "tokens": sum(row.total_tokens or 0 for row in rows),
         "input_tokens": sum(row.total_input_tokens or 0 for row in rows),
         "output_tokens": sum(row.total_output_tokens or 0 for row in rows),
@@ -390,7 +439,7 @@ def _classify_error(row: RunRow, events: list[RunEventRow]) -> str:
         return "file_missing"
     if "config" in text_blob or "environment variable" in text_blob or "api key" in text_blob or "missing key" in text_blob:
         return "config"
-    if any(event.event_type == "llm.tool.result" and "\"status\": \"error\"" in (event.content or "") for event in events):
+    if any(event.event_type == "llm.tool.result" and '"status": "error"' in (event.content or "") for event in events):
         return "tool_failure"
     if "tool" in text_blob and ("error" in text_blob or "failed" in text_blob):
         return "tool_failure"
@@ -459,6 +508,77 @@ class ObservabilityRepository:
             session.add(AuditLogRow(**payload))
             await session.commit()
 
+    async def claim_digest_window(self, *, channel_name: str, window_bucket: str) -> bool:
+        """Atomically claim the right to send one digest window.
+
+        Returns ``True`` only for the first replica that inserts the
+        ``(channel_name, window_bucket)`` row; every other replica hits the
+        primary-key conflict and gets ``False``. This is what keeps N Gateway
+        Pods, each running its own digest loop, from pushing the same summary
+        N times. Portable across SQLite and PostgreSQL via the unique constraint
+        (no dialect-specific upsert).
+        """
+        if self._sf is None:
+            key = (channel_name, window_bucket)
+            if key in _MEMORY_DIGEST_CLAIMS:
+                return False
+            _MEMORY_DIGEST_CLAIMS.add(key)
+            return True
+        row = ChannelDigestDedupRow(
+            channel_name=channel_name,
+            window_bucket=window_bucket,
+            claimed_at=datetime.now(UTC),
+        )
+        async with self._sf() as session:
+            session.add(row)
+            try:
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+                return False
+        return True
+
+    async def finalize_digest_window(
+        self,
+        *,
+        channel_name: str,
+        window_bucket: str,
+        chat_id: str | None,
+        events: int,
+    ) -> None:
+        """Record what a claimed digest actually delivered (best effort)."""
+        if self._sf is None:
+            return
+        stmt = (
+            update(ChannelDigestDedupRow)
+            .where(
+                ChannelDigestDedupRow.channel_name == channel_name,
+                ChannelDigestDedupRow.window_bucket == window_bucket,
+            )
+            .values(chat_id=chat_id, events=events)
+        )
+        async with self._sf() as session:
+            await session.execute(stmt)
+            await session.commit()
+
+    async def release_digest_window(self, *, channel_name: str, window_bucket: str) -> None:
+        """Drop a claim so a later tick (or another replica) can retry.
+
+        Called when rendering/sending a claimed digest failed: without this the
+        window would stay claimed and the digest would be silently skipped until
+        the next bucket rolls around.
+        """
+        if self._sf is None:
+            _MEMORY_DIGEST_CLAIMS.discard((channel_name, window_bucket))
+            return
+        stmt = delete(ChannelDigestDedupRow).where(
+            ChannelDigestDedupRow.channel_name == channel_name,
+            ChannelDigestDedupRow.window_bucket == window_bucket,
+        )
+        async with self._sf() as session:
+            await session.execute(stmt)
+            await session.commit()
+
     async def record_disposition(self, event: dict[str, Any]) -> dict[str, Any]:
         payload = dict(event)
         payload.setdefault("created_at", datetime.now(UTC))
@@ -482,13 +602,7 @@ class ObservabilityRepository:
         if self._sf is None:
             return []
         async with self._sf() as session:
-            rows = (
-                await session.execute(
-                    select(OperationDispositionRow)
-                    .where(OperationDispositionRow.run_id == run_id)
-                    .order_by(desc(OperationDispositionRow.created_at))
-                )
-            ).scalars().all()
+            rows = (await session.execute(select(OperationDispositionRow).where(OperationDispositionRow.run_id == run_id).order_by(desc(OperationDispositionRow.created_at)))).scalars().all()
         return [_disposition_dict(row) for row in rows]
 
     async def latest_disposition_status(self, run_id: str) -> str | None:
@@ -509,18 +623,22 @@ class ObservabilityRepository:
         result: str | None = None,
         operation_type: str | None = None,
         q: str | None = None,
+        actions: Sequence[str] | None = None,
+        resource_type: str | None = None,
     ) -> list[dict[str, Any]]:
         bounded_limit = min(max(limit, 1), 500)
+        action_values = [a for a in (actions or []) if a]
         if self._sf is None:
             rows = list(_MEMORY_AUDIT_LOGS)
             if user_id:
                 rows = [row for row in rows if row.get("user_id") == user_id]
             if result:
                 rows = [row for row in rows if row.get("result") == result]
-            rows = [
-                {**row, "operation_type": "management" if _is_management_action(row) else "api"}
-                for row in rows
-            ]
+            if action_values:
+                rows = [row for row in rows if row.get("action") in action_values]
+            if resource_type:
+                rows = [row for row in rows if row.get("resource_type") == resource_type]
+            rows = [{**row, "operation_type": _operation_type(row)} for row in rows]
             if operation_type and operation_type != "all":
                 rows = [row for row in rows if row.get("operation_type") == operation_type]
             if q:
@@ -536,6 +654,10 @@ class ObservabilityRepository:
             stmt = stmt.where(AuditLogRow.user_id == user_id)
         if result:
             stmt = stmt.where(AuditLogRow.result == result)
+        if action_values:
+            stmt = stmt.where(AuditLogRow.action.in_(action_values))
+        if resource_type:
+            stmt = stmt.where(AuditLogRow.resource_type == resource_type)
         if q:
             pattern = f"%{q}%"
             stmt = stmt.where(
@@ -557,6 +679,162 @@ class ObservabilityRepository:
             rows = [row for row in rows if row.get("operation_type") == operation_type]
         return rows[:bounded_limit]
 
+    async def audit_summary(
+        self,
+        *,
+        hours: int | None = 24,
+        start_at: datetime | None = None,
+        end_at: datetime | None = None,
+        user_id: str | None = None,
+        result: str | None = None,
+        q: str | None = None,
+        actions: Sequence[str] | None = None,
+        resource_type: str | None = None,
+        limit: int = 5000,
+        error_samples: int = 20,
+        bucket_minutes: int = 60,
+    ) -> dict[str, Any]:
+        """Aggregate audit rows into a digest suitable for reporting or model input.
+
+        Returns counts grouped by action / user / channel / result, an hourly
+        timeline, and a bounded sample of the failures. Deliberately aggregates in
+        Python: the same method has to run on SQLite and PostgreSQL, and portable
+        date bucketing is not worth a dialect branch here.
+        """
+        bounded_limit = min(max(limit, 1), 20000)
+        bounded_bucket = max(1, min(int(bucket_minutes), 1440))
+        action_values = [a for a in (actions or []) if a]
+        since, until, window_hours = _window_bounds(hours=hours, start_at=start_at, end_at=end_at)
+        emails: dict[str, str] = {}
+
+        if self._sf is None:
+            rows = list(_MEMORY_AUDIT_LOGS)
+            if user_id:
+                rows = [row for row in rows if row.get("user_id") == user_id]
+            if result:
+                rows = [row for row in rows if row.get("result") == result]
+            if action_values:
+                rows = [row for row in rows if row.get("action") in action_values]
+            if resource_type:
+                rows = [row for row in rows if row.get("resource_type") == resource_type]
+            rows = [dict(row) for row in rows][:bounded_limit]
+        else:
+            stmt = select(AuditLogRow).where(AuditLogRow.created_at >= since, AuditLogRow.created_at <= until)
+            if user_id:
+                stmt = stmt.where(AuditLogRow.user_id == user_id)
+            if result:
+                stmt = stmt.where(AuditLogRow.result == result)
+            if action_values:
+                stmt = stmt.where(AuditLogRow.action.in_(action_values))
+            if resource_type:
+                stmt = stmt.where(AuditLogRow.resource_type == resource_type)
+            if q:
+                pattern = f"%{q}%"
+                stmt = stmt.where(
+                    or_(
+                        AuditLogRow.user_email.ilike(pattern),
+                        AuditLogRow.user_id.ilike(pattern),
+                        AuditLogRow.action.ilike(pattern),
+                        AuditLogRow.resource_id.ilike(pattern),
+                        AuditLogRow.path.ilike(pattern),
+                        AuditLogRow.error.ilike(pattern),
+                    )
+                )
+            stmt = stmt.order_by(desc(AuditLogRow.created_at)).limit(bounded_limit)
+            async with self._sf() as session:
+                raw = (await session.execute(stmt)).scalars().all()
+                rows = [_row_dict(row) for row in raw]
+                ids = {str(row.get("user_id")) for row in rows if row.get("user_id")}
+                if ids:
+                    user_rows = await session.execute(select(UserRow.id, UserRow.email).where(UserRow.id.in_(ids)))
+                    emails = {str(uid): email for uid, email in user_rows.all() if email}
+
+        by_action: dict[str, dict[str, Any]] = {}
+        by_user: dict[str, dict[str, Any]] = {}
+        by_channel: dict[str, dict[str, Any]] = {}
+        by_result: Counter[str] = Counter()
+        timeline: dict[str, dict[str, Any]] = {}
+        failures: list[dict[str, Any]] = []
+
+        for row in rows:
+            action = str(row.get("action") or "unknown")
+            outcome = str(row.get("result") or "success")
+            failed = outcome != "success"
+            details = row.get("details") or {}
+            channel = str(details.get("channel") or row.get("resource_type") or "unknown")
+            uid = row.get("user_id")
+            email = row.get("user_email") or (emails.get(str(uid)) if self._sf is not None and uid else None)
+
+            slot = by_action.setdefault(action, {"action": action, "count": 0, "failure": 0})
+            slot["count"] += 1
+            if failed:
+                slot["failure"] += 1
+
+            user_key = str(uid or email or details.get("platform_user_id") or "unknown")
+            user_slot = by_user.setdefault(user_key, {"user_id": uid, "user_email": email, "count": 0, "failure": 0, "last_at": ""})
+            user_slot["count"] += 1
+            if failed:
+                user_slot["failure"] += 1
+            created = str(row.get("created_at") or "")
+            if created > str(user_slot["last_at"]):
+                user_slot["last_at"] = created
+                user_slot["user_email"] = user_slot["user_email"] or email
+
+            chan = by_channel.setdefault(channel, {"channel": channel, "count": 0, "failure": 0})
+            chan["count"] += 1
+            if failed:
+                chan["failure"] += 1
+
+            by_result[outcome] += 1
+
+            bucket = _audit_bucket_key(created, bounded_bucket)
+            bucket_slot = timeline.setdefault(bucket, {"bucket": bucket, "count": 0, "failure": 0})
+            bucket_slot["count"] += 1
+            if failed:
+                bucket_slot["failure"] += 1
+
+            if failed and len(failures) < max(0, error_samples):
+                failures.append(
+                    {
+                        "created_at": created,
+                        "action": action,
+                        "channel": channel,
+                        "user_id": uid,
+                        "user_email": email,
+                        "platform_user_id": details.get("platform_user_id"),
+                        "chat_id": details.get("chat_id"),
+                        "thread_id": details.get("thread_id") or row.get("resource_id"),
+                        "run_id": details.get("run_id"),
+                        "reason": details.get("reason"),
+                        "error": row.get("error"),
+                        "text_preview": details.get("text_preview"),
+                    }
+                )
+
+        created_values = [str(row.get("created_at") or "") for row in rows if row.get("created_at")]
+        return {
+            "window": {
+                "start_at": _iso(since),
+                "end_at": _iso(until),
+                "hours": window_hours,
+                "bucket_minutes": bounded_bucket,
+            },
+            "totals": {
+                "events": len(rows),
+                "success": len(rows) - sum(1 for row in rows if str(row.get("result") or "success") != "success"),
+                "failure": sum(1 for row in rows if str(row.get("result") or "success") != "success"),
+                "truncated": len(rows) >= bounded_limit,
+            },
+            "by_action": sorted(by_action.values(), key=lambda item: (-item["count"], item["action"])),
+            "by_user": sorted(by_user.values(), key=lambda item: (-item["count"], str(item["user_id"]))),
+            "by_channel": sorted(by_channel.values(), key=lambda item: (-item["count"], item["channel"])),
+            "by_result": [{"result": key, "count": value} for key, value in by_result.most_common()],
+            "timeline": [timeline[key] for key in sorted(timeline)],
+            "errors": failures,
+            "first_at": min(created_values) if created_values else "",
+            "last_at": max(created_values) if created_values else "",
+        }
+
     async def list_traces(
         self,
         *,
@@ -577,12 +855,7 @@ class ObservabilityRepository:
             return []
         bounded_limit = min(max(limit, 1), 500)
         since, until, _window_hours = _window_bounds(hours=hours, start_at=start_at, end_at=end_at)
-        stmt = (
-            select(RunRow)
-            .where(RunRow.created_at >= since, RunRow.created_at <= until)
-            .order_by(desc(RunRow.created_at))
-            .limit(1000)
-        )
+        stmt = select(RunRow).where(RunRow.created_at >= since, RunRow.created_at <= until).order_by(desc(RunRow.created_at)).limit(1000)
         if user_id:
             stmt = stmt.where(RunRow.user_id == user_id)
         if status and status != "all":
@@ -612,18 +885,10 @@ class ObservabilityRepository:
             rows = (await session.execute(stmt)).scalars().all()
             user_rows = await session.execute(select(UserRow.id, UserRow.email))
             user_email = {uid: email for uid, email in user_rows.all()}
-            event_counts_rows = await session.execute(
-                select(RunEventRow.run_id, func.count())
-                .where(RunEventRow.run_id.in_([row.run_id for row in rows] or [""]))
-                .group_by(RunEventRow.run_id)
-            )
+            event_counts_rows = await session.execute(select(RunEventRow.run_id, func.count()).where(RunEventRow.run_id.in_([row.run_id for row in rows] or [""])).group_by(RunEventRow.run_id))
             event_counts = {rid: count for rid, count in event_counts_rows.all()}
             if error_type and error_type != "all":
-                event_rows = (
-                    await session.execute(
-                        select(RunEventRow).where(RunEventRow.run_id.in_([row.run_id for row in rows] or [""]))
-                    )
-                ).scalars().all()
+                event_rows = (await session.execute(select(RunEventRow).where(RunEventRow.run_id.in_([row.run_id for row in rows] or [""])))).scalars().all()
                 events_by_run: dict[str, list[RunEventRow]] = {}
                 for event in event_rows:
                     events_by_run.setdefault(event.run_id, []).append(event)
@@ -632,11 +897,7 @@ class ObservabilityRepository:
         summaries = [_run_summary(row, user_email, event_counts) for row in rows]
         if q:
             needle = q.lower()
-            summaries = [
-                item
-                for item in summaries
-                if needle in json.dumps(item, ensure_ascii=False).lower()
-            ]
+            summaries = [item for item in summaries if needle in json.dumps(item, ensure_ascii=False).lower()]
         return summaries[:bounded_limit]
 
     async def analytics(
@@ -671,51 +932,27 @@ class ObservabilityRepository:
         bounded_limit = min(max(limit, 1), 100)
         now = datetime.now(UTC)
         async with self._sf() as session:
-            rows = (
-                await session.execute(
-                    select(RunRow)
-                    .where(RunRow.created_at >= previous_since, RunRow.created_at <= current_until)
-                    .order_by(desc(RunRow.created_at))
-                    .limit(5000)
-                )
-            ).scalars().all()
+            rows = (await session.execute(select(RunRow).where(RunRow.created_at >= previous_since, RunRow.created_at <= current_until).order_by(desc(RunRow.created_at)))).scalars().all()
             user_rows = await session.execute(select(UserRow.id, UserRow.email))
             user_email = {uid: email for uid, email in user_rows.all()}
-            current_run_ids = [
-                row.run_id
-                for row in rows
-                if _aware(row.created_at) and current_since <= _aware(row.created_at) <= current_until
-            ]
-            event_rows = (
-                await session.execute(select(RunEventRow).where(RunEventRow.run_id.in_(current_run_ids or [""])))
-            ).scalars().all()
+            current_run_ids = [row.run_id for row in rows if _aware(row.created_at) and current_since <= _aware(row.created_at) <= current_until]
+            event_rows = (await session.execute(select(RunEventRow).where(RunEventRow.run_id.in_(current_run_ids or [""])))).scalars().all()
 
         events_by_run: dict[str, list[RunEventRow]] = {}
         for event in event_rows:
             events_by_run.setdefault(event.run_id, []).append(event)
-        tool_duration_by_run = {
-            run_id: _tool_duration_ms(events)
-            for run_id, events in events_by_run.items()
-        }
+        tool_duration_by_run = {run_id: _tool_duration_ms(events) for run_id, events in events_by_run.items()}
         event_counts = {run_id: len(events) for run_id, events in events_by_run.items()}
 
-        current_rows = [
-            row
-            for row in rows
-            if _aware(row.created_at) and current_since <= _aware(row.created_at) <= current_until
-        ]
-        previous_rows = [
-            row
-            for row in rows
-            if _aware(row.created_at)
-            and previous_since <= _aware(row.created_at) < current_since
-        ]
+        current_rows = [row for row in rows if _aware(row.created_at) and current_since <= _aware(row.created_at) <= current_until]
+        previous_rows = [row for row in rows if _aware(row.created_at) and previous_since <= _aware(row.created_at) < current_since]
         trend_map: dict[str, dict[str, Any]] = {}
         trend_durations: dict[str, list[int]] = {}
         for row in current_rows:
             key = _bucket_key(row.created_at, bucket)
             item = trend_map.setdefault(key, _empty_metric_bucket(key))
             item["runs"] += 1
+            item["terminal_runs"] += 1 if row.status in _TERMINAL_STATUSES else 0
             item["error_runs"] += 1 if row.status in _TERMINAL_ERROR_STATUSES else 0
             item["tokens"] += row.total_tokens or 0
             item["input_tokens"] += row.total_input_tokens or 0
@@ -724,13 +961,13 @@ class ObservabilityRepository:
             item["subagent_tokens"] += row.subagent_tokens or 0
             item["middleware_tokens"] += row.middleware_tokens or 0
             item["tool_duration_ms"] += tool_duration_by_run.get(row.run_id, 0)
-            duration = _duration_ms(row.created_at, row.updated_at)
+            duration = _duration_ms(row.created_at, row.updated_at) if row.status in _TERMINAL_STATUSES else 0
             if duration:
                 trend_durations.setdefault(key, []).append(duration)
         for key, item in trend_map.items():
             durations = trend_durations.get(key, [])
             item["avg_duration_ms"] = int(sum(durations) / len(durations)) if durations else 0
-            item["error_rate"] = round(item["error_runs"] / item["runs"], 4) if item["runs"] else 0
+            item["error_rate"] = round(item["error_runs"] / item["terminal_runs"], 4) if item["terminal_runs"] else 0
 
         def breakdown(key_fn) -> list[dict[str, Any]]:  # type: ignore[no-untyped-def]
             groups: dict[str, dict[str, Any]] = {}
@@ -743,6 +980,7 @@ class ObservabilityRepository:
                         "key": key,
                         "email": user_email.get(key) if key == row.user_id else None,
                         "runs": 0,
+                        "terminal_runs": 0,
                         "error_runs": 0,
                         "tokens": 0,
                         "input_tokens": 0,
@@ -755,6 +993,7 @@ class ObservabilityRepository:
                     },
                 )
                 item["runs"] += 1
+                item["terminal_runs"] += 1 if row.status in _TERMINAL_STATUSES else 0
                 item["error_runs"] += 1 if row.status in _TERMINAL_ERROR_STATUSES else 0
                 item["tokens"] += row.total_tokens or 0
                 item["input_tokens"] += row.total_input_tokens or 0
@@ -763,16 +1002,16 @@ class ObservabilityRepository:
                 item["subagent_tokens"] += row.subagent_tokens or 0
                 item["middleware_tokens"] += row.middleware_tokens or 0
                 item["tool_duration_ms"] += tool_duration_by_run.get(row.run_id, 0)
-                duration = _duration_ms(row.created_at, row.updated_at)
+                duration = _duration_ms(row.created_at, row.updated_at) if row.status in _TERMINAL_STATUSES else 0
                 if duration:
                     durations.setdefault(key, []).append(duration)
             for key, item in groups.items():
                 values = durations.get(key, [])
                 item["avg_duration_ms"] = int(sum(values) / len(values)) if values else 0
-                item["error_rate"] = round(item["error_runs"] / item["runs"], 4) if item["runs"] else 0
+                item["error_rate"] = round(item["error_runs"] / item["terminal_runs"], 4) if item["terminal_runs"] else 0
             return sorted(groups.values(), key=lambda item: (item["tokens"], item["runs"]), reverse=True)[:bounded_limit]
 
-        summaries = [_run_summary(row, user_email, event_counts) for row in current_rows]
+        summaries = [_run_summary(row, user_email, event_counts) for row in current_rows if row.status in _TERMINAL_STATUSES]
         for item in summaries:
             item["tool_duration_ms"] = tool_duration_by_run.get(item["run_id"], 0)
         return {
@@ -829,20 +1068,8 @@ class ObservabilityRepository:
         bounded_limit = min(max(limit, 1), 500)
         bucket = "day" if window_hours > 72 else "hour"
         async with self._sf() as session:
-            rows = (
-                await session.execute(
-                    select(RunRow)
-                    .where(RunRow.created_at >= since, RunRow.created_at <= until)
-                    .order_by(desc(RunRow.created_at))
-                    .limit(20_000)
-                )
-            ).scalars().all()
-            users_total = (
-                await session.scalar(
-                    select(func.count()).select_from(UserRow).where(UserRow.is_disabled.is_(False))
-                )
-                or 0
-            )
+            rows = (await session.execute(select(RunRow).where(RunRow.created_at >= since, RunRow.created_at <= until).order_by(desc(RunRow.created_at)).limit(20_000))).scalars().all()
+            users_total = await session.scalar(select(func.count()).select_from(UserRow).where(UserRow.is_disabled.is_(False))) or 0
             user_rows = await session.execute(select(UserRow.id, UserRow.email, UserRow.is_disabled))
             user_email = {uid: email for uid, email, _disabled in user_rows.all()}
             audit_rows = (
@@ -917,7 +1144,7 @@ class ObservabilityRepository:
             item["llm_calls"] += row.llm_call_count or 0
             if row.thread_id:
                 thread_ids.setdefault(user_id, set()).add(row.thread_id)
-            duration = _duration_ms(row.created_at, row.updated_at)
+            duration = _duration_ms(row.created_at, row.updated_at) if row.status in _TERMINAL_STATUSES else 0
             if duration:
                 durations.setdefault(user_id, []).append(duration)
             if row.assistant_id:
@@ -1053,17 +1280,10 @@ class ObservabilityRepository:
             threads_total = await session.scalar(select(func.count()).select_from(ThreadMetaRow)) or 0
             runs_total = await session.scalar(select(func.count()).select_from(RunRow)) or 0
 
-            window_rows = (
-                await session.execute(
-                    select(RunRow)
-                    .where(RunRow.created_at >= since, RunRow.created_at <= until)
-                    .order_by(desc(RunRow.created_at))
-                    .limit(1000)
-                )
-            ).scalars().all()
+            window_rows = (await session.execute(select(RunRow).where(RunRow.created_at >= since, RunRow.created_at <= until).order_by(desc(RunRow.created_at)))).scalars().all()
             active_runs = sum(1 for row in window_rows if row.status in _ACTIVE_STATUSES)
             error_runs = [row for row in window_rows if row.status in _TERMINAL_ERROR_STATUSES]
-            terminal_runs = [row for row in window_rows if row.status not in _ACTIVE_STATUSES]
+            terminal_runs = [row for row in window_rows if row.status in _TERMINAL_STATUSES]
             error_rate = round(len(error_runs) / len(terminal_runs), 4) if terminal_runs else 0
 
             status_rows = await session.execute(select(RunRow.status, func.count()).group_by(RunRow.status))
@@ -1072,16 +1292,10 @@ class ObservabilityRepository:
             user_rows = await session.execute(select(UserRow.id, UserRow.email))
             user_email = {uid: email for uid, email in user_rows.all()}
 
-            event_counts_rows = await session.execute(
-                select(RunEventRow.run_id, func.count())
-                .where(RunEventRow.created_at >= since, RunEventRow.created_at <= until)
-                .group_by(RunEventRow.run_id)
-            )
+            event_counts_rows = await session.execute(select(RunEventRow.run_id, func.count()).where(RunEventRow.created_at >= since, RunEventRow.created_at <= until).group_by(RunEventRow.run_id))
             event_counts = {run_id: count for run_id, count in event_counts_rows.all()}
 
-            recent_audit_rows = (
-                await session.execute(select(AuditLogRow).order_by(desc(AuditLogRow.created_at)).limit(limit))
-            ).scalars().all()
+            recent_audit_rows = (await session.execute(select(AuditLogRow).order_by(desc(AuditLogRow.created_at)).limit(limit))).scalars().all()
             run_event_total = await session.scalar(select(func.count()).select_from(RunEventRow)) or 0
             audit_total = await session.scalar(select(func.count()).select_from(AuditLogRow)) or 0
             latest_event_at = await session.scalar(select(func.max(RunEventRow.created_at)).select_from(RunEventRow))
@@ -1091,7 +1305,7 @@ class ObservabilityRepository:
         user_usage: dict[str, dict[str, Any]] = {}
         durations: list[int] = []
         for row in window_rows:
-            hour_key = row.created_at.replace(minute=0, second=0, microsecond=0).isoformat() if row.created_at else "unknown"
+            hour_key = _bucket_key(row.created_at, "hour")
             buckets[hour_key] = buckets.get(hour_key, 0) + 1
             if row.user_id:
                 entry = user_usage.setdefault(
@@ -1100,7 +1314,7 @@ class ObservabilityRepository:
                 )
                 entry["runs"] += 1
                 entry["tokens"] += row.total_tokens or 0
-            duration = _duration_ms(row.created_at, row.updated_at)
+            duration = _duration_ms(row.created_at, row.updated_at) if row.status in _TERMINAL_STATUSES else 0
             if duration:
                 durations.append(duration)
 
@@ -1210,23 +1424,26 @@ class ObservabilityRepository:
             "audit_logs": [_row_dict(row) for row in recent_audit_rows],
         }
 
-    async def run_diagnostics(self, run_id: str) -> dict[str, Any] | None:
+    async def run_diagnostics(self, run_id: str, *, bounded: bool = False) -> dict[str, Any] | None:
         if self._sf is None:
             return None
         async with self._sf() as session:
-            row = await session.get(RunRow, run_id)
+            if bounded:
+                from deerflow.persistence.observability.preview import load_disposition_preview, load_preview
+
+                row, events, total_events = await load_preview(session, run_id)
+            else:
+                row = await session.get(RunRow, run_id)
             if row is None:
                 return None
-            events = (
-                await session.execute(
-                    select(RunEventRow).where(RunEventRow.run_id == run_id).order_by(RunEventRow.seq.asc())
-                )
-            ).scalars().all()
+            if bounded:
+                dispositions, disposition_status = await load_disposition_preview(session, run_id)
+            if not bounded:
+                events = (await session.execute(select(RunEventRow).where(RunEventRow.run_id == run_id).order_by(RunEventRow.seq.asc()))).scalars().all()
+                total_events = len(events)
             user_email = {}
             if row.user_id:
-                user = await session.get(UserRow, row.user_id)
-                if user is not None:
-                    user_email[row.user_id] = user.email
+                user_email[row.user_id] = await session.scalar(select(UserRow.email).where(UserRow.id == row.user_id))
 
         start_event = next((event for event in events if event.event_type == "run.start"), None)
         start_meta = start_event.event_metadata if start_event is not None else {}
@@ -1241,7 +1458,7 @@ class ObservabilityRepository:
                     user_question = first.get("text")
             elif isinstance(content, str):
                 user_question = content
-        tool_calls = _extract_tool_calls(events)
+        tool_calls = _extract_tool_calls(events, limit=30 if bounded else None)
         last_success, failed_node = _find_nodes(events)
         cause = _error_cause(row, events)
         error_stack = row.error
@@ -1251,7 +1468,7 @@ class ObservabilityRepository:
                 error_stack = error_stack or blob[:4000]
                 break
 
-        event_counts = {run_id: len(events)}
+        event_counts = {run_id: total_events}
         summary = _run_summary(row, user_email, event_counts)
         summary["agent"] = summary.get("agent") or start_meta.get("agent_name") or start_meta.get("caller")
         return {
@@ -1274,8 +1491,16 @@ class ObservabilityRepository:
             "failed_node": failed_node or (row.status if row.status in _TERMINAL_ERROR_STATUSES else None),
             "possible_causes": [cause] if cause else [],
             "events": [_event_dict(event) for event in events],
-            "dispositions": await self.list_dispositions(run_id),
-            "disposition_status": await self.latest_disposition_status(run_id),
+            "dispositions": dispositions if bounded else await self.list_dispositions(run_id),
+            "disposition_status": disposition_status if bounded else await self.latest_disposition_status(run_id),
+            "preview": {
+                "bounded": bounded,
+                "total_events": total_events,
+                "returned_events": len(events),
+                "event_text_limit": 4096 if bounded else None,
+                "metadata_omitted_above_chars": 1024 if bounded else None,
+                "disposition_limit": 20 if bounded else None,
+            },
         }
 
     async def trace_events(self, run_id: str, *, limit: int = 200) -> list[dict[str, Any]]:
@@ -1283,14 +1508,7 @@ class ObservabilityRepository:
             return []
         bounded_limit = min(max(limit, 1), 500)
         async with self._sf() as session:
-            rows = (
-                await session.execute(
-                    select(RunEventRow)
-                    .where(RunEventRow.run_id == run_id)
-                    .order_by(RunEventRow.seq.asc())
-                    .limit(bounded_limit)
-                )
-            ).scalars().all()
+            rows = (await session.execute(select(RunEventRow).where(RunEventRow.run_id == run_id).order_by(RunEventRow.seq.asc()).limit(bounded_limit))).scalars().all()
         return [
             {
                 "id": row.id,

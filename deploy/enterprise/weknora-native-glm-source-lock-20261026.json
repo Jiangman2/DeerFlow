@@ -1,0 +1,167 @@
+{
+  "schema": "weknora-native-glm-production-source-lock.v1",
+  "archive_prefix": "release/production-source-20261026/weknora-native-glm/",
+  "vendor_prefix": "vendor/weknora-app-20260912/",
+  "source_manifest_sha256": "43b8484b6ef5a18ed76a6a13ab3faf8a13eca8a76589d454ae0687293971e1b0",
+  "manifest_files": 1999,
+  "vendor_files": 1925,
+  "generated_anydoc_files": 74,
+  "upstream": {
+    "repository": "https://github.com/Tencent/WeKnora",
+    "recorded_tag": "v0.8.0",
+    "recorded_commit": "1edcd54b43606d9079bb36650efe3f68707a79ea",
+    "basis": "historical base Dockerfile labels and upgrade assessment; enterprise patches are additional"
+  },
+  "source_history": {
+    "repository": "https://github.com/Jiangman2/DeerFlow",
+    "archive_branch": "codex/pending-hotupdates-20261017",
+    "archive_commit": "99fb9464f8253bee7f3cfe059729a3df3ef553f2",
+    "build_time_git_head_and_dirty_status": "NOT_INDEPENDENTLY_RECORDED_IN_RETAINED_CONTEXT",
+    "archive_commit_is_post_build": true
+  },
+  "restoration": {
+    "target_branch": "codex/enterprise-consolidation-20260716",
+    "compared_target_commit": "5df040bc058d697bf77e9c35667a285733318a20",
+    "removal_commit": "28a9f821b476cc3c378c3b3c6ff26ccf9619b42a",
+    "restored_files": [
+      "cmd/glm-vlm-probe/main.go",
+      "internal/models/vlm/enterprise_glm.go",
+      "internal/models/vlm/enterprise_glm_config.go",
+      "internal/models/vlm/enterprise_glm_core_test.go",
+      "internal/models/vlm/enterprise_glm_stream_test.go",
+      "internal/models/vlm/enterprise_glm_test.go",
+      "internal/models/vlm/vlm.go"
+    ],
+    "factory_lines_restored": 11
+  },
+  "build": {
+    "machine": "datax-01",
+    "platform": "linux/arm64; Debian 12 bookworm; glibc 2.36",
+    "original_compile_directory": "/opt/weknora-glm-dwarf-fix-qYPHEQjp/rebuild/build1",
+    "runtime_repack_directory": "/opt/weknora-glm-runtime-fix-8meva2vp/rebuild",
+    "verified_directory": "/opt/weknora-glm-verified-ysyi3g70",
+    "runtime_context_sha256": "fc44d25744194ece953249237305856c1c4e7e13fbed739dadc35fb9bb76ca10",
+    "tag_suffix_is": "first 16 hex characters of runtime context SHA256, not a Git commit",
+    "source_manifest_is_not_runtime_context_digest": true,
+    "runtime_base_image": "deerflow.local/weknora-app:0.8.0-enterprise-proxy1-anydoc1-arm64-20260912",
+    "runtime_base_manifest_digest": "sha256:579198308537bd130e9daa79173a3ae56897cdd520abc58d88df1efe043095ef",
+    "builder": "golang:1.26.8-bookworm linux/arm64/v8",
+    "builder_manifest_digest": "sha256:581f0292073059289b736d46d572ba4c515e0b511f8645963e0b0adf232680a1",
+    "rust_version": "1.99.1",
+    "anydoc_version": "0.1.9",
+    "build_tags": [
+      "anydoc"
+    ],
+    "cgo_enabled": true,
+    "go_experiment": "nodwarf5",
+    "runtime_added_files": "3 compiled binaries and 5 gojieba v1.4.7 dictionaries",
+    "runtime_env_delta": {
+      "JIEBA_DICT_DIR": "/usr/local/share/weknora/jieba"
+    },
+    "base_layers_preserved": 20,
+    "final_layer_count": 24
+  },
+  "image": {
+    "reference": "deerflow.local/weknora-app:20261016-native-glm-runtimefix-fc44d25744194ece",
+    "manifest_digest": "sha256:3bc43f4e4643fd069f59fdcd6a824ed6edb6603c3f2b957ff5b5451b853f4709",
+    "config_digest": "sha256:22b73c727cfb445ecf9fabe97f693efd5ceb7cbcb449b593c219e6407aef64c5",
+    "archive_sha256": "471ba1fecc997ce0785da151dac47da313d256506ece353275d04cdcff168f51",
+    "built_binary_sha256": "3b5a43b229460df3283aa1336ec48223f34a81832c6b59c642dc8bc83890499e"
+  },
+  "anydoc": {
+    "version": "0.1.9",
+    "url": "https://static.crates.io/crates/anydoc/anydoc-0.1.9.crate",
+    "sha256": "93a8b0dbecf79be9329111093b493d256db2a573ed3f1cc827c96bdbbe32a936",
+    "bytes": 183823,
+    "metadata_source": "https://crates.io/api/v1/crates/anydoc/0.1.9",
+    "patch": "Export document_to_markdown using the existing exact one-line project patch; no other crate edits.",
+    "lib_rs_before_sha256": "5be6847bf3f63721dae2c3c70f6770e3054a3482e2d9b9b9b48fa7ce830b3e44",
+    "lib_rs_after_sha256": "fc421fd943329590ebcd2441cb10a2dff2ac68e9516104eca1f95f3298a8b323"
+  },
+  "jieba": {
+    "module": "github.com/yanyiwu/gojieba",
+    "version": "v1.4.7",
+    "zip_sha256": "98c03565cdb89b18d7b1525b2eaf9e47b4512371d74c5c4aaf7dca9f80d412fd",
+    "runtime_directory": "/usr/local/share/weknora/jieba",
+    "files": {
+      "jieba.dict.utf8": "3043b77068e09c9904f27cad82f12b6ebe9dbdb5aeff3b25e45ab7f9c1122b55",
+      "hmm_model.utf8": "f17790586ac86dd048c8adffed052c4bd2b28ed0682972c1275e59040c0589a7",
+      "user.dict.utf8": "495bbf49270408a1234690e1e6a97328f30a482a7a72aa769e8a12e8714b0c62",
+      "idf.utf8": "dbd1e03d72b2263cc8d84a4304ed77677eed9e7deaf43a1a5133bbba9733b535",
+      "stop_words.utf8": "b788b8a939d2e2fe079abd579ea98f12f9fb84370bfd0dddd81bb9381f7ab42c"
+    }
+  },
+  "evidence_files": {
+    "release/production-source-20261026/weknora-native-glm/anydoc-0.1.9.crate": "93a8b0dbecf79be9329111093b493d256db2a573ed3f1cc827c96bdbbe32a936",
+    "release/production-source-20261026/weknora-native-glm/BUILD-PLAN.json": "ab5b870d1dc51432c46e6ce98e1636f77569803beb1d35bfa736b27e1af262c7",
+    "release/production-source-20261026/weknora-native-glm/CONTEXT.json": "518ab7486f10b23dc32e5ed368fc415185e84e5793975f3613fbafda0736d10c",
+    "release/production-source-20261026/weknora-native-glm/INPUTS.SHA256": "79f8d2186e07ce5778dfcd5fe43aa188f3899425f0798cc20efcb7cfdd88acb2",
+    "release/production-source-20261026/weknora-native-glm/operator-build-receipt-20261026.json": "f807c5e88ece7f9af2c588800fa74fcc1ad56e2d3b3e09e569f75c8e798c4f38",
+    "release/production-source-20261026/weknora-native-glm/SOURCE.SHA256": "43b8484b6ef5a18ed76a6a13ab3faf8a13eca8a76589d454ae0687293971e1b0"
+  },
+  "historical_recipe_files": {
+    "release/mineru-provider-switch-20261014/glm-native/assemble_offline_context.py": "849ea13c02a9d46468289aad7ca40053ba7af26190c2cdf8e6abdd254de7fe48",
+    "release/mineru-provider-switch-20261014/glm-native/audit_build_inputs.py": "0d85babddf0ee62903a3f3da3e180dd9bcac01e9c621fcaa7ad94b1b2a613daa",
+    "release/mineru-provider-switch-20261014/glm-native/BASE-EXPORT-RUNBOOK.txt": "722557cc82612b054483302eea965fc68c2104d93aa7e285b2e7ef59d1a9605b",
+    "release/mineru-provider-switch-20261014/glm-native/BUILD-INPUT-LOCK.json": "7f7af0bcebfa792293ad7881723180ea779ada3b8b7c82fc47e9b25c669d6b74",
+    "release/mineru-provider-switch-20261014/glm-native/build_guard.py": "8d16daaefb7d43270d0c775d1373f5f7868f85c28e4762963d9e992828ccaaed",
+    "release/mineru-provider-switch-20261014/glm-native/build_native.sh": "1f93929f89684ae69cea4ed14666ae025735c8150cb89c8786c7dc06e6e77b03",
+    "release/mineru-provider-switch-20261014/glm-native/build_weknora.py": "18733dcb1055982ab4e02ac9c18706a390d8b79e3e87fb65e380313dc641b447",
+    "release/mineru-provider-switch-20261014/glm-native/Dockerfile.offline": "3aa8644b58a8586fc0581c9f61afaee933f79d1bde33bed8c846a5e75af32b58",
+    "release/mineru-provider-switch-20261014/glm-native/Dockerfile.runtime-finish": "b6245fe2f011033988dd8086f6f86256e28b3639a297bc940b51ec059b75ab73",
+    "release/mineru-provider-switch-20261014/glm-native/DWARF-FIX-RUNBOOK.txt": "2033f924c1b74a9a3511b5a715f78a3c3c4f81e76b1bb0751397007184eaa43d",
+    "release/mineru-provider-switch-20261014/glm-native/export_weknora_base.py": "b34bb8db490bb147cccfdcb36f32f51e649849238236b8ca03dc7edc8c5b2083",
+    "release/mineru-provider-switch-20261014/glm-native/finish_runtime_build.py": "6f9e1bf1e77faba805dff4d99df0792a962fad5495d1ee888b946552761914ef",
+    "release/mineru-provider-switch-20261014/glm-native/package_base_export.py": "007d58b248b854530ae248c77354375c5160d3ba78098dbe1b1ef34ce51c45ea",
+    "release/mineru-provider-switch-20261014/glm-native/package_dwarf_fix.py": "1cd8f94ffe53c71fcd581e8752c728c90027488dc3d1c1ab400086759cd26f08",
+    "release/mineru-provider-switch-20261014/glm-native/package_offline.py": "3cec68b60b51791b8854e8d7665f021cf3c666ff502677a251c6090ed5a9134b",
+    "release/mineru-provider-switch-20261014/glm-native/package_runtime_finish.py": "6d478586b50ddb521044b8337a114ca261dbc31537ca3c0c65b74dba35d616d1",
+    "release/mineru-provider-switch-20261014/glm-native/package_sqlite_fix.py": "6e7cccce819b693f5af6dbadc89dad02e2ddbc79df33f94f5ce478596d1b5e8f",
+    "release/mineru-provider-switch-20261014/glm-native/prepare_public_inputs.py": "9cb684025e3f8ceba425a8b27320d7848f8250676b7db384e7e995b1a1159ebf",
+    "release/mineru-provider-switch-20261014/glm-native/prepare_runtime_finish.py": "8cdfdc9089f4c001b7abe281f668be9f665ce4fde943372918e259d83a2bfb19",
+    "release/mineru-provider-switch-20261014/glm-native/qualify_runtime_candidate_fix1.py": "2ec930d1f256c926aafc033af39af7834bd38b3a396239384c90ef7d37cfd4f9",
+    "release/mineru-provider-switch-20261014/glm-native/repair_dwarf_build.py": "e84ba06fa0ff98edf9939978a1792d372492caef17d84fdc6bca8a677c342e6e",
+    "release/mineru-provider-switch-20261014/glm-native/repair_sqlite_build.py": "458d4458e6edd54c56f4ffabbae0f8e9dc6bfa4fda0a2eeafee45f4708cfcf08",
+    "release/mineru-provider-switch-20261014/glm-native/RUNTIME-FINISH-RUNBOOK.txt": "8cfd23e5fe608cda512d754744a77cd1a01a341f238c62ffa072bf42825b2aa5",
+    "release/mineru-provider-switch-20261014/glm-native/RUNTIME-REVERIFY-RUNBOOK.txt": "69ecc95caa8c2ac0534cb9182c0c4e8b835190dc2bf312f3af3e9282651b5796",
+    "release/mineru-provider-switch-20261014/glm-native/runtime_check.py": "7168cabac1febe21032044cef333044b4312c0e958793df2cc391fed6730dd31",
+    "release/mineru-provider-switch-20261014/glm-native/SERVER-BUILD-RUNBOOK.txt": "4fd1e97c732f29a4e1eb0499384c4909c88c8fd78b47bfddbe1a35b82da0dbc3",
+    "release/mineru-provider-switch-20261014/glm-native/SQLITE-BUILD-LOCK.json": "5a8d381dd5b354e2168cf90e5b3face1294b5a1766d621f452dc05b0697ebebb",
+    "release/mineru-provider-switch-20261014/glm-native/SQLITE-FIX-RUNBOOK.txt": "95ce3be2400a1f70d7c133cec8b78231a39d90dce7b77f36c83d8ca93df31e37",
+    "release/mineru-provider-switch-20261014/glm-native/stage_context.py": "f94d21f698dba1cd2e84f384a0bc62df14d66dd759d220d7206b5bae3a696d7e",
+    "release/mineru-provider-switch-20261014/glm-native/START-sqlite-fix-template.sh": "b6be913be55284c7a067540f18488a5af48d0d00232a6b43e28d7ee27751fa5f",
+    "release/mineru-provider-switch-20261014/glm-native/START-template.sh": "4de429e32493048233f68b26dc6062c23ca02d280abaf2c9f5829935c1d01bd7",
+    "release/mineru-provider-switch-20261014/glm-native/test_assemble_offline_context.py": "4c27a3eb85962105cc5fa75a8cd85a30014709abcf9c184c08b9af274c022d81",
+    "release/mineru-provider-switch-20261014/glm-native/test_audit_build_inputs.py": "eba8ddb7f0deefba35ea3ccf45566174d0423e98fb475cf8f23fceb82d919c34",
+    "release/mineru-provider-switch-20261014/glm-native/test_dwarf_build_fix.py": "03b608a56a97e524ba2e4a9edb3fb0abaaf104bc92f377408cf1abe765b81180",
+    "release/mineru-provider-switch-20261014/glm-native/test_export_weknora_base.py": "470c8a2b6367ba9a7258eeb22c1531221227460151de1cfd621d9c10a4716a7c",
+    "release/mineru-provider-switch-20261014/glm-native/test_native_build.py": "2ef3058993c31ce1e3e64aac259b0c4391f5c31cc9d1685a3afd6f7f7b8781c5",
+    "release/mineru-provider-switch-20261014/glm-native/test_prepare_public_inputs.py": "d368b4f1491b6efbd6385b07f92983a46205525460dacba30c30d6551335169e",
+    "release/mineru-provider-switch-20261014/glm-native/test_runtime_finish.py": "6a592d0ece1b98ed667317f5abf1ef7e5c752817c4334c7d214a5c4d0d0d30bc",
+    "release/mineru-provider-switch-20261014/glm-native/test_runtime_reverify.py": "dc80e52cca5898a4d04895866db969eea2fa332e059da7e3ad10824b8ebf5059",
+    "release/mineru-provider-switch-20261014/glm-native/test_sqlite_build_fix.py": "ac8a4c30bd91c776fd320c7c8b4c7835a4d5fdee6c1757c7546b9cdc6ba50c8f",
+    "release/mineru-provider-switch-20261014/glm-native/test_unpack_rust.py": "ee244af442814d84a5de39c84b0e928b37dbdd4f09445d17f7fe49a42ea3b7c4",
+    "release/mineru-provider-switch-20261014/glm-native/unpack_rust.py": "17f3baae4bcbaaa359983fa67a969942ed9df540ae8f49ca9b1dcf0bcff00974",
+    "release/mineru-provider-switch-20261014/glm-native/verify_native_candidate.py": "ae4da1c98f493b89025c67cce45699472f96122bca85bbfe9559160c2b572e16",
+    "release/mineru-provider-switch-20261014/glm-native/verify_runtime_candidate.py": "4ae459fff4f58f9094985fb0924497771f798fe4b565c5a0fcd0d042a6a26b29",
+    "release/mineru-provider-switch-20261014/glm-native/verify_weknora_base.py": "b59fa74731cb06c930919d460c5a7ef694ad5d0d49d056bb900c728a5b610c50"
+  },
+  "shared_builder_files": {
+    "release/production-build-alignment-20260928/r4-build/bounded_runc.py": "a7dd7cff01f9694fb7d0445b74d8b7f3bb4a613f7c715e451e330295bb63d86e",
+    "release/production-build-alignment-20260928/r4-build/build_resources.py": "378327517d5ccb637320c2dcd8013547cab0d859b04b816d52592aecee39b7dc",
+    "release/production-build-alignment-20260928/r4-build/isolated_buildkit.py": "ca418744821545ea3072507518abdaed6671723b1b2b25ceb72085c4d2089f91",
+    "release/production-build-alignment-20260928/r4-build/layer_graph.py": "9c24478f46c3233418819e018581939ccbaabfb135395db224e563c2f0b0b2aa",
+    "release/production-build-alignment-20260928/r4-build/prepare_oci.py": "f9ad7608377c65d184fb8c1dfb602d4af4753359a254a3d66ab66fad9543f988",
+    "release/production-build-alignment-20260928/r4-build/resource_canary.py": "ae1e64759100f9b8d5b989c79afa462bbba0dd19aa2a1e8ba45eb067add6a110",
+    "release/production-build-alignment-20260928/r4-build/stage_base.py": "d8741958564e1b726861a91373e508ebc1e91a874056857569c95c94d1220b9e",
+    "release/production-build-alignment-20260928/r4-build/verify_built_image.py": "0ef209115736781281c80bdcf60d25225275beb07140d092d7e79ecc2d16d399",
+    "release/production-build-alignment-20260928/r4-build/verify_oci_base.py": "8e0cf0c2e7b02762c206473006a35fafdddf827ceb844ec06e6bf4fbda5a5eb0"
+  },
+  "acceptance_limits": [
+    "Source identity is checked against the retained 1999-file build inventory, not inferred from an OCI label.",
+    "Archive commit is post-build. Build-time Git HEAD and dirty state were not independently retained.",
+    "Live binary and filtered server build receipt were supplied by the operator; this is not an all-replica filesystem audit.",
+    "No ARM64 image rebuild or production deployment is performed by this restoration.",
+    "WeKnora UI base-image provenance and deployment/database settings are separate from this backend source lock."
+  ]
+}

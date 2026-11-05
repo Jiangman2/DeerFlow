@@ -1,0 +1,25 @@
+{
+  "schema": "portal-0015-auth-policy-install-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_SUMMARY_NOT_DIRECT_NODE_READ",
+  "observation": {
+    "accepted_transfer_report_sha256": "3ba110937068b73d50991b60fe417197c37823af4d3370f9f13f12bd90f78d90",
+    "archive_auto_deletion": false,
+    "archive_directory": "/mnt/data/portal-auth-log-archives-0015",
+    "container_runtime_commands": 0,
+    "credentials_exported": false,
+    "current_bytes": 1559634,
+    "files_verified": 3,
+    "hourly_minute": 17,
+    "log_content_exported": false,
+    "logger_pid": 1204,
+    "rotation_requests": 0,
+    "schema": "portal-0015-auth-policy.v1",
+    "service_restart_requests": 0,
+    "service_signal_requests": 0,
+    "status": "AUTH_LOG_PERMANENT_POLICY_INSTALLED_CHECKED_NO_ROTATION",
+    "threshold_bytes": 104857600,
+    "workload_patch_requests": 0
+  },
+  "installation_accepted": true,
+  "first_scheduled_execution_confirmed": false
+}

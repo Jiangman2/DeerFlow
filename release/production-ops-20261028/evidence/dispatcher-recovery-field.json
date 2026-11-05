@@ -1,0 +1,24 @@
+{
+  "schema": "dispatcher-recovery-operator-projection.v1",
+  "evidence_origin": "fixed-field projection from operator message on 2026-10-28; not the full server report",
+  "observation": {
+    "status": "DISPATCHER_REFERENCE_RESTORED_RUNTIME_READY_BROWSER_PENDING",
+    "report_path": "/var/lib/portal-dispatcher-reference-recovery-20261028-r1/REPORT.json",
+    "report_sha256": "5655261e4fd7105ce9c5e4960c22acc06f86046a04906bc1b2630afa0e1dc0c8",
+    "accepted_pod_count": 2,
+    "target_reference_verified": true,
+    "index_digest": "sha256:54a0fa6b0ac6dcdbecdf190823e5fca722c94ea643ca02ac967258b9e74f5ce9",
+    "manifest_digest": "sha256:96d519323edc0de3bcea02d1e6a7f238c24f6c8592871afdc5b0905a124943bf",
+    "config_digest": "sha256:a3596597c8c19932ada758f54a4b259b436214b6e191e36a1e57409803ba2f22",
+    "verified_layers": 18,
+    "verified_compressed_bytes": 869326139,
+    "deployment_patch_requests": 0,
+    "image_pull_or_import_requests": 0,
+    "nginx_reload_requests": 0,
+    "pod_delete_requests": 0,
+    "business_requests_by_tool": 0,
+    "other_deployment_specs_preserved": true,
+    "browser_acceptance_pending": true
+  },
+  "operator_followup": "Operator subsequently confirmed both new and existing conversations answered normally."
+}

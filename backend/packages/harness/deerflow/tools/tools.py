@@ -1,20 +1,53 @@
 import logging
+import os
+from collections.abc import Iterable
 
 from langchain.tools import BaseTool
 
 from deerflow.config import get_app_config
 from deerflow.config.app_config import AppConfig
+from deerflow.config.datalake_tools import RETIRED_DATALAKE_TOOL_NAMES
 from deerflow.reflection import resolve_variable
 from deerflow.sandbox.security import is_host_bash_allowed
-from deerflow.tools.builtins import ask_clarification_tool, present_file_tool, task_tool, view_image_tool
+from deerflow.tools.builtins import ask_clarification_tool, present_file_tool, review_skill_package, task_tool, view_image_tool
+from deerflow.tools.builtins.local_data_tool import process_local_data
 from deerflow.tools.mcp_metadata import tag_mcp_tool
 from deerflow.tools.sync import make_sync_tool_wrapper
 
 logger = logging.getLogger(__name__)
 
+DATALAKE_TOOL_NAMES = frozenset(
+    {
+        "datalake_smart_qa",
+        "datalake_data_qa",
+    }
+)
+
+
+def _browser_navigation_frozen(name: str) -> bool:
+    """Temporary registration freeze, including MCP server-prefixed names.
+
+    Explicit restoration is operator-controlled; other browser/web tools are
+    unaffected. This is tool availability, not a network security boundary.
+    """
+    if os.getenv("DEERFLOW_BROWSER_NAVIGATE_ENABLED", "").strip().lower() == "true":
+        return False
+    return name == "browser_navigate" or name.endswith("_browser_navigate")
+
+
+def filter_tools_by_datalake_scope(tools: Iterable[BaseTool], *, enabled: bool | None) -> list[BaseTool]:
+    """Expose DataLake tools only for an explicitly authorized run."""
+    tool_list = [tool for tool in tools if tool.name not in RETIRED_DATALAKE_TOOL_NAMES]
+    if enabled is True:
+        return tool_list
+    return [tool for tool in tool_list if tool.name not in DATALAKE_TOOL_NAMES]
+
+
 BUILTIN_TOOLS = [
     present_file_tool,
     ask_clarification_tool,
+    review_skill_package,
+    process_local_data,
 ]
 
 SUBAGENT_TOOLS = [
@@ -65,6 +98,7 @@ def get_available_tools(
     """
     config = app_config or get_app_config()
     tool_configs = [tool for tool in config.tools if groups is None or tool.group in groups]
+    tool_configs = [tool for tool in tool_configs if not _browser_navigation_frozen(tool.name)]
 
     # Do not expose host bash by default when LocalSandboxProvider is active.
     if not is_host_bash_allowed(config):
@@ -89,11 +123,22 @@ def get_available_tools(
 
     # Conditionally add tools based on config
     builtin_tools = BUILTIN_TOOLS.copy()
+    try:
+        from deerflow.community.media_generation import get_configured_media_generation_tools
+
+        media_tools = get_configured_media_generation_tools()
+        builtin_tools.extend(media_tools)
+        if media_tools:
+            logger.info("Including platform-managed media generation tools: %s", [tool.name for tool in media_tools])
+    except Exception:
+        logger.exception("Failed to configure platform-managed media generation tools")
     skill_evolution_config = getattr(config, "skill_evolution", None)
     if getattr(skill_evolution_config, "enabled", False):
-        from deerflow.tools.skill_manage_tool import skill_manage_tool
+        from deerflow.tools.skill_manage_tool import SKILL_AUTHORING_TOOLS
 
-        builtin_tools.append(skill_manage_tool)
+        # Action-specific schemas make content/path structurally required for
+        # the operations that need them and prevent incomplete write calls.
+        builtin_tools.extend(SKILL_AUTHORING_TOOLS)
 
     # Add subagent tools only if enabled via runtime parameter
     if subagent_enabled:
@@ -165,6 +210,10 @@ def get_available_tools(
     seen_names: set[str] = set()
     unique_tools: list[BaseTool] = []
     for t in all_tools:
+        if _browser_navigation_frozen(t.name):
+            continue
+        if t.name in RETIRED_DATALAKE_TOOL_NAMES:
+            continue
         if t.name not in seen_names:
             unique_tools.append(t)
             seen_names.add(t.name)

@@ -1,0 +1,170 @@
+{
+  "evidence_origin": "OPERATOR_PASTED_SUMMARY_NOT_DIRECT_CLUSTER_READ",
+  "observation": {
+    "accepted_pods": [
+      {
+        "node": "datax-02",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 2,
+          "status": "PASS"
+        },
+        "pod": "frontend-676fdb5959-nnrmm",
+        "uid": "305e87ac-babd-41dd-9100-91ab59fb21b3"
+      },
+      {
+        "node": "ecs-zdz-pro-0015",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 2,
+          "status": "PASS"
+        },
+        "pod": "frontend-676fdb5959-sjks5",
+        "uid": "d96a1b3c-674a-4798-a3f5-42effc5cd919"
+      }
+    ],
+    "after": {
+      "frontend": {
+        "generation": 226,
+        "spec_sha256": "ecf0297bd8609f104a6b549d484d84b7d658c71b4a0b100a5c66149e821fb3a3",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 384,
+        "spec_sha256": "20f242c560879f8eb70b77c0d85367f614fe839bad76917637bcefc9d67eebd3",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx": {
+        "generation": 116,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+      },
+      "ppt-master-runner": {
+        "generation": 55,
+        "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      },
+      "provisioner": {
+        "generation": 85,
+        "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+        "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+      }
+    },
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "backend_receipt": {
+      "bytes": 302782,
+      "path": "/var/lib/portal-gateway-oa-data-qa-activation-20261022-r1/REPORT.json",
+      "sha256": "9748159776fc431cdbaedb21da8c96eda68534532bf5a97581d03a8dd51669b0"
+    },
+    "before": {
+      "frontend": {
+        "generation": 225,
+        "spec_sha256": "1d3af5d2091bbb29fb4a45a3743acc03fbff9bf190c23c67b5bc43bb4fc37123",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 384,
+        "spec_sha256": "20f242c560879f8eb70b77c0d85367f614fe839bad76917637bcefc9d67eebd3",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx": {
+        "generation": 116,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+      },
+      "ppt-master-runner": {
+        "generation": 55,
+        "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      },
+      "provisioner": {
+        "generation": 85,
+        "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+        "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+      }
+    },
+    "browser_acceptance_pending": true,
+    "cache_config": "sha256:f3177f221a6bdd05daef6a2997175ae982df3739e5f3dd6def0cb63089c84527",
+    "cache_manifest": "sha256:b6c17e31ebcadb3c514fd2c3f87752e0eb84ee3e28ccc921366bac6a0bf91cd5",
+    "configuration_metadata_preserved": true,
+    "directory": "/var/lib/portal-frontend-data-qa-token-activation-a1ac5b2855ba4d71965dba198878b697",
+    "elapsed_seconds": 64.628,
+    "exitcode": 0,
+    "fresh_nodes_after": [
+      {
+        "name": "datax-02",
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "name": "ecs-zdz-pro-0015",
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      }
+    ],
+    "fresh_nodes_before": [
+      {
+        "name": "datax-02",
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "name": "ecs-zdz-pro-0015",
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      }
+    ],
+    "once_claimed": true,
+    "operation": "a1ac5b2855ba4d71965dba198878b697",
+    "other_workload_mutation": false,
+    "patch_acknowledged_by_readback": true,
+    "patch_dispatched": true,
+    "patch_may_have_applied": true,
+    "patch_request_count": 1,
+    "patch_requested": true,
+    "provider_requests": 0,
+    "report_bytes": 96421,
+    "report_path": "/var/lib/portal-frontend-data-qa-token-activation-a1ac5b2855ba4d71965dba198878b697/REPORT.json",
+    "report_sha256": "dfd628dbd45b03859196593343399137ac3395f117df98921623b8ac0a3e1899",
+    "runner_preserved": true,
+    "runtime": [
+      {
+        "node": "datax-02",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 2,
+          "status": "PASS"
+        },
+        "pod": "frontend-676fdb5959-nnrmm",
+        "uid": "305e87ac-babd-41dd-9100-91ab59fb21b3"
+      },
+      {
+        "node": "ecs-zdz-pro-0015",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 2,
+          "status": "PASS"
+        },
+        "pod": "frontend-676fdb5959-sjks5",
+        "uid": "d96a1b3c-674a-4798-a3f5-42effc5cd919"
+      }
+    ],
+    "schema": "portal-frontend-data-qa-token-activation.v1",
+    "schema_migration_requested": false,
+    "schema_revision": "0021_oa_result_sets",
+    "stage_passed": true,
+    "status": "FRONTEND_DATA_QA_TOKEN_RUNTIME_ACCEPTED_BROWSER_PENDING",
+    "unrelated_specs_preserved": true
+  },
+  "received_local_date": "2026-10-23",
+  "schema": "portal-data-qa-token-frontend-activation-field.v1"
+}

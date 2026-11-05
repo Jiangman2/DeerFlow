@@ -1,0 +1,151 @@
+{
+  "schema": "research-fund-skill-source.v1",
+  "files": [
+    {
+      "path": "SKILL.md",
+      "bytes": 10067,
+      "sha256": "c020a17a66d1c4caa7d077d42d9e161be82b72ac96e1f4872172cef352724ce5"
+    },
+    {
+      "path": "assets/reference-examples/field-rules-demo.xlsx",
+      "bytes": 281899,
+      "sha256": "4c67f86102bfe0baf3cc27d4476aaabe7d8c6842bad5c92f4d872e94eab173f8"
+    },
+    {
+      "path": "assets/reference-examples/group-company-example.docx",
+      "bytes": 83081,
+      "sha256": "85dc59c86546a68da6d2173de7662ced2769593e5db88d621a0fd7779b846a51"
+    },
+    {
+      "path": "assets/reference-examples/group-company-standard-input.xlsx",
+      "bytes": 10943,
+      "sha256": "6f2d1341c7bf304bc4b7bbf44c960a542a441d53947e36bbde3269a15b488b7f"
+    },
+    {
+      "path": "assets/reference-examples/miit-example.docx",
+      "bytes": 34124,
+      "sha256": "34bc5dd3f8f951e6d6647f35f23f384ce95bb00b7a3a02a640a6a93a313a1b62"
+    },
+    {
+      "path": "assets/reference-examples/national-science-example.docx",
+      "bytes": 34107,
+      "sha256": "57539ce2de776ba81aa9358230e061cb9f97fb2ca441827f6dd6dae98584c883"
+    },
+    {
+      "path": "evals/evals.json",
+      "bytes": 2117,
+      "sha256": "bdedcd4761631be2094f3f5b085cee89a26bdca42fa15e4eed1a75ac7ad29565"
+    },
+    {
+      "path": "examples/cases/group-company-complete.json",
+      "bytes": 8254,
+      "sha256": "1c190cc407eff31aae85c6ef192eac440a5fdc610d512af2166af5e9d8ea4b05"
+    },
+    {
+      "path": "examples/cases/miit-complete.json",
+      "bytes": 11466,
+      "sha256": "cdf7b763c3f6afdda3345a77fc0af7c68fe495d5b3628bbd67b3eaecdfddeaeb"
+    },
+    {
+      "path": "examples/cases/national-science-complete.json",
+      "bytes": 7824,
+      "sha256": "9e98be5a2fb90ff0527ed46fd1b9cf9390a3ea5298d9bb7b531a8d8662422344"
+    },
+    {
+      "path": "references/data-contract.md",
+      "bytes": 5204,
+      "sha256": "f906c909db90c3fe1e3d24b3caf4cc9f0c24ded5465e0b67677387472515cd0b"
+    },
+    {
+      "path": "references/group-company-standard-input.md",
+      "bytes": 2944,
+      "sha256": "a6042ff21d3eed1c2259fce763453c3ebb250153a048f4be22151f1fb71520a3"
+    },
+    {
+      "path": "references/group-company-template-annotations.md",
+      "bytes": 2476,
+      "sha256": "91f5b3db3c178d636f7b5654320b660dc24fb5b2c2c0abe824dffe9204d2690d"
+    },
+    {
+      "path": "references/group-company.md",
+      "bytes": 3562,
+      "sha256": "c463fa50d4688921077f03618972e6cf17df47db5254d81d423e70357e7fc2d8"
+    },
+    {
+      "path": "references/layout-contract.md",
+      "bytes": 5516,
+      "sha256": "e25ce25054ba703f55eb36f6c335b5563e9d1fbd79391da9426e39484226b991"
+    },
+    {
+      "path": "references/miit.md",
+      "bytes": 2300,
+      "sha256": "2e5357c3bf3d15e6ae1ee50e3896caca5704f01571b45a26da73cbbbe34ff276"
+    },
+    {
+      "path": "references/national-science.md",
+      "bytes": 1921,
+      "sha256": "2833f1913cfaddf7b0a69219bb6d2d8d8be16fcd9760db3a534658637f927709"
+    },
+    {
+      "path": "references/profile-rules.json",
+      "bytes": 4384,
+      "sha256": "8615311c6948b6fb3e7f3a659a7e6e1e51df979bde758c46c9549582c18b0030"
+    },
+    {
+      "path": "references/source-field-catalog.json",
+      "bytes": 31336,
+      "sha256": "75509114e1b7d3004c0216e2148227ea4e8ffa9338a8ff3b3ea50aefe4f5216e"
+    },
+    {
+      "path": "schemas/case.schema.json",
+      "bytes": 4673,
+      "sha256": "736ee7b0d96a17981b480b6d56b11dff09b1a9f6b4be7550343ec436099c08f6"
+    },
+    {
+      "path": "scripts/docx_builder.py",
+      "bytes": 46732,
+      "sha256": "a955447325a5411f440e814182bf3147bb7b82d46c95b276bc8c9e616e6bde13"
+    },
+    {
+      "path": "scripts/extract_reference_catalog.py",
+      "bytes": 1987,
+      "sha256": "e83dfe3793908394e10ce77b69e5f053bb6272caea1ac53619b30a8e6250602f"
+    },
+    {
+      "path": "scripts/group_build.py",
+      "bytes": 6106,
+      "sha256": "b97ff905817b8edcf7c7e3b62c1451d9fee145df468ff8bb40670300656fbd2f"
+    },
+    {
+      "path": "scripts/group_template.py",
+      "bytes": 19763,
+      "sha256": "add18b77ce2559c8592b9fe2d26062ea197f99f185a3ad9677ac4a174c86b81d"
+    },
+    {
+      "path": "scripts/report_cli.py",
+      "bytes": 7330,
+      "sha256": "836f8a2da4ca2c987e5fedcd5863b48fd35e4edb8c0b4ebc96140b94df66d3b9"
+    },
+    {
+      "path": "scripts/report_model.py",
+      "bytes": 38265,
+      "sha256": "a035afcdfd0e298998d570652a4fbc244c4a7fa0edbbf2339666b07ab44a9587"
+    },
+    {
+      "path": "scripts/standard_input.py",
+      "bytes": 32325,
+      "sha256": "a755cbd099b51955b80e3c9173f783f0954fef2ada49fdbd561163ea5d9725be"
+    },
+    {
+      "path": "scripts/template_builder.py",
+      "bytes": 42962,
+      "sha256": "7e1c9d3f49bdbb3b78ae3cd061192972ed24c37857d907d5c5e41c9bb44f578e"
+    },
+    {
+      "path": "scripts/text_color.py",
+      "bytes": 3782,
+      "sha256": "61966d28f44dd1aed9dc0489fb23c432ef3d0890e518edef71faf09b98e039e1"
+    }
+  ],
+  "tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be"
+}

@@ -1,0 +1,581 @@
+{
+  "credentials_exported": false,
+  "database_access": false,
+  "deployments": {
+    "gateway": {
+      "generation": 387,
+      "name": "gateway",
+      "spec_sha256": "82e248a2fb9f55f9e5426ee8787f42f98f2c3190a2a4c0b66c04aa934b79d64c",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "ppt-master-runner": {
+      "generation": 55,
+      "name": "ppt-master-runner",
+      "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd",
+      "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+    },
+    "provisioner": {
+      "generation": 85,
+      "name": "provisioner",
+      "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+      "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+    }
+  },
+  "elapsed_seconds": 6.62,
+  "exitcode": 0,
+  "files_modified": false,
+  "gateway_counts": {
+    "desired": 70,
+    "status": {
+      "availableReplicas": 70,
+      "observedGeneration": 387,
+      "readyReplicas": 70,
+      "replicas": 70,
+      "terminatingReplicas": 0,
+      "updatedReplicas": 70
+    }
+  },
+  "production_update_pending": true,
+  "provider_requests": 0,
+  "provisioner_skills_pvc_values": [
+    "deer-flow-skills-rwx-pvc"
+  ],
+  "read_commands": 18,
+  "sample_scope": "ONE_READY_OWNED_GATEWAY_PER_NODE_NOT_ALL_WORKERS",
+  "sampled_runtime_sources_consistent": true,
+  "sampled_trees_consistent": true,
+  "samples": [
+    {
+      "image": "[deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30](http://deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30)",
+      "node": "ecs-zdz-pro-0018",
+      "observation": {
+        "application_imported": false,
+        "credentials_exported": false,
+        "custom": {
+          "present": false
+        },
+        "files_modified": false,
+        "public": {
+          "bytes": 736793,
+          "file_count": 28,
+          "files": [
+            {
+              "bytes": 9332,
+              "path": "SKILL.md",
+              "sha256": "5d085fa1a1d6fe4ac38260aa544b0b48312189fa1703b4ef3d8c58d8eef56789"
+            },
+            {
+              "bytes": 281899,
+              "path": "assets/reference-examples/field-rules-demo.xlsx",
+              "sha256": "4c67f86102bfe0baf3cc27d4476aaabe7d8c6842bad5c92f4d872e94eab173f8"
+            },
+            {
+              "bytes": 83081,
+              "path": "assets/reference-examples/group-company-example.docx",
+              "sha256": "85dc59c86546a68da6d2173de7662ced2769593e5db88d621a0fd7779b846a51"
+            },
+            {
+              "bytes": 10943,
+              "path": "assets/reference-examples/group-company-standard-input.xlsx",
+              "sha256": "6f2d1341c7bf304bc4b7bbf44c960a542a441d53947e36bbde3269a15b488b7f"
+            },
+            {
+              "bytes": 34124,
+              "path": "assets/reference-examples/miit-example.docx",
+              "sha256": "34bc5dd3f8f951e6d6647f35f23f384ce95bb00b7a3a02a640a6a93a313a1b62"
+            },
+            {
+              "bytes": 34107,
+              "path": "assets/reference-examples/national-science-example.docx",
+              "sha256": "57539ce2de776ba81aa9358230e061cb9f97fb2ca441827f6dd6dae98584c883"
+            },
+            {
+              "bytes": 2069,
+              "path": "evals/evals.json",
+              "sha256": "7a02ce587906b43950679e0c0ef6e2960f40884ca1d26f3bf6716135545b16a4"
+            },
+            {
+              "bytes": 8254,
+              "path": "examples/cases/group-company-complete.json",
+              "sha256": "1c190cc407eff31aae85c6ef192eac440a5fdc610d512af2166af5e9d8ea4b05"
+            },
+            {
+              "bytes": 11466,
+              "path": "examples/cases/miit-complete.json",
+              "sha256": "cdf7b763c3f6afdda3345a77fc0af7c68fe495d5b3628bbd67b3eaecdfddeaeb"
+            },
+            {
+              "bytes": 7824,
+              "path": "examples/cases/national-science-complete.json",
+              "sha256": "9e98be5a2fb90ff0527ed46fd1b9cf9390a3ea5298d9bb7b531a8d8662422344"
+            },
+            {
+              "bytes": 4603,
+              "path": "references/data-contract.md",
+              "sha256": "0c4cbaf4e43a44be1039a688c72380a675eb7498ffd704dfcf2f8d6e3354b37a"
+            },
+            {
+              "bytes": 2696,
+              "path": "references/group-company-standard-input.md",
+              "sha256": "d003e73cc5031fa7907c7771cbb462104c0abecb5ac392defc595befbeb8a7cd"
+            },
+            {
+              "bytes": 1717,
+              "path": "references/group-company-template-annotations.md",
+              "sha256": "6fa7558c71045e79ea9503fbf27a726752d327525928f4c3d1e3a882e20ce633"
+            },
+            {
+              "bytes": 2866,
+              "path": "references/group-company.md",
+              "sha256": "5d50f3c00d958a3b5f1e54d2ff83e6e4f28c5c935f13659da5ff0a32f2d0da10"
+            },
+            {
+              "bytes": 4513,
+              "path": "references/layout-contract.md",
+              "sha256": "34044d502be844c3300f0503c716e8d4663b110d3ea38e9bbf14bd3927ba8e54"
+            },
+            {
+              "bytes": 2300,
+              "path": "references/miit.md",
+              "sha256": "2e5357c3bf3d15e6ae1ee50e3896caca5704f01571b45a26da73cbbbe34ff276"
+            },
+            {
+              "bytes": 1921,
+              "path": "references/national-science.md",
+              "sha256": "2833f1913cfaddf7b0a69219bb6d2d8d8be16fcd9760db3a534658637f927709"
+            },
+            {
+              "bytes": 4384,
+              "path": "references/profile-rules.json",
+              "sha256": "8615311c6948b6fb3e7f3a659a7e6e1e51df979bde758c46c9549582c18b0030"
+            },
+            {
+              "bytes": 31336,
+              "path": "references/source-field-catalog.json",
+              "sha256": "75509114e1b7d3004c0216e2148227ea4e8ffa9338a8ff3b3ea50aefe4f5216e"
+            },
+            {
+              "bytes": 4673,
+              "path": "schemas/case.schema.json",
+              "sha256": "736ee7b0d96a17981b480b6d56b11dff09b1a9f6b4be7550343ec436099c08f6"
+            },
+            {
+              "bytes": 46726,
+              "path": "scripts/docx_builder.py",
+              "sha256": "1bf73fd8aa0e22ca6e74ace29c0b5c2d691c2b3388a30c7eff21bd2918f93acd"
+            },
+            {
+              "bytes": 1987,
+              "path": "scripts/extract_reference_catalog.py",
+              "sha256": "e83dfe3793908394e10ce77b69e5f053bb6272caea1ac53619b30a8e6250602f"
+            },
+            {
+              "bytes": 5352,
+              "path": "scripts/group_build.py",
+              "sha256": "aef478588370f25a98cdf039999dad702b9ef80f9626b4157b39c3e9df0bb1ec"
+            },
+            {
+              "bytes": 17907,
+              "path": "scripts/group_template.py",
+              "sha256": "32c9885a4a6ce3703b7da4cb29496033d158ae33c151594bbdac2a0ba59c4aa6"
+            },
+            {
+              "bytes": 7330,
+              "path": "scripts/report_cli.py",
+              "sha256": "836f8a2da4ca2c987e5fedcd5863b48fd35e4edb8c0b4ebc96140b94df66d3b9"
+            },
+            {
+              "bytes": 38265,
+              "path": "scripts/report_model.py",
+              "sha256": "a035afcdfd0e298998d570652a4fbc244c4a7fa0edbbf2339666b07ab44a9587"
+            },
+            {
+              "bytes": 32461,
+              "path": "scripts/standard_input.py",
+              "sha256": "b1ffd0dec5a4524528942c280c11887ccbc71ac87b9ee93a44899ab0bb184f7c"
+            },
+            {
+              "bytes": 42657,
+              "path": "scripts/template_builder.py",
+              "sha256": "c6b37fbf844407072eaf6dee596042843e0be29421f438ebd1bde9dfdab5682d"
+            }
+          ],
+          "frontmatter_sha256": "0f24a4c6127e9735157b5e69ea6f1932ed159bbb189082c896fb95c8cdbf79e5",
+          "gid": 0,
+          "ignored_cache_entries": 0,
+          "mode": "0o777",
+          "present": true,
+          "tree_sha256": "db91b903a0f8250aecb7aaa4bbdf2b5aeaa871686d9f08862e5dcfb21d1a5da0",
+          "uid": 0
+        },
+        "runtime_sources": {
+          "activation": {
+            "activation_from_workflow_present": true,
+            "body_read_text_present": true,
+            "bytes": 46679,
+            "present": true,
+            "read_skill_content_function_present": true,
+            "sha256": "ffdd9224eb543d2d68ba26af982871b27322df072f3454e1f79cd47e70831144"
+          },
+          "catalog": {
+            "bytes": 4179,
+            "present": true,
+            "sha256": "a2653c0d06ad432ecbda234d4d6a2fedda7b5a425469cf4ce28649089433728a"
+          },
+          "local_storage": {
+            "bytes": 15036,
+            "present": true,
+            "sha256": "e88d1b4152318815580f197056010e917066439022eb489b4a2749cc97ad6876"
+          },
+          "projection": {
+            "present": false
+          },
+          "router": {
+            "bytes": 33122,
+            "present": true,
+            "sha256": "320c8ff0bfa906341ae922824264f79a18617b1ab15d1bd84e450cac4ca2c16f"
+          },
+          "types": {
+            "bytes": 3238,
+            "present": true,
+            "sha256": "ff010dc1a5ddc499db8f03bbe153604cd31f5976a1a15d785b9495d53b275d50"
+          }
+        },
+        "skills_configuration": {
+          "status": "YAML_READER_UNAVAILABLE"
+        }
+      },
+      "pod": "gateway-6548cb9956-2bkrc",
+      "uid": "dbed95cf-332d-407f-b620-edefdf78334f"
+    },
+    {
+      "image": "[deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30](http://deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30)",
+      "node": "ecs-zdz-pro-0019",
+      "observation": {
+        "application_imported": false,
+        "credentials_exported": false,
+        "custom": {
+          "present": false
+        },
+        "files_modified": false,
+        "public": {
+          "bytes": 736793,
+          "file_count": 28,
+          "frontmatter_sha256": "0f24a4c6127e9735157b5e69ea6f1932ed159bbb189082c896fb95c8cdbf79e5",
+          "gid": 0,
+          "ignored_cache_entries": 0,
+          "mode": "0o777",
+          "present": true,
+          "tree_sha256": "db91b903a0f8250aecb7aaa4bbdf2b5aeaa871686d9f08862e5dcfb21d1a5da0",
+          "uid": 0
+        },
+        "runtime_sources": {
+          "activation": {
+            "activation_from_workflow_present": true,
+            "body_read_text_present": true,
+            "bytes": 46679,
+            "present": true,
+            "read_skill_content_function_present": true,
+            "sha256": "ffdd9224eb543d2d68ba26af982871b27322df072f3454e1f79cd47e70831144"
+          },
+          "catalog": {
+            "bytes": 4179,
+            "present": true,
+            "sha256": "a2653c0d06ad432ecbda234d4d6a2fedda7b5a425469cf4ce28649089433728a"
+          },
+          "local_storage": {
+            "bytes": 15036,
+            "present": true,
+            "sha256": "e88d1b4152318815580f197056010e917066439022eb489b4a2749cc97ad6876"
+          },
+          "projection": {
+            "present": false
+          },
+          "router": {
+            "bytes": 33122,
+            "present": true,
+            "sha256": "320c8ff0bfa906341ae922824264f79a18617b1ab15d1bd84e450cac4ca2c16f"
+          },
+          "types": {
+            "bytes": 3238,
+            "present": true,
+            "sha256": "ff010dc1a5ddc499db8f03bbe153604cd31f5976a1a15d785b9495d53b275d50"
+          }
+        },
+        "skills_configuration": {
+          "status": "YAML_READER_UNAVAILABLE"
+        }
+      },
+      "pod": "gateway-6548cb9956-97fg6",
+      "uid": "4b7c8175-797b-41df-906d-63c6db908bfa"
+    },
+    {
+      "image": "[deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30](http://deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30)",
+      "node": "ecs-zdz-pro-0020",
+      "observation": {
+        "application_imported": false,
+        "credentials_exported": false,
+        "custom": {
+          "present": false
+        },
+        "files_modified": false,
+        "public": {
+          "bytes": 736793,
+          "file_count": 28,
+          "frontmatter_sha256": "0f24a4c6127e9735157b5e69ea6f1932ed159bbb189082c896fb95c8cdbf79e5",
+          "gid": 0,
+          "ignored_cache_entries": 0,
+          "mode": "0o777",
+          "present": true,
+          "tree_sha256": "db91b903a0f8250aecb7aaa4bbdf2b5aeaa871686d9f08862e5dcfb21d1a5da0",
+          "uid": 0
+        },
+        "runtime_sources": {
+          "activation": {
+            "activation_from_workflow_present": true,
+            "body_read_text_present": true,
+            "bytes": 46679,
+            "present": true,
+            "read_skill_content_function_present": true,
+            "sha256": "ffdd9224eb543d2d68ba26af982871b27322df072f3454e1f79cd47e70831144"
+          },
+          "catalog": {
+            "bytes": 4179,
+            "present": true,
+            "sha256": "a2653c0d06ad432ecbda234d4d6a2fedda7b5a425469cf4ce28649089433728a"
+          },
+          "local_storage": {
+            "bytes": 15036,
+            "present": true,
+            "sha256": "e88d1b4152318815580f197056010e917066439022eb489b4a2749cc97ad6876"
+          },
+          "projection": {
+            "present": false
+          },
+          "router": {
+            "bytes": 33122,
+            "present": true,
+            "sha256": "320c8ff0bfa906341ae922824264f79a18617b1ab15d1bd84e450cac4ca2c16f"
+          },
+          "types": {
+            "bytes": 3238,
+            "present": true,
+            "sha256": "ff010dc1a5ddc499db8f03bbe153604cd31f5976a1a15d785b9495d53b275d50"
+          }
+        },
+        "skills_configuration": {
+          "status": "YAML_READER_UNAVAILABLE"
+        }
+      },
+      "pod": "gateway-6548cb9956-czblg",
+      "uid": "59fbf92c-5077-4964-8c31-74ce73c198bb"
+    },
+    {
+      "image": "[deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30](http://deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30)",
+      "node": "ecs-zdz-pro-0021",
+      "observation": {
+        "application_imported": false,
+        "credentials_exported": false,
+        "custom": {
+          "present": false
+        },
+        "files_modified": false,
+        "public": {
+          "bytes": 736793,
+          "file_count": 28,
+          "frontmatter_sha256": "0f24a4c6127e9735157b5e69ea6f1932ed159bbb189082c896fb95c8cdbf79e5",
+          "gid": 0,
+          "ignored_cache_entries": 0,
+          "mode": "0o777",
+          "present": true,
+          "tree_sha256": "db91b903a0f8250aecb7aaa4bbdf2b5aeaa871686d9f08862e5dcfb21d1a5da0",
+          "uid": 0
+        },
+        "runtime_sources": {
+          "activation": {
+            "activation_from_workflow_present": true,
+            "body_read_text_present": true,
+            "bytes": 46679,
+            "present": true,
+            "read_skill_content_function_present": true,
+            "sha256": "ffdd9224eb543d2d68ba26af982871b27322df072f3454e1f79cd47e70831144"
+          },
+          "catalog": {
+            "bytes": 4179,
+            "present": true,
+            "sha256": "a2653c0d06ad432ecbda234d4d6a2fedda7b5a425469cf4ce28649089433728a"
+          },
+          "local_storage": {
+            "bytes": 15036,
+            "present": true,
+            "sha256": "e88d1b4152318815580f197056010e917066439022eb489b4a2749cc97ad6876"
+          },
+          "projection": {
+            "present": false
+          },
+          "router": {
+            "bytes": 33122,
+            "present": true,
+            "sha256": "320c8ff0bfa906341ae922824264f79a18617b1ab15d1bd84e450cac4ca2c16f"
+          },
+          "types": {
+            "bytes": 3238,
+            "present": true,
+            "sha256": "ff010dc1a5ddc499db8f03bbe153604cd31f5976a1a15d785b9495d53b275d50"
+          }
+        },
+        "skills_configuration": {
+          "status": "YAML_READER_UNAVAILABLE"
+        }
+      },
+      "pod": "gateway-6548cb9956-47psr",
+      "uid": "3676c79f-68b6-4f42-bd0c-649ebfb3b6ef"
+    },
+    {
+      "image": "[deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30](http://deerflow.local/deer-flow-gateway@sha256:ba642b5484ad6103146de433432d24de4d0243ecbbdd251d2752e8aa961c5e30)",
+      "node": "ecs-zdz-pro-0022",
+      "observation": {
+        "application_imported": false,
+        "credentials_exported": false,
+        "custom": {
+          "present": false
+        },
+        "files_modified": false,
+        "public": {
+          "bytes": 736793,
+          "file_count": 28,
+          "frontmatter_sha256": "0f24a4c6127e9735157b5e69ea6f1932ed159bbb189082c896fb95c8cdbf79e5",
+          "gid": 0,
+          "ignored_cache_entries": 0,
+          "mode": "0o777",
+          "present": true,
+          "tree_sha256": "db91b903a0f8250aecb7aaa4bbdf2b5aeaa871686d9f08862e5dcfb21d1a5da0",
+          "uid": 0
+        },
+        "runtime_sources": {
+          "activation": {
+            "activation_from_workflow_present": true,
+            "body_read_text_present": true,
+            "bytes": 46679,
+            "present": true,
+            "read_skill_content_function_present": true,
+            "sha256": "ffdd9224eb543d2d68ba26af982871b27322df072f3454e1f79cd47e70831144"
+          },
+          "catalog": {
+            "bytes": 4179,
+            "present": true,
+            "sha256": "a2653c0d06ad432ecbda234d4d6a2fedda7b5a425469cf4ce28649089433728a"
+          },
+          "local_storage": {
+            "bytes": 15036,
+            "present": true,
+            "sha256": "e88d1b4152318815580f197056010e917066439022eb489b4a2749cc97ad6876"
+          },
+          "projection": {
+            "present": false
+          },
+          "router": {
+            "bytes": 33122,
+            "present": true,
+            "sha256": "320c8ff0bfa906341ae922824264f79a18617b1ab15d1bd84e450cac4ca2c16f"
+          },
+          "types": {
+            "bytes": 3238,
+            "present": true,
+            "sha256": "ff010dc1a5ddc499db8f03bbe153604cd31f5976a1a15d785b9495d53b275d50"
+          }
+        },
+        "skills_configuration": {
+          "status": "YAML_READER_UNAVAILABLE"
+        }
+      },
+      "pod": "gateway-6548cb9956-6ms4j",
+      "uid": "2cb7a95d-5069-49e9-afad-aed64ea7e829"
+    }
+  ],
+  "sandbox_mount_kinds": {
+    "direct_public_pvc": 75
+  },
+  "sandbox_samples": [
+    {
+      "identity_sha256": "ae1b72db303843c693db37873548a47805f345211b497c0691d720841a1106ae",
+      "mount": {
+        "claim": "deer-flow-skills-rwx-pvc",
+        "kind": "direct_public_pvc",
+        "mount_path": "/mnt/skills/public",
+        "read_only": true,
+        "subpath_sha256": "b78532572a08261cbc0c918d293a0d4fb83b1a83e9dacef857e52efbd4b5c78b"
+      },
+      "observation": {
+        "application_imported": false,
+        "credentials_exported": false,
+        "files": [
+          {
+            "bytes": 9332,
+            "path": "[SKILL.md](http://SKILL.md)",
+            "sha256": "5d085fa1a1d6fe4ac38260aa544b0b48312189fa1703b4ef3d8c58d8eef56789"
+          },
+          {
+            "bytes": 7330,
+            "path": "scripts/report_cli.py",
+            "sha256": "836f8a2da4ca2c987e5fedcd5863b48fd35e4edb8c0b4ebc96140b94df66d3b9"
+          },
+          {
+            "bytes": 17907,
+            "path": "scripts/group_template.py",
+            "sha256": "32c9885a4a6ce3703b7da4cb29496033d158ae33c151594bbdac2a0ba59c4aa6"
+          },
+          {
+            "bytes": 32461,
+            "path": "scripts/standard_input.py",
+            "sha256": "b1ffd0dec5a4524528942c280c11887ccbc71ac87b9ee93a44899ab0bb184f7c"
+          }
+        ],
+        "files_modified": false,
+        "present": true
+      }
+    }
+  ],
+  "schema": "portal-research-fund-skill-baseline.v1",
+  "secret_api_reads": 0,
+  "skill_update_requested": false,
+  "skills_mounts": {
+    "gateway": [
+      {
+        "claim": "deer-flow-skills-rwx-pvc",
+        "container": "gateway",
+        "read_only": true,
+        "subpath_present": false
+      }
+    ],
+    "ppt-master-runner": [
+      {
+        "claim": "deer-flow-skills-rwx-pvc",
+        "container": "ppt-master-runner",
+        "read_only": true,
+        "subpath_present": false
+      }
+    ],
+    "provisioner": []
+  },
+  "skills_pv": {
+    "name": "deerflow-skills-pv-nfs-0000",
+    "source_fingerprint": "29c85db16aa3b5b21282027207a11e16c6cf17689837448ca44e63eed2aea628",
+    "storage_kind": [
+      "nfs"
+    ],
+    "uid": "a9292380-b804-4952-a088-9d6447b4bb2d"
+  },
+  "skills_pvc": {
+    "access_modes": [
+      "ReadWriteMany"
+    ],
+    "name": "deer-flow-skills-rwx-pvc",
+    "phase": "Bound",
+    "storage_class": "deerflow-nfs-rwx",
+    "uid": "5bd3d4ed-54df-45c7-8954-d32ff8e53ec9",
+    "volume_name": "deerflow-skills-pv-nfs-0000"
+  },
+  "status": "READONLY_SKILL_BASELINE_COLLECTED_NOT_UPDATED",
+  "workload_modified": false
+}

@@ -1,0 +1,62 @@
+{
+  "status": "LOCAL_ARM64_FRONTEND_AND_OCI_ACCEPTED_NOT_DEPLOYED",
+  "source_sha256": "1087240d465ff5fd337afcc5937f0cfe429ae9c2818f2b94b60d1ee775ee3c41",
+  "tag": "deerflow.local/deer-flow-frontend:20261028-combined-features-r1",
+  "production_modified": false,
+  "images_pushed": false,
+  "ready_for_rollout": false,
+  "build_seconds": 1350.7,
+  "image": {
+    "id": "sha256:99a1da37496816a6abb0524587069cdf59dcec1bea4d5cc94c58f57c7817bbb2",
+    "bytes": 127379253,
+    "layers": 11
+  },
+  "fresh_runtime": {
+    "pinned_base_prefix": "PASS",
+    "base_layers": 4,
+    "added_layers": 7,
+    "previous_application_image_used": false
+  },
+  "runtime": {
+    "layout": {
+      "standalone_layout": "PASS",
+      "files": 2854,
+      "bytes": 132268343,
+      "symlinks": 35,
+      "assets_checked": true,
+      "build_id_sha256": "ae73be4c1c6a6a1ab0521764a2707ae662daec8d77d615f78b728bdd1063ef86",
+      "routes_sha256": "e5ccb72b0e897ab8bba223d4cd7855411b3997f060c9878298c0ab0ad930a970",
+      "runtime_http": "NOT_TESTED",
+      "production_acceptance": "NOT_TESTED"
+    },
+    "http": {
+      "local_http": "PASS",
+      "runtime_env": "PASS",
+      "sso_redirect": "SYNTHETIC_PASS",
+      "static_assets": [
+        ".js",
+        ".css"
+      ],
+      "unauthenticated_launch_status": 401,
+      "production_sso": "NOT_TESTED",
+      "gateway": "NOT_TESTED",
+      "models": "NOT_REQUESTED"
+    },
+    "startup_attempts": 3,
+    "docker_exec_timeout_seconds": 60,
+    "individual_http_timeout_seconds": 10,
+    "platform": "linux/arm64",
+    "network": "none"
+  },
+  "export_seconds": 110.06,
+  "export": {
+    "archive": "C:\\Users\\15285\\.codex\\tmp\\combined-features-20261028-r1\\frontend\\build\\frontend.oci.tar",
+    "sha256": "7706fdd9e2e0f5a4e42c1782d47047e7a6afe6c7941feb2f0b1e5c80321da5b4",
+    "bytes": 127393792,
+    "layers": 11,
+    "compressed_layer_bytes": 127367960,
+    "uncompressed_layer_bytes": 302323200,
+    "exact_qualified_layers": "PASS",
+    "blob_and_diffid_hashes": "PASS"
+  }
+}

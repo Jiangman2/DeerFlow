@@ -1,0 +1,29 @@
+{
+  "schema": "portal-oa-migration-base-sources.v1",
+  "source_basis": "production-source-alignment/e575b69924f02c964c15041b93941cdf487f6fc2/backend/packages/harness/deerflow/persistence/migrations",
+  "files": {
+    "_env_filters.py": "37d39d5ea4632fd97bd6a067b2d083de7f8e1ee27bc570974f8c70a5bc8f1e11",
+    "_helpers.py": "5ca2ae3c498b92942d110afefd4cc256d2a7c7a60b508a16cbc12def524b01b2",
+    "env.py": "3a943d2a644f845e472aac2e72e99ce8f349888d41901f1b24f9126456ab65af",
+    "versions/0001_baseline.py": "aa21058d9cee02e51b92330c3326e78448f5ad9d69b452a7fecfcc5d87493028",
+    "versions/0002_runs_token_usage.py": "bda1b81c29daf7dc7051e4889d9978f8f798987bb05d572defcb6fd259252717",
+    "versions/0003_scheduled_tasks.py": "c87b8ebbe891ea6bba396af6811a40946d6f46cde133b5aef21aafd9d337c5b2",
+    "versions/0004_run_ownership.py": "aa3e90bc8ead8143decf0f28d642bb9a1cbd5f79632569861aa3732d95fa2510",
+    "versions/0005_run_stop_reason.py": "a7b9d262df2cd7779d26e5746c91b1caf8a531189e9e4f511467d8c0970cf030",
+    "versions/0006_enterprise_platform.py": "67c547466d9bd12d5f5f8ad646f0d50f44596e65cf2d86fbc2f5c56843325fe3",
+    "versions/0007_restore_announcements.py": "af9989ca6af30fec407ac4ad000e85cc8388729fb26febd69e5402af65062b05",
+    "versions/0008_drop_retired_site_navigation.py": "ca5d5164757e956424837aca30a5b9b04999f283092d44381a62230dcfad9626",
+    "versions/0009_thread_creation_ledger.py": "f672d84e54c51cd88fbbff48e32e91021af42d5bd4360e10d46edafd352c1603",
+    "versions/0010_scheduled_task_run_context.py": "0850baa5b526dccfda99b0875b0543c4c458d3f8a97e16961bac4d97fcc39090",
+    "versions/0011_user_sso_profile.py": "9f51e511e1afc66808ff31291c7f47e958be6006c68aa795816e3270fb370a2a",
+    "versions/0012_user_last_login.py": "f7260331850e107120ffd2705c8289c22dfab5435d49d40045669d3ecd8d976b",
+    "versions/0013_data_lake_auth_challenges.py": "bea37a217813e9b1b89b0672bdcec70be541d60f85de5464412a704202aa2781",
+    "versions/0014_oa_policy_flow_jobs.py": "58d6abad463991ee5e0c898e2dcf744c09f978fb813fca5a22b4d1df7f541e2f",
+    "versions/0015_dashboard_query_indexes.py": "bc6dfd636346d229fee9c7df8dbe4040de6b5b90e96d7833609137329de5b901",
+    "versions/0016_dashboard_daily_rollups.py": "2a8e8da9819c30cc2a0f2af739a2706fe3738ae2dd4094696248bb9b296df8ff",
+    "versions/0017_dashboard_hourly_rollups.py": "b8ff5a148a61b8451e20ccc3f75aa9164488f5959de350de27912d5d197ac946",
+    "versions/0018_scheduled_task_reliability.py": "6d44ec1c557b5b9f024414449d7e2d98a0682dd32047fe0341c9287b3d3e0abb",
+    "versions/0019_digital_employee_agents.py": "42a67abcad0f2c5db97bb9a6bd19e4453940241b9dcc5a2f6b7f0c5cedddfec3",
+    "versions/0020_ppt_confirmation.py": "b6e62fab740794f9ea360442c7f36f9d4e3cf3acde5d52c8eb3df206d2076543"
+  }
+}

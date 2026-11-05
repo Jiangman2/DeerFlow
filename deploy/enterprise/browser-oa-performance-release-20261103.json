@@ -1,0 +1,34 @@
+{
+  "schema": "deerflow.release.requirements.v1",
+  "status": "PREPARED_NOT_APPLIED",
+  "namespace": "deer-flow",
+  "deployment": "gateway",
+  "container": "gateway",
+  "required_explicit_env": {
+    "OA_POLICY_FLOW_RUN_TIMEOUT_SECONDS": "3600",
+    "DEERFLOW_BROWSER_NAVIGATE_ENABLED": "false",
+    "DEERFLOW_LLM_PERFORMANCE_LOGS": "true",
+    "DEERFLOW_LLM_PERFORMANCE_BATCH": "20261103-evening"
+  },
+  "oa_source_commit": "7b8e0634fe96acc4bd58d06f3250c1cd09c0945c",
+  "oa_seconds_scope": "OA flow total deadline; not model request timeout",
+  "preserve_existing_model_timeout_seconds": 180,
+  "preserve_unrelated_configuration": true,
+  "preserve_current_pause_during_preparation": true,
+  "release_steps": [
+    "Read current Deployment image, generation/resourceVersion, pause state and environment references",
+    "Bind committed source to candidate image; pass installed-image QA and preload eligible nodes",
+    "Prepare one concurrency-guarded update containing the candidate gateway image and required environment entries",
+    "Resume a paused Deployment only as part of the operator-authorized release window",
+    "Verify desired replica convergence, candidate image and all required env values across gateway containers",
+    "Verify actual OA startup behavior and model performance logs through controlled acceptance"
+  ],
+  "forbidden_shortcuts": [
+    "Do not replay set-portal-oa-run-timeout-60m-20261103-r1.py",
+    "Do not delete its existing execution marker or reuse its generation-404 verification plan",
+    "Do not interpret ready replicas alone as proof of 3600-second adoption",
+    "Do not change the image and environment in separate unpaused rollouts"
+  ],
+  "image_digest": null,
+  "ready_for_rollout": false
+}

@@ -1,0 +1,426 @@
+{
+  "schema": "pr13-branch-release-comparison.v1",
+  "date": "2026-10-22",
+  "refs": {
+    "pr": "5862bb6936d4d736f2f1c0beb79afd5ed4cf317c",
+    "target": "28a9f821b476cc3c378c3b3c6ff26ccf9619b42a",
+    "merged": "721a9f7c296b5a06feb47f5eb45d55865b0d6648",
+    "deployed_audit": "fff68933a95518a194eb58cb819b926d5441fca2",
+    "premerge_target": "aca436e49734ef0ed8ed61e4cbdda6db0b8d79f7"
+  },
+  "release_evidence_scope": "THIS_CONVERSATION_RELEASE_PINS_NOT_WHOLE_CLUSTER_INVENTORY",
+  "current_server_observation_pending": false,
+  "release_source_checks": [
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/datalake_source_middleware.py",
+      "release_source_sha256": "ac65e710357fceb5d0fd528c56ea5b06ce2ed8d2f8b8780ceeaf095791722d10",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "8ab578b8c3456643b16dfe7faca6b22e1f9577cc",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "8ab578b8c3456643b16dfe7faca6b22e1f9577cc"
+      },
+      "target": {
+        "status": "ABSENT",
+        "git_blob": null
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "8ab578b8c3456643b16dfe7faca6b22e1f9577cc"
+      },
+      "simulated_merge": {
+        "status": "ABSENT",
+        "git_blob": null
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/tool_error_handling_middleware.py",
+      "release_source_sha256": "787d19c27993ed4b4fc141ca8afbf2b5e8b396c4bb71f1b48b1c6341330c285f",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "7612a5dcf79d58c29d00640ed91b91854b6f1e52",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "7612a5dcf79d58c29d00640ed91b91854b6f1e52"
+      },
+      "target": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "47594af52cf7de5e37fa230cfe0817b7236dca47"
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "7612a5dcf79d58c29d00640ed91b91854b6f1e52"
+      },
+      "simulated_merge": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "47594af52cf7de5e37fa230cfe0817b7236dca47"
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/appforge/__init__.py",
+      "release_source_sha256": "553b621cd4518f9300620a2aea7c5593069e7deb6e4206160f9494ead3ea345b",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "d34a518e75f3feee5d7dfb7f62f71a8ce0f01fff",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "d34a518e75f3feee5d7dfb7f62f71a8ce0f01fff"
+      },
+      "target": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "24e5d882cc98bf677eea6d43c02c298b9079006d"
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "d34a518e75f3feee5d7dfb7f62f71a8ce0f01fff"
+      },
+      "simulated_merge": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "24e5d882cc98bf677eea6d43c02c298b9079006d"
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/appforge/data_qa_stream.py",
+      "release_source_sha256": "08a8eb1953c7ed3d8d97fa67f0c3a53ee554c7954fe015b9ce4fbb84bb91b0d6",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "cda4e1f96760678594c11273832b73f0d89d224f",
+      "pr": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "431fb4e0c50156debd1c5a2cdf15a23bd3b20a5e"
+      },
+      "target": {
+        "status": "ABSENT",
+        "git_blob": null
+      },
+      "merged": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "431fb4e0c50156debd1c5a2cdf15a23bd3b20a5e"
+      },
+      "simulated_merge": {
+        "status": "ABSENT",
+        "git_blob": null
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/appforge/tools.py",
+      "release_source_sha256": "7587a95601373abc2507b44ec403316d3d1fd0f6e005d225d9df1ebc4c266184",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "fcd0cbf9ffce0f0a990e64f9c74f4d1a4f310372",
+      "pr": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "5fb4aa7561552b64e39b4449e014195479e817ac"
+      },
+      "target": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "5a8c5fe590352309141a7804977f68784f20a425"
+      },
+      "merged": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "5fb4aa7561552b64e39b4449e014195479e817ac"
+      },
+      "simulated_merge": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "5a8c5fe590352309141a7804977f68784f20a425"
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/datalake_tools.py",
+      "release_source_sha256": "2c00b516772f2fd0c7623a44dbe915b3433f5ca2fdeafd90e17a1f363942535e",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "3d40d1c1c76165fd694d11cba3c2c76fdc433437",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "3d40d1c1c76165fd694d11cba3c2c76fdc433437"
+      },
+      "target": {
+        "status": "ABSENT",
+        "git_blob": null
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "3d40d1c1c76165fd694d11cba3c2c76fdc433437"
+      },
+      "simulated_merge": {
+        "status": "ABSENT",
+        "git_blob": null
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/tool_config.py",
+      "release_source_sha256": "9af1f6fe20a41021d0da8dc461c02789fb09bd6d9b1630f7f807349f8e4e1142",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "6f39ddee2c635efa94180b2ba46a57fa426c4eb5",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "6f39ddee2c635efa94180b2ba46a57fa426c4eb5"
+      },
+      "target": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "e9c0673d847490c40b7f53bfce7f09a5175c243c"
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "6f39ddee2c635efa94180b2ba46a57fa426c4eb5"
+      },
+      "simulated_merge": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "e9c0673d847490c40b7f53bfce7f09a5175c243c"
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/models/enterprise_glm.py",
+      "release_source_sha256": "310eda0d33ddcc9ec8163debedd356360c88c6cb091968a79fae8bd7a298b68f",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "789cfeb1da565d3227af3c2caf49e91cf75fe916",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "789cfeb1da565d3227af3c2caf49e91cf75fe916"
+      },
+      "target": {
+        "status": "ABSENT",
+        "git_blob": null
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "789cfeb1da565d3227af3c2caf49e91cf75fe916"
+      },
+      "simulated_merge": {
+        "status": "ABSENT",
+        "git_blob": null
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/models/glm_stream_guard.py",
+      "release_source_sha256": "f0b8127bd7217f0f4cd28ce973994deb64994e87354141cbe0c4dd3f7b475030",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "1c9e590a469c997dad74fc646bd74023fbe3f2a6",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "1c9e590a469c997dad74fc646bd74023fbe3f2a6"
+      },
+      "target": {
+        "status": "ABSENT",
+        "git_blob": null
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "1c9e590a469c997dad74fc646bd74023fbe3f2a6"
+      },
+      "simulated_merge": {
+        "status": "ABSENT",
+        "git_blob": null
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/models/output_safety.py",
+      "release_source_sha256": "d168aee0299bfc6a87f852f6941d59bcd3dc4eb33e2be6d8fe0ae4cdaa34ed65",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "02f34f901d959c31e56b8f784c200bd58bb2594d",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "02f34f901d959c31e56b8f784c200bd58bb2594d"
+      },
+      "target": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "a2b930728435e298a19bce0befdec1550ff9382e"
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "02f34f901d959c31e56b8f784c200bd58bb2594d"
+      },
+      "simulated_merge": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "a2b930728435e298a19bce0befdec1550ff9382e"
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/models/robust_openai.py",
+      "release_source_sha256": "8a41b677b843b6c8e58433f1725378c312af0315711bc1ca62422d55421f2a52",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "7d20e35beca0ee161ee1e558c4c01f461f20eb89",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "7d20e35beca0ee161ee1e558c4c01f461f20eb89"
+      },
+      "target": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "15799452ea54a9e0b2bf6d036a211e349a4c8736"
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "7d20e35beca0ee161ee1e558c4c01f461f20eb89"
+      },
+      "simulated_merge": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "15799452ea54a9e0b2bf6d036a211e349a4c8736"
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/runtime/datalake_policy.py",
+      "release_source_sha256": "3ce9d43e3802a6d03dd0670a606d9e037e2ba5732f4d3b4205470f5b2152657c",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "0e48964a5166120ef306012a3638bc9561dc1f4a",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "0e48964a5166120ef306012a3638bc9561dc1f4a"
+      },
+      "target": {
+        "status": "ABSENT",
+        "git_blob": null
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "0e48964a5166120ef306012a3638bc9561dc1f4a"
+      },
+      "simulated_merge": {
+        "status": "ABSENT",
+        "git_blob": null
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/subagents/executor.py",
+      "release_source_sha256": "e2fa000b3d54eb4f12d32bd7e177e629907cc4ec78303268c71144b5c7860a7e",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "fec214c2a5bd84fd1e825bb220dd7c9373cb5323",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "fec214c2a5bd84fd1e825bb220dd7c9373cb5323"
+      },
+      "target": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "337ff848a94f7b124323094f8c0ca2c67d321456"
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "fec214c2a5bd84fd1e825bb220dd7c9373cb5323"
+      },
+      "simulated_merge": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "337ff848a94f7b124323094f8c0ca2c67d321456"
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+      "release_source_sha256": "25f48c9c233f96c02380d8447bc682368cb62bd323a1e63e542ea897b8f1815b",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "9c8fe4e05792c579e038084e25620c5eee36e8a5",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "9c8fe4e05792c579e038084e25620c5eee36e8a5"
+      },
+      "target": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "8759b5a9832946c35f66b2e2ea7ca1e2f2db09bf"
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "9c8fe4e05792c579e038084e25620c5eee36e8a5"
+      },
+      "simulated_merge": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "8759b5a9832946c35f66b2e2ea7ca1e2f2db09bf"
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/tools/tools.py",
+      "release_source_sha256": "e689594bc8493f55429fcbcfafb38d783c309eb6a1f24010f287a2f2fe71be52",
+      "release_commit": "fff68933a95518a194eb58cb819b926d5441fca2",
+      "release_git_blob": "fb3456668de8dbec152bbc850cac75a4c7fcedc7",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "fb3456668de8dbec152bbc850cac75a4c7fcedc7"
+      },
+      "target": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "dbc7e5a148af251a6eb7d8b064cf88e0ead6afc0"
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "fb3456668de8dbec152bbc850cac75a4c7fcedc7"
+      },
+      "simulated_merge": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "dbc7e5a148af251a6eb7d8b064cf88e0ead6afc0"
+      }
+    },
+    {
+      "path": "backend/packages/harness/deerflow/constants.py",
+      "release_source_sha256": "7629fc0d5dc53a9583c34023cc0f7c1b50fb01e68f4781efb187e07d6c857de2",
+      "release_commit": "99942526442d32023d0272aea29f6b5a43241e66",
+      "release_git_blob": "612658a6b95188f22d2bc55b274ccae2e1052645",
+      "pr": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "612658a6b95188f22d2bc55b274ccae2e1052645"
+      },
+      "target": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "847ed8e2740da67da4cfafcf781684581cc7478c"
+      },
+      "merged": {
+        "status": "MATCH_RELEASE_BLOB",
+        "git_blob": "612658a6b95188f22d2bc55b274ccae2e1052645"
+      },
+      "simulated_merge": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "847ed8e2740da67da4cfafcf781684581cc7478c"
+      }
+    },
+    {
+      "path": "backend/app/gateway/routers/employee_directory.py",
+      "release_source_sha256": "2da901eb81f94c31fba86b299fc35dfc6cfbff7c693cc2013f2cc1ad8cfbdcae",
+      "release_commit": "def40185024bc84d48e8ca74d73fd269a94efa15",
+      "release_git_blob": "3f39241fad524c24b1c443c0bcee701146c3be5b",
+      "pr": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "ccb8303c7403ae9000167e0c1ac762560e66feb7"
+      },
+      "target": {
+        "status": "ABSENT",
+        "git_blob": null
+      },
+      "merged": {
+        "status": "CHANGED_FROM_RELEASE_BLOB",
+        "git_blob": "ccb8303c7403ae9000167e0c1ac762560e66feb7"
+      },
+      "simulated_merge": {
+        "status": "ABSENT",
+        "git_blob": null
+      }
+    }
+  ],
+  "merge_tree": "103ef4c3fe4742380678be5aeeabf011cb14b6e6",
+  "merged_pr_tree": "103ef4c3fe4742380678be5aeeabf011cb14b6e6",
+  "current_target_changes_from_premerge": [
+    "vendor/weknora-ui-20260913-r5/frontend/docker-entrypoint.sh",
+    "vendor/weknora-ui-20260913-r5/frontend/src/views/knowledge/KnowledgeBase.vue",
+    "vendor/weknora-ui-20260913-r5/frontend/src/views/knowledge/components/KbUploadSourceDropdown.vue",
+    "vendor/weknora-ui-20260913-r5/frontend/src/views/knowledge/components/UploadConfirmDialog.vue",
+    "vendor/weknora-ui-20260913-r5/frontend/src/views/knowledge/utils/uploadBatchLimit.ts",
+    "vendor/weknora-ui-20260913-r5/overlay/Dockerfile.ui"
+  ],
+  "weknora_ui_pr_target_differences": [
+    "vendor/weknora-ui-20260913-r5/frontend/docker-entrypoint.sh",
+    "vendor/weknora-ui-20260913-r5/frontend/src/views/knowledge/KnowledgeBase.vue",
+    "vendor/weknora-ui-20260913-r5/frontend/src/views/knowledge/components/KbUploadSourceDropdown.vue",
+    "vendor/weknora-ui-20260913-r5/frontend/src/views/knowledge/components/UploadConfirmDialog.vue",
+    "vendor/weknora-ui-20260913-r5/frontend/src/views/knowledge/utils/uploadBatchLimit.ts",
+    "vendor/weknora-ui-20260913-r5/overlay/Dockerfile.ui"
+  ],
+  "pr_target_changed_file_count": 1126,
+  "merge_simulation_reference": "pr13-merge-simulation-20261022.json",
+  "changed_pr_source_explanations": {
+    "backend/packages/harness/deerflow/community/appforge/data_qa_stream.py": {
+      "commit": "2e24bd7b3",
+      "reason": "Data QA live progress candidate; not yet deployed per operator hold"
+    },
+    "backend/packages/harness/deerflow/community/appforge/tools.py": {
+      "commit": "2e24bd7b3",
+      "reason": "Data QA live progress candidate; not yet deployed per operator hold"
+    },
+    "backend/app/gateway/routers/employee_directory.py": {
+      "commit": "ad40f1f88",
+      "reason": "External employee name roster changed after old UUID source pin; current runtime hash still needs verification"
+    }
+  },
+  "current_server_observation": "current-production-observation-20261022.json",
+  "runtime_source_fingerprint_pending": true,
+  "weknora_build_record": "OPERATOR_CONFIRMED_UNAVAILABLE"
+}

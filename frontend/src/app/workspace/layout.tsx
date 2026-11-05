@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 
 import { GatewayOfflineFallback } from "@/components/workspace/gateway-offline-fallback";
+import { WorkspaceAuthRecovery } from "@/components/workspace/workspace-auth-recovery";
 import { AuthProvider } from "@/core/auth/AuthProvider";
 import { getServerSideUser } from "@/core/auth/server";
-import { assertNever, buildLoginUrl } from "@/core/auth/types";
+import { assertNever } from "@/core/auth/types";
 
 import { WorkspaceContent } from "./workspace-content";
 
@@ -26,14 +27,13 @@ export default async function WorkspaceLayout({
     case "system_setup_required":
       redirect("/setup");
     case "unauthenticated":
-      redirect(buildLoginUrl("/workspace"));
+      // 本地运行未启用 IAM SSO（auth.iam.enabled=false），跳本地登录页而非 /api/v1/auth/iam/login（未启用时 404）
+      redirect("/login?next=%2Fworkspace%2Fchats%2Fnew");
     case "gateway_unavailable":
-      // GatewayOfflineFallback supplies the AuthProvider; WorkspaceContent
-      // already mounts the banner inside its sidebar layout, so renderBanner
-      // stays false here to avoid double-mounting.
+      // Failed authentication probes must not expose the workspace or its children.
       return (
-        <GatewayOfflineFallback>
-          <WorkspaceContent gatewayUnavailable>{children}</WorkspaceContent>
+        <GatewayOfflineFallback renderBanner>
+          <WorkspaceAuthRecovery />
         </GatewayOfflineFallback>
       );
     case "config_error":

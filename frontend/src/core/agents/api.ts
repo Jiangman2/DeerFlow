@@ -1,9 +1,29 @@
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 
-import type { Agent, CreateAgentRequest, UpdateAgentRequest } from "./types";
+import type {
+  Agent,
+  CreateAgentRequest,
+  DigitalEmployeeCategory,
+  UpdateAgentRequest,
+} from "./types";
 
 const BACKEND_UNAVAILABLE_STATUSES = new Set([502, 503, 504]);
+
+export async function recordSquareEmployeeLaunch(agent: Agent): Promise<void> {
+  const source = agent.external_url ? "external" : agent.source;
+  if (!source || source === "personal" || !agent.hot_identity) return;
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/employee-directory/${source}/${encodeURIComponent(agent.name)}/click`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({ expected_identity: agent.hot_identity }),
+    },
+  );
+  if (!response.ok) throw new Error("Employee launch could not be recorded");
+}
 
 export class AgentNameCheckError extends Error {
   constructor(
@@ -11,8 +31,11 @@ export class AgentNameCheckError extends Error {
     public readonly reason: "backend_unreachable" | "request_failed",
     /**
      * Raw backend `detail` string when the failure came from a backend
-     * response carrying one. `null` when no detail was provided, in which
-     * case the UI should prefer its own localized fallback.
+     * response carrying one. `null` when no detail was provided (e.g.
+     * network-layer failure, empty response body, unparseable body) — in
+     * which case `message` is a generated fallback like "Failed to check
+     * agent name: Bad Gateway" and the UI should prefer its own localized
+     * fallback instead of surfacing the generated string.
      */
     public readonly detail: string | null = null,
   ) {
@@ -28,32 +51,13 @@ export class AgentsApiDisabledError extends Error {
   }
 }
 
-function getErrorDetail(error: unknown): string | null {
-  if (
-    error &&
-    typeof error === "object" &&
-    "detail" in error &&
-    typeof error.detail === "string"
-  ) {
-    return error.detail;
-  }
-  return null;
-}
-
-function isAgentsApiDisabledDetail(detail: string | null): detail is string {
+function isAgentsApiDisabledDetail(detail: string | undefined): boolean {
   return typeof detail === "string" && detail.includes("agents_api.enabled");
 }
 
 export async function listAgents(): Promise<Agent[]> {
   const res = await fetch(`${getBackendBaseURL()}/api/agents`);
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as unknown;
-    const detail = getErrorDetail(err);
-    if (isAgentsApiDisabledDetail(detail)) {
-      throw new AgentsApiDisabledError(detail);
-    }
-    throw new Error(detail ?? `Failed to load agents: ${res.statusText}`);
-  }
+  if (!res.ok) throw new Error(`Failed to load agents: ${res.statusText}`);
   const data = (await res.json()) as { agents: Agent[] };
   return data.agents;
 }
@@ -61,12 +65,10 @@ export async function listAgents(): Promise<Agent[]> {
 export async function listTeamAgents(): Promise<Agent[]> {
   const res = await fetch(`${getBackendBaseURL()}/api/team-agents`);
   if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as unknown;
-    const detail = getErrorDetail(err);
-    if (isAgentsApiDisabledDetail(detail)) {
-      throw new AgentsApiDisabledError(detail);
-    }
-    throw new Error(detail ?? `Failed to load team agents: ${res.statusText}`);
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(
+      err.detail ?? `Failed to load team agents: ${res.statusText}`,
+    );
   }
   const data = (await res.json()) as { agents: Agent[] };
   return data.agents;
@@ -80,14 +82,6 @@ export async function getAgent(name: string): Promise<Agent> {
   return res.json() as Promise<Agent>;
 }
 
-export async function getTeamAgent(name: string): Promise<Agent> {
-  const res = await fetch(
-    `${getBackendBaseURL()}/api/team-agents/${encodeURIComponent(name)}`,
-  );
-  if (!res.ok) throw new Error(`Team agent '${name}' not found`);
-  return res.json() as Promise<Agent>;
-}
-
 export async function createAgent(request: CreateAgentRequest): Promise<Agent> {
   const res = await fetch(`${getBackendBaseURL()}/api/agents`, {
     method: "POST",
@@ -95,12 +89,11 @@ export async function createAgent(request: CreateAgentRequest): Promise<Agent> {
     body: JSON.stringify(request),
   });
   if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as unknown;
-    const detail = getErrorDetail(err);
-    if (isAgentsApiDisabledDetail(detail)) {
-      throw new AgentsApiDisabledError(detail);
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    if (isAgentsApiDisabledDetail(err.detail)) {
+      throw new AgentsApiDisabledError(err.detail!);
     }
-    throw new Error(detail ?? `Failed to create agent: ${res.statusText}`);
+    throw new Error(err.detail ?? `Failed to create agent: ${res.statusText}`);
   }
   return res.json() as Promise<Agent>;
 }
@@ -118,9 +111,8 @@ export async function updateAgent(
     },
   );
   if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as unknown;
-    const detail = getErrorDetail(err);
-    throw new Error(detail ?? `Failed to update agent: ${res.statusText}`);
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(err.detail ?? `Failed to update agent: ${res.statusText}`);
   }
   return res.json() as Promise<Agent>;
 }
@@ -143,9 +135,8 @@ export async function publishAgent(name: string): Promise<Agent> {
     },
   );
   if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as unknown;
-    const detail = getErrorDetail(err);
-    throw new Error(detail ?? `Failed to publish agent: ${res.statusText}`);
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(err.detail ?? `Failed to publish agent: ${res.statusText}`);
   }
   return res.json() as Promise<Agent>;
 }
@@ -156,9 +147,78 @@ export async function unpublishTeamAgent(name: string): Promise<void> {
     { method: "DELETE" },
   );
   if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as unknown;
-    const detail = getErrorDetail(err);
-    throw new Error(detail ?? `Failed to unpublish team agent: ${res.statusText}`);
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(
+      err.detail ?? `Failed to unpublish team agent: ${res.statusText}`,
+    );
+  }
+}
+
+export async function listDigitalEmployeeCategories(): Promise<
+  DigitalEmployeeCategory[]
+> {
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/digital-employee-categories`,
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to load digital employee categories`);
+  }
+  const data = (await res.json()) as { items: DigitalEmployeeCategory[] };
+  return data.items;
+}
+
+export async function uploadAgentAvatar(name: string, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/agents/${encodeURIComponent(name)}/avatar`,
+    { method: "POST", body: form },
+  );
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(err.detail ?? "Failed to upload avatar");
+  }
+  return res.json() as Promise<Agent>;
+}
+
+export async function deleteAgentAvatar(name: string) {
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/agents/${encodeURIComponent(name)}/avatar`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(err.detail ?? "Failed to remove avatar");
+  }
+}
+
+interface FeaturesResponse {
+  agents_api: { enabled: boolean };
+}
+
+export async function fetchAgentsApiEnabled(): Promise<boolean> {
+  const res = await fetch(`${getBackendBaseURL()}/api/features`);
+  if (!res.ok) {
+    throw new Error(`Failed to load features: ${res.statusText}`);
+  }
+  const data = (await res.json()) as FeaturesResponse;
+  return data.agents_api.enabled;
+}
+
+export async function recordExternalAgentClick(
+  agentName: string,
+): Promise<void> {
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/agent-analytics/external-click`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agent_name: agentName }),
+      keepalive: true,
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to record external agent click: ${res.status}`);
   }
 }
 
@@ -172,27 +232,27 @@ export async function checkAgentName(
     );
   } catch {
     throw new AgentNameCheckError(
-      "无法连接中海油勘探开发通用智能体后端服务。",
+      "Could not reach the backend service.",
       "backend_unreachable",
     );
   }
 
   if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as unknown;
-    const detail = getErrorDetail(err);
-    if (isAgentsApiDisabledDetail(detail)) {
-      throw new AgentsApiDisabledError(detail);
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    if (isAgentsApiDisabledDetail(err.detail)) {
+      throw new AgentsApiDisabledError(err.detail!);
     }
     if (BACKEND_UNAVAILABLE_STATUSES.has(res.status)) {
       throw new AgentNameCheckError(
-        "无法连接中海油勘探开发通用智能体后端服务。",
+        "Could not reach the backend service.",
         "backend_unreachable",
       );
     }
+    const backendDetail = typeof err.detail === "string" ? err.detail : null;
     throw new AgentNameCheckError(
-      detail ?? `Failed to check agent name: ${res.statusText}`,
+      backendDetail ?? `Failed to check agent name: ${res.statusText}`,
       "request_failed",
-      detail,
+      backendDetail,
     );
   }
   return res.json() as Promise<{ available: boolean; name: string }>;

@@ -1,0 +1,68 @@
+export function usageAnalyticsCopy(locale: string) {
+  return locale.startsWith("zh")
+    ? {
+        title: "Token 活动",
+        peak: "单日 Token 峰值",
+        longest: "最长已结束任务",
+        longestStreak: "最长连续天数",
+        currentStreak: "当前连续天数",
+        daily: "每天",
+        weekly: "每周",
+        cumulative: "累计总量",
+        days: "天",
+        hours: "小时",
+        minutes: "分",
+        less: "少",
+        more: "多",
+        loading: "正在加载使用记录…",
+        unavailable: "使用记录暂时不可用，请稍后重试。",
+        retry: "重试",
+        noRecords: "暂无使用记录",
+        unknown: "未记录",
+        scope:
+          "最近 12 个月，按北京时间的任务开始日期归集平台已记录的 Token，含进行中的任务快照。外部系统未回传的用量不计入；每 5 分钟更新。",
+        streakNote:
+          "有运行记录即计为活跃日；今天尚未使用时，连续天数延续至昨天。耗时按已结束运行的开始至最后更新时间计算。",
+        weekOf: "周开始",
+        runs: "次运行",
+        exact: "Token",
+        selectDay: "悬停或点按色块查看用量",
+        weeklyTotal: "所在周合计",
+        weekStarting: "起的一周",
+        cumulativeThrough: "累计至",
+        asOf: "数据截至",
+      }
+    : {
+        title: "Token activity",
+        peak: "Peak daily tokens",
+        longest: "Longest ended task",
+        longestStreak: "Longest streak",
+        currentStreak: "Current streak",
+        daily: "Daily",
+        weekly: "Weekly",
+        cumulative: "Cumulative",
+        days: "days",
+        hours: "h",
+        minutes: "min",
+        less: "Less",
+        more: "More",
+        loading: "Loading activity…",
+        unavailable:
+          "Usage history is temporarily unavailable. Please retry later.",
+        retry: "Retry",
+        noRecords: "No usage recorded",
+        unknown: "Not recorded",
+        scope:
+          "Last 12 calendar months, attributed to the task start date in Asia/Shanghai. Includes recorded live usage; excludes usage not reported by external systems. Updated every 5 minutes.",
+        streakNote:
+          "Any recorded run counts as an active day. A streak through yesterday remains current until today ends. Duration uses the start and last update of an ended run.",
+        weekOf: "Week of",
+        runs: "runs",
+        exact: "tokens",
+        selectDay: "Hover or tap a cell to inspect usage",
+        weeklyTotal: "Week total",
+        weekStarting: "week starting",
+        cumulativeThrough: "Cumulative through",
+        asOf: "Recorded through",
+      };
+}

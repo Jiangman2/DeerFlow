@@ -1,0 +1,29 @@
+{
+  "schema": "portal-weknora-company-viewer-field.v1",
+  "evidence": "USER_SUPPLIED_COMPLETE_HOST_RECEIPT",
+  "status": "ORDINARY_VIEWER_CANDIDATE_ACCEPTED_NOT_DEPLOYED",
+  "verification_email": "bianqy@cnooc.com.cn",
+  "knowledge_base_id": "bd83e659-9d9c-429a-acf1-ead01037cfa1",
+  "organization_id": "b9cfbf7f-7281-4f62-a72b-6a22379efe60",
+  "candidate_policy_sha256": "b04626806d0569e2130f0dccba48bbb0b777ee8f6b16576794b546631f1bbcae",
+  "join_requests": 1,
+  "effective_permission": "viewer",
+  "native_shared_list_visible": true,
+  "knowledge_base_metadata_read": true,
+  "repeated_access_no_additional_join": true,
+  "write_denial_basis": "NATIVE_EFFECTIVE_PERMISSION_METADATA_NO_WRITE_PROBES",
+  "all_user_inventory": {
+    "status": "INCOMPLETE",
+    "error_class": "RuntimeError",
+    "membership_grants": 0,
+    "cause_not_recorded": true
+  },
+  "auto_enrollment_enabled_for_all_users": false,
+  "browser_acceptance_pending": true,
+  "knowledge_qa_business_acceptance_pending": true,
+  "provider_requests": 0,
+  "documents_read": false,
+  "report_path": "/var/lib/portal-weknora-company-viewer-canary-20261024-r1/REPORT.json",
+  "report_bytes": 2305,
+  "report_sha256": "19eea1a4ea765974f3f5053763257119f8c269bfca0ab18f513e3a728ad26307"
+}

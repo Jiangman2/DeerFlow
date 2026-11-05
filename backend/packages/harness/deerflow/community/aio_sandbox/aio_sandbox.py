@@ -1,46 +1,70 @@
 import base64
 import errno
 import logging
+import posixpath
+import re
 import shlex
 import threading
 import uuid
 
+import httpx
 from agent_sandbox import Sandbox as AioSandboxClient
+from agent_sandbox.core.api_error import ApiError
 
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
-from deerflow.sandbox.sandbox import Sandbox
+from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
+from deerflow.sandbox.sandbox import Sandbox, _validate_extra_env
 from deerflow.sandbox.search import GrepMatch, path_matches, should_ignore_path, truncate_line
+from deerflow.sandbox.text_read_policy import image_text_read_error
 
 logger = logging.getLogger(__name__)
 
 _MAX_DOWNLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
+_TEXT_READ_REQUEST_OPTIONS = {"timeout_in_seconds": 30, "max_retries": 0}
+_TEXT_READ_TIMEOUT = "Error: READ_FILE_TIMEOUT. The sandbox text-read request timed out. No shell fallback was started. Check sandbox availability before retrying; this is not a successful file read."
 
 _ERROR_OBSERVATION_SIGNATURE = "'ErrorObservation' object has no attribute 'exit_code'"
+_BASH_EXIT_SENTINEL = "__DEERFLOW_BASH_EXIT_CODE__="
+_BASH_EXIT_PATTERN = re.compile(r"(?:^|\n)__DEERFLOW_BASH_EXIT_CODE__=(\d+)[ \t]*(?=\n|$)")
 
 
-def _wrap_command_with_exit_marker(command: str, marker: str) -> str:
-    quoted_command = shlex.quote(command)
-    inner_script = (
-        f"bash -lc {quoted_command}; "
-        "__deer_flow_status=$?; "
-        f"printf '\\n{marker}%s\\n' \"$__deer_flow_status\"; "
-        "exit 0"
-    )
-    return f"sh -c {shlex.quote(inner_script)}"
+def _capture_bash_exit_code(command: str) -> str:
+    """Append an in-band exit-code marker for sandbox APIs that discard it."""
+    return f'{command}\n__deerflow_bash_exit_code=$?\nprintf "\\n{_BASH_EXIT_SENTINEL}%s\\n" "$__deerflow_bash_exit_code"'
 
 
-def _strip_exit_marker(output: str, marker: str) -> tuple[str, int | None]:
-    marker_index = output.rfind(marker)
-    if marker_index < 0:
-        return output, None
+def _normalize_bash_exit_output(output: str) -> str:
+    """Turn a captured non-zero shell status into an explicit tool error.
 
-    command_output = output[:marker_index].rstrip("\n")
-    status_text = output[marker_index + len(marker) :].strip().splitlines()[0].strip()
-    try:
-        exit_code = int(status_text)
-    except ValueError:
-        return output, None
-    return command_output, exit_code
+    The AIO shell APIs return only text and otherwise make a failed CLI call
+    indistinguishable from a successful one to downstream middleware.  Keep
+    the original stdout/stderr, strip the private marker, and add an actionable
+    error prefix so the model changes strategy instead of guessing variants.
+    """
+    matches = list(_BASH_EXIT_PATTERN.finditer(output))
+    if not matches:
+        return output if output else "(no output)"
+    match = matches[-1]
+    exit_code = int(match.group(1))
+    cleaned = (output[: match.start()] + output[match.end() :]).strip()
+    if exit_code == 0:
+        return cleaned or "(no output)"
+    guidance = f"Error: Bash command exited with code {exit_code}. Inspect the command output and the active skill/reference or run the command's --help before retrying; do not guess command variants."
+    return f"{guidance}\n{cleaned}" if cleaned else guidance
+
+
+# Env-bearing commands require the bash.exec API (POST /v1/bash/exec), which the
+# all-in-one-sandbox image only ships since 1.9.x. Older images (including any
+# ``latest`` tag frozen on the 1.0.0.x line) answer 404 for the whole /v1/bash/*
+# namespace. That raw 404 is useless to the model (it just retries), so the
+# sandbox fails fast with this operator-facing message instead (#3921).
+_BASH_EXEC_UNSUPPORTED_ERROR = (
+    "Error: this sandbox image does not support per-command environment injection "
+    "(POST /v1/bash/exec returned 404), which is required to run skills that declare "
+    "required-secrets. This is a deployment issue that retrying cannot fix: upgrade the "
+    "sandbox image to all-in-one-sandbox >= 1.9.3 (set `sandbox.image` in config.yaml, "
+    "e.g. pin the tag `1.11.0`) and recreate the sandbox container, then try again."
+)
 
 
 class AioSandbox(Sandbox):
@@ -51,20 +75,42 @@ class AioSandbox(Sandbox):
     from corrupting the container's single persistent session (see #1433).
     """
 
-    def __init__(self, id: str, base_url: str, home_dir: str | None = None):
+    def __init__(
+        self,
+        id: str,
+        base_url: str,
+        home_dir: str | None = None,
+        default_env: dict[str, str] | None = None,
+        api_key: str | None = None,
+    ):
         """Initialize the AIO sandbox.
 
         Args:
             id: Unique identifier for this sandbox instance.
             base_url: URL of the sandbox API (e.g., http://localhost:8080).
             home_dir: Home directory inside the sandbox. If None, will be fetched from the sandbox.
+            default_env: Environment variables injected into every command. Remote
+                provisioner sandboxes use this to receive ``sandbox.environment``
+                without persisting credentials in the Pod specification.
+            api_key: Optional AIO API key sent as an Authorization Bearer token.
         """
         super().__init__(id)
         self._base_url = base_url
-        self._client = AioSandboxClient(base_url=base_url, timeout=600)
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
+        client_kwargs = {
+            "base_url": base_url,
+            "timeout": 600,
+        }
+        if headers is not None:
+            client_kwargs["headers"] = headers
+        self._client = AioSandboxClient(**client_kwargs)
         self._home_dir = home_dir
+        self._default_env = dict(default_env or {})
         self._lock = threading.Lock()
         self._closed = False
+        # Set to True after bash.exec answers 404 (image predates /v1/bash/*),
+        # so later env-bearing calls fail fast instead of re-hitting HTTP (#3921).
+        self._bash_exec_unsupported = False
 
     @property
     def base_url(self) -> str:
@@ -135,7 +181,22 @@ class AioSandbox(Sandbox):
     # default.
     _DEFAULT_NO_CHANGE_TIMEOUT = 600
 
-    def execute_command(self, command: str) -> str:
+    # Wall-clock hard timeout for env-bearing commands routed through bash.exec.
+    # The bash.exec API exposes no idle/no-change timeout (unlike
+    # shell.exec_command's ``no_change_timeout`` on the legacy path), so
+    # env-bearing commands are bounded by total elapsed wall-clock time, not
+    # time-since-last-output. Kept at the same numeric value as the legacy idle
+    # budget so the two paths broadly agree on how long a single command may
+    # run; a future SDK that exposes an idle timeout on bash.exec should switch
+    # this call site to it.
+    _DEFAULT_HARD_TIMEOUT = 600.0
+
+    def execute_command(
+        self,
+        command: str,
+        env: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> str:
         """Execute a shell command in the sandbox.
 
         Uses a lock to serialize concurrent requests. The AIO sandbox
@@ -147,15 +208,34 @@ class AioSandbox(Sandbox):
 
         Args:
             command: The command to execute.
+            env: Optional per-call environment variables (request-scoped secrets,
+                issue #3861). When provided, the command runs via the ``bash.exec``
+                API (which supports per-command env) on a fresh auto-created session
+                so the secrets are scoped to this single command and never persist;
+                secret values travel in the structured ``env`` field, never in the
+                command string. When ``None`` the legacy persistent-shell path runs
+                unchanged.
+            timeout: Optional per-call timeout. The current sandbox SDK does not
+                expose a command-level timeout distinct from its client/request
+                timeout, so DeerFlow keeps using the backend's default here.
 
         Returns:
             The output of the command.
         """
+        del timeout
+        # Validate ``env`` keys before forwarding them to the ``bash.exec`` API.
+        # The public ``Sandbox.execute_command`` contract accepts arbitrary dict
+        # keys; enforcing the POSIX env-var name rule keeps the contract
+        # consistent with the local and e2b sandboxes and catches unsafe keys
+        # early. ``_validate_extra_env`` is a no-op when ``env`` is None or empty.
+        command_env = {**self._default_env, **(env or {})}
+        _validate_extra_env(command_env)
+        if command_env:
+            return self._execute_with_env(command, command_env)
+        captured_command = _capture_bash_exit_code(command)
         with self._lock:
             try:
-                marker = f"__DEER_FLOW_EXIT_CODE_{uuid.uuid4().hex}__:"
-                wrapped_command = _wrap_command_with_exit_marker(command, marker)
-                result = self._client.shell.exec_command(command=wrapped_command, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
+                result = self._client.shell.exec_command(command=captured_command, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
                 output = result.data.output if result.data else ""
 
                 if output and _ERROR_OBSERVATION_SIGNATURE in output:
@@ -166,7 +246,7 @@ class AioSandbox(Sandbox):
                     fresh_id = str(uuid.uuid4())
                     self._client.shell.create_session(id=fresh_id)
                     try:
-                        result = self._client.shell.exec_command(command=wrapped_command, id=fresh_id, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
+                        result = self._client.shell.exec_command(command=captured_command, id=fresh_id, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
                         output = result.data.output if result.data else ""
                     finally:
                         # Release the one-shot recovery session, best-effort, so
@@ -176,13 +256,74 @@ class AioSandbox(Sandbox):
                         except Exception as cleanup_error:
                             logger.warning(f"Failed to release recovery session {fresh_id}: {cleanup_error}")
 
-                output, exit_code = _strip_exit_marker(output, marker)
-                if exit_code and exit_code != 0:
-                    suffix = f"Exit Code: {exit_code}"
-                    output = f"{output}\n{suffix}" if output else suffix
-                return output if output else "(no output)"
+                return _normalize_bash_exit_output(output)
             except Exception as e:
                 logger.error(f"Failed to execute command in sandbox: {e}")
+                return f"Error: {e}"
+
+    def _execute_with_env(self, command: str, env: dict[str, str]) -> str:
+        """Execute a command with per-call environment variables injected.
+
+        The persistent-shell ``shell.exec_command`` API has no env parameter, so
+        injected commands use the ``bash.exec`` API which accepts per-command env.
+        Each call lets the sandbox auto-create a fresh session (no ``session_id``),
+        so injected request-scoped secrets are scoped to this command and never
+        persist across calls. Secret values travel in the structured ``env`` field,
+        never in the command string.
+
+        Trade-off of the fresh-session choice: consecutive env-bearing bash calls
+        within the same skill do not share session state (cwd, sourced venv,
+        exported variables). This mirrors the LocalSandbox model (each call is a
+        fresh subprocess) and is intentional — a shared session_id would let
+        request-scoped secrets ride the session env into later commands, which the
+        SDK does not contractually forbid. Skills that need setup must fold it into
+        a single command (e.g. ``cd /mnt/user-data/workspace && source .venv/bin/activate && python run.py``).
+
+        The ``_ERROR_OBSERVATION_SIGNATURE`` recovery contract is shared with the
+        legacy persistent-shell path: if the (unlikely, since each call is a fresh
+        session) corruption marker shows up, the call is retried on another fresh
+        session rather than returned verbatim.
+
+        Images older than all-in-one-sandbox 1.9.x have no ``/v1/bash/*`` routes;
+        there is no fallback on the legacy shell path that would keep the secret
+        values out of the command string, so the only safe behaviour is to fail
+        fast with an actionable error (#3921).
+        """
+        if self._bash_exec_unsupported:
+            return _BASH_EXEC_UNSUPPORTED_ERROR
+        output = self._run_bash_exec(command, env)
+        if output and _ERROR_OBSERVATION_SIGNATURE in output:
+            logger.warning("ErrorObservation detected in bash.exec output, retrying on a fresh session")
+            retried = self._run_bash_exec(command, env)
+            if retried and _ERROR_OBSERVATION_SIGNATURE not in retried:
+                return retried
+        return output
+
+    def _run_bash_exec(self, command: str, env: dict[str, str]) -> str:
+        """Single bash.exec invocation with injected env (one fresh session)."""
+        with self._lock:
+            try:
+                result = self._client.bash.exec(
+                    command=_capture_bash_exit_code(command),
+                    env=env,
+                    hard_timeout=self._DEFAULT_HARD_TIMEOUT,
+                )
+                data = result.data if result else None
+                stdout = (data.stdout or "") if data else ""
+                stderr = (data.stderr or "") if data else ""
+                output = stdout
+                if stderr:
+                    output += f"\nStd Error:\n{stderr}" if output else stderr
+                return _normalize_bash_exit_output(output)
+            except ApiError as e:
+                if e.status_code == 404:
+                    self._bash_exec_unsupported = True
+                    logger.error("Sandbox %s does not support bash.exec (/v1/bash/exec returned 404); env-bearing commands are unavailable until the sandbox image is upgraded to all-in-one-sandbox >= 1.9.3", self.id)
+                    return _BASH_EXEC_UNSUPPORTED_ERROR
+                logger.error(f"Failed to execute command with injected env in sandbox: {e}")
+                return f"Error: {e}"
+            except Exception as e:
+                logger.error(f"Failed to execute command with injected env in sandbox: {e}")
                 return f"Error: {e}"
 
     def read_file(self, path: str) -> str:
@@ -194,12 +335,48 @@ class AioSandbox(Sandbox):
         Returns:
             The content of the file.
         """
+        rejection = image_text_read_error(path)
+        if rejection:
+            return rejection
         try:
-            result = self._client.file.read_file(file=path)
+            result = self._client.file.read_file(file=path, request_options=dict(_TEXT_READ_REQUEST_OPTIONS))
             return result.data.content if result.data else ""
+        except UnicodeDecodeError:
+            # Binary bytes cannot be repaired by sending them through cat.
+            raise
+        except (httpx.TimeoutException, TimeoutError):
+            return _TEXT_READ_TIMEOUT
+        except httpx.TransportError:
+            return "Error: READ_FILE_TRANSPORT. The sandbox text-read connection failed. Check sandbox availability before retrying."
         except Exception as e:
-            logger.error(f"Failed to read file in sandbox: {e}")
-            return f"Error: {e}"
+            # Some agent-sandbox SDK/runtime combinations raise while parsing
+            # the file endpoint's error response (for example a missing file is
+            # returned as a validation payload instead of a normal 404). Fall
+            # back to the already-supported shell channel so the model receives
+            # a stable file-not-found/error result and existing-file reads can
+            # still be used by read-before-write and authoring workflows.
+            try:
+                normalized = path.replace("\\", "/")
+                if any(segment == ".." for segment in normalized.split("/")):
+                    raise PermissionError("path traversal detected")
+                if not any(normalized == prefix or normalized.startswith(f"{prefix}/") for prefix in (VIRTUAL_PATH_PREFIX, DEFAULT_SKILLS_CONTAINER_PATH, "/mnt/acp-workspace")):
+                    raise PermissionError("path is outside the sandbox virtual mounts")
+                fallback = self._client.shell.exec_command(
+                    command=_capture_bash_exit_code(f"cat -- {shlex.quote(normalized)}"),
+                    no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT,
+                    request_options=dict(_TEXT_READ_REQUEST_OPTIONS),
+                )
+                output = fallback.data.output if fallback and fallback.data else ""
+                return _normalize_bash_exit_output(output)
+            except (httpx.TimeoutException, TimeoutError):
+                return "Error: READ_FILE_TIMEOUT. The sandbox compatibility text-read request timed out. Check sandbox availability before retrying; this is not a successful file read."
+            except Exception as fallback_error:
+                logger.error(
+                    "Failed to read file in sandbox through file and shell channels (%s; %s)",
+                    type(e).__name__,
+                    type(fallback_error).__name__,
+                )
+                return f"Error: {e}"
 
     def download_file(self, path: str) -> bytes:
         """Download file bytes from the sandbox.
@@ -275,13 +452,18 @@ class AioSandbox(Sandbox):
         """
         with self._lock:
             try:
+                parent = posixpath.dirname(path)
+                if parent:
+                    # Match LocalSandbox.write_file: callers may write a new
+                    # nested path without issuing a separate mkdir command.
+                    self._client.shell.exec_command(
+                        command=f"mkdir -p {shlex.quote(parent)}",
+                        no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT,
+                    )
                 if append:
                     existing = self.read_file(path)
                     if not existing.startswith("Error:"):
                         content = existing + content
-                parent = shlex.quote(path.rsplit("/", 1)[0]) if "/" in path.rstrip("/") else ""
-                if parent:
-                    self._client.shell.exec_command(command=f"mkdir -p {parent}", no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
                 self._client.file.write_file(file=path, content=content)
             except Exception as e:
                 logger.error(f"Failed to write file in sandbox: {e}")
@@ -307,9 +489,12 @@ class AioSandbox(Sandbox):
                 continue
             rel_path = entry.path[len(root_path) :].lstrip("/")
             if path_matches(pattern, rel_path):
-                matches.append(entry.path)
+                # Only a further eligible match proves truncation. An exactly
+                # full result, followed only by filtered entries, is complete.
+                # Check before appending so a zero cap returns no matches.
                 if len(matches) >= max_results:
                     return matches, True
+                matches.append(entry.path)
         return matches, False
 
     def grep(

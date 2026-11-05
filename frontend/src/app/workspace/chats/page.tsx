@@ -1,15 +1,18 @@
 "use client";
 
+import { ArchiveRestore, MessageSquareText, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ThreadChannelBadge,
   ThreadChannelIcon,
 } from "@/components/workspace/thread-channel-source";
+import { useThreadArchiveAction } from "@/components/workspace/use-thread-archive-action";
 import {
   WorkspaceBody,
   WorkspaceContainer,
@@ -20,20 +23,29 @@ import { useInfiniteThreads } from "@/core/threads/hooks";
 import {
   channelSourceOfThread,
   pathOfThread,
+  sortPinnedThreads,
   titleOfThread,
 } from "@/core/threads/utils";
 import { formatTimeAgo } from "@/core/utils/datetime";
+import { env } from "@/env";
 
 export default function ChatsPage() {
   const { t } = useI18n();
+  const [view, setView] = useState("active");
+  const archived = view === "archived";
+  const staticWebsite = env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true";
+  const archiveAction = useThreadArchiveAction();
   const {
     data: infiniteThreads,
+    isLoading,
+    isError,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteThreads();
+  } = useInfiniteThreads({ archived: staticWebsite ? undefined : archived });
   const threads = useMemo(
-    () => infiniteThreads?.pages.flat() ?? [],
+    () => sortPinnedThreads(infiniteThreads?.pages.flat() ?? []),
     [infiniteThreads],
   );
   const [search, setSearch] = useState("");
@@ -70,48 +82,113 @@ export default function ChatsPage() {
     );
     observer.observe(element);
     return () => observer.disconnect();
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage, isSearching]);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, isSearching, view]);
 
   return (
     <WorkspaceContainer>
       <WorkspaceHeader></WorkspaceHeader>
       <WorkspaceBody>
-        <div className="flex size-full flex-col">
-          <header className="flex shrink-0 items-center justify-center pt-8">
-            <Input
-              type="search"
-              className="h-12 w-full max-w-(--container-width-md) text-xl"
-              placeholder={t.chats.searchChats}
-              autoFocus
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+        <Tabs
+          value={view}
+          onValueChange={setView}
+          className="flex size-full flex-col"
+        >
+          <header className="cnooc-list-search mx-auto flex w-full max-w-(--container-width-md) shrink-0 flex-col gap-3 px-3 pt-4 sm:px-4 sm:pt-8">
+            <h1 className="cnooc-page-heading">{t.pages.chats}</h1>
+            {!staticWebsite ? (
+              <TabsList aria-label={t.pages.chats}>
+                <TabsTrigger value="active">{t.chats.activeChats}</TabsTrigger>
+                <TabsTrigger value="archived">
+                  {t.chats.archivedChats}
+                </TabsTrigger>
+              </TabsList>
+            ) : null}
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-slate-400"
+                aria-hidden="true"
+              />
+              <Input
+                type="search"
+                className="cnooc-search-input h-12 w-full max-w-(--container-width-md) pl-11 text-base"
+                aria-label={t.chats.searchChats}
+                placeholder={t.chats.searchChats}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
           </header>
           <main className="min-h-0 flex-1">
-            <ScrollArea className="size-full py-4">
-              <div className="mx-auto flex size-full max-w-(--container-width-md) flex-col">
+            <ScrollArea className="app-scroll-region size-full py-2 sm:py-4">
+              <div className="cnooc-thread-list mx-auto flex size-full max-w-(--container-width-md) flex-col">
+                {isError ? (
+                  <div role="alert" className="p-4 text-center">
+                    <p>{t.chats.loadChatsFailed}</p>
+                    <Button variant="outline" onClick={() => void refetch()}>
+                      {t.chats.retryLoadChats}
+                    </Button>
+                  </div>
+                ) : null}
+                {!isLoading && !isError && filteredThreads.length === 0 ? (
+                  <div
+                    role="status"
+                    className="cnooc-list-empty text-muted-foreground p-8 text-center"
+                  >
+                    <MessageSquareText
+                      className="mx-auto mb-3 size-7 text-slate-400"
+                      aria-hidden="true"
+                    />
+                    {isSearching
+                      ? t.chats.noMatchingChats
+                      : archived
+                        ? t.chats.noArchivedChats
+                        : t.chats.noActiveChats}
+                  </div>
+                ) : null}
                 {filteredThreads.map((thread) => {
                   const channelSource = channelSourceOfThread(thread);
                   return (
-                    <Link key={thread.thread_id} href={pathOfThread(thread)}>
-                      <div className="flex flex-col gap-2 border-b p-4">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <ThreadChannelIcon source={channelSource} />
-                          <div className="min-w-0 flex-1 truncate">
-                            {titleOfThread(thread)}
+                    <div
+                      key={thread.thread_id}
+                      className="cnooc-thread-row flex items-center gap-2"
+                    >
+                      <Link
+                        className="min-w-0 flex-1 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                        href={pathOfThread(thread)}
+                      >
+                        <div className="flex flex-col gap-2 p-4">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <ThreadChannelIcon source={channelSource} />
+                            <div className="min-w-0 flex-1 truncate">
+                              {titleOfThread(thread)}
+                            </div>
+                            <ThreadChannelBadge
+                              source={channelSource}
+                              className="hidden sm:inline-flex"
+                            />
                           </div>
-                          <ThreadChannelBadge
-                            source={channelSource}
-                            className="hidden sm:inline-flex"
-                          />
+                          {thread.updated_at ? (
+                            <div className="text-muted-foreground text-sm">
+                              {formatTimeAgo(thread.updated_at)}
+                            </div>
+                          ) : null}
                         </div>
-                        {thread.updated_at && (
-                          <div className="text-muted-foreground text-sm">
-                            {formatTimeAgo(thread.updated_at)}
-                          </div>
-                        )}
-                      </div>
-                    </Link>
+                      </Link>
+                      {archived ? (
+                        <Button
+                          className="mr-4 shrink-0"
+                          variant="outline"
+                          size="sm"
+                          disabled={archiveAction.isPending}
+                          onClick={() =>
+                            archiveAction.setArchived(thread.thread_id, false)
+                          }
+                        >
+                          <ArchiveRestore className="size-4" />
+                          {t.chats.restoreChat}
+                        </Button>
+                      ) : null}
+                    </div>
                   );
                 })}
                 {hasNextPage && !isSearching && (
@@ -139,7 +216,7 @@ export default function ChatsPage() {
               </div>
             </ScrollArea>
           </main>
-        </div>
+        </Tabs>
       </WorkspaceBody>
     </WorkspaceContainer>
   );

@@ -1,0 +1,39 @@
+# Bind both named contexts to locked OCI layouts in the private BuildKit driver.
+# No remote Dockerfile frontend. This file alone is not a server run command.
+FROM weknora-glm-go-base AS compile
+WORKDIR /src
+ENV GOTOOLCHAIN=local GOFLAGS=-mod=readonly GOWORK=off CGO_ENABLED=1 \
+    GOPROXY=file:///inputs/go-proxy GOSUMDB=off \
+    CARGO_HOME=/opt/cargo CARGO_NET_OFFLINE=true \
+    PATH=/opt/rust/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    GOMAXPROCS=2 CARGO_BUILD_JOBS=2
+COPY source/ /src/
+COPY offline/ /inputs/
+COPY build_native.sh /build_native.sh
+COPY unpack_rust.py /unpack_rust.py
+RUN --network=none /bin/bash /build_native.sh
+
+FROM weknora-glm-runtime-base AS runtime-check
+COPY --from=compile --chown=0:0 --chmod=0755 /out/WeKnora /app/WeKnora
+COPY --from=compile --chown=0:0 --chmod=0755 /out/weknora-anydoc-probe /usr/local/bin/weknora-anydoc-probe
+COPY --from=compile --chown=0:0 --chmod=0755 /out/weknora-glm-probe /usr/local/bin/weknora-glm-probe
+RUN --network=none set -eu; \
+    test "$(uname -m)" = aarch64; \
+    test "$(getconf GNU_LIBC_VERSION)" = 'glibc 2.36'; \
+    mkdir /tmp/weknora-glm-qualification; \
+    /usr/local/bin/weknora-glm-probe -h > /tmp/weknora-glm-qualification/glm-help.txt 2>&1; \
+    /usr/local/bin/weknora-anydoc-probe --self-test > /tmp/weknora-glm-qualification/anydoc.json; \
+    ldd /app/WeKnora > /tmp/weknora-glm-qualification/server-ldd.txt; \
+    if grep -E 'not found|version .* not found' /tmp/weknora-glm-qualification/server-ldd.txt; then exit 1; fi; \
+    printf '%s\n' 'runtime_loader_and_anydoc=PASS provider_requests=0' > /tmp/weknora-glm-qualification/PASS.txt
+
+FROM weknora-glm-runtime-base AS candidate
+# Preserve current runtime config, CA, entrypoint and all base layers. No new
+# system libraries, compile dependencies or credentials are copied to runtime.
+COPY --from=runtime-check --chown=0:0 --chmod=0755 /app/WeKnora /app/WeKnora
+COPY --from=runtime-check --chown=0:0 --chmod=0755 /usr/local/bin/weknora-anydoc-probe /usr/local/bin/weknora-anydoc-probe
+COPY --from=runtime-check --chown=0:0 --chmod=0755 /usr/local/bin/weknora-glm-probe /usr/local/bin/weknora-glm-probe
+
+FROM scratch AS qualification-evidence
+COPY --from=compile /out/evidence/ /
+COPY --from=runtime-check /tmp/weknora-glm-qualification/ /runtime/

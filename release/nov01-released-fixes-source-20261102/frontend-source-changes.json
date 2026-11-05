@@ -1,0 +1,54 @@
+{
+  "schema": "portal-service-recovery-core-frontend-source.v1",
+  "status": "PREPARED_NOT_DEPLOYED",
+  "base_image": "sha256:34f1bd6936ac606c7b39992eaff4aadce65a0bae800c60c400f7ebae4f56eb00",
+  "accepted_source_inventory_sha256": "f3dc679c0f51a2f4993e3ef10ae3624e73e9adc8a916d3fee5221822dba1bc30",
+  "changes": [
+    {
+      "path": "frontend/src/core/threads/run-config.ts",
+      "base_sha256": "f175cc8aed3cdc34cb6ce292a397d0b28fd210d6cb6a7ed22fec2daa420f478f",
+      "candidate_sha256": "908e438c5dd7a625d152194e2c5f760ea629653a015c8defb6a5961ce0434657",
+      "bytes": 435
+    },
+    {
+      "path": "frontend/src/app/workspace/admin/dashboard/page.tsx",
+      "base_sha256": "ee496546a46ee180b8a91c8e2deab2be7786179b25a8a2645b95b442f56ab1ac",
+      "candidate_sha256": "7f7da506571fc596d84be0f3ec64be4aa28f834571c64d168913a79291ac2634",
+      "bytes": 84346
+    },
+    {
+      "path": "frontend/src/core/dashboard/api.ts",
+      "base_sha256": "64ee999ea89029980ed91fc58a0c3f3743a0e7ef994c015e81f49164c1904477",
+      "candidate_sha256": "b254f9c6e3f8bc622380cc0f97ea1e0d8f4284a070e97e55b92eb90c411f8472",
+      "bytes": 6104
+    },
+    {
+      "path": "frontend/src/core/dashboard/hooks.ts",
+      "base_sha256": "71b2b14428bb6ba92ac2a73fb955cb5fe65b5804fe9faa68f7877ddb74a99f3b",
+      "candidate_sha256": "cafa9fb7c7e8c8bb44b0f70f8f392989b171b2354a8cbdfe07025ca3fa15675c",
+      "bytes": 3698
+    },
+    {
+      "path": "frontend/src/core/dashboard/types.ts",
+      "base_sha256": "1c18ba4a79914d6948885fbdb4f3eacb5e4b0149a26e3c10b030824f8b464023",
+      "candidate_sha256": "3e0457203e007c0ed112310391edef3d4d20e09164be2003a0cd8951a89da3b1",
+      "bytes": 9812
+    },
+    {
+      "path": "frontend/src/core/dashboard/failure-response.ts",
+      "base_sha256": null,
+      "candidate_sha256": "aaf02a940a70ac03deab3aec6904f28b8f1af93a36d8c4edf2d543e10c52d658",
+      "bytes": 1421
+    }
+  ],
+  "runtime_files_changed": 6,
+  "other_source_files_preserved": 967,
+  "mobile_fit_sources_preserved": true,
+  "dashboard_recovery_sources_preserved": true,
+  "datalake_session_sources_preserved": true,
+  "new_gateway_required": true,
+  "work_grant_schema_required": false,
+  "work_datalake_deferred": true,
+  "production_writes": 0,
+  "gateway_modified": false
+}

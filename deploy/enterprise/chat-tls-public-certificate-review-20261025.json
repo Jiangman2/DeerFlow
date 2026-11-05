@@ -1,0 +1,40 @@
+{
+  "schema": "supplied-public-https-certificate-inspection.v1",
+  "certificate_count": 4,
+  "local_signature_chain_checks": "PASS",
+  "leaf_private_key_pair_match_previously_checked": true,
+  "private_key_bytes_exported": false,
+  "private_key_copied": false,
+  "production_replacement_performed": false,
+  "scope": "LOCAL_PARSE_AND_SIGNATURE_CHECK_NOT_LIVE_INGRESS_OR_REVOCATION_VALIDATION",
+  "certificates": [
+    {
+      "subject": "CN=*.cnooc.com.cn,O=中国海洋石油集团有限公司,L=北京,ST=北京,C=CN",
+      "issuer": "CN=CFCA OV RSA OCA G2,O=China Financial Certification Authority,C=CN",
+      "not_after_utc": "2027-04-10T08:52:17+00:00",
+      "sha256": "b4100f894fff50e818b7a3f22b5bd111041363bee2491c976bda7f7fcde94cdd",
+      "is_ca": false
+    },
+    {
+      "subject": "CN=CFCA OV RSA OCA G2,O=China Financial Certification Authority,C=CN",
+      "issuer": "CN=CFCA Global RSA ROOT G2,O=China Financial Certification Authority,C=CN",
+      "not_after_utc": "2048-09-13T07:40:07+00:00",
+      "sha256": "eb6c466e647a5eb633a38290fd30131dd7b887b51e1340abb502c7ab31688f04",
+      "is_ca": true
+    },
+    {
+      "subject": "CN=CFCA Global RSA ROOT G2,O=China Financial Certification Authority,C=CN",
+      "issuer": "CN=CFCA EV ROOT,O=China Financial Certification Authority,C=CN",
+      "not_after_utc": "2029-08-25T08:34:20+00:00",
+      "sha256": "34cc7acd483543572dc504aca328326037b59c106ab1acdbe30679b95cd1c21e",
+      "is_ca": true
+    },
+    {
+      "subject": "CN=CFCA EV ROOT,O=China Financial Certification Authority,C=CN",
+      "issuer": "CN=CFCA EV ROOT,O=China Financial Certification Authority,C=CN",
+      "not_after_utc": "2029-12-31T03:07:01+00:00",
+      "sha256": "5cc3d78e4e1d5e45547a04e6873e64f90cf9536d1ccc2ef800f355c4c5fd70fd",
+      "is_ca": true
+    }
+  ]
+}

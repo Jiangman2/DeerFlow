@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
+from uuid import UUID
 
 from _router_auth_helpers import make_authed_test_app
 from _run_message_pagination_helpers import assert_run_message_page
 from fastapi.testclient import TestClient
 
+from app.gateway.auth.models import User
 from app.gateway.routers import thread_runs
-from deerflow.runtime import RunManager
+from deerflow.runtime import END_SENTINEL, MemoryStreamBridge, RunManager
 from deerflow.runtime.runs.store.memory import MemoryRunStore
 
 # ---------------------------------------------------------------------------
@@ -18,11 +20,24 @@ from deerflow.runtime.runs.store.memory import MemoryRunStore
 # ---------------------------------------------------------------------------
 
 
-def _make_app(event_store=None, run_manager=None):
+_STORE_ONLY_USER_ID = "10000000-0000-0000-0000-000000000001"
+
+
+def _store_only_user() -> User:
+    return User(
+        email="store-only@example.com",
+        password_hash="x",
+        system_role="user",
+        id=UUID(_STORE_ONLY_USER_ID),
+    )
+
+
+def _make_app(event_store=None, run_manager=None, stream_bridge=None, user_factory=None):
     """Build a test FastAPI app with stub auth and mocked state."""
-    app = make_authed_test_app()
+    app = make_authed_test_app(user_factory=user_factory)
     app.include_router(thread_runs.router)
 
+    app.state.stream_bridge = stream_bridge or MemoryStreamBridge()
     if event_store is not None:
         app.state.run_event_store = event_store
     if run_manager is None:
@@ -31,6 +46,25 @@ def _make_app(event_store=None, run_manager=None):
     app.state.run_manager = run_manager
 
     return app
+
+
+class _EndingCrossProcessBridge:
+    supports_cross_process = True
+
+    async def publish(self, run_id, event, data):
+        return None
+
+    async def publish_end(self, run_id):
+        return None
+
+    def subscribe(self, run_id, *, last_event_id=None, heartbeat_interval=15.0):
+        async def _events():
+            yield END_SENTINEL
+
+        return _events()
+
+    async def cleanup(self, run_id, *, delay=0):
+        return None
 
 
 def _make_event_store(rows: list[dict]):
@@ -51,6 +85,7 @@ def _make_store_only_run_manager() -> RunManager:
             "store-only-run",
             thread_id="thread-store",
             assistant_id="lead_agent",
+            user_id=_STORE_ONLY_USER_ID,
             status="running",
             multitask_strategy="reject",
             metadata={},
@@ -194,7 +229,10 @@ def test_empty_data_when_no_messages():
 
 def test_get_run_hydrates_store_only_run():
     """GET /api/threads/{tid}/runs/{rid} should read historical store rows."""
-    app = _make_app(run_manager=_make_store_only_run_manager())
+    app = _make_app(
+        run_manager=_make_store_only_run_manager(),
+        user_factory=_store_only_user,
+    )
     with TestClient(app) as client:
         response = client.get("/api/threads/thread-store/runs/store-only-run")
 
@@ -233,6 +271,16 @@ def test_stream_store_only_run_returns_409():
 
     assert response.status_code == 409
     assert "not active on this worker" in response.json()["detail"]
+
+
+def test_join_store_only_run_allowed_with_cross_process_bridge():
+    """Redis-like bridges can stream store-only runs hydrated on another worker."""
+    app = _make_app(run_manager=_make_store_only_run_manager(), stream_bridge=_EndingCrossProcessBridge())
+    with TestClient(app) as client:
+        response = client.get("/api/threads/thread-store/runs/store-only-run/join")
+
+    assert response.status_code == 200
+    assert "event: end" in response.text
 
 
 def test_list_run_messages_injects_turn_duration():

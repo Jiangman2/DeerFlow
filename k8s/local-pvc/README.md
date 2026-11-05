@@ -13,6 +13,13 @@ Sandbox Pods created by the provisioner mount the same PVCs:
 - user-data subPath `deer-flow/users/{user_id}/threads/{thread_id}/user-data`
 - skills PVC at `/mnt/skills`
 
+Gateway keeps the ConfigMap copy of `extensions_config.json` as a read-only
+release seed, but reads and writes the effective runtime copy under
+`/app/backend/.deer-flow/runtime-config/` on `deer-flow-userdata-pvc`. Its init
+container adds newly shipped MCP/Skill defaults without replacing administrator
+choices already persisted in the runtime copy. This is required for the Skills
+and MCP settings APIs to survive Pod restarts and rolling updates.
+
 Do not use the Docker Compose Gateway for this mode; a Compose Gateway writes to
 host bind mounts, not to the Kubernetes PVC.
 
@@ -35,21 +42,76 @@ environment was created with the wrong storage class or access mode, migrate by
 backing up data, creating new PVCs, restoring data, and then pointing workloads
 at the new claims.
 
-For local Docker Desktop Kubernetes, tag freshly built images with explicit
-local version tags and keep those tags in `kustomization.yaml`:
+For local Docker Desktop Kubernetes, tag freshly built images with an explicit
+local version and keep that version in `kustomization.yaml`. The skills image
+seeds the shared skills PVC, including `ppt-master`; the PPT sandbox image adds
+its native and Python dependencies.
 
 ```powershell
-docker build -f backend/Dockerfile --target runtime --build-arg UV_EXTRAS=postgres -t deer-flow-gateway:dev-YYYYMMDD-N .
-docker tag deer-flow-provisioner:latest deer-flow-provisioner:dev-YYYYMMDD-N
-docker tag deer-flow-frontend:latest deer-flow-frontend:dev-YYYYMMDD-N
+$tag = "dev-YYYYMMDD-N"
+
+docker build -f backend/Dockerfile --build-arg UV_EXTRAS=postgres -t "deer-flow-gateway:$tag" .
+docker build -f frontend/Dockerfile --target prod -t "deer-flow-frontend:$tag" .
+docker build -f docker/provisioner/Dockerfile -t "deer-flow-provisioner:$tag" docker/provisioner
+docker build -f docker/k8s-skills/Dockerfile -t "deer-flow-skills:$tag" .
+docker build -f docker/sandbox-ppt-master/Dockerfile -t "deer-flow-aio-sandbox:ppt-master-$tag" .
 
 kubectl kustomize k8s/local-pvc
 kubectl apply -k k8s/local-pvc
+kubectl -n deer-flow wait --for=condition=complete job/skills-sync --timeout=300s
 ```
 
+The local PPT Agent host is configured for Model Studio `qwen3.7-max` over the
+native Responses API. Put the normal Model Studio account key in
+`DASHSCOPE_API_KEY`; it is the same key used for the other Qwen models and must
+not be duplicated under a model-specific variable. `CODEX_CONFIG_TOML` and the
+model catalog are non-secret deployment configuration. A valid local smoke test
+must make Codex invoke a real Sandbox tool and consume its result; checking only
+the endpoint's HTTP status does not validate a Codex tool loop.
+
+Build the skills image from the repository root exactly as shown. The
+Dockerfile copies `skills/` explicitly and the sync Job validates both the
+source and mounted target layout before reporting success. A nested layout such
+as `/mnt/skills/skills/public` therefore fails deployment instead of surfacing
+later as a missing skill during an agent run. The Job also normalizes read and
+directory-traversal permissions on the platform-owned `public` and
+`third_party` trees after copying. This prevents archive umasks such as
+`0640 root:root` from making a Skill visible to Gateway but unreadable through
+the non-root sandbox file API; user-owned `custom` content is not broadened.
+
+On a multi-node cluster, the absolute container paths stay the same on every
+node. What must be shared is the underlying storage: use RWX storage (for
+example NFS or CephFS) for both skills and user data when Gateway and sandbox
+Pods can run on different nodes. A node-local RWO skills PVC constrains every
+Pod that mounts it to that PV's node and is not a multi-node scaling design.
+For zero-gap skills updates, seed a new versioned PVC and roll workloads to that
+claim instead of rewriting a mounted PVC in place.
+
 The current local `kustomization.yaml` pins the business images separately from
-the base YAML. When building a new local image, update only the matching
-`images[*].newTag` value in `kustomization.yaml`, then apply the kustomization.
+the base YAML. When building a new local image, update all matching
+`images[*].newTag` values and the `SANDBOX_IMAGE` tag in
+`deer-flow-pvc-stack.yaml`, then apply the kustomization.
+
+For a code-only update, rebuild just the changed business image, give it a new
+tag, update that one `newTag`, and run `kubectl apply -k`. For a skill or PPT
+template update, rebuild `deer-flow-skills` and the PPT sandbox image, update
+their tags, then recreate the sync Job before applying:
+
+```powershell
+kubectl -n deer-flow delete job skills-sync --ignore-not-found
+kubectl apply -k k8s/local-pvc
+kubectl -n deer-flow wait --for=condition=complete job/skills-sync --timeout=300s
+kubectl -n deer-flow rollout restart deployment/gateway
+```
+
+The local overlay also declares a one-replica MinerU Adapter and routes
+PDF/DOC/DOCX/PPT/PPTX uploads through it so searchable-document visual evidence
+can be tested against the same contract as enterprise. Its upstream MinerU URL
+is deliberately an unreachable loopback placeholder because the enterprise
+service is not reachable from Docker Desktop: searchable PDF/Word parsing is
+available locally, while scanned-document OCR must be accepted on the
+enterprise cluster. Keep both the Gateway and adapter image tags immutable and
+update them together when their document-image contract changes.
 
 For a real environment, push images to a registry and replace `newName`/`newTag`
 with immutable registry references, for example:
@@ -70,18 +132,43 @@ Before applying, refresh the ConfigMaps from the current config files:
 ```powershell
 kubectl delete configmap -n deer-flow deer-flow-config --ignore-not-found
 kubectl delete configmap -n deer-flow deer-flow-extensions-config --ignore-not-found
-kubectl delete configmap -n deer-flow deer-flow-nginx-config --ignore-not-found
 kubectl -n deer-flow create configmap deer-flow-config --from-file=config.yaml=config.yaml
 kubectl -n deer-flow create configmap deer-flow-extensions-config --from-file=extensions_config.json=extensions_config.json
-kubectl -n deer-flow create configmap deer-flow-nginx-config --from-file=nginx.conf=docker/nginx/nginx.conf
 kubectl apply -k k8s/local-pvc
 ```
+
+`deer-flow-nginx-config` is generated by `kustomization.yaml` from the checked-in
+`k8s/local-pvc/nginx.conf`; do not create it separately. When the shared Nginx
+configuration changes, update that local K8S copy in the same change.
+
+The K8S sandbox configuration in `config.yaml` must use the in-cluster
+Provisioner and the same key stored in `deer-flow-env`:
+
+```yaml
+sandbox:
+  use: deerflow.community.aio_sandbox:AioSandboxProvider
+  provisioner_url: http://provisioner:8002
+  provisioner_api_key: $PROVISIONER_API_KEY
+  sandbox_api_key: $SANDBOX_API_KEY
+```
+
+`PROVISIONER_API_KEY` protects the Provisioner control API, while the separate
+`SANDBOX_API_KEY` protects code-execution APIs on every generated Sandbox Pod.
+Store both values in `deer-flow-env`. Sandbox health probes read the key inside
+the container and never place its value in the Pod specification.
 
 Avoid relying on `latest` in this mode because the Kubernetes image cache can
 continue using an older local digest after a rebuild.
 Also avoid piping generated ConfigMap YAML through Windows PowerShell when the
 source files contain non-ASCII text; it can turn Chinese display names into
 `????`.
+
+The Provisioner deployment explicitly configures generated Sandbox Pods with
+500m/512Mi requests, 2 CPU/2Gi limits, and a liveness window of about one
+minute. For heavier multi-node workloads, tune the
+`SANDBOX_*_PROBE_*` and `SANDBOX_{CPU,MEMORY}_{REQUEST,LIMIT}` environment
+variables on the Provisioner Deployment; these settings apply to newly created
+Sandbox Pods, while existing Pods retain their original specification.
 
 ## Secrets
 
@@ -98,6 +185,13 @@ exposure.
 
 See `k8s/local-pvc/secrets/` for sanitized examples and local commands. Never
 commit real Secret manifests or share `kubectl get secret -o yaml` output.
+
+The Kustomization includes `namespace.yaml`, but Secrets must be created before
+the workload bundle. On a fresh cluster, create the namespace first:
+
+```powershell
+kubectl apply -f k8s/local-pvc/namespace.yaml
+```
 
 ## PostgreSQL migration
 

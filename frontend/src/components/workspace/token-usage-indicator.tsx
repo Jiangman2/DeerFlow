@@ -73,23 +73,27 @@ export function TokenUsageIndicator({
           type="button"
           variant="ghost"
           className={cn(
-            "text-muted-foreground bg-background/70 hover:bg-background/90 flex h-auto items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-normal",
+            "text-muted-foreground bg-background/70 hover:bg-background/90 flex h-8 max-w-20 items-center gap-1 rounded-full border px-1.5 py-1 text-xs font-normal sm:h-auto sm:max-w-none sm:gap-1.5 sm:px-2",
             className,
           )}
         >
           <CoinsIcon size={14} />
-          <span>{t.tokenUsage.label}</span>
-          <span className="font-mono">
+          <span className="hidden sm:inline">{t.tokenUsage.label}</span>
+          <span className="max-w-10 truncate font-mono sm:max-w-none">
             {preferences.headerTotal
               ? usage
                 ? formatTokenCount(usage.totalTokens)
                 : "-"
               : t.tokenUsage.presets[presetKeyToTranslationKey(preset)]}
           </span>
-          <ChevronDownIcon className="size-3" />
+          <ChevronDownIcon className="hidden size-3 sm:block" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="bottom" align="end" className="w-80">
+      <DropdownMenuContent
+        side="bottom"
+        align="end"
+        className="w-[min(20rem,calc(100vw-1rem))]"
+      >
         <DropdownMenuLabel>{t.tokenUsage.title}</DropdownMenuLabel>
         <div className="px-2 py-1 text-xs">
           {usage ? (

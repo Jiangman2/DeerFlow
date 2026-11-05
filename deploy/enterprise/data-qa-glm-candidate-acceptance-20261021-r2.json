@@ -1,0 +1,539 @@
+{
+  "active_configuration_modified": false,
+  "automatic_retry": false,
+  "business_values_verified": false,
+  "candidate_accepted": 2,
+  "candidate_checks": [
+    {
+      "job": "portal-data-qa-recheck-84193cd46073-0",
+      "observation": {
+        "business_values_verified": false,
+        "data_tools": [
+          "datalake_data_qa",
+          "datalake_smart_qa"
+        ],
+        "dedicated_key_resolved": true,
+        "disabled_button_hint": "PASS",
+        "empty_error_and_delegate_scope": "PASS",
+        "external_paths_denied": 7,
+        "provider_requests": 0,
+        "source_files": 15,
+        "status": "PASS",
+        "stream_completion": {
+          "fixed": true,
+          "offline_terminal_and_done_checked": true,
+          "provider_requests": 0,
+          "sdk_version": "2.32.0",
+          "source_count": 4,
+          "status": "PASS"
+        }
+      },
+      "pod": "portal-data-qa-recheck-84193cd46073-0-ptptb",
+      "uid": "ceaf5775-0c91-4567-91c4-fc9234d75e29"
+    },
+    {
+      "job": "portal-data-qa-recheck-84193cd46073-1",
+      "observation": {
+        "business_values_verified": false,
+        "data_tools": [
+          "datalake_data_qa",
+          "datalake_smart_qa"
+        ],
+        "dedicated_key_resolved": true,
+        "disabled_button_hint": "PASS",
+        "empty_error_and_delegate_scope": "PASS",
+        "external_paths_denied": 7,
+        "provider_requests": 0,
+        "source_files": 15,
+        "status": "PASS",
+        "stream_completion": {
+          "fixed": true,
+          "offline_terminal_and_done_checked": true,
+          "provider_requests": 0,
+          "sdk_version": "2.32.0",
+          "source_count": 4,
+          "status": "PASS"
+        }
+      },
+      "pod": "portal-data-qa-recheck-84193cd46073-1-nrwbz",
+      "uid": "71719f65-2b4b-48bc-af74-d9fd6a50f9cc"
+    }
+  ],
+  "candidate_job_cleanup_confirmed": false,
+  "candidate_job_diagnostics": [
+    {
+      "conditions": [
+        {
+          "reason": "CompletionsReached",
+          "status": "True",
+          "type": "SuccessCriteriaMet"
+        },
+        {
+          "reason": "CompletionsReached",
+          "status": "True",
+          "type": "Complete"
+        }
+      ],
+      "counts": {
+        "active": null,
+        "failed": null,
+        "succeeded": 1
+      },
+      "events": [
+        {
+          "categories": [],
+          "reason": "SuccessfulCreate",
+          "resource_fields": [],
+          "resource_quantities": []
+        },
+        {
+          "categories": [],
+          "reason": "Completed",
+          "resource_fields": [],
+          "resource_quantities": []
+        }
+      ],
+      "job": "portal-data-qa-recheck-84193cd46073-0",
+      "uid": "ceaf5775-0c91-4567-91c4-fc9234d75e29"
+    },
+    {
+      "conditions": [
+        {
+          "reason": "CompletionsReached",
+          "status": "True",
+          "type": "SuccessCriteriaMet"
+        },
+        {
+          "reason": "CompletionsReached",
+          "status": "True",
+          "type": "Complete"
+        }
+      ],
+      "counts": {
+        "active": null,
+        "failed": null,
+        "succeeded": 1
+      },
+      "events": [
+        {
+          "categories": [],
+          "reason": "SuccessfulCreate",
+          "resource_fields": [],
+          "resource_quantities": []
+        },
+        {
+          "categories": [],
+          "reason": "Completed",
+          "resource_fields": [],
+          "resource_quantities": []
+        }
+      ],
+      "job": "portal-data-qa-recheck-84193cd46073-1",
+      "uid": "71719f65-2b4b-48bc-af74-d9fd6a50f9cc"
+    }
+  ],
+  "candidate_jobs_ttl_seconds": 600,
+  "candidate_pod_observations": {
+    "portal-data-qa-recheck-84193cd46073-0": {
+      "currently_present": true,
+      "last_observed": [
+        {
+          "conditions": [
+            {
+              "reason": null,
+              "status": "False",
+              "type": "PodReadyToStartContainers"
+            },
+            {
+              "reason": null,
+              "status": "True",
+              "type": "Initialized"
+            },
+            {
+              "reason": "ContainersNotReady",
+              "status": "False",
+              "type": "Ready"
+            },
+            {
+              "reason": "ContainersNotReady",
+              "status": "False",
+              "type": "ContainersReady"
+            },
+            {
+              "reason": null,
+              "status": "True",
+              "type": "PodScheduled"
+            }
+          ],
+          "containers": [
+            {
+              "exit_code": null,
+              "name": "candidate",
+              "ready": false,
+              "restarts": 0,
+              "running": false,
+              "termination_reason": null,
+              "waiting_reason": "ContainerCreating"
+            }
+          ],
+          "name": "portal-data-qa-recheck-84193cd46073-0-ptptb",
+          "node": "ecs-zdz-pro-0018",
+          "phase": "Pending",
+          "uid": "bbed13ad-235a-4642-8532-8dcf94207dde"
+        }
+      ]
+    },
+    "portal-data-qa-recheck-84193cd46073-1": {
+      "currently_present": true,
+      "last_observed": [
+        {
+          "conditions": [
+            {
+              "reason": null,
+              "status": "False",
+              "type": "PodReadyToStartContainers"
+            },
+            {
+              "reason": null,
+              "status": "True",
+              "type": "Initialized"
+            },
+            {
+              "reason": "ContainersNotReady",
+              "status": "False",
+              "type": "Ready"
+            },
+            {
+              "reason": "ContainersNotReady",
+              "status": "False",
+              "type": "ContainersReady"
+            },
+            {
+              "reason": null,
+              "status": "True",
+              "type": "PodScheduled"
+            }
+          ],
+          "containers": [
+            {
+              "exit_code": null,
+              "name": "candidate",
+              "ready": false,
+              "restarts": 0,
+              "running": false,
+              "termination_reason": null,
+              "waiting_reason": "ContainerCreating"
+            }
+          ],
+          "name": "portal-data-qa-recheck-84193cd46073-1-nrwbz",
+          "node": "ecs-zdz-pro-0019",
+          "phase": "Pending",
+          "uid": "59bc4e2a-7b45-48e0-afc2-4f89f84c2037"
+        }
+      ]
+    }
+  },
+  "configmap_creation_requested": false,
+  "credentials_exported": false,
+  "deployment_patch_requested": false,
+  "elapsed_seconds": 30.391,
+  "exitcode": 0,
+  "gateway_after": {
+    "generation": 381,
+    "spec_sha256": "5a84f74566171e588433779a59b9adec1ae752c2dc3c42706ff55db1e295fbda",
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+  },
+  "gateway_before": {
+    "generation": 381,
+    "spec_sha256": "5a84f74566171e588433779a59b9adec1ae752c2dc3c42706ff55db1e295fbda",
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+  },
+  "gateway_restarted": false,
+  "once_claimed": true,
+  "operation": "84193cd46073486cb9b2451d6cc61010",
+  "persisted_custom_agent_reference_inventory_pending": true,
+  "prepared_config": {
+    "data_sha256": "046185f02faccb041f6ce0f853d9847c84d6f01674e812210662aed4da57c9f6",
+    "immutable": true,
+    "name": "deer-flow-config-data-qa-glm-2e0fd403b23a",
+    "namespace": "deer-flow",
+    "uid": "5aefbbbc-fee1-4745-99f9-54d092b6ad4d"
+  },
+  "prepared_secret": {
+    "immutable": true,
+    "keys": [
+      "APPFORGE_DATA_QA_API_KEY"
+    ],
+    "name": "deer-flow-data-qa-2e0fd403b23a",
+    "namespace": "deer-flow",
+    "uid": "b2f728c8-8129-4d4f-98ba-48ce9b730f1f"
+  },
+  "provider_requests": 0,
+  "queries": [
+    {
+      "phase": "get_deployment",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 59706
+    },
+    {
+      "phase": "get_deployment",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 18411
+    },
+    {
+      "phase": "get_configmap",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 24338
+    },
+    {
+      "phase": "get_configmap",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 15877
+    },
+    {
+      "phase": "existing_secret_metadata",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 108
+    },
+    {
+      "phase": "previous_job_absence",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 0
+    },
+    {
+      "phase": "previous_pods_absence",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 119
+    },
+    {
+      "phase": "get_node",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 12188
+    },
+    {
+      "phase": "get_node",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 12186
+    },
+    {
+      "phase": "get_node",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 12188
+    },
+    {
+      "phase": "get_node",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 12188
+    },
+    {
+      "phase": "get_node",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 15554
+    },
+    {
+      "phase": "get_deployment",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 59706
+    },
+    {
+      "phase": "get_deployment",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 59706
+    },
+    {
+      "phase": "get_node",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 12188
+    },
+    {
+      "phase": "create_job",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 36
+    },
+    {
+      "phase": "get_job",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 40411
+    },
+    {
+      "phase": "candidate_pods",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 44926
+    },
+    {
+      "phase": "get_job",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 40411
+    },
+    {
+      "phase": "get_job",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 40411
+    },
+    {
+      "phase": "get_job",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 41182
+    },
+    {
+      "phase": "candidate_job_events",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 2559
+    },
+    {
+      "phase": "candidate_pods",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 46273
+    },
+    {
+      "phase": "candidate_result",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 456
+    },
+    {
+      "phase": "get_deployment",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 59706
+    },
+    {
+      "phase": "get_node",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 12186
+    },
+    {
+      "phase": "create_job",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 36
+    },
+    {
+      "phase": "get_job",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 40411
+    },
+    {
+      "phase": "candidate_pods",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 44924
+    },
+    {
+      "phase": "get_job",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 40411
+    },
+    {
+      "phase": "get_job",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 40411
+    },
+    {
+      "phase": "get_job",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 41182
+    },
+    {
+      "phase": "candidate_job_events",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 2559
+    },
+    {
+      "phase": "candidate_pods",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 46271
+    },
+    {
+      "phase": "candidate_result",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 456
+    },
+    {
+      "phase": "get_deployment",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 59706
+    },
+    {
+      "phase": "get_deployment",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 18411
+    },
+    {
+      "phase": "get_configmap",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 15877
+    },
+    {
+      "phase": "existing_secret_metadata",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 108
+    },
+    {
+      "phase": "get_configmap",
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stdout_bytes": 24338
+    }
+  ],
+  "ready_for_rollout": false,
+  "report_bytes": 8677,
+  "report_path": "/var/lib/portal-data-qa-glm-resumption-84193cd46073486cb9b2451d6cc61010/REPORT.json",
+  "report_sha256": "b96301c50c6d04e66ac1a600596039362df2f20336bb459fcd22e6788cd8ed2a",
+  "resource_intents": [
+    {
+      "creation_confirmed": true,
+      "creation_may_have_applied": true,
+      "kind": "job",
+      "name": "portal-data-qa-recheck-84193cd46073-0",
+      "uid": "ceaf5775-0c91-4567-91c4-fc9234d75e29"
+    },
+    {
+      "creation_confirmed": true,
+      "creation_may_have_applied": true,
+      "kind": "job",
+      "name": "portal-data-qa-recheck-84193cd46073-1",
+      "uid": "71719f65-2b4b-48bc-af74-d9fd6a50f9cc"
+    }
+  ],
+  "resumed_preparation": "2e0fd403b23a4cf5b880daaee1b8e504",
+  "schema": "portal-data-qa-glm-resumption.v2",
+  "secret_creation_requested": false,
+  "secret_matches_canary_key_not_independently_proven": true,
+  "status": "DATA_QA_GLM_PREPARED_CANDIDATE_ACCEPTED_NOT_DEPLOYED"
+}

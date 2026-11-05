@@ -1,5 +1,8 @@
 import type { Message } from "@langchain/langgraph-sdk";
 
+import { throwGatewayApiError } from "../api/errors";
+import { fetch } from "../api/fetcher";
+import { getBackendBaseURL } from "../config";
 import {
   extractContentFromMessage,
   extractReasoningContentFromMessage,
@@ -15,7 +18,7 @@ import { titleOfThread } from "./utils";
 /**
  * Optional debug switches for advanced exports.
  *
- * Bytedance/deer-flow issue #3107 BUG-006 explicitly prescribes that the
+ * The export compatibility contract prescribes that the
  * default export includes only the user-visible transcript and excludes
  * thinking/reasoning content, tool calls, tool results, hidden messages,
  * memory injection, and `<system-reminder>` payloads. These options let a
@@ -221,4 +224,81 @@ export function exportThreadAsJSON(thread: AgentThread, messages: Message[]) {
   const json = formatThreadAsJSON(thread, messages);
   const filename = `${sanitizeFilename(titleOfThread(thread))}.json`;
   downloadAsFile(json, filename, "application/json;charset=utf-8");
+}
+
+export interface FeishuExportResult {
+  sent: boolean;
+  filename: string;
+}
+
+/**
+ * Send the Markdown export of a thread to the caller's bound 海能 Work
+ * (Feishu) chat through the gateway. The Markdown comes from the same
+ * formatter as the local download so both surfaces stay identical; the
+ * backend resolves the caller's Feishu binding and uploads the file via the
+ * running bot channel.
+ */
+export async function sendThreadAsMarkdownToFeishu(
+  thread: AgentThread,
+  messages: Message[],
+): Promise<FeishuExportResult> {
+  const markdown = formatThreadAsMarkdown(thread, messages);
+  const filename = `${sanitizeFilename(titleOfThread(thread))}.md`;
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/channels/feishu/export-thread`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        thread_id: thread.thread_id,
+        filename,
+        content: markdown,
+      }),
+    },
+  );
+  if (!response.ok) {
+    await throwGatewayApiError(
+      response,
+      `Failed to send conversation to Feishu: ${response.statusText}`,
+    );
+  }
+  return (await response.json()) as FeishuExportResult;
+}
+
+export interface FeishuArtifactsExportResult {
+  sent: boolean;
+  filenames: string[];
+  skipped: string[];
+}
+
+/**
+ * Send a thread's generated files (artifacts) to the caller's bound 海能 Work
+ * (Feishu) chat through the gateway. Unlike {@link sendThreadAsMarkdownToFeishu}
+ * (which uploads a rendered Markdown transcript), this uploads the *actual
+ * files* the agent produced. The caller supplies the virtual artifact paths it
+ * already displays (`/mnt/user-data/outputs/...`); the backend resolves each to
+ * the owner's on-disk file and uploads it via the running bot channel.
+ */
+export async function sendThreadArtifactsToFeishu(
+  threadId: string,
+  artifactPaths: string[],
+): Promise<FeishuArtifactsExportResult> {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/channels/feishu/export-artifacts`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        thread_id: threadId,
+        artifact_paths: artifactPaths,
+      }),
+    },
+  );
+  if (!response.ok) {
+    await throwGatewayApiError(
+      response,
+      `Failed to send generated files to Feishu: ${response.statusText}`,
+    );
+  }
+  return (await response.json()) as FeishuArtifactsExportResult;
 }

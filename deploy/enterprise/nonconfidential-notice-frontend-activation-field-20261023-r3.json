@@ -1,0 +1,260 @@
+{
+  "schema": "portal-frontend-notice-activation-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_SUMMARY_NOT_DIRECT_SERVER_READ",
+  "source_attachment": {
+    "path": "C:\\Users\\15285\\.codex\\attachments\\fea8e6d4-0bd0-4240-983a-12d8201cbb17\\已粘贴的文本.txt",
+    "bytes": 7625,
+    "sha256": "915869b2fa91e1a8814fdab2410ba61e7702b694ce5c526b1a4645a8617adefe"
+  },
+  "observation": {
+    "accepted_pods": [
+      {
+        "node": "ecs-zdz-pro-0015",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 3,
+          "status": "PASS"
+        },
+        "pod": "frontend-8785d4ff8-f55sq",
+        "uid": "04f0451c-54fb-4244-b4e8-bb00ce7bf6ba"
+      },
+      {
+        "node": "datax-02",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 3,
+          "status": "PASS"
+        },
+        "pod": "frontend-8785d4ff8-qb668",
+        "uid": "3f1c6920-f5ef-4a71-807e-e57c319588f4"
+      }
+    ],
+    "after": {
+      "frontend": {
+        "generation": 227,
+        "spec_sha256": "2e290357511ad2aca7fa5d23b954c99fdba8b92527b3f7dbcef79f1293700655",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 385,
+        "spec_sha256": "893d903cd7144dd87606e4606dc857f81aca48d99858a073eee6276837c0ee35",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx": {
+        "generation": 116,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+      },
+      "ppt-master-runner": {
+        "generation": 55,
+        "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      },
+      "provisioner": {
+        "generation": 85,
+        "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+        "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+      }
+    },
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "before": {
+      "frontend": {
+        "generation": 226,
+        "spec_sha256": "ecf0297bd8609f104a6b549d484d84b7d658c71b4a0b100a5c66149e821fb3a3",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 385,
+        "spec_sha256": "893d903cd7144dd87606e4606dc857f81aca48d99858a073eee6276837c0ee35",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx": {
+        "generation": 116,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+      },
+      "ppt-master-runner": {
+        "generation": 55,
+        "spec_sha256": "c117a0ddee39a06ad4563359da502302e3936f15f869de6111cca72ba4a137cd",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      },
+      "provisioner": {
+        "generation": 85,
+        "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+        "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+      }
+    },
+    "browser_acceptance_pending": true,
+    "cache_checks": [
+      {
+        "job": "portal-notice-cache-97f048ab80cf4666-0",
+        "job_uid": "254ba3b6-e0d9-4525-a2a9-0d9a23d16f51",
+        "node": "datax-02",
+        "node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+        "observation": {
+          "files_verified": 5,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "status": "LOCAL_PRELOADED_IMAGE_EXECUTED"
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "[deerflow.local/deer-flow-frontend@sha256:b37036e9b226f8605e3da98d9f81cb072fc30da29cb5b972702c5ed6ec535638](http://deerflow.local/deer-flow-frontend@sha256:b37036e9b226f8605e3da98d9f81cb072fc30da29cb5b972702c5ed6ec535638)",
+                "restart_count": 0,
+                "waiting_reason": null
+              }
+            ],
+            "node": "datax-02",
+            "phase": "Succeeded",
+            "pod": "portal-notice-cache-97f048ab80cf4666-0-79rzj",
+            "uid": "34da71fc-ec54-45c1-8534-81662a00e313"
+          }
+        ],
+        "status": "PASS"
+      },
+      {
+        "job": "portal-notice-cache-97f048ab80cf4666-1",
+        "job_uid": "de318915-7d73-4b3b-a8e2-72ad4d72adc4",
+        "node": "ecs-zdz-pro-0015",
+        "node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+        "observation": {
+          "files_verified": 5,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "status": "LOCAL_PRELOADED_IMAGE_EXECUTED"
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "[deerflow.local/deer-flow-frontend@sha256:b37036e9b226f8605e3da98d9f81cb072fc30da29cb5b972702c5ed6ec535638](http://deerflow.local/deer-flow-frontend@sha256:b37036e9b226f8605e3da98d9f81cb072fc30da29cb5b972702c5ed6ec535638)",
+                "restart_count": 0,
+                "waiting_reason": null
+              }
+            ],
+            "node": "ecs-zdz-pro-0015",
+            "phase": "Succeeded",
+            "pod": "portal-notice-cache-97f048ab80cf4666-1-b66zw",
+            "uid": "2e59247f-04de-4b31-b379-e49b051ce6ae"
+          }
+        ],
+        "status": "PASS"
+      }
+    ],
+    "cache_config": "sha256:c47df695457848e91a124bd3790d5b3e1566cb4394b7454dc98a6c697aaba601",
+    "cache_manifest": "sha256:b37036e9b226f8605e3da98d9f81cb072fc30da29cb5b972702c5ed6ec535638",
+    "check_job_ttl_seconds": 3600,
+    "directory": "/var/lib/portal-frontend-nonconfidential-notice-activation-97f048ab80cf4666922a60e9e1092fce",
+    "elapsed_seconds": 39.72,
+    "exitcode": 0,
+    "fresh_nodes_after": [
+      {
+        "candidate_in_node_status": false,
+        "name": "datax-02",
+        "reported_images": 50,
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "candidate_in_node_status": true,
+        "name": "ecs-zdz-pro-0015",
+        "reported_images": 39,
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      }
+    ],
+    "fresh_nodes_before": [
+      {
+        "candidate_in_node_status": false,
+        "name": "datax-02",
+        "reported_images": 50,
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "candidate_in_node_status": true,
+        "name": "ecs-zdz-pro-0015",
+        "reported_images": 39,
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      }
+    ],
+    "image_pull_policy": "Never",
+    "once_claimed": true,
+    "operation": "97f048ab80cf4666922a60e9e1092fce",
+    "other_workload_mutation": false,
+    "patch_acknowledged_by_readback": true,
+    "patch_dispatched": true,
+    "patch_may_have_applied": true,
+    "patch_request_count": 1,
+    "patch_requested": true,
+    "prior_frontend_receipt": {
+      "bytes": 96421,
+      "path": "/var/lib/portal-frontend-data-qa-token-activation-a1ac5b2855ba4d71965dba198878b697/REPORT.json",
+      "sha256": "dfd628dbd45b03859196593343399137ac3395f117df98921623b8ac0a3e1899"
+    },
+    "prior_noop_failure": {
+      "bytes": 5200,
+      "error_code": "new_image_not_observed_in_kubelet_cache",
+      "patch_request_count": 0,
+      "path": "/var/lib/portal-frontend-nonconfidential-notice-activation-28a6a57592b045b4b82b6ad994d28e15/REPORT.json",
+      "sha256": "00feb27a01a5d69462ba7ad9a77205f3cb3c4a658bccebd70ae864ef8e250e3c"
+    },
+    "provider_requests": 0,
+    "report_bytes": 32454,
+    "report_path": "/var/lib/portal-frontend-nonconfidential-notice-activation-97f048ab80cf4666922a60e9e1092fce/REPORT.json",
+    "report_sha256": "d0c3027b09a09002cb4aedeb2db63d6d49e19d5dfde856c8e8f3c1f223999f99",
+    "runtime": [
+      {
+        "node": "ecs-zdz-pro-0015",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 3,
+          "status": "PASS"
+        },
+        "pod": "frontend-8785d4ff8-f55sq",
+        "uid": "04f0451c-54fb-4244-b4e8-bb00ce7bf6ba"
+      },
+      {
+        "node": "datax-02",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 3,
+          "status": "PASS"
+        },
+        "pod": "frontend-8785d4ff8-qb668",
+        "uid": "3f1c6920-f5ef-4a71-807e-e57c319588f4"
+      }
+    ],
+    "schema": "portal-frontend-nonconfidential-notice-activation.v2",
+    "schema_migration_requested": false,
+    "services_preserved": true,
+    "stage_passed": true,
+    "status": "FRONTEND_NOTICE_RUNTIME_ACCEPTED_BROWSER_PENDING",
+    "temporary_jobs_created": [
+      {
+        "creation_requested": true,
+        "name": "portal-notice-cache-97f048ab80cf4666-0"
+      },
+      {
+        "creation_requested": true,
+        "name": "portal-notice-cache-97f048ab80cf4666-1"
+      }
+    ],
+    "unrelated_specs_preserved": true
+  },
+  "pasted_markdown_image_references_preserved": true
+}

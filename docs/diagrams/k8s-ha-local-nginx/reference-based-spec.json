@@ -1,0 +1,70 @@
+{
+  "canvas": {
+    "width": 1210,
+    "height": 1138,
+    "fps": 20,
+    "frames": 41
+  },
+  "signature": "@DeerFlow",
+  "title": {
+    "prefix": "Kubernetes HA",
+    "highlight": "Node-local Nginx",
+    "subtitle": "Reference-based engineering topology for stacked control-plane nodes"
+  },
+  "input_title": "Worker Access",
+  "inputs": [
+    { "label": "Worker-1", "icon": "package", "color": "#f4b64e" },
+    { "label": "Worker-2", "icon": "package", "color": "#f4b64e" },
+    { "label": "Worker-3", "icon": "package", "color": "#f4b64e" },
+    { "label": "Worker-N", "icon": "package", "color": "#f4b64e" }
+  ],
+  "core": {
+    "title": "Local Nginx Entry Layer",
+    "subtitle": "Each control-plane node carries a local proxy",
+    "cards": [
+      { "title": "Nginx-1", "body": "Node-1 entry; upstream API-1, API-2, API-3", "icon": "shield" },
+      { "title": "Nginx-2", "body": "Node-2 entry; upstream API-1, API-2, API-3", "icon": "shield" },
+      { "title": "Nginx-3", "body": "Node-3 entry; upstream API-1, API-2, API-3", "icon": "shield" }
+    ]
+  },
+  "decision": {
+    "title": "Healthy?",
+    "body": "Skip failed node"
+  },
+  "output": {
+    "label": "API :6443",
+    "icon": "file"
+  },
+  "loop_label": "Use DNS round-robin, a client endpoint list, or another front-door mechanism so workers can reach any node",
+  "retry_label": "If one control-plane node fails, workers must move to another node address; local Nginx skips unhealthy API backends",
+  "left_panel": {
+    "title": "Control Plane Nodes",
+    "badge": "Reference layout preserved",
+    "cards": [
+      { "title": "Node-1", "body": "Nginx + apiserver + controller-manager + scheduler", "icon": "package" },
+      { "title": "Node-2", "body": "Nginx + apiserver + controller-manager + scheduler", "icon": "package" },
+      { "title": "Node-3", "body": "Nginx + apiserver + controller-manager + scheduler", "icon": "package" }
+    ]
+  },
+  "center_panel": {
+    "title": "Stacked etcd Cluster",
+    "subtitle": "Each API Server talks to its local etcd member",
+    "footer": "etcd-1 <-> etcd-2 <-> etcd-3; quorum is 2 of 3",
+    "cards": [
+      { "title": "API-1 + etcd-1", "body": "Same host; local API to local etcd", "icon": "db" },
+      { "title": "API-2 + etcd-2", "body": "Same host; local API to local etcd", "icon": "db" },
+      { "title": "API-3 + etcd-3", "body": "Same host; local API to local etcd", "icon": "db" },
+      { "title": "Quorum", "body": "Two members keep the cluster writable", "icon": "shield" }
+    ]
+  },
+  "right_panel": {
+    "title": "Engineering Difference",
+    "incoming_label": "Worker traffic",
+    "return_label": "Failover",
+    "cards": [
+      { "title": "No shared LB", "body": "The official external LB is unavailable", "icon": "shield" },
+      { "title": "Same upstreams", "body": "All local Nginx instances know all API nodes", "icon": "package" },
+      { "title": "Front door", "body": "DNS RR or client endpoints are mandatory", "icon": "hash" }
+    ]
+  }
+}

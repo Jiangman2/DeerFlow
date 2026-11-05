@@ -1,0 +1,5 @@
+FROM digital-domains-provisioner-base
+
+COPY payload/provisioner/app.py /app/app.py
+
+RUN --network=none python3 -m py_compile /app/app.py

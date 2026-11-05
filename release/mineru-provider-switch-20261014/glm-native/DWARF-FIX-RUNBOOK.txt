@@ -1,0 +1,33 @@
+WeKnora GLM compiler repair, build only, 20261016-r1
+
+The last SQLite-fixed build failed inside the Go compiler's DWARF5 location-list
+generation for elastic/go-elasticsearch/v8/typedapi/ml/gettrainedmodels.
+This package preserves Go 1.26.8, all source and offline dependencies, the SQLite
+builder fix, all native tests, and the three-binary-only runtime overlay. It sets
+GOEXPERIMENT=nodwarf5 in the disposable builder. No optimization is disabled.
+An ELF probe must prove DWARF4, then the exact failed dependency must compile
+before the Rust/AnyDoc build starts. The final server buildinfo must match.
+
+Upload START-weknora-glm-dwarf-fix.sh and the matching tar.gz to /home/cnooc on
+datax-01. Launch only the hash-checked starter provided in the chat. It verifies
+the exact failed package at /opt/weknora-glm-sqlite-fix-BDPsrLAi/rebuild/package
+and its compiler failure, then creates a NEW private /opt build directory.
+Do not chmod any evidence or scripts to 777. Do not rerun previous starters.
+No Go/Rust download, host package installation, image import, model call,
+Kubernetes write, database change, or production restart is performed.
+
+The original build driver rechecks the WeKnora baseline and blocks concurrent
+image operations. Coordinate with the colleague's build before starting.
+On failure use the printed repair_status_command and send the new log tail.
+Never bypass a failed guard, automatically retry or erase previous evidence.
+
+This is a fresh build from the already-uploaded inputs, not a guaranteed reuse
+of compiled objects from the failed RUN. Full ARM64 build duration is unproven.
+Local ARM64 emulation checks only the debug format and the failing dependency;
+the full server, runtime ABI/AnyDoc, and GLM native acceptance are separate gates.
+Build PASS is not rollout approval. Keep the currently serving 56-slot release
+and existing model configuration unchanged until candidate acceptance succeeds.
+
+References:
+https://go.dev/doc/go1.25#dwarf5-support
+https://raw.githubusercontent.com/golang/go/go1.26.8/src/internal/buildcfg/exp.go

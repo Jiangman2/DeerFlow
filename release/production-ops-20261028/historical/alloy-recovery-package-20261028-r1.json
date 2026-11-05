@@ -1,0 +1,30 @@
+{
+  "schema": "portal-alloy-recovery-package.v1",
+  "status": "VERIFIED_MATCHING_HEALTHY_PEER_IMAGE_NOT_DEPLOYED",
+  "archive": "alloy.arm64.oci.tar",
+  "archive_bytes": 141445120,
+  "archive_sha256": "ead5e8e157b563aeb6fe11efc008621676a14b2d6fe6b1c565bf9a5a9679f839",
+  "image": "docker.io/grafana/alloy:v1.11.0",
+  "manifest_digest": "sha256:87a8fcab1a8bb39047ee25ccd749b5b89de1eeb41f8f85dac7b906894d1a11b8",
+  "config_digest": "sha256:8b089d2834ca96f22974b0ea75528dbd3806c1bf38d67faa4483c72a2e5cab1e",
+  "healthy_peer_nodes": [
+    "datax-02",
+    "datax-03",
+    "ecs-zdz-pro-0022"
+  ],
+  "source": "m.daocloud.io/docker.io/grafana/alloy@sha256:87a8fcab1a8bb39047ee25ccd749b5b89de1eeb41f8f85dac7b906894d1a11b8",
+  "content_verification": {
+    "manifest_digest": "sha256:87a8fcab1a8bb39047ee25ccd749b5b89de1eeb41f8f85dac7b906894d1a11b8",
+    "config_digest": "sha256:8b089d2834ca96f22974b0ea75528dbd3806c1bf38d67faa4483c72a2e5cab1e",
+    "layers": 5,
+    "compressed_archive_bytes": 141445120,
+    "uncompressed_layer_bytes": 490575872,
+    "status": "PASS"
+  },
+  "source_code_modified": false,
+  "script_bytes": 13730,
+  "script_sha256": "76b81e1404d03327882caf8212c31490e19b9f46800b28a6098e48de5ffd6c16",
+  "local_arm64_version_command": "PASS: v1.11.0 / 7bd7f7f / linux-arm64",
+  "linux_python37_tests_passed": 14,
+  "real_archive_linux_python37_verification": "PASS"
+}

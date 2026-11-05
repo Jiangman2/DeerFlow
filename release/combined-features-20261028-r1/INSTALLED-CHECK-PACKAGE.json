@@ -1,0 +1,25 @@
+{
+  "schema": "portal-combined-installed-package.v1",
+  "script_sha256": "ad61a2b45698f2dc270b8a854b73f74e99e404c9dc84f388699bcabaf43bd102",
+  "script_bytes": 205254,
+  "child_sha256": "4a52d9f368a21e1bdbbc69dab4b6261406653b0f3d2e324891dec9392276b753",
+  "test_bundle_sha256": "6540a410b029ba5eb1ceae221e5b88acae676f7f3f168fbdb7d85ec8bf4da53e",
+  "candidate_manifest": "sha256:a879d9a0688099417a10d301fb41fa78664cb32d62b17a15ec1f435b943a19d4",
+  "production_deployed": false,
+  "source_file_count": 588,
+  "nodes": [
+    "ecs-zdz-pro-0018",
+    "ecs-zdz-pro-0021"
+  ],
+  "targets": [
+    "test_employee_square_analytics.py",
+    "test_competition_usage.py",
+    "test_competition_display.py",
+    "test_datalake_task_boundary.py",
+    "test_local_data_processing.py",
+    "test_appforge_tools.py",
+    "test_account_token_summary.py",
+    "test_cnooc_deepseek_v41.py",
+    "test_input_sanitization_middleware.py"
+  ]
+}

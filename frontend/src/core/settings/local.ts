@@ -11,13 +11,15 @@ export const DEFAULT_LOCAL_SETTINGS: LocalSettings = {
   },
   context: {
     model_name: undefined,
-    mode: undefined,
+    mode: "flash",
     reasoning_effort: undefined,
+    datalake_enabled: false,
+    web_search_enabled: false,
   },
 };
 
-export const LOCAL_SETTINGS_KEY = "deerflow.local-settings";
-export const THREAD_MODEL_KEY_PREFIX = "deerflow.thread-model.";
+export const LOCAL_SETTINGS_KEY = "platform.local-settings";
+export const THREAD_MODEL_KEY_PREFIX = "platform.thread-model.";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";
@@ -46,12 +48,23 @@ export interface LocalSettings {
   };
 }
 
-function mergeLocalSettings(settings?: Partial<LocalSettings>): LocalSettings {
+type LocalSettingsInput = Omit<Partial<LocalSettings>, "context"> & {
+  context?: Partial<LocalSettings["context"]>;
+};
+
+export function mergeLocalSettings(
+  settings?: LocalSettingsInput,
+): LocalSettings {
   return {
     ...DEFAULT_LOCAL_SETTINGS,
     context: {
       ...DEFAULT_LOCAL_SETTINGS.context,
       ...settings?.context,
+      web_search_enabled: settings?.context?.web_search_enabled === true,
+      datalake_enabled:
+        typeof settings?.context?.datalake_enabled === "boolean"
+          ? settings.context.datalake_enabled
+          : DEFAULT_LOCAL_SETTINGS.context.datalake_enabled,
     },
     tokenUsage: {
       ...DEFAULT_LOCAL_SETTINGS.tokenUsage,
@@ -110,11 +123,16 @@ export function getLocalSettings(): LocalSettings {
   if (!isBrowser()) {
     return DEFAULT_LOCAL_SETTINGS;
   }
-  const json = localStorage.getItem(LOCAL_SETTINGS_KEY);
   try {
+    const json = localStorage.getItem(LOCAL_SETTINGS_KEY);
     if (json) {
-      const settings = JSON.parse(json) as Partial<LocalSettings>;
-      return mergeLocalSettings(settings);
+      const settings = JSON.parse(json) as LocalSettingsInput;
+      const restored = mergeLocalSettings(settings);
+      // A saved preference cannot prove this page's current HttpOnly session.
+      return {
+        ...restored,
+        context: { ...restored.context, datalake_enabled: false },
+      };
     }
   } catch {}
   return DEFAULT_LOCAL_SETTINGS;
@@ -124,5 +142,15 @@ export function saveLocalSettings(settings: LocalSettings) {
   if (!isBrowser()) {
     return;
   }
-  localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(settings));
+  try {
+    localStorage.setItem(
+      LOCAL_SETTINGS_KEY,
+      JSON.stringify({
+        ...settings,
+        context: { ...settings.context, datalake_enabled: false },
+      }),
+    );
+  } catch {
+    // Storage quotas/policies must not prevent updating or revoking in-memory state.
+  }
 }

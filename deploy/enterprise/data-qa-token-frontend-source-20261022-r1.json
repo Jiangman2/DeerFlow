@@ -1,0 +1,51 @@
+{
+  "schema": "portal-data-qa-token-frontend-source.v1",
+  "base_image": "sha256:15d1327740e688faf0617d1d8fb9f662618a963624ba7280a6d0efb54ed70475",
+  "base_inventory_sha256": "e7a1156f04044016607dedcb9916d90231085c1db9158c4cf4fd27a7e390870c",
+  "token_display_commit": "1c74cfe3a37a9d85cf38bdde4e002c5f722adf26",
+  "patch_sha256": "330fec88802cb40dd95d5c3feb6086eb2c7574f9e2a0323fbd0b05331fc6bf7d",
+  "changed_files": [
+    "frontend/src/components/workspace/messages/message-list.tsx",
+    "frontend/src/components/workspace/messages/message-token-usage.tsx",
+    "frontend/src/core/i18n/locales/en-US.ts",
+    "frontend/src/core/i18n/locales/types.ts",
+    "frontend/src/core/i18n/locales/zh-CN.ts",
+    "frontend/tests/unit/components/workspace/message-token-usage.dom.test.tsx"
+  ],
+  "runtime_files_changed": 5,
+  "source": "C:\\Users\\15285\\.codex\\tmp\\oa-data-qa-token-frontend-20261022-r1\\source",
+  "source_inventory": [
+    {
+      "path": "frontend/src/components/workspace/messages/message-list.tsx",
+      "bytes": 45133,
+      "sha256": "af721d3e154fac2b57d3285b7a25095248da60ba05be747b47f420e604082734"
+    },
+    {
+      "path": "frontend/src/components/workspace/messages/message-token-usage.tsx",
+      "bytes": 4861,
+      "sha256": "1990b82782e196c04ee5c62cd6ad139fadc9f65348d8742a656e343c17ef5006"
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en-US.ts",
+      "bytes": 51451,
+      "sha256": "f9c32ae7c1a37eaad005e55665f7838f4a8939f0e7a8de3e99ce8f373572fd73"
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/types.ts",
+      "bytes": 26958,
+      "sha256": "1b265712ef59975b03562a26c74b1d489b04e8d78c5950f5374b1ba75bc26198"
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh-CN.ts",
+      "bytes": 49795,
+      "sha256": "bc341edd7e1b4538935052bedbb4c37c3531916a73a1b8ebdb4c8629633a3dff"
+    },
+    {
+      "path": "frontend/tests/unit/components/workspace/message-token-usage.dom.test.tsx",
+      "bytes": 4179,
+      "sha256": "f20aaa0885856408c4b2b240648e2a69b86ddc237b5547463965b802d2ac1213"
+    }
+  ],
+  "production_modified": false,
+  "full_source_record_sha256": "0ccbaed8c687af03736c12b5633206ab37f56fd145493277f383b221fe0167d7"
+}

@@ -1,0 +1,46 @@
+{
+  "schema": "portal-oa-compat-installed-images-field-summary.v1",
+  "evidence_source": "operator_pasted_complete_summary_not_independent_private_report_read",
+  "status": "COMPAT_IMAGES_ACCEPTED_NOT_DEPLOYED",
+  "report": {
+    "path": "/var/lib/portal-oa-compat-image-check-20261022-r1/REPORT.json",
+    "bytes": 2578,
+    "sha256": "4da64e59998e89d00c1f61c5783fcf9805d0b20ad365057400f9daa94792f98e"
+  },
+  "checks": [
+    {
+      "deployment": "gateway",
+      "status": "PASS",
+      "job": "portal-oa-compat-check-d4aea4f87a20",
+      "job_uid": "f5e233cd-5035-4f86-8d48-b8a6caa6b1b8",
+      "pod": "portal-oa-compat-check-d4aea4f87a20-nst5g",
+      "pod_uid": "bb7b65e9-4a27-48e9-8f81-850e23e32a5d",
+      "image": "deerflow.local/deer-flow-gateway@sha256:361592fec9d1915fb0237c27f957f4b925899a017b53081d71d67425d75b10b5",
+      "exit_code": 0
+    },
+    {
+      "deployment": "ppt-master-runner",
+      "status": "PASS",
+      "job": "portal-oa-compat-check-7e98f4acc3fc",
+      "job_uid": "c2db1309-6a96-4fc5-bf5d-fdfba19d37cf",
+      "pod": "portal-oa-compat-check-7e98f4acc3fc-c6z6g",
+      "pod_uid": "9bf5ccbf-5a47-4e4c-a5d7-55803f6a6f2c",
+      "image": "deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140",
+      "exit_code": 0
+    }
+  ],
+  "checks_passed_by_both": [
+    "installed_sources_and_migration_head",
+    "0021_startup_preserves_revision_and_legacy_row",
+    "incomplete_expansion_rejected",
+    "unknown_successor_rejected",
+    "0020_startup_preserved"
+  ],
+  "synthetic_database": "TEMPORARY_SQLITE",
+  "production_database_access": false,
+  "production_workload_modified": false,
+  "provider_requests": 0,
+  "schema_migrated": false,
+  "ready_for_rollout": false,
+  "operator_hold": "Tasks are still running. Prepare scripts only; do not activate."
+}

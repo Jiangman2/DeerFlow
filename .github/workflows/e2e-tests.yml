@@ -22,8 +22,13 @@ permissions:
 jobs:
   e2e-tests:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
-    runs-on: ubuntu-latest
+    # Keep the host compatible with the Playwright version in pnpm-lock.yaml.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
 
     steps:
       - name: Checkout
@@ -50,7 +55,7 @@ jobs:
 
       - name: Run E2E tests
         working-directory: frontend
-        run: pnpm exec playwright test
+        run: pnpm exec playwright test --shard=${{ matrix.shard }}/4 --reporter=line,github,html
         env:
           SKIP_ENV_VALIDATION: '1'
 
@@ -58,6 +63,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: frontend/playwright-report/
           retention-days: 7

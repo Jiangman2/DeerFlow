@@ -1,0 +1,56 @@
+{
+  "schema": "portal-nonconfidential-notice-compiled-assets.v1",
+  "image": "sha256:92897ad16c6c31f9c396bb59e17bb033ca5318affe08376c94dd19aab19cefd2",
+  "feature_markers": {
+    "data_qa_progress": [
+      "/app/frontend/.next/static/chunks/0klcot0e97rr9.js"
+    ],
+    "token_component": [
+      "/app/frontend/.next/static/chunks/0klcot0e97rr9.js",
+      "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js"
+    ],
+    "mobile_chat_spacing": [
+      "/app/frontend/.next/static/chunks/19-t5kn-3s1_c.js"
+    ],
+    "notice_component": [
+      "/app/frontend/.next/static/chunks/1942zspnf7hrt.js"
+    ],
+    "notice_text": [
+      "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js"
+    ],
+    "token_pending": [
+      "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js"
+    ],
+    "token_live": [
+      "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js"
+    ]
+  },
+  "source_pins": {
+    "/app/frontend/.next/BUILD_ID": {
+      "bytes": 21,
+      "sha256": "b8a4e38561f341f31f5d80bff3611effbb8b1af7b22abbac1fda9dc6081500b9"
+    },
+    "/app/frontend/.next/routes-manifest.json": {
+      "bytes": 10193,
+      "sha256": "9b19f00490aaa2b8ffb5d056901e9ba959518b38b1365a3ea1290c0f689647f9"
+    },
+    "/app/frontend/.next/static/chunks/0klcot0e97rr9.js": {
+      "bytes": 313134,
+      "sha256": "40e0fbb619733671d49a3e5cb326d5f91ca94956b587a388e8649fc97cbc3fba"
+    },
+    "/app/frontend/.next/static/chunks/19-t5kn-3s1_c.js": {
+      "bytes": 16280,
+      "sha256": "e0b4dd2fb7f2499ae4e590ca81348505b81b934212c1ed1296ef960799485f38"
+    },
+    "/app/frontend/.next/static/chunks/1942zspnf7hrt.js": {
+      "bytes": 14451,
+      "sha256": "aec77bf82c427d8208b333553b1f5b32ae9c4215df3808b558488e53690320bb"
+    },
+    "/app/frontend/.next/static/chunks/3jdnb7myxvu65.js": {
+      "bytes": 83490,
+      "sha256": "66ef9cbc42c4e7ce279445b863d17fe7bb5cc6919425ef85e15d82e391bae3db"
+    }
+  },
+  "production_modified": false,
+  "status": "COMPILED_FEATURES_PINNED_NOT_BROWSER_ACCEPTED"
+}

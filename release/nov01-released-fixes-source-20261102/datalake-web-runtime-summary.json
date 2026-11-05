@@ -1,0 +1,386 @@
+{
+  "schema": "portal-datalake-session-frontend-runtime-field.v1",
+  "evidence_origin": "OPERATOR_PASTED_SUMMARY_NOT_DIRECT_CLUSTER_READ",
+  "attachment_sha256": "b458304b66eee6e235122658a185d5c48cc05b18f6a8ee2363c62ca952471c12",
+  "markdown_link_wrappers_removed": true,
+  "operator_summary": {
+    "accepted_pods": [
+      {
+        "node": "ecs-zdz-pro-0015",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 11,
+          "status": "PASS"
+        },
+        "pod": "frontend-64b5f8d9fd-9jf4p",
+        "uid": "d8e828f3-d098-4b4f-a658-ced2615b572c"
+      },
+      {
+        "node": "datax-02",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 11,
+          "status": "PASS"
+        },
+        "pod": "frontend-64b5f8d9fd-lf87f",
+        "uid": "47c37ce1-5cdb-438e-9271-077b74f70d3b"
+      }
+    ],
+    "after": {
+      "frontend": {
+        "generation": 234,
+        "spec_sha256": "0790a74bce5f3893327bad6c18a942b515ffd006263442718426f69f4c4cd2cf",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 399,
+        "spec_sha256": "4e5d4c84a7beaa79a6fa0a442c8b3d2da037f81f8ae79c01df26da4e4ced0229",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx": {
+        "generation": 116,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+      },
+      "nginx-security-heai-20261012-r1": {
+        "generation": 2,
+        "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+        "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d"
+      },
+      "ppt-master-runner": {
+        "generation": 58,
+        "spec_sha256": "8602f3a5cf40ff97c3f9ee36d792e0c76ae37be53469b8146be41d3409719934",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      },
+      "provisioner": {
+        "generation": 85,
+        "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+        "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+      }
+    },
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "backend_compatibility": {
+      "actual_authenticated_api_requests": 0,
+      "deployments": {
+        "frontend": {
+          "desired": 2,
+          "generation": 233,
+          "image": "deerflow.local/deer-flow-frontend@sha256:6fe4c264b3774924eddafa03ec83244c56f1e93af26f13de905308948493b602",
+          "ready": 2,
+          "rollout_complete": true,
+          "spec_sha256": "4cef351b5cfef59775ce0e7314fb29a1aa7f13949f9f7124db41d19fb54388d4",
+          "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee",
+          "updated": 2
+        },
+        "gateway": {
+          "desired": 70,
+          "generation": 399,
+          "image": "deerflow.local/deer-flow-gateway@sha256:969b8a5ca90660772d1a19585785e903fb22293a60e8ca3792660c515f191d12",
+          "ready": 70,
+          "rollout_complete": true,
+          "spec_sha256": "4e5d4c84a7beaa79a6fa0a442c8b3d2da037f81f8ae79c01df26da4e4ced0229",
+          "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1",
+          "updated": 70
+        }
+      },
+      "last_read_step": "get:deployment",
+      "samples": [
+        {
+          "node": "ecs-zdz-pro-0020",
+          "observation": {
+            "actual_authenticated_api_requests": 0,
+            "application_started": false,
+            "contracts": [
+              {
+                "contract": "router",
+                "matches_expected": true,
+                "sha256": "6d2b4271ad049540cc870a11594b499a79daff84b3e5ca374d0061769ba21233"
+              },
+              {
+                "contract": "_SAFE_HEADERS",
+                "matches_expected": true,
+                "sha256": "7b13846f191c76a0aee7cf4c36dec259331778a895f54a63dd6d2673657b0061"
+              },
+              {
+                "contract": "DataLakeAuthorizationResponse",
+                "matches_expected": true,
+                "sha256": "378eac18fe7da81efe6e40429875e56e53baf3d9b4a1a4c405a185dfa6d03155"
+              },
+              {
+                "contract": "DataLakeSessionResponse",
+                "matches_expected": true,
+                "sha256": "e2dbf4cf7f81b0091b81d869077b10d69bea2d83160d7c2c2e154f4d5dfa1e6a"
+              },
+              {
+                "contract": "validate_data_lake_session",
+                "matches_expected": true,
+                "sha256": "59f241e30692a4d287c8e6fcfef0320230f871ea941328f9c625d59fedba9dba"
+              }
+            ],
+            "database_access": false,
+            "provider_requests": 0,
+            "router_registered": true,
+            "source_sha256": "284f38da3636a87909c817baed9a74647d500e35f61d2b09f5e41c69277be126",
+            "status": "PASS"
+          },
+          "pod": "gateway-645b8dcb94-2h4tr",
+          "uid": "f47a8e98-7b8f-48ba-b3ca-cb6a6b36f40f"
+        },
+        {
+          "node": "ecs-zdz-pro-0022",
+          "observation": {
+            "actual_authenticated_api_requests": 0,
+            "application_started": false,
+            "contracts": [
+              {
+                "contract": "router",
+                "matches_expected": true,
+                "sha256": "6d2b4271ad049540cc870a11594b499a79daff84b3e5ca374d0061769ba21233"
+              },
+              {
+                "contract": "_SAFE_HEADERS",
+                "matches_expected": true,
+                "sha256": "7b13846f191c76a0aee7cf4c36dec259331778a895f54a63dd6d2673657b0061"
+              },
+              {
+                "contract": "DataLakeAuthorizationResponse",
+                "matches_expected": true,
+                "sha256": "378eac18fe7da81efe6e40429875e56e53baf3d9b4a1a4c405a185dfa6d03155"
+              },
+              {
+                "contract": "DataLakeSessionResponse",
+                "matches_expected": true,
+                "sha256": "e2dbf4cf7f81b0091b81d869077b10d69bea2d83160d7c2c2e154f4d5dfa1e6a"
+              },
+              {
+                "contract": "validate_data_lake_session",
+                "matches_expected": true,
+                "sha256": "59f241e30692a4d287c8e6fcfef0320230f871ea941328f9c625d59fedba9dba"
+              }
+            ],
+            "database_access": false,
+            "provider_requests": 0,
+            "router_registered": true,
+            "source_sha256": "284f38da3636a87909c817baed9a74647d500e35f61d2b09f5e41c69277be126",
+            "status": "PASS"
+          },
+          "pod": "gateway-645b8dcb94-2pkqb",
+          "uid": "4e4592c6-03e7-42a9-b4ac-ddc043d19132"
+        }
+      ],
+      "source_samples_checked": 2,
+      "stable_readback": true,
+      "status": "DATALAKE_SESSION_CONTRACT_SOURCE_ACCEPTED_NOT_DEPLOYED"
+    },
+    "before": {
+      "frontend": {
+        "generation": 233,
+        "spec_sha256": "4cef351b5cfef59775ce0e7314fb29a1aa7f13949f9f7124db41d19fb54388d4",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 399,
+        "spec_sha256": "4e5d4c84a7beaa79a6fa0a442c8b3d2da037f81f8ae79c01df26da4e4ced0229",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx": {
+        "generation": 116,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+      },
+      "nginx-security-heai-20261012-r1": {
+        "generation": 2,
+        "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+        "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d"
+      },
+      "ppt-master-runner": {
+        "generation": 58,
+        "spec_sha256": "8602f3a5cf40ff97c3f9ee36d792e0c76ae37be53469b8146be41d3409719934",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      },
+      "provisioner": {
+        "generation": 85,
+        "spec_sha256": "79ba2072fbbf044ae065ee2aa8805bde20bf0fae4d7e06d69e731c2b18d13478",
+        "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+      }
+    },
+    "browser_acceptance_pending": true,
+    "cache_checks": [
+      {
+        "job": "portal-datalake-session-cache-4325f6e020864b3c-0",
+        "job_uid": "a21b1793-6842-43b8-a547-7f01d181bb25",
+        "node": "datax-02",
+        "node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+        "observation": {
+          "files_verified": 14,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "status": "LOCAL_PRELOADED_IMAGE_EXECUTED"
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "deerflow.local/deer-flow-frontend@sha256:34f1bd6936ac606c7b39992eaff4aadce65a0bae800c60c400f7ebae4f56eb00",
+                "restart_count": 0,
+                "waiting_reason": null
+              }
+            ],
+            "node": "datax-02",
+            "phase": "Succeeded",
+            "pod": "portal-datalake-session-cache-4325f6e020864b3c-0-48vdb",
+            "uid": "feb28f7e-bca2-46db-b6ea-68370bb16bd0"
+          }
+        ],
+        "status": "PASS"
+      },
+      {
+        "job": "portal-datalake-session-cache-4325f6e020864b3c-1",
+        "job_uid": "5c01c654-8252-47bd-9c54-daf284a163f2",
+        "node": "ecs-zdz-pro-0015",
+        "node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+        "observation": {
+          "files_verified": 14,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "status": "LOCAL_PRELOADED_IMAGE_EXECUTED"
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "deerflow.local/deer-flow-frontend@sha256:34f1bd6936ac606c7b39992eaff4aadce65a0bae800c60c400f7ebae4f56eb00",
+                "restart_count": 0,
+                "waiting_reason": null
+              }
+            ],
+            "node": "ecs-zdz-pro-0015",
+            "phase": "Succeeded",
+            "pod": "portal-datalake-session-cache-4325f6e020864b3c-1-xkfgh",
+            "uid": "951acb72-6813-462c-83de-46a7cfa19000"
+          }
+        ],
+        "status": "PASS"
+      }
+    ],
+    "cache_config": "sha256:a444093dbc9a4ec75bbd930a4b52f9f4dc2f81c830ef1514b08abb14c44eff73",
+    "cache_manifest": "sha256:34f1bd6936ac606c7b39992eaff4aadce65a0bae800c60c400f7ebae4f56eb00",
+    "check_job_ttl_seconds": 3600,
+    "directory": "/var/lib/portal-frontend-datalake-session-activation-4325f6e020864b3c9e08398c0dc62922",
+    "elapsed_seconds": 41.398,
+    "exitcode": 0,
+    "fresh_nodes_after": [
+      {
+        "candidate_in_node_status": false,
+        "name": "datax-02",
+        "reported_images": 50,
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "candidate_in_node_status": true,
+        "name": "ecs-zdz-pro-0015",
+        "reported_images": 48,
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      }
+    ],
+    "fresh_nodes_before": [
+      {
+        "candidate_in_node_status": false,
+        "name": "datax-02",
+        "reported_images": 50,
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "candidate_in_node_status": true,
+        "name": "ecs-zdz-pro-0015",
+        "reported_images": 48,
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      }
+    ],
+    "image_pull_policy": "Never",
+    "once_claimed": true,
+    "operation": "4325f6e020864b3c9e08398c0dc62922",
+    "other_workload_mutation": false,
+    "patch_acknowledged_by_readback": true,
+    "patch_dispatched": true,
+    "patch_may_have_applied": true,
+    "patch_request_count": 1,
+    "patch_requested": true,
+    "preflight_retry_available": false,
+    "prior_frontend_receipt": {
+      "bytes": 37548,
+      "path": "/var/lib/portal-frontend-dashboard-recovery-activation-0991f9e5103741a1a532b05f233b4e62/REPORT.json",
+      "sha256": "f78c19dfb7adf5883b769422b9045f78815e2a62c3b66bd076b44273bbba3704"
+    },
+    "provider_requests": 0,
+    "report_bytes": 37303,
+    "report_path": "/var/lib/portal-frontend-datalake-session-activation-4325f6e020864b3c9e08398c0dc62922/REPORT.json",
+    "report_sha256": "96bdd3c34c5cb8b8375588b355fe339f9c05f25ceb64a8e50b2055ea1de80f05",
+    "runtime": [
+      {
+        "node": "ecs-zdz-pro-0015",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 11,
+          "status": "PASS"
+        },
+        "pod": "frontend-64b5f8d9fd-9jf4p",
+        "uid": "d8e828f3-d098-4b4f-a658-ced2615b572c"
+      },
+      {
+        "node": "datax-02",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 11,
+          "status": "PASS"
+        },
+        "pod": "frontend-64b5f8d9fd-lf87f",
+        "uid": "47c37ce1-5cdb-438e-9271-077b74f70d3b"
+      }
+    ],
+    "schema": "portal-frontend-datalake-session-activation.v1",
+    "schema_migration_requested": false,
+    "services_preserved": true,
+    "stage_passed": true,
+    "status": "FRONTEND_DATALAKE_SESSION_RUNTIME_ACCEPTED_BROWSER_PENDING",
+    "temporary_jobs_created": [
+      {
+        "creation_requested": true,
+        "name": "portal-datalake-session-cache-4325f6e020864b3c-0"
+      },
+      {
+        "creation_requested": true,
+        "name": "portal-datalake-session-cache-4325f6e020864b3c-1"
+      }
+    ],
+    "tool_revision": "r1",
+    "unrelated_specs_preserved": true
+  },
+  "review": {
+    "frontend_generation": 234,
+    "image": "deerflow.local/deer-flow-frontend@sha256:34f1bd6936ac606c7b39992eaff4aadce65a0bae800c60c400f7ebae4f56eb00",
+    "two_frontend_pods_accepted": true,
+    "files_verified_per_cache_job": 14,
+    "static_assets_verified_per_runtime_pod": 11,
+    "gateway_399_preserved": true,
+    "other_deployment_specs_and_services_preserved": true,
+    "browser_acceptance_pending": true,
+    "remote_report_file_independently_read": false,
+    "node_status_image_list_note": "datax-02 NodeStatus.Images lists 50 entries and omits candidate; exact Never-policy execution and runtime verification passed on that node."
+  }
+}

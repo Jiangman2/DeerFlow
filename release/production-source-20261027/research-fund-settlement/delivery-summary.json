@@ -1,0 +1,12 @@
+{
+  "status": "DELIVERY_BUILT_NOT_APPLIED",
+  "script": "update-portal-research-fund-skill-20261027-r1.py",
+  "bytes": 745553,
+  "sha256": "895602fccdc80cc1d18912fe742253409776d991cfc2f567e6fca30b2d019ed9",
+  "before_tree_sha256": "db91b903a0f8250aecb7aaa4bbdf2b5aeaa871686d9f08862e5dcfb21d1a5da0",
+  "after_tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+  "archive_sha256": "7cfdae4c41032f2a3a3da23786a28c561a8e481a2822bb92d45ad80256e81946",
+  "python37_host_and_remote_syntax": "PASS",
+  "production_skill_modified": false,
+  "live_runtime_verification_pending": true
+}

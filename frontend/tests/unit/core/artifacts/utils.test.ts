@@ -74,25 +74,44 @@ describe("artifact URL helpers", () => {
     ).toBe("/demo/threads/thread-1/user-data/outputs/style.css");
   });
 
-  test("builds artifact URLs with download and format query params", async () => {
-    setEnv("NEXT_PUBLIC_BACKEND_BASE_URL", "http://127.0.0.1:8001");
+  test("returns stable artifact path references", async () => {
+    const { extractArtifactsFromStateSnapshot, extractArtifactsFromThread } =
+      await loadFreshArtifactUtils();
+    const threadWithoutArtifacts = { values: {} };
+    const artifacts = ["/mnt/user-data/outputs/chart.png"];
 
-    const { urlOfArtifact } = await loadFreshArtifactUtils();
+    expect(extractArtifactsFromThread(threadWithoutArtifacts)).toBe(
+      extractArtifactsFromThread(threadWithoutArtifacts),
+    );
+    expect(extractArtifactsFromThread({ values: { artifacts } })).toBe(
+      artifacts,
+    );
+    expect(
+      extractArtifactsFromStateSnapshot({ values: { artifacts } }),
+    ).toEqual(artifacts);
+    expect(
+      extractArtifactsFromStateSnapshot({
+        values: { artifacts: ["valid", 1] },
+      }),
+    ).toEqual(["valid"]);
+    expect(extractArtifactsFromStateSnapshot({ values: {} })).toEqual([]);
+  });
+
+  test("routes PDF companions through the browser-compatible preview endpoint", async () => {
+    const { urlOfPdfArtifactPreview } = await loadFreshArtifactUtils();
 
     expect(
-      urlOfArtifact({
-        filepath: "/mnt/user-data/outputs/report.md",
+      urlOfPdfArtifactPreview({
+        filepath: "/mnt/user-data/outputs/中文报告.preview.pdf",
         threadId: "thread-1",
-        download: true,
-        format: "pdf",
       }),
     ).toBe(
-      "http://127.0.0.1:8001/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.md?download=true&format=pdf",
+      "/api/threads/thread-1/artifact-previews/pdf/mnt/user-data/outputs/中文报告.preview.pdf",
     );
   });
 
-  test("finds sibling PDF previews for PowerPoint artifacts", async () => {
-    const { findPreviewPdfPath, guessPreviewPdfPath } =
+  test("pairs Office artifacts with their browser preview PDF", async () => {
+    const { findPreviewPdfPath, guessPreviewPdfPath, guessPreviewPdfPaths } =
       await loadFreshArtifactUtils();
 
     expect(guessPreviewPdfPath("/mnt/user-data/outputs/deck.pptx")).toBe(
@@ -107,7 +126,196 @@ describe("artifact URL helpers", () => {
     expect(
       findPreviewPdfPath("/mnt/user-data/outputs/deck.pptx", [
         "/mnt/user-data/outputs/deck.pptx",
+        "/mnt/user-data/outputs/deck.pdf",
       ]),
+    ).toBe("/mnt/user-data/outputs/deck.pdf");
+    expect(guessPreviewPdfPaths("/mnt/user-data/outputs/deck.pptx")).toEqual([
+      "/mnt/user-data/outputs/deck.preview.pdf",
+      "/mnt/user-data/outputs/deck.pdf",
+    ]);
+    expect(guessPreviewPdfPaths("/mnt/user-data/outputs/report.docx")).toEqual([
+      "/mnt/user-data/outputs/report.preview.pdf",
+      "/mnt/user-data/outputs/report.pdf",
+    ]);
+    expect(guessPreviewPdfPaths("/mnt/user-data/outputs/metrics.xlsx")).toEqual(
+      [
+        "/mnt/user-data/outputs/metrics.preview.pdf",
+        "/mnt/user-data/outputs/metrics.pdf",
+      ],
+    );
+    expect(guessPreviewPdfPaths("/mnt/user-data/outputs/notes.txt")).toEqual(
+      [],
+    );
+  });
+
+  test("hides Office preview companions from user-facing artifacts", async () => {
+    const { filterUserVisibleArtifacts, findOfficeDocumentForPreviewArtifact } =
+      await loadFreshArtifactUtils();
+    const pptxPath = "/mnt/user-data/outputs/deck.pptx";
+    const docxPath = "/mnt/user-data/outputs/report.docx";
+    const pptxPreviewPath = "/mnt/user-data/outputs/deck.preview.pdf";
+    const docxPreviewPath = "/mnt/user-data/outputs/report.preview.pdf";
+    const standalonePdfPath = "/mnt/user-data/outputs/standalone.pdf";
+    const files = [
+      pptxPath,
+      docxPath,
+      pptxPreviewPath,
+      docxPreviewPath,
+      standalonePdfPath,
+    ];
+
+    expect(findOfficeDocumentForPreviewArtifact(pptxPreviewPath, files)).toBe(
+      pptxPath,
+    );
+    expect(findOfficeDocumentForPreviewArtifact(docxPreviewPath, files)).toBe(
+      docxPath,
+    );
+    expect(filterUserVisibleArtifacts(files)).toEqual([
+      pptxPath,
+      docxPath,
+      standalonePdfPath,
+    ]);
+    expect(filterUserVisibleArtifacts([docxPreviewPath], files)).toEqual([]);
+  });
+
+  test("hides the legacy same-stem PDF only when its PowerPoint exists", async () => {
+    const { filterUserVisibleArtifacts } = await loadFreshArtifactUtils();
+    const pptxPath = "/mnt/user-data/outputs/legacy-deck.pptx";
+    const fallbackPreviewPath = "/mnt/user-data/outputs/legacy-deck.pdf";
+
+    expect(filterUserVisibleArtifacts([pptxPath, fallbackPreviewPath])).toEqual(
+      [pptxPath],
+    );
+    expect(filterUserVisibleArtifacts([fallbackPreviewPath])).toEqual([
+      fallbackPreviewPath,
+    ]);
+  });
+
+  test("extracts previewable artifact paths from message links", async () => {
+    const {
+      artifactPathFromHref,
+      artifactPreviewHref,
+      rewriteArtifactLinksForPreview,
+    } = await loadFreshArtifactUtils();
+
+    expect(
+      artifactPathFromHref(
+        "/api/threads/thread-1/artifacts/mnt/user-data/outputs/%E6%96%B9%E6%A1%88.pdf",
+        "thread-1",
+      ),
+    ).toBe("/mnt/user-data/outputs/方案.pdf");
+    expect(
+      artifactPathFromHref("/mnt/user-data/outputs/report.pptx", "thread-1"),
+    ).toBe("/mnt/user-data/outputs/report.pptx");
+    expect(
+      artifactPathFromHref(
+        "/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.pptx?download=true",
+        "thread-1",
+      ),
     ).toBeNull();
+    expect(
+      artifactPathFromHref(
+        "/api/threads/other/artifacts/mnt/user-data/outputs/report.pdf",
+        "thread-1",
+      ),
+    ).toBeNull();
+    const previewHref = artifactPreviewHref(
+      "/mnt/user-data/outputs/research-report.pptx",
+    );
+    expect(artifactPathFromHref(previewHref, "thread-1")).toBe(
+      "/mnt/user-data/outputs/research-report.pptx",
+    );
+    expect(
+      artifactPathFromHref("#artifact-preview=%2Fetc%2Fpasswd", "thread-1"),
+    ).toBeNull();
+    expect(
+      rewriteArtifactLinksForPreview(
+        "[报告](/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.pptx)",
+        "thread-1",
+      ),
+    ).toBe(
+      `[报告](${artifactPreviewHref("/mnt/user-data/outputs/report.pptx")})`,
+    );
+    expect(
+      rewriteArtifactLinksForPreview(
+        "![预览](/api/threads/thread-1/artifacts/mnt/user-data/outputs/preview.png)",
+        "thread-1",
+      ),
+    ).toBe(
+      "![预览](/api/threads/thread-1/artifacts/mnt/user-data/outputs/preview.png)",
+    );
+    expect(
+      rewriteArtifactLinksForPreview(
+        "[下载](/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.pptx?download=true)",
+        "thread-1",
+      ),
+    ).toBe(
+      "[下载](/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.pptx?download=true)",
+    );
+  });
+
+  test("resolves absolute and relative message image paths", async () => {
+    const { resolveMessageImageURL } = await loadFreshArtifactUtils();
+    const artifacts = [
+      "/mnt/user-data/outputs/aws-agent-overview.png",
+      "/mnt/user-data/outputs/aws-agent-console-config.png",
+      "/mnt/user-data/outputs/chart.png",
+    ];
+
+    expect(
+      resolveMessageImageURL("aws-agent-overview.png", "thread-1", artifacts),
+    ).toBe(
+      "/api/threads/thread-1/artifacts/mnt/user-data/outputs/aws-agent-overview.png",
+    );
+    expect(
+      resolveMessageImageURL(
+        "./aws-agent-overview.png#detail",
+        "thread-1",
+        artifacts,
+      ),
+    ).toBe(
+      "/api/threads/thread-1/artifacts/mnt/user-data/outputs/aws-agent-overview.png#detail",
+    );
+    expect(
+      resolveMessageImageURL(
+        "/mnt/user-data/outputs/chart.png",
+        "thread-1",
+        artifacts,
+      ),
+    ).toBe("/api/threads/thread-1/artifacts/mnt/user-data/outputs/chart.png");
+    expect(
+      resolveMessageImageURL("outputs/chart.png", "thread-1", artifacts),
+    ).toBe("/api/threads/thread-1/artifacts/mnt/user-data/outputs/chart.png");
+    expect(
+      resolveMessageImageURL(
+        "resource://image_handle-1",
+        "thread-1",
+        artifacts,
+      ),
+    ).toBe("/api/weknora/files?file_path=resource%3A%2F%2Fimage_handle-1");
+  });
+
+  test("does not rewrite unregistered, ambiguous, or external message images", async () => {
+    const { resolveMessageImageURL } = await loadFreshArtifactUtils();
+
+    expect(resolveMessageImageURL("missing.png", "thread-1", [])).toBe(
+      "missing.png",
+    );
+    expect(
+      resolveMessageImageURL("shared.png", "thread-1", [
+        "/mnt/user-data/outputs/first/shared.png",
+        "/mnt/user-data/outputs/second/shared.png",
+      ]),
+    ).toBe("shared.png");
+    expect(
+      resolveMessageImageURL("../etc/secret.png", "thread-1", [
+        "/mnt/user-data/outputs/secret.png",
+      ]),
+    ).toBe("../etc/secret.png");
+    expect(
+      resolveMessageImageURL("https://example.com/image.png", "thread-1", [
+        "/mnt/user-data/outputs/image.png",
+      ]),
+    ).toBe("https://example.com/image.png");
   });
 });

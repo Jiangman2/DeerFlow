@@ -5,6 +5,8 @@ import { GatewayOfflineFallback } from "@/components/workspace/gateway-offline-f
 import { AuthProvider } from "@/core/auth/AuthProvider";
 import { getServerSideUser } from "@/core/auth/server";
 import { assertNever } from "@/core/auth/types";
+import { resolveSsoOnlyAuthRedirect } from "@/core/auth/unauthenticated-home";
+import { env } from "@/env";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,16 @@ export default async function AuthLayout({
   children: ReactNode;
 }) {
   const result = await getServerSideUser();
+
+  if (result.tag !== "authenticated" && result.tag !== "config_error") {
+    const ssoOnlyRedirect = resolveSsoOnlyAuthRedirect(
+      env.DEER_FLOW_SSO_ONLY,
+      env.DEER_FLOW_UNAUTHENTICATED_HOME_URL,
+    );
+    if (ssoOnlyRedirect) {
+      redirect(ssoOnlyRedirect);
+    }
+  }
 
   switch (result.tag) {
     case "authenticated":

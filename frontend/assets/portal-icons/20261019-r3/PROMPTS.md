@@ -1,0 +1,17 @@
+# Unified navigation icons, 2026-10-19 r3
+
+Generated/edited with the built-in image_gen tool, one transparent bitmap per asset. All seven destination icons contain an enlarged orange up-right arrow with a white keyline. More opens a menu and has no arrow.
+
+## Final image-edit prompt
+
+Use case: precise-object-edit. Enlarge ONLY the outbound up-right navigation arrow in the LOWER-RIGHT corner. The user explicitly requests a larger, much more obvious arrow. Make its full silhouette about 45 percent of the MAIN SYMBOL width and height, a bold easily readable 9-10 pixel navigation arrow when the whole icon is displayed at 24 pixels. Use saturated orange with darker burnt-orange shaded edges, a BROAD stem and clear oversized arrowhead, surrounded by a crisp WHITE KEYLINE about 3 percent of the main symbol width. Keep a simple rounded 3D form consistent with the main icon. It should overlap the lower-right corner but must not cover the defining main glyph. No extra badge, square, circle, label or text. Maintain genuine transparent background. Preserve the main symbol's subject, blue/white colors, letters/charts/microphone/sound waves/documents, material, lighting and geometry. Leave internal functional conversion arrows blue and unchanged: only the outbound lower-right arrow gets enlarged and colored. Keep the main subject centered with transparent padding. IMPORTANT: visibly enlarge the arrow, not just recolor or soften it; small-screen legibility is the priority.
+
+## Consistency edit
+
+Use case: precise-object-edit. Image 1 is the EDIT TARGET. Image 2 is the STRICT SIZE AND SHAPE reference for the orange outbound arrow. Change ONLY the orange bottom-right outbound arrow in Image 1 to match the SAME apparent width, height, stem thickness, 45-degree orientation, orange colors and white outline as Image 2's arrow. Keep the main symbol in Image 1 unchanged. Scale relative to the complete icon's visible bounding box, not the empty transparent canvas: arrow orange silhouette width = 39% of complete icon visible width, height = 38%, white outline included ~43%. This is a unified production icon set: exact consistent apparent arrow sizing matters more than decorative variation. Do not change the main blue symbol's dimensions or geometry. No extra mark. No black or white backdrop: preserve genuine transparency. Reproduce reference arrow as closely as possible, without enlarging the whole icon. For translation only: shrink its overly large orange arrow to the reference ratio. For microphone/headphone/speaker/conversion icons: enlarge their smaller arrows to the reference ratio. Keep all main symbols recognisable. Return one finished transparent icon.
+
+## Technical encoding
+
+Original generated PNGs are retained. build-artwork.cjs crops transparent margins and resizes each COMPLETE bitmap, never isolates, paints or overlays an arrow. Navigation arrow silhouettes are measured as the connected orange component at lower right and normalized to exactly 44 by 42 pixels on a 144 by 144 transparent canvas. White outlines remain part of the generated bitmap. Lossless WebP preserves those measured dimensions. The four existing ordinary-action artworks retain their original pixels with size normalization only. See manifest.json for every source/output hash and measured bounds.
+
+The unified CSS icon size applies to ordinary actions, navigation and More. Icon plus label is centered as one group. Prior asset versions are retained in sibling folders. No production rollout is performed by this asset revision.

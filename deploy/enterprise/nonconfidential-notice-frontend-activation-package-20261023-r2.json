@@ -1,0 +1,26 @@
+{
+  "schema": "portal-nonconfidential-notice-activation-package.v1",
+  "script": "C:/Users/15285/Downloads/activate-portal-frontend-nonconfidential-notice-20261023-r2.py",
+  "bytes": 67912,
+  "sha256": "17625530e6e550a0a692946a91bca06100568c4add6da2d25b3c8faa2b945f04",
+  "baseline_frontend_generation": 226,
+  "target_manifest": "sha256:b37036e9b226f8605e3da98d9f81cb072fc30da29cb5b972702c5ed6ec535638",
+  "preloads_evidence": "nonconfidential-notice-frontend-preloads-field-20261023-r2.json",
+  "actual_node_preload_summaries_validated": 2,
+  "offline_transport_tests": {"passed": 10, "production_access": false},
+  "packaged_script_python37": {
+    "status": "PACKAGED_SCRIPT_PYTHON37_ACCEPTED",
+    "checks": [
+      "exact_script_digest",
+      "python37_host_and_embedded_imports",
+      "actual_two_node_preload_bindings",
+      "candidate_image_and_three_static_asset_bindings",
+      "wrong_manifest_refused",
+      "wrong_host_before_files_or_cluster"
+    ],
+    "production_access": false
+  },
+  "production_cutover_requested_by_user": true,
+  "production_cutover_executed_by_local_agent": false,
+  "status": "READY_FOR_OPERATOR_FRONTEND_ACTIVATION_NOT_DEPLOYED"
+}

@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import sys
-from pathlib import Path
 from types import ModuleType
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from deerflow.utils.file_conversion import (
     _ASYNC_THRESHOLD_BYTES,
     _MIN_CHARS_PER_PAGE,
-    _convert_doc_with_pipeline,
     MAX_OUTLINE_ENTRIES,
     _do_convert,
     _get_pdf_converter,
@@ -241,71 +241,6 @@ class TestGetPdfConverter:
 
 
 class TestConvertFileToMarkdown:
-    def test_legacy_doc_uses_antiword_fallback(self, tmp_path):
-        """Legacy .doc files can fall back to antiword plaintext extraction."""
-        doc = tmp_path / "legacy.doc"
-        doc.write_bytes(b"\xd0\xcf\x11\xe0 fake doc")
-
-        completed = MagicMock()
-        completed.stdout = "legacy text".encode()
-
-        with (
-            patch("deerflow.utils.file_conversion._which_soffice", return_value=None),
-            patch("deerflow.utils.file_conversion.shutil.which", return_value="antiword"),
-            patch("deerflow.utils.file_conversion.subprocess.run", return_value=completed) as mock_run,
-        ):
-            md_path = _run(convert_file_to_markdown(doc))
-
-        mock_run.assert_called_once_with(
-            ["antiword", str(doc)],
-            check=True,
-            capture_output=True,
-            timeout=60,
-        )
-        assert md_path == doc.with_suffix(".md")
-        assert md_path.read_text(encoding="utf-8") == "legacy text"
-
-    def test_legacy_doc_uses_libreoffice_when_available(self, tmp_path):
-        """LibreOffice converts .doc to .docx before MarkItDown reads it."""
-        doc = tmp_path / "legacy.doc"
-        doc.write_bytes(b"\xd0\xcf\x11\xe0 fake doc")
-
-        completed = MagicMock(returncode=0, stdout=b"", stderr=b"")
-
-        def fake_run(args, **_kwargs):
-            out_dir = Path(args[args.index("--outdir") + 1])
-            (out_dir / "legacy.docx").write_bytes(b"PK fake docx")
-            return completed
-
-        with (
-            patch("deerflow.utils.file_conversion._which_soffice", return_value="soffice"),
-            patch("deerflow.utils.file_conversion.subprocess.run", side_effect=fake_run),
-            patch(
-                "deerflow.utils.file_conversion._convert_with_markitdown",
-                return_value="converted markdown",
-            ) as mock_markitdown,
-        ):
-            text = _convert_doc_with_pipeline(doc)
-
-        mock_markitdown.assert_called_once()
-        converted_path = mock_markitdown.call_args.args[0]
-        assert converted_path.name == "legacy.docx"
-        assert text == "converted markdown"
-
-    def test_legacy_doc_returns_none_when_no_converter_available(self, tmp_path):
-        """Avoid treating binary .doc bytes as readable text when no converter exists."""
-        doc = tmp_path / "legacy.doc"
-        doc.write_bytes(b"\xd0\xcf\x11\xe0 fake doc")
-
-        with (
-            patch("deerflow.utils.file_conversion._which_soffice", return_value=None),
-            patch("deerflow.utils.file_conversion.shutil.which", return_value=None),
-        ):
-            result = _run(convert_file_to_markdown(doc))
-
-        assert result is None
-        assert not doc.with_suffix(".md").exists()
-
     def test_small_file_runs_synchronously(self, tmp_path):
         """Small files (< 1 MB) are converted in the event loop thread."""
         pdf = tmp_path / "small.pdf"
@@ -366,6 +301,21 @@ class TestConvertFileToMarkdown:
 
         assert result is None
 
+    def test_empty_conversion_removes_stale_markdown_and_returns_none(self, tmp_path):
+        pdf = tmp_path / "empty.pdf"
+        pdf.write_bytes(b"%PDF-1.4 fake")
+        stale = pdf.with_suffix(".md")
+        stale.write_text("stale content", encoding="utf-8")
+
+        with (
+            patch("deerflow.utils.file_conversion._get_pdf_converter", return_value="auto"),
+            patch("deerflow.utils.file_conversion._do_convert", return_value="  \n\t"),
+        ):
+            result = _run(convert_file_to_markdown(pdf))
+
+        assert result is None
+        assert not stale.exists()
+
     def test_writes_utf8_markdown_file(self, tmp_path):
         """Generated .md file is written with UTF-8 encoding."""
         pdf = tmp_path / "report.pdf"
@@ -383,6 +333,24 @@ class TestConvertFileToMarkdown:
 
         assert md_path is not None
         assert md_path.read_text(encoding="utf-8") == chinese_content
+
+    def test_writes_to_preclaimed_output_path(self, tmp_path):
+        pdf = tmp_path / "report.pdf"
+        pdf.write_bytes(b"%PDF-1.4 fake")
+        preclaimed = tmp_path / "report_1.md"
+
+        with (
+            patch("deerflow.utils.file_conversion._get_pdf_converter", return_value="auto"),
+            patch(
+                "deerflow.utils.file_conversion._do_convert",
+                return_value="# Parsed report",
+            ),
+        ):
+            md_path = _run(convert_file_to_markdown(pdf, output_path=preclaimed))
+
+        assert md_path == preclaimed
+        assert preclaimed.read_text(encoding="utf-8") == "# Parsed report"
+        assert not pdf.with_suffix(".md").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -402,6 +370,19 @@ class TestExtractOutline:
     def test_missing_file_returns_empty(self, tmp_path):
         """Non-existent path returns [] without raising."""
         assert extract_outline(tmp_path / "nonexistent.md") == []
+
+    @pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+    def test_first_heading_is_preserved_with_or_without_bom(self, tmp_path, encoding):
+        """An optional UTF-8 BOM must not hide the first physical heading."""
+        md = tmp_path / "report.md"
+        md.write_text("# 概述\n\n## Next section\n", encoding=encoding)
+        original = md.read_bytes()
+
+        assert extract_outline(md) == [
+            {"title": "概述", "line": 1},
+            {"title": "Next section", "line": 3},
+        ]
+        assert md.read_bytes() == original
 
     def test_standard_markdown_headings(self, tmp_path):
         """# / ## / ### headings are all recognised."""
@@ -487,6 +468,15 @@ class TestExtractOutline:
         md.write_text("\n".join(lines), encoding="utf-8")
         outline = extract_outline(md)
         assert len(outline) == 5
+        assert not any(e.get("truncated") for e in outline)
+
+    def test_no_truncation_sentinel_at_exact_limit(self, tmp_path):
+        """A document with exactly MAX_OUTLINE_ENTRIES headings is not truncated."""
+        lines = [f"# Heading {i}" for i in range(MAX_OUTLINE_ENTRIES)]
+        md = tmp_path / "exact.md"
+        md.write_text("\n".join(lines), encoding="utf-8")
+        outline = extract_outline(md)
+        assert len(outline) == MAX_OUTLINE_ENTRIES
         assert not any(e.get("truncated") for e in outline)
 
     def test_blank_lines_and_whitespace_ignored(self, tmp_path):

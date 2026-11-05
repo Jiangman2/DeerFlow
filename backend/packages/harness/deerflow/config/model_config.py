@@ -22,6 +22,7 @@ class ModelConfig(BaseModel):
         description="Structured output version for OpenAI responses content, e.g. responses/v1",
     )
     supports_thinking: bool = Field(default_factory=lambda: False, description="Whether the model supports thinking")
+    thinking_always_on: bool = Field(default=False, description="Provider cannot disable thinking; hide the flash mode")
     supports_reasoning_effort: bool = Field(default_factory=lambda: False, description="Whether the model supports reasoning effort")
     when_thinking_enabled: dict | None = Field(
         default_factory=lambda: None,

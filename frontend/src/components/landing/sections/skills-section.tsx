@@ -8,13 +8,14 @@ import { Section } from "../section";
 export function SkillsSection({ className }: { className?: string }) {
   return (
     <Section
-      className={cn("min-h-[calc(100vh-64px)] w-full bg-white/2", className)}
-      title="业务技能"
+      className={cn("h-[calc(100vh-64px)] w-full bg-white/2", className)}
+      title="Agent Skills"
       subtitle={
         <div>
-          按任务动态加载所需技能，减少无关上下文干扰。
+          Agent Skills are loaded progressively — only what&apos;s needed, when
+          it&apos;s needed.
           <br />
-          支持沉淀勘探开发资料检索、数据分析、报告编制和办公自动化流程。
+          使用自定义技能文件扩展本平台，也可以直接使用内置技能库。
         </div>
       }
     >

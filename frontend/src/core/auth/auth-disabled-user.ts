@@ -6,6 +6,9 @@ export const AUTH_DISABLED_USER: User = {
   system_role: "admin",
   needs_setup: false,
   oauth_provider: null,
+  is_disabled: false,
+  display_name: "Local Administrator",
+  organization_name: null,
 };
 
 const PRODUCTION_ENV_VALUES = new Set(["prod", "production"]);

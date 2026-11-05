@@ -1,0 +1,61 @@
+{
+  "schema": "portal-oa-v2-multi-runtime-field-receipt.v1",
+  "evidence_source": "operator_pasted_readonly_verification_stdout",
+  "received_date_shanghai": "2026-10-23",
+  "raw_execution_timestamp_available": false,
+  "verification_package": {
+    "filename": "verify-portal-oa-v2-multi-after-timeout-20261023-r1.py",
+    "bytes": 29408,
+    "sha256": "49138db88edcb583bd83b1d67e4981b4a70a397d39d9fa9eac1a0db704bec46a"
+  },
+  "observation": {
+    "accepted_pods": 70,
+    "authenticated_loopback_checks": 2,
+    "automatic_retry": false,
+    "callback_enabled": false,
+    "callback_requests": 0,
+    "credentials_exported": false,
+    "deployment": {
+      "conditions": [
+        {"lastTransitionTime": "2026-10-23T08:29:53Z", "reason": "MinimumReplicasAvailable", "status": "True", "type": "Available"},
+        {"lastTransitionTime": "2026-09-07T14:14:36Z", "reason": "NewReplicaSetAvailable", "status": "True", "type": "Progressing"}
+      ],
+      "counts": {
+        "availableReplicas": 70,
+        "observedGeneration": 386,
+        "readyReplicas": 70,
+        "replicas": 70,
+        "terminatingReplicas": 0,
+        "unavailableReplicas": null,
+        "updatedReplicas": 70
+      },
+      "desired": 70,
+      "generation": 386,
+      "paused": false
+    },
+    "exitcode": 0,
+    "files_modified": false,
+    "gateway": {
+      "generation": 386,
+      "spec_sha256": "890cc7b2aa7fc8bff6abaebfe99f6f7149ac17e17405bc7e056ecd24263516b4",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "job_submissions": 0,
+    "maximum_loopback_get_requests": 2,
+    "oa_business_acceptance_pending": true,
+    "other_deployments_preserved": true,
+    "patch_requests": 0,
+    "prior_receipt": {
+      "bytes": 8717,
+      "path": "/var/lib/portal-oa-v2-multi-enable-20261023-r1/REPORT.json",
+      "sha256": "d656711cd54e0f4aaa1f31703d7b05fe63494246518ebf363e508479986e8270"
+    },
+    "provider_requests": 0,
+    "runtime_accepted": true,
+    "schema": "portal-oa-v2-multi-after-timeout.v1",
+    "schema_migration_requested": false,
+    "status": "OA_V2_MULTI_RUNTIME_ACCEPTED_CALLBACK_DISABLED",
+    "v2_enabled": true,
+    "workload_modified": false
+  }
+}
