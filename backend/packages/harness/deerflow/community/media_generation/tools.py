@@ -338,7 +338,7 @@ async def generate_image_tool(
     prompt: str,
     filename: str | None = None,
     size: str = "1024x1024",
-    output_format: str = "jpg",
+    output_format: str = "png",
     seed: int = 1024,
     num_inference_steps: int | None = None,
     negative_prompt: str | None = None,
@@ -352,7 +352,7 @@ async def generate_image_tool(
         prompt: Complete visual prompt for the image.
         filename: Optional output filename; directories and extensions are ignored.
         size: Image size as WIDTHxHEIGHT. Both dimensions must be multiples of 32.
-        output_format: png, jpg, jpeg, or webp.
+        output_format: Defaults to png. Omit unless the user requests a specific format.
         seed: Reproducibility seed from 0 through 2147483647.
         num_inference_steps: Optional diffusion-step count from 1 through 200.
         negative_prompt: Optional description of visual properties to avoid.

@@ -8,12 +8,12 @@ import threading
 from collections.abc import Awaitable, Callable
 from pathlib import Path, PurePosixPath
 from typing import Any, override
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from langchain.agents import AgentState
 from langchain.agents.middleware import AgentMiddleware
 from langchain.agents.middleware.types import ModelCallResult, ModelRequest, ModelResponse, hook_config
-from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
+from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, ToolMessage
 from langgraph.runtime import Runtime
 
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
@@ -126,6 +126,70 @@ def _is_published_file(path: str, state: AgentState) -> bool:
     return candidate.is_file()
 
 
+def _link_directory_listing(message: AIMessage, state: AgentState, directory: str, run_id: str | None) -> AIMessage | None:
+    """Expand a single described directory using publication receipts from this run."""
+    if not run_id or not message.id:
+        return None
+    text = _message_text(message)
+    # Existing links (including directory links) belong to the ordinary validator.
+    # Do not append Markdown to an unterminated code block.
+    if "](" in text or re.search(r"(?m)^\s*\[[^\]\n]+\]:", text) or _ARTIFACT_API_OUTPUT_RE.search(text) or "<" in text or text.count("```") % 2 or "~~~" in text:
+        return None
+    listing = _BARE_OUTPUT_RE.sub(" ", _BACKTICK_OUTPUT_RE.sub(" ", text))
+
+    published = {}
+    for item in state.get("messages") or []:
+        if not isinstance(item, ToolMessage) or item.name != "present_files" or item.status != "success":
+            continue
+        receipt = item.artifact
+        if not isinstance(receipt, dict) or receipt.get("publication_run_id") != run_id:
+            continue
+        paths = receipt.get("presented_files")
+        if isinstance(paths, list):
+            for path in paths:
+                if isinstance(path, str) and path.startswith(directory):
+                    name = path[len(directory) :]
+                    if name and "/" not in name:
+                        published[name] = path
+    if not published:
+        return None
+
+    # Accept complete list entries, table cells and inline-code filenames. If any
+    # filename-looking entry cannot be resolved, keep the original retry/fallback.
+    linked = {}
+    for literal in re.findall(r"(?<!`)`([^`\r\n]+)`(?!`)", listing):
+        if literal not in published:
+            return None
+    for field in re.split(r"[`\r\n|、，。；：,;:]|\s+[—–-]\s+", listing):
+        prefix = re.match(r"^\s*(?:[-+*]\s+|\d+[.)]\s+|[│├└─][│├└─\s]*)", field)
+        entry = (field[prefix.end() :] if prefix else field).strip()
+        entry = entry.removeprefix("**").removesuffix("**").strip()
+        if entry in published:
+            linked[entry] = published[entry]
+            continue
+        # Ordinary prose can also enumerate complete filenames. Avoid
+        # accepting a suffix of a longer or qualified name.
+        for part in re.split(r"\s+(?:和|与|以及|and)\s+", entry):
+            part = part.strip()
+            if part in published:
+                linked[part] = published[part]
+            elif part and (prefix or re.search(r"\.\w", part)):
+                return None
+    if not linked or not all(_is_published_file(path, state) for path in linked.values()):
+        return None
+
+    links = []
+    for name, path in linked.items():
+        if _normalize_virtual_output_path(path) != path or any(ord(ch) < 32 for ch in path):
+            return None
+        label = re.sub(r"([\\`*_\[\]<>~])", r"\\\1", name)
+        links.append(f"- [{label}]({quote(path)})")
+    appendix = "\n\n" + "\n".join(links)
+    content = message.content + appendix if isinstance(message.content, str) else [*message.content, {"type": "text", "text": appendix}]
+    replacement = message.model_copy(update={"content": content, "additional_kwargs": {**message.additional_kwargs, "deerflow_linked_publication": True}})
+    return replacement if _referenced_output_paths(replacement) == set(linked.values()) else None
+
+
 def has_invalid_artifact_claim(message: AIMessage, state: AgentState) -> bool:
     """Return whether an answer claims any output that was not really published.
 
@@ -204,7 +268,13 @@ class ArtifactDeliveryMiddleware(AgentMiddleware[AgentState]):
         referenced_paths = _referenced_output_paths(last)
         if not referenced_paths:
             return None
-        if not has_invalid_artifact_claim(last, state):
+        if len(referenced_paths) == 1 and (directory := next(iter(referenced_paths))).endswith("/"):
+            context = getattr(runtime, "context", None)
+            replacement = _link_directory_listing(last, state, directory, context.get("run_id") if isinstance(context, dict) else None)
+            if replacement is not None:
+                self._clear(runtime)
+                return {"messages": [replacement]}
+        if all(_is_published_file(path, state) for path in referenced_paths):
             self._clear(runtime)
             return None
 

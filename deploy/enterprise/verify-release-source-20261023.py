@@ -357,6 +357,8 @@ def verify(ref=None, lock_path=LOCK):
             extra = [selected_lock['runtime_patch']['archive_prefix'],
                      *selected_lock['runtime_patch']['qualified_source_files'], selected_lock['current_observation']['path']]
         extra += [row['baseline_path'] for row in selected_lock.get('qualification_test_overrides', {}).values()]
+        if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, _nov02.followup.ARTIFACT_LISTING_BASE.rstrip('/')], cwd=ROOT).strip():
+            extra.append(_nov02.followup.ARTIFACT_LISTING_BASE)
         extra += [row['baseline_path'] for row in selected_lock.get('line_ending_normalizations', {}).values()]
         for manifest_path in (CANDIDATE, INCIDENT_DELTA, RELEASED_DELTA, "release/nov01-released-fixes-source-20261102/SOURCE.json", WORK_ROUTING_DELTA, WORK_TASK_AGENT_DELTA, WORK_TASK_AGENT_FIX_DELTA, WORK_TASK_AGENT_MODEL_FIX_DELTA, WORK_AUTHORITY_SANITIZER_DELTA):
             if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, manifest_path], cwd=ROOT).strip():
@@ -371,6 +373,8 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(_nov02.CI_ARCHIVE)
         if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, _nov02.followup.MANIFEST], cwd=ROOT).strip():
             extra.append(_nov02.followup.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, _nov02.followup.IMAGE_PNG_ARCHIVE.rstrip("/")], cwd=ROOT).strip():
+            extra.append(_nov02.followup.IMAGE_PNG_ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, _nov02.followup.new_chat.MANIFEST], cwd=ROOT).strip():
             extra.extend((_nov02.followup.new_chat.ARCHIVE, _nov02.followup.new_chat.GUIDE))
         if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, _nov02.followup.navigation.MANIFEST], cwd=ROOT).strip():

@@ -43,6 +43,16 @@ def digest(raw):
 ARTIFACT_SOURCE = "backend/packages/harness/deerflow/agents/middlewares/artifact_delivery_middleware.py"
 ARTIFACT_TEST = "backend/tests/test_artifact_delivery_middleware.py"
 ARTIFACT_PARENT = "release/artifact-directory-20261104/baseline/" + ARTIFACT_SOURCE
+ARTIFACT_LISTING_BASE = "release/artifact-listing-20261105/baseline/"
+IMAGE_PNG_ARCHIVE = "release/image-default-png-20261105/"
+IMAGE_PNG_MANIFEST_SHA = "5f746fb9e68cadfb2d1f821e571455678f1957925af9c3035ea21090c7aaf7ee"
+LISTING_MIDDLEWARE_SHA = "abc9fba6b4ef895460eed366b06c7ffa4472bcf4f77a1e2714e8aef14232877f"
+LISTING_SUPPORT = {
+    "backend/packages/harness/deerflow/runtime/journal.py": (
+        "c48501e0737ff371a33fa8098bb487a3c9e6e9c1a7e1eb3d5ee3d5c3c753d4af", "0057a129f936d36d250b3597683f6d014e7b6a06db093997683627fb9ffd560a"),
+    "backend/packages/harness/deerflow/tools/builtins/present_file_tool.py": (
+        "7e08d9ff305c1d92eb5591d7b5e74333dce352aaceb3871a7f3d2bf308a947b5", "532af34c6e78a271f90b903cb328710424aec75d15dcc59d65bc01e10f0271ad"),
+}
 
 
 def artifact_directory_historical_read(read):
@@ -50,14 +60,23 @@ def artifact_directory_historical_read(read):
         parent = read(ARTIFACT_PARENT)
     except (FileNotFoundError, KeyError):
         return read
+    originals = {ARTIFACT_SOURCE: parent}
+    expected_source = "f5ed5aae9d465bbda447049b559c7b8c7364542e646b07d2c858e8e32ed6a4af"
+    if digest(read(ARTIFACT_SOURCE)) == LISTING_MIDDLEWARE_SHA:
+        expected_source = LISTING_MIDDLEWARE_SHA
+        for path, (old_sha, new_sha) in LISTING_SUPPORT.items():
+            old = read(ARTIFACT_LISTING_BASE + path)
+            if digest(old) != old_sha or digest(read(path)) != new_sha:
+                raise ValueError(("ARTIFACT_DIRECTORY_SOURCE_CHANGED", path))
+            originals[path] = old
     for path, raw, expected in (
         (ARTIFACT_PARENT, parent, "0ad708d197b16e2f1494541059bb9e2054670c921717e5c8e0b9f9372f8df0ba"),
-        (ARTIFACT_SOURCE, read(ARTIFACT_SOURCE), "f5ed5aae9d465bbda447049b559c7b8c7364542e646b07d2c858e8e32ed6a4af"),
+        (ARTIFACT_SOURCE, read(ARTIFACT_SOURCE), expected_source),
         (ARTIFACT_TEST, read(ARTIFACT_TEST), "e3a87278252e3fac05bdb561ac1593076d70536162e7f683ca8955631f8cb619"),
     ):
         if digest(raw) != expected:
             raise ValueError(("ARTIFACT_DIRECTORY_SOURCE_CHANGED", path))
-    return lambda path: parent if path == ARTIFACT_SOURCE else read(path)
+    return lambda path: originals[path] if path in originals else read(path)
 
 
 def formatting_fingerprint(raw, path):
@@ -147,6 +166,26 @@ def _qualify_projected(read):
     return dict(manifest, formatting_corrections_verified=formatted)
 
 
+def image_png_historical_read(read):
+    try:
+        manifest = read(IMAGE_PNG_ARCHIVE + "SOURCE.json")
+    except (FileNotFoundError, KeyError):
+        return read
+    if digest(manifest) != IMAGE_PNG_MANIFEST_SHA:
+        raise ValueError("IMAGE_PNG_MANIFEST_CHANGED")
+    originals = {}
+    for path, row in json.loads(manifest)["files"].items():
+        if digest(read(path)) != row["after_sha256_lf"]:
+            raise ValueError(("IMAGE_PNG_SOURCE_CHANGED", path))
+        if row["before_sha256_lf"] is None:
+            continue
+        parent = read(IMAGE_PNG_ARCHIVE + "baseline/" + path)
+        if digest(parent) != row["before_sha256_lf"]:
+            raise ValueError(("IMAGE_PNG_PARENT_CHANGED", path))
+        originals[path] = parent
+    return lambda path: originals[path] if path in originals else read(path)
+
+
 class HistoricalReader:
     """Only the fixed, verified changes are projected back for older audits."""
 
@@ -155,6 +194,7 @@ class HistoricalReader:
         assert verified and verified == qualification, "ENTERPRISE_FOLLOWUP_READER_CHANGED"
         self.original_read = read
         self.read = navigation.historical_read(new_chat.historical_read(alignment.historical_read(read)))
+        self.read = image_png_historical_read(self.read)
         self.qualification = verified
 
     def __call__(self, path):

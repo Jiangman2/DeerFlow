@@ -486,7 +486,7 @@ def present_file_tool(
                 "Successfully presented files",
                 tool_call_id=tool_call_id,
                 name="present_files",
-                artifact={"presented_files": normalized_paths},
+                artifact={"presented_files": normalized_paths, "publication_run_id": (runtime.context or {}).get("run_id")},
             )
         ],
     }
