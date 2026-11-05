@@ -1,0 +1,177 @@
+{
+  "python": "3.12.16",
+  "cli_exitcode": 0,
+  "raw_cli_output_bytes": 4803,
+  "raw_cli_output_sha256": "4e6d4fff4dafa5031ca130213994494966a5a5e83001aa4f2691b7923c079734",
+  "raw_findings": [
+    {
+      "rule_id": "package-nested-archive",
+      "source": "skillscan",
+      "profile": "deerflow",
+      "severity": "error",
+      "path": "assets/reference-examples/field-rules-demo.xlsx",
+      "line": null,
+      "message": "Package contains a nested archive file.",
+      "remediation": "Unpack and review nested archives before packaging the skill.",
+      "evidence": "field-rules-demo.xlsx",
+      "skillscan_severity": "HIGH"
+    },
+    {
+      "rule_id": "package-nested-archive",
+      "source": "skillscan",
+      "profile": "deerflow",
+      "severity": "error",
+      "path": "assets/reference-examples/group-company-example.docx",
+      "line": null,
+      "message": "Package contains a nested archive file.",
+      "remediation": "Unpack and review nested archives before packaging the skill.",
+      "evidence": "group-company-example.docx",
+      "skillscan_severity": "HIGH"
+    },
+    {
+      "rule_id": "package-nested-archive",
+      "source": "skillscan",
+      "profile": "deerflow",
+      "severity": "error",
+      "path": "assets/reference-examples/group-company-standard-input.xlsx",
+      "line": null,
+      "message": "Package contains a nested archive file.",
+      "remediation": "Unpack and review nested archives before packaging the skill.",
+      "evidence": "group-company-standard-input.xlsx",
+      "skillscan_severity": "HIGH"
+    },
+    {
+      "rule_id": "package-nested-archive",
+      "source": "skillscan",
+      "profile": "deerflow",
+      "severity": "error",
+      "path": "assets/reference-examples/miit-example.docx",
+      "line": null,
+      "message": "Package contains a nested archive file.",
+      "remediation": "Unpack and review nested archives before packaging the skill.",
+      "evidence": "miit-example.docx",
+      "skillscan_severity": "HIGH"
+    },
+    {
+      "rule_id": "package-nested-archive",
+      "source": "skillscan",
+      "profile": "deerflow",
+      "severity": "error",
+      "path": "assets/reference-examples/national-science-example.docx",
+      "line": null,
+      "message": "Package contains a nested archive file.",
+      "remediation": "Unpack and review nested archives before packaging the skill.",
+      "evidence": "national-science-example.docx",
+      "skillscan_severity": "HIGH"
+    },
+    {
+      "rule_id": "secret-env-assignment",
+      "source": "skillscan",
+      "profile": "deerflow",
+      "severity": "error",
+      "path": "scripts/workbook_formulas.py",
+      "line": 12,
+      "message": "Secret-like assignment contains a non-placeholder value.",
+      "remediation": "Replace hardcoded credentials with documented runtime configuration.",
+      "evidence": "[redacted]",
+      "skillscan_severity": "HIGH"
+    },
+    {
+      "rule_id": "resource.missing",
+      "source": "review-core",
+      "profile": "deerflow",
+      "severity": "warning",
+      "path": "references/data-contract.md",
+      "line": null,
+      "message": "Referenced resource does not exist: references/。文字可以解释事实、差异原因和制度执行，不得：\n\n- 将示例里的结论当作本项目事实；\n- 把“未提供问题”写成“未发现问题”；\n- 把预算下达等同于资金到账；\n- 把账面支出等同于审计认定支出；\n- 省略超支/结余达到阈值的具体原因。\n\n集团公司两处正文的明确例外：“支出明细项及结构总体说明”和“资金结余及原因”可由脚本删除有效批复概预算为零的科目段落；原始费用记录、非零结余/超支原因校验、汇总表和明细表不受影响。有效批复概预算取",
+      "remediation": "Add the referenced file, correct the path, or remove the stale reference.",
+      "evidence": "references/。文字可以解释事实、差异原因和制度执行，不得：\n\n- 将示例里的结论当作本项目事实；\n- 把“未提供问题”写成“未发现问题”；\n- 把预算下达等同于资金到账；\n- 把账面支出等同于审计认定支出；\n- 省略超支/结余达到阈值的具体原因。\n\n集团公司两处正文的明确例外：“支出明细项及结构总体说明”和“资金结余及原因”可由脚本删除有效批复概预算为零的科目段落；原始费用记录、非零结余/超支原因校验、汇总表和明细表不受影响。有效批复概预算取"
+    },
+    {
+      "rule_id": "resource.missing",
+      "source": "review-core",
+      "profile": "deerflow",
+      "severity": "warning",
+      "path": "references/group-company-standard-input.md",
+      "line": null,
+      "message": "Referenced resource does not exist: references/=C40/B40",
+      "remediation": "Add the referenced file, correct the path, or remove the stale reference.",
+      "evidence": "references/=C40/B40"
+    },
+    {
+      "rule_id": "resource.missing",
+      "source": "review-core",
+      "profile": "deerflow",
+      "severity": "warning",
+      "path": "scripts/standard_input.py",
+      "line": null,
+      "message": "Referenced resource does not exist: scripts/?:0/d|1[0-4]",
+      "remediation": "Add the referenced file, correct the path, or remove the stale reference.",
+      "evidence": "scripts/?:0/d|1[0-4]"
+    },
+    {
+      "rule_id": "network-cleartext-http",
+      "source": "skillscan",
+      "profile": "deerflow",
+      "severity": "warning",
+      "path": "scripts/text_color.py",
+      "line": 10,
+      "message": "Skill content references a non-local cleartext HTTP endpoint.",
+      "remediation": "Use HTTPS or document why cleartext local development is required.",
+      "evidence": "http://schemas.openxmlformats.org/",
+      "skillscan_severity": "MEDIUM"
+    },
+    {
+      "rule_id": "resource.unreferenced",
+      "source": "review-core",
+      "profile": "deerflow",
+      "severity": "warning",
+      "path": "scripts/workbook_formulas.py",
+      "line": null,
+      "message": "Resource is not reachable from SKILL.md or another referenced resource.",
+      "remediation": "Reference the file with read-when guidance or remove it from the package.",
+      "evidence": null
+    }
+  ],
+  "raw_summary": {
+    "blockers": 0,
+    "errors": 6,
+    "warnings": 5,
+    "infos": 0
+  },
+  "completeness": {
+    "package_enumerated": true,
+    "text_content_complete": true,
+    "truncated": false,
+    "not_assessed": []
+  },
+  "reader_errors": [],
+  "analyzer_errors": [],
+  "raw_facts_unchanged_by_disposition": true,
+  "narrow_disposition_accepted": true,
+  "schema": "research-fund-round3-skill-review-qualification.v1",
+  "status": "PASS",
+  "checked_at_utc": "2026-11-05T07:52:00.222676+00:00",
+  "candidate_tree_sha256": "0d935a5e5c45e8bf916b6b52ee310826d68acb22fffb0cbc70ab5d3304840a4c",
+  "skill_file_count": 30,
+  "skill_bytes": 793973,
+  "skill_source_unchanged_during_review": true,
+  "review_source_sha256": {
+    "scripts/review_changed_public_skills.py": "ae2fe83da69bd6c698dba20f291b80ede20545816514cd5dabb6fa5a3c472c58",
+    "scripts/review_research_fund_formula.py": "c4f67597414aea0dd8770b8c7039718ba6a3bfd5a4c14659df368c13aacfa9de",
+    "scripts/review_research_fund_templates.py": "fdcc9ab3ba34337286cfe7ef8b999fe1d3cc936a65033f007dcf667808c825bc"
+  },
+  "docker_image_id": "sha256:a721a1d378e99172e6ae569c93c52e00fb2a17d6a0151c1aaae362d73277f5bf",
+  "network": "disabled",
+  "repository_mount": "read_only",
+  "production_access": false,
+  "user_business_files_read": false,
+  "qualification_file_only_written": true,
+  "business_acceptance_pending": true,
+  "disposition_scope": {
+    "office": "five exact hash-pinned assets, bounded OOXML inspection",
+    "formula": "exact released whole-file SHA256 plus AST and finding identity",
+    "other_errors_waived": false,
+    "warnings_preserved": true
+  }
+}

@@ -805,53 +805,19 @@ def validate(
                     actual=funding.get("tax_basis"),
                 )
             )
-        acceptance_date = get_path(normalized, "project.acceptance_date")
         prepared_date = get_path(normalized, "report.prepared_date")
-        if not has_value(acceptance_date):
-            issues.append(
-                _issue(
-                    _severity(mode),
-                    "ACCEPTANCE_DATE_REQUIRED",
-                    "project.acceptance_date",
-                    "集团公司/有限公司正式决算报告必须填写项目正式验收日期",
-                )
-            )
-        elif has_value(prepared_date):
+        if has_value(prepared_date):
             try:
-                accepted_on = date.fromisoformat(str(acceptance_date))
+                date.fromisoformat(str(prepared_date))
             except ValueError:
                 issues.append(
                     _issue(
                         "ERROR",
                         "INVALID_DATE",
-                        "project.acceptance_date",
-                        "正式验收日期必须使用 YYYY-MM-DD",
+                        "report.prepared_date",
+                        "报告编制日期必须使用 YYYY-MM-DD",
                     )
                 )
-            else:
-                try:
-                    prepared_on = date.fromisoformat(str(prepared_date))
-                except ValueError:
-                    issues.append(
-                        _issue(
-                            "ERROR",
-                            "INVALID_DATE",
-                            "report.prepared_date",
-                            "报告编制日期必须使用 YYYY-MM-DD",
-                        )
-                    )
-                else:
-                    if prepared_on <= accepted_on:
-                        issues.append(
-                            _issue(
-                                "ERROR",
-                                "REPORT_DATE_NOT_AFTER_ACCEPTANCE",
-                                "report.prepared_date",
-                                "决算报告编制日期必须晚于项目正式验收日期",
-                                acceptance_date=acceptance_date,
-                                prepared_date=prepared_date,
-                            )
-                        )
         adjustments = funding.get("adjustments") or {}
         none_declared = adjustments.get("none_declared")
         adjustment_items = adjustments.get("items") or []
@@ -1131,7 +1097,23 @@ def validate(
                 )
 
     if mode == "final":
+        # The original parent cell is provenance, not report text: its displayed
+        # reason is derived from the two children and checked independently.
+        source_only_reason_paths = {
+            f"expenses[{index}].input_variance_reason"
+            for index, item in enumerate(normalized.get("expenses", []))
+            if profile == "group_company" and item.get("code") == "external_testing"
+        }
         for path, text in _strings(normalized):
+            if path in source_only_reason_paths:
+                continue
+            # Group reports do not use acceptance dates. Keep supplied input
+            # unchanged without turning it into a completion requirement.
+            if profile == "group_company" and (
+                path == "project.acceptance_date"
+                or path.startswith(("project.acceptance_date.", "project.acceptance_date["))
+            ):
+                continue
             if PLACEHOLDER_RE.search(text):
                 issues.append(
                     _issue(

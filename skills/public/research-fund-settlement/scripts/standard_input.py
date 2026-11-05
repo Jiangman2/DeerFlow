@@ -277,7 +277,38 @@ class FixedWorkbook:
                                      for c in "BCDE"}
             if self.appendix4 is not None:
                 self.allowed_numbers |= {f"{c}{self.appendix4+2}" for c in "BCD"}
-            self.evaluator = FormulaEvaluator(self.values, self.formulas, self.allowed_numbers)
+            self.automatic_formulas = self._automatic_formulas()
+            self.evaluator = FormulaEvaluator(
+                self.values, {**self.automatic_formulas, **self.formulas}, self.allowed_numbers
+            )
+
+    def _automatic_formulas(self) -> dict[str, str]:
+        """Default only known computed fields, without changing uploaded cells.
+
+        References to a blank computed subtotal use the same bounded evaluator
+        as entered formulas. Ordinary blank amount cells continue to mean zero.
+        """
+        formulas = {"E15": "SUM(B15:D15)", "G15": f"SUM(G16:G{self.appendix3-1})"}
+        formulas.update({f"E{row}": f"SUM(B{row}:D{row})"
+                         for row in range(16, self.appendix3)
+                         if _plain_text(self.get(f"A{row}")).endswith("年批准额")
+                         or _plain_text(self.get(f"F{row}")).endswith("年支出额")})
+        parent = 26 + self.row_delta
+        direct = 23 + self.row_delta
+        children = [27 + self.row_delta, 28 + self.row_delta]
+        direct_rows = [row + self.row_delta for row in (24, 25, 26, 29, 30, 31, 32, 33)]
+
+        def balance_expression(row: int) -> str:
+            # Empty individual balances already derive from adjusted minus
+            # actual; an explicit child balance remains independently checked.
+            return f"(C{row}-D{row})" if self.blank(f"E{row}") else f"E{row}"
+
+        for column in "BCD":
+            formulas[f"{column}{parent}"] = f"SUM({column}{children[0]}:{column}{children[1]})"
+            formulas[f"{column}{direct}"] = "SUM(" + ",".join(f"{column}{row}" for row in direct_rows) + ")"
+        formulas[f"E{parent}"] = "+".join(balance_expression(row) for row in children)
+        formulas[f"E{direct}"] = "+".join(balance_expression(row) for row in direct_rows)
+        return {ref: formula for ref, formula in formulas.items() if self.blank(ref)}
 
     def _read_date_styles(self, archive: zipfile.ZipFile) -> None:
         if "xl/styles.xml" not in archive.namelist():
@@ -474,13 +505,13 @@ def _number(
         if ref in workbook.formula_errors:
             raise FormulaError(workbook.formula_errors[ref])
         value = workbook.get(ref)
-        if ref not in workbook.formulas and (value is None or str(value).strip() == ""):
+        if ref not in workbook.evaluator.formulas and (value is None or str(value).strip() == ""):
             if required:
                 return Decimal("0")
             return None
         return workbook.evaluator.value(ref)
     except FormulaError as exc:
-        issues.append(_issue("ERROR", "INVALID_FORMULA" if ref in workbook.formulas else "INVALID_NUMBER",
+        issues.append(_issue("ERROR", "INVALID_FORMULA" if ref in workbook.evaluator.formulas else "INVALID_NUMBER",
                              ref, str(exc)))
         return None
 
@@ -619,21 +650,17 @@ def _parse_period(
 
 
 def _entity_mode(value: str | None, issues: list[dict[str, Any]]) -> str | None:
+    # This selects the existing company template variant, not the cover text.
+    # Free-form names stay on the standard workbook's limited-company variant.
+    # Known legacy labels retain their previous variant and accounting behavior.
+    if not value:
+        return None
     compact = _plain_text(value)
     if "有限公司" in compact:
         return "limited_company"
     if "集团公司" in compact or compact in {"集团", "集团项目"}:
         return "group"
-    issues.append(
-        _issue(
-            "ERROR",
-            "INVALID_PROJECT_TYPE",
-            "B4",
-            "项目类型必须明确填写“集团公司项目”或“有限公司项目”",
-            value=value,
-        )
-    )
-    return None
+    return "limited_company"
 
 
 def _check_equal(
@@ -693,7 +720,9 @@ def _expense_row(
         balance,
         f"{name}结余必须等于调整后的预算额减支出额",
     )
-    if balance is not None and abs(balance) > TOLERANCE and not reason:
+    # The external-testing parent is a computed summary of its two children.
+    # Each nonzero child balance still requires its own source explanation.
+    if code != "external_testing" and balance is not None and abs(balance) > TOLERANCE and not reason:
         issues.append(
             _issue(
                 "ERROR",
@@ -719,6 +748,23 @@ def _expense_row(
         "input_row": row,
         "input_balance": json_number(balance),
     }
+
+
+def _aggregate_external_testing_reason(by_code: dict[str, dict[str, Any]]) -> None:
+    parent = by_code["external_testing"]
+    parent["input_variance_reason"] = parent["variance_reason"]
+    parts = []
+    source_rows = []
+    for index, code in enumerate(("testing_processing", "testing_trials"), start=1):
+        child = by_code[code]
+        reason = child.get("variance_reason")
+        if reason:
+            parts.append(f"（{index}）{child['name']}，{reason}")
+            source_rows.append(child["input_row"])
+    # Do not replace absent child evidence with a hand-entered parent reason,
+    # or manufacture a reason for an empty zero-balance child.
+    parent["variance_reason"] = "结余主要原因：" + "；".join(parts) if parts else None
+    parent["variance_reason_source_rows"] = source_rows
 
 
 def import_group_company_workbook(
@@ -753,6 +799,10 @@ def import_group_company_workbook(
     project_code = _required_text(workbook, "B2", issues)
     project_name = _required_text(workbook, "B3", issues)
     project_type = _required_text(workbook, "B4", issues)
+    # Validate that the cell is nonblank, then retain its text without adding a
+    # category label or a suffix when it is rendered on the report cover.
+    if project_type is not None:
+        project_type = str(workbook.get("B4"))
     entity_mode = _entity_mode(project_type, issues)
     lead_name = _required_text(workbook, "B5", issues)
     period_text = _required_text(workbook, "B6", issues)
@@ -778,11 +828,16 @@ def import_group_company_workbook(
 
     annual: list[dict[str, Any]] = []
     for row in range(16, workbook.appendix3):
-        raw_values = [workbook.get(f"{column}{row}") for column in "BCDEG"]
-        if all(value is None or str(value).strip() == "" for value in raw_values) and not any(
-            f"{c}{row}" in workbook.formulas for c in "BCDEG"
-        ):
-            continue
+        if all(workbook.blank(f"{column}{row}") for column in "BCDG"):
+            total_ref = f"E{row}"
+            if workbook.blank(total_ref):
+                continue
+            if total_ref in workbook.formulas:
+                # A template's zero total does not activate a reserved year.
+                # Evaluate first so unsupported/cyclic formulas cannot vanish.
+                reserved_total = _number(workbook, total_ref, issues, required=False)
+                if reserved_total is None or reserved_total == 0:
+                    continue
         label = str(workbook.get(f"A{row}") or "")
         expenditure_label = str(workbook.get(f"F{row}") or "")
         year_match = re.search(r"(\d{4})年批准额", label)
@@ -877,6 +932,7 @@ def import_group_company_workbook(
         for row, code, name, scope, parent, included in EXPENSE_ROWS
     ]
     by_code = {item["code"]: item for item in expenses}
+    _aggregate_external_testing_reason(by_code)
     outsourcing = _outsourcing(workbook, by_code["commissioned_research"], issues)
 
     def expense_number(code: str, field: str) -> Decimal | None:
@@ -975,6 +1031,7 @@ def import_group_company_workbook(
         {
             "name": project_name,
             "code": project_code,
+            "type_text": project_type,
             "entity_mode": entity_mode,
             "responsible_person": responsible_person,
             "period_text": period_text,

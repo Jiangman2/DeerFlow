@@ -144,6 +144,13 @@ def zero_budget_narrative_paragraph_indices(case: dict[str, Any]) -> tuple[int, 
     return tuple(sorted(omitted))
 
 
+def _reason_text(item: dict[str, Any], label: str) -> str:
+    reason = str(item.get("variance_reason") or "").strip()
+    if reason.startswith("结余主要原因："):
+        return reason
+    return f"{label}{reason}"
+
+
 def _expense_sentence(item: dict[str, Any]) -> str:
     adjusted = _effective_approved_budget(item)
     sentence = (
@@ -153,7 +160,7 @@ def _expense_sentence(item: dict[str, Any]) -> str:
     )
     reason = str(item.get("variance_reason") or "").strip()
     if reason:
-        sentence += f"结余原因：{reason}。"
+        sentence += _reason_text(item, "结余原因：").rstrip("。") + "。"
     return sentence
 
 
@@ -233,7 +240,12 @@ def _fill_cover_and_narrative(
     _set_paragraph(paragraphs, 4, owning_company)
     _set_paragraph(paragraphs, 5, f"科技项目(课题)验收财务{pre_marker}决算报告")
     _set_paragraph(paragraphs, 17, f"项目(课题)名称：{project.get('name', '')}")
-    _set_paragraph(paragraphs, 18, f"项 目 类 型：{entity_label}科技项目")
+    # Older case files do not contain the original cell text; keep their prior
+    # cover behavior until the source workbook is explicitly reimported.
+    type_text = project.get("type_text")
+    if type_text is None:
+        type_text = f"{entity_label}科技项目"
+    _set_paragraph(paragraphs, 18, f"项 目 类 型：{type_text}")
     _set_paragraph(paragraphs, 19, f"承 担 单 位：{lead_name}")
     _set_paragraph(
         paragraphs,
@@ -377,8 +389,7 @@ def _fill_cover_and_narrative(
             "截至决算报告编制日，本项目任务合同书批复概预算总额"
             f"{_money(get_path(case, 'funding.approved_total'), True)}，预算执行支出"
             f"（直接经费）{_money(totals.get('recognized'), True)}，预算执行率"
-            f"{_percent(totals.get('execution_rate'))}。间接经费支出"
-            f"{_money(indirect_spent, True)}单独列示，不纳入预算执行支出及执行率计算。"
+            f"{_percent(totals.get('execution_rate'))}。"
         )
     _set_paragraph(
         paragraphs,
@@ -422,7 +433,8 @@ def _fill_cover_and_narrative(
         _set_paragraph(
             paragraphs,
             index,
-            f"{item.get('name', '')}：结余（负数为超支）{_money(item.get('balance'), True)}，结余比例{_percent(item.get('variance_rate'))}。结余主要原因：{item.get('variance_reason') or ''}",
+            f"{item.get('name', '')}：结余（负数为超支）{_money(item.get('balance'), True)}，结余比例{_percent(item.get('variance_rate'))}。"
+            + _reason_text(item, "结余主要原因："),
         )
     _set_paragraph(
         paragraphs,

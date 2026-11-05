@@ -16,10 +16,19 @@ _spec = importlib.util.spec_from_file_location(
 )
 successor = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(successor)
+_late_spec = importlib.util.spec_from_file_location(
+    "research_fund_late_source_20261105", Path(__file__).with_name("research_fund_late_source_20261105.py")
+)
+later = importlib.util.module_from_spec(_late_spec)
+_late_spec.loader.exec_module(later)
 
 
 def verify(read, actual):
     """Validate current successor files, then the unchanged October 27 evidence."""
+    latest, projection = later.qualify(read, actual)
+    if projection is not None:
+        current_read = read
+        read = lambda path: projection[path] if path in projection else current_read(path)
     lock = json.loads(read(LOCK))
     manifest = json.loads(read(lock["candidate_manifest"]))
     root = lock["skill_root"]
@@ -59,6 +68,8 @@ def verify(read, actual):
     if qualification:
         result.update(qualification, historical_skill_files=len(expected),
                       historical_tree_sha256=tree)
+    if latest:
+        result.update(latest)
     return result
 
 
@@ -70,7 +81,8 @@ def snapshot(ref):
         ["git", "rev-parse", "--verify", ref + "^{commit}"], cwd=ROOT
     ).decode().strip()
     roots = [LOCK, successor.SKILL, successor.ARCHIVE, successor.NOV04, successor.NOV05,
-             "release/production-source-20261027/research-fund-settlement", *successor.SUPPORT_PATHS]
+             "release/production-source-20261027/research-fund-settlement", *successor.SUPPORT_PATHS,
+             later.ARCHIVE, later.ROUND3, later.PROJECT_TYPE, later.INSPECTOR, *later.SUPPORT_PATHS]
     names = subprocess.check_output(
         ["git", "ls-tree", "-r", "--name-only", revision, "--", *roots], cwd=ROOT
     ).decode().splitlines()

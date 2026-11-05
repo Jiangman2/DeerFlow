@@ -1,0 +1,222 @@
+{
+  "behavior_qualification": {
+    "elapsed_seconds": 26.923,
+    "failed": 0,
+    "instances_passed": 263,
+    "pytest_parameter_parity_sha256": "6f10782acccb8aba5d323799ae39d0e9f2c136b9cee522587e1d4fa2ab3f0d66",
+    "raw_test_source_bytes_unchanged": true,
+    "skipped": 0,
+    "source_files": 13,
+    "test_functions": 104,
+    "test_runtime_apis": [
+      "mark.parametrize",
+      "raises(type, match)",
+      "scalar approx(default tolerance)",
+      "tmp_path"
+    ],
+    "unknown_api_fixture_or_parameter_types": "refused"
+  },
+  "boundary_unittests": {
+    "elapsed_seconds": 1.25,
+    "failed": 0,
+    "modules": [
+      "round3_qualifier_test",
+      "round3_release_template_test"
+    ],
+    "passed": 40,
+    "runtime": "Python 3.12 offline Linux image a721a1d3",
+    "skipped": 0
+  },
+  "candidate_manifest": {
+    "bytes": 793973,
+    "file_count": 30,
+    "tree_sha256": "0d935a5e5c45e8bf916b6b52ee310826d68acb22fffb0cbc70ab5d3304840a4c"
+  },
+  "dependency_evidence": {
+    "historical_real_cli_checks": 9,
+    "historical_receipt": {
+      "bytes": 7256,
+      "path": "release/research-fund-feedback-20261105/production-update-20261105.json",
+      "sha256": "07d208117dcccf0a47e25024d192508763467652fb48a8f60a57f4f185e725ca"
+    },
+    "lxml": "Existing Skill imports lxml directly; previous successful real check/build/inspect ran in the same immutable image ID observed by fresh r3. No package installation is added.",
+    "same_runtime_image_id": "sha256:fb36911f899cc43f1228ee4d0701130761b43b3e9792320bf4e0f16f41f0bec8",
+    "source_paths": [
+      "skills/public/research-fund-settlement/scripts/text_color.py",
+      "skills/public/research-fund-settlement/scripts/template_builder.py",
+      "skills/public/research-fund-settlement/scripts/group_template.py"
+    ]
+  },
+  "files": [
+    {
+      "bytes": 11735,
+      "path": "round3_release_builder.py",
+      "sha256": "6146821eeff0e7c39bde991d9ad5401996502f599215cc011d81095cd247ea1b"
+    },
+    {
+      "bytes": 4665,
+      "path": "round3_qualification_plan.py",
+      "sha256": "8b392859fe65b72f91601d8d3e0a71b008a6568c18552c50db9241b9db23aadc"
+    },
+    {
+      "bytes": 2078,
+      "path": "round3_qualifier_builder.py",
+      "sha256": "512374fe3feb8cbeffcd654c0bd54cc453278d390b8d1cde8b656a892b65e862"
+    },
+    {
+      "bytes": 9533,
+      "path": "round3_qualifier_template.py",
+      "sha256": "efa9196e73b05499bb76a94bcf93ef1ad792c50d1276c7bb3a8e9c3e66dec948"
+    },
+    {
+      "bytes": 69259,
+      "path": "round3_qualifier.py",
+      "sha256": "576a5d16046013aa2c5ee20cd9c2b33f0d01db9a676ec4af3c160c11b4206ce1"
+    },
+    {
+      "bytes": 1415,
+      "path": "round3_collect_pytest.py",
+      "sha256": "ee7f2883b0cb016e7a0912dde0116806f56a4e37680a20b0be6189e1421d2623"
+    },
+    {
+      "bytes": 24373,
+      "path": "round3_updater_template.py",
+      "sha256": "7aa5994a29eb04616468be71d4bd8d2ea5d77444f217672d76fe9b2c4eb7f3d1"
+    },
+    {
+      "bytes": 15262,
+      "path": "round3_remote_template.py",
+      "sha256": "f82dcd58895e81c048ee52b119ebbb0241885e6bd2793db1f19ba06288ea7452"
+    },
+    {
+      "bytes": 85252,
+      "path": "round3_remote_candidate.py",
+      "sha256": "b89cdb153c3f58b0aaf56119774b7b5e2c61571a48afe1ecc568b5c1bdb4b645"
+    },
+    {
+      "bytes": 2832,
+      "path": "round3_seal.py",
+      "sha256": "7e3c928f03bbd13d6efdb7940f6f56a3f8b39816cf2c9aae13a9400a763f49b1"
+    },
+    {
+      "bytes": 3773,
+      "path": "round3_linux_integration.py",
+      "sha256": "a2ef6485fce4b121d54247884f04cd4461d75d6b3fc54ec68b36e65ae14cf2a5"
+    },
+    {
+      "bytes": 16781,
+      "path": "round3_release_template_test.py",
+      "sha256": "981ac91046218dd7bcfaba048f6c3a63b58f4f86d569e26c7b41e17621f96249"
+    },
+    {
+      "bytes": 4907,
+      "path": "round3_qualifier_test.py",
+      "sha256": "05d73b1e8f773027f98b71ea10eb9a11cfd77af946c4b8bdca7ff5a3b15d3805"
+    },
+    {
+      "bytes": 60278,
+      "path": "pytest-collection.json",
+      "sha256": "04a1221306ad6d750a8e51f8dfea3a349448bd3e22951fcf8d23cfa13ba2c9b0"
+    },
+    {
+      "bytes": 2660,
+      "path": "qualification-plan.json",
+      "sha256": "49b436c176408633bd8de17c46b5a61514ebab7c30e41ee9ebc47a68b3e12050"
+    },
+    {
+      "bytes": 12812,
+      "path": "qualification-run.json",
+      "sha256": "d3e5084f0e69e5f65837da0d5bd8406abe6744b4d53a7dff877fd59222601a48"
+    },
+    {
+      "bytes": 13931,
+      "path": "qualification-receipt.json",
+      "sha256": "b84a6cf0eba23d84f40116fc7c4ee6ed84e24128a70deaa242098abfdaf968a4"
+    },
+    {
+      "bytes": 698,
+      "path": "linux-stage-publish-qualification.json",
+      "sha256": "27fdbdaa1d92ccf142f143e296d1013b58d0542729f51d68bd2e54ebe2b21377"
+    },
+    {
+      "bytes": 718,
+      "path": "python37-bound-entry-guard.json",
+      "sha256": "61d36aeafc32efe27aab6bd9bfdef5ba5338e457c7f7ec9e7907729f3ea0a613"
+    },
+    {
+      "bytes": 48439,
+      "path": "operator-preflight-r3.json",
+      "sha256": "bde66c0bfd32f14f1f1a406fd85ee2f1bf7d648feefc79fd5d87d2ddc415ef55"
+    },
+    {
+      "bytes": 868790,
+      "path": "update-portal-research-fund-skill-round3-20261105-r1.py",
+      "sha256": "7754c68871de109ab28a3a75f3439961b4b256704a290ee83edfa154bccfaf33"
+    }
+  ],
+  "host_command_budget": 180,
+  "operator_command": "python3 update-portal-research-fund-skill-round3-20261105-r1.py --update-research-fund-skill-once",
+  "python37_entry_guard": {
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "browser_business_acceptance_pending": true,
+    "credentials_exported": false,
+    "elapsed_seconds": 0.004,
+    "error_class": "Refused",
+    "error_code": "WRONG_HOST",
+    "exitcode": 1,
+    "maintenance_pod_delete_request_count": 0,
+    "once_claimed": false,
+    "production_database_access": false,
+    "production_workload_mutation": false,
+    "provider_requests": 0,
+    "raw_errors_exported": false,
+    "read_and_maintenance_commands": 0,
+    "schema": "portal-research-fund-skill-update.v3",
+    "scope": "one_shared_public_skill_no_deployment_rollout",
+    "skill_switch_may_have_applied": false,
+    "skill_switch_requested": false,
+    "skill_updated": false,
+    "status": "INCOMPLETE",
+    "workload_patch_requests": 0
+  },
+  "real_temporary_install": {
+    "after_tree_sha256": "0d935a5e5c45e8bf916b6b52ee310826d68acb22fffb0cbc70ab5d3304840a4c",
+    "backup_preserved": true,
+    "before_tree_sha256": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951",
+    "behavior_regressions": 263,
+    "database_access": false,
+    "elapsed_seconds": 34.655,
+    "network": "none",
+    "production_actions": 0,
+    "provider_requests": 0,
+    "qualification_checks": 272,
+    "qualifier_argument_bytes": 69260,
+    "real_cli_checks": 9,
+    "real_stage_and_publish": true,
+    "remote_argument_bytes": 85253,
+    "single_argument_limit_observed": 131072,
+    "status": "PASS",
+    "switch_strategy": "RENAME_EXCHANGE",
+    "temporary_files_cleaned": true,
+    "unrelated_skill_unchanged": true,
+    "user_files_read": false
+  },
+  "schema": "research-fund-round3-local-release-qualification.v1",
+  "scope": {
+    "browser_business_acceptance": "pending",
+    "downloads_final_updater_copied": false,
+    "gateway_rollout": false,
+    "model_or_database_or_user_files_used": false,
+    "production_actions_performed": 0,
+    "qualification_network_sandbox": "Local Docker --network none; production qualifier source performs no network calls, but no production OS network isolation claim."
+  },
+  "status": "PASS_OFFLINE_ONLY",
+  "timeouts_seconds": {
+    "host_command_deadline": 900,
+    "host_remote_subprocess": 330,
+    "qualifier_subprocess": 180,
+    "remote_manifest_deadline": 300
+  },
+  "validation_note": "An initial Windows unittest discover glob also matched the collection utility and failed its pytest import because pytest is absent in that host. Explicit 40 test modules then passed in the isolated Linux image; no test assertion was removed."
+}

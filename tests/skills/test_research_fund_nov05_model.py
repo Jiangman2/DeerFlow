@@ -194,7 +194,7 @@ def test_unknown_budget_classification_preserved_without_becoming_general(tmp_pa
     (lambda case: case["funding"].update(adjusted_total=999), "EXPENSE_BUDGET_MISMATCH"),
     (lambda case: case["audit"].update(reported_expenditure=999), "AUDIT_REPORTED_MISMATCH"),
     (lambda case: case.update(conflicts=[{"resolution": None}]), "UNRESOLVED_CONFLICT"),
-    (lambda case: case["report"].update(prepared_date="2020-01-01"), "REPORT_DATE_NOT_AFTER_ACCEPTANCE"),
+    (lambda case: case["report"].update(prepared_date="2026-02-30"), "INVALID_DATE"),
 ])
 def test_budget_information_change_does_not_relax_financial_or_date_gates(mutation, code):
     case = complete()
@@ -279,7 +279,7 @@ def test_direct_execution_retains_indirect_costs_but_excludes_them_from_totals(t
     assert inspect_docx(doc, normalized)['status'] == 'PASS'
     text = document_text(doc)
     assert '预算执行支出（直接经费）755万元' in text
-    assert '间接经费支出300万元单独列示，不纳入预算执行支出及执行率计算' in text
+    assert '单独列示，不纳入预算执行支出及执行率计算' not in text
     assert '直接经费预算结余共计45万元' in text
     with zipfile.ZipFile(doc) as archive:
         root = etree.fromstring(archive.read('word/document.xml'))

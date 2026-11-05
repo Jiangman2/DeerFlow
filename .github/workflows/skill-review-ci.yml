@@ -16,6 +16,9 @@ on:
       - "release/research-fund-feedback-20261104/**"
       - "release/research-fund-feedback-20261105/**"
       - "release/research-fund-source-20261105/**"
+      - "release/research-fund-feedback-round3-20261105/**"
+      - "release/research-fund-project-type-20261105/**"
+      - "release/research-fund-late-source-20261105/**"
       - ".gitattributes"
       - "release/production-source-20261027/research-fund-settlement/**"
       - "backend/pyproject.toml"
@@ -36,6 +39,9 @@ on:
       - "release/research-fund-feedback-20261104/**"
       - "release/research-fund-feedback-20261105/**"
       - "release/research-fund-source-20261105/**"
+      - "release/research-fund-feedback-round3-20261105/**"
+      - "release/research-fund-project-type-20261105/**"
+      - "release/research-fund-late-source-20261105/**"
       - ".gitattributes"
       - "release/production-source-20261027/research-fund-settlement/**"
       - "backend/pyproject.toml"
@@ -89,6 +95,14 @@ jobs:
         working-directory: backend
         run: uv run python -B ../deploy/enterprise/test_research_fund_source_20261105.py
 
+      - name: Reject latest financial successor and receipt tampering
+        working-directory: backend
+        run: uv run python -B ../deploy/enterprise/test_research_fund_late_source_20261105.py
+
+      - name: Test Round3 release guards without production access
+        working-directory: backend
+        run: uv run python -B ../release/research-fund-feedback-round3-20261105/round3_release_template_test.py
+
       - name: Test archived November 5 release guards with synthetic fixtures
         working-directory: backend
         run: uv run python -B ../release/research-fund-feedback-20261105/nov05_release_template_test.py
@@ -111,6 +125,12 @@ jobs:
             ../tests/skills/test_research_fund_nov05_import.py \
             ../tests/skills/test_research_fund_nov05_model.py \
             ../tests/skills/test_research_fund_nov05_roundtrip.py \
+            ../tests/skills/test_research_fund_round3_acceptance.py \
+            ../tests/skills/test_research_fund_round3_computed.py \
+            ../tests/skills/test_research_fund_round3_integration.py \
+            ../tests/skills/test_research_fund_round3_reasons.py \
+            ../tests/skills/test_research_fund_round3_render.py \
+            ../tests/skills/test_research_fund_project_type_text.py \
             tests/test_research_fund_settlement_skill.py -q --confcutdir=../tests/skills
 
       - name: Review changed public skills (push)

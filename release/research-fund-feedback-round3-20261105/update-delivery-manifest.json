@@ -1,0 +1,74 @@
+{
+  "artifact": {
+    "bytes": 868790,
+    "path": "update-portal-research-fund-skill-round3-20261105-r1.py",
+    "sha256": "7754c68871de109ab28a3a75f3439961b4b256704a290ee83edfa154bccfaf33"
+  },
+  "browser_business_acceptance_pending": true,
+  "candidate": {
+    "bytes": 793973,
+    "file_count": 30,
+    "tree_sha256": "0d935a5e5c45e8bf916b6b52ee310826d68acb22fffb0cbc70ab5d3304840a4c"
+  },
+  "download_matches_release_byte_for_byte": true,
+  "download_path": "C:\\Users\\15285\\Downloads\\update-portal-research-fund-skill-round3-20261105-r1.py",
+  "evidence": [
+    {
+      "bytes": 7961,
+      "path": "local-release-qualification.json",
+      "sha256": "06340860a4560db37c0e19f21c7865df2ba54267c767d3fd15c0c931da7fcc7f"
+    },
+    {
+      "bytes": 3433,
+      "path": "local-behavior-regressions.json",
+      "sha256": "6ea6288847dbad9121081bf24750aef25affddd5bd98bb37d1125690fab21fcd"
+    },
+    {
+      "bytes": 13931,
+      "path": "qualification-receipt.json",
+      "sha256": "b84a6cf0eba23d84f40116fc7c4ee6ed84e24128a70deaa242098abfdaf968a4"
+    },
+    {
+      "bytes": 698,
+      "path": "linux-stage-publish-qualification.json",
+      "sha256": "27fdbdaa1d92ccf142f143e296d1013b58d0542729f51d68bd2e54ebe2b21377"
+    },
+    {
+      "bytes": 718,
+      "path": "python37-bound-entry-guard.json",
+      "sha256": "61d36aeafc32efe27aab6bd9bfdef5ba5338e457c7f7ec9e7907729f3ea0a613"
+    }
+  ],
+  "gateway_rollout_in_scope": false,
+  "operator_command": "python3 update-portal-research-fund-skill-round3-20261105-r1.py --update-research-fund-skill-once",
+  "production_actions_by_packaging_agent": 0,
+  "production_update_executed": false,
+  "qualification_summary": {
+    "actual_python37_entry_guard": "WRONG_HOST; 0 commands; once_claimed=false",
+    "prepublication_checks": {
+      "actual_temporary_stage_publish_seconds": 34.655,
+      "behavior_source_files": 13,
+      "behavior_test_instances": 263,
+      "failed": 0,
+      "includes_all_five_round3_files": true,
+      "real_cli_check_build_inspect": 9,
+      "skipped": 0,
+      "total": 272
+    },
+    "separate_full_local_regression": {
+      "elapsed_seconds": 99.45,
+      "includes_repository_ci_and_office_checks": true,
+      "not_the_production_embedded_suite": true,
+      "total_passed": 312
+    },
+    "updater_and_qualifier_boundary_tests": 40
+  },
+  "schema": "research-fund-round3-updater-delivery.v1",
+  "status": "LOCAL_DOWNLOAD_COPY_VERIFIED_NOT_EXECUTED",
+  "timeouts_seconds": {
+    "host_command_deadline": 900,
+    "host_remote_call": 330,
+    "qualifier": 180,
+    "remote_manifest_deadline": 300
+  }
+}

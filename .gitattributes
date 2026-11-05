@@ -63,3 +63,10 @@ deploy/enterprise/inspect-portal-research-fund-skill-20261104-r1.py -text whites
 deploy/enterprise/inspect-portal-research-fund-skill-20261105-r2.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 deploy/enterprise/update-portal-research-fund-skill-20261104-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 deploy/enterprise/update-portal-research-fund-skill-20261105-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-feedback-round3-20261105/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-project-type-20261105/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-late-source-20261105/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/inspect-portal-research-fund-skill-20261105-r3.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+skills/public/research-fund-settlement/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# Archived unified-diff context includes intentional blank-line markers.
+release/research-fund-project-type-20261105/scoped-change.diff -whitespace

@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## November 5 later financial Skill releases
+
+`release/research-fund-late-source-20261105/SOURCE.json` records the accepted
+Round3 and project-type successors. The latest shared Skill tree is
+`28944ec28d4644acb09cd10eb8e73dc546a4250d0c21172d325b23cb713d7d43`.
+Run `python deploy/enterprise/verify-research-fund-production-source.py --ref HEAD`
+and both financial source rejection suites. Earlier inventories and operator
+receipts remain immutable; the verifier qualifies current sources before projecting
+the prior sealed source view. These are operator-reported runtime checks, not real
+financial-report business acceptance. Do not rerun archived production tools.
+
 ## November 4-5 research-fund Skill release
 
 `release/research-fund-source-20261105/SOURCE.json` registers the scoped shared
