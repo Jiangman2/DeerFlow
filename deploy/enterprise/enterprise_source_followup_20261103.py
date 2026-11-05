@@ -45,7 +45,7 @@ ARTIFACT_TEST = "backend/tests/test_artifact_delivery_middleware.py"
 ARTIFACT_PARENT = "release/artifact-directory-20261104/baseline/" + ARTIFACT_SOURCE
 ARTIFACT_LISTING_BASE = "release/artifact-listing-20261105/baseline/"
 IMAGE_PNG_ARCHIVE = "release/image-default-png-20261105/"
-IMAGE_PNG_MANIFEST_SHA = "5f746fb9e68cadfb2d1f821e571455678f1957925af9c3035ea21090c7aaf7ee"
+IMAGE_PNG_MANIFEST_SHA = "604cffe767ee36b266b6d026ce139a32a3e73fb1f3f772cdd502606bf96e2d80"
 LISTING_MIDDLEWARE_SHA = "abc9fba6b4ef895460eed366b06c7ffa4472bcf4f77a1e2714e8aef14232877f"
 LISTING_SUPPORT = {
     "backend/packages/harness/deerflow/runtime/journal.py": (

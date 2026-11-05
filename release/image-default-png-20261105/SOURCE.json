@@ -6,7 +6,7 @@
     },
     "backend/tests/test_media_generation_tools.py": {
       "before_sha256_lf": "8aa73b79ad8c2e03313bf45d84d9668b57e669e1cf7bfdacf1676e82ba344607",
-      "after_sha256_lf": "1c0d7d0405cfa07d2c32a384e0f62d07676a4b23d08cb28bf36dbaf8b0fe9db8"
+      "after_sha256_lf": "3c4c23dae47435ce348532bcf92411474e3129f721633de44a55f314603c2443"
     }
   }
 }
