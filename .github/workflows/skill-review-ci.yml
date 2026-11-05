@@ -9,6 +9,7 @@ on:
       - "contracts/skill_review/**"
       - "scripts/review_changed_public_skills.py"
       - "scripts/review_research_fund_templates.py"
+      - "scripts/review_research_fund_formula.py"
       - "tests/skills/test_research_fund*.py"
       - "deploy/enterprise/*research-fund*"
       - "deploy/enterprise/*research_fund*"
@@ -28,6 +29,7 @@ on:
       - "contracts/skill_review/**"
       - "scripts/review_changed_public_skills.py"
       - "scripts/review_research_fund_templates.py"
+      - "scripts/review_research_fund_formula.py"
       - "tests/skills/test_research_fund*.py"
       - "deploy/enterprise/*research-fund*"
       - "deploy/enterprise/*research_fund*"
@@ -104,6 +106,7 @@ jobs:
             ../tests/skills/test_research_fund_zero_budget.py \
             ../tests/skills/test_research_fund_annual_budget.py \
             ../tests/skills/test_research_fund_template_review.py \
+            ../tests/skills/test_research_fund_formula_review.py \
             ../tests/skills/test_research_fund_feedback.py \
             ../tests/skills/test_research_fund_nov05_import.py \
             ../tests/skills/test_research_fund_nov05_model.py \
