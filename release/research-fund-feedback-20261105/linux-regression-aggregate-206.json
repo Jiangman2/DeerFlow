@@ -1,0 +1,53 @@
+{
+  "aggregation": "two_independent_runs_199_plus_7_same_skill_tree",
+  "collection_errors": 0,
+  "counts": {
+    "failed": 0,
+    "passed": 206,
+    "skipped": 0
+  },
+  "docker_image_id": "sha256:a721a1d378e99172e6ae569c93c52e00fb2a17d6a0151c1aaae362d73277f5bf",
+  "host_skill_tree_verified_after_runs": true,
+  "mounted_inputs_readonly": true,
+  "network": "disabled_by_docker",
+  "prior_199_receipt_unchanged": true,
+  "private_business_inputs_mounted": false,
+  "production_access": false,
+  "python": "3.12.16",
+  "runs": [
+    {
+      "bytes": 2641,
+      "counts": {
+        "failed": 0,
+        "passed": 199,
+        "skipped": 0
+      },
+      "inputs_manifest_sha256": "cc5f65f1da057a3744e6ed82e9f2313a1ce7585185636447199dc89e0e406c38",
+      "receipt": "final-linux-qualification-20261105.json",
+      "scope": "seven_candidate_skill_test_files_plus_50_model_and_45_import_tests",
+      "sha256": "3ae84de830b79f7be64834e1579b12d8264813f3b37e1db926e260b8a59539f1",
+      "skill_tree_sha256": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951",
+      "version_stable": true
+    },
+    {
+      "bytes": 2346,
+      "counts": {
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      "inputs_manifest_sha256": "d0bf422d813af652bed7cf329b946e51b3feaaa764326c11db55f7c0bfc7a980",
+      "receipt": "backend-seven-linux-qualification-20261105.json",
+      "scope": "backend/tests/test_research_fund_settlement_skill.py_only",
+      "sha256": "ed3192b0e462bdf28fd714197a252077ffa59161679266169243fded0910ca14",
+      "skill_tree_sha256": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951",
+      "version_stable": true
+    }
+  ],
+  "schema": "research-fund-final-linux-aggregate.v1",
+  "skill_bytes": 788816,
+  "skill_file_count": 30,
+  "skill_tree_sha256": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951",
+  "status": "PASS",
+  "test_reexecution_performed_for_first_run": false
+}

@@ -1,0 +1,56 @@
+{
+  "accepted_skill_tree": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951",
+  "base_commit": "459b44eae00e671466c90fc20462dee018b6a0c0",
+  "business_acceptance_pending": true,
+  "existing_enterprise_baseline_failures": {
+    "code": "NOV02_PROTECTED_SOURCE_CHANGED",
+    "frontend_fix_included": false,
+    "path": "frontend/src/core/settings/store.ts",
+    "previous_ref_oct29_pass": "d63a01c9b",
+    "ref": "459b44eae00e671466c90fc20462dee018b6a0c0",
+    "reproduced_without_financial_changes": true,
+    "scripts": [
+      "verify-production-baseline-20261029.py",
+      "verify-nov01-released-source-20261102.py",
+      "verify-nov02-released-source-20261103.py"
+    ]
+  },
+  "historical_evidence_modified": false,
+  "imported_files_match_original_worktree": true,
+  "imported_release_files": 62,
+  "known_followups": [
+    "Combined reference-chain and parenthesis nesting can exceed Python recursion depth; preserve the already deployed source in this archival PR and address separately."
+  ],
+  "production_commands_executed_during_pr_preparation": false,
+  "schema": "research-fund-release-pr-validation.v1",
+  "skill_runtime_modified_after_release": false,
+  "validation": {
+    "diff_check": "PASS",
+    "independent_scope_and_source_reviews": "PASS",
+    "linux_financial_regressions": {
+      "command": "python -m pytest -q -p no:cacheprovider tests/skills/test_research_fund_*.py backend/tests/test_research_fund_settlement_skill.py",
+      "failed": 0,
+      "image": "sha256:a721a1d378e99172e6ae569c93c52e00fb2a17d6a0151c1aaae362d73277f5bf",
+      "network": "none",
+      "passed": 206,
+      "repository_mount": "readonly",
+      "seconds": 48.78,
+      "skipped": 0
+    },
+    "linux_nov04_release_and_cleanup": {
+      "failed": 0,
+      "passed": 42,
+      "skip_reason": "kubectl unavailable in test container; real-kubectl UID-precondition stub test skipped",
+      "skipped": 1
+    },
+    "nov05_release_template": {
+      "failed": 0,
+      "passed": 18
+    },
+    "source_rejections": {
+      "failed": 0,
+      "passed": 22
+    },
+    "worktree_source_verifier": "PASS"
+  }
+}

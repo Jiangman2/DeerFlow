@@ -1,0 +1,136 @@
+{
+  "baseline_tree": "b65fc087957f540c0ea7b04037c3f6955fbcdca18faf356d93aa996b0224b4b8",
+  "candidate_tree": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951",
+  "files": [
+    {
+      "path": "SKILL.md",
+      "before": {
+        "bytes": 10644,
+        "path": "SKILL.md",
+        "sha256": "5b6e5b26c206f5c79b6a0d5c7a5db987fb156703915e97dded74697e336f63c9"
+      },
+      "after": {
+        "path": "SKILL.md",
+        "bytes": 11674,
+        "sha256": "6c6037d411c9612c2d65e679107ba175fb4ca70005770bbea97cd99dbda5295e"
+      }
+    },
+    {
+      "path": "assets/reference-examples/group-company-standard-input.xlsx",
+      "before": {
+        "bytes": 10943,
+        "path": "assets/reference-examples/group-company-standard-input.xlsx",
+        "sha256": "6f2d1341c7bf304bc4b7bbf44c960a542a441d53947e36bbde3269a15b488b7f"
+      },
+      "after": {
+        "path": "assets/reference-examples/group-company-standard-input.xlsx",
+        "bytes": 8029,
+        "sha256": "4fcfb5281dbfe68250b4b948025d825376f73a05f4a4a8e3739ddd2337513baa"
+      }
+    },
+    {
+      "path": "references/data-contract.md",
+      "before": {
+        "bytes": 5814,
+        "path": "references/data-contract.md",
+        "sha256": "40373a9ef701edb827e3e2a9c24304c79a05f4e4453d64856704c1217cba34d0"
+      },
+      "after": {
+        "path": "references/data-contract.md",
+        "bytes": 7513,
+        "sha256": "8c81c4f9c0112c38cde49500627e806b0a28c23c10ace5119c0434620e21d7f6"
+      }
+    },
+    {
+      "path": "references/group-company-standard-input.md",
+      "before": {
+        "bytes": 5088,
+        "path": "references/group-company-standard-input.md",
+        "sha256": "ac870f3117f5b511692b1969b1a5b894f3ea9aa2d334adb054b1a4d55587d2c4"
+      },
+      "after": {
+        "path": "references/group-company-standard-input.md",
+        "bytes": 7399,
+        "sha256": "1c311165c22814b74a9e0c6b494bf8c9ebd171d2977332bcae1b3331c7e90b24"
+      }
+    },
+    {
+      "path": "references/group-company-template-annotations.md",
+      "before": {
+        "bytes": 2476,
+        "path": "references/group-company-template-annotations.md",
+        "sha256": "91f5b3db3c178d636f7b5654320b660dc24fb5b2c2c0abe824dffe9204d2690d"
+      },
+      "after": {
+        "path": "references/group-company-template-annotations.md",
+        "bytes": 3330,
+        "sha256": "09f901298a8ce287a00acbfc38bed0e88205bf7d61ae385503d7ea04428e4b51"
+      }
+    },
+    {
+      "path": "references/group-company.md",
+      "before": {
+        "bytes": 3562,
+        "path": "references/group-company.md",
+        "sha256": "c463fa50d4688921077f03618972e6cf17df47db5254d81d423e70357e7fc2d8"
+      },
+      "after": {
+        "path": "references/group-company.md",
+        "bytes": 3710,
+        "sha256": "259534116d99a9cda3b12b89c57cb0143d64d9145bb54076883077995c8baf5b"
+      }
+    },
+    {
+      "path": "schemas/case.schema.json",
+      "before": {
+        "bytes": 4685,
+        "path": "schemas/case.schema.json",
+        "sha256": "e4f4c9630cab0eafa6b86f8840297edc6443a35424605ebc81937d21b70cb093"
+      },
+      "after": {
+        "path": "schemas/case.schema.json",
+        "bytes": 5559,
+        "sha256": "1ebfaef99c0a771fb16b468ca93ce462227f9827d0a535919c8b1175a068bd28"
+      }
+    },
+    {
+      "path": "scripts/group_template.py",
+      "before": {
+        "bytes": 19800,
+        "path": "scripts/group_template.py",
+        "sha256": "ef4f5a2dc7af0fd5b3fb7ef5e53ba48ad105c08d85c38cee0b70744deae3ea56"
+      },
+      "after": {
+        "path": "scripts/group_template.py",
+        "bytes": 22060,
+        "sha256": "365618e9b2a400dc8801482b04107afa650677eb6d5651a3564752d8c21f2a3f"
+      }
+    },
+    {
+      "path": "scripts/report_model.py",
+      "before": {
+        "bytes": 38282,
+        "path": "scripts/report_model.py",
+        "sha256": "d858001b0b1ecd583f25aa7d288bc8c84de9a47346ba5c95395782d961ea5790"
+      },
+      "after": {
+        "path": "scripts/report_model.py",
+        "bytes": 47205,
+        "sha256": "06b310edcb0ffc6bc6c9155bb1d86c456e677da2937af7aad7346bc51c4dff87"
+      }
+    },
+    {
+      "path": "scripts/standard_input.py",
+      "before": {
+        "bytes": 35674,
+        "path": "scripts/standard_input.py",
+        "sha256": "1a0bbc408558f9d3b13cfaa19b4d2ba9dfa68a74ab7c70e9faa84a18b33e47cc"
+      },
+      "after": {
+        "path": "scripts/standard_input.py",
+        "bytes": 47069,
+        "sha256": "e0817346643684adebd174ebae57869f812796909e0e8298fda61aa05feece0f"
+      }
+    }
+  ]
+}

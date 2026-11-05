@@ -1,0 +1,33 @@
+{
+  "schema": "research-fund-feedback-runtime-reconciliation.v1",
+  "skill_updated_and_node_views_verified": true,
+  "business_acceptance_pending": true,
+  "cleanup_pending": false,
+  "original_status_preserved": "INCOMPLETE",
+  "original_report_sha256": "6f8bb30e1c2c7af9ce21d65adc16b702abba666384dc07c3ee9c8b8d9f1ce910",
+  "original_attachment_sha256": "f0a0b89f3447d4f87c39cab557b7d82568d13f72e3bcc8d3b81d7a74a6858759",
+  "normalization": "chat-added Markdown link wrappers removed before JSON parsing",
+  "candidate_tree_sha256": "b65fc087957f540c0ea7b04037c3f6955fbcdca18faf356d93aa996b0224b4b8",
+  "files_verified": 30,
+  "maintenance_pod": "fund-skill-maint-9a64554cc9bd",
+  "maintenance_pod_uid": "414ee1eb-d995-48a2-a37a-409f16960703",
+  "local_cleanup_error_reproduction": "kubectl delete -o json rejected: only -o name supported; no DELETE sent in local mock test",
+  "original_production_stderr_available": false,
+  "cleanup_tool_tests": {
+    "windows_passed": 23,
+    "linux_passed": 22,
+    "linux_skipped": 1,
+    "python37_wrong_host_guard": "PASS"
+  },
+  "maintenance_pod_absent": true,
+  "release_status": "SKILL_UPDATED_AND_MAINTENANCE_CLEANED_BUSINESS_PENDING",
+  "cleanup_receipt": {
+    "status": "MAINTENANCE_POD_CLEANED",
+    "path": "/var/lib/portal-research-fund-skill-cleanup-20261104-r1/REPORT.json",
+    "bytes": 802,
+    "sha256": "4c816db94f2fc4e3b9020bd35d676205f8118d5967445090bac7b8406f9ece81",
+    "source": "operator_supplied_final_json",
+    "canonical_reconstruction_matches_report_hash": true,
+    "delete_request_count": 1
+  }
+}

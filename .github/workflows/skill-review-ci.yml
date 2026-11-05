@@ -11,6 +11,11 @@ on:
       - "scripts/review_research_fund_templates.py"
       - "tests/skills/test_research_fund*.py"
       - "deploy/enterprise/*research-fund*"
+      - "deploy/enterprise/*research_fund*"
+      - "release/research-fund-feedback-20261104/**"
+      - "release/research-fund-feedback-20261105/**"
+      - "release/research-fund-source-20261105/**"
+      - ".gitattributes"
       - "release/production-source-20261027/research-fund-settlement/**"
       - "backend/pyproject.toml"
       - "backend/uv.lock"
@@ -25,6 +30,11 @@ on:
       - "scripts/review_research_fund_templates.py"
       - "tests/skills/test_research_fund*.py"
       - "deploy/enterprise/*research-fund*"
+      - "deploy/enterprise/*research_fund*"
+      - "release/research-fund-feedback-20261104/**"
+      - "release/research-fund-feedback-20261105/**"
+      - "release/research-fund-source-20261105/**"
+      - ".gitattributes"
       - "release/production-source-20261027/research-fund-settlement/**"
       - "backend/pyproject.toml"
       - "backend/uv.lock"
@@ -73,6 +83,14 @@ jobs:
         working-directory: backend
         run: uv run python ../deploy/enterprise/verify-research-fund-production-source.py --ref HEAD
 
+      - name: Reject financial source and receipt tampering
+        working-directory: backend
+        run: uv run python -B ../deploy/enterprise/test_research_fund_source_20261105.py
+
+      - name: Test archived November 5 release guards with synthetic fixtures
+        working-directory: backend
+        run: uv run python -B ../release/research-fund-feedback-20261105/nov05_release_template_test.py
+
       - name: Test financial report behavior and template review
         working-directory: backend
         env:
@@ -86,6 +104,10 @@ jobs:
             ../tests/skills/test_research_fund_zero_budget.py \
             ../tests/skills/test_research_fund_annual_budget.py \
             ../tests/skills/test_research_fund_template_review.py \
+            ../tests/skills/test_research_fund_feedback.py \
+            ../tests/skills/test_research_fund_nov05_import.py \
+            ../tests/skills/test_research_fund_nov05_model.py \
+            ../tests/skills/test_research_fund_nov05_roundtrip.py \
             tests/test_research_fund_settlement_skill.py -q --confcutdir=../tests/skills
 
       - name: Review changed public skills (push)

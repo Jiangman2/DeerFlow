@@ -1,5 +1,19 @@
 # AGENTS.md
 
+## November 4-5 research-fund Skill release
+
+`release/research-fund-source-20261105/SOURCE.json` registers the scoped shared
+`research-fund-settlement` successor. Run
+`python deploy/enterprise/verify-research-fund-production-source.py --ref HEAD`
+and its successor rejection tests with Python 3.12+. Preserve the October 27
+lock, November 4 failed-cleanup receipt and its separate cleanup success,
+and all November 5 qualification/deployment evidence byte-for-byte.
+The operator receipts establish shared-Skill replacement, five-node file
+verification and maintenance cleanup; real financial-report user acceptance
+remains pending. Existing case contract versions retain their prior meaning;
+new direct-only budget execution requires reimport. This archive does not
+request another production update, Gateway rollout or database operation.
+
 ## November 3 enterprise successor provenance
 
 `release/enterprise-source-followup-20261103/SOURCE.json` qualifies the 7 runtime

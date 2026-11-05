@@ -1,0 +1,94 @@
+{
+  "status": "PACKAGE_INTERNAL_RELATIONSHIPS_NORMALIZED",
+  "before": {
+    "bytes": 8059,
+    "sha256": "f59de8bc77a12bf04fa6e3e2c69c95fed4df0704acd74c67ee0133f92aa98573"
+  },
+  "after": {
+    "bytes": 8029,
+    "sha256": "4fcfb5281dbfe68250b4b948025d825376f73a05f4a4a8e3739ddd2337513baa"
+  },
+  "relationships": [
+    {
+      "part": "_rels/.rels",
+      "before": "/xl/workbook.xml",
+      "after": "xl/workbook.xml",
+      "resolved_member": "xl/workbook.xml"
+    },
+    {
+      "part": "xl/_rels/workbook.xml.rels",
+      "before": "/xl/styles.xml",
+      "after": "styles.xml",
+      "resolved_member": "xl/styles.xml"
+    },
+    {
+      "part": "xl/_rels/workbook.xml.rels",
+      "before": "/xl/theme/theme1.xml",
+      "after": "theme/theme1.xml",
+      "resolved_member": "xl/theme/theme1.xml"
+    },
+    {
+      "part": "xl/_rels/workbook.xml.rels",
+      "before": "/xl/sharedStrings.xml",
+      "after": "sharedStrings.xml",
+      "resolved_member": "xl/sharedStrings.xml"
+    },
+    {
+      "part": "xl/_rels/workbook.xml.rels",
+      "before": "/xl/worksheets/sheet1.xml",
+      "after": "worksheets/sheet1.xml",
+      "resolved_member": "xl/worksheets/sheet1.xml"
+    }
+  ],
+  "business_parts_unchanged": true,
+  "parts": [
+    {
+      "part": "xl/workbook.xml",
+      "before_sha256": "f27c66e1a58af507ffd88fa63269feb86f2717c4b0457992d1a7ff7cefdb931c",
+      "after_sha256": "f27c66e1a58af507ffd88fa63269feb86f2717c4b0457992d1a7ff7cefdb931c",
+      "changed": false
+    },
+    {
+      "part": "xl/styles.xml",
+      "before_sha256": "4ce85ad886c683079f34f060e09f3049e3449c0e15e48d06a981cee9da3b653c",
+      "after_sha256": "4ce85ad886c683079f34f060e09f3049e3449c0e15e48d06a981cee9da3b653c",
+      "changed": false
+    },
+    {
+      "part": "xl/theme/theme1.xml",
+      "before_sha256": "dba95c8bf66b16ecfede76dc3e67082db290316cb0c8abab214e12418d11212e",
+      "after_sha256": "dba95c8bf66b16ecfede76dc3e67082db290316cb0c8abab214e12418d11212e",
+      "changed": false
+    },
+    {
+      "part": "xl/sharedStrings.xml",
+      "before_sha256": "4cfb9449e882dd49f470671846ccc8dbe8fa08e1d83a5725f9f8663641128998",
+      "after_sha256": "4cfb9449e882dd49f470671846ccc8dbe8fa08e1d83a5725f9f8663641128998",
+      "changed": false
+    },
+    {
+      "part": "xl/worksheets/sheet1.xml",
+      "before_sha256": "e7818b57f6acb4b3df4439f4b3147920ae81630a22ab4388e85a3aebf0ecd736",
+      "after_sha256": "e7818b57f6acb4b3df4439f4b3147920ae81630a22ab4388e85a3aebf0ecd736",
+      "changed": false
+    },
+    {
+      "part": "_rels/.rels",
+      "before_sha256": "7a73e221b95e5350e78e3e46a772d0fb3fb923a3b84cc7ef39f678afe93f9db3",
+      "after_sha256": "295d4fbef49fb99c81d2aba669825fca6ac8da6f74fc05da01aa9962db683d4e",
+      "changed": true
+    },
+    {
+      "part": "xl/_rels/workbook.xml.rels",
+      "before_sha256": "26fca5d60a258e44fc22ae4f893cd63b9b7f0ae5c9953891354b11ae845c74b8",
+      "after_sha256": "5375ea8902d89473c5a7dbe037df8e3638307999fe07382a03ea2f2bcd5ed7e4",
+      "changed": true
+    },
+    {
+      "part": "[Content_Types].xml",
+      "before_sha256": "3075df9f387d734283477155c9d4b0d9512b92c7e13b8e93ee95d72f235e5326",
+      "after_sha256": "3075df9f387d734283477155c9d4b0d9512b92c7e13b8e93ee95d72f235e5326",
+      "changed": false
+    }
+  ]
+}

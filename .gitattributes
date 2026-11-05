@@ -53,3 +53,13 @@ deploy/enterprise/v41-glm-20261029/** -text whitespace=blank-at-eol,blank-at-eof
 
 # Preserve the already executed OA timeout tool's delivered byte hash.
 deploy/enterprise/set-portal-oa-run-timeout-60m-20261103-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve the already executed November 4/5 finance archives and delivered tools.
+release/research-fund-feedback-20261104/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-feedback-20261105/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+scripts/review_research_fund_templates.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/cleanup-portal-research-fund-skill-20261104-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/inspect-portal-research-fund-skill-20261104-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/inspect-portal-research-fund-skill-20261105-r2.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/update-portal-research-fund-skill-20261104-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/update-portal-research-fund-skill-20261105-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
