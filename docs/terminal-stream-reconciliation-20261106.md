@@ -8,7 +8,7 @@ its SSE connection never closed. Existing recovery skipped a locally loading
 stream. Refreshing loaded the completed checkpoint, but leaving the page open
 did not correct the stale state.
 
-The API stream adapter now checks the exact current thread/run every 15 seconds
+The API stream adapter now checks the exact current thread/run every 30 seconds
 and on visible-page focus/visibility return. Both ordinary runs and the isolated
 PPT runtime use their owning API. Reads have an 8-second combined deadline and
 do not overlap. Pending/running, unknown statuses, missing records and read

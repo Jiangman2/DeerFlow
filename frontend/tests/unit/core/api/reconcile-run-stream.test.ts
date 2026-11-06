@@ -59,7 +59,9 @@ for (const status of ["success", "error", "timeout", "interrupted"]) {
   test(`half-open ${status} stream hydrates final values and ends normally`, async () => {
     const s = setup(status);
     const pending = s.stream.next();
-    await rs.advanceTimersByTimeAsync(RUN_RECONCILE_INTERVAL_MS);
+    await rs.advanceTimersByTimeAsync(RUN_RECONCILE_INTERVAL_MS - 1);
+    expect(s.getRun).not.toHaveBeenCalled();
+    await rs.advanceTimersByTimeAsync(1);
     expect(await pending).toEqual({
       done: false,
       value: { event: "values", data: finalValues },
@@ -92,9 +94,9 @@ test("failed status and final-state reads remain retryable", async () => {
   s.getRun.mockRejectedValueOnce(new Error("403"));
   s.getValues.mockRejectedValueOnce(new Error("offline"));
   const pending = s.stream.next();
-  await rs.advanceTimersByTimeAsync(30_000);
+  await rs.advanceTimersByTimeAsync(2 * RUN_RECONCILE_INTERVAL_MS);
   expect(s.transport()?.aborted).toBe(false);
-  await rs.advanceTimersByTimeAsync(15_000);
+  await rs.advanceTimersByTimeAsync(RUN_RECONCILE_INTERVAL_MS);
   expect((await pending).value).toEqual({ event: "values", data: finalValues });
   await s.stream.next();
 });
@@ -107,13 +109,13 @@ test("never settles an unrelated run or an identity superseded during a read", a
     status: "success",
   });
   const pending = s.stream.next();
-  await rs.advanceTimersByTimeAsync(15_000);
+  await rs.advanceTimersByTimeAsync(RUN_RECONCILE_INTERVAL_MS);
   expect(s.getValues).not.toHaveBeenCalled();
   s.getValues.mockImplementationOnce(async () => {
     s.identity.mockReturnValue({ ...id, run_id: "new-run" });
     return finalValues;
   });
-  await rs.advanceTimersByTimeAsync(15_000);
+  await rs.advanceTimersByTimeAsync(RUN_RECONCILE_INTERVAL_MS);
   expect(s.transport()?.aborted).toBe(false);
   s.controller.abort();
   await expect(pending).rejects.toMatchObject({ name: "AbortError" });
@@ -140,10 +142,10 @@ test("bounded read timeout retries and never overlaps requests", async () => {
       }),
   );
   const pending = s.stream.next();
-  await rs.advanceTimersByTimeAsync(23_000);
+  await rs.advanceTimersByTimeAsync(RUN_RECONCILE_INTERVAL_MS + 8_000);
   expect(s.getRun).toHaveBeenCalledTimes(1);
   expect(s.transport()?.aborted).toBe(false);
-  await rs.advanceTimersByTimeAsync(7_000);
+  await rs.advanceTimersByTimeAsync(RUN_RECONCILE_INTERVAL_MS - 8_000);
   expect((await pending).value).toEqual({ event: "values", data: finalValues });
   await s.stream.next();
 });

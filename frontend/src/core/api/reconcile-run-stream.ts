@@ -1,5 +1,5 @@
 /** Close a stranded transport only after the exact run and its final state are read. */
-export const RUN_RECONCILE_INTERVAL_MS = 15_000;
+export const RUN_RECONCILE_INTERVAL_MS = 30_000;
 const READ_TIMEOUT_MS = 8_000;
 const TERMINAL_STATUSES = new Set([
   "success",

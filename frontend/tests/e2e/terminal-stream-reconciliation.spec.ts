@@ -98,7 +98,7 @@ for (const trigger of ["periodic", "focus"] as const) {
       await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(
       page.getByText("Authoritative final report is ready.", { exact: true }),
-    ).toBeVisible({ timeout: 25_000 });
+    ).toBeVisible({ timeout: 45_000 });
     await expect(thinking).not.toBeVisible();
     await expect(
       page.getByRole("button", { name: /artifacts/i }),
