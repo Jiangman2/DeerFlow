@@ -1,0 +1,23 @@
+{
+  "schema": "portal-sidechat-final-image-browser.v1",
+  "image": "sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3",
+  "tests_passed": 10,
+  "tests_failed": 0,
+  "engine": "Chromium",
+  "platform": "linux/arm64 container, Windows browser",
+  "viewports": [
+    [
+      1440,
+      960
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "scope": "sidecar layout, scrolling, attachment, tooltips, menu, history, references and deletion",
+  "api": "local synthetic browser intercepts",
+  "authentication_disabled": "local test container only, not image default or production",
+  "provider_requests": 0,
+  "production_acceptance": false
+}

@@ -1,0 +1,27 @@
+{
+  "base_commit": "b95b481f95380065e688d97b995b3603f8adf68a",
+  "build_evidence_sha256_lf": {
+    "release/sidechat-skillhub-security-20261105-r1/frontend-RESULT.json": "344494a8a1b9513a5816266a070dfea536523c5ed42688b8c16cdc9324849aa8",
+    "release/sidechat-skillhub-security-20261105-r1/frontend-SOURCE-CHANGE.json": "138fd398515b9fe80501edc9368865a59c74167f6c2b96b26d3181a897740dd9",
+    "release/sidechat-skillhub-security-20261105-r1/frontend-SOURCE.json": "6af8cd3cb41f08dda3719d73076f160f6c9715d66a72c83c778a88272aea1b3a"
+  },
+  "changes": {
+    "frontend/src/components/workspace/sidecar/sidecar-panel.tsx": {
+      "base_sha256": "34cc753938dbf2b606b8dd7fd110d05a70f1dac156d7242216dbcf9a1773a1da",
+      "baseline_path": "release/sidechat-frontend-source-20261106/baseline/frontend/src/components/workspace/sidecar/sidecar-panel.tsx",
+      "current_sha256": "f89a2b08ab9da34503a0f7f0d9018e907051cbbb46a90dac0efe37a8fd1e56f1",
+      "kind": "runtime-source"
+    },
+    "frontend/tests/e2e/sidecar-composer-layout.spec.ts": {
+      "base_sha256": null,
+      "baseline_path": null,
+      "current_sha256": "c2ba1b12284485fe42769c1989ed69d1b3f45851a68d35c3d231a01ad44707af",
+      "kind": "regression-test"
+    }
+  },
+  "fresh_production_acceptance_claimed": false,
+  "frontend_image": "sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3",
+  "runtime_modified_by_registration": false,
+  "schema": "sidechat-frontend-source.v1",
+  "status": "SOURCE_REGISTRATION_NOT_FRESH_DEPLOYMENT_ACCEPTANCE"
+}

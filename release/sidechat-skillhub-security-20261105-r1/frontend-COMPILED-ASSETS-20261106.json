@@ -1,0 +1,233 @@
+{
+  "archive": {
+    "bytes": 127456768,
+    "config_digest": "sha256:0e24234e305f54a1e0aa160281ee7a463925b526ae358fbb66053fefd71ed821",
+    "layers": 11,
+    "manifest_digest": "sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3",
+    "path": "C:\\Users\\15285\\AppData\\Local\\Temp\\frontend-sidechat-security-build-20261105-r1\\frontend.oci.tar",
+    "sha256": "402aa5df479bc57be3923555a32240dedf614a239c58ca999c5ec2998590b61c"
+  },
+  "behavior_acceptance_claimed": false,
+  "browser_evidence": {
+    "last_run": {
+      "bytes": 45,
+      "path": "C:\\Users\\15285\\AppData\\Local\\Temp\\sidechat-final-image-browser-20261105\\.last-run.json",
+      "sha256": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"
+    },
+    "new_behavior_acceptance_claimed": false,
+    "production_acceptance": false,
+    "qualification_summary": {
+      "bytes": 679,
+      "path": "C:\\Users\\15285\\.codex\\worktrees\\sidechat-skillhub-security-20261105\\deer-flow\\release\\sidechat-skillhub-security-20261105-r1\\frontend-browser-qualification.json",
+      "sha256": "673e2c4d0a5ee4fbe96b81ea7e1ed8eda6faeb217feb5406c0d12b2b0d04f0f3"
+    },
+    "scope": "archived_local_summary_and_line_reporter_not_structured_playwright_report",
+    "screenshots": [
+      {
+        "bytes": 505009,
+        "path": "C:\\Users\\15285\\AppData\\Local\\Temp\\sidechat-final-image-browser-20261105\\sidecar-composer-layout-si-657fe-ligned-and-opaque-at-1440px-chromium\\sidechat-1440.png",
+        "sha256": "1fe74581a8d89dc62043058956a6b44b759f54310bc8ba42b33601957a010af6"
+      },
+      {
+        "bytes": 19281,
+        "path": "C:\\Users\\15285\\AppData\\Local\\Temp\\sidechat-final-image-browser-20261105\\sidecar-composer-layout-si-c15d9-aligned-and-opaque-at-390px-chromium\\sidechat-390.png",
+        "sha256": "abc05cf2539b5358e6eac933b0ef3e37c0d22a5f8572cf8b9aa4187f2e6779a8"
+      }
+    ],
+    "structured_report_available": false,
+    "summary_reported_failed": 0,
+    "summary_reported_passed": 10,
+    "tests_rerun_by_this_tool": false
+  },
+  "build_input_pins": {
+    "RESULT.json": {
+      "bytes": 2200,
+      "path": "C:\\Users\\15285\\AppData\\Local\\Temp\\frontend-sidechat-security-build-20261105-r1\\RESULT.json",
+      "sha256": "344494a8a1b9513a5816266a070dfea536523c5ed42688b8c16cdc9324849aa8"
+    },
+    "RUNTIME.json": {
+      "bytes": 703,
+      "path": "C:\\Users\\15285\\AppData\\Local\\Temp\\frontend-sidechat-security-build-20261105-r1\\RUNTIME.json",
+      "sha256": "13f54b6284a9313118acf51c913c4e66d8e164bc115ce1d95a35f8d6c367aa17"
+    },
+    "SOURCE-CHANGE.json": {
+      "bytes": 584,
+      "path": "C:\\Users\\15285\\AppData\\Local\\Temp\\frontend-sidechat-security-build-20261105-r1\\SOURCE-CHANGE.json",
+      "sha256": "138fd398515b9fe80501edc9368865a59c74167f6c2b96b26d3181a897740dd9"
+    },
+    "SOURCE.json": {
+      "bytes": 171511,
+      "path": "C:\\Users\\15285\\AppData\\Local\\Temp\\frontend-sidechat-security-build-20261105-r1\\SOURCE.json",
+      "sha256": "6af8cd3cb41f08dda3719d73076f160f6c9715d66a72c83c778a88272aea1b3a"
+    }
+  },
+  "config_digest": "sha256:0e24234e305f54a1e0aa160281ee7a463925b526ae358fbb66053fefd71ed821",
+  "feature_markers": {
+    "account_activity": [
+      "/app/frontend/.next/static/chunks/1r54373p94ucy.js"
+    ],
+    "custom_range": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "date_bounds": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "failure_preview_bound": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "failure_range": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "history_english": [
+      "/app/frontend/.next/static/chunks/43xxd4nu1phu0.js"
+    ],
+    "history_label": [
+      "/app/frontend/.next/static/chunks/43xxd4nu1phu0.js"
+    ],
+    "model_api": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "multiline_draft": [
+      "/app/frontend/.next/static/chunks/3non8_6sa2786.css"
+    ],
+    "new_chat_default_model": [
+      "/app/frontend/.next/static/chunks/1b_x9_dkmteil.js"
+    ],
+    "oa_monitor": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "personal_heatmap": [
+      "/app/frontend/.next/static/chunks/1r54373p94ucy.js"
+    ],
+    "responsive_navigation": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js",
+      "/app/frontend/.next/static/chunks/44s_-_kix5hr_.js"
+    ],
+    "section_knowledge": [
+      "/app/frontend/.next/static/chunks/0_d5_gp7ib4x4.js",
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js",
+      "/app/frontend/.next/static/chunks/1r54373p94ucy.js",
+      "/app/frontend/.next/static/chunks/3pw5sf112gbc-.js",
+      "/app/frontend/.next/static/chunks/43xxd4nu1phu0.js"
+    ],
+    "section_models": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "section_oa": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "section_runs": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "section_users": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "sidecar_attachment_button": [
+      "/app/frontend/.next/static/chunks/3lo0kxcubwj1x.js"
+    ],
+    "sidecar_composer_opaque": [
+      "/app/frontend/.next/static/chunks/3lo0kxcubwj1x.js"
+    ],
+    "sidecar_draft_full_width": [
+      "/app/frontend/.next/static/chunks/3lo0kxcubwj1x.js"
+    ],
+    "sidecar_draft_left_scroll": [
+      "/app/frontend/.next/static/chunks/3lo0kxcubwj1x.js"
+    ],
+    "sidecar_footer_opaque": [
+      "/app/frontend/.next/static/chunks/3lo0kxcubwj1x.js"
+    ],
+    "sidecar_panel_opaque": [
+      "/app/frontend/.next/static/chunks/3lo0kxcubwj1x.js"
+    ],
+    "single_material_row": [
+      "/app/frontend/.next/static/chunks/3non8_6sa2786.css"
+    ],
+    "web_opt_in": [
+      "/app/frontend/.next/static/chunks/0_d5_gp7ib4x4.js"
+    ],
+    "weekly_heatmap": [
+      "/app/frontend/.next/static/chunks/1r54373p94ucy.js"
+    ]
+  },
+  "gateway_changes": false,
+  "image": "sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3",
+  "image_tag": "deerflow.local/deer-flow-frontend:20261105-sidechat-security-r1",
+  "probe_sha256": "40c9a9b285fd3daa5cdf5b7d409e8ca7854a274018e7992c63174ccf46f0476d",
+  "production_access": false,
+  "qualification_sha256": "344494a8a1b9513a5816266a070dfea536523c5ed42688b8c16cdc9324849aa8",
+  "schema": "portal-sidechat-security-frontend-assets.v1",
+  "skillhub_backend_auth_acceptance_claimed": false,
+  "source_inventory_sha256": "6af8cd3cb41f08dda3719d73076f160f6c9715d66a72c83c778a88272aea1b3a",
+  "source_pins": {
+    "/app/frontend/.next/BUILD_ID": {
+      "bytes": 21,
+      "sha256": "bcc3068d24025fa6c47b5570094507fc5d58c0a0048ce9674d28234ae2d5eb6b"
+    },
+    "/app/frontend/.next/routes-manifest.json": {
+      "bytes": 10355,
+      "sha256": "7d59bf4ddab10c4e621624635239ad3b105524b376d8aa4c7a88d1f37aac6d9e"
+    },
+    "/app/frontend/.next/static/chunks/0_d5_gp7ib4x4.js": {
+      "bytes": 352346,
+      "sha256": "ebcd9a51c6c610f6bfc1a19a2681f09a5ffb9dc7d4455f3e72f0921b1e2345ad"
+    },
+    "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js": {
+      "bytes": 92784,
+      "sha256": "e0b6526cb0634eefd8bb384d87e6c26b1103ebd1b517be3884ee90219293ffbb"
+    },
+    "/app/frontend/.next/static/chunks/1b_x9_dkmteil.js": {
+      "bytes": 16611,
+      "sha256": "4ac3a43d12db09b0ccc95af08cf953d3a4511b4e411de3460d8e0cd8429e030c"
+    },
+    "/app/frontend/.next/static/chunks/1r54373p94ucy.js": {
+      "bytes": 123189,
+      "sha256": "411aff51208a8fcd1a6d83401e1e868bd4a44ac6e2c524c40ccc6abe58d17a15"
+    },
+    "/app/frontend/.next/static/chunks/3lo0kxcubwj1x.js": {
+      "bytes": 38221,
+      "sha256": "e4c08f994b617a920eda43d763587e471b8352869d0c6d3da3cf8b5f41eb7c55"
+    },
+    "/app/frontend/.next/static/chunks/3non8_6sa2786.css": {
+      "bytes": 135068,
+      "sha256": "69038567b6ffb8fc9f0ba9f15317136f999c73ec2e8372c5113ae599cc584225"
+    },
+    "/app/frontend/.next/static/chunks/3pw5sf112gbc-.js": {
+      "bytes": 43882,
+      "sha256": "cbbd6d906244cca3250b5710bdba1618898cd9d42964c08a49c1bac7c746f292"
+    },
+    "/app/frontend/.next/static/chunks/43xxd4nu1phu0.js": {
+      "bytes": 85867,
+      "sha256": "d72a907e916ebbdc28a5ef5dd50e967ce232c37bc37899e2e6f5f3084ef92027"
+    },
+    "/app/frontend/.next/static/chunks/44s_-_kix5hr_.js": {
+      "bytes": 35548,
+      "sha256": "abb4a5fe8cace36127a9f7557e89c43b693d7e64030f1ad864483fb91afbab8e"
+    },
+    "/app/frontend/public/images/cnooc-workspace-concept-bg.png": {
+      "bytes": 1254279,
+      "sha256": "5b00ca5a43fe16fa47dbcd15649f2ada852f383155ebe801caacbba1c64b518d"
+    }
+  },
+  "source_verification": {
+    "base_inventory": {
+      "bytes": 171511,
+      "path": "C:\\Users\\15285\\AppData\\Local\\Temp\\frontend-new-chat-v41-build-20261105-r1\\SOURCE.json",
+      "sha256": "bda551c495341f3b1ffbfe9f772317c3168b07200f4e3d5f39255772056198b4"
+    },
+    "bytes_verified": 47617505,
+    "changed_files": [
+      {
+        "bytes": 29707,
+        "path": "frontend/src/components/workspace/sidecar/sidecar-panel.tsx",
+        "sha256": "f89a2b08ab9da34503a0f7f0d9018e907051cbbb46a90dac0efe37a8fd1e56f1"
+      }
+    ],
+    "files_verified": 982,
+    "preserved_files": 981,
+    "scope": "sealed_build_context_not_whole_image",
+    "tooltip_source_structure_verified": true
+  },
+  "status": "COMPILED_MARKERS_PINNED",
+  "tool_sha256": "8d4bfcb5b6eb64fc57aa6d4e88cb08fec3a15a4a8ab4a9b52d2453143bcf87ea"
+}

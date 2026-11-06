@@ -21,6 +21,10 @@ _new_chat_spec = importlib.util.spec_from_file_location("new_chat_model_source_2
 new_chat = importlib.util.module_from_spec(_new_chat_spec)
 _new_chat_spec.loader.exec_module(new_chat)
 
+_sidechat_spec = importlib.util.spec_from_file_location("sidechat_frontend_source_20261106", Path(__file__).with_name("sidechat_frontend_source_20261106.py"))
+sidechat = importlib.util.module_from_spec(_sidechat_spec)
+_sidechat_spec.loader.exec_module(sidechat)
+
 ARCHIVE = "release/enterprise-source-followup-20261103/"
 MANIFEST = ARCHIVE + "SOURCE.json"
 MANIFEST_SHA256 = "d383005667ae3f623045ae54fe333ba98677ec3ea03096914b23daf59342d1bc"
@@ -130,7 +134,7 @@ def qualify(read):
         verified = qualify(read.original_read)
         assert verified == read.qualification, "ENTERPRISE_FOLLOWUP_READER_CHANGED"
         return verified
-    return _qualify_projected(new_chat.historical_read(alignment.historical_read(read)))
+    return _qualify_projected(sidechat.historical_read(new_chat.historical_read(alignment.historical_read(read))))
 
 
 def _qualify_projected(read):
@@ -193,7 +197,7 @@ class HistoricalReader:
         verified = qualify(read)
         assert verified and verified == qualification, "ENTERPRISE_FOLLOWUP_READER_CHANGED"
         self.original_read = read
-        self.read = navigation.historical_read(new_chat.historical_read(alignment.historical_read(read)))
+        self.read = navigation.historical_read(sidechat.historical_read(new_chat.historical_read(alignment.historical_read(read))))
         self.read = image_png_historical_read(self.read)
         self.qualification = verified
 
@@ -213,6 +217,7 @@ def historical_read(read):
     original = read
     read = alignment.historical_read(read)
     read = new_chat.historical_read(read)
+    read = sidechat.historical_read(read)
     read = navigation.historical_read(read)
     qualification = _qualify_projected(read)
     return HistoricalReader(original, qualification) if qualification else read

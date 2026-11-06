@@ -19,10 +19,14 @@ def verify(ref=None):
             extra.append(followup.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.IMAGE_PNG_ARCHIVE.rstrip("/")], cwd=ROOT).strip():
             extra.append(followup.IMAGE_PNG_ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.sidechat.MANIFEST], cwd=ROOT).strip():
+            extra.extend((followup.sidechat.ARCHIVE, *followup.sidechat.EVIDENCE_PATHS))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.new_chat.MANIFEST], cwd=ROOT).strip():
             extra.extend((followup.new_chat.ARCHIVE, followup.new_chat.GUIDE))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.navigation.MANIFEST], cwd=ROOT).strip():
             extra.append(followup.navigation.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.navigation.model_default_test.MANIFEST], cwd=ROOT).strip():
+            extra.append(followup.navigation.model_default_test.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.alignment.WORK_RELEASE_ALIGNMENT], cwd=ROOT).strip():
             extra.extend((followup.alignment.WORK_RELEASE_ALIGNMENT, *followup.alignment.WORK_PARENT_MANIFESTS))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.alignment.WORK_RELEASE_ALIGNMENT_ARCHIVE], cwd=ROOT).strip():

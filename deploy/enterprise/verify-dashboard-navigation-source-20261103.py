@@ -14,7 +14,10 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def verify(ref=None):
     if ref:
-        raw = subprocess.check_output(["git", "archive", ref, "frontend/src", "frontend/tests", navigation.ARCHIVE], cwd=ROOT)
+        extra = []
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, navigation.model_default_test.MANIFEST], cwd=ROOT).strip():
+            extra.append(navigation.model_default_test.ARCHIVE)
+        raw = subprocess.check_output(["git", "archive", ref, "frontend/src", "frontend/tests", navigation.ARCHIVE, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             files = {m.name: archive.extractfile(m).read() for m in archive if m.isfile()}
         read = files.__getitem__

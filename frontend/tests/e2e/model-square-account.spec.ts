@@ -99,7 +99,10 @@ for (const [size, width, height] of [
     await modelSquareFixture(page);
     await page.goto("/workspace/chats/new");
     await expect(
-      page.getByRole("button", { name: "DeepSeek-V4-Flash", exact: true }),
+      page.getByRole("button", {
+        name: "DeepSeek-V4.1-Flash-1017",
+        exact: true,
+      }),
     ).toBeVisible();
     const refreshed = page.waitForResponse("**/api/v1/auth/me");
     await page.evaluate(() =>
@@ -195,7 +198,7 @@ for (const [size, width, height] of [
   });
 }
 
-test("V4.1 is optional and leaves the existing default selected", async ({
+test("new chats default to V4.1 and preserve an explicit V4 selection", async ({
   page,
   baseURL,
 }, info) => {
@@ -206,28 +209,32 @@ test("V4.1 is optional and leaves the existing default selected", async ({
   await modelSquareFixture(page);
   await page.goto("/workspace/chats/new");
   await page
-    .getByRole("button", { name: "DeepSeek-V4-Flash", exact: true })
+    .getByRole("button", { name: "DeepSeek-V4.1-Flash-1017", exact: true })
     .click();
   const menu = page.getByTestId("chat-model-menu");
-  await expect(
-    menu.getByRole("menuitemradio", { name: "DeepSeek-V4-Flash", exact: true }),
-  ).toHaveAttribute("aria-checked", "true");
-  await expect(
-    menu.getByRole("menuitemradio", {
-      name: "DeepSeek-V4.1-Flash-1017",
-      exact: true,
-    }),
-  ).toHaveAttribute("aria-checked", "false");
+  const v4 = menu.getByRole("menuitemradio", {
+    name: "DeepSeek-V4-Flash",
+    exact: true,
+  });
+  const v41 = menu.getByRole("menuitemradio", {
+    name: "DeepSeek-V4.1-Flash-1017",
+    exact: true,
+  });
+  await expect(v4).toHaveAttribute("aria-checked", "false");
+  await expect(v41).toHaveAttribute("aria-checked", "true");
   await screenshot(page, info, "desktop-v41-model-menu");
-  await menu
-    .getByRole("menuitemradio", {
-      name: "DeepSeek-V4.1-Flash-1017",
-      exact: true,
-    })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "DeepSeek-V4.1-Flash-1017", exact: true }),
-  ).toBeVisible();
+  await v4.click();
+  const selectedModel = page.getByRole("button", {
+    name: "DeepSeek-V4-Flash",
+    exact: true,
+  });
+  await expect(selectedModel).toBeVisible();
+  // Wait for the closing menu to unmount before opening a fresh menu.
+  await expect(menu).toHaveCount(0);
+  await selectedModel.click();
+  await expect(menu).toHaveAttribute("data-state", "open");
+  await expect(v4).toHaveAttribute("aria-checked", "true");
+  await expect(v41).toHaveAttribute("aria-checked", "false");
 });
 
 test("desktop shell keeps a fixed module gap and fits short/tall viewports", async ({
@@ -343,7 +350,7 @@ test("module gutters agree with the collapsed rail", async ({
   }
   await page.goto("/workspace/chats/new");
   await expect(
-    page.getByRole("button", { name: "DeepSeek-V4-Flash", exact: true }),
+    page.getByRole("button", { name: "DeepSeek-V4.1-Flash-1017", exact: true }),
   ).toBeVisible();
   await screenshot(page, info, "desktop-home-responsive-sidebar");
 });

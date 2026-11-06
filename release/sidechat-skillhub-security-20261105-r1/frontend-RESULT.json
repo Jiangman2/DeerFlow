@@ -1,0 +1,66 @@
+{
+  "frontend_slim": "LOCAL_PASS",
+  "production_writes": 0,
+  "images_pushed": false,
+  "ready_for_rollout": false,
+  "platform": "linux/arm64",
+  "node_image": "node@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402",
+  "git_commit": "b95b481f95380065e688d97b995b3603f8adf68a",
+  "source": {
+    "files": 982,
+    "bytes": 47617505,
+    "sha256": "585053d6d3115aad671c049d4a93d25c7cfda8d6c3abc5148ccf2c66d1c7de5f",
+    "path": "C:\\Users\\15285\\AppData\\Local\\Temp\\frontend-sidechat-security-build-20261105-r1\\context"
+  },
+  "builder": "desktop-linux",
+  "build_seconds": 540.44,
+  "image": {
+    "tag": "deerflow.local/deer-flow-frontend:20261105-sidechat-security-r1",
+    "id": "sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3",
+    "bytes": 127442037,
+    "layers": 11
+  },
+  "fresh_runtime": {
+    "pinned_base_prefix": "PASS",
+    "base_layers": 4,
+    "added_layers": 7,
+    "previous_application_image_used": false
+  },
+  "runtime": {
+    "layout": {
+      "standalone_layout": "PASS",
+      "files": 2853,
+      "bytes": 132431537,
+      "symlinks": 35,
+      "assets_checked": true,
+      "build_id_sha256": "bcc3068d24025fa6c47b5570094507fc5d58c0a0048ce9674d28234ae2d5eb6b",
+      "routes_sha256": "7d59bf4ddab10c4e621624635239ad3b105524b376d8aa4c7a88d1f37aac6d9e",
+      "runtime_http": "NOT_TESTED",
+      "production_acceptance": "NOT_TESTED"
+    },
+    "http": {
+      "local_http": "PASS",
+      "runtime_env": "PASS",
+      "sso_redirect": "SYNTHETIC_PASS",
+      "static_assets": [
+        ".js",
+        ".css"
+      ],
+      "unauthenticated_launch_status": 401,
+      "production_sso": "NOT_TESTED",
+      "gateway": "NOT_TESTED",
+      "models": "NOT_REQUESTED"
+    }
+  },
+  "export_seconds": 100.03,
+  "export": {
+    "archive": "C:\\Users\\15285\\AppData\\Local\\Temp\\frontend-sidechat-security-build-20261105-r1\\frontend.oci.tar",
+    "sha256": "402aa5df479bc57be3923555a32240dedf614a239c58ca999c5ec2998590b61c",
+    "bytes": 127456768,
+    "layers": 11,
+    "compressed_layer_bytes": 127430744,
+    "uncompressed_layer_bytes": 302487040,
+    "exact_qualified_layers": "PASS",
+    "blob_and_diffid_hashes": "PASS"
+  }
+}
