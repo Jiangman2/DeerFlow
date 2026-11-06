@@ -98,6 +98,7 @@ import {
   type VoiceGatewaySupportReason,
 } from "@/core/voice-input/gateway-transcription";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTextareaAutosize } from "@/hooks/use-textarea-autosize";
 import { isIMEComposing } from "@/lib/ime";
 import { cn } from "@/lib/utils";
 
@@ -443,23 +444,11 @@ export function InputBox({
   const wasStreamingRef = useRef(false);
   const messagesRef = useRef(thread.messages);
 
-  // Older enterprise browsers do not support CSS field-sizing. Keep the
-  // compact mobile editor growing with its real content in those browsers too.
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    if (!isMobile || isWelcomeMode) {
-      textarea.style.removeProperty("height");
-      return;
-    }
-    const resize = () => {
-      textarea.style.height = "0px";
-      textarea.style.height = `${Math.min(144, Math.max(24, textarea.scrollHeight))}px`;
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, [isMobile, isWelcomeMode, selectedSlashSkill, textInput.value]);
+  useTextareaAutosize(
+    textareaRef,
+    textInput.value,
+    !isWelcomeMode && !selectedSlashSkill,
+  );
 
   const abortVoiceInput = useCallback(() => {
     voiceSessionRef.current?.abort();
@@ -1875,6 +1864,7 @@ export function InputBox({
       data-has-attachments={attachmentParts.length > 0}
       data-has-knowledge-scope={knowledgeScopeCount > 0}
       data-has-materials={composerMaterialCount > 0}
+      data-auto-grow={!isWelcomeMode}
       data-focused={textareaFocused}
       data-testid={isWelcomeMode ? "welcome-composer" : "chat-composer"}
     >
@@ -2031,7 +2021,7 @@ export function InputBox({
         <div className="cnooc-composer-input min-h-14 min-w-0 px-3 py-2.5 sm:min-h-16 sm:py-3">
           {selectedSlashSkill ? (
             <div
-              className="max-h-48 min-h-6 w-full min-w-0 cursor-text overflow-y-auto text-base leading-6 break-all whitespace-pre-wrap md:text-sm"
+              className="cnooc-composer-skill-input max-h-48 min-h-6 w-full min-w-0 cursor-text overflow-y-auto text-base leading-6 break-all whitespace-pre-wrap md:text-sm"
               onClick={(event) => {
                 if (event.target === event.currentTarget) {
                   focusContentEditableEnd(inlineSkillTextRef.current);

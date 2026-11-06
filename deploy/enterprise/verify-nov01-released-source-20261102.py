@@ -11,6 +11,8 @@ import tarfile
 from released_source_20261102 import ARCHIVE as NOV02_ARCHIVE, DELTA as NOV02_DELTA, PARENT_DELTA, historical_read
 from released_source_20261102 import CI_ARCHIVE, CI_MANIFEST, followup
 
+from released_source_20261102 import composer
+
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = "release/nov01-released-fixes-source-20261102/"
 
@@ -44,6 +46,8 @@ def verify(ref=None):
             roots.extend((followup.alignment.WORK_RELEASE_ALIGNMENT, *followup.alignment.WORK_PARENT_MANIFESTS))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.alignment.WORK_RELEASE_ALIGNMENT_ARCHIVE], cwd=ROOT).strip():
             roots.append(followup.alignment.WORK_RELEASE_ALIGNMENT_ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, composer.MANIFEST], cwd=ROOT).strip():
+            roots.append(composer.ARCHIVE)
         raw = subprocess.check_output(["git", "archive", ref, *roots], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             archived = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}

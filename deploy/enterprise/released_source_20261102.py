@@ -12,6 +12,10 @@ _followup_spec = importlib.util.spec_from_file_location(
 followup = importlib.util.module_from_spec(_followup_spec)
 _followup_spec.loader.exec_module(followup)
 
+_composer_spec = importlib.util.spec_from_file_location("history_composer_source_20261106", Path(__file__).with_name("history_composer_source_20261106.py"))
+composer = importlib.util.module_from_spec(_composer_spec)
+_composer_spec.loader.exec_module(composer)
+
 ARCHIVE = "release/nov02-released-fixes-source-20261103/"
 SOURCE = ARCHIVE + "SOURCE.json"
 DELTA = "deploy/enterprise/released-source-delta-20261102.json"
@@ -41,6 +45,7 @@ def safe_path(path):
 
 def ci_qualification(read):
     """Qualify later test/formatter corrections without changing release evidence."""
+    read = composer.historical_read(read)
     read = followup.historical_read(read)
     try:
         raw = read(CI_MANIFEST)
@@ -89,6 +94,7 @@ def ci_baseline_read(read, qualification):
 
 
 def load(read, *, check_current=True):
+    read = composer.historical_read(read)
     read = followup.historical_read(read)
     read = ci_baseline_read(read, ci_qualification(read))
     delta = json.loads(read(DELTA))
@@ -186,6 +192,7 @@ def load(read, *, check_current=True):
 
 
 def overrides(lock, prior, incident, released, read):
+    read = composer.historical_read(read)
     read = followup.historical_read(read)
     delta, manifest = load(read)
     result = {"gateway": {}, "frontend": {}}
@@ -209,6 +216,7 @@ def overrides(lock, prior, incident, released, read):
 
 def historical_read(read):
     """Verify the new seal, then expose the immutable PR25 bytes to the older audit."""
+    read = composer.historical_read(read)
     read = followup.historical_read(read)
     _, manifest = load(read)
     read = ci_baseline_read(read, ci_qualification(read))

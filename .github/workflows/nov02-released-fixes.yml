@@ -18,6 +18,8 @@ on:
       - 'tests/test_sidechat*.py'
       - 'release/sidechat-frontend-source-20261106/**'
       - 'release/sidechat-skillhub-security-20261105-r1/**'
+      - 'deploy/enterprise/*history*composer*source*'
+      - 'release/history-composer-autosize-source-20261106/**'
       - 'deploy/enterprise/*new_chat_model_source*'
       - 'release/new-chat-model-source-20261105/**'
       - 'deploy/enterprise/*nov02*'
@@ -40,6 +42,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - run: python -B deploy/enterprise/test_history_composer_source_20261106.py
+      - run: python -B deploy/enterprise/verify-history-composer-source-20261106.py --ref HEAD
       - run: python -B deploy/enterprise/test_model_default_test_followup_20261106.py
       - run: python -B deploy/enterprise/test_sidechat_frontend_source_20261106.py
       - run: python -B deploy/enterprise/test_sidechat_security_frontend_package_20261105.py
