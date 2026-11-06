@@ -214,6 +214,9 @@ streaming, and PDF snapshot/security checks. Preview tests use explicit fake
 configuration rather than loading runtime secrets. See
 [the artifact reconciliation record](docs/ARTIFACT_MERGE_20261001.md).
 
+When a final answer lists a single output directory and its published filenames,
+Gateway can add a clickable link for each verified file in the current run.
+
 The next full-suite batch validates assistant search pagination (`limit` 1–1000,
 non-negative `offset`) while preserving defaults and filtering. Unimplemented
 extended Guardrail identity propagation and BoxLite status-marker expectations

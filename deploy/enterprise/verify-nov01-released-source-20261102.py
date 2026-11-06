@@ -22,12 +22,16 @@ def verify(ref=None):
         roots = ["backend/app", "backend/packages/harness", "backend/tests", "frontend/src", "frontend/tests", "skills/public/data-analysis", ARCHIVE]
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.ARTIFACT_PARENT], cwd=ROOT).strip():
             roots.append(followup.ARTIFACT_PARENT)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.ARTIFACT_LISTING_BASE.rstrip("/")], cwd=ROOT).strip():
+            roots.append(followup.ARTIFACT_LISTING_BASE)
         if has_nov02:
             roots.extend((NOV02_ARCHIVE, NOV02_DELTA, PARENT_DELTA))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, CI_MANIFEST], cwd=ROOT).strip():
             roots.append(CI_ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.MANIFEST], cwd=ROOT).strip():
             roots.append(followup.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.IMAGE_PNG_ARCHIVE.rstrip("/")], cwd=ROOT).strip():
+            roots.append(followup.IMAGE_PNG_ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.new_chat.MANIFEST], cwd=ROOT).strip():
             roots.extend((followup.new_chat.ARCHIVE, followup.new_chat.GUIDE))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.navigation.MANIFEST], cwd=ROOT).strip():

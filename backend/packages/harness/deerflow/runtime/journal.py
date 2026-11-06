@@ -515,6 +515,9 @@ class RunJournal(InterruptedJournalMethods, BaseCallbackHandler):
                 continue
             if not self._owns_final_ai_message(message):
                 continue
+            if (message.additional_kwargs or {}).get("deerflow_linked_publication") is True:
+                self.reconcile_ai_message(message, reason="linked_published_files")
+                return
             if (message.additional_kwargs or {}).get("deerflow_error_fallback") is not True:
                 return
             self._put(
