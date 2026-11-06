@@ -1,0 +1,20 @@
+{
+  "schema": "terminal-stream-reconciliation-source.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "cfbe18568d88c92c43162c213bf24beb43359593",
+  "files": {
+    "frontend/src/core/api/api-client.ts": {
+      "sha256": "b91eb5fb0e27ecd8c9bc150b95fd639c26bbe0fc3146c07ab5c577e196616723",
+      "base_sha256": "7a3c9bb436f1cc6fb869fedd340660a42c999d4634f7f7d7ed6fd7cb61b7f1ae"
+    },
+    "frontend/src/core/api/reconcile-run-stream.ts": {
+      "sha256": "0eed3008ce7ff7daa730302b2975994330beca78f95ed1b85a14da5309a9c7a7"
+    },
+    "frontend/tests/unit/core/api/reconcile-run-stream.test.ts": {
+      "sha256": "58c3de4700db68b3e20c2300ad144839477bd9927651a9ee1b8a8fd35073d36e"
+    },
+    "frontend/tests/e2e/terminal-stream-reconciliation.spec.ts": {
+      "sha256": "0af6879037cae35d9d2b0e8fa61947fc378df16851a7c5ea84c5baf110568dcb"
+    }
+  }
+}

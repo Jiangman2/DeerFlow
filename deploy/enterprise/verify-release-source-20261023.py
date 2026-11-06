@@ -20,6 +20,14 @@ _nov02 = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_nov02)
 NOV02_ARCHIVE, NOV02_DELTA, nov02_overrides = _nov02.ARCHIVE, _nov02.DELTA, _nov02.overrides
 
+_live_spec = importlib.util.spec_from_file_location("live_artifact_cards_source_20261106", Path(__file__).with_name("live_artifact_cards_source_20261106.py"))
+live_artifacts = importlib.util.module_from_spec(_live_spec)
+_live_spec.loader.exec_module(live_artifacts)
+
+_stream_spec = importlib.util.spec_from_file_location("terminal_stream_source_20261106", Path(__file__).with_name("terminal_stream_source_20261106.py"))
+terminal_stream = importlib.util.module_from_spec(_stream_spec)
+_stream_spec.loader.exec_module(terminal_stream)
+
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = 'deploy/enterprise/production-source-lock-20261029.json'
 RUNNER = 'release/production-source-20261022/ppt-master-runner/'
@@ -383,11 +391,19 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(_nov02.followup.navigation.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, _nov02.followup.navigation.model_default_test.MANIFEST], cwd=ROOT).strip():
             extra.append(_nov02.followup.navigation.model_default_test.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, live_artifacts.ARCHIVE.rstrip("/")], cwd=ROOT).strip():
+            extra.append(live_artifacts.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, terminal_stream.ARCHIVE.rstrip("/")], cwd=ROOT).strip():
+            extra.append(terminal_stream.ARCHIVE)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
     current_read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    terminal_read = terminal_stream.historical_read(current_read)
+    terminal_stream_candidate = terminal_read is not current_read
+    current_read = terminal_read
+    current_read = live_artifacts.historical_read(current_read)
     sidechat_manifest = _nov02.followup.sidechat.qualify(current_read)
     new_chat_manifest = _nov02.followup.new_chat.qualify(current_read)
     alignment_manifest = qualify_work_release_alignment(current_read)
@@ -521,6 +537,7 @@ def verify(ref=None, lock_path=LOCK):
     if patch_result:
         results.append(patch_result)
     return {'status': 'CANDIDATE_SOURCE_VERIFIED' if manifest else 'RELEASE_SOURCE_VERIFIED', 'git_ref': ref, 'lock_file': lock_path, 'results': results,
+            'terminal_stream_candidate': {'status': 'NOT_DEPLOYED', 'frontend_runtime_paths': [terminal_stream.CLIENT, terminal_stream.HELPER]} if terminal_stream_candidate else None,
             'enterprise_source_followup': _nov02.followup.summary(followup),
             'sidechat_frontend_source': _nov02.followup.sidechat.summary(sidechat_manifest),
             'new_chat_model_source': _nov02.followup.new_chat.summary(new_chat_manifest),
