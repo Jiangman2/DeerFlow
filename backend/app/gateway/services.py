@@ -832,6 +832,10 @@ async def start_run(
     bridge = get_stream_bridge(request)
     run_mgr = get_run_manager(request)
     run_ctx = get_run_context(request)
+    metadata = body.metadata
+    if metadata and not getattr(request.state, "trusted_scheduled_metadata", False):
+        # The completion hook uses these identifiers to deliver notifications.
+        metadata = {key: value for key, value in metadata.items() if key not in {"scheduled_task_id", "scheduled_task_run_id"}}
 
     disconnect = DisconnectMode.cancel if body.on_disconnect == "cancel" else DisconnectMode.continue_
 
@@ -884,7 +888,7 @@ async def start_run(
                     thread_id,
                     body.assistant_id,
                     on_disconnect=disconnect,
-                    metadata=body.metadata or {},
+                    metadata=metadata or {},
                     # Persist a secret-redacted copy of the config: the run record is
                     # written to runs.kwargs_json and echoed by the run API, so a
                     # request-scoped secret (#3861) must not ride along. The live
@@ -914,7 +918,7 @@ async def start_run(
                 await run_ctx.thread_store.create(
                     thread_id,
                     assistant_id=body.assistant_id,
-                    metadata=body.metadata,
+                    metadata=metadata,
                 )
             else:
                 await run_ctx.thread_store.update_status(thread_id, "running")
@@ -928,7 +932,7 @@ async def start_run(
             graph_input = Command(resume=command["resume"])
         else:
             graph_input = normalize_input(body.input, trusted_internal=is_internal_caller)
-        config = build_run_config(thread_id, body.config, body.metadata, assistant_id=body.assistant_id)
+        config = build_run_config(thread_id, body.config, metadata, assistant_id=body.assistant_id)
         await apply_checkpoint_to_run_config(config, body=body, thread_id=thread_id, request=request)
 
         # Merge DeerFlow-specific context overrides into both ``configurable`` and ``context``.
@@ -1001,6 +1005,7 @@ async def launch_scheduled_thread_run(
             state=SimpleNamespace(
                 user=get_internal_user(),
                 auth_source=AUTH_SOURCE_INTERNAL,
+                trusted_scheduled_metadata=True,
             ),
             cookies={},
         )

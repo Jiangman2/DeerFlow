@@ -15,7 +15,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .auth import Principal, TokenVault
-from .batch import BatchPayload, item_fact, outcome_text
+from .batch import BatchPayload, calendar_success, item_fact, outcome_text
 from .batch import preview as batch_preview
 from .client import DOC_ID_RE, DOCUMENT_HOST, WorkError
 from .scopes import ACTION_SCOPES, API_SCOPES
@@ -737,8 +737,9 @@ class WorkCapabilities:
                 item.update(status=child.status if child else "unexecuted", receipt=child.value.get("receipt", "") if child else "")
             return outcome_text(items)
         text = "该操作此前已完成，不会重复执行。" if record.status == "completed" else "先前操作的执行结果尚未确认，请到 Work 核查；不会自动重试或重复执行。"
+        # Calendar receipts are provider identifiers; document receipts are links.
         receipt = record.value.get("receipt", "")
-        return text + ("\n回执：" + receipt if receipt else "")
+        return text + ("\n回执：" + receipt if isinstance(receipt, str) and receipt.startswith("https://") else "")
 
     def doc_url(self, document_id):
         return doc_url(document_id, self.document_host)
@@ -794,7 +795,7 @@ class WorkCapabilities:
         if any((event.get(k) or "") != expected[k] for k in ("summary", "description")) or any(str(event.get(k, {}).get("timestamp")) != expected[k]["timestamp"] for k in ("start_time", "end_time")):
             raise WorkError("write_readback_mismatch")
         self.remember_events(p, [event_id])
-        return f"日程已执行并回读核对：{a.title}\n{a.start} 至 {a.end}\nevent_id：{event_id}"
+        return calendar_success(a.operation, a.title, a.start, a.end)
 
     def cancel(self, p: Principal, plan_id: str):
         plan = self.plans.get(plan_id)

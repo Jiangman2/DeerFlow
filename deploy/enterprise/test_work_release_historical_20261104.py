@@ -6,14 +6,15 @@ from pathlib import Path
 import unittest
 
 from released_source_20261102 import followup, historical_read, load
+from work_integration_source_20261106 import historical_view
 
 ROOT = Path(__file__).resolve().parents[2]
 ALIGNMENT = followup.alignment
 
 
 class WorkReleaseHistoricalTests(unittest.TestCase):
-    def read(self, path):
-        return (ROOT / path).read_bytes()
+    def setUp(self):
+        self.read, _ = historical_view(lambda path: (ROOT / path).read_bytes())
 
     def replace(self, target, raw):
         return lambda path: raw if path == target else self.read(path)

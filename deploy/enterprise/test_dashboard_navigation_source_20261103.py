@@ -5,13 +5,14 @@ import subprocess
 import unittest
 
 import dashboard_navigation_source_20261103 as navigation
+from work_integration_source_20261106 import historical_view
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class NavigationSourceTests(unittest.TestCase):
-    def read(self, path):
-        return (ROOT / path).read_bytes()
+    def setUp(self):
+        self.read, _ = historical_view(lambda path: (ROOT / path).read_bytes())
 
     def changed(self, target):
         return lambda path: self.read(path) + (b"\n// drift\n" if path == target else b"")

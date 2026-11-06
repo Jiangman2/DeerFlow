@@ -46,6 +46,7 @@ import {
   ScheduledTaskScheduleInput,
   type ScheduleValue,
 } from "@/components/workspace/scheduled-task-schedule-input";
+import { ScheduledTaskWorkNotification } from "@/components/workspace/scheduled-task-work-notification";
 import {
   WorkspaceBody,
   WorkspaceContainer,
@@ -64,6 +65,7 @@ import {
   useScheduledTasks,
   useTriggerScheduledTask,
   useThreadScheduledTasks,
+  useWorkNotificationTargets,
 } from "@/core/scheduled-tasks/hooks";
 import {
   DEFAULT_SCHEDULED_MODEL_NAME,
@@ -171,10 +173,14 @@ export default function ScheduledTasksPage() {
   >("all");
   const [formError, setFormError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createWorkTarget, setCreateWorkTarget] = useState<string | null>(null);
   const [recipesOpen, setRecipesOpen] = useState(false);
   const [adviceOpen, setAdviceOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [editWorkTarget, setEditWorkTarget] = useState<
+    string | null | undefined
+  >();
   const [editTitle, setEditTitle] = useState("");
   const [editPrompt, setEditPrompt] = useState("");
   const [editAssistantId, setEditAssistantId] = useState(DEFAULT_ASSISTANT_ID);
@@ -215,6 +221,24 @@ export default function ScheduledTasksPage() {
   });
   const selectedTask =
     filteredData.find((task) => task.id === selectedTaskId) ?? filteredData[0];
+  const workTargetsQuery = useWorkNotificationTargets(createOpen || detailOpen);
+  const workTargets = workTargetsQuery.data;
+  const savedWorkTarget =
+    selectedTask?.work_notification?.connection_id ?? null;
+  const chosenEditWorkTarget =
+    editWorkTarget === undefined ? savedWorkTarget : editWorkTarget;
+  const changedWorkTarget = chosenEditWorkTarget !== savedWorkTarget;
+  const workTargetAvailable = (id: string | null) =>
+    id === null ||
+    (!workTargetsQuery.isError &&
+      workTargets?.enabled === true &&
+      workTargets.targets.some((target) => target.connection_id === id));
+  const workFieldProps = {
+    targets: workTargets,
+    loading: workTargetsQuery.isFetching,
+    failed: workTargetsQuery.isError,
+    refresh: () => void workTargetsQuery.refetch(),
+  };
   const selectedTaskModelName =
     typeof selectedTask?.run_context?.model_name === "string"
       ? selectedTask.run_context.model_name
@@ -343,12 +367,14 @@ export default function ScheduledTasksPage() {
       timezone: task.timezone,
     });
     setFormError(null);
+    setCreateWorkTarget(null);
     setCreateNonce((nonce) => nonce + 1);
     setDetailOpen(false);
     setCreateOpen(true);
   };
   const openTaskDetail = (task: ScheduledTask, startEditing = false) => {
     setSelectedTaskId(task.id);
+    setEditWorkTarget(undefined);
     setEditing(startEditing);
     setDetailOpen(true);
   };
@@ -383,6 +409,7 @@ export default function ScheduledTasksPage() {
       return;
     }
     setEditTitle(selectedTask.title);
+    setEditWorkTarget(undefined);
     setEditPrompt(selectedTask.prompt);
     setEditAssistantId(selectedTask.assistant_id ?? DEFAULT_ASSISTANT_ID);
     const spec = selectedTask.schedule_spec as {
@@ -468,7 +495,12 @@ export default function ScheduledTasksPage() {
               size="sm"
               className="ml-auto shrink-0"
               variant={createOpen ? "outline" : "default"}
-              onClick={() => setCreateOpen((value) => !value)}
+              onClick={() => {
+                if (createOpen) {
+                  setCreateWorkTarget(null);
+                }
+                setCreateOpen(!createOpen);
+              }}
             >
               {createOpen ? (
                 <ArrowLeftIcon className="size-4" />
@@ -681,6 +713,12 @@ export default function ScheduledTasksPage() {
                       initial={createSchedule}
                       onChange={setCreateSchedule}
                     />
+                    <ScheduledTaskWorkNotification
+                      {...workFieldProps}
+                      id="scheduled-task-create-work-notification"
+                      value={createWorkTarget}
+                      onChange={setCreateWorkTarget}
+                    />
                     {formError && (
                       <div className="text-destructive text-sm">
                         {formError}
@@ -693,7 +731,13 @@ export default function ScheduledTasksPage() {
                 className="flex shrink-0 flex-wrap justify-end gap-2 border-t bg-white/95 p-3 backdrop-blur-sm sm:px-4"
                 data-testid="scheduled-task-create-actions"
               >
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCreateWorkTarget(null);
+                    setCreateOpen(false);
+                  }}
+                >
                   {t.common.cancel}
                 </Button>
                 <Button
@@ -706,6 +750,7 @@ export default function ScheduledTasksPage() {
                       !prompt ||
                       !createModelName ||
                       !hasSchedule ||
+                      !workTargetAvailable(createWorkTarget) ||
                       (contextMode === "reuse_thread" && !targetThreadId)
                     ) {
                       setFormError(st.create.fillRequired);
@@ -726,12 +771,20 @@ export default function ScheduledTasksPage() {
                         schedule_type: createSchedule.schedule_type,
                         schedule_spec: createSchedule.schedule_spec,
                         timezone: createSchedule.timezone || "UTC",
+                        ...(createWorkTarget === null
+                          ? {}
+                          : {
+                              work_notification: {
+                                connection_id: createWorkTarget,
+                              },
+                            }),
                       },
                       {
                         onSuccess: () => {
                           // Clear the form so a follow-up task starts fresh.
                           setTitle("");
                           setPrompt("");
+                          setCreateWorkTarget(null);
                           setCreateAssistantId(DEFAULT_ASSISTANT_ID);
                           setCreateModelName(resolveScheduledModelName(models));
                           setTargetThreadId("");
@@ -752,6 +805,7 @@ export default function ScheduledTasksPage() {
                     !prompt ||
                     !createModelName ||
                     !hasScheduleSpec(createSchedule.schedule_spec) ||
+                    !workTargetAvailable(createWorkTarget) ||
                     (contextMode === "reuse_thread" && !targetThreadId) ||
                     createTask.isPending
                   }
@@ -1204,6 +1258,23 @@ export default function ScheduledTasksPage() {
                       {formatTimestamp(selectedTask.last_run_at, locale)}
                     </span>
                   </div>
+                  {(savedWorkTarget !== null || workTargets?.enabled) && (
+                    <div className="text-muted-foreground">
+                      {st.workNotification.label}
+                      {" · "}
+                      <span className="text-foreground">
+                        {savedWorkTarget === null
+                          ? st.workNotification.off
+                          : (workTargets?.targets.find(
+                              (target) =>
+                                target.connection_id === savedWorkTarget,
+                            )?.label ??
+                            (workTargets?.enabled && !workTargetsQuery.isError
+                              ? st.workNotification.unavailableTarget
+                              : st.workNotification.configured))}
+                      </span>
+                    </div>
+                  )}
                   <div className="text-muted-foreground break-all">
                     {st.detail.lastRunId}:{" "}
                     <span className="text-foreground">
@@ -1319,8 +1390,20 @@ export default function ScheduledTasksPage() {
                     onChange={setEditSchedule}
                     scheduleTypeLocked
                   />
+                  <ScheduledTaskWorkNotification
+                    {...workFieldProps}
+                    id="scheduled-task-edit-work-notification"
+                    value={chosenEditWorkTarget}
+                    onChange={setEditWorkTarget}
+                  />
                   <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setEditing(false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditWorkTarget(undefined);
+                        setEditing(false);
+                      }}
+                    >
                       {st.actions.cancelEdit}
                     </Button>
                     <Button
@@ -1336,11 +1419,28 @@ export default function ScheduledTasksPage() {
                             ),
                             schedule_spec: editSchedule.schedule_spec,
                             timezone: editSchedule.timezone || "UTC",
+                            ...(changedWorkTarget
+                              ? {
+                                  work_notification:
+                                    chosenEditWorkTarget === null
+                                      ? null
+                                      : { connection_id: chosenEditWorkTarget },
+                                }
+                              : {}),
                           },
-                          { onSuccess: () => setEditing(false) },
+                          {
+                            onSuccess: () => {
+                              setEditWorkTarget(undefined);
+                              setEditing(false);
+                            },
+                          },
                         )
                       }
-                      disabled={updateTask.isPending}
+                      disabled={
+                        updateTask.isPending ||
+                        (changedWorkTarget &&
+                          !workTargetAvailable(chosenEditWorkTarget))
+                      }
                     >
                       {st.edit.submit}
                     </Button>
@@ -1380,7 +1480,10 @@ export default function ScheduledTasksPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setEditing((value) => !value)}
+                  onClick={() => {
+                    setEditWorkTarget(undefined);
+                    setEditing(!editing);
+                  }}
                 >
                   {editing ? st.actions.cancelEdit : st.actions.edit}
                 </Button>
@@ -1496,6 +1599,17 @@ export default function ScheduledTasksPage() {
                         <div className="text-muted-foreground text-xs">
                           {formatTimestamp(run.scheduled_for, locale)}
                         </div>
+                        {run.work_notification_status && (
+                          <div className="text-muted-foreground text-xs">
+                            {st.workNotification.label}
+                            {" · "}
+                            {
+                              st.workNotification.status[
+                                run.work_notification_status
+                              ]
+                            }
+                          </div>
+                        )}
                         {run.error && (
                           <div className="text-destructive text-xs">
                             {run.error}

@@ -54,6 +54,7 @@ from app.gateway.routers import (
     uploads,
     voice_input,
     weknora,
+    work_cards,
     work_documents,
 )
 from app.gateway.trace_middleware import TraceMiddleware, resolve_trace_enabled
@@ -308,8 +309,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             try:
                 from app.gateway.services import launch_scheduled_thread_run
                 from app.scheduler import ScheduledTaskService
+                from app.scheduler.work_notification_delivery import build_work_notification_dispatcher
 
                 if getattr(app.state, "scheduled_task_repo", None) is not None and getattr(app.state, "scheduled_task_run_repo", None) is not None:
+                    try:
+                        work_dispatcher = build_work_notification_dispatcher()
+                    except ValueError:
+                        work_dispatcher = None
+                        logger.warning("Work scheduled notifications are unavailable due to invalid configuration")
+                    app.state.work_notification_dispatcher = work_dispatcher
                     scheduled_task_service = ScheduledTaskService(
                         task_repo=app.state.scheduled_task_repo,
                         task_run_repo=app.state.scheduled_task_run_repo,
@@ -320,10 +328,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         queue_timeout_seconds=startup_config.scheduler.queue_timeout_seconds,
                         multi_instance=startup_config.scheduler.multi_instance,
                         run_lease_grace_seconds=startup_config.run_ownership.grace_seconds,
+                        work_notifications=work_dispatcher,
                     )
                     app.state.scheduled_task_service = scheduled_task_service
                     if startup_config.scheduler.enabled:
                         await scheduled_task_service.start()
+                    else:
+                        scheduled_task_service.start_notifications()
             except Exception:
                 logger.exception("Failed to initialize scheduled task service")
 
@@ -367,6 +378,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception:
             logger.exception("Failed to close document parser HTTP client")
 
+        if not isolated_ppt_runner and getattr(app.state, "scheduled_task_service", None) is not None:
+            try:
+                await app.state.scheduled_task_service.stop()
+            except Exception:
+                logger.exception("Failed to stop scheduled task service")
+
         # Stop channel service on shutdown (bounded to prevent worker hang)
         if not isolated_ppt_runner:
             try:
@@ -383,12 +400,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 )
             except Exception:
                 logger.exception("Failed to stop channel service")
-
-        if not isolated_ppt_runner and getattr(app.state, "scheduled_task_service", None) is not None:
-            try:
-                await app.state.scheduled_task_service.stop()
-            except Exception:
-                logger.exception("Failed to stop scheduled task service")
 
         if not isolated_ppt_runner and getattr(app.state, "oa_policy_flow_service", None) is not None:
             try:
@@ -639,6 +650,7 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Channels API is mounted at /api/channels
     app.include_router(channels.router)
+    app.include_router(work_cards.router)
     app.include_router(work_documents.router)
 
     # Assistants compatibility API (LangGraph Platform stub)

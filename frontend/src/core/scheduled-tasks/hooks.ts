@@ -8,12 +8,23 @@ import {
   deleteScheduledTask,
   fetchScheduledTasks,
   fetchThreadScheduledTasks,
+  fetchWorkNotificationTargets,
   pauseScheduledTask,
   resumeScheduledTask,
   triggerScheduledTask,
   updateScheduledTask,
   type ScheduledTaskPayload,
 } from "./api";
+
+export function useWorkNotificationTargets(enabled: boolean) {
+  return useQuery({
+    queryKey: ["scheduled-task-work-notification-targets"],
+    queryFn: ({ signal }) => fetchWorkNotificationTargets(signal),
+    enabled,
+    retry: false,
+    gcTime: 0,
+  });
+}
 
 export function useScheduledTasks() {
   return useQuery({

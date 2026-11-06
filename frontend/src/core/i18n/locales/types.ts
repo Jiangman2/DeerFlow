@@ -341,6 +341,24 @@ export interface Translations {
   // Scheduled tasks
   scheduledTasks: {
     scheduleType: { cron: string; once: string; interval: string };
+    workNotification: {
+      label: string;
+      off: string;
+      hint: string;
+      noTargets: string;
+      loading: string;
+      loadFailed: string;
+      configured: string;
+      unavailableTarget: string;
+      refresh: string;
+      status: {
+        pending: string;
+        sent: string;
+        failed: string;
+        uncertain: string;
+        skipped: string;
+      };
+    };
     preset: {
       label: string;
       hourly: string;

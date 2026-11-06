@@ -12,7 +12,7 @@ from typing import Any
 from app.channels.message_bus import InboundMessage
 
 from .client import WorkError
-from .scopes import has_scopes
+from .scopes import GRANT_KINDS, has_scopes
 
 
 @dataclass(frozen=True)
@@ -40,9 +40,12 @@ class Grant:
 
 
 class TokenVault:
-    def __init__(self, app_id: str, repo: Any, allowed_owners: set[str] | None, runtime_guard=None, *, store=None):
+    def __init__(self, app_id: str, repo: Any, allowed_owners: set[str] | None, runtime_guard=None, *, store=None, grant_kind="grant"):
+        if grant_kind not in GRANT_KINDS:
+            raise ValueError("Unknown Work grant kind")
         self.app_id, self.repo, self.allowed_owners = app_id, repo, frozenset(allowed_owners) if allowed_owners is not None else None
         self.store = store
+        self.grant_kind = grant_kind
         self._records = {}
         self.runtime_guard = runtime_guard or (lambda: True)
         self.grants: dict[Principal, Grant] = {}
@@ -74,7 +77,7 @@ class TokenVault:
             raise WorkError("binding_changed")
         if self.store:
             key = self.principal_key(p)
-            record = await self.store.read("grant", key, owner=key)
+            record = await self.store.read(self.grant_kind, key, owner=key)
             if record:
                 self._records[p] = record
                 value = record.value
@@ -101,7 +104,7 @@ class TokenVault:
             raise WorkError("binding_changed")
         if self.store:
             key = self.principal_key(p)
-            record = await self.store.put("grant", key, {"token": grant.token, "scopes": sorted(grant.scopes)}, owner=key, ttl=max(1, grant.expires_at - time.monotonic()), status="active")
+            record = await self.store.put(self.grant_kind, key, {"token": grant.token, "scopes": sorted(grant.scopes)}, owner=key, ttl=max(1, grant.expires_at - time.monotonic()), status="active")
             self._records[p] = record
             grant.revision = record.revision
         self.put(p, grant)
@@ -110,14 +113,14 @@ class TokenVault:
         if self.store:
             key = self.principal_key(p)
             if expected is None:
-                record = await self.store.read("grant", key, owner=key)
+                record = await self.store.read(self.grant_kind, key, owner=key)
             else:
                 record = self._records.get(p)
                 # Another in-process require may already have loaded a newer consent.
                 if not record or record.revision != expected.revision or record.value.get("token") != expected.token:
                     record = None
             if record:
-                await self.store.remove("grant", key, record)
+                await self.store.remove(self.grant_kind, key, record)
         self.revoke(p, expected=expected)
 
     def prune(self):

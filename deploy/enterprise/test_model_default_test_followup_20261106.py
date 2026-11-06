@@ -8,14 +8,15 @@ from unittest.mock import patch
 
 import dashboard_navigation_source_20261103 as navigation
 from released_source_20261102 import load
+from work_integration_source_20261106 import historical_view
 
 source = navigation.model_default_test
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class ModelDefaultTestFollowupTests(unittest.TestCase):
-    def read(self, path):
-        return (ROOT / path).read_bytes()
+    def setUp(self):
+        self.read, _ = historical_view(lambda path: (ROOT / path).read_bytes())
 
     def replace(self, target, data):
         def read(path):

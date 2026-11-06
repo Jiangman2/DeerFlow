@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from test_work_semantic_service import make_service, message
 
+from app.integrations.work import agent
 from app.integrations.work.auth import Grant
 from app.integrations.work.client import WorkError
 from app.integrations.work.drafts import CalendarDraft
@@ -30,6 +31,30 @@ def draft(**updates):
 
 def decision(value, route="new_work", question=""):
     return WorkTurnDecision(route=route, domain="calendar", draft=value, question=question)
+
+
+@pytest.mark.asyncio
+async def test_title_only_reply_continues_existing_draft_before_authorization(monkeypatch):
+    partial = draft(cardinality="single", changes={}, schedule={"start_date": "2026-11-08", "start_clock": "09:00", "duration_minutes": 120})
+    service = make_service(decision(partial))
+    model = AsyncMock(side_effect=AssertionError("A title-only answer should not call the model"))
+    monkeypatch.setattr(agent, "model_text", model)
+    try:
+        await service.handle(message("请建一条2026年11月8日早上9点的日程，持续两小时"))
+        assert "请补充标题" in service.send.call_args.args[0].text
+        assert not service.jobs
+        service._turn_planner = agent.plan_turn
+        assert await service.handle(message("项目F会议", "title-answer"))
+        job = next(iter(service.jobs.values()))
+        result = CalendarDraft.model_validate(job.intent["draft"])
+        assert result.changes.title == "项目F会议"
+        assert result.schedule == partial.schedule
+        assert "授权并继续" in service.send.call_args.args[0].text
+        assert not service.tools.plans
+        service._api.assert_not_awaited()
+        model.assert_not_awaited()
+    finally:
+        await service.close()
 
 
 @pytest.mark.asyncio

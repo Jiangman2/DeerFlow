@@ -9,13 +9,14 @@ from unittest.mock import patch
 
 import new_chat_model_source_20261105 as source
 from released_source_20261102 import followup, load
+from work_integration_source_20261106 import historical_view
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class NewChatSourceTests(unittest.TestCase):
-    def read(self, path):
-        return (ROOT / path).read_bytes()
+    def setUp(self):
+        self.read, _ = historical_view(lambda path: (ROOT / path).read_bytes())
 
     def replace(self, target, data):
         def read(path):

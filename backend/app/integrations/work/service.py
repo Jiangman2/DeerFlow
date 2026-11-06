@@ -20,13 +20,16 @@ from .agent import plan_turn, propose_action, summarize_document
 from .auth import Grant, Principal, TokenVault
 from .calendar import TZ, CalendarContext, CalendarIntent, CalendarResolver
 from .calendar_workflow import resolve_draft
-from .capabilities import Action, WorkCapabilities
+from .capabilities import Action, Plan, WorkCapabilities
+from .cards import CARD_EVENT_RECORD, CARD_PREVIEW_KEY, CARD_PREVIEW_RECORD, CARD_REPLY_TARGET_KEY, CardPreview, CardReplyTarget, CardSettings
 from .client import TOKEN_RE, UAT_APP_ID, WORK_API, WorkAPI, WorkError, document_links
 from .config import WorkSettings
 from .date_grounding import ground_write_dates
 from .drafts import CalendarDraft, draft_summary, missing_question
-from .routing import WorkTurnDecision
-from .scopes import CALENDAR_AUTH_SCOPE, CALENDAR_CONSENT_DESCRIPTION, DOCUMENT_SCOPE, has_scopes
+from .file_read import FILE_JOB_PROTOCOL, FILE_PLAN_TARGET, WorkFileRef, WorkFileSettings, file_error_explanation, file_links, read_file, requested_range
+from .file_search import LEGACY_SEARCH_SCOPE, SEARCH_JOB_PROTOCOL, SEARCH_SCOPE, WorkSearchSettings, is_exact_title, search_documents
+from .routing import FileLookupIntent, WorkTurnDecision, validate_file_lookup
+from .scopes import CALENDAR_AUTH_SCOPE, CALENDAR_CONSENT_DESCRIPTION, DOCUMENT_SCOPE, FILE_GRANT_KINDS, SEARCH_GRANT_KIND, has_scopes
 from .tasks import TaskRef
 from .turn_state import MemoryTurns
 
@@ -34,6 +37,8 @@ logger = logging.getLogger(__name__)
 MAX_JOBS = 32
 TURN_WATCHDOG_GRACE_SECONDS = 1
 _TURN_DIAGNOSTIC_ERRORS = frozenset({"turn_queue_busy", "turn_model_timeout", "turn_model_invalid", "turn_model_unavailable", "turn_request_empty", "turn_request_too_long", "turn_timeout_configuration"})
+_SEARCH_CHOICE_TTL = 300
+_SEARCH_CHOICE_LIMIT = 5
 
 
 async def _run_turn_planner(msg, *, settings, semaphore, planner, **kwargs):
@@ -99,12 +104,32 @@ class DocumentJob:
     intent: dict | None = field(default=None, repr=False)
     task_ref: dict | None = field(default=None, repr=False)
     protocol: int = 2
+    calendar_preview: Plan | None = field(default=None, init=False, repr=False)
 
 
 @dataclass
 class CalendarDialogue:
     expires_at: float
     turns: list[dict] = field(default_factory=list, repr=False)
+
+
+@dataclass(frozen=True, repr=False)
+class _SearchHandoff:
+    kind: str
+    token: str
+    url: str
+
+
+@dataclass(frozen=True, repr=False)
+class _SearchSelection:
+    text: str
+    choices: dict
+
+
+def _job_protocol(intent):
+    if isinstance(intent, dict) and intent.get("operation") == "file_lookup":
+        return SEARCH_JOB_PROTOCOL
+    return FILE_JOB_PROTOCOL if WorkFileRef.from_intent(intent) else 2
 
 
 class WorkDocumentService:
@@ -120,6 +145,10 @@ class WorkDocumentService:
         self._turn_planner = turn_planner or plan_turn
         self._turn_state = store or MemoryTurns()
         self.vault = TokenVault(app_id, repo, allowed_owners, runtime_guard, store=store)
+        self._file_settings = WorkFileSettings.from_env(self.settings.profile)
+        self._file_vaults = {kind: TokenVault(app_id, repo, allowed_owners, runtime_guard, store=store, grant_kind=grant_kind) for kind, grant_kind in FILE_GRANT_KINDS.items()}
+        self._search_settings = WorkSearchSettings.from_env(self.settings.profile)
+        self._search_vault = TokenVault(app_id, repo, allowed_owners, runtime_guard, store=store, grant_kind=SEARCH_GRANT_KIND)
         self.tools = WorkCapabilities(self.vault, self._api, document_host=self.settings.document_host, task_fencing=True, task_guard=self._assert_task)
         self.calendar = CalendarResolver(self.tools)
         self.jobs: OrderedDict[str, DocumentJob] = OrderedDict()
@@ -132,6 +161,8 @@ class WorkDocumentService:
         self._verified_calendar_days: dict[Principal, tuple[float, list[str]]] = {}
         self._principal_locks: dict[Principal, asyncio.Lock] = {}
         self._tasks: set[asyncio.Task] = set()
+        self._card_tasks: set[asyncio.Task] = set()
+        self._missing_card_tenant_logged = False
         self._job_tasks: dict[int, asyncio.Task] = {}
         self._semaphore = asyncio.Semaphore(self.settings.concurrency)
         self._turn_semaphore = asyncio.Semaphore(self.settings.concurrency)
@@ -160,9 +191,14 @@ class WorkDocumentService:
         self.calendar.prune()
         self._principal_locks = {p: lock for p, lock in self._principal_locks.items() if lock.locked() or any(self._identity(j.message) == p and j.stage == "processing" for j in self.jobs.values())}
         self.vault.prune()
+        for vault in self._special_grant_vaults():
+            vault.prune()
         self.tools.prune()
 
-    async def _reply(self, msg, text, *, final=True):
+    def _special_grant_vaults(self):
+        return (*self._file_vaults.values(), self._search_vault)
+
+    def _reply_text(self, text):
         if self.settings.profile == "production":
             substitutions = {
                 "【本地 UAT】": "【海能 Work】",
@@ -177,19 +213,28 @@ class WorkDocumentService:
             }
             for old, new in substitutions.items():
                 text = text.replace(old, new)
-        for secret in [self._secret, *(g.token for g in self.grants.values())]:
+        for secret in [self._secret, *(g.token for vault in (self.vault, *self._special_grant_vaults()) for g in vault.grants.values())]:
             text = text.replace(secret, "[已隐藏]")
+        return text
+
+    async def _reply(self, msg, text, *, final=True, card_preview=None):
+        metadata = {"user_id": msg.user_id, "message_id": msg.thread_ts}
+        target = msg.metadata.get(CARD_REPLY_TARGET_KEY)
+        if isinstance(target, CardReplyTarget):
+            metadata[CARD_REPLY_TARGET_KEY] = target
+        if isinstance(card_preview, CardPreview) and final:
+            metadata[CARD_PREVIEW_KEY] = replace(card_preview, text=self._reply_text(card_preview.text))
         await self.send(
             OutboundMessage(
                 channel_name="feishu",
                 chat_id=msg.chat_id,
                 thread_id="",
-                text=text,
+                text=self._reply_text(text),
                 is_final=final,
                 thread_ts=msg.thread_ts,
                 connection_id=msg.connection_id,
                 owner_user_id=msg.owner_user_id,
-                metadata={"user_id": msg.user_id, "message_id": msg.thread_ts},
+                metadata=metadata,
             )
         )
 
@@ -257,11 +302,12 @@ class WorkDocumentService:
         received_at = datetime.now(TZ)
         self._prune()
         links = document_links(msg.text, self.settings.document_host)
+        resources = file_links(msg.text, self.settings.document_host)
         explicit = bool(re.match(r"^/(?:work|doc_skill)(?:\s|$)", msg.text.strip()))
         try:
             p = self._identity(msg)
         except WorkError:
-            if links or explicit or msg.metadata.get("chat_type") == "p2p":
+            if links or resources or explicit or msg.metadata.get("chat_type") == "p2p":
                 await self._reply(msg, "【本地 UAT】当前消息身份尚未核对，未访问个人数据。请检查渠道连接，并在本人 Work 私聊中继续。")
                 return True
             return False
@@ -284,28 +330,42 @@ class WorkDocumentService:
                 if control:
                     await self._control(msg, p, *control.groups())
                 elif help_text in {"/work", "/work 帮助"}:
+                    search_help = "也可以按标题查找本人有权访问的 Work 云文件，同名时会请您选择。" if self._search_settings.scope else ""
                     await self._reply(
                         msg,
                         "【本地 UAT】可以读取/总结云文档，新建空白文档、改名、追加文字或替换完整无格式段落；也可以查询、新建和编辑个人主日历日程。"
                         "直接说明需求即可，缺少信息时会补问，缺少授权时会给出授权链接。写入先预览，再回复 /work 确认 确认码；"
-                        "取消预览用 /work 取消 确认码，撤销个人授权用 /work 撤销授权。暂不支持删除、分享、邀请和会议室预约。",
+                        "取消预览用 /work 取消 确认码，撤销个人授权用 /work 撤销授权。暂不支持删除、分享、邀请和会议室预约。" + search_help,
                     )
                 else:
                     await self._turn_state.finish_turn(owner, turn.turn_id, mode="exit")
                     self._cancel_local_pending(p)
                     await self.vault.revoke_shared(p)
+                    for vault in self._special_grant_vaults():
+                        await vault.revoke_shared(p)
                     await self._reply(msg, "【本地 UAT】个人授权及待确认操作已清除。Work 侧撤销请到应用授权管理操作。")
                 return True
             if msg.files:
                 # Attachments retain the ordinary platform's upload lifecycle.
                 await self._turn_state.finish_turn(owner, turn.turn_id, mode="exit")
                 self._cancel_local_pending(p)
-                if explicit or links:
+                if explicit or links or resources:
                     await self._reply(msg, "【本地 UAT】请将 Work 文档链接与上传附件分开发送。上传附件可通过普通对话处理，本次未访问或修改 Work 数据。")
                     return True
                 return False
+            if resources:
+                return await self._handle_file_turn(msg, p, owner, source, turn, resources, links)
+            choice_text = msg.text.strip()
+            number = re.fullmatch(r"[0-9]", choice_text)
+            choice_command = re.match(r"^/work\s+选择(?:\s|$)", choice_text)
+            if not links and (number or choice_command) and turn.task.get("domain") == "file_search_read":
+                await self._reply(msg, "【本地 UAT】上次选择已受理，请查看原卡片或读取结果。需要重选时，请重新搜索。")
+                return True
+            numbered_choice = number and turn.context.get("file_search_selection") and turn.task.get("domain") == "file_lookup"
+            if not links and (numbered_choice or choice_command):
+                return await self._handle_search_choice(msg, p, owner, source, turn)
             task_context = {}
-            if turn.task_ref is not None:
+            if turn.task_ref is not None and turn.task.get("domain") not in {"file_lookup", "file_search_read"}:
                 task_context = dict(turn.task)
                 task_context.update(self.calendar.facts(p))
                 task_context["pending_dialogue"] = turn.context.get("dialogue", [])
@@ -317,6 +377,10 @@ class WorkDocumentService:
                     execution = await self.tools.calendar_task_execution(p, turn.task_ref)
                     task_context["calendar_execution"] = {key: execution[key] for key in ("state", "started", "complete", "events")}
             decision = await _run_turn_planner(msg, settings=self.settings, semaphore=self._turn_semaphore, planner=self._turn_planner, links=links, task_context=task_context)
+            if isinstance(decision.intent, FileLookupIntent):
+                if decision.route != "new_work" or links:
+                    raise WorkError("invalid_search_request")
+                return await self._handle_search_turn(msg, p, owner, source, turn, decision.intent)
             execution = task_context.get("calendar_execution", {})
             blocked_recreate = decision.draft is not None and decision.draft.operation == "create" and execution.get("state", "none") != "none" and not decision.calendar_task_reset_validated
             if blocked_recreate:
@@ -463,28 +527,9 @@ class WorkDocumentService:
                 raise WorkError("model_changed_document_target")
             await self._save_task_context(p, ref)
             scope = CALENDAR_AUTH_SCOPE if calendar else DOCUMENT_SCOPE
-            if not self.store and sum(item.stage in {"awaiting_authorization", "authorizing", "processing"} for item in self.jobs.values()) >= self.settings.max_jobs:
-                raise WorkError("job_capacity")
             job = DocumentJob(replace(msg, metadata=dict(msg.metadata), files=[]), doc, self.tools.doc_url(doc) if doc else "", time.monotonic() + 600, scope, intent=decision.model_dump(mode="json"), task_ref=ref.as_dict())
-            ticket = secrets.token_urlsafe(32)
-            if not await self._register_job(ticket, job, p, source):
-                return True
-            self.jobs[ticket] = job
-            self._seen[(p, source)] = ticket
-            try:
-                grant = await self.vault.require(p, scope)
-            except WorkError as exc:
-                if exc.stage not in {"authorization_required", "scope_not_granted"}:
-                    raise
-                await self._assert_task(p, ref)
-                await self._reply(
-                    msg,
-                    "【本地 UAT】可以处理这次请求，需要您个人授权；这不是重新绑定渠道。请使用与消息发送者相同的 UAT 账号授权。\n\n"
-                    + (f"本次申请日历读取和更新权限：{CALENDAR_AUTH_SCOPE}。\n当前开放：{CALENDAR_CONSENT_DESCRIPTION}。\n\n" if calendar else "")
-                    + f"[授权并继续]({self.settings.authorize_entry}?{urlencode({'ticket': ticket})})\n\n链接10分钟有效。授权后继续本次请求；写入仍需单独预览和本人确认。",
-                )
-            else:
-                self._schedule(job, grant)
+            consent = f"本次申请日历读取和更新权限：{CALENDAR_AUTH_SCOPE}。\n当前开放：{CALENDAR_CONSENT_DESCRIPTION}。\n\n" if calendar else ""
+            await self._submit_job(job, p, source, consent=consent)
             return True
         except WorkError as exc:
             if exc.stage != "task_superseded":
@@ -519,6 +564,190 @@ class WorkDocumentService:
             await self._reply(msg, "【本地 UAT】本次 Work 请求暂未确认完成，请稍后重试或联系平台管理员。如果此前已确认修改，请先到 Work 核查结果；系统不会自动重复写入。")
             return True
 
+    async def _handle_search_turn(self, msg, p, owner, source, turn, intent):
+        try:
+            validate_file_lookup(intent, msg.text)
+        except ValueError:
+            raise WorkError("invalid_search_request") from None
+        scope = self._search_settings.scope
+        if not scope or not await self._bound(msg):
+            await self._turn_state.finish_turn(owner, turn.turn_id, mode="exit")
+            self._cancel_local_pending(p)
+            detail = "当前环境尚未开放按标题搜索 Work 云文档，可直接发送有权访问的链接。" if not scope else "渠道绑定已变更，请检查连接后继续。"
+            await self._reply(msg, "【本地 UAT】" + detail)
+            return True
+        intent_data = intent.model_dump(mode="json")
+        task = {"protocol": SEARCH_JOB_PROTOCOL, "domain": "file_lookup", "intent": intent_data, "stage": "requested", "original_request": msg.text[:1500]}
+        ref = await self._turn_state.finish_turn(owner, turn.turn_id, mode="new", task=task)
+        self._cancel_local_pending(p)
+        job = DocumentJob(replace(msg, metadata=dict(msg.metadata), files=[]), "", "", time.monotonic() + 600, scope, intent=intent_data, task_ref=ref.as_dict(), protocol=SEARCH_JOB_PROTOCOL)
+        consent = "本次申请 Work 云空间的查看、评论和下载权限，用于查找文件标题。" if scope == LEGACY_SEARCH_SCOPE else "本次只申请按标题搜索 Work 文件的用户权限。"
+        await self._submit_job(job, p, source, consent=consent + "读取正文时会另行核对对应权限。\n\n")
+        return True
+
+    async def _handle_search_choice(self, msg, p, owner, source, turn, *, card_choice=None):
+        selection = turn.context.get("file_search_selection") if turn.task_ref and turn.task.get("domain") == "file_lookup" else None
+        if not selection or selection["expires_at"] <= time.time() or selection.get("scope", SEARCH_SCOPE) != self._search_settings.scope or not await self._bound(msg):
+            await self._reply(msg, "【本地 UAT】当前没有可选的 Work 搜索结果。请重新发送标题搜索请求。")
+            return True
+        if card_choice:
+            index, code = card_choice
+        else:
+            text = msg.text.strip()
+            legacy = re.fullmatch(r"/work\s+选择\s+([1-5])\s+([A-Za-z0-9_-]{11})", text)
+            index, code = (int(legacy[1]), legacy[2]) if legacy else (0, "")
+            if re.fullmatch(r"[0-9]", text):
+                parent = msg.metadata.get("parent_id") or msg.metadata.get("root_id")
+                if parent and parent != selection.get("source_message_id"):
+                    reference = selection.get("card_reference")
+                    card = await self.store.read(CARD_PREVIEW_RECORD, reference, owner=owner) if self.store and reference else None
+                    if not card or card.status != "ready" or card.value.get("message_id") != parent:
+                        await self._reply(msg, "【本地 UAT】这条回复没有对应最新候选。请点击最新卡片，或直接在私聊中发送序号。")
+                        return True
+                index, code = int(text), selection["code"]
+        options = selection.get("items", [])
+        if not 1 <= index <= len(options) or not hmac.compare_digest(code, selection["code"]):
+            await self._reply(msg, "【本地 UAT】请选择最新列表中的有效序号。")
+            return True
+        target = _SearchHandoff(**options[index - 1])
+        request = replace(msg, text=turn.task["original_request"], metadata=dict(msg.metadata), files=[])
+        try:
+            await self._search_vault.require(p, self._search_settings.scope)
+            job = self._search_read_job(request, target, turn.task_ref)
+        except WorkError as exc:
+            if exc.stage not in {"authorization_required", "scope_not_granted", "file_read_unavailable"}:
+                raise
+            detail = "当前环境尚未开通这类文件的正文读取权限。" if exc.stage == "file_read_unavailable" else "原搜索授权已失效，请重新发送标题搜索请求。"
+            await self._reply(msg, "【本地 UAT】" + detail)
+            return True
+        if selection["expires_at"] <= time.time():
+            await self._reply(msg, "【本地 UAT】搜索结果已过期，请重新搜索。")
+            return True
+        ref = await self._turn_state.finish_turn(owner, turn.turn_id, mode="continue", task={"protocol": job.protocol, "domain": "file_search_read", "stage": "requested"})
+        self._cancel_local_pending(p)
+        await self._save_task_context(p, ref)
+        job.task_ref = ref.as_dict()
+        if card_choice:
+            await self._reply(msg, f"【本地 UAT】已选择第 {index} 项，正在准备读取。")
+        await self._submit_job(job, p, source, consent="本次申请所选 Work 文件的正文读取所需权限。\n\n")
+        return True
+
+    def _search_read_job(self, msg, target, ref):
+        scope = self._file_settings.scope_for(target.kind)
+        if not scope:
+            raise WorkError("file_read_unavailable")
+        resource = WorkFileRef(target.kind, target.token)
+        if target.url != resource.url(self.settings.document_host):
+            raise WorkError("invalid_search_result")
+        resource = WorkFileRef.from_intent(requested_range(resource, msg.text).intent())
+        return DocumentJob(msg, resource.token, resource.url(self.settings.document_host), time.monotonic() + 600, scope, intent=resource.intent(), task_ref=ref.as_dict(), protocol=FILE_JOB_PROTOCOL)
+
+    async def _handle_file_turn(self, msg, p, owner, source, turn, resources, links):
+        resource = resources[0]
+        scope = self._file_settings.scope_for(resource.kind)
+        error = ""
+        if len(resources) != 1 or links:
+            error = "请一次发送一个 Work 文档、在线表格或云盘文件链接，便于核对读取目标。"
+        elif not scope:
+            error = "当前环境尚未开放该类 Work 文件读取，请联系管理员核对应用的用户身份只读权限。"
+        elif not await self._bound(msg):
+            error = "渠道绑定已变更或当前账号不在允许范围，请检查连接后继续。"
+        if error:
+            await self._turn_state.finish_turn(owner, turn.turn_id, mode="exit")
+            self._cancel_local_pending(p)
+            await self._reply(msg, "【本地 UAT】" + error)
+            return True
+
+        url = resource.url(self.settings.document_host)
+        decision = await _run_turn_planner(
+            msg,
+            settings=self.settings,
+            semaphore=self._turn_semaphore,
+            planner=self._turn_planner,
+            links=[(FILE_PLAN_TARGET, url)],
+            task_context={},
+            capabilities={"available": True, "read_only_resource": resource.kind},
+        )
+        action = decision.intent
+        if decision.route not in {"new_work", "continue_work"} or not isinstance(action, Action) or action.operation != "document_read" or action.document_id != FILE_PLAN_TARGET:
+            await self._turn_state.finish_turn(owner, turn.turn_id, mode="exit")
+            self._cancel_local_pending(p)
+            if decision.route == "general":
+                return False
+            detail = decision.question if decision.route == "clarify" else "这类文件支持读取、分析和总结。请重新发送链接并说明要读取的内容。"
+            await self._reply(msg, "【本地 UAT】" + detail)
+            return True
+        try:
+            resource = requested_range(resource, msg.text)
+        except WorkError:
+            await self._turn_state.finish_turn(owner, turn.turn_id, mode="exit")
+            self._cancel_local_pending(p)
+            await self._reply(msg, "【本地 UAT】请指定一个有效的单元格范围，例如 A150:D165。每次最多读取 100 行、16 列。")
+            return True
+
+        intent = resource.intent()
+        task = {"protocol": FILE_JOB_PROTOCOL, "domain": "file_read", "intent": intent, "stage": "requested", "original_request": msg.text}
+        ref = await self._turn_state.finish_turn(owner, turn.turn_id, mode="new", task=task)
+        self._cancel_local_pending(p)
+        job = DocumentJob(
+            replace(msg, metadata=dict(msg.metadata), files=[]),
+            resource.token,
+            resource.url(self.settings.document_host),
+            time.monotonic() + 600,
+            scope,
+            intent=intent,
+            task_ref=ref.as_dict(),
+            protocol=FILE_JOB_PROTOCOL,
+        )
+        await self._submit_job(job, p, source, consent="本次申请读取该类 Work 文件所需的用户权限。\n\n")
+        return True
+
+    def _grant_vault(self, job):
+        if job.protocol == SEARCH_JOB_PROTOCOL or _job_protocol(job.intent) == SEARCH_JOB_PROTOCOL:
+            scope = self._search_settings.scope
+            if job.protocol != SEARCH_JOB_PROTOCOL or not scope or job.scope != scope or job.document_id or job.document_url:
+                raise WorkError("file_search_unavailable")
+            try:
+                validate_file_lookup(FileLookupIntent.model_validate(job.intent), job.message.text)
+            except ValueError:
+                raise WorkError("invalid_search_request") from None
+            return self._search_vault
+        resource = WorkFileRef.from_intent(job.intent)
+        if resource is None:
+            return self.vault
+        if resource.kind == "docx" and not self._search_settings.scope:
+            # This resource kind can only originate from title search. A
+            # queued consent may not re-enable it after an operator turns it off.
+            raise WorkError("file_read_unavailable")
+        scope = self._file_settings.scope_for(resource.kind)
+        if job.protocol != FILE_JOB_PROTOCOL or not scope or job.scope != scope or job.document_id != resource.token or job.document_url != resource.url(self.settings.document_host):
+            raise WorkError("file_read_unavailable")
+        return self._file_vaults[resource.kind]
+
+    async def _submit_job(self, job, p, source, *, consent):
+        if not self.store and sum(item.stage in {"awaiting_authorization", "authorizing", "processing"} for item in self.jobs.values()) >= self.settings.max_jobs:
+            raise WorkError("job_capacity")
+        vault = self._grant_vault(job)
+        ticket = secrets.token_urlsafe(32)
+        if not await self._register_job(ticket, job, p, source):
+            return
+        self.jobs[ticket] = job
+        self._seen[(p, source)] = ticket
+        try:
+            grant = await vault.require(p, job.scope)
+        except WorkError as exc:
+            if exc.stage not in {"authorization_required", "scope_not_granted"}:
+                raise
+            await self._assert_task(p, TaskRef.parse(job.task_ref))
+            await self._reply(
+                job.message,
+                "【本地 UAT】可以处理这次请求，需要您个人授权；这不是重新绑定渠道。请使用与消息发送者相同的 UAT 账号授权。\n\n"
+                + consent
+                + f"[授权并继续]({self.settings.authorize_entry}?{urlencode({'ticket': ticket})})\n\n链接10分钟有效。授权后继续本次请求；写入仍需单独预览和本人确认。",
+            )
+        else:
+            self._schedule(job, grant)
+
     async def _register_job(self, ticket, job, principal, source):
         return True
 
@@ -529,6 +758,167 @@ class WorkDocumentService:
         self.tools.known_events.pop(p, None)
         self._workflow_feedback.pop(p, None)
         self._verified_calendar_days.pop(p, None)
+
+    async def _card_preview(self, msg, p, plan):
+        if plan is None:
+            return None
+        return await self._make_card_preview(
+            msg,
+            p,
+            {"plan_id": plan.id},
+            min(300, plan.expires_at - time.monotonic()),
+            "【本地 UAT】待确认修改（5 分钟内有效）\n" + plan.preview,
+        )
+
+    async def _search_card_preview(self, msg, p, ref, answer):
+        choices = answer.choices
+        return await self._make_card_preview(
+            msg,
+            p,
+            {"search_code": choices["code"], "task_ref": ref.as_dict(), "choice_count": len(choices["items"])},
+            choices["expires_at"] - time.time(),
+            "【本地 UAT】" + answer.text + "\n\n点击按钮读取对应文件，也可直接回复序号。候选保留 5 分钟。",
+            reference=choices["card_reference"],
+        )
+
+    async def _make_card_preview(self, msg, p, details, ttl, text, *, reference=None):
+        settings = CardSettings.from_env(self.settings.profile, app_id=self.app_id)
+        if not settings or settings.app_id != self.app_id or not self.store or ttl <= 0 or not msg.thread_ts or msg.metadata.get("chat_type") != "p2p":
+            return None
+        tenant = settings.preview_tenant(msg.metadata)
+        if tenant is None:
+            if settings.transport == "websocket" and not self._missing_card_tenant_logged:
+                self._missing_card_tenant_logged = True
+                logger.warning("work_card transport=websocket stage=preview_text_fallback reason=unverified_tenant")
+            return None
+        owner = self.vault.principal_key(p)
+        reference = reference or secrets.token_urlsafe(24)
+        data = {**details, "app_id": self.app_id, "tenant_key": tenant, "transport": settings.transport, "chat_id": p.chat, "sender": p.sender, "source_message_id": msg.thread_ts}
+        try:
+            issued = await self.store.create(CARD_PREVIEW_RECORD, reference, data, owner=owner, status="issued", ttl=ttl)
+        except Exception:
+            logger.warning("work_card stage=preview_record_unavailable")
+            return None
+        if not issued:
+            return None
+
+        async def bind(message_id):
+            if await self.store.change(CARD_PREVIEW_RECORD, reference, issued, value={**data, "message_id": message_id}, status="ready"):
+                return True
+            saved = await self.store.read(CARD_PREVIEW_RECORD, reference, owner=owner)
+            return bool(saved and saved.status == "ready" and saved.value.get("message_id") == message_id)
+
+        return CardPreview(reference, text, bind, choice_count=details.get("choice_count", 0))
+
+    async def enqueue_card_click(self, click, settings, *, authority=None):
+        """Admit an authenticated platform action without reserving a chat turn."""
+        if self._closed or not self.store or not self.repo or settings.app_id != self.app_id:
+            return "unavailable"
+        if settings.transport == "websocket" and authority is None:
+            return "unavailable"
+        if not click.tenant_key or settings.tenant_key and click.tenant_key != settings.tenant_key:
+            return "invalid"
+        if len(self._card_tasks) >= self.settings.concurrency:
+            return "busy"
+        row = await self.repo.find_connection_by_external_identity(provider="feishu", external_account_id=click.sender, workspace_id=click.chat_id)
+        if not row or row.get("status") != "connected" or not row.get("owner_user_id") or not row.get("id"):
+            return "invalid"
+        p = Principal(self.app_id, click.sender, row["owner_user_id"], row["id"], click.chat_id, click.chat_id)
+        if not await self.vault.bound(p):
+            return "invalid"
+        owner = self.vault.principal_key(p)
+        card = await self.store.read(CARD_PREVIEW_RECORD, click.reference, owner=owner)
+        expected = {"app_id": self.app_id, "tenant_key": click.tenant_key, "chat_id": click.chat_id, "sender": click.sender, "message_id": click.message_id}
+        if not card or card.status != "ready" or card.value.get("transport", "http") != settings.transport or any(card.value.get(key) != value for key, value in expected.items()):
+            return "invalid"
+        search_action = re.fullmatch(r"select_([1-5])", click.verb)
+        if search_action:
+            index = int(search_action[1])
+            ref = TaskRef.parse(card.value.get("task_ref"))
+            code = card.value.get("search_code")
+            if ref is None or not isinstance(code, str) or index > card.value.get("choice_count", 0):
+                return "invalid"
+            try:
+                await self.store.assert_task(owner, ref)
+            except WorkError as exc:
+                if exc.stage == "task_superseded":
+                    return "invalid"
+                raise
+        else:
+            plan_id = card.value.get("plan_id")
+            if click.verb not in {"confirm", "cancel"} or not plan_id:
+                return "invalid"
+            plan = await self.store.read("plan", plan_id, owner=owner)
+            if not plan or plan.status != "pending":
+                return "invalid"
+        event_value = {"reference": click.reference, "verb": click.verb}
+        event = await self.store.create(CARD_EVENT_RECORD, click.event_id, event_value, owner=owner, ttl=600)
+        if not event:
+            event = await self.store.read(CARD_EVENT_RECORD, click.event_id, owner=owner)
+            if not event or event.value != event_value or event.status != "waiting":
+                return "duplicate"
+        # A receiver can lose its lease during SQL admission. Leave its event
+        # waiting so the replacement can receive a retry without a plan claim.
+        if authority is not None and not await authority():
+            return "unavailable"
+        if self._closed or len(self._card_tasks) >= self.settings.concurrency:
+            return "busy"
+        msg = InboundMessage(
+            channel_name="feishu",
+            chat_id=p.chat,
+            user_id=p.sender,
+            text="",
+            thread_ts=card.value["source_message_id"],
+            connection_id=p.connection,
+            owner_user_id=p.owner,
+            workspace_id=p.workspace,
+            metadata={"chat_type": "p2p", CARD_REPLY_TARGET_KEY: CardReplyTarget(click.message_id)},
+        )
+        action = self._run_search_card_click(msg, p, click, event, ref, index, code) if search_action else self._run_card_click(msg, p, click, plan_id, event)
+        task = asyncio.create_task(action)
+        self._card_tasks.add(task)
+        self._tasks.add(task)
+        task.add_done_callback(self._card_tasks.discard)
+        task.add_done_callback(self._done)
+        return "accepted"
+
+    async def _run_search_card_click(self, msg, p, click, event, ref, index, code):
+        owner = self.vault.principal_key(p)
+        source = "search-card:" + click.event_id
+        try:
+            if not await self._bound(msg) or not await self.store.change(CARD_EVENT_RECORD, click.event_id, event, status="handling"):
+                return
+            turn = await self.store.reserve_turn(owner, source, expected_ref=ref)
+            if turn is not None:
+                await self._handle_search_choice(msg, p, owner, source, turn, card_choice=(index, code))
+        except Exception as exc:
+            if isinstance(exc, WorkError) and exc.stage == "task_superseded":
+                return
+            logger.warning("work_card stage=search_choice_failed")
+            if await self._bound(msg):
+                await self._reply(msg, "【本地 UAT】未能完成这次读取。请重新搜索后选择。")
+
+    async def _run_card_click(self, msg, p, click, plan_id, event):
+        # Independent of the write lease: serialize competing card buttons,
+        # including cancel, while text confirmations still use the same plan CAS.
+        lease = "card-control:" + plan_id
+        holder = secrets.token_urlsafe(24)
+        acquired = False
+        try:
+            async with asyncio.timeout(200):
+                acquired = bool(await self.store.acquire(lease, holder, ttl=210))
+                if not acquired or self._closed or not await self._bound(msg):
+                    return
+                if not await self.store.change(CARD_EVENT_RECORD, click.event_id, event, status="handling"):
+                    return
+                await self._control(msg, p, "确认" if click.verb == "confirm" else "取消", plan_id)
+        finally:
+            if acquired:
+                try:
+                    async with asyncio.timeout(3):
+                        await self.store.release(lease, holder)
+                except Exception:
+                    logger.warning("work_card stage=control_lease_release_deferred")
 
     async def _control(self, msg, p, verb, plan_id):
         try:
@@ -565,10 +955,9 @@ class WorkDocumentService:
             plan = self.tools.plans.get(plan_id)
             uncertain = plan and plan.principal == p and plan.stage in {"uncertain", "executing", "completed"}
             safe = exc.stage if isinstance(exc, WorkError) else "operation_timeout_or_transport"
+            receipt = next((url for _, url in document_links(plan.receipt, self.settings.document_host) if url == plan.receipt), "") if uncertain and plan.receipt else ""
             if await self._bound(msg):
-                await self._reply(
-                    msg, f"【本地 UAT】操作未确认成功（{safe}）。" + ("请求可能已经生效，请到 Work 核查；不会自动重试。" + ("\n回执：" + plan.receipt if plan.receipt else "") if uncertain else "未执行新的写入，请重新请求预览。")
-                )
+                await self._reply(msg, f"【本地 UAT】操作未确认成功（{safe}）。" + ("请求可能已经生效，请到 Work 核查；不会自动重试。" + ("\n回执：" + receipt if receipt else "") if uncertain else "未执行新的写入，请重新请求预览。"))
 
     async def authorize(self, ticket, browser_session):
         self._prune()
@@ -578,6 +967,7 @@ class WorkDocumentService:
         if job.stage != "awaiting_authorization":
             raise WorkError("invalid_or_expired_ticket")
         await self._assert_task(self._identity(job.message), TaskRef.parse(job.task_ref))
+        self._grant_vault(job)
         job.stage = "authorizing"
         job.state = secrets.token_urlsafe(32)
         job.browser_session = browser_session if TOKEN_RE.fullmatch(browser_session) else secrets.token_urlsafe(32)
@@ -595,6 +985,7 @@ class WorkDocumentService:
         self._states.pop(state, None)
         try:
             await self._assert_task(self._identity(job.message), TaskRef.parse(job.task_ref))
+            self._grant_vault(job)
             if error or not code or not await self._bound(job.message):
                 raise WorkError("authorization_or_binding_invalid")
             data = await self._api("token", payload={"grant_type": "authorization_code", "client_id": self.app_id, "client_secret": self._secret, "code": code, "redirect_uri": self.settings.callback_url})
@@ -646,15 +1037,33 @@ class WorkDocumentService:
         if not await self.vault.bound(p):
             raise WorkError("binding_changed")
         await self._assert_task(p, TaskRef.parse(job.task_ref))
-        self.vault.put(p, grant)
+        self._grant_vault(job).put(p, grant)
 
     def _schedule(self, job, grant):
         job.stage = "processing"
-        task = asyncio.create_task(self._run(job))
+        task = asyncio.create_task(self._run_and_continue(job))
         self._job_tasks[id(job)] = task
         self._tasks.add(task)
         task.add_done_callback(self._done)
         task.add_done_callback(lambda _: self._job_tasks.pop(id(job), None))
+
+    async def _run_and_continue(self, job):
+        handoff = await self._run(job)
+        if handoff is None:
+            return
+        p, ref = self._identity(job.message), TaskRef.parse(job.task_ref)
+        source = job.message.thread_ts or job.message.metadata.get("message_id")
+        try:
+            await self._assert_task(p, ref)
+            await self._search_vault.require(p, job.scope)
+            read_job = self._search_read_job(job.message, handoff, ref)
+            await self._submit_job(read_job, p, source + ":search-result-read", consent="已定位到唯一同名 Work 文件。本次申请正文读取所需权限。\n\n")
+        except WorkError as exc:
+            if exc.stage == "task_superseded":
+                return
+            await self._assert_task(p, ref)
+            if await self._bound(job.message):
+                await self._reply(job.message, "【本地 UAT】已定位到文件，未读取正文。请重新发送原请求或直接发送文件链接。")
 
     def _done(self, task):
         self._tasks.discard(task)
@@ -683,6 +1092,11 @@ class WorkDocumentService:
     async def _plan_answer(self, job, p):
         if not job.intent:
             raise WorkError("task_reference_required")
+        if job.protocol == SEARCH_JOB_PROTOCOL:
+            return await self._answer_search(job, p)
+        resource = WorkFileRef.from_intent(job.intent)
+        if resource:
+            return await self._answer_file(job, p, resource)
         decision = WorkTurnDecision.model_validate(job.intent)
         action = decision.intent
         await self._assert_task(p, TaskRef.parse(job.task_ref))
@@ -712,6 +1126,7 @@ class WorkDocumentService:
             # Even one draft-derived write uses the same immutable plan
             # envelope, including any conflict notes that the user reviews.
             plan = await self.tools.prepare_batch(p, resolved.actions, task_ref=TaskRef.parse(job.task_ref), summary=resolved.text[:500])
+            job.calendar_preview = plan
             return self._preview_reply(plan)
         if isinstance(action, CalendarIntent):
             if job.scope != CALENDAR_AUTH_SCOPE:
@@ -745,7 +1160,86 @@ class WorkDocumentService:
         if action.operation == "events_list":
             return await self.tools.events(p, action)
         plan = await self.tools.prepare(p, action, task_ref=TaskRef.parse(job.task_ref))
+        if action.operation in {"event_create", "event_update"}:
+            job.calendar_preview = plan
         return self._preview_reply(plan)
+
+    async def _answer_search(self, job, p):
+        vault, ref = self._grant_vault(job), TaskRef.parse(job.task_ref)
+        intent = FileLookupIntent.model_validate(job.intent)
+        grant = await vault.require(p, job.scope)
+
+        async def guard():
+            await self._assert_task(p, ref)
+            current = await vault.require(p, job.scope)
+            if current.token != grant.token or current.revision != grant.revision:
+                raise WorkError("search_authorization_changed")
+
+        await guard()
+        try:
+            results = await search_documents(self._api, grant.token, intent.title, host=self.settings.document_host, guard=guard, scope=job.scope)
+        except WorkError as exc:
+            if exc.http_status == 401 or exc.business_code == 99991679:
+                await vault.revoke_shared(p, expected=grant)
+            raise
+        await guard()
+        items = results.items[:_SEARCH_CHOICE_LIMIT]
+        if not items:
+            return "没有找到匹配的 Work 文件。请核对完整标题，或直接发送有权访问的 Work 链接。" if results.complete else "本次 Work 搜索结果不完整，暂无法确认是否存在匹配文件。请缩小标题范围或发送文件链接。"
+        exact = [item for item in results.items if is_exact_title(item.title, intent.title)]
+        if intent.read and results.complete and len(exact) == 1:
+            target = exact[0]
+            if self._file_settings.scope_for(target.kind):
+                return _SearchHandoff(target.kind, target.token, target.url)
+            return f"已找到唯一同名文件。当前环境尚未开通这类文件的正文读取权限。\n{target.url}"
+
+        code = secrets.token_urlsafe(8)
+        choices = {
+            "code": code,
+            "expires_at": time.time() + _SEARCH_CHOICE_TTL,
+            "scope": job.scope,
+            "source_message_id": job.message.thread_ts,
+            "card_reference": secrets.token_urlsafe(24),
+            "items": [{"kind": item.kind, "token": item.token, "url": item.url} for item in items],
+        }
+        labels = {"docx": "云文档", "sheet": "在线表格", "drive": "云盘文件", "bitable": "多维表格"}
+        lines = ["Work 搜索结果（尚未读取正文）"]
+        for index, item in enumerate(items, 1):
+            title = re.sub(r"[A-Za-z][A-Za-z0-9+.-]*://\S+", "［链接已省略］", item.title)
+            title = " ".join(title.split())[:150].translate(str.maketrans("[]()<>", "［］（）〈〉"))
+            modified = f" · 更新 {item.updated_at}" if item.updated_at else ""
+            lines.append(f"{index}. {title} · {labels[item.kind]}{modified}\n{item.url}")
+        if not results.complete or len(results.items) > _SEARCH_CHOICE_LIMIT:
+            lines.append("这里只列出部分结果。如未找到目标，请补充更准确的标题。")
+        return _SearchSelection("\n\n".join(lines), choices)
+
+    async def _answer_file(self, job, p, resource):
+        vault, ref = self._grant_vault(job), TaskRef.parse(job.task_ref)
+        operations = {"docx": {"document_info", "document_content"}, "sheet": {"sheet_tabs", "sheet_values"}, "drive": {"drive_file_download"}, "bitable": {"bitable_tables", "bitable_records"}}[resource.kind]
+
+        async def request(operation, **kwargs):
+            if operation not in operations or kwargs.get("document_id") != resource.token:
+                raise WorkError("invalid_file_reference")
+            await self._assert_task(p, ref)
+            grant = await vault.require(p, job.scope)
+            try:
+                result = await self._api(operation, token=grant.token, **kwargs)
+            except WorkError as exc:
+                if exc.http_status == 401 or exc.business_code == 99991679:
+                    await vault.revoke_shared(p, expected=grant)
+                raise
+            await self._assert_task(p, ref)
+            await vault.require(p, job.scope)
+            return result
+
+        title, content, truncated = await read_file(resource, request)
+        if not content.strip():
+            raise WorkError("file_no_readable_text")
+        await self._assert_task(p, ref)
+        await vault.require(p, job.scope)
+        answer = await self._summarize(job.message.text, title, content)
+        notice = "\n（仅读取了部分内容，结论限于本次读取范围。）" if truncated else ""
+        return f"《{title[:200]}》\n{answer}\n来源：{job.document_url}{notice}"
 
     @staticmethod
     def _preview_reply(plan):
@@ -764,16 +1258,30 @@ class WorkDocumentService:
                 lock = self._principal_locks.setdefault(p, asyncio.Lock())
                 async with lock, self._semaphore:
                     await self._sync_task_context(job, p)
-                    await self.vault.require(p, job.scope)
+                    vault = self._grant_vault(job)
+                    await vault.require(p, job.scope)
                     answer = await self._plan_answer(job, p)
                     stop.set()
                     await asyncio.gather(heartbeat, return_exceptions=True)
                     heartbeat = None
-                    await self._save_task_context(p, TaskRef.parse(job.task_ref))
-                    await self.vault.require(p, job.scope)
-                    await self._assert_task(p, TaskRef.parse(job.task_ref))
+                    ref = TaskRef.parse(job.task_ref)
+                    search_selection = answer if isinstance(answer, _SearchSelection) else None
+                    if search_selection:
+                        await self._turn_state.save_task_context(self.vault.principal_key(p), ref, {"file_search_selection": search_selection.choices}, ttl=_SEARCH_CHOICE_TTL)
+                        answer = search_selection.text + "\n\n直接回复序号，例如 1。候选保留 5 分钟。"
+                    else:
+                        await self._save_task_context(p, ref)
+                    await vault.require(p, job.scope)
+                    await self._assert_task(p, ref)
                     if await self._bound(job.message):
-                        await self._reply(job.message, "【本地 UAT】" + answer)
+                        if isinstance(answer, _SearchHandoff):
+                            job.stage = "completed"
+                            return answer
+                        card_preview = await self._search_card_preview(job.message, p, ref, search_selection) if search_selection else await self._card_preview(job.message, p, job.calendar_preview)
+                        if card_preview is None:
+                            await self._reply(job.message, "【本地 UAT】" + answer)
+                        else:
+                            await self._reply(job.message, "【本地 UAT】" + answer, card_preview=card_preview)
                     job.stage = "completed"
         except asyncio.CancelledError:
             job.stage = "cancelled"
@@ -797,6 +1305,8 @@ class WorkDocumentService:
             facts = f"阶段：{exc.stage}" if isinstance(exc, WorkError) else "阶段：model_or_transport"
             if isinstance(exc, WorkError):
                 facts += f"；HTTP：{exc.http_status}；错误码：{exc.business_code}"
+                if job.intent and job.intent.get("operation") == "file_read":
+                    facts += file_error_explanation(exc.stage, exc.http_status)
                 if exc.stage == "authorization_required":
                     facts += "；个人授权已过期，请重新发送请求获取授权（不需要解绑渠道）"
                 elif exc.business_code == 99991679:
@@ -825,6 +1335,9 @@ class WorkDocumentService:
             task.cancel()
         await asyncio.gather(*self._tasks, return_exceptions=True)
         self.grants.clear()
+        for vault in self._special_grant_vaults():
+            vault.grants.clear()
+            vault._records.clear()
         self.jobs.clear()
         self._states.clear()
         self._seen.clear()
