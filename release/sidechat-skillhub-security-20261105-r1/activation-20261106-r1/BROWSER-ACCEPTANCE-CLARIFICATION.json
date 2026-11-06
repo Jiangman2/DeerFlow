@@ -1,0 +1,22 @@
+{
+  "schema": "portal-sidechat-browser-acceptance-clarification.v1",
+  "received_date_local": "2026-11-06",
+  "timezone": "Asia/Shanghai",
+  "activation_operation": "b6eb864391124ae79231049ecc74c517",
+  "frontend_generation": 242,
+  "supersedes_scope_of": {
+    "path": "BROWSER-OPERATOR-ACCEPTANCE.json",
+    "bytes": 870,
+    "sha256": "8fc09157d83b31e0421986cf4cf04be22aabf9c5fd1851a75fedd33f415d15b6"
+  },
+  "original_record_preserved": true,
+  "initial_operator_statement": "桌面和手机均正常",
+  "subsequent_operator_clarification": "手机端应该没有侧边对话",
+  "desktop_sidechat_ui_acceptance": "CONFIRMED_BY_OPERATOR",
+  "mobile_sidechat_production_acceptance": "NOT_SEPARATELY_CONFIRMED",
+  "mobile_source_behavior": "No desktop split sidebar. Existing sidecar threads can be restored through More / Open side chat in a Sheet; trigger requires an existing sidecar thread.",
+  "local_browser_test_scope": "390px test restores an existing sidecar using synthetic API responses; this is not production mobile acceptance.",
+  "model_business_call_acceptance_claimed": false,
+  "skillhub_native_auth_remediation_accepted": false,
+  "status": "DESKTOP_ACCEPTANCE_CONFIRMED_MOBILE_SCOPE_CORRECTED"
+}

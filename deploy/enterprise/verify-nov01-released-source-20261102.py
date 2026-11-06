@@ -32,6 +32,8 @@ def verify(ref=None):
             roots.append(followup.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.IMAGE_PNG_ARCHIVE.rstrip("/")], cwd=ROOT).strip():
             roots.append(followup.IMAGE_PNG_ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.sidechat.MANIFEST], cwd=ROOT).strip():
+            roots.extend((followup.sidechat.ARCHIVE, *followup.sidechat.EVIDENCE_PATHS))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.new_chat.MANIFEST], cwd=ROOT).strip():
             roots.extend((followup.new_chat.ARCHIVE, followup.new_chat.GUIDE))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.navigation.MANIFEST], cwd=ROOT).strip():

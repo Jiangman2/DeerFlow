@@ -21,7 +21,6 @@ import {
   PromptInputActionMenu,
   PromptInputActionMenuContent,
   PromptInputActionMenuItem,
-  PromptInputActionMenuTrigger,
   PromptInputAttachment,
   PromptInputAttachments,
   PromptInputButton,
@@ -46,6 +45,7 @@ import {
 import {
   DropdownMenuGroup,
   DropdownMenuLabel,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChatModelPicker } from "@/components/workspace/chat-model-picker";
 import { useI18n } from "@/core/i18n/hooks";
@@ -74,7 +74,6 @@ import {
   formatUploadSize,
   useUploadLimits,
   validateUploadLimits,
-  type UploadLimits,
   type UploadLimitViolation,
 } from "@/core/uploads";
 import { env } from "@/env";
@@ -527,7 +526,7 @@ export function SidecarPanel({ className }: { className?: string }) {
 
   return (
     <div
-      className={cn("flex size-full min-h-0 flex-col", className)}
+      className={cn("bg-background flex size-full min-h-0 flex-col", className)}
       data-testid="sidecar-panel"
     >
       <header className="border-border/70 flex h-12 shrink-0 items-center gap-2 border-b px-3">
@@ -603,10 +602,10 @@ export function SidecarPanel({ className }: { className?: string }) {
         )}
       </div>
 
-      <div className="bg-background/95 shrink-0 px-3 pt-3 pb-4 sm:px-4">
+      <div className="bg-background shrink-0 px-3 pt-3 pb-4 sm:px-4">
         <PromptInputProvider key={sidecar.parentThreadId}>
           <PromptInput
-            className="bg-background/85 rounded-2xl border backdrop-blur-sm *:data-[slot='input-group']:rounded-2xl"
+            className="bg-background rounded-2xl border *:data-[slot='input-group']:rounded-2xl"
             disabled={disabled}
             multiple
             onSubmit={handleSubmit}
@@ -627,16 +626,16 @@ export function SidecarPanel({ className }: { className?: string }) {
                 />
               )}
             </PromptInputHeader>
-            <div className="min-h-14 min-w-0 px-3 py-2.5 sm:min-h-16 sm:py-3">
+            <div className="min-h-14 w-full min-w-0 px-3 py-2.5 sm:min-h-16 sm:py-3">
               <PromptInputTextarea
-                className="max-h-36 min-h-6! w-full min-w-0 p-0! text-sm leading-6!"
+                className="max-h-36 min-h-6! w-full min-w-0 overflow-y-auto p-0! text-left text-sm leading-6!"
                 disabled={disabled}
                 placeholder={t.sidecar.placeholder}
               />
             </div>
             <PromptInputFooter className="@container flex flex-nowrap gap-1 px-2 pb-2 sm:gap-2 sm:px-3 sm:pb-3">
               <PromptInputTools className="min-w-0 flex-1 flex-nowrap overflow-hidden">
-                <SidecarAddAttachmentsButton uploadLimits={uploadLimits} />
+                <SidecarAddAttachmentsButton />
                 <SidecarModeMenu
                   context={sidecar.context}
                   supportThinking={supportThinking}
@@ -722,23 +721,12 @@ export function SidecarPanel({ className }: { className?: string }) {
   );
 }
 
-function SidecarAddAttachmentsButton({
-  uploadLimits,
-}: {
-  uploadLimits?: UploadLimits;
-}) {
+function SidecarAddAttachmentsButton() {
   const { t } = useI18n();
   const attachments = usePromptInputAttachments();
-  const tooltipContent = uploadLimits
-    ? t.uploads.limitsHint(
-        uploadLimits.max_files,
-        formatUploadSize(uploadLimits.max_file_size),
-        formatUploadSize(uploadLimits.max_total_size),
-      )
-    : t.inputBox.addAttachments;
 
   return (
-    <Tooltip content={<span className="block max-w-80">{tooltipContent}</span>}>
+    <Tooltip content={t.inputBox.addAttachments}>
       <PromptInputButton
         aria-label={t.inputBox.addAttachments}
         className="px-2!"
@@ -766,27 +754,29 @@ function SidecarModeMenu({
   return (
     <PromptInputActionMenu>
       <ModeHoverGuide mode={mode}>
-        <PromptInputActionMenuTrigger className="max-w-20 min-w-0 gap-1! px-2!">
-          <div>
-            {mode === "flash" && <ZapIcon className="size-3" />}
-            {mode === "thinking" && <LightbulbIcon className="size-3" />}
-            {mode === "pro" && <GraduationCapIcon className="size-3" />}
-            {mode === "ultra" && (
-              <RocketIcon className="size-3 text-[#dabb5e]" />
-            )}
-          </div>
-          <div
-            className={cn(
-              "truncate text-xs font-normal",
-              mode === "ultra" && "golden-text",
-            )}
-          >
-            {(mode === "flash" && t.inputBox.flashMode) ||
-              (mode === "thinking" && t.inputBox.reasoningMode) ||
-              (mode === "pro" && t.inputBox.proMode) ||
-              (mode === "ultra" && t.inputBox.ultraMode)}
-          </div>
-        </PromptInputActionMenuTrigger>
+        <DropdownMenuTrigger asChild>
+          <PromptInputButton className="max-w-20 min-w-0 gap-1! px-2!">
+            <div>
+              {mode === "flash" && <ZapIcon className="size-3" />}
+              {mode === "thinking" && <LightbulbIcon className="size-3" />}
+              {mode === "pro" && <GraduationCapIcon className="size-3" />}
+              {mode === "ultra" && (
+                <RocketIcon className="size-3 text-[#dabb5e]" />
+              )}
+            </div>
+            <div
+              className={cn(
+                "truncate text-xs font-normal",
+                mode === "ultra" && "golden-text",
+              )}
+            >
+              {(mode === "flash" && t.inputBox.flashMode) ||
+                (mode === "thinking" && t.inputBox.reasoningMode) ||
+                (mode === "pro" && t.inputBox.proMode) ||
+                (mode === "ultra" && t.inputBox.ultraMode)}
+            </div>
+          </PromptInputButton>
+        </DropdownMenuTrigger>
       </ModeHoverGuide>
       <PromptInputActionMenuContent className="w-80">
         <DropdownMenuGroup>

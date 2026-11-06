@@ -1,5 +1,17 @@
 # AGENTS.md
 
+## November 6 released side-chat frontend
+
+Frontend 242's one-file composer/background successor is registered in
+`release/sidechat-frontend-source-20261106/SOURCE.json`; see
+`docs/sidechat-frontend-release-20261106.md`. Run its source verifier/rejection
+suite and the existing November 1/2 and October 29 source checks. Preserve
+historical inventories, the original failed preload and its successful read-only
+recheck. The append-only browser clarification limits operator acceptance to
+the desktop side-chat UI; the restored mobile Sheet was tested synthetically,
+not separately accepted in production. This archive does not deploy SkillHub
+remediation or authorize rerunning any completed production activation tool.
+
 ## November 5 default-model source registration
 
 `release/new-chat-model-source-20261105/SOURCE.json` pins the nine paths from
