@@ -10,7 +10,7 @@
       "kind": "regression-test",
       "baseline_path": "release/model-default-test-followup-20261106/baseline/frontend/tests/e2e/model-square-account.spec.ts",
       "base_sha256": "62b3c2f7bfdd9bd92e791d2fb1d46aef066af8cba8291aa80806a4de2fd07bb1",
-      "current_sha256": "e1081ec67b1fe24f9d692178b9b1907bc8a2d84fdfe66723abe9f215ccb27f70"
+      "current_sha256": "b79d2398d59c936e69c8e6b3f6c21937c047b4bc4605649f1a48e0e186eafefe"
     }
   }
 }

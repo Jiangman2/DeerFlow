@@ -229,7 +229,10 @@ test("new chats default to V4.1 and preserve an explicit V4 selection", async ({
     exact: true,
   });
   await expect(selectedModel).toBeVisible();
+  // Wait for the closing menu to unmount before opening a fresh menu.
+  await expect(menu).toHaveCount(0);
   await selectedModel.click();
+  await expect(menu).toHaveAttribute("data-state", "open");
   await expect(v4).toHaveAttribute("aria-checked", "true");
   await expect(v41).toHaveAttribute("aria-checked", "false");
 });
