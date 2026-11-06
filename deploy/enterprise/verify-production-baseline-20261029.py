@@ -99,8 +99,8 @@ def verify(ref=None):
         expected.update(result['released_delta_nov02']['frontend_runtime_paths'])
     if result.get('dashboard_navigation_candidate'):
         expected.update(result['dashboard_navigation_candidate']['frontend_runtime_paths'])
-    if result.get('feishu_export_source'):
-        expected.update(result['feishu_export_source']['frontend_runtime_paths'])
+    if (result.get('candidate') or {}).get('feishu_export_source'):
+        expected.update(result['candidate']['feishu_export_source']['frontend_runtime_paths'])
     if ref:
         names = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, 'frontend/src', 'frontend/public'], cwd=ROOT).decode().splitlines()
         actual = set(names)
