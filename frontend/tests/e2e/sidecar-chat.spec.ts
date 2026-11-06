@@ -131,20 +131,29 @@ async function expectSidecarSelectionToolbarActions(page: Page, text: string) {
   throw lastError;
 }
 
-async function expectComposerHeightsEqual(page: Page) {
+async function expectComposerChromeAndBottomAligned(page: Page) {
   const metrics = await page.evaluate(() => {
     const findFormByPlaceholder = (pattern: RegExp) => {
       const textarea = Array.from(document.querySelectorAll("textarea")).find(
         (element) => pattern.test(element.getAttribute("placeholder") ?? ""),
       );
       const form = textarea?.closest("form");
-      if (!form) {
+      const inputArea = textarea?.parentElement;
+      if (!textarea || !form || !inputArea) {
         return null;
       }
       const box = form.getBoundingClientRect();
+      const inputBox = inputArea.getBoundingClientRect();
+      const textareaBox = textarea.getBoundingClientRect();
       return {
-        height: Math.round(box.height),
-        bottomGap: Math.round(window.innerHeight - box.bottom),
+        // The main draft now grows from one to six lines; the side chat retains
+        // its existing minimum input area. Compare shared header/footer chrome,
+        // not total heights that intentionally differ with those input areas.
+        chromeHeight: box.height - inputBox.height,
+        bottomGap: window.innerHeight - box.bottom,
+        textareaInsideInputArea:
+          textareaBox.top >= inputBox.top &&
+          textareaBox.bottom <= inputBox.bottom,
       };
     };
 
@@ -156,8 +165,14 @@ async function expectComposerHeightsEqual(page: Page) {
 
   expect(metrics.main).not.toBeNull();
   expect(metrics.sidecar).not.toBeNull();
-  expect(metrics.sidecar?.height).toBe(metrics.main?.height);
-  expect(metrics.sidecar?.bottomGap).toBe(metrics.main?.bottomGap);
+  expect(metrics.main!.textareaInsideInputArea).toBe(true);
+  expect(metrics.sidecar!.textareaInsideInputArea).toBe(true);
+  expect(
+    Math.abs(metrics.sidecar!.chromeHeight - metrics.main!.chromeHeight),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(metrics.sidecar!.bottomGap - metrics.main!.bottomGap),
+  ).toBeLessThanOrEqual(1);
 }
 
 async function expectSidecarModelPinnedToSubmit(page: Page) {
@@ -915,7 +930,7 @@ test.describe("Side chat", () => {
       "Add to conversation",
     );
     await expect(quoteAttachment).toContainText("1 selected text fragment");
-    await expectComposerHeightsEqual(page);
+    await expectComposerChromeAndBottomAligned(page);
     await quoteAttachment
       .getByRole("button", { name: /clear selected references/i })
       .click();
@@ -1009,7 +1024,7 @@ test.describe("Side chat", () => {
 
     await expect(sidecarInput).toHaveValue("");
     await expect(sidecarReference).toBeHidden();
-    await expectComposerHeightsEqual(page);
+    await expectComposerChromeAndBottomAligned(page);
     await expect(page.getByTestId("sidecar-header-trigger")).toBeVisible();
 
     // Hiding the side chat is owned by the header trigger; the panel's own

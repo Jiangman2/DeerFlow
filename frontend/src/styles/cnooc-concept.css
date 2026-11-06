@@ -6887,3 +6887,50 @@ h1.cnooc-page-heading,
     min-height: 88px !important;
   }
 }
+
+/* Existing conversations grow upward with the draft, including when materials
+   are present. Welcome and side-chat composers keep their own layouts. */
+.cnooc-workspace-shell
+  .cnooc-composer-shell[data-auto-grow="true"]
+  .cnooc-composer
+  .cnooc-composer-input {
+  min-height: 0 !important;
+  max-height: none;
+  overflow: visible;
+}
+
+.cnooc-workspace-shell
+  .cnooc-composer-shell[data-auto-grow="true"]
+  .cnooc-composer
+  .cnooc-composer-textarea {
+  field-sizing: fixed;
+  height: var(--textarea-content-height, 24px) !important;
+  min-height: 24px !important;
+  max-height: 144px !important;
+  flex: 0 0 auto;
+  line-height: 24px !important;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.cnooc-workspace-shell
+  .cnooc-composer-shell[data-auto-grow="true"]
+  .cnooc-composer-skill-input {
+  max-height: 144px;
+  line-height: 24px !important;
+  overscroll-behavior: contain;
+}
+
+.cnooc-workspace-shell
+  .cnooc-composer-shell[data-auto-grow="true"]
+  .cnooc-composer-skill-input
+  [contenteditable] {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  line-height: inherit !important;
+}

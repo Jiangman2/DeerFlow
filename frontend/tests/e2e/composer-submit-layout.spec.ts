@@ -15,7 +15,7 @@ const files = Array.from({ length: 6 }, (_, i) => ({
   buffer: Buffer.from("Synthetic layout test."),
 }));
 
-async function checkRail(composer: Locator) {
+async function checkRail(composer: Locator, minimumTextHeight = 24) {
   const form = composer.locator(".cnooc-composer");
   const rail = composer.locator(".cnooc-composer-header");
   const card = rail
@@ -41,7 +41,8 @@ async function checkRail(composer: Locator) {
   expect(r.height).toBeLessThanOrEqual(49);
   const text = (await composer.locator("textarea").boundingBox())!;
   expect(text.y).toBeGreaterThanOrEqual(r.y + r.height - 1);
-  expect(text.height).toBeGreaterThanOrEqual(72);
+  expect(text.height).toBeGreaterThanOrEqual(minimumTextHeight);
+  expect(text.height).toBeLessThanOrEqual(144);
 }
 
 for (const width of [1440, 390]) {
@@ -161,7 +162,7 @@ for (const width of [1440, 390]) {
           (_, i) => `第${i + 1}行：补充问题，文字区域独立滚动。`,
         ).join("\n");
         await chat.locator("textarea").fill(followup);
-        await checkRail(chat);
+        await checkRail(chat, 144);
         const rail = chat.locator(".cnooc-composer-header");
         if (material !== "knowledge") {
           expect(

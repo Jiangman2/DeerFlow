@@ -395,11 +395,15 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(live_artifacts.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, terminal_stream.ARCHIVE.rstrip("/")], cwd=ROOT).strip():
             extra.append(terminal_stream.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, _nov02.composer.MANIFEST], cwd=ROOT).strip():
+            extra.append(_nov02.composer.ARCHIVE)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
     current_read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    composer_manifest = _nov02.composer.qualify(current_read)
+    current_read = _nov02.composer.historical_read(current_read)
     terminal_read = terminal_stream.historical_read(current_read)
     terminal_stream_candidate = terminal_read is not current_read
     current_read = terminal_read
@@ -537,6 +541,7 @@ def verify(ref=None, lock_path=LOCK):
     if patch_result:
         results.append(patch_result)
     return {'status': 'CANDIDATE_SOURCE_VERIFIED' if manifest else 'RELEASE_SOURCE_VERIFIED', 'git_ref': ref, 'lock_file': lock_path, 'results': results,
+            'history_composer_candidate': _nov02.composer.summary(composer_manifest),
             'terminal_stream_candidate': {'status': 'NOT_DEPLOYED', 'frontend_runtime_paths': [terminal_stream.CLIENT, terminal_stream.HELPER]} if terminal_stream_candidate else None,
             'enterprise_source_followup': _nov02.followup.summary(followup),
             'sidechat_frontend_source': _nov02.followup.sidechat.summary(sidechat_manifest),

@@ -8,6 +8,8 @@ import tarfile
 
 from released_source_20261102 import ARCHIVE, CI_ARCHIVE, CI_MANIFEST, DELTA, FORBIDDEN, PARENT_DELTA, followup, load
 
+from released_source_20261102 import composer
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -31,6 +33,8 @@ def verify(ref=None):
             extra.extend((followup.alignment.WORK_RELEASE_ALIGNMENT, *followup.alignment.WORK_PARENT_MANIFESTS))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.alignment.WORK_RELEASE_ALIGNMENT_ARCHIVE], cwd=ROOT).strip():
             extra.append(followup.alignment.WORK_RELEASE_ALIGNMENT_ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, composer.MANIFEST], cwd=ROOT).strip():
+            extra.append(composer.ARCHIVE)
         raw = subprocess.check_output(["git", "archive", ref, "backend/app", "backend/packages/harness", "backend/tests", "frontend/src", "frontend/tests", ARCHIVE, DELTA, PARENT_DELTA, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             cache = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}

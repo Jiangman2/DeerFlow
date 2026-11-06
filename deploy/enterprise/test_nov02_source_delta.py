@@ -61,7 +61,7 @@ class SourceDeltaTests(unittest.TestCase):
 
     def test_formatter_output_drift_rejected(self):
         path = "frontend/src/styles/cnooc-concept.css"
-        with self.assertRaisesRegex(AssertionError, "PR26_CI_CURRENT_CHANGED"):
+        with self.assertRaisesRegex(AssertionError, "PR26_CI_CURRENT_CHANGED|HISTORY_COMPOSER_CURRENT_CHANGED"):
             load(self.replace(path, self.read(path) + b"\n/* drift */\n"))
 
     def test_followup_seal_change_rejected(self):
