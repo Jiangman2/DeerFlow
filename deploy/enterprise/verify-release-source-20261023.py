@@ -347,6 +347,7 @@ def verify_runtime_patch(read, lock):
 
 
 def verify(ref=None, lock_path=LOCK):
+    import live_artifact_cards_source_20261106 as live_artifacts
     archived = None
     if ref:
         selected_lock = json.loads(subprocess.check_output(['git', 'show', ref + ':' + lock_path], cwd=ROOT))
@@ -379,11 +380,14 @@ def verify(ref=None, lock_path=LOCK):
             extra.extend((_nov02.followup.new_chat.ARCHIVE, _nov02.followup.new_chat.GUIDE))
         if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, _nov02.followup.navigation.MANIFEST], cwd=ROOT).strip():
             extra.append(_nov02.followup.navigation.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, live_artifacts.ARCHIVE.rstrip("/")], cwd=ROOT).strip():
+            extra.append(live_artifacts.ARCHIVE)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
     current_read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    current_read = live_artifacts.historical_read(current_read)
     new_chat_manifest = _nov02.followup.new_chat.qualify(current_read)
     alignment_manifest = qualify_work_release_alignment(current_read)
     # Existing qualifiers must verify the actual latest production source, not
