@@ -33,7 +33,13 @@
       "kind": "regression-test",
       "base_sha256": null,
       "baseline_path": null,
-      "current_sha256": "99beb0ada239cb5d3dbc4e8269b8d3f7a91fd992a96e76e38e1d188b06c6bd58"
+      "current_sha256": "2f45776dc6edb0eaf6a1db663c2ccb8bc85b48964f8cdd4123ff71fa6c3ff50e"
+    },
+    "frontend/tests/e2e/sidecar-chat.spec.ts": {
+      "kind": "regression-test",
+      "base_sha256": "fb9459e6f68319a8afec2429930da44f34f8fd1c99c1dc61af31516e62dab066",
+      "baseline_path": "release/history-composer-autosize-source-20261106/baseline/frontend/tests/e2e/sidecar-chat.spec.ts",
+      "current_sha256": "9efe6a3a8b872664150d0ff1349af8182669f882247f7582606235d07ba11826"
     }
   }
 }

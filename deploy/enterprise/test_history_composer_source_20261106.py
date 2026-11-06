@@ -6,7 +6,7 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
-from released_source_20261102 import composer as source, load
+from released_source_20261102 import composer as source, followup, load, successor_read
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -38,7 +38,7 @@ class HistoryComposerSourceTests(unittest.TestCase):
         manifest = source.qualify(self.read)
         self.assertEqual(set(manifest["changes"]), source.PATHS)
         summary = source.summary(manifest)
-        self.assertEqual((summary["runtime_sources_verified"], summary["tests_verified"]), (3, 2))
+        self.assertEqual((summary["runtime_sources_verified"], summary["tests_verified"]), (3, 3))
         self.assertEqual(summary["status"], "NOT_DEPLOYED")
         self.assertFalse(summary["production_acceptance_claimed"])
         self.assertEqual(len(load(self.read)[1]["sources"]), 41)
@@ -121,6 +121,24 @@ class HistoryComposerSourceTests(unittest.TestCase):
         for path in source.EXISTING:
             with self.subTest(path=path), self.assertRaisesRegex(AssertionError, "HISTORY_COMPOSER_CURRENT_CHANGED"):
                 source.qualify(self.replace(path, self.read(source.ARCHIVE + "baseline/" + path)))
+
+    def test_composition_preserves_existing_projection_and_rechecks_both_seals(self):
+        values = {}
+        read = lambda path: values[path] if path in values else self.read(path)
+        aligned = followup.alignment.historical_read(read)
+        historical = followup.historical_read(aligned)
+        combined = source.historical_read(historical)
+        self.assertEqual(len(load(historical)[1]["sources"]), 41)
+        self.assertEqual(len(load(combined)[1]["sources"]), 41)
+        self.assertEqual(len(load(successor_read(combined))[1]["sources"]), 41)
+        values[source.CSS] = self.read(source.CSS) + b"\n/* drift */"
+        with self.assertRaisesRegex(AssertionError, "HISTORY_COMPOSER_CURRENT_CHANGED"):
+            load(combined)
+        values.clear()
+        path = "backend/app/gateway/services.py"
+        values[path] = self.read(path) + b"\n# drift"
+        with self.assertRaisesRegex(AssertionError, "WORK_RELEASE_ALIGNMENT_CURRENT_CHANGED"):
+            load(combined)
 
     def test_unrelated_sources_remain_checked(self):
         path = "backend/app/gateway/routers/model_monitor.py"

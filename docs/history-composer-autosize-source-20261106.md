@@ -6,10 +6,10 @@ welcome and sidecar composers retain their own layout. The measurement accounts
 for wrapped text, viewport-width changes, unsupported CSS field sizing and a
 classic scrollbar without leaving a stale extra line.
 
-The five-file source registration is in
+The six-file source registration is in
 `release/history-composer-autosize-source-20261106/SOURCE.json`. Three runtime
-files and two browser test files are bound to exact LF-normalized hashes. The
-three existing files have immutable parent copies taken from enterprise merge
+files and three browser test files are bound to exact LF-normalized hashes. The
+four existing files have immutable parent copies taken from enterprise merge
 `47a4fb82b2fae402c7fc95e6e9e3e93ad6187d50` (PR #39). The other two files are
 new and have no invented parent. PR #39's stream reconciliation and artifact
 behavior retain their independent provenance records.
@@ -43,3 +43,18 @@ python -B deploy/enterprise/verify-production-baseline-20261029.py
 The default commands verify the working tree. After committing, use `--ref HEAD`
 for the verifier commands to verify the committed candidate. Before committing,
 `--ref HEAD` verifies the unchanged parent, not these local candidate files.
+
+The candidate also updates two browser assertions identified by CI: sidecar and
+main composers now compare their unchanged outer controls and bottom alignment
+while allowing their intentionally different input heights; caret scrolling is
+compared with a same-style native textarea in the current browser, preserving
+visibility checks without assuming identical font-descender spacing on Linux
+and Windows. The final ARM64 image passed 53 browser checks before these test
+corrections; both corrected cases then passed against that same image. No
+runtime source changed during this CI correction.
+
+The historical reader composition revalidates an existing successor reader
+before exposing its parent, so the Work source projection is not applied twice.
+The formatter guard independently seals the current composer CSS and its exact
+parent before verifying the older pinned Prettier output. Missing seals, live
+source drift and historical-parent drift remain failures.

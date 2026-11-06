@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 import {
+  composerManifestPath,
   formattingSource,
   manifestPath,
   navigationManifestPath,
@@ -71,11 +72,15 @@ test("supports the enterprise parent before navigation registration", async () =
     (await read(baseline)).toString("utf8"),
   );
 });
-test("leaves the unchanged CSS under the original formatter check", async () => {
+test("checks the composer CSS successor before returning its formatter parent", async () => {
   const css = "frontend/src/styles/cnooc-concept.css";
   assert.equal(
     await formattingSource(css, read),
-    (await read(css)).toString("utf8"),
+    (
+      await read(
+        `release/history-composer-autosize-source-20261106/baseline/${css}`,
+      )
+    ).toString("utf8"),
   );
 });
 test("supports a historical checkout without a successor manifest", async () => {
@@ -87,5 +92,53 @@ test("supports a historical checkout without a successor manifest", async () => 
   assert.equal(
     await formattingSource(dashboard, historical),
     (await read(dashboard)).toString("utf8"),
+  );
+});
+
+const composerCss = "frontend/src/styles/cnooc-concept.css";
+const composerBaseline = `release/history-composer-autosize-source-20261106/baseline/${composerCss}`;
+
+test("rejects an unregistered composer CSS edit", async () => {
+  await assert.rejects(
+    formattingSource(composerCss, changed(composerCss)),
+    /Current composer CSS changed/,
+  );
+});
+
+test("rejects an edited composer seal", async () => {
+  await assert.rejects(
+    formattingSource(composerCss, changed(composerManifestPath)),
+    /Composer source seal changed/,
+  );
+});
+
+test("rejects a changed composer formatter parent", async () => {
+  await assert.rejects(
+    formattingSource(composerCss, changed(composerBaseline)),
+    /Historical composer CSS changed/,
+  );
+});
+
+test("rejects a missing composer seal when its parent copy remains", async () => {
+  const missing = async (path) => {
+    if (path === composerManifestPath)
+      throw Object.assign(new Error("missing"), { code: "ENOENT" });
+    return read(path);
+  };
+  await assert.rejects(
+    formattingSource(composerCss, missing),
+    /Composer source manifest missing/,
+  );
+});
+
+test("supports the historical CSS before the composer candidate", async () => {
+  const old = async (path) => {
+    if (path.startsWith("release/history-composer-autosize-source-20261106/"))
+      throw Object.assign(new Error("missing"), { code: "ENOENT" });
+    return read(path === composerCss ? composerBaseline : path);
+  };
+  assert.equal(
+    await formattingSource(composerCss, old),
+    (await read(composerBaseline)).toString("utf8"),
   );
 });

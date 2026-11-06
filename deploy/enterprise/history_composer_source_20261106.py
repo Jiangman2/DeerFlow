@@ -1,4 +1,4 @@
-"""Seal the five-file composer candidate before projecting its immutable parent.
+"""Seal the six-file composer candidate before projecting its immutable parent.
 
 No production acceptance is inferred from source registration or local tests.
 """
@@ -7,15 +7,16 @@ import json
 
 ARCHIVE = "release/history-composer-autosize-source-20261106/"
 MANIFEST = ARCHIVE + "SOURCE.json"
-MANIFEST_SHA256 = "40b3fda792804207df36ff27e37bc06427ec3424daa1d577312f1d10481e39cd"
+MANIFEST_SHA256 = "f7d56bd203f490e0ca1abb3bc9890d76033205387e53a64bf7e793f8229b1bac"
 BASE_COMMIT = "47a4fb82b2fae402c7fc95e6e9e3e93ad6187d50"
 INPUT = "frontend/src/components/workspace/input-box.tsx"
 CSS = "frontend/src/styles/cnooc-concept.css"
 HOOK = "frontend/src/hooks/use-textarea-autosize.ts"
 EXISTING_TEST = "frontend/tests/e2e/composer-submit-layout.spec.ts"
 NEW_TEST = "frontend/tests/e2e/history-composer-autosize.spec.ts"
+SIDECAR_TEST = "frontend/tests/e2e/sidecar-chat.spec.ts"
 RUNTIME = frozenset((INPUT, CSS, HOOK))
-EXISTING = frozenset((INPUT, CSS, EXISTING_TEST))
+EXISTING = frozenset((INPUT, CSS, EXISTING_TEST, SIDECAR_TEST))
 NEW = frozenset((HOOK, NEW_TEST))
 PATHS = EXISTING | NEW
 

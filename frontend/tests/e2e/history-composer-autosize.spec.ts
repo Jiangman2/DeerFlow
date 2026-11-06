@@ -389,20 +389,78 @@ test("typing past six lines keeps the caret visible at the end", async ({
     await page.keyboard.insertText(`第${index}行连续输入`);
   }
   await expectLines(input, 6);
-  await expect
-    .poll(() =>
-      input.evaluate((element: HTMLTextAreaElement) => {
-        return element.scrollHeight - element.clientHeight - element.scrollTop;
-      }),
-    )
-    .toBeLessThanOrEqual(2);
   const caret = await input.evaluate((element: HTMLTextAreaElement) => ({
     start: element.selectionStart,
     end: element.selectionEnd,
     length: element.value.length,
+    scrollTop: element.scrollTop,
+    endGap: element.scrollHeight - element.clientHeight - element.scrollTop,
+    width: element.clientWidth,
+    height: element.clientHeight,
   }));
   expect(caret.start).toBe(caret.length);
   expect(caret.end).toBe(caret.length);
+  expect(caret.scrollTop).toBeGreaterThan(0);
+
+  // Native caret scrolling may leave font-descender space below the last line
+  // (for example 4 px on Linux). Compare with an independent fixed-size native
+  // textarea in this browser instead of assuming the scrollbar must reach 0 px.
+  await input.evaluate((element: HTMLTextAreaElement) => {
+    const computed = getComputedStyle(element);
+    const native = document.createElement("textarea");
+    native.dataset.testid = "native-caret-scroll-reference";
+    Object.assign(native.style, {
+      position: "fixed",
+      left: "0",
+      top: "0",
+      opacity: "0",
+      pointerEvents: "none",
+      width: `${element.getBoundingClientRect().width}px`,
+      height: `${element.getBoundingClientRect().height}px`,
+      minHeight: "0px",
+      maxHeight: "none",
+      overflowX: computed.overflowX,
+      overflowY: computed.overflowY,
+      resize: "none",
+      boxSizing: computed.boxSizing,
+      font: computed.font,
+      lineHeight: computed.lineHeight,
+      letterSpacing: computed.letterSpacing,
+      whiteSpace: computed.whiteSpace,
+      overflowWrap: computed.overflowWrap,
+      wordBreak: computed.wordBreak,
+      scrollbarWidth: computed.scrollbarWidth,
+      scrollbarGutter: computed.scrollbarGutter,
+      padding: computed.padding,
+      borderWidth: computed.borderWidth,
+      borderStyle: computed.borderStyle,
+    });
+    native.style.setProperty("field-sizing", "fixed");
+    document.body.append(native);
+  });
+  const native = page.getByTestId("native-caret-scroll-reference");
+  try {
+    await native.focus();
+    for (let index = 1; index <= 9; index += 1) {
+      if (index > 1) await native.press("Shift+Enter");
+      await page.keyboard.insertText(`第${index}行连续输入`);
+    }
+    const reference = await native.evaluate((element: HTMLTextAreaElement) => ({
+      value: element.value,
+      scrollTop: element.scrollTop,
+      endGap: element.scrollHeight - element.clientHeight - element.scrollTop,
+      width: element.clientWidth,
+      height: element.clientHeight,
+    }));
+    expect(reference.value).toBe(await input.inputValue());
+    expect(reference.width).toBe(caret.width);
+    expect(reference.height).toBe(caret.height);
+    expect(reference.scrollTop).toBeGreaterThan(0);
+    expect(Math.abs(caret.endGap - reference.endGap)).toBeLessThanOrEqual(1);
+  } finally {
+    await native.evaluate((element) => element.remove());
+  }
+  await input.focus();
   await page.screenshot({ path: info.outputPath("typing-at-scroll-end.png") });
   await health(info);
 });
