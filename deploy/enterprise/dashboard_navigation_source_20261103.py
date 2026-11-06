@@ -1,8 +1,13 @@
 """Verify the scoped frontend candidate before projecting immutable baseline bytes."""
 
 import hashlib
+import importlib.util
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+
+_spec = importlib.util.spec_from_file_location("live_artifact_cards_source_20261106", Path(__file__).with_name("live_artifact_cards_source_20261106.py"))
+_live_artifacts = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_live_artifacts)
 
 ARCHIVE = "release/dashboard-navigation-20261103-r2/"
 MANIFEST = ARCHIVE + "SOURCE.json"
@@ -34,7 +39,7 @@ def qualify(read):
         pure = PurePosixPath(path)
         assert not pure.is_absolute() and ".." not in pure.parts and "\\" not in path and pure.as_posix() == path, "DASHBOARD_NAVIGATION_PATH"
         assert path.startswith(("frontend/src/", "frontend/tests/")), "DASHBOARD_NAVIGATION_SCOPE"
-        assert digest(read(path)) == row["current_sha256"], (path, "DASHBOARD_NAVIGATION_CURRENT_CHANGED")
+        assert _live_artifacts.historical_test_digest(path, read(path)) == row["current_sha256"], (path, "DASHBOARD_NAVIGATION_CURRENT_CHANGED")
         if row["base_sha256"] is None:
             assert row["baseline_path"] is None, "DASHBOARD_NAVIGATION_UNEXPECTED_BASELINE"
         else:

@@ -20,6 +20,10 @@ _nov02 = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_nov02)
 NOV02_ARCHIVE, NOV02_DELTA, nov02_overrides = _nov02.ARCHIVE, _nov02.DELTA, _nov02.overrides
 
+_live_spec = importlib.util.spec_from_file_location("live_artifact_cards_source_20261106", Path(__file__).with_name("live_artifact_cards_source_20261106.py"))
+live_artifacts = importlib.util.module_from_spec(_live_spec)
+_live_spec.loader.exec_module(live_artifacts)
+
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = 'deploy/enterprise/production-source-lock-20261029.json'
 RUNNER = 'release/production-source-20261022/ppt-master-runner/'
@@ -347,7 +351,6 @@ def verify_runtime_patch(read, lock):
 
 
 def verify(ref=None, lock_path=LOCK):
-    import live_artifact_cards_source_20261106 as live_artifacts
     archived = None
     if ref:
         selected_lock = json.loads(subprocess.check_output(['git', 'show', ref + ':' + lock_path], cwd=ROOT))

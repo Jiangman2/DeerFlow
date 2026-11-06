@@ -195,7 +195,7 @@ for (const [size, width, height] of [
   });
 }
 
-test("V4.1 is optional and leaves the existing default selected", async ({
+test("new chats default to V4.1 and allow explicitly selecting V4", async ({
   page,
   baseURL,
 }, info) => {
@@ -206,27 +206,27 @@ test("V4.1 is optional and leaves the existing default selected", async ({
   await modelSquareFixture(page);
   await page.goto("/workspace/chats/new");
   await page
-    .getByRole("button", { name: "DeepSeek-V4-Flash", exact: true })
+    .getByRole("button", { name: "DeepSeek-V4.1-Flash-1017", exact: true })
     .click();
   const menu = page.getByTestId("chat-model-menu");
   await expect(
     menu.getByRole("menuitemradio", { name: "DeepSeek-V4-Flash", exact: true }),
-  ).toHaveAttribute("aria-checked", "true");
+  ).toHaveAttribute("aria-checked", "false");
   await expect(
     menu.getByRole("menuitemradio", {
       name: "DeepSeek-V4.1-Flash-1017",
       exact: true,
     }),
-  ).toHaveAttribute("aria-checked", "false");
+  ).toHaveAttribute("aria-checked", "true");
   await screenshot(page, info, "desktop-v41-model-menu");
   await menu
     .getByRole("menuitemradio", {
-      name: "DeepSeek-V4.1-Flash-1017",
+      name: "DeepSeek-V4-Flash",
       exact: true,
     })
     .click();
   await expect(
-    page.getByRole("button", { name: "DeepSeek-V4.1-Flash-1017", exact: true }),
+    page.getByRole("button", { name: "DeepSeek-V4-Flash", exact: true }),
   ).toBeVisible();
 });
 
