@@ -4,7 +4,7 @@
   "base_commit": "2d6b9a7ed95c6a9a01114110a38585576c467451",
   "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
   "parent_candidate_sha256": "6db8263377b00c07151cb8f8da84b220fdc034aa0e828c0438c3de3daf8b58e3",
-  "scope": "Register the Feishu group @-mention gate and the Haineng Work conversation/file export before historical projection: three Gateway runtime sources (one new audit module) and four Frontend workspace export sources (two new modules). No image, deployment, database, routing or business acceptance change is claimed.",
+  "scope": "Register the Feishu group @-mention gate and the Haineng Work conversation/file export before historical projection: three Gateway runtime sources (one new audit module) and four Frontend workspace export sources (two new modules), plus the long-thread virtual list anchoring fix that keeps the seeded first window scrollable. No image, deployment, database, routing or business acceptance change is claimed.",
   "changes": {
     "gateway": {
       "backend/app/channels/audit.py": {
@@ -24,6 +24,10 @@
       "frontend/src/components/workspace/export-trigger.tsx": {
         "base_sha256": "5b91719ccb0ab127d44b9abe49d0caa557527c2c3a2e3764aa09722358fd0aea",
         "candidate_sha256": "3478bca73ae1fd50ae5bad79bfe6346c90c4e897acc682c919505bdfc47de60f"
+      },
+      "frontend/src/components/workspace/messages/virtual-message-list.tsx": {
+        "base_sha256": "881b7f7435a83cd54655a313ee33db4f0501c15cf6f5d3eeeb7e7333caa8e55e",
+        "candidate_sha256": "73e02713ea635c32decef562c5476cf38db518c4a038264c176011ed5d94fc6f"
       },
       "frontend/src/core/channels/targets.ts": {
         "base_sha256": null,
