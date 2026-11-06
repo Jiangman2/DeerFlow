@@ -1,0 +1,16 @@
+{
+  "schema": "model-default-test-followup.v1",
+  "status": "TEST_ALIGNMENT_NOT_RUNTIME_CHANGE",
+  "base_commit": "89b988706d2c6b1e91d7257d6b6540a5ad2fe5fd",
+  "runtime_modified": false,
+  "fresh_production_acceptance_claimed": false,
+  "reason": "Align model-square regression expectations with the accepted new-chat V4.1 default while retaining explicit V4 selection coverage.",
+  "changes": {
+    "frontend/tests/e2e/model-square-account.spec.ts": {
+      "kind": "regression-test",
+      "baseline_path": "release/model-default-test-followup-20261106/baseline/frontend/tests/e2e/model-square-account.spec.ts",
+      "base_sha256": "62b3c2f7bfdd9bd92e791d2fb1d46aef066af8cba8291aa80806a4de2fd07bb1",
+      "current_sha256": "fa8f286311548635313c84d4bbfed8bc0a40374d28c39b6922d0036e128619b6"
+    }
+  }
+}

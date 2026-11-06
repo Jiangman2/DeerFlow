@@ -1,8 +1,13 @@
 """Verify the scoped frontend candidate before projecting immutable baseline bytes."""
 
 import hashlib
+import importlib.util
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+
+_spec = importlib.util.spec_from_file_location("model_default_test_followup_20261106", Path(__file__).with_name("model_default_test_followup_20261106.py"))
+model_default_test = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(model_default_test)
 
 ARCHIVE = "release/dashboard-navigation-20261103-r2/"
 MANIFEST = ARCHIVE + "SOURCE.json"
@@ -17,6 +22,7 @@ def digest(raw):
 def qualify(read):
     if isinstance(read, HistoricalReader):
         return read.qualification
+    read = model_default_test.historical_read(read)
     try:
         raw = read(MANIFEST)
     except (FileNotFoundError, KeyError):

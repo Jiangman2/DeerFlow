@@ -381,6 +381,8 @@ def verify(ref=None, lock_path=LOCK):
             extra.extend((_nov02.followup.new_chat.ARCHIVE, _nov02.followup.new_chat.GUIDE))
         if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, _nov02.followup.navigation.MANIFEST], cwd=ROOT).strip():
             extra.append(_nov02.followup.navigation.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, _nov02.followup.navigation.model_default_test.MANIFEST], cwd=ROOT).strip():
+            extra.append(_nov02.followup.navigation.model_default_test.ARCHIVE)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
