@@ -12,6 +12,10 @@ _followup_spec = importlib.util.spec_from_file_location(
 followup = importlib.util.module_from_spec(_followup_spec)
 _followup_spec.loader.exec_module(followup)
 
+_composer_spec = importlib.util.spec_from_file_location("history_composer_source_20261106", Path(__file__).with_name("history_composer_source_20261106.py"))
+composer = importlib.util.module_from_spec(_composer_spec)
+_composer_spec.loader.exec_module(composer)
+
 ARCHIVE = "release/nov02-released-fixes-source-20261103/"
 SOURCE = ARCHIVE + "SOURCE.json"
 DELTA = "deploy/enterprise/released-source-delta-20261102.json"
@@ -39,9 +43,22 @@ def safe_path(path):
     assert value.as_posix() == path, "NOV02_NONCANONICAL_PATH"
 
 
+def successor_read(read):
+    """Keep an already-qualified older reader visible when composing successors.
+
+    Wrapping it first hides its type and can incorrectly apply the Work parent
+    projection twice. Revalidate the outer composer seal, then let the older
+    reader revalidate its own original data before reapplying this disjoint seal.
+    """
+    if isinstance(read, composer.HistoricalReader):
+        composer.qualify(read)
+        read = read.original_read
+    return composer.historical_read(followup.historical_read(read))
+
+
 def ci_qualification(read):
     """Qualify later test/formatter corrections without changing release evidence."""
-    read = followup.historical_read(read)
+    read = successor_read(read)
     try:
         raw = read(CI_MANIFEST)
     except (FileNotFoundError, KeyError):
@@ -89,7 +106,7 @@ def ci_baseline_read(read, qualification):
 
 
 def load(read, *, check_current=True):
-    read = followup.historical_read(read)
+    read = successor_read(read)
     read = ci_baseline_read(read, ci_qualification(read))
     delta = json.loads(read(DELTA))
     assert delta["schema"] == "released-source-delta.v2", "NOV02_DELTA_SCHEMA"
@@ -186,7 +203,7 @@ def load(read, *, check_current=True):
 
 
 def overrides(lock, prior, incident, released, read):
-    read = followup.historical_read(read)
+    read = successor_read(read)
     delta, manifest = load(read)
     result = {"gateway": {}, "frontend": {}}
     for component, changes in delta["changes"].items():
@@ -209,7 +226,7 @@ def overrides(lock, prior, incident, released, read):
 
 def historical_read(read):
     """Verify the new seal, then expose the immutable PR25 bytes to the older audit."""
-    read = followup.historical_read(read)
+    read = successor_read(read)
     _, manifest = load(read)
     read = ci_baseline_read(read, ci_qualification(read))
     parents = {p: row["parent_source"] for p, row in {**manifest["sources"], **manifest["tests"]}.items() if row.get("parent_source")}

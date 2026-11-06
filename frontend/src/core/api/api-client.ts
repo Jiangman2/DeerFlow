@@ -24,7 +24,57 @@ import {
   rememberPptMasterRuntimeThread,
   shouldUsePptMasterRuntime,
 } from "./ppt-master-runtime";
+import { reconcileRunStream } from "./reconcile-run-stream";
 import { sanitizeRunStreamOptions } from "./stream-mode";
+
+function reconciledStream(
+  client: LangGraphClient,
+  threadId: string | null | undefined,
+  runId: string | undefined,
+  start: (
+    signal: AbortSignal,
+    created: (meta: { run_id: string; thread_id?: string }) => void,
+  ) => AsyncIterable<{ event: string; data: unknown }>,
+  signal?: AbortSignal,
+) {
+  let identity =
+    threadId && runId ? { thread_id: threadId, run_id: runId } : undefined;
+  const created = (meta: { run_id: string; thread_id?: string }) => {
+    const id = meta.thread_id ?? threadId;
+    if (!identity && id && meta.run_id)
+      identity = { thread_id: id, run_id: meta.run_id };
+  };
+  return reconcileRunStream({
+    signal,
+    identity: () => identity,
+    async *start(localSignal) {
+      for await (const event of start(localSignal, created)) {
+        if (
+          event.event === "metadata" &&
+          typeof event.data === "object" &&
+          event.data !== null
+        ) {
+          const data = event.data as { run_id?: unknown; thread_id?: unknown };
+          if (typeof data.run_id === "string")
+            created({
+              run_id: data.run_id,
+              thread_id:
+                typeof data.thread_id === "string" ? data.thread_id : undefined,
+            });
+        }
+        yield event;
+      }
+    },
+    getRun: (id, readSignal) =>
+      client.runs.get(id.thread_id, id.run_id, { signal: readSignal }),
+    getValues: async (id, readSignal) =>
+      (
+        await client.threads.getState(id.thread_id, undefined, {
+          signal: readSignal,
+        })
+      ).values,
+  });
+}
 
 /**
  * SDK ``onRequest`` hook that mints the ``X-CSRF-Token`` header from the
@@ -225,15 +275,15 @@ function createCompatibleClient(
   }) as typeof client.threads.get;
 
   const originalGetState = client.threads.getState.bind(client.threads);
-  client.threads.getState = (async (threadId, options) => {
+  client.threads.getState = (async (threadId, checkpoint, options) => {
     const usePptMaster = Boolean(
       pptMasterClient &&
       threadId &&
       (await shouldUsePptMasterRuntime(client, threadId)),
     );
     return usePptMaster && pptMasterClient
-      ? pptMasterClient.threads.getState(threadId, options)
-      : originalGetState(threadId, options);
+      ? pptMasterClient.threads.getState(threadId, checkpoint, options)
+      : originalGetState(threadId, checkpoint, options);
   }) as typeof client.threads.getState;
 
   const originalGetHistory = client.threads.getHistory.bind(client.threads);
@@ -266,10 +316,24 @@ function createCompatibleClient(
           [PPT_MASTER_RUNTIME_METADATA_KEY]: PPT_MASTER_RUNTIME_ASSISTANT_ID,
         },
       };
-      yield* pptMasterClient.runs.stream(
+      yield* reconciledStream(
+        pptMasterClient,
         threadId,
-        PPT_MASTER_RUNTIME_ASSISTANT_ID,
-        runnerPayload,
+        undefined,
+        (signal, created) =>
+          pptMasterClient.runs.stream(
+            threadId,
+            PPT_MASTER_RUNTIME_ASSISTANT_ID,
+            {
+              ...runnerPayload,
+              signal,
+              onRunCreated(meta) {
+                created(meta);
+                runnerPayload.onRunCreated?.(meta);
+              },
+            },
+          ),
+        runnerPayload.signal,
       );
       return;
     }
@@ -295,7 +359,21 @@ function createCompatibleClient(
         );
       }
     }
-    yield* originalRunStream(threadId, assistantId, ordinaryPayload);
+    yield* reconciledStream(
+      client,
+      threadId,
+      undefined,
+      (signal, created) =>
+        originalRunStream(threadId, assistantId, {
+          ...ordinaryPayload,
+          signal,
+          onRunCreated(meta) {
+            created(meta);
+            ordinaryPayload.onRunCreated?.(meta);
+          },
+        }),
+      ordinaryPayload.signal,
+    );
   } as typeof client.runs.stream;
 
   const originalCancel = client.runs.cancel.bind(client.runs);
@@ -347,8 +425,20 @@ function createCompatibleClient(
       clearReconnectRun(threadId, runId);
       return;
     }
+    const joinOptions =
+      options instanceof AbortSignal ? { signal: options } : options;
     try {
-      yield* joinStream(threadId, runId, sanitizeRunStreamOptions(options));
+      yield* reconciledStream(
+        streamClient,
+        threadId,
+        runId,
+        (signal) =>
+          joinStream(threadId, runId, {
+            ...sanitizeRunStreamOptions(joinOptions),
+            signal,
+          }),
+        joinOptions?.signal,
+      );
     } catch (error) {
       if (isInactiveRunStreamError(error)) {
         clearReconnectRun(threadId, runId);

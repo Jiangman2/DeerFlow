@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { mockLangGraphAPI } from "./utils/mock-api";
+import { handleRunStream, mockLangGraphAPI } from "./utils/mock-api";
 
 const ARTIFACT_PATH = "/artifact-fixtures/report.html";
 const MARKDOWN_ARTIFACT_PATH = "/artifact-fixtures/report.md";
@@ -166,6 +166,29 @@ test.describe("Artifact preview stability", () => {
     expect(messageListBox).not.toBeNull();
     expect(viewport).not.toBeNull();
     expect(messageListBox!.width).toBeGreaterThan(viewport!.width * 0.6);
+
+    // The checkpoint still contains the first turn's deck while a follow-up runs.
+    let finishRun!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finishRun = resolve;
+    });
+    await page.route("**/runs/stream", async (route) => {
+      await pending;
+      await handleRunStream(route, { artifacts: [fallbackDeck] });
+    });
+    const started = page.waitForRequest("**/runs/stream");
+    const input = page.locator('textarea[name="message"]');
+    await input.fill("Answer a follow-up without creating a file.");
+    await input.press("Enter");
+    try {
+      await started;
+      await expect(fallback).toBeHidden();
+    } finally {
+      finishRun();
+    }
+    await expect(
+      fallback.locator(`[data-artifact-filepath="${fallbackDeck}"]`),
+    ).toBeVisible();
   });
 
   test("shows the bundled demo PPTX from durable artifact state", async ({

@@ -36,5 +36,5 @@ for (const [path, row] of Object.entries(manifest.changes)) {
 }
 assert.equal(checked, 2);
 console.log(
-  "Both historical runtime files match pinned Prettier output; later dashboard changes are hash-qualified separately.",
+  "Both historical runtime files match pinned Prettier output; later dashboard and composer changes are hash-qualified separately.",
 );

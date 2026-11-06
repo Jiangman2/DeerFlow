@@ -101,6 +101,10 @@ def verify(ref=None):
         expected.update(result['dashboard_navigation_candidate']['frontend_runtime_paths'])
     if (result.get('candidate') or {}).get('feishu_export_source'):
         expected.update(result['candidate']['feishu_export_source']['frontend_runtime_paths'])
+    if result.get('terminal_stream_candidate'):
+        expected.update(result['terminal_stream_candidate']['frontend_runtime_paths'])
+    if result.get('history_composer_candidate'):
+        expected.update(result['history_composer_candidate']['frontend_runtime_paths'])
     if ref:
         names = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, 'frontend/src', 'frontend/public'], cwd=ROOT).decode().splitlines()
         actual = set(names)
@@ -131,6 +135,14 @@ def verify(ref=None):
         result.update(status='DASHBOARD_NAVIGATION_CANDIDATE_ON_HISTORICAL_BASELINE_VERIFIED',
                       runtime_accepted=False, candidate_deployed=False,
                       scope='Scoped frontend candidate; no new production acceptance')
+    if result.get('terminal_stream_candidate'):
+        result.update(status='TERMINAL_STREAM_CANDIDATE_ON_HISTORICAL_BASELINE_VERIFIED',
+                      runtime_accepted=False, candidate_deployed=False,
+                      scope='Scoped stream reconciliation candidate; no new production acceptance')
+    if result.get('history_composer_candidate'):
+        result.update(status='HISTORY_COMPOSER_CANDIDATE_ON_HISTORICAL_BASELINE_VERIFIED',
+                      runtime_accepted=False, candidate_deployed=False,
+                      scope='Scoped history composer candidate; no new production acceptance')
     return result
 
 
