@@ -99,7 +99,10 @@ for (const [size, width, height] of [
     await modelSquareFixture(page);
     await page.goto("/workspace/chats/new");
     await expect(
-      page.getByRole("button", { name: "DeepSeek-V4.1-Flash-1017", exact: true }),
+      page.getByRole("button", {
+        name: "DeepSeek-V4.1-Flash-1017",
+        exact: true,
+      }),
     ).toBeVisible();
     const refreshed = page.waitForResponse("**/api/v1/auth/me");
     await page.evaluate(() =>

@@ -4,7 +4,7 @@ import json
 
 ARCHIVE = "release/model-default-test-followup-20261106/"
 MANIFEST = ARCHIVE + "SOURCE.json"
-MANIFEST_SHA256 = "b559c88de46651197b29c0622878b509e3fd5225449fcabf317bebc059e42bc5"
+MANIFEST_SHA256 = "6b1b6ca7e17fb33a7baf3537f84c47eb4f82c1e01342512765e419eb3ed4abcf"
 BASE_COMMIT = "89b988706d2c6b1e91d7257d6b6540a5ad2fe5fd"
 TEST = "frontend/tests/e2e/model-square-account.spec.ts"
 BASELINE = ARCHIVE + "baseline/" + TEST
