@@ -71,6 +71,8 @@ export interface Translations {
     exportAsMarkdown: string;
     exportAsJSON: string;
     exportSuccess: string;
+    exportToFeishu: string;
+    exportToFeishuSuccess: string;
     regenerate: string;
     branch: string;
     likeResponse: string;

@@ -9,22 +9,27 @@ from __future__ import annotations
 import json
 import time
 from collections import Counter, deque
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import desc, func, or_, select, text
+from sqlalchemy import delete, desc, func, or_, select, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from deerflow.persistence.models.run_event import RunEventRow
-from deerflow.persistence.observability.model import AuditLogRow, OperationDispositionRow
+from deerflow.persistence.observability.model import AuditLogRow, ChannelDigestDedupRow, OperationDispositionRow
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.thread_meta.model import ThreadMetaRow
 from deerflow.persistence.user.model import UserRow
 from deerflow.utils.time import coerce_iso
 
 _MEMORY_AUDIT_LOGS: deque[dict[str, Any]] = deque(maxlen=1000)
+# In-memory stand-in for the channel_digest_dedup table when no DB is configured
+# (unit tests). Mirrors the unique (channel_name, window_bucket) claim guard.
+_MEMORY_DIGEST_CLAIMS: set[tuple[str, str]] = set()
 _TERMINAL_ERROR_STATUSES = {"error", "timeout", "interrupted"}
 _TERMINAL_STATUSES = {"success", *_TERMINAL_ERROR_STATUSES}
 _ACTIVE_STATUSES = {"pending", "running"}
@@ -147,11 +152,23 @@ def _is_management_action(data: dict[str, Any]) -> bool:
     return False
 
 
+def _operation_type(data: dict[str, Any]) -> str:
+    """Classify one audit row for the admin filters.
+
+    IM channel activity gets its own bucket (``channel``) so operators can look at
+    bot usage without the HTTP noise; everything else stays ``management`` vs
+    ``api`` as before.
+    """
+    if data.get("resource_type") == "channel":
+        return "channel"
+    return "management" if _is_management_action(data) else "api"
+
+
 def _row_dict(row: AuditLogRow) -> dict[str, Any]:
     data = row.to_dict()
     data["created_at"] = _iso(data.get("created_at"))
     data["details"] = data.pop("details_json", {}) or {}
-    data["operation_type"] = "management" if _is_management_action(data) else "api"
+    data["operation_type"] = _operation_type(data)
     data["is_management"] = data["operation_type"] == "management"
     return data
 
@@ -321,6 +338,29 @@ def _bucket_key(value: datetime | None, bucket: str) -> str:
     return value.replace(minute=0, second=0, microsecond=0).isoformat()
 
 
+def _audit_bucket_key(value: Any, minutes: int) -> str:
+    """Floor an audit timestamp into a fixed-width window in business time.
+
+    Audit rows are already serialized by ``_row_dict`` (ISO strings), so this
+    parses defensively rather than assuming a ``datetime`` like
+    :func:`_bucket_key` does.
+    """
+    if isinstance(value, datetime):
+        moment: datetime | None = value
+    elif isinstance(value, str) and value:
+        try:
+            moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return "unknown"
+    else:
+        return "unknown"
+    moment = (_coerce_aware(moment) or moment).astimezone(_BUSINESS_TIMEZONE)
+    width = max(1, min(int(minutes), 1440))
+    floored = ((moment.hour * 60 + moment.minute) // width) * width
+    hour, minute = divmod(floored, 60)
+    return moment.replace(hour=hour, minute=minute, second=0, microsecond=0).isoformat()
+
+
 def _empty_metric_bucket(period_start: str) -> dict[str, Any]:
     return {
         "period_start": period_start,
@@ -468,6 +508,77 @@ class ObservabilityRepository:
             session.add(AuditLogRow(**payload))
             await session.commit()
 
+    async def claim_digest_window(self, *, channel_name: str, window_bucket: str) -> bool:
+        """Atomically claim the right to send one digest window.
+
+        Returns ``True`` only for the first replica that inserts the
+        ``(channel_name, window_bucket)`` row; every other replica hits the
+        primary-key conflict and gets ``False``. This is what keeps N Gateway
+        Pods, each running its own digest loop, from pushing the same summary
+        N times. Portable across SQLite and PostgreSQL via the unique constraint
+        (no dialect-specific upsert).
+        """
+        if self._sf is None:
+            key = (channel_name, window_bucket)
+            if key in _MEMORY_DIGEST_CLAIMS:
+                return False
+            _MEMORY_DIGEST_CLAIMS.add(key)
+            return True
+        row = ChannelDigestDedupRow(
+            channel_name=channel_name,
+            window_bucket=window_bucket,
+            claimed_at=datetime.now(UTC),
+        )
+        async with self._sf() as session:
+            session.add(row)
+            try:
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+                return False
+        return True
+
+    async def finalize_digest_window(
+        self,
+        *,
+        channel_name: str,
+        window_bucket: str,
+        chat_id: str | None,
+        events: int,
+    ) -> None:
+        """Record what a claimed digest actually delivered (best effort)."""
+        if self._sf is None:
+            return
+        stmt = (
+            update(ChannelDigestDedupRow)
+            .where(
+                ChannelDigestDedupRow.channel_name == channel_name,
+                ChannelDigestDedupRow.window_bucket == window_bucket,
+            )
+            .values(chat_id=chat_id, events=events)
+        )
+        async with self._sf() as session:
+            await session.execute(stmt)
+            await session.commit()
+
+    async def release_digest_window(self, *, channel_name: str, window_bucket: str) -> None:
+        """Drop a claim so a later tick (or another replica) can retry.
+
+        Called when rendering/sending a claimed digest failed: without this the
+        window would stay claimed and the digest would be silently skipped until
+        the next bucket rolls around.
+        """
+        if self._sf is None:
+            _MEMORY_DIGEST_CLAIMS.discard((channel_name, window_bucket))
+            return
+        stmt = delete(ChannelDigestDedupRow).where(
+            ChannelDigestDedupRow.channel_name == channel_name,
+            ChannelDigestDedupRow.window_bucket == window_bucket,
+        )
+        async with self._sf() as session:
+            await session.execute(stmt)
+            await session.commit()
+
     async def record_disposition(self, event: dict[str, Any]) -> dict[str, Any]:
         payload = dict(event)
         payload.setdefault("created_at", datetime.now(UTC))
@@ -512,15 +623,22 @@ class ObservabilityRepository:
         result: str | None = None,
         operation_type: str | None = None,
         q: str | None = None,
+        actions: Sequence[str] | None = None,
+        resource_type: str | None = None,
     ) -> list[dict[str, Any]]:
         bounded_limit = min(max(limit, 1), 500)
+        action_values = [a for a in (actions or []) if a]
         if self._sf is None:
             rows = list(_MEMORY_AUDIT_LOGS)
             if user_id:
                 rows = [row for row in rows if row.get("user_id") == user_id]
             if result:
                 rows = [row for row in rows if row.get("result") == result]
-            rows = [{**row, "operation_type": "management" if _is_management_action(row) else "api"} for row in rows]
+            if action_values:
+                rows = [row for row in rows if row.get("action") in action_values]
+            if resource_type:
+                rows = [row for row in rows if row.get("resource_type") == resource_type]
+            rows = [{**row, "operation_type": _operation_type(row)} for row in rows]
             if operation_type and operation_type != "all":
                 rows = [row for row in rows if row.get("operation_type") == operation_type]
             if q:
@@ -536,6 +654,10 @@ class ObservabilityRepository:
             stmt = stmt.where(AuditLogRow.user_id == user_id)
         if result:
             stmt = stmt.where(AuditLogRow.result == result)
+        if action_values:
+            stmt = stmt.where(AuditLogRow.action.in_(action_values))
+        if resource_type:
+            stmt = stmt.where(AuditLogRow.resource_type == resource_type)
         if q:
             pattern = f"%{q}%"
             stmt = stmt.where(
@@ -556,6 +678,162 @@ class ObservabilityRepository:
         if operation_type and operation_type != "all":
             rows = [row for row in rows if row.get("operation_type") == operation_type]
         return rows[:bounded_limit]
+
+    async def audit_summary(
+        self,
+        *,
+        hours: int | None = 24,
+        start_at: datetime | None = None,
+        end_at: datetime | None = None,
+        user_id: str | None = None,
+        result: str | None = None,
+        q: str | None = None,
+        actions: Sequence[str] | None = None,
+        resource_type: str | None = None,
+        limit: int = 5000,
+        error_samples: int = 20,
+        bucket_minutes: int = 60,
+    ) -> dict[str, Any]:
+        """Aggregate audit rows into a digest suitable for reporting or model input.
+
+        Returns counts grouped by action / user / channel / result, an hourly
+        timeline, and a bounded sample of the failures. Deliberately aggregates in
+        Python: the same method has to run on SQLite and PostgreSQL, and portable
+        date bucketing is not worth a dialect branch here.
+        """
+        bounded_limit = min(max(limit, 1), 20000)
+        bounded_bucket = max(1, min(int(bucket_minutes), 1440))
+        action_values = [a for a in (actions or []) if a]
+        since, until, window_hours = _window_bounds(hours=hours, start_at=start_at, end_at=end_at)
+        emails: dict[str, str] = {}
+
+        if self._sf is None:
+            rows = list(_MEMORY_AUDIT_LOGS)
+            if user_id:
+                rows = [row for row in rows if row.get("user_id") == user_id]
+            if result:
+                rows = [row for row in rows if row.get("result") == result]
+            if action_values:
+                rows = [row for row in rows if row.get("action") in action_values]
+            if resource_type:
+                rows = [row for row in rows if row.get("resource_type") == resource_type]
+            rows = [dict(row) for row in rows][:bounded_limit]
+        else:
+            stmt = select(AuditLogRow).where(AuditLogRow.created_at >= since, AuditLogRow.created_at <= until)
+            if user_id:
+                stmt = stmt.where(AuditLogRow.user_id == user_id)
+            if result:
+                stmt = stmt.where(AuditLogRow.result == result)
+            if action_values:
+                stmt = stmt.where(AuditLogRow.action.in_(action_values))
+            if resource_type:
+                stmt = stmt.where(AuditLogRow.resource_type == resource_type)
+            if q:
+                pattern = f"%{q}%"
+                stmt = stmt.where(
+                    or_(
+                        AuditLogRow.user_email.ilike(pattern),
+                        AuditLogRow.user_id.ilike(pattern),
+                        AuditLogRow.action.ilike(pattern),
+                        AuditLogRow.resource_id.ilike(pattern),
+                        AuditLogRow.path.ilike(pattern),
+                        AuditLogRow.error.ilike(pattern),
+                    )
+                )
+            stmt = stmt.order_by(desc(AuditLogRow.created_at)).limit(bounded_limit)
+            async with self._sf() as session:
+                raw = (await session.execute(stmt)).scalars().all()
+                rows = [_row_dict(row) for row in raw]
+                ids = {str(row.get("user_id")) for row in rows if row.get("user_id")}
+                if ids:
+                    user_rows = await session.execute(select(UserRow.id, UserRow.email).where(UserRow.id.in_(ids)))
+                    emails = {str(uid): email for uid, email in user_rows.all() if email}
+
+        by_action: dict[str, dict[str, Any]] = {}
+        by_user: dict[str, dict[str, Any]] = {}
+        by_channel: dict[str, dict[str, Any]] = {}
+        by_result: Counter[str] = Counter()
+        timeline: dict[str, dict[str, Any]] = {}
+        failures: list[dict[str, Any]] = []
+
+        for row in rows:
+            action = str(row.get("action") or "unknown")
+            outcome = str(row.get("result") or "success")
+            failed = outcome != "success"
+            details = row.get("details") or {}
+            channel = str(details.get("channel") or row.get("resource_type") or "unknown")
+            uid = row.get("user_id")
+            email = row.get("user_email") or (emails.get(str(uid)) if self._sf is not None and uid else None)
+
+            slot = by_action.setdefault(action, {"action": action, "count": 0, "failure": 0})
+            slot["count"] += 1
+            if failed:
+                slot["failure"] += 1
+
+            user_key = str(uid or email or details.get("platform_user_id") or "unknown")
+            user_slot = by_user.setdefault(user_key, {"user_id": uid, "user_email": email, "count": 0, "failure": 0, "last_at": ""})
+            user_slot["count"] += 1
+            if failed:
+                user_slot["failure"] += 1
+            created = str(row.get("created_at") or "")
+            if created > str(user_slot["last_at"]):
+                user_slot["last_at"] = created
+                user_slot["user_email"] = user_slot["user_email"] or email
+
+            chan = by_channel.setdefault(channel, {"channel": channel, "count": 0, "failure": 0})
+            chan["count"] += 1
+            if failed:
+                chan["failure"] += 1
+
+            by_result[outcome] += 1
+
+            bucket = _audit_bucket_key(created, bounded_bucket)
+            bucket_slot = timeline.setdefault(bucket, {"bucket": bucket, "count": 0, "failure": 0})
+            bucket_slot["count"] += 1
+            if failed:
+                bucket_slot["failure"] += 1
+
+            if failed and len(failures) < max(0, error_samples):
+                failures.append(
+                    {
+                        "created_at": created,
+                        "action": action,
+                        "channel": channel,
+                        "user_id": uid,
+                        "user_email": email,
+                        "platform_user_id": details.get("platform_user_id"),
+                        "chat_id": details.get("chat_id"),
+                        "thread_id": details.get("thread_id") or row.get("resource_id"),
+                        "run_id": details.get("run_id"),
+                        "reason": details.get("reason"),
+                        "error": row.get("error"),
+                        "text_preview": details.get("text_preview"),
+                    }
+                )
+
+        created_values = [str(row.get("created_at") or "") for row in rows if row.get("created_at")]
+        return {
+            "window": {
+                "start_at": _iso(since),
+                "end_at": _iso(until),
+                "hours": window_hours,
+                "bucket_minutes": bounded_bucket,
+            },
+            "totals": {
+                "events": len(rows),
+                "success": len(rows) - sum(1 for row in rows if str(row.get("result") or "success") != "success"),
+                "failure": sum(1 for row in rows if str(row.get("result") or "success") != "success"),
+                "truncated": len(rows) >= bounded_limit,
+            },
+            "by_action": sorted(by_action.values(), key=lambda item: (-item["count"], item["action"])),
+            "by_user": sorted(by_user.values(), key=lambda item: (-item["count"], str(item["user_id"]))),
+            "by_channel": sorted(by_channel.values(), key=lambda item: (-item["count"], item["channel"])),
+            "by_result": [{"result": key, "count": value} for key, value in by_result.most_common()],
+            "timeline": [timeline[key] for key in sorted(timeline)],
+            "errors": failures,
+            "first_at": min(created_values) if created_values else "",
+            "last_at": max(created_values) if created_values else "",
+        }
 
     async def list_traces(
         self,

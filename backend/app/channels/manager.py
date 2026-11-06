@@ -19,6 +19,15 @@ import httpx
 from langgraph_sdk.errors import ConflictError
 
 from app.channels import feishu_run_policy as _feishu_run_policy  # noqa: F401
+from app.channels.audit import (
+    ACTION_COMMAND,
+    ACTION_MESSAGE_RECEIVED,
+    ACTION_MESSAGE_REJECTED,
+    ACTION_RUN_COMPLETED,
+    ACTION_RUN_FAILED,
+    schedule_channel_audit,
+    text_preview,
+)
 from app.channels.commands import KNOWN_CHANNEL_COMMANDS
 from app.channels.message_bus import (
     PENDING_CLARIFICATION_METADATA_KEY,
@@ -100,6 +109,11 @@ _METADATA_DROP_KEYS = frozenset({"raw_message", "ref_msg"})
 def _slim_metadata(meta: dict[str, Any]) -> dict[str, Any]:
     """Return a shallow copy of *meta* with known-large keys removed."""
     return {k: v for k, v in meta.items() if k not in _METADATA_DROP_KEYS}
+
+
+def _elapsed_ms(started_at: float) -> int:
+    """Milliseconds since *started_at* (a ``time.perf_counter()`` reading)."""
+    return max(0, int((time.perf_counter() - started_at) * 1000))
 
 
 INBOUND_FILE_READERS: dict[str, InboundFileReader] = {}
@@ -1237,6 +1251,16 @@ class ChannelManager:
 
     async def _handle_message(self, msg: InboundMessage) -> None:
         msg = _apply_effective_owner(msg)
+        started_at = time.perf_counter()
+        # Record *every* inbound operation, including the ones rejected below: the
+        # audit trail has to answer "who touched the bot" before it answers "what
+        # did it say".
+        schedule_channel_audit(
+            action=ACTION_MESSAGE_RECEIVED,
+            channel_name=msg.channel_name,
+            msg=msg,
+            details={"message_type": msg.msg_type.value},
+        )
         try:
             # Non-command chat can be rejected before it consumes a semaphore
             # slot. Commands are handled below because provider adapters consume
@@ -1247,6 +1271,16 @@ class ChannelManager:
                 bound_identity_rejection = await self._get_bound_identity_rejection(msg)
             if bound_identity_rejection is not None:
                 await self._reject_unbound_channel_message(msg, bound_identity_rejection=bound_identity_rejection)
+                schedule_channel_audit(
+                    action=ACTION_MESSAGE_REJECTED,
+                    channel_name=msg.channel_name,
+                    result="failure",
+                    status_code=403,
+                    msg=msg,
+                    error="unbound channel identity",
+                    duration_ms=_elapsed_ms(started_at),
+                    details={"reason": "unbound_identity"},
+                )
                 return
 
             async with self._semaphore:
@@ -1261,6 +1295,7 @@ class ChannelManager:
                 msg.chat_id,
                 exc,
             )
+            self._audit_failure(msg, exc, started_at=started_at, reason="invalid_session_config")
             await self._send_error(msg, str(exc))
         except SlashSkillCommandResolutionError as exc:
             logger.warning(
@@ -1269,18 +1304,47 @@ class ChannelManager:
                 msg.chat_id,
                 exc,
             )
+            self._audit_failure(msg, exc, started_at=started_at, reason="slash_skill_resolution")
             await self._send_error(msg, str(exc))
-        except Exception:
+        except Exception as exc:
             logger.exception(
                 "Error handling message from %s (chat=%s)",
                 msg.channel_name,
                 msg.chat_id,
             )
+            self._audit_failure(msg, exc, started_at=started_at, reason="internal_error")
             # Transient/unexpected failure: release the dedupe key so a provider
             # redelivery of the same message can recover instead of being dropped
             # for the dedupe TTL.
             self._release_inbound_dedupe_key(msg)
             await self._send_error(msg, "An internal error occurred. Please try again.")
+        else:
+            schedule_channel_audit(
+                action=ACTION_RUN_COMPLETED,
+                channel_name=msg.channel_name,
+                msg=msg,
+                duration_ms=_elapsed_ms(started_at),
+            )
+
+    def _audit_failure(
+        self,
+        msg: InboundMessage,
+        exc: BaseException,
+        *,
+        started_at: float,
+        reason: str,
+    ) -> None:
+        """Record a failed inbound operation (never raises into the caller)."""
+        schedule_channel_audit(
+            action=ACTION_RUN_FAILED,
+            channel_name=msg.channel_name,
+            result="failure",
+            status_code=500,
+            msg=msg,
+            error=f"{type(exc).__name__}: {exc}",
+            duration_ms=_elapsed_ms(started_at),
+            details={"reason": reason},
+        )
 
     # -- chat handling -----------------------------------------------------
 
@@ -1965,6 +2029,16 @@ class ChannelManager:
                 return
             else:
                 reply = _unknown_command_reply(command)
+
+        schedule_channel_audit(
+            action=ACTION_COMMAND,
+            channel_name=msg.channel_name,
+            msg=msg,
+            details={
+                "command": command or "",
+                "reply_preview": text_preview(reply),
+            },
+        )
 
         outbound = OutboundMessage(
             channel_name=msg.channel_name,

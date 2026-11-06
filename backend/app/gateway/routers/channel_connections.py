@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import mimetypes
 import secrets
+import tempfile
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -709,3 +712,274 @@ async def configure_channel_provider_runtime(
         # Persistence succeeded. Never roll back over another writer's update.
         raise HTTPException(status_code=503, detail="Channel configuration saved, but local channel restart failed. Other workers were not reloaded.")
     return _provider_response(config, live_channels_config, provider, _PROVIDER_META[provider])
+
+
+class FeishuExportThreadRequest(BaseModel):
+    thread_id: str = Field(min_length=1, max_length=128)
+    filename: str = Field(min_length=1, max_length=255)
+    content: str = Field(min_length=1)
+
+
+class FeishuExportThreadResponse(BaseModel):
+    sent: bool
+    filename: str
+
+
+# Feishu caps file uploads at 30MB; keep headroom so the channel-level check
+# never rejects a payload this route already accepted.
+_EXPORT_CONTENT_MAX_BYTES = 20 * 1024 * 1024
+
+
+def _sanitize_export_filename(name: str) -> str:
+    cleaned = "".join(ch for ch in name if ch.isalnum() or ch in "._- ").strip()
+    if not cleaned:
+        cleaned = "conversation"
+    if not cleaned.lower().endswith(".md"):
+        cleaned = f"{cleaned}.md"
+    return cleaned[:255]
+
+
+def _feishu_connection_chat_id(connection: dict[str, Any]) -> str | None:
+    metadata = connection.get("metadata")
+    if isinstance(metadata, dict):
+        chat_id = str(metadata.get("chat_id") or "").strip()
+        if chat_id:
+            return chat_id
+    workspace_id = str(connection.get("workspace_id") or "").strip()
+    return workspace_id or None
+
+
+def _write_export_temp_file(content_bytes: bytes) -> Path:
+    with tempfile.NamedTemporaryFile(mode="wb", suffix=".md", prefix="deerflow-export-", delete=False) as handle:
+        handle.write(content_bytes)
+        return Path(handle.name)
+
+
+def _newest_connected_connection(connections: list[dict[str, Any]], provider: str) -> dict[str, Any] | None:
+    """Pick the caller's newest *connected* binding for ``provider``.
+
+    ``_newest_connection_by_provider`` ranks purely by ``updated_at``, and
+    revoking a binding bumps that timestamp, so the newest row is frequently a
+    revoked one even while an older binding is still live. Export has to reach
+    a chat the bot can actually post to, so filter on ``connected`` first and
+    only then rank by recency.
+    """
+    newest: dict[str, Any] | None = None
+    for item in connections:
+        if item.get("provider") != provider or item.get("status") != "connected":
+            continue
+        if newest is None or _connection_updated_at(item) > _connection_updated_at(newest):
+            newest = item
+    return newest
+
+
+@router.post("/feishu/export-thread", response_model=FeishuExportThreadResponse)
+async def export_thread_to_feishu(body: FeishuExportThreadRequest, request: Request) -> FeishuExportThreadResponse:
+    """Send a Markdown export of a thread to the caller's bound 海能 Work chat.
+
+    The Markdown itself is generated on the frontend by the same formatter used
+    for local downloads; this route only authenticates the caller, resolves
+    their Feishu binding, and uploads the file through the running channel.
+    """
+    config = await _get_channel_connections_config(request)
+    if not config.enabled:
+        raise HTTPException(status_code=400, detail="Channel connections are disabled")
+
+    provider_config = _provider_config(config, "feishu")
+    if not provider_config.enabled:
+        raise HTTPException(status_code=400, detail="Channel provider is not enabled")
+
+    channels_config = await _get_channels_config(request)
+    if not _runtime_channel_configured("feishu", channels_config):
+        raise HTTPException(status_code=400, detail=_runtime_unavailable_reason("feishu"))
+
+    content_bytes = body.content.encode("utf-8")
+    if len(content_bytes) > _EXPORT_CONTENT_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Exported conversation is too large to send via 海能 Work.")
+
+    owner_user_id = _get_user_id(request)
+    repo = _get_repository(request, config)
+    connections = await repo.list_connections(owner_user_id)
+    connection = _newest_connected_connection(connections, "feishu")
+    if connection is None:
+        raise HTTPException(status_code=400, detail="海能 Work 未连接，请先在渠道设置中完成绑定。")
+
+    chat_id = _feishu_connection_chat_id(connection)
+    if not chat_id:
+        raise HTTPException(status_code=400, detail="海能 Work 绑定缺少会话信息，请解除绑定后重新连接。")
+
+    ready = await _ensure_runtime_channel_ready_if_available("feishu", channels_config)
+    if ready is False:
+        raise HTTPException(status_code=503, detail=_runtime_not_running_reason("feishu"))
+
+    from app.channels.message_bus import OutboundMessage, ResolvedAttachment
+    from app.channels.service import get_channel_service
+
+    service = get_channel_service()
+    channel = service.get_channel("feishu") if service is not None else None
+    if channel is None or not channel.is_running:
+        raise HTTPException(status_code=503, detail=_runtime_not_running_reason("feishu"))
+
+    filename = _sanitize_export_filename(body.filename)
+    tmp_path: Path | None = None
+    try:
+        tmp_path = await asyncio.to_thread(_write_export_temp_file, content_bytes)
+        outbound = OutboundMessage(
+            channel_name="feishu",
+            chat_id=chat_id,
+            thread_id=body.thread_id,
+            text="",
+            is_final=True,
+            owner_user_id=owner_user_id,
+            connection_id=str(connection.get("id") or "") or None,
+        )
+        attachment = ResolvedAttachment(
+            virtual_path=f"/mnt/user-data/outputs/{filename}",
+            actual_path=tmp_path,
+            filename=filename,
+            mime_type="text/markdown",
+            size=len(content_bytes),
+            is_image=False,
+        )
+        sent = await channel.send_file(outbound, attachment)
+    finally:
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Failed to remove temporary export file %s", tmp_path)
+
+    if not sent:
+        raise HTTPException(status_code=502, detail="发送失败：海能 Work 机器人未能上传文件，请稍后重试。")
+    return FeishuExportThreadResponse(sent=True, filename=filename)
+
+
+class FeishuExportArtifactsRequest(BaseModel):
+    thread_id: str = Field(min_length=1, max_length=128)
+    artifact_paths: list[str] = Field(default_factory=list)
+
+
+class FeishuExportArtifactsResponse(BaseModel):
+    sent: bool
+    filenames: list[str] = Field(default_factory=list)
+    skipped: list[str] = Field(default_factory=list)
+
+
+# Feishu caps a single file upload at 30MB; keep per-file headroom so the
+# channel-level check never rejects a file this route already accepted.
+_ARTIFACT_FILE_MAX_BYTES = 20 * 1024 * 1024
+
+
+def _resolve_artifact_for_send(thread_id: str, virtual_path: str, owner_user_id: str | None) -> tuple[Path, str, int, str, bool] | None:
+    """Resolve a virtual artifact path to an on-disk file ready to upload.
+
+    Returns ``(actual_path, filename, size, mime_type, is_image)`` or ``None``
+    when the path is invalid, escapes the thread sandbox, is not a regular
+    file, or exceeds the per-file upload cap. Blocking filesystem work runs in
+    a worker thread via the caller.
+    """
+    from app.gateway.path_utils import resolve_thread_virtual_path
+
+    try:
+        actual_path = resolve_thread_virtual_path(thread_id, virtual_path, user_id=owner_user_id)
+    except HTTPException:
+        return None
+    if not actual_path.is_file():
+        return None
+    try:
+        size = actual_path.stat().st_size
+    except OSError:
+        return None
+    if size > _ARTIFACT_FILE_MAX_BYTES:
+        return None
+    filename = actual_path.name
+    mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    is_image = mime_type.startswith("image/")
+    return actual_path, filename, size, mime_type, is_image
+
+
+@router.post("/feishu/export-artifacts", response_model=FeishuExportArtifactsResponse)
+async def export_artifacts_to_feishu(body: FeishuExportArtifactsRequest, request: Request) -> FeishuExportArtifactsResponse:
+    """Send a thread's generated files (artifacts) to the caller's bound 海能 Work chat.
+
+    Unlike ``export-thread`` (which uploads a frontend-rendered Markdown
+    transcript), this route uploads the *actual generated files* the agent
+    produced for the thread. The caller supplies the virtual artifact paths it
+    already displays (``/mnt/user-data/outputs/...``); each is resolved to the
+    owner's on-disk file through the same traversal-safe helper the download
+    endpoint uses, then uploaded through the running Feishu channel. Missing or
+    oversized files are reported in ``skipped`` instead of failing the batch.
+    """
+    config = await _get_channel_connections_config(request)
+    if not config.enabled:
+        raise HTTPException(status_code=400, detail="Channel connections are disabled")
+
+    provider_config = _provider_config(config, "feishu")
+    if not provider_config.enabled:
+        raise HTTPException(status_code=400, detail="Channel provider is not enabled")
+
+    channels_config = await _get_channels_config(request)
+    if not _runtime_channel_configured("feishu", channels_config):
+        raise HTTPException(status_code=400, detail=_runtime_unavailable_reason("feishu"))
+
+    if not body.artifact_paths:
+        raise HTTPException(status_code=400, detail="当前对话没有可发送的生成文件。")
+
+    owner_user_id = _get_user_id(request)
+    repo = _get_repository(request, config)
+    connections = await repo.list_connections(owner_user_id)
+    connection = _newest_connected_connection(connections, "feishu")
+    if connection is None:
+        raise HTTPException(status_code=400, detail="海能 Work 未连接，请先在渠道设置中完成绑定。")
+
+    chat_id = _feishu_connection_chat_id(connection)
+    if not chat_id:
+        raise HTTPException(status_code=400, detail="海能 Work 绑定缺少会话信息，请解除绑定后重新连接。")
+
+    ready = await _ensure_runtime_channel_ready_if_available("feishu", channels_config)
+    if ready is False:
+        raise HTTPException(status_code=503, detail=_runtime_not_running_reason("feishu"))
+
+    from app.channels.message_bus import OutboundMessage, ResolvedAttachment
+    from app.channels.service import get_channel_service
+
+    service = get_channel_service()
+    channel = service.get_channel("feishu") if service is not None else None
+    if channel is None or not channel.is_running:
+        raise HTTPException(status_code=503, detail=_runtime_not_running_reason("feishu"))
+
+    sent_filenames: list[str] = []
+    skipped: list[str] = []
+    for virtual_path in body.artifact_paths:
+        display_name = Path(virtual_path.rstrip("/")).name or virtual_path
+        resolved = await asyncio.to_thread(_resolve_artifact_for_send, body.thread_id, virtual_path, owner_user_id)
+        if resolved is None:
+            skipped.append(display_name)
+            continue
+        actual_path, filename, size, mime_type, is_image = resolved
+        outbound = OutboundMessage(
+            channel_name="feishu",
+            chat_id=chat_id,
+            thread_id=body.thread_id,
+            text="",
+            is_final=True,
+            owner_user_id=owner_user_id,
+            connection_id=str(connection.get("id") or "") or None,
+        )
+        attachment = ResolvedAttachment(
+            virtual_path=virtual_path,
+            actual_path=actual_path,
+            filename=filename,
+            mime_type=mime_type,
+            size=size,
+            is_image=is_image,
+        )
+        delivered = await channel.send_file(outbound, attachment)
+        if delivered:
+            sent_filenames.append(filename)
+        else:
+            skipped.append(filename)
+
+    if not sent_filenames:
+        raise HTTPException(status_code=502, detail="发送失败：没有生成文件成功上传到海能 Work，请稍后重试。")
+    return FeishuExportArtifactsResponse(sent=True, filenames=sent_filenames, skipped=skipped)

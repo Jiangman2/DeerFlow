@@ -67,3 +67,24 @@ class OperationDispositionRow(Base):
         Index("ix_operation_dispositions_run_time", "run_id", "created_at"),
         Index("ix_operation_dispositions_thread_time", "thread_id", "created_at"),
     )
+
+
+class ChannelDigestDedupRow(Base):
+    """One row per (channel, digest window) claimed by a Gateway replica.
+
+    The composite primary key is the cross-replica idempotency guard: only the
+    replica whose INSERT succeeds owns the right to send that window's digest, so
+    N Pods each ticking their own loop never push the same summary N times.
+    """
+
+    __tablename__ = "channel_digest_dedup"
+
+    channel_name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    window_bucket: Mapped[str] = mapped_column(String(64), primary_key=True)
+    claimed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
+    chat_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    events: Mapped[int | None] = mapped_column(Integer, nullable=True)

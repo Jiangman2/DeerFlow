@@ -34,12 +34,12 @@ async def test_work_migration_from_previous_release_and_idempotent_startup(tmp_p
         await bootstrap_schema(engine, backend=backend)
         async with engine.connect() as conn:
             names = await conn.run_sync(lambda c: sa.inspect(c).get_table_names())
-            assert set(names) == set(before) | {"work_integration_records"}
+            assert set(names) == set(before) | {"work_integration_records", "channel_digest_dedup"}
             after = await conn.run_sync(lambda c: {name: [column["name"] for column in sa.inspect(c).get_columns(name)] for name in before})
             assert after == before
             assert (await conn.execute(sa.text("SELECT email FROM users WHERE id='work-migration-synthetic'"))).scalar_one() == "work-migration@example.test"
             indexes = await conn.run_sync(lambda c: {index["name"] for index in sa.inspect(c).get_indexes("work_integration_records")})
             assert indexes == {"ix_work_records_expiry", "ix_work_records_namespace_expiry"}
-            assert (await conn.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one() == "0022_work_integration_state"
+            assert (await conn.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one() == "0023_channel_digest_dedup"
     finally:
         await engine.dispose()

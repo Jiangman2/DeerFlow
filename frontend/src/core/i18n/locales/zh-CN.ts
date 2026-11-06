@@ -83,6 +83,8 @@ export const zhCN: Translations = {
     exportAsMarkdown: "导出为 Markdown",
     exportAsJSON: "导出为 JSON",
     exportSuccess: "对话已导出",
+    exportToFeishu: "发送到海能 Work",
+    exportToFeishuSuccess: "已发送到海能 Work，请查收文件",
     regenerate: "重新生成",
     branch: "分叉",
     likeResponse: "点赞回答",

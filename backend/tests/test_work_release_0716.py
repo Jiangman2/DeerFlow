@@ -14,7 +14,8 @@ def test_work_has_one_head_after_existing_ppt_and_oa_revisions():
 
     config = _get_alembic_config(create_async_engine("sqlite+aiosqlite:///:memory:"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0022_work_integration_state"]
+    assert scripts.get_heads() == ["0023_channel_digest_dedup"]
+    assert scripts.get_revision("0023_channel_digest_dedup").down_revision == "0022_work_integration_state"
     assert scripts.get_revision("0022_work_integration_state").down_revision == "0021_oa_result_sets"
     assert scripts.get_revision("0021_oa_result_sets").down_revision == "0020_ppt_confirmation"
 

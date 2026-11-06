@@ -304,6 +304,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             except Exception:
                 logger.exception("No IM channels configured or channel service failed to start")
 
+        # Periodic "bot activity" digest. Opt-in via DEER_FLOW_CHANNEL_AUDIT_DIGEST_ENABLED;
+        # runs its own loop rather than a ScheduledTaskService task (see audit_digest.py).
+        if not isolated_ppt_runner:
+            try:
+                from app.channels.audit_digest import start_channel_audit_digest
+
+                await start_channel_audit_digest()
+            except Exception:
+                logger.exception("Failed to start the channel audit digest loop")
+
         if not isolated_ppt_runner:
             try:
                 from app.gateway.services import launch_scheduled_thread_run
@@ -366,6 +376,42 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             )
         except Exception:
             logger.exception("Failed to close document parser HTTP client")
+
+        # Stop the digest loop before the channel service: a late digest must not
+        # try to publish into a channel that is already being torn down.
+        if not isolated_ppt_runner:
+            try:
+                from app.channels.audit_digest import stop_channel_audit_digest
+
+                await asyncio.wait_for(
+                    stop_channel_audit_digest(),
+                    timeout=_SHUTDOWN_HOOK_TIMEOUT_SECONDS,
+                )
+            except TimeoutError:
+                logger.warning(
+                    "Channel audit digest shutdown exceeded %.1fs; proceeding with worker exit.",
+                    _SHUTDOWN_HOOK_TIMEOUT_SECONDS,
+                )
+            except Exception:
+                logger.exception("Failed to stop the channel audit digest loop")
+
+        # Flush buffered channel-audit writes before the channel service and DB
+        # pools go away, so events recorded right up to shutdown are not lost.
+        if not isolated_ppt_runner:
+            try:
+                from app.channels.audit import drain_channel_audit_tasks
+
+                await asyncio.wait_for(
+                    drain_channel_audit_tasks(),
+                    timeout=_SHUTDOWN_HOOK_TIMEOUT_SECONDS,
+                )
+            except TimeoutError:
+                logger.warning(
+                    "Channel audit drain exceeded %.1fs; proceeding with worker exit.",
+                    _SHUTDOWN_HOOK_TIMEOUT_SECONDS,
+                )
+            except Exception:
+                logger.exception("Failed to drain channel audit writes")
 
         # Stop channel service on shutdown (bounded to prevent worker hang)
         if not isolated_ppt_runner:

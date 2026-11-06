@@ -85,6 +85,8 @@ export const enUS: Translations = {
     exportAsMarkdown: "Export as Markdown",
     exportAsJSON: "Export as JSON",
     exportSuccess: "Conversation exported",
+    exportToFeishu: "Send to Haineng Work",
+    exportToFeishuSuccess: "Sent to Haineng Work",
     regenerate: "Regenerate",
     branch: "Branch conversation",
     likeResponse: "Like response",

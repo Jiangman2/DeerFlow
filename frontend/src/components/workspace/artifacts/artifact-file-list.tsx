@@ -1,4 +1,10 @@
-import { DownloadIcon, EyeIcon, LoaderIcon, PackageIcon } from "lucide-react";
+import {
+  DownloadIcon,
+  EyeIcon,
+  LoaderIcon,
+  PackageIcon,
+  SendIcon,
+} from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
@@ -11,6 +17,7 @@ import {
 import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
 import { installSkill, SkillRequestError } from "@/core/skills/api";
+import { sendThreadArtifactsToFeishu } from "@/core/threads/export";
 import {
   getFileExtensionDisplayName,
   getFileIcon,
@@ -38,6 +45,7 @@ export function ArtifactFileList({
     openArtifactPanel,
   } = useArtifacts();
   const [installingFile, setInstallingFile] = useState<string | null>(null);
+  const [sendingFile, setSendingFile] = useState<string | null>(null);
   const visibleFiles = filterUserVisibleArtifacts(
     files,
     artifacts.length > 0 ? artifacts : files,
@@ -81,6 +89,26 @@ export function ArtifactFileList({
       }
     },
     [threadId, installingFile, t],
+  );
+
+  const handleSendToFeishu = useCallback(
+    async (event: React.MouseEvent, filepath: string) => {
+      event.stopPropagation();
+      event.preventDefault();
+
+      if (sendingFile) return;
+
+      setSendingFile(filepath);
+      try {
+        await sendThreadArtifactsToFeishu(threadId, [filepath]);
+        toast.success(t.common.exportToFeishuSuccess);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : String(error));
+      } finally {
+        setSendingFile(null);
+      }
+    },
+    [threadId, sendingFile, t],
   );
 
   return (
@@ -161,6 +189,23 @@ export function ArtifactFileList({
                       {t.common.download}
                     </span>
                   </a>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={sendingFile === file}
+                  aria-label={`${t.common.exportToFeishu} ${getFileName(file)}`}
+                  title={t.common.exportToFeishu}
+                  onClick={(event) => void handleSendToFeishu(event, file)}
+                >
+                  {sendingFile === file ? (
+                    <LoaderIcon className="size-4 animate-spin" />
+                  ) : (
+                    <SendIcon className="size-4" />
+                  )}
+                  <span className="cnooc-artifact-action-label">
+                    {t.common.exportToFeishu}
+                  </span>
                 </Button>
               </CardAction>
             </CardHeader>
