@@ -317,6 +317,29 @@ class FeishuChannel(Channel):
                 return True
         return False
 
+    def _content_mentions_bot(self, content: Any) -> bool:
+        """Return True when a rich-text (post) body @-mentions this bot.
+
+        ``im.message.receive_v1`` fills ``message.mentions`` for plain text
+        messages, but rich-text bodies carry the @ inline as
+        ``{"tag": "at", "user_id": "<open_id>"}`` elements. Without this
+        fallback an @-mention written inside a post would be dropped by the
+        group gate even though the bot was explicitly addressed.
+        """
+        if not self._bot_open_id or not isinstance(content, dict):
+            return False
+
+        bot_open_id = self._bot_open_id
+        for paragraph in content.get("content") or []:
+            if not isinstance(paragraph, list):
+                continue
+            for element in paragraph:
+                if not isinstance(element, dict) or element.get("tag") != "at":
+                    continue
+                if element.get("user_id") == bot_open_id or element.get("open_id") == bot_open_id:
+                    return True
+        return False
+
     @property
     def supports_streaming(self) -> bool:
         return True
@@ -960,10 +983,11 @@ class FeishuChannel(Channel):
         raw_user_id = msg.metadata.get("user_id")
         if isinstance(raw_user_id, str):
             user_id = raw_user_id
+        chat_type = self._non_empty_str(msg.metadata.get("chat_type"))
 
         seen: set[str] = set()
         for topic_id in [*topic_ids, *metadata_topic_ids]:
-            topic_id = self._non_empty_str(topic_id)
+            topic_id = self._scoped_topic_id(chat_type, user_id, topic_id)
             if not topic_id or topic_id in seen:
                 continue
             seen.add(topic_id)
@@ -1042,6 +1066,28 @@ class FeishuChannel(Channel):
         except Exception:
             logger.exception("[Feishu] failed to restore pending clarification mapping for topic_id=%s", topic_id)
 
+    def _scoped_topic_id(self, chat_type: str | None, user_id: str | None, topic_id: str | None) -> str | None:
+        """Namespace a Feishu thread key by the person who started it.
+
+        A Feishu group has ONE shared thread id for everybody who posts in the
+        same topic (``thread_id``/``root_id`` are group-wide). Using that id as
+        the DeerFlow topic made every participant share one conversation, so
+        Bob's follow-up question was answered with Alice's history — and the
+        bot replied "in Alice's @-message". Group topics are therefore scoped
+        per sender: ``<sender_open_id>:<feishu_topic>``. P2P chats already have
+        a per-user ``chat_id`` and keep their unscoped key.
+        """
+        topic_id = self._non_empty_str(topic_id)
+        if not topic_id:
+            return None
+        user_id = self._non_empty_str(user_id)
+        if chat_type != "group" or not user_id:
+            return topic_id
+        prefix = f"{user_id}:"
+        if topic_id.startswith(prefix):
+            return topic_id
+        return f"{prefix}{topic_id}"
+
     def _resolve_topic_id(
         self,
         chat_id: str,
@@ -1050,6 +1096,8 @@ class FeishuChannel(Channel):
         root_id: str | None,
         parent_id: str | None,
         thread_id: str | None,
+        chat_type: str | None = None,
+        user_id: str | None = None,
     ) -> tuple[str, bool]:
         store = self.config.get("channel_store")
         candidates = [root_id, parent_id, thread_id]
@@ -1059,13 +1107,17 @@ class FeishuChannel(Channel):
                 candidate = self._non_empty_str(candidate)
                 if not candidate:
                     continue
+                candidate = self._scoped_topic_id(chat_type, user_id, candidate)
+                if not candidate:
+                    continue
                 try:
                     if store.get_thread_id(self.name, chat_id, topic_id=candidate):
                         return candidate, True
                 except Exception:
                     logger.exception("[Feishu] failed to resolve stored topic mapping for topic_id=%s", candidate)
 
-        return root_id or msg_id, False
+        fallback = self._scoped_topic_id(chat_type, user_id, root_id or msg_id) or msg_id
+        return fallback, False
 
     @staticmethod
     def _is_batchable_file_inbound(
@@ -1396,6 +1448,9 @@ class FeishuChannel(Channel):
             # reaction, no running card, no bus publish). P2P chats skip this
             # check entirely so DMs still work without @.
             #
+            # Both mention shapes are accepted: ``message.mentions[]`` (plain
+            # text) and ``{"tag": "at"}`` elements inside a rich-text body.
+            # ``@all`` carries no matching open_id, so it never opens the gate.
             # NOTE: there is deliberately NO "pending clarification" bypass here.
             # A previous version exempted this ``(chat_id, user_id)`` from the
             # @-requirement whenever a clarification was remembered, so the user
@@ -1406,7 +1461,8 @@ class FeishuChannel(Channel):
             # with no @ at all. Group multi-turn clarification now requires an
             # explicit @ each turn. P2P still continues clarification answers
             # without @ because it skips this gate entirely.
-            if chat_type == "group" and self._mention_only_in_group and not self._message_mentions_bot(message):
+            mentioned = self._message_mentions_bot(message) or self._content_mentions_bot(content)
+            if chat_type == "group" and self._mention_only_in_group and not mentioned:
                 if self._bot_open_id:
                     skip_reason = "mention_only_in_group"
                     audit_error = "group message without @-mention"
@@ -1458,12 +1514,18 @@ class FeishuChannel(Channel):
             # topic_id determines which LangGraph thread the message maps to.
             # P2P chats: topic_id=None so all messages share one thread (like Telegram DMs).
             # But check stored mappings first for backward compatibility with pre-upgrade P2P threads.
+            # Group chats: the Feishu thread ids are group-wide, so the topic
+            # is namespaced by the sender (``<open_id>:<feishu_topic>``). Two
+            # people who reply in the same Feishu topic therefore land in two
+            # separate DeerFlow threads and never see each other's history.
             topic_id, resolved_from_stored_mapping = self._resolve_topic_id(
                 chat_id,
                 msg_id,
                 root_id=root_id,
                 parent_id=parent_id,
                 thread_id=feishu_thread_id,
+                chat_type=chat_type,
+                user_id=sender_id,
             )
             if chat_type == "p2p" and not resolved_from_stored_mapping:
                 topic_id = None
