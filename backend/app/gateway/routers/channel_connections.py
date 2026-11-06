@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import mimetypes
 import secrets
+import tempfile
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -709,3 +712,461 @@ async def configure_channel_provider_runtime(
         # Persistence succeeded. Never roll back over another writer's update.
         raise HTTPException(status_code=503, detail="Channel configuration saved, but local channel restart failed. Other workers were not reloaded.")
     return _provider_response(config, live_channels_config, provider, _PROVIDER_META[provider])
+
+
+class FeishuExportThreadRequest(BaseModel):
+    thread_id: str = Field(min_length=1, max_length=128)
+    filename: str = Field(min_length=1, max_length=255)
+    content: str = Field(min_length=1)
+    # Optional explicit destination. When omitted the export goes to the
+    # caller's verified personal (p2p) chat; reaching a group requires the
+    # caller to name that chat, so the UI can show the target before sending.
+    target_chat_id: str | None = Field(default=None, max_length=128)
+
+
+class FeishuExportThreadResponse(BaseModel):
+    sent: bool
+    filename: str
+    target_chat_id: str = ""
+    target_chat_type: str = ""
+    target_name: str | None = None
+
+
+# Feishu caps file uploads at 30MB; keep headroom so the channel-level check
+# never rejects a payload this route already accepted.
+_EXPORT_CONTENT_MAX_BYTES = 20 * 1024 * 1024
+
+_FEISHU_PROVIDER = "feishu"
+_FEISHU_PERSONAL_CHAT_TYPE = "p2p"
+_OUTPUTS_VIRTUAL_PREFIX = "/mnt/user-data/outputs/"
+
+
+def _sanitize_export_filename(name: str) -> str:
+    cleaned = "".join(ch for ch in name if ch.isalnum() or ch in "._- ").strip()
+    if not cleaned:
+        cleaned = "conversation"
+    if not cleaned.lower().endswith(".md"):
+        cleaned = f"{cleaned}.md"
+    return cleaned[:255]
+
+
+def _feishu_connection_chat_id(connection: dict[str, Any]) -> str | None:
+    metadata = connection.get("metadata")
+    if isinstance(metadata, dict):
+        chat_id = str(metadata.get("chat_id") or "").strip()
+        if chat_id:
+            return chat_id
+    workspace_id = str(connection.get("workspace_id") or "").strip()
+    return workspace_id or None
+
+
+def _feishu_chat_type(connection: dict[str, Any]) -> str:
+    """Chat type recorded when the binding was created (``""`` when unknown).
+
+    Bindings created before chat-type recording existed carry no value, so they
+    can never satisfy the personal-chat default below — an unknown destination
+    is not silently treated as private.
+    """
+    metadata = connection.get("metadata")
+    if not isinstance(metadata, dict):
+        return ""
+    value = metadata.get("chat_type")
+    return value.strip().lower() if isinstance(value, str) else ""
+
+
+def _feishu_target_name(connection: dict[str, Any]) -> str | None:
+    metadata = connection.get("metadata")
+    if isinstance(metadata, dict):
+        chat_name = str(metadata.get("chat_name") or "").strip()
+        if chat_name:
+            return chat_name
+    workspace_name = str(connection.get("workspace_name") or "").strip()
+    return workspace_name or None
+
+
+def _feishu_personal_connection(connections: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Newest *connected personal* (p2p) Feishu binding, or ``None``.
+
+    A group binding is frequently the most recently updated row, so recency is
+    only allowed to rank personal bindings. Export must never guess a group
+    destination: that would show the conversation and its files to everyone in
+    the group without the caller ever seeing where it went.
+    """
+    personal = [item for item in connections if item.get("provider") == _FEISHU_PROVIDER and item.get("status") == "connected" and _feishu_chat_type(item) == _FEISHU_PERSONAL_CHAT_TYPE]
+    if not personal:
+        return None
+    return max(personal, key=_connection_updated_at)
+
+
+def _feishu_connection_for_chat(connections: list[dict[str, Any]], chat_id: str) -> dict[str, Any] | None:
+    """Return the caller's live Feishu binding for an explicitly requested chat."""
+    for item in connections:
+        if item.get("provider") != _FEISHU_PROVIDER or item.get("status") != "connected":
+            continue
+        if _feishu_connection_chat_id(item) == chat_id:
+            return item
+    return None
+
+
+def _select_feishu_export_target(connections: list[dict[str, Any]], requested_chat_id: str | None = None) -> dict[str, Any]:
+    """Resolve the export destination without ever guessing a group chat.
+
+    Without an explicit ``target_chat_id`` the caller's verified personal chat
+    is used. An explicitly requested chat must be one of the caller's own live
+    bindings, so the destination the UI displays is the destination that
+    actually receives the upload.
+    """
+    if requested_chat_id is not None:
+        requested = requested_chat_id.strip()
+        if not requested:
+            raise HTTPException(status_code=400, detail="海能 Work 目标会话无效，请重新选择。")
+        connection = _feishu_connection_for_chat(connections, requested)
+        if connection is None:
+            raise HTTPException(status_code=400, detail="指定的海能 Work 会话不属于当前账号，请重新选择。")
+        return connection
+
+    connection = _feishu_personal_connection(connections)
+    if connection is None:
+        raise HTTPException(
+            status_code=400,
+            detail="未找到海能 Work 私聊绑定，请先在海能 Work 私聊中发送连接码完成绑定后再试。",
+        )
+    return connection
+
+
+def _write_export_temp_file(content_bytes: bytes) -> Path:
+    with tempfile.NamedTemporaryFile(mode="wb", suffix=".md", prefix="deerflow-export-", delete=False) as handle:
+        handle.write(content_bytes)
+        return Path(handle.name)
+
+
+async def _require_thread_read_access(request: Request, thread_id: str, user_id: str) -> None:
+    """Mirror ``require_permission("threads", "read", owner_check=True)``.
+
+    These export routes receive ``thread_id`` in the JSON body instead of the
+    URL path, so the decorator cannot run its owner check (it looks for a
+    ``thread_id`` kwarg). Administrators keep the documented read-only
+    cross-user review exception.
+    """
+    user = getattr(request.state, "user", None)
+    if getattr(user, "system_role", None) == "admin":
+        return
+
+    from app.gateway.deps import get_thread_store
+
+    thread_store = get_thread_store(request)
+    allowed = await thread_store.check_access(thread_id, user_id)
+    if not allowed:
+        raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found")
+
+
+def _normalize_artifact_virtual_path(virtual_path: str) -> str:
+    """Normalize a client-supplied artifact path to ``/mnt/user-data/...`` form."""
+    path = (virtual_path or "").strip()
+    if not path:
+        return ""
+    return "/" + path.lstrip("/")
+
+
+def _published_artifact_virtual_paths(channel_values: Any) -> set[str]:
+    """Virtual paths this thread actually published through ``present_files``.
+
+    The checkpoint's ``artifacts`` channel is the thread-owned record of what
+    was presented to the user, so it — not the browser request — decides which
+    files may leave the sandbox.
+    """
+    artifacts = channel_values.get("artifacts") if isinstance(channel_values, dict) else None
+    if not isinstance(artifacts, list):
+        return set()
+    published: set[str] = set()
+    for item in artifacts:
+        if isinstance(item, str):
+            normalized = _normalize_artifact_virtual_path(item)
+            if normalized:
+                published.add(normalized)
+    return published
+
+
+async def _load_published_artifact_paths(request: Request, thread_id: str) -> set[str]:
+    from app.gateway.deps import get_checkpointer
+
+    checkpointer = get_checkpointer(request)
+    checkpoint_tuple = await checkpointer.aget_tuple({"configurable": {"thread_id": thread_id}})
+    if checkpoint_tuple is None:
+        return set()
+    checkpoint = getattr(checkpoint_tuple, "checkpoint", None)
+    if not isinstance(checkpoint, dict):
+        return set()
+    return _published_artifact_virtual_paths(checkpoint.get("channel_values"))
+
+
+@router.post("/feishu/export-thread", response_model=FeishuExportThreadResponse)
+async def export_thread_to_feishu(body: FeishuExportThreadRequest, request: Request) -> FeishuExportThreadResponse:
+    """Send a Markdown export of a thread to the caller's bound 海能 Work chat.
+
+    The Markdown itself is generated on the frontend by the same formatter used
+    for local downloads; this route only authenticates the caller, resolves
+    their Feishu binding, and uploads the file through the running channel.
+    The destination defaults to the caller's verified personal chat and is
+    echoed back so the UI can name it.
+    """
+    config = await _get_channel_connections_config(request)
+    if not config.enabled:
+        raise HTTPException(status_code=400, detail="Channel connections are disabled")
+
+    provider_config = _provider_config(config, "feishu")
+    if not provider_config.enabled:
+        raise HTTPException(status_code=400, detail="Channel provider is not enabled")
+
+    channels_config = await _get_channels_config(request)
+    if not _runtime_channel_configured("feishu", channels_config):
+        raise HTTPException(status_code=400, detail=_runtime_unavailable_reason("feishu"))
+
+    content_bytes = body.content.encode("utf-8")
+    if len(content_bytes) > _EXPORT_CONTENT_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Exported conversation is too large to send via 海能 Work.")
+
+    owner_user_id = _get_user_id(request)
+    await _require_thread_read_access(request, body.thread_id, owner_user_id)
+
+    repo = _get_repository(request, config)
+    connections = await repo.list_connections(owner_user_id)
+    connection = _select_feishu_export_target(connections, body.target_chat_id)
+
+    chat_id = _feishu_connection_chat_id(connection)
+    if not chat_id:
+        raise HTTPException(status_code=400, detail="海能 Work 绑定缺少会话信息，请解除绑定后重新连接。")
+
+    ready = await _ensure_runtime_channel_ready_if_available("feishu", channels_config)
+    if ready is False:
+        raise HTTPException(status_code=503, detail=_runtime_not_running_reason("feishu"))
+
+    from app.channels.message_bus import OutboundMessage, ResolvedAttachment
+    from app.channels.service import get_channel_service
+
+    service = get_channel_service()
+    channel = service.get_channel("feishu") if service is not None else None
+    if channel is None or not channel.is_running:
+        raise HTTPException(status_code=503, detail=_runtime_not_running_reason("feishu"))
+
+    filename = _sanitize_export_filename(body.filename)
+    tmp_path: Path | None = None
+    try:
+        tmp_path = await asyncio.to_thread(_write_export_temp_file, content_bytes)
+        outbound = OutboundMessage(
+            channel_name="feishu",
+            chat_id=chat_id,
+            thread_id=body.thread_id,
+            text="",
+            is_final=True,
+            owner_user_id=owner_user_id,
+            connection_id=str(connection.get("id") or "") or None,
+        )
+        attachment = ResolvedAttachment(
+            virtual_path=f"/mnt/user-data/outputs/{filename}",
+            actual_path=tmp_path,
+            filename=filename,
+            mime_type="text/markdown",
+            size=len(content_bytes),
+            is_image=False,
+        )
+        sent = await channel.send_file(outbound, attachment)
+    finally:
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Failed to remove temporary export file %s", tmp_path)
+
+    if not sent:
+        raise HTTPException(status_code=502, detail="发送失败：海能 Work 机器人未能上传文件，请稍后重试。")
+    return FeishuExportThreadResponse(
+        sent=True,
+        filename=filename,
+        target_chat_id=chat_id,
+        target_chat_type=_feishu_chat_type(connection),
+        target_name=_feishu_target_name(connection),
+    )
+
+
+class FeishuExportArtifactsRequest(BaseModel):
+    thread_id: str = Field(min_length=1, max_length=128)
+    artifact_paths: list[str] = Field(default_factory=list)
+    target_chat_id: str | None = Field(default=None, max_length=128)
+
+
+class FeishuExportArtifactsResponse(BaseModel):
+    sent: bool
+    filenames: list[str] = Field(default_factory=list)
+    skipped: list[str] = Field(default_factory=list)
+    target_chat_id: str = ""
+    target_chat_type: str = ""
+    target_name: str | None = None
+
+
+# Feishu caps a single file upload at 30MB; keep per-file headroom so the
+# channel-level check never rejects a file this route already accepted.
+_ARTIFACT_FILE_MAX_BYTES = 20 * 1024 * 1024
+
+
+def _resolve_artifact_for_send(
+    thread_id: str,
+    virtual_path: str,
+    owner_user_id: str | None,
+    published_paths: set[str],
+) -> tuple[Path, str, int, str, bool] | None:
+    """Resolve a *published* artifact to an on-disk file ready to upload.
+
+    Three independent gates keep this narrower than the generic download
+    helper: the path must live under the thread's ``outputs/`` mount, it must
+    be one the thread actually published through ``present_files``, and the
+    resolved host path must still sit inside the owner's outputs directory.
+    Returns ``(actual_path, filename, size, mime_type, is_image)`` or ``None``
+    when any gate rejects the path. Blocking filesystem work runs in a worker
+    thread via the caller.
+    """
+    from app.gateway.path_utils import resolve_thread_virtual_path
+    from deerflow.config.paths import get_paths
+    from deerflow.runtime.user_context import get_effective_user_id
+
+    normalized = _normalize_artifact_virtual_path(virtual_path)
+    if not normalized.startswith(_OUTPUTS_VIRTUAL_PREFIX):
+        logger.warning("[Channels] rejected non-outputs artifact for 海能 Work export: %s", virtual_path)
+        return None
+    if normalized not in published_paths:
+        logger.warning("[Channels] rejected unpublished artifact for 海能 Work export: %s", virtual_path)
+        return None
+
+    effective_owner = owner_user_id or get_effective_user_id()
+    try:
+        actual_path = resolve_thread_virtual_path(thread_id, normalized, user_id=effective_owner)
+        outputs_dir = get_paths().sandbox_outputs_dir(thread_id, user_id=effective_owner).resolve()
+        actual_path.resolve().relative_to(outputs_dir)
+    except (HTTPException, ValueError):
+        logger.warning("[Channels] rejected artifact outside the thread outputs directory: %s", virtual_path)
+        return None
+    try:
+        if not actual_path.is_file():
+            return None
+        size = actual_path.stat().st_size
+    except OSError:
+        logger.warning("[Channels] failed to stat artifact for export: %s", virtual_path)
+        return None
+    if size > _ARTIFACT_FILE_MAX_BYTES:
+        return None
+    filename = actual_path.name
+    mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    is_image = mime_type.startswith("image/")
+    return actual_path, filename, size, mime_type, is_image
+
+
+@router.post("/feishu/export-artifacts", response_model=FeishuExportArtifactsResponse)
+async def export_artifacts_to_feishu(body: FeishuExportArtifactsRequest, request: Request) -> FeishuExportArtifactsResponse:
+    """Send a thread's published generated files to the caller's 海能 Work chat.
+
+    Unlike ``export-thread`` (which uploads a frontend-rendered Markdown
+    transcript), this route uploads the *actual generated files* the agent
+    produced. Which files may leave the sandbox is decided server-side: only
+    paths this thread published through ``present_files`` and that resolve
+    inside the thread's ``outputs/`` directory are eligible, so raw uploads,
+    workspace scratch files and unpublished outputs are never sent. The
+    destination follows the same personal-chat default as ``export-thread``.
+    Missing or oversized files are reported in ``skipped`` instead of failing
+    the batch.
+    """
+    config = await _get_channel_connections_config(request)
+    if not config.enabled:
+        raise HTTPException(status_code=400, detail="Channel connections are disabled")
+
+    provider_config = _provider_config(config, "feishu")
+    if not provider_config.enabled:
+        raise HTTPException(status_code=400, detail="Channel provider is not enabled")
+
+    channels_config = await _get_channels_config(request)
+    if not _runtime_channel_configured("feishu", channels_config):
+        raise HTTPException(status_code=400, detail=_runtime_unavailable_reason("feishu"))
+
+    if not body.artifact_paths:
+        raise HTTPException(status_code=400, detail="当前对话没有可发送的生成文件。")
+
+    owner_user_id = _get_user_id(request)
+    await _require_thread_read_access(request, body.thread_id, owner_user_id)
+
+    # Read the artifacts from the thread owner's storage bucket, not the
+    # viewer's: the owner comes from ``threads_meta`` and is never supplied by
+    # the browser (same helper the artifact download routes use).
+    from app.gateway.routers.artifacts import _resolve_artifact_owner_user_id
+
+    storage_owner_user_id = await _resolve_artifact_owner_user_id(request, body.thread_id)
+    published_paths = await _load_published_artifact_paths(request, body.thread_id)
+    if not published_paths:
+        raise HTTPException(status_code=400, detail="当前对话没有可发送的生成文件。")
+
+    repo = _get_repository(request, config)
+    connections = await repo.list_connections(owner_user_id)
+    connection = _select_feishu_export_target(connections, body.target_chat_id)
+
+    chat_id = _feishu_connection_chat_id(connection)
+    if not chat_id:
+        raise HTTPException(status_code=400, detail="海能 Work 绑定缺少会话信息，请解除绑定后重新连接。")
+
+    ready = await _ensure_runtime_channel_ready_if_available("feishu", channels_config)
+    if ready is False:
+        raise HTTPException(status_code=503, detail=_runtime_not_running_reason("feishu"))
+
+    from app.channels.message_bus import OutboundMessage, ResolvedAttachment
+    from app.channels.service import get_channel_service
+
+    service = get_channel_service()
+    channel = service.get_channel("feishu") if service is not None else None
+    if channel is None or not channel.is_running:
+        raise HTTPException(status_code=503, detail=_runtime_not_running_reason("feishu"))
+
+    sent_filenames: list[str] = []
+    skipped: list[str] = []
+    for virtual_path in body.artifact_paths:
+        display_name = Path(virtual_path.rstrip("/")).name or virtual_path
+        resolved = await asyncio.to_thread(
+            _resolve_artifact_for_send,
+            body.thread_id,
+            virtual_path,
+            storage_owner_user_id,
+            published_paths,
+        )
+        if resolved is None:
+            skipped.append(display_name)
+            continue
+        actual_path, filename, size, mime_type, is_image = resolved
+        outbound = OutboundMessage(
+            channel_name="feishu",
+            chat_id=chat_id,
+            thread_id=body.thread_id,
+            text="",
+            is_final=True,
+            owner_user_id=owner_user_id,
+            connection_id=str(connection.get("id") or "") or None,
+        )
+        attachment = ResolvedAttachment(
+            virtual_path=_normalize_artifact_virtual_path(virtual_path),
+            actual_path=actual_path,
+            filename=filename,
+            mime_type=mime_type,
+            size=size,
+            is_image=is_image,
+        )
+        delivered = await channel.send_file(outbound, attachment)
+        if delivered:
+            sent_filenames.append(filename)
+        else:
+            skipped.append(filename)
+
+    if not sent_filenames:
+        raise HTTPException(status_code=502, detail="发送失败：没有生成文件成功上传到海能 Work，请稍后重试。")
+    return FeishuExportArtifactsResponse(
+        sent=True,
+        filenames=sent_filenames,
+        skipped=skipped,
+        target_chat_id=chat_id,
+        target_chat_type=_feishu_chat_type(connection),
+        target_name=_feishu_target_name(connection),
+    )

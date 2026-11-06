@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -9,6 +10,7 @@ from uuid import UUID
 
 import pytest
 from _router_auth_helpers import make_authed_test_app
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.channels.runtime_config_store import ChannelRuntimeConfigStore
@@ -61,10 +63,17 @@ def _make_app(
     *,
     runtime_config_store: ChannelRuntimeConfigStore | None = None,
     set_channels_config_state: bool = True,
+    user_factory=None,
+    thread_store=None,
+    checkpointer=None,
 ):
-    app = make_authed_test_app(user_factory=_user)
+    app = make_authed_test_app(user_factory=user_factory or _user)
     app.state.channel_connections_config = config
     app.state.channel_connection_repo = repo
+    if thread_store is not None:
+        app.state.thread_store = thread_store
+    if checkpointer is not None:
+        app.state.checkpointer = checkpointer
     if set_channels_config_state:
         app.state.channels_config = channels_config or {}
     if runtime_config_store is None:
@@ -1219,5 +1228,580 @@ def test_disconnect_connection_is_current_user_scoped(tmp_path):
         return (await repo.list_connections("other-user"))[0]["status"]
 
     assert anyio.run(get_connection_status) == "connected"
+
+    anyio.run(repo.close)
+
+
+def _export_payload(**overrides):
+    payload = {
+        "thread_id": "thread-1",
+        "filename": "测试对话.md",
+        "content": "# 测试对话\n\nhello\n",
+    }
+    payload.update(overrides)
+    return payload
+
+
+async def _seed_feishu_connection(
+    repo,
+    *,
+    chat_id: str = "oc-p2p-chat",
+    chat_type: str = "p2p",
+    owner_user_id: str | None = None,
+) -> None:
+    await repo.upsert_connection(
+        owner_user_id=owner_user_id or str(_user().id),
+        provider="feishu",
+        external_account_id="ou-open-id",
+        workspace_id=chat_id,
+        metadata={"chat_id": chat_id, "chat_type": chat_type},
+        status="connected",
+    )
+
+
+def _running_feishu_service(*, send_file_result: bool = True, captured: dict | None = None):
+    async def send_file(msg, attachment):
+        if captured is not None:
+            captured["msg"] = msg
+            captured["attachment"] = attachment
+        return send_file_result
+
+    channel = SimpleNamespace(is_running=True, send_file=send_file)
+    return SimpleNamespace(
+        ensure_channel_ready=AsyncMock(return_value=True),
+        get_channel=lambda name: channel if name == "feishu" else None,
+    )
+
+
+def test_export_thread_to_feishu_sends_file_to_bound_chat(tmp_path, monkeypatch):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+
+    captured: dict = {}
+    monkeypatch.setattr(
+        "app.channels.service.get_channel_service",
+        lambda: _running_feishu_service(captured=captured),
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/api/channels/feishu/export-thread", json=_export_payload())
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "sent": True,
+        "filename": "测试对话.md",
+        "target_chat_id": "oc-p2p-chat",
+        "target_chat_type": "p2p",
+        "target_name": None,
+    }
+
+    msg = captured["msg"]
+    attachment = captured["attachment"]
+    assert msg.channel_name == "feishu"
+    assert msg.chat_id == "oc-p2p-chat"
+    assert msg.thread_id == "thread-1"
+    assert msg.owner_user_id == str(_user().id)
+    assert attachment.filename == "测试对话.md"
+    assert attachment.mime_type == "text/markdown"
+    assert attachment.is_image is False
+    assert attachment.size == len("# 测试对话\n\nhello\n".encode())
+    # The temporary export file must be cleaned up after the send.
+    assert not attachment.actual_path.exists()
+
+    anyio.run(repo.close)
+
+
+def test_export_thread_to_feishu_requires_connected_binding(tmp_path):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+
+    with TestClient(app) as client:
+        response = client.post("/api/channels/feishu/export-thread", json=_export_payload())
+
+    assert response.status_code == 400
+    assert "海能 Work" in response.json()["detail"]
+
+    anyio.run(repo.close)
+
+
+def test_export_thread_to_feishu_returns_502_when_send_fails(tmp_path, monkeypatch):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+    monkeypatch.setattr(
+        "app.channels.service.get_channel_service",
+        lambda: _running_feishu_service(send_file_result=False),
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/api/channels/feishu/export-thread", json=_export_payload())
+
+    assert response.status_code == 502
+
+    anyio.run(repo.close)
+
+
+def test_export_thread_to_feishu_returns_503_when_channel_not_running(tmp_path, monkeypatch):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+    service = SimpleNamespace(
+        ensure_channel_ready=AsyncMock(return_value=True),
+        get_channel=lambda name: None,
+    )
+    monkeypatch.setattr("app.channels.service.get_channel_service", lambda: service)
+
+    with TestClient(app) as client:
+        response = client.post("/api/channels/feishu/export-thread", json=_export_payload())
+
+    assert response.status_code == 503
+
+    anyio.run(repo.close)
+
+
+def test_export_thread_to_feishu_rejects_oversized_content(tmp_path, monkeypatch):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+    monkeypatch.setattr(channel_connections, "_EXPORT_CONTENT_MAX_BYTES", 8)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/channels/feishu/export-thread",
+            json=_export_payload(content="x" * 16),
+        )
+
+    assert response.status_code == 413
+
+    anyio.run(repo.close)
+
+
+def _connections_with_personal_and_newer_group() -> list[dict]:
+    return [
+        {
+            "provider": "feishu",
+            "status": "connected",
+            "workspace_id": "oc-group-chat",
+            "metadata": {"chat_id": "oc-group-chat", "chat_type": "group"},
+            "updated_at": datetime(2026, 9, 1, tzinfo=UTC),
+        },
+        {
+            "provider": "feishu",
+            "status": "connected",
+            "workspace_id": "oc-p2p-chat",
+            "metadata": {"chat_id": "oc-p2p-chat", "chat_type": "p2p"},
+            "updated_at": datetime(2026, 1, 1, tzinfo=UTC),
+        },
+    ]
+
+
+def test_export_target_defaults_to_personal_chat_even_when_group_binding_is_newer():
+    """Recency alone must never pick a group: that would post the export to the group."""
+    picked = channel_connections._select_feishu_export_target(_connections_with_personal_and_newer_group())
+
+    assert picked["workspace_id"] == "oc-p2p-chat"
+
+
+def test_export_target_never_falls_back_to_a_group_binding():
+    connections = [
+        {
+            "provider": "feishu",
+            "status": "connected",
+            "workspace_id": "oc-group-chat",
+            "metadata": {"chat_id": "oc-group-chat", "chat_type": "group"},
+            "updated_at": datetime(2026, 9, 1, tzinfo=UTC),
+        }
+    ]
+
+    with pytest.raises(HTTPException) as excinfo:
+        channel_connections._select_feishu_export_target(connections)
+
+    assert excinfo.value.status_code == 400
+    assert "私聊" in excinfo.value.detail
+
+
+def test_export_target_treats_a_binding_without_chat_type_as_not_personal():
+    connections = [
+        {
+            "provider": "feishu",
+            "status": "connected",
+            "workspace_id": "oc-unknown",
+            "metadata": {"chat_id": "oc-unknown"},
+            "updated_at": datetime(2026, 9, 1, tzinfo=UTC),
+        }
+    ]
+
+    with pytest.raises(HTTPException):
+        channel_connections._select_feishu_export_target(connections)
+
+
+def test_export_target_accepts_an_explicitly_requested_group_chat():
+    picked = channel_connections._select_feishu_export_target(_connections_with_personal_and_newer_group(), "oc-group-chat")
+
+    assert picked["workspace_id"] == "oc-group-chat"
+
+
+def test_export_target_rejects_a_chat_the_caller_does_not_own():
+    with pytest.raises(HTTPException) as excinfo:
+        channel_connections._select_feishu_export_target(_connections_with_personal_and_newer_group(), "oc-someone-elses-group")
+
+    assert excinfo.value.status_code == 400
+
+
+async def _seed_feishu_group_connection(repo) -> None:
+    """Bind a group chat in addition to the personal binding."""
+    await _seed_feishu_connection(repo, chat_id="oc-group-chat", chat_type="group")
+
+
+def test_export_thread_defaults_to_personal_binding_not_newer_group(tmp_path, monkeypatch):
+    """End-to-end P1 regression: a newer group binding must not receive the conversation."""
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    anyio.run(_seed_feishu_group_connection, repo)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+
+    captured: dict = {}
+    monkeypatch.setattr(
+        "app.channels.service.get_channel_service",
+        lambda: _running_feishu_service(captured=captured),
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/api/channels/feishu/export-thread", json=_export_payload())
+
+    assert response.status_code == 200
+    assert response.json()["target_chat_id"] == "oc-p2p-chat"
+    assert response.json()["target_chat_type"] == "p2p"
+    assert captured["msg"].chat_id == "oc-p2p-chat"
+
+    anyio.run(repo.close)
+
+
+def test_export_thread_sends_to_an_explicit_group_target(tmp_path, monkeypatch):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    anyio.run(_seed_feishu_group_connection, repo)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+
+    captured: dict = {}
+    monkeypatch.setattr(
+        "app.channels.service.get_channel_service",
+        lambda: _running_feishu_service(captured=captured),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/channels/feishu/export-thread",
+            json=_export_payload(target_chat_id="oc-group-chat"),
+        )
+
+    assert response.status_code == 200
+    assert response.json()["target_chat_id"] == "oc-group-chat"
+    assert response.json()["target_chat_type"] == "group"
+    assert captured["msg"].chat_id == "oc-group-chat"
+
+    anyio.run(repo.close)
+
+
+def test_export_thread_rejects_a_target_chat_outside_the_callers_bindings(tmp_path, monkeypatch):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    app = _make_app(_enabled_connections_config(), repo, _channels_config())
+    monkeypatch.setattr(
+        "app.channels.service.get_channel_service",
+        lambda: _running_feishu_service(captured={}),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/channels/feishu/export-thread",
+            json=_export_payload(target_chat_id="oc-not-mine"),
+        )
+
+    assert response.status_code == 400
+
+    anyio.run(repo.close)
+
+
+# ── /feishu/export-artifacts ──────────────────────────────────────────────
+
+_ARTIFACT_OWNER = "artifact-owner"
+
+
+class _ThreadStoreStub:
+    """Minimal thread store whose owner comes from the record, not the request."""
+
+    def __init__(self, *, owner_user_id: str | None = _ARTIFACT_OWNER, allowed: bool = True) -> None:
+        self._owner_user_id = owner_user_id
+        self._allowed = allowed
+
+    async def get(self, thread_id: str, user_id: str | None = None):
+        if self._owner_user_id is None:
+            return None
+        return {"thread_id": thread_id, "user_id": self._owner_user_id}
+
+    async def check_access(self, thread_id: str, user_id: str, *, require_existing: bool = False) -> bool:
+        return self._allowed
+
+
+class _CheckpointerStub:
+    """Checkpointer exposing only the thread's published artifacts channel."""
+
+    def __init__(self, artifacts: list[str]) -> None:
+        self._artifacts = list(artifacts)
+
+    async def aget_tuple(self, config):
+        return SimpleNamespace(checkpoint={"channel_values": {"artifacts": list(self._artifacts)}})
+
+
+def _artifact_env(tmp_path, monkeypatch):
+    """Create a thread's outputs/uploads/workspace files under a temporary base dir."""
+    from deerflow.config import paths as paths_module
+
+    paths = paths_module.Paths(tmp_path)
+    monkeypatch.setattr(paths_module, "_paths", paths)
+    outputs = paths.sandbox_outputs_dir("thread-1", user_id=_ARTIFACT_OWNER)
+    uploads = paths.sandbox_uploads_dir("thread-1", user_id=_ARTIFACT_OWNER)
+    workspace = paths.sandbox_work_dir("thread-1", user_id=_ARTIFACT_OWNER)
+    for directory in (outputs, uploads, workspace):
+        directory.mkdir(parents=True, exist_ok=True)
+    (outputs / "report.md").write_text("# report\n", encoding="utf-8")
+    (outputs / "unpublished.md").write_text("not presented yet\n", encoding="utf-8")
+    (uploads / "original.txt").write_text("raw upload\n", encoding="utf-8")
+    (workspace / "scratch.txt").write_text("scratch\n", encoding="utf-8")
+    return outputs
+
+
+def _artifacts_payload(**overrides):
+    payload = {
+        "thread_id": "thread-1",
+        "artifact_paths": ["/mnt/user-data/outputs/report.md"],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_export_artifacts_sends_published_output(tmp_path, monkeypatch):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    outputs = _artifact_env(tmp_path, monkeypatch)
+    app = _make_app(
+        _enabled_connections_config(),
+        repo,
+        _channels_config(),
+        thread_store=_ThreadStoreStub(),
+        checkpointer=_CheckpointerStub(["/mnt/user-data/outputs/report.md"]),
+    )
+
+    captured: dict = {}
+    monkeypatch.setattr(
+        "app.channels.service.get_channel_service",
+        lambda: _running_feishu_service(captured=captured),
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/api/channels/feishu/export-artifacts", json=_artifacts_payload())
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["filenames"] == ["report.md"]
+    assert body["skipped"] == []
+    assert body["target_chat_id"] == "oc-p2p-chat"
+
+    attachment = captured["attachment"]
+    assert attachment.filename == "report.md"
+    assert attachment.mime_type == "text/markdown"
+    assert attachment.actual_path == outputs / "report.md"
+    assert attachment.virtual_path == "/mnt/user-data/outputs/report.md"
+
+    anyio.run(repo.close)
+
+
+@pytest.mark.parametrize(
+    "virtual_path",
+    [
+        "/mnt/user-data/uploads/original.txt",
+        "/mnt/user-data/workspace/scratch.txt",
+        "/mnt/user-data/outputs/../uploads/original.txt",
+    ],
+)
+def test_export_artifacts_rejects_paths_outside_outputs(tmp_path, monkeypatch, virtual_path):
+    """Raw uploads, workspace scratch files and traversal must never be sent.
+
+    Each path is listed as "published" by the checkpointer on purpose: even a
+    thread state that claims a file was presented must not widen what leaves the
+    sandbox beyond ``outputs/``.
+    """
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    _artifact_env(tmp_path, monkeypatch)
+    app = _make_app(
+        _enabled_connections_config(),
+        repo,
+        _channels_config(),
+        thread_store=_ThreadStoreStub(),
+        checkpointer=_CheckpointerStub([virtual_path]),
+    )
+
+    captured: dict = {}
+    monkeypatch.setattr(
+        "app.channels.service.get_channel_service",
+        lambda: _running_feishu_service(captured=captured),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/channels/feishu/export-artifacts",
+            json=_artifacts_payload(artifact_paths=[virtual_path]),
+        )
+
+    assert response.status_code == 502
+    assert captured == {}
+
+    anyio.run(repo.close)
+
+
+def test_export_artifacts_rejects_an_unpublished_output_file(tmp_path, monkeypatch):
+    """A file under ``outputs/`` that this thread never published stays private.
+
+    ``unpublished.md`` exists on disk and passes the ``outputs/`` prefix check,
+    but the thread's artifact channel only lists ``report.md``, so it is not an
+    artifact of this conversation and must be skipped.
+    """
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    _artifact_env(tmp_path, monkeypatch)
+    app = _make_app(
+        _enabled_connections_config(),
+        repo,
+        _channels_config(),
+        thread_store=_ThreadStoreStub(),
+        checkpointer=_CheckpointerStub(["/mnt/user-data/outputs/report.md"]),
+    )
+
+    captured: dict = {}
+    monkeypatch.setattr(
+        "app.channels.service.get_channel_service",
+        lambda: _running_feishu_service(captured=captured),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/channels/feishu/export-artifacts",
+            json=_artifacts_payload(artifact_paths=["/mnt/user-data/outputs/unpublished.md"]),
+        )
+
+    assert response.status_code == 502
+    assert captured == {}
+
+    anyio.run(repo.close)
+
+
+def test_export_artifacts_rejects_traversal_disguised_as_output(tmp_path, monkeypatch):
+    """``outputs/../uploads/x`` passes the prefix check but must fail containment."""
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    _artifact_env(tmp_path, monkeypatch)
+    traversal = "/mnt/user-data/outputs/../uploads/original.txt"
+    app = _make_app(
+        _enabled_connections_config(),
+        repo,
+        _channels_config(),
+        thread_store=_ThreadStoreStub(),
+        checkpointer=_CheckpointerStub([traversal]),
+    )
+
+    captured: dict = {}
+    monkeypatch.setattr(
+        "app.channels.service.get_channel_service",
+        lambda: _running_feishu_service(captured=captured),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/channels/feishu/export-artifacts",
+            json=_artifacts_payload(artifact_paths=[traversal]),
+        )
+
+    assert response.status_code == 502
+    assert captured == {}
+
+    anyio.run(repo.close)
+
+
+def test_export_artifacts_reports_mixed_batch_as_partially_sent(tmp_path, monkeypatch):
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    anyio.run(_seed_feishu_connection, repo)
+    _artifact_env(tmp_path, monkeypatch)
+    app = _make_app(
+        _enabled_connections_config(),
+        repo,
+        _channels_config(),
+        thread_store=_ThreadStoreStub(),
+        checkpointer=_CheckpointerStub(["/mnt/user-data/outputs/report.md"]),
+    )
+    monkeypatch.setattr(
+        "app.channels.service.get_channel_service",
+        lambda: _running_feishu_service(captured={}),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/channels/feishu/export-artifacts",
+            json=_artifacts_payload(artifact_paths=["/mnt/user-data/outputs/report.md", "/mnt/user-data/uploads/original.txt"]),
+        )
+
+    assert response.status_code == 200
+    assert response.json()["filenames"] == ["report.md"]
+    assert response.json()["skipped"] == ["original.txt"]
+
+    anyio.run(repo.close)
+
+
+def test_export_artifacts_requires_thread_read_access(tmp_path, monkeypatch):
+    """A caller who cannot read the thread must not learn anything about it."""
+    import anyio
+
+    repo = anyio.run(_make_repo, tmp_path)
+    _artifact_env(tmp_path, monkeypatch)
+    app = _make_app(
+        _enabled_connections_config(),
+        repo,
+        _channels_config(),
+        user_factory=_non_admin_user,
+        thread_store=_ThreadStoreStub(allowed=False),
+        checkpointer=_CheckpointerStub(["/mnt/user-data/outputs/report.md"]),
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/api/channels/feishu/export-artifacts", json=_artifacts_payload())
+
+    assert response.status_code == 404
 
     anyio.run(repo.close)

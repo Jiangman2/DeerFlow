@@ -748,3 +748,331 @@ def test_feishu_leading_mention_before_chat_keeps_mention():
         mock_make_inbound.assert_called_once()
         assert mock_make_inbound.call_args[1]["msg_type"].value == "chat"
         assert mock_make_inbound.call_args[1]["text"] == "@_user_1 please summarise this"
+
+
+# ---------------------------------------------------------------------------
+# Group-chat @-mention gate (``mention_only_in_group``)
+# ---------------------------------------------------------------------------
+
+
+def _make_mention(open_id: str, *, user_id: str | None = None, name: str = "someone") -> MagicMock:
+    """Build a mock MentionEvent matching lark_oapi's shape."""
+    mention = MagicMock()
+    mention.key = f"@_user_{open_id[-4:]}"
+    mention.name = name
+    mention.id.open_id = open_id
+    mention.id.user_id = user_id
+    mention.id.union_id = None
+    return mention
+
+
+def _make_group_event(
+    text: str,
+    *,
+    chat_type: str = "group",
+    mentions: list | None = None,
+    chat_id: str = "chat_group_1",
+    message_id: str = "msg_group_1",
+    sender_open_id: str = "ou_sender_1",
+) -> MagicMock:
+    event = MagicMock()
+    event.event.message.chat_id = chat_id
+    event.event.message.message_id = message_id
+    event.event.message.root_id = None
+    event.event.message.parent_id = None
+    event.event.message.thread_id = None
+    event.event.message.chat_type = chat_type
+    event.event.message.mentions = mentions or []
+    event.event.sender.sender_id.open_id = sender_open_id
+    event.event.message.content = json.dumps({"text": text})
+    return event
+
+
+def test_feishu_group_message_without_mention_is_dropped_when_mention_only_enabled():
+    """Group message with no @ at all must be silently dropped."""
+    bus = MessageBus()
+    channel = FeishuChannel(bus, {"app_id": "test", "app_secret": "test"})
+    channel._bot_open_id = "ou_bot_self"
+
+    with pytest.MonkeyPatch.context() as m:
+        mock_make_inbound = MagicMock()
+        m.setattr(channel, "_make_inbound", mock_make_inbound)
+        channel._on_message(_make_group_event("hello everyone", mentions=[]))
+        mock_make_inbound.assert_not_called()
+
+
+def test_feishu_group_message_mentioning_other_user_is_dropped():
+    """Group message that @s someone else (not the bot) must be dropped."""
+    bus = MessageBus()
+    channel = FeishuChannel(bus, {"app_id": "test", "app_secret": "test"})
+    channel._bot_open_id = "ou_bot_self"
+
+    other_mention = _make_mention("ou_other_user", user_id="7100000000000000001", name="Alice")
+    with pytest.MonkeyPatch.context() as m:
+        mock_make_inbound = MagicMock()
+        m.setattr(channel, "_make_inbound", mock_make_inbound)
+        channel._on_message(_make_group_event("hey @Alice", mentions=[other_mention]))
+        mock_make_inbound.assert_not_called()
+
+
+def test_feishu_group_message_mentioning_bot_is_processed():
+    """Group message that @s the bot (exact open_id match) must be processed."""
+    bus = MessageBus()
+    channel = FeishuChannel(bus, {"app_id": "test", "app_secret": "test"})
+    channel._bot_open_id = "ou_bot_self"
+
+    bot_mention = _make_mention("ou_bot_self", user_id=None, name="DeerFlow")
+    with pytest.MonkeyPatch.context() as m:
+        mock_make_inbound = MagicMock()
+        m.setattr(channel, "_make_inbound", mock_make_inbound)
+        channel._on_message(_make_group_event("@DeerFlow please help", mentions=[bot_mention]))
+        mock_make_inbound.assert_called_once()
+        metadata = mock_make_inbound.call_args.kwargs["metadata"]
+        assert metadata["chat_type"] == "group"
+        assert metadata["user_id"] == "ou_sender_1"
+
+
+def test_feishu_group_mention_of_another_bot_does_not_match_when_bot_open_id_unresolved():
+    """Before (or after a failed) bot/v3/info lookup the gate must fail closed.
+
+    Feishu reports a bot mention with an ``open_id`` and no ``user_id``, so the
+    previous heuristic ("any mention that looks like a bot is us") accepted
+    ``@other-bot`` in a group chat and made this bot answer messages addressed
+    to a different bot. Without our own open_id an exact match is impossible,
+    therefore the message is dropped and the identity lookup is retried.
+    """
+    bus = MessageBus()
+    channel = FeishuChannel(bus, {"app_id": "test", "app_secret": "test"})
+    assert channel._bot_open_id is None
+
+    other_bot_mention = _make_mention("ou_other_bot", user_id=None, name="OtherBot")
+    with pytest.MonkeyPatch.context() as m:
+        mock_make_inbound = MagicMock()
+        m.setattr(channel, "_make_inbound", mock_make_inbound)
+        mock_refresh = MagicMock()
+        m.setattr(channel, "_schedule_bot_open_id_refresh", mock_refresh)
+
+        channel._on_message(_make_group_event("@OtherBot hi", mentions=[other_bot_mention]))
+
+        mock_make_inbound.assert_not_called()
+        # The unresolved identity is what caused the drop, so retry it.
+        mock_refresh.assert_called_once()
+
+
+def test_feishu_message_mentions_bot_requires_an_exact_open_id_match():
+    """The mention check is an exact open_id comparison, never a heuristic."""
+    bus = MessageBus()
+    channel = FeishuChannel(bus, {"app_id": "test", "app_secret": "test"})
+    channel._bot_open_id = "ou_bot_self"
+
+    def message_with(mentions: list) -> MagicMock:
+        return _make_group_event("text", mentions=mentions).event.message
+
+    assert channel._message_mentions_bot(message_with([_make_mention("ou_bot_self")]))
+    assert not channel._message_mentions_bot(message_with([_make_mention("ou_other_bot", user_id=None)]))
+    assert not channel._message_mentions_bot(message_with([_make_mention("ou_human", user_id="7100000000000000001")]))
+    assert not channel._message_mentions_bot(message_with([]))
+
+    # An unresolved identity never matches, whatever the mention looks like.
+    channel._bot_open_id = None
+    assert not channel._message_mentions_bot(message_with([_make_mention("ou_bot_self")]))
+
+
+def test_feishu_group_skip_audit_records_identifiers_but_never_the_body():
+    """A group message that never addressed the bot is not ours to store.
+
+    The skip audit keeps the message id, chat, sender and reason so the drop is
+    traceable, and deliberately omits the body preview.
+    """
+    bus = MessageBus()
+    channel = FeishuChannel(bus, {"app_id": "test", "app_secret": "test"})
+    channel._bot_open_id = "ou_bot_self"
+    secret_body = "quarterly revenue numbers 1234567"
+
+    with pytest.MonkeyPatch.context() as m:
+        mock_audit = MagicMock()
+        m.setattr("app.channels.feishu.schedule_channel_audit", mock_audit)
+        m.setattr(channel, "_make_inbound", MagicMock())
+
+        channel._on_message(_make_group_event(secret_body, message_id="msg_skip_1", mentions=[]))
+
+    mock_audit.assert_called_once()
+    kwargs = mock_audit.call_args.kwargs
+    details = kwargs["details"]
+    assert kwargs["action"] == "channel.message.skipped"
+    assert kwargs["error"] == "group message without @-mention"
+    assert details["reason"] == "mention_only_in_group"
+    assert details["message_id"] == "msg_skip_1"
+    assert details["chat_id"] == "chat_group_1"
+    assert details["platform_user_id"] == "ou_sender_1"
+    assert "text_preview" not in details
+    assert secret_body not in json.dumps(details, ensure_ascii=False)
+
+
+def test_feishu_group_skip_audit_marks_unresolved_bot_identity():
+    """The audit distinguishes "we were not @mentioned" from "we could not tell"."""
+    bus = MessageBus()
+    channel = FeishuChannel(bus, {"app_id": "test", "app_secret": "test"})
+    assert channel._bot_open_id is None
+
+    with pytest.MonkeyPatch.context() as m:
+        mock_audit = MagicMock()
+        m.setattr("app.channels.feishu.schedule_channel_audit", mock_audit)
+        m.setattr(channel, "_make_inbound", MagicMock())
+        m.setattr(channel, "_schedule_bot_open_id_refresh", MagicMock())
+
+        channel._on_message(_make_group_event("hello", message_id="msg_skip_2", mentions=[]))
+
+    kwargs = mock_audit.call_args.kwargs
+    assert kwargs["details"]["reason"] == "bot_identity_unavailable"
+    assert kwargs["error"] == "group message skipped while bot identity is unresolved"
+    assert "text_preview" not in kwargs["details"]
+
+
+def test_feishu_group_mention_only_disabled_lets_all_messages_through():
+    """When mention_only_in_group=False, group messages are processed without @."""
+    bus = MessageBus()
+    channel = FeishuChannel(bus, {"app_id": "test", "app_secret": "test", "mention_only_in_group": False})
+    channel._bot_open_id = "ou_bot_self"
+
+    with pytest.MonkeyPatch.context() as m:
+        mock_make_inbound = MagicMock()
+        m.setattr(channel, "_make_inbound", mock_make_inbound)
+        channel._on_message(_make_group_event("random chatter", mentions=[]))
+        mock_make_inbound.assert_called_once()
+
+
+def test_feishu_p2p_message_is_never_gated_by_mention_only():
+    """P2P (DM) messages must always be processed regardless of mentions."""
+    bus = MessageBus()
+    channel = FeishuChannel(bus, {"app_id": "test", "app_secret": "test"})
+    channel._bot_open_id = "ou_bot_self"
+
+    with pytest.MonkeyPatch.context() as m:
+        mock_make_inbound = MagicMock()
+        m.setattr(channel, "_make_inbound", mock_make_inbound)
+        channel._on_message(_make_group_event("hi bot", chat_type="p2p", mentions=[]))
+        mock_make_inbound.assert_called_once()
+        assert mock_make_inbound.call_args.kwargs["metadata"]["chat_type"] == "p2p"
+
+
+def test_feishu_compose_card_text_prepends_at_tag_in_group():
+    """Group replies must start with ``<at id=ou_xxx></at>`` so the asker is notified."""
+    metadata = {"chat_type": "group", "user_id": "ou_sender_1"}
+    result = FeishuChannel._compose_card_text("here is your answer", metadata)
+    assert result == "<at id=ou_sender_1></at>\n\nhere is your answer"
+
+
+def test_feishu_compose_card_text_keeps_at_tag_and_preview_together():
+    """Both the @ prefix and the quoted source preview must coexist in group replies."""
+    from app.channels.feishu import SOURCE_PREVIEW_METADATA_KEY
+
+    metadata = {
+        "chat_type": "group",
+        "user_id": "ou_sender_1",
+        SOURCE_PREVIEW_METADATA_KEY: "What changed?",
+    }
+    result = FeishuChannel._compose_card_text("answer body", metadata)
+    assert result.startswith("<at id=ou_sender_1></at>\n\n")
+    assert "> What changed?" in result
+    assert result.endswith("answer body")
+
+
+def test_feishu_compose_card_text_skips_at_tag_in_p2p():
+    """DMs must not carry the @ prefix — it would be noise in 1-on-1 chats."""
+    metadata = {"chat_type": "p2p", "user_id": "ou_sender_1"}
+    assert FeishuChannel._compose_card_text("hi", metadata) == "hi"
+
+
+def test_feishu_compose_card_text_without_metadata_returns_raw_text():
+    """No metadata → no decoration (backward compatible with older call sites)."""
+    assert FeishuChannel._compose_card_text("plain body", None) == "plain body"
+    assert FeishuChannel._compose_card_text("plain body", {}) == "plain body"
+
+
+def test_feishu_group_connect_code_bypasses_mention_gate():
+    """``/connect <code>`` sent in a group WITHOUT @-mentioning the bot must
+    still reach the binding logic.
+
+    Regression: the connect-code gate must run *before* the group @-mention
+    gate (see Channel._pending_connect_code contract). When it ran after, a
+    browser-initiated bind sent to a group was silently dropped because the
+    message did not @-mention the bot, so the chat could never be bound.
+    """
+    bus = MessageBus()
+    channel = FeishuChannel(bus, {"app_id": "test", "app_secret": "test"})
+    channel._bot_open_id = "ou_bot_self"
+    # A non-None repo is required for _pending_connect_code to parse the text.
+    channel._connection_repo = MagicMock()
+
+    fake_loop = MagicMock()
+    fake_loop.is_running.return_value = True
+    channel._main_loop = fake_loop
+
+    with pytest.MonkeyPatch.context() as m:
+        mock_bind = MagicMock()
+        m.setattr(channel, "_bind_connection_from_connect_code", mock_bind)
+        mock_run = MagicMock()
+        m.setattr(asyncio, "run_coroutine_threadsafe", mock_run)
+        mock_make_inbound = MagicMock()
+        m.setattr(channel, "_make_inbound", mock_make_inbound)
+
+        # Group message, NO mentions, but carrying a /connect command.
+        channel._on_message(_make_group_event("/connect ABC123", mentions=[]))
+
+        # Bind path taken despite the missing @-mention...
+        mock_bind.assert_called_once()
+        assert mock_bind.call_args.kwargs["code"] == "ABC123"
+        # ...and it never fell through to normal chat processing.
+        mock_make_inbound.assert_not_called()
+
+
+def test_feishu_group_non_connect_message_still_gated_without_mention():
+    """Moving the connect gate earlier must not weaken the @-mention gate: a
+    plain group message with no @ is still dropped."""
+    bus = MessageBus()
+    channel = FeishuChannel(bus, {"app_id": "test", "app_secret": "test"})
+    channel._bot_open_id = "ou_bot_self"
+    channel._connection_repo = MagicMock()
+
+    with pytest.MonkeyPatch.context() as m:
+        mock_bind = MagicMock()
+        m.setattr(channel, "_bind_connection_from_connect_code", mock_bind)
+        mock_make_inbound = MagicMock()
+        m.setattr(channel, "_make_inbound", mock_make_inbound)
+
+        channel._on_message(_make_group_event("just chatting", mentions=[]))
+
+        mock_bind.assert_not_called()
+        mock_make_inbound.assert_not_called()
+
+
+def test_feishu_group_message_without_mention_dropped_even_with_pending_clarification():
+    """Strict group @-mention gate: even when a pending clarification exists for
+    this ``(chat_id, user_id)``, a group message that does not @-mention the bot
+    is dropped.
+
+    The former "pending clarification bypass" re-armed itself every turn: the
+    LLM ends most turns with a fresh clarifying question, so the remembered
+    pending (TTL refreshed each time) kept the gate permanently open and the bot
+    answered *every* group message with no @ at all. Group multi-turn
+    clarification now requires an explicit @ each turn. P2P still continues
+    clarification answers without @ because it skips the gate (covered by the DM
+    pending-clarification tests above).
+    """
+    bus = MessageBus()
+    channel = FeishuChannel(bus, {"app_id": "test", "app_secret": "test"})
+    channel._bot_open_id = "ou_bot_self"
+    key = channel._pending_key("chat_group_1", "ou_sender_1")
+    channel._pending_clarifications[key] = [_pending("om_original", thread_id="deer-thread-1")]
+
+    with pytest.MonkeyPatch.context() as m:
+        mock_make_inbound = MagicMock()
+        m.setattr(channel, "_make_inbound", mock_make_inbound)
+        # Group message, NO mentions, even though a pending clarification exists.
+        channel._on_message(_make_group_event("the answer is prod", mentions=[]))
+
+        # Strict gate: dropped despite the pending clarification. The queue is
+        # left untouched because the consume path never runs past the gate.
+        mock_make_inbound.assert_not_called()
+        assert key in channel._pending_clarifications

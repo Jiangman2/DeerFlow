@@ -11,6 +11,10 @@ import time
 from collections import OrderedDict
 from typing import Any, Literal
 
+from app.channels.audit import (
+    ACTION_MESSAGE_SKIPPED,
+    schedule_channel_audit,
+)
 from app.channels.base import Channel
 from app.channels.commands import is_known_channel_command, strip_leading_mentions
 from app.channels.connection_identity import attach_connection_identity
@@ -57,6 +61,13 @@ class FeishuChannel(Channel):
         5. Bot adds "DONE" emoji reaction to the original message
     """
 
+    # Bot-identity lookup policy. The group @-mention gate fails closed while
+    # our own ``open_id`` is unknown, so a transient ``bot/v3/info`` failure
+    # must heal on its own instead of muting the bot until the next restart.
+    _BOT_OPEN_ID_FETCH_ATTEMPTS = 3
+    _BOT_OPEN_ID_RETRY_BACKOFF_SECONDS = 2.0
+    _BOT_OPEN_ID_RETRY_COOLDOWN_SECONDS = 60.0
+
     def __init__(self, bus: MessageBus, config: dict[str, Any]) -> None:
         super().__init__(name="feishu", bus=bus, config=config)
         self._thread: threading.Thread | None = None
@@ -84,6 +95,19 @@ class FeishuChannel(Channel):
         self._CreateImageRequestBody = None
         self._GetMessageResourceRequest = None
         self._thread_lock = threading.Lock()
+        # In group chats, only respond when the bot itself is @-mentioned.
+        # Defaults to True because the majority of Feishu group bots are
+        # expected to stay silent unless explicitly addressed. Set to False
+        # in ``channels.feishu`` to opt back into "reply to everything".
+        self._mention_only_in_group: bool = bool(config.get("mention_only_in_group", True))
+        # Bot's own open_id, resolved via ``/open-apis/bot/v3/info``.
+        # Used to precisely detect whether an inbound ``mentions[]`` entry
+        # targets this bot. ``None`` before resolution — the group gate then
+        # fails closed (see ``_message_mentions_bot``) and schedules a retry.
+        self._bot_open_id: str | None = None
+        self._bot_open_id_lock = threading.Lock()
+        self._bot_open_id_next_retry_at: float = 0.0
+        self._bot_credentials: tuple[str, str, str] | None = None
 
     @staticmethod
     def _non_empty_str(value: Any) -> str | None:
@@ -123,16 +147,175 @@ class FeishuChannel(Channel):
 
     @classmethod
     def _compose_card_text(cls, text: str, metadata: dict[str, Any] | None = None) -> str:
+        """Compose the final card markdown body.
+
+        Two decorations are applied on top of the raw *text* when the
+        corresponding metadata is present:
+
+        1. **Group-reply @ prefix**: when ``metadata['chat_type'] == 'group'``
+           and ``metadata['user_id']`` holds the asker's ``open_id``, prepend
+           ``<at id={open_id}></at>`` so the asker gets a mention notification.
+           This is the Feishu card-markdown @ syntax; P2P replies skip it to
+           avoid noise in DMs.
+        2. **Quoted source preview**: when ``metadata[SOURCE_PREVIEW_METADATA_KEY]``
+           is set (a reply/topic continuation in a group), inline the first few
+           lines of the source message as a markdown blockquote so the reader
+           can see which turn we're answering.
+        """
         preview = None
+        at_prefix = ""
         if isinstance(metadata, dict):
             raw_preview = metadata.get(SOURCE_PREVIEW_METADATA_KEY)
             if isinstance(raw_preview, str) and raw_preview.strip():
                 preview = raw_preview.strip()
-        if not preview:
-            return text
 
-        quoted_preview = "\n".join(f"> {line}" for line in preview.splitlines())
-        return f"{quoted_preview}\n\n{text}"
+            chat_type = metadata.get("chat_type")
+            sender_open_id = metadata.get("user_id")
+            if chat_type == "group" and isinstance(sender_open_id, str) and sender_open_id:
+                # Card markdown @ syntax: ``<at id=ou_xxx></at>``. The trailing
+                # blank line keeps the mention visually separated from the body.
+                at_prefix = f"<at id={sender_open_id}></at>\n\n"
+
+        if preview:
+            quoted_preview = "\n".join(f"> {line}" for line in preview.splitlines())
+            return f"{at_prefix}{quoted_preview}\n\n{text}"
+        if at_prefix:
+            return f"{at_prefix}{text}"
+        return text
+
+    async def _request_bot_open_id(self, app_id: str, app_secret: str, domain: str) -> str | None:
+        """Single ``bot/v3/info`` attempt. Returns ``None`` on any failure."""
+        try:
+            import httpx
+        except ImportError:
+            logger.warning("[Feishu] httpx not available; cannot resolve bot open_id")
+            return None
+
+        base = (domain or "https://open.feishu.cn").rstrip("/")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            token_resp = await client.post(
+                f"{base}/open-apis/auth/v3/tenant_access_token/internal",
+                json={"app_id": app_id, "app_secret": app_secret},
+            )
+            token_data = token_resp.json()
+            if token_data.get("code") != 0:
+                logger.warning(
+                    "[Feishu] tenant_access_token fetch failed: code=%s msg=%s",
+                    token_data.get("code"),
+                    token_data.get("msg"),
+                )
+                return None
+            token = token_data.get("tenant_access_token")
+            if not isinstance(token, str) or not token:
+                logger.warning("[Feishu] tenant_access_token missing in response")
+                return None
+
+            info_resp = await client.get(
+                f"{base}/open-apis/bot/v3/info",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            info_data = info_resp.json()
+            if info_data.get("code") != 0:
+                logger.warning(
+                    "[Feishu] bot/v3/info failed: code=%s msg=%s",
+                    info_data.get("code"),
+                    info_data.get("msg"),
+                )
+                return None
+            bot = info_data.get("bot") or {}
+            open_id = bot.get("open_id")
+            if not isinstance(open_id, str) or not open_id:
+                logger.warning("[Feishu] bot/v3/info returned no open_id: %s", info_data)
+                return None
+            logger.info(
+                "[Feishu] bot open_id resolved: %s (app_name=%s)",
+                open_id,
+                bot.get("app_name"),
+            )
+            return open_id
+
+    async def _fetch_bot_open_id(self, app_id: str, app_secret: str, domain: str) -> None:
+        """Resolve the bot's own ``open_id`` via ``/open-apis/bot/v3/info``.
+
+        Cached in ``self._bot_open_id`` and used by ``_message_mentions_bot`` to
+        precisely detect whether an inbound group message @-mentions this bot.
+        Transient failures are retried a bounded number of times; while the id
+        stays unknown the group gate fails closed rather than guessing.
+        """
+        for attempt in range(1, self._BOT_OPEN_ID_FETCH_ATTEMPTS + 1):
+            try:
+                open_id = await self._request_bot_open_id(app_id, app_secret, domain)
+            except Exception:
+                logger.exception(
+                    "[Feishu] failed to fetch bot open_id (attempt %d/%d)",
+                    attempt,
+                    self._BOT_OPEN_ID_FETCH_ATTEMPTS,
+                )
+                open_id = None
+            if open_id:
+                with self._bot_open_id_lock:
+                    self._bot_open_id = open_id
+                return
+            if attempt < self._BOT_OPEN_ID_FETCH_ATTEMPTS:
+                await asyncio.sleep(self._BOT_OPEN_ID_RETRY_BACKOFF_SECONDS * attempt)
+        logger.warning(
+            "[Feishu] bot open_id unresolved after %d attempts; group messages stay ignored until a retry succeeds",
+            self._BOT_OPEN_ID_FETCH_ATTEMPTS,
+        )
+
+    def _schedule_bot_open_id_refresh(self) -> None:
+        """Retry the bot-identity lookup in the background (cooldown-bounded).
+
+        Called from the group gate whenever our own ``open_id`` is unknown.
+        That gate fails closed, so without a retry a transient ``bot/v3/info``
+        failure would silently mute the bot in every group chat until the
+        process restarted. The cooldown keeps a persistently broken deployment
+        from hammering the Feishu API.
+        """
+        with self._bot_open_id_lock:
+            if self._bot_open_id:
+                return
+            credentials = self._bot_credentials
+            now = time.monotonic()
+            if credentials is None or now < self._bot_open_id_next_retry_at:
+                return
+            self._bot_open_id_next_retry_at = now + self._BOT_OPEN_ID_RETRY_COOLDOWN_SECONDS
+
+        loop = self._main_loop
+        if loop is None or not loop.is_running():
+            return
+        try:
+            future = asyncio.run_coroutine_threadsafe(self._fetch_bot_open_id(*credentials), loop)
+        except RuntimeError:
+            logger.debug("[Feishu] cannot schedule bot open_id retry", exc_info=True)
+            return
+        future.add_done_callback(lambda done: self._log_future_error(done, "fetch_bot_open_id", "<retry>"))
+
+    def _message_mentions_bot(self, message) -> bool:
+        """Return True only when *message* @-mentions *this* bot.
+
+        The match is an exact ``mention.id.open_id == self._bot_open_id``
+        comparison. While our own ``open_id`` is unknown the answer is
+        ``False``: heuristics such as "a bot mention carries no ``user_id``"
+        also match every *other* bot in the group, which would make this bot
+        answer messages addressed to someone else. ``_on_message`` schedules a
+        background retry of the lookup in that state.
+        """
+        if not self._bot_open_id:
+            return False
+
+        mentions = getattr(message, "mentions", None) or []
+        if not mentions:
+            return False
+
+        bot_open_id = self._bot_open_id
+        for mention in mentions:
+            mention_id = getattr(mention, "id", None)
+            if mention_id is None:
+                continue
+            if getattr(mention_id, "open_id", None) == bot_open_id:
+                return True
+        return False
 
     @property
     def supports_streaming(self) -> bool:
@@ -214,6 +397,7 @@ class FeishuChannel(Channel):
             logger.error("Feishu channel requires app_id and app_secret")
             return
 
+        self._bot_credentials = (app_id, app_secret, domain)
         self._api_client = lark.Client.builder().app_id(app_id).app_secret(app_secret).domain(domain).build()
         logger.info("[Feishu] using domain: %s", domain)
         self._main_loop = asyncio.get_event_loop()
@@ -224,6 +408,14 @@ class FeishuChannel(Channel):
         if self.config.get("_work_send_only"):
             logger.info("Work HTTP sender ready; another process owns the receiver lease")
             return
+
+        # Resolve the bot's own open_id so ``_message_mentions_bot`` can do an
+        # exact ``message.mentions[].id.open_id`` match. Fire-and-forget; while
+        # it is unknown the group gate fails closed and schedules a retry, so a
+        # transient failure here never lets the bot answer another bot's @.
+        if self._mention_only_in_group:
+            bot_info_task = asyncio.create_task(self._fetch_bot_open_id(app_id, app_secret, domain))
+            self._track_background_task(bot_info_task, name="fetch_bot_open_id", msg_id="<startup>")
 
         # Both ws.Client construction and start() must happen in a dedicated
         # thread with its own event loop.  lark-oapi caches the running loop
@@ -1034,7 +1226,15 @@ class FeishuChannel(Channel):
             workspace_id=inbound.chat_id,
         )
 
-    async def _bind_connection_from_connect_code(self, *, message_id: str, chat_id: str, user_id: str, code: str) -> bool:
+    async def _bind_connection_from_connect_code(
+        self,
+        *,
+        message_id: str,
+        chat_id: str,
+        user_id: str,
+        code: str,
+        chat_type: str | None = None,
+    ) -> bool:
         guard = self.config.get("_work_receiver_guard")
         if guard is not None and not await guard():
             return True
@@ -1058,6 +1258,10 @@ class FeishuChannel(Channel):
             metadata={
                 "chat_id": chat_id,
                 "message_id": message_id,
+                # Chat type is what lets the browser-side export default to the
+                # caller's private chat instead of guessing from recency (a
+                # group binding is often the newest row).
+                "chat_type": chat_type or "",
             },
             status="connected",
         )
@@ -1161,6 +1365,12 @@ class FeishuChannel(Channel):
                 logger.info("[Feishu] empty text, ignoring message")
                 return
 
+            # Connect-code binding MUST be checked before the group @-mention
+            # gate (see Channel._pending_connect_code contract): a browser-
+            # initiated ``/connect <code>`` bootstraps an external identity the
+            # bot has never seen, so it cannot be required to @-mention first.
+            # All other adapters (dingtalk/discord/slack/wechat/wecom) likewise
+            # consume the connect code before any allowed_users/mention gate.
             connect_code = self._pending_connect_code(text)
             if connect_code:
                 if self._main_loop and self._main_loop.is_running():
@@ -1170,12 +1380,70 @@ class FeishuChannel(Channel):
                             chat_id=chat_id,
                             user_id=sender_id,
                             code=connect_code,
+                            chat_type=chat_type,
                         ),
                         self._main_loop,
                     )
                     fut.add_done_callback(lambda f, mid=msg_id: self._log_future_error(f, "bind_connection", mid))
                 else:
                     logger.warning("[Feishu] main loop not running, cannot bind channel connection")
+                return
+
+            # Group-chat gate: when ``mention_only_in_group`` is enabled, drop
+            # any group message that does not @-mention the bot. This is the
+            # earliest safe point — we've parsed the message enough to inspect
+            # ``mentions`` but have not yet emitted any side effects (no
+            # reaction, no running card, no bus publish). P2P chats skip this
+            # check entirely so DMs still work without @.
+            #
+            # NOTE: there is deliberately NO "pending clarification" bypass here.
+            # A previous version exempted this ``(chat_id, user_id)`` from the
+            # @-requirement whenever a clarification was remembered, so the user
+            # could answer the bot's question without re-@ing. But the LLM ends
+            # most turns with a fresh clarifying question, which re-armed the
+            # exemption every turn (its TTL refreshed each time) and permanently
+            # disabled the gate — the bot then answered *every* group message
+            # with no @ at all. Group multi-turn clarification now requires an
+            # explicit @ each turn. P2P still continues clarification answers
+            # without @ because it skips this gate entirely.
+            if chat_type == "group" and self._mention_only_in_group and not self._message_mentions_bot(message):
+                if self._bot_open_id:
+                    skip_reason = "mention_only_in_group"
+                    audit_error = "group message without @-mention"
+                else:
+                    # Our own open_id is unknown, so an exact match is
+                    # impossible and the gate fails closed instead of treating
+                    # "any bot mention" as addressed to us. Retry the identity
+                    # lookup in the background so this heals on its own.
+                    skip_reason = "bot_identity_unavailable"
+                    audit_error = "group message skipped while bot identity is unresolved"
+                    self._schedule_bot_open_id_refresh()
+                logger.debug(
+                    "[Feishu] skipping group message (%s): chat_id=%s msg_id=%s sender=%s",
+                    skip_reason,
+                    chat_id,
+                    msg_id,
+                    sender_id,
+                )
+                # This drop happens inside the adapter, before the manager ever
+                # sees the message, so it has to be audited here or it leaves no
+                # trace at all. The body is deliberately NOT recorded: the
+                # message was never addressed to this bot, so only identifiers
+                # and the skip reason belong in the audit trail.
+                schedule_channel_audit(
+                    action=ACTION_MESSAGE_SKIPPED,
+                    channel_name=self.name,
+                    result="failure",
+                    status_code=204,
+                    error=audit_error,
+                    details={
+                        "reason": skip_reason,
+                        "chat_id": chat_id,
+                        "chat_type": chat_type,
+                        "platform_user_id": sender_id,
+                        "message_id": msg_id,
+                    },
+                )
                 return
 
             # Only treat known slash commands as commands; absolute paths and
