@@ -70,3 +70,6 @@ deploy/enterprise/inspect-portal-research-fund-skill-20261105-r3.py -text whites
 skills/public/research-fund-settlement/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 # Archived unified-diff context includes intentional blank-line markers.
 release/research-fund-project-type-20261105/scoped-change.diff -whitespace
+
+# Preserve Frontend 242 delivered tools and original qualification/receipt byte hashes.
+release/sidechat-skillhub-security-20261105-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

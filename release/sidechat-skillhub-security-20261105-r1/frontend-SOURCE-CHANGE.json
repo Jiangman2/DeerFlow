@@ -1,0 +1,14 @@
+{
+  "schema": "portal-sidechat-source-delta.v1",
+  "base_image": "sha256:8a964aebacc5b3b566bc368a03dfd6a333f9f970d4fb0d4a6cb32d8d4ed7577d",
+  "base_source_inventory_sha256": "bda551c495341f3b1ffbfe9f772317c3168b07200f4e3d5f39255772056198b4",
+  "changed": [
+    {
+      "path": "frontend/src/components/workspace/sidecar/sidecar-panel.tsx",
+      "before_sha256": "34cc753938dbf2b606b8dd7fd110d05a70f1dac156d7242216dbcf9a1773a1da",
+      "after_sha256": "f89a2b08ab9da34503a0f7f0d9018e907051cbbb46a90dac0efe37a8fd1e56f1"
+    }
+  ],
+  "preserved_files": 981,
+  "production_writes": 0
+}
