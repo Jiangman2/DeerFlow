@@ -583,7 +583,7 @@ def verify(ref=None, lock_path=LOCK):
                           **({'work_task_agent_model_fix_delta': {'status': 'NOT_DEPLOYED', 'base_commit': model_fix_manifest['base_commit'], 'changed_sources': len(model_fix)}} if model_fix_manifest is not None else {}),
                           **({'work_release_alignment': {'status': 'NOT_DEPLOYED', 'base_commit': alignment_manifest['base_commit'], 'changed_sources': len(aligned)}} if alignment_manifest is not None else {}),
                           **({'work_authority_sanitizer_delta': {'status': 'NOT_DEPLOYED', 'base_commit': sanitizer_manifest['base_commit'], 'changed_sources': len(sanitizer)}} if sanitizer_manifest is not None else {}),
-                          **({'feishu_export_source': {'status': 'NOT_DEPLOYED', 'base_commit': feishu_manifest['base_commit'], 'changed_sources': len(feishu['gateway']) + len(feishu['frontend']), 'new_gateway_sources': sorted(FEISHU_EXPORT_NEW_GATEWAY_PATHS)}} if feishu_manifest is not None else {})} if manifest else None}
+                          **({'feishu_export_source': {'status': 'NOT_DEPLOYED', 'base_commit': feishu_manifest['base_commit'], 'changed_sources': len(feishu['gateway']) + len(feishu['frontend']), 'new_gateway_sources': sorted(FEISHU_EXPORT_NEW_GATEWAY_PATHS), 'frontend_runtime_paths': sorted(p for p in feishu['frontend'] if p.startswith(('frontend/src/', 'frontend/public/')))}} if feishu_manifest is not None else {})} if manifest else None}
 
 
 if __name__ == '__main__':
