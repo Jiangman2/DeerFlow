@@ -1,0 +1,42 @@
+{
+  "schema": "feishu-export-source-candidate.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "2d6b9a7ed95c6a9a01114110a38585576c467451",
+  "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
+  "parent_candidate_sha256": "6db8263377b00c07151cb8f8da84b220fdc034aa0e828c0438c3de3daf8b58e3",
+  "scope": "Register the Feishu group @-mention gate and the Haineng Work conversation/file export before historical projection: three Gateway runtime sources (one new audit module) and four Frontend workspace export sources (two new modules). No image, deployment, database, routing or business acceptance change is claimed.",
+  "changes": {
+    "gateway": {
+      "backend/app/channels/audit.py": {
+        "base_sha256": null,
+        "candidate_sha256": "85de804bb4511ae57ccc7efdc316b214da7b940670397c447d12032f053670c3"
+      },
+      "backend/app/channels/feishu.py": {
+        "base_sha256": "ae71cfac2f5fb0994403c7638285855af675f9ecc9b56ae3da64fb5df27b17e1",
+        "candidate_sha256": "6a8acaf8cccfedd71286d9f666c0db7722dabe501c9b421f2ede2afea8476ae7"
+      },
+      "backend/app/gateway/routers/channel_connections.py": {
+        "base_sha256": "15ca8ca2ce737ad8b459a976664cf7668a962ee65cdc62c4b72bec56c083936b",
+        "candidate_sha256": "a291417c6a6284ba602ec2e41889f3736825e358f3f9eeb20f60be6c4e32f158"
+      }
+    },
+    "frontend": {
+      "frontend/src/components/workspace/export-trigger.tsx": {
+        "base_sha256": "5b91719ccb0ab127d44b9abe49d0caa557527c2c3a2e3764aa09722358fd0aea",
+        "candidate_sha256": "3478bca73ae1fd50ae5bad79bfe6346c90c4e897acc682c919505bdfc47de60f"
+      },
+      "frontend/src/core/channels/targets.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "f1813b2d1f27fd47836c405f3a8246673b3d0d0284cdacf6e31ecb2dafae4f40"
+      },
+      "frontend/src/core/i18n/feishu-export.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "5f2cf745f4cd6e2b200f5e856665afe3e44b8b00eed435597e7fa308e9e689a5"
+      },
+      "frontend/src/core/threads/export.ts": {
+        "base_sha256": "a29caefe5ea7f340a6efd0e4728e966a8d5f61baf588b1d6d02b4e163d421edc",
+        "candidate_sha256": "a873e5af8eff7af562dc752725986476fcd85beef9b50c79551e127065c3a31d"
+      }
+    }
+  }
+}
