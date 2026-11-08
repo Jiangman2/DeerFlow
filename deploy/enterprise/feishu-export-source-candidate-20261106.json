@@ -4,7 +4,7 @@
   "base_commit": "2d6b9a7ed95c6a9a01114110a38585576c467451",
   "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
   "parent_candidate_sha256": "6db8263377b00c07151cb8f8da84b220fdc034aa0e828c0438c3de3daf8b58e3",
-  "scope": "Register the Feishu group @-mention gate and the Haineng Work conversation/file export before historical projection: three Gateway runtime sources (one new audit module) and four Frontend workspace export sources (two new modules), plus the long-thread virtual list anchoring fix that keeps the seeded first window scrollable. No image, deployment, database, routing or business acceptance change is claimed.",
+  "scope": "Register the Feishu group @-mention gate and the Haineng Work conversation/file export before historical projection: three Gateway runtime sources (one new audit module) and four Frontend workspace export sources (two new modules), plus the long-thread virtual list anchoring fix that keeps the seeded first window scrollable. Follow-up replies that start a fresh per-sender thread now carry the quoted message text so a cross-thread question keeps its context. No image, deployment, database, routing or business acceptance change is claimed.",
   "changes": {
     "gateway": {
       "backend/app/channels/audit.py": {
@@ -13,7 +13,7 @@
       },
       "backend/app/channels/feishu.py": {
         "base_sha256": "ae71cfac2f5fb0994403c7638285855af675f9ecc9b56ae3da64fb5df27b17e1",
-        "candidate_sha256": "b18a1109500129a606be722b07aa1557405ece0e1179010e1a677b02f64f4dff"
+        "candidate_sha256": "6cbb6ec0bafa6188bdb4c7822fe814b92fec9520d11686e4d15f219cb64150a9"
       },
       "backend/app/gateway/routers/channel_connections.py": {
         "base_sha256": "15ca8ca2ce737ad8b459a976664cf7668a962ee65cdc62c4b72bec56c083936b",

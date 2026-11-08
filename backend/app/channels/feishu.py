@@ -37,6 +37,9 @@ logger = logging.getLogger(__name__)
 PENDING_CLARIFICATION_TTL_SECONDS = 30 * 60
 FEISHU_INBOUND_BATCH_WINDOW_SECONDS = 0.75
 SOURCE_PREVIEW_METADATA_KEY = "feishu_source_preview"
+# A quoted message is injected as plain text so a cross-thread reply ("what does
+# this mean?") reaches a model that has never seen the message it points at.
+QUOTED_MESSAGE_TEXT_LIMIT = 400
 
 
 def _is_feishu_command(text: str) -> bool:
@@ -94,6 +97,7 @@ class FeishuChannel(Channel):
         self._CreateImageRequest = None
         self._CreateImageRequestBody = None
         self._GetMessageResourceRequest = None
+        self._GetMessageRequest = None
         self._thread_lock = threading.Lock()
         # In group chats, only respond when the bot itself is @-mentioned.
         # Defaults to True because the majority of Feishu group bots are
@@ -386,6 +390,7 @@ class FeishuChannel(Channel):
                 CreateMessageRequest,
                 CreateMessageRequestBody,
                 Emoji,
+                GetMessageRequest,
                 GetMessageResourceRequest,
                 PatchMessageRequest,
                 PatchMessageRequestBody,
@@ -411,6 +416,7 @@ class FeishuChannel(Channel):
         self._CreateImageRequest = CreateImageRequest
         self._CreateImageRequestBody = CreateImageRequestBody
         self._GetMessageResourceRequest = GetMessageResourceRequest
+        self._GetMessageRequest = GetMessageRequest
 
         app_id = self.config.get("app_id", "")
         app_secret = self.config.get("app_secret", "")
@@ -1259,6 +1265,7 @@ class FeishuChannel(Channel):
             self._prepared_inbound[key] = now
         try:
             inbound = await self._attach_connection_identity(inbound)
+            await self._prepend_quoted_context(inbound)
             reaction_message_ids = source_message_ids or [msg_id]
             for reaction_message_id in reaction_message_ids:
                 reaction_task = asyncio.create_task(self._add_reaction(reaction_message_id, "OK"))
@@ -1277,6 +1284,97 @@ class FeishuChannel(Channel):
             provider="feishu",
             workspace_id=inbound.chat_id,
         )
+
+    async def _prepend_quoted_context(self, inbound: InboundMessage) -> None:
+        """Give a cross-thread reply the text of the message it quotes.
+
+        Group threads are namespaced per sender, so a colleague replying to
+        somebody else's answer starts an empty DeerFlow thread. Without this
+        the model would only see "what does this mean?" and have nothing to
+        interpret. The quote is skipped whenever the reply already resolves
+        into a thread that holds the context.
+        """
+        metadata = inbound.metadata or {}
+        if metadata.get("chat_type") != "group":
+            return
+        if inbound.msg_type != InboundMessageType.CHAT or not inbound.text:
+            return
+        if metadata.get("resolved_from_stored_mapping"):
+            return
+        if metadata.get(RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY):
+            return
+
+        quoted_message_id = self._non_empty_str(metadata.get("parent_id")) or self._non_empty_str(metadata.get("root_id"))
+        if not quoted_message_id:
+            return
+        quoted, from_bot = await self._fetch_quoted_text(quoted_message_id)
+        if not quoted:
+            return
+
+        author = "本机器人先前的回复" if from_bot else "群里另一位同事的消息"
+        inbound.text = f"[引用] {author}：{quoted}\n\n{inbound.text}"
+        metadata["quoted_message_id"] = quoted_message_id
+
+    async def _fetch_quoted_text(self, message_id: str) -> tuple[str | None, bool]:
+        """Return ``(text, from_bot)`` for a quoted message."""
+        if not self._api_client or not self._GetMessageRequest or not message_id:
+            return None, False
+        try:
+            request = self._GetMessageRequest.builder().message_id(message_id).build()
+            response = await asyncio.to_thread(self._api_client.im.v1.message.get, request)
+            code = getattr(response, "code", None)
+            if isinstance(code, int) and code != 0:
+                logger.info("[Feishu] quoted message %s is unreadable (code=%s)", message_id, code)
+                return None, False
+            items = getattr(getattr(response, "data", None), "items", None) or []
+            if not items:
+                return None, False
+            item = items[0]
+            body = getattr(item, "body", None)
+            raw = getattr(body, "content", None)
+            text = self._quote_text_from_content(getattr(item, "msg_type", None), raw)
+            if not text:
+                return None, False
+            sender = getattr(getattr(item, "sender", None), "sender_type", None)
+            return text, sender == "app"
+        except Exception:
+            logger.warning("[Feishu] failed to read quoted message %s", message_id, exc_info=True)
+            return None, False
+
+    def _quote_text_from_content(self, msg_type: str | None, raw: Any) -> str | None:
+        if not isinstance(raw, str) or not raw:
+            return None
+        try:
+            content = json.loads(raw)
+        except (TypeError, ValueError):
+            return None
+        if msg_type == "text" and isinstance(content, dict):
+            text = str(content.get("text") or "")
+        else:
+            parts: list[str] = []
+            text_keys = ("text", "content", "title", "label")
+
+            def _walk(node: Any, key: str | None = None, depth: int = 0) -> None:
+                if depth > 8 or len(" ".join(parts)) > QUOTED_MESSAGE_TEXT_LIMIT * 2:
+                    return
+                if isinstance(node, dict):
+                    for child_key, child in node.items():
+                        _walk(child, child_key, depth + 1)
+                elif isinstance(node, list):
+                    for child in node:
+                        _walk(child, key, depth + 1)
+                elif isinstance(node, str) and key in text_keys:
+                    parts.append(node)
+
+            _walk(content)
+            text = " ".join(part.strip() for part in parts if part and part.strip())
+
+        collapsed = re.sub(r"\s+", " ", text).strip()
+        if not collapsed:
+            return None
+        if len(collapsed) > QUOTED_MESSAGE_TEXT_LIMIT:
+            collapsed = collapsed[: QUOTED_MESSAGE_TEXT_LIMIT - 1].rstrip() + "…"
+        return collapsed
 
     async def _bind_connection_from_connect_code(
         self,
@@ -1556,6 +1654,7 @@ class FeishuChannel(Channel):
                 "user_id": sender_id,
                 "chat_type": chat_type,
                 RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY: resolved_from_pending,
+                "resolved_from_stored_mapping": resolved_from_stored_mapping,
             }
             if source_preview:
                 metadata[SOURCE_PREVIEW_METADATA_KEY] = source_preview

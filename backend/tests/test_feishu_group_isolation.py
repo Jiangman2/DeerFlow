@@ -17,7 +17,13 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.channels.feishu import FeishuChannel
-from app.channels.message_bus import InboundMessage, MessageBus, OutboundMessage
+from app.channels.message_bus import (
+    RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY,
+    InboundMessage,
+    InboundMessageType,
+    MessageBus,
+    OutboundMessage,
+)
 from app.channels.store import ChannelStore
 
 BOT = "ou_bot_self"
@@ -353,3 +359,171 @@ def test_duplicate_delivery_of_the_same_message_is_ignored(tmp_path):
 
     asyncio.new_event_loop().run_until_complete(run())
     assert len(published) == 1
+
+
+# ---------------------------------------------------------------------------
+# Quoted context: a reply that starts a new thread still carries what it answers
+# ---------------------------------------------------------------------------
+
+
+def _quoted_inbound(
+    channel: FeishuChannel,
+    *,
+    sender: str = BOB,
+    parent_id: str | None = "om_card_a",
+    root_id: str | None = "om_a1",
+    chat_type: str = "group",
+    resolved_from_stored_mapping: bool = False,
+    resolved_from_pending: bool = False,
+    msg_type=InboundMessageType.CHAT,
+    text: str = "what does this mean?",
+) -> InboundMessage:
+    metadata = {
+        "message_id": "om_b1",
+        "root_id": root_id,
+        "parent_id": parent_id,
+        "thread_id": None,
+        "topic_id": f"{sender}:{root_id}",
+        "user_id": sender,
+        "chat_type": chat_type,
+        RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY: resolved_from_pending,
+        "resolved_from_stored_mapping": resolved_from_stored_mapping,
+    }
+    inbound = channel._make_inbound(
+        chat_id=CHAT,
+        user_id=sender,
+        text=text,
+        msg_type=msg_type,
+        thread_ts="om_b1",
+        files=[],
+        metadata=metadata,
+    )
+    inbound.topic_id = metadata["topic_id"]
+    return inbound
+
+
+def _apply_quote(channel: FeishuChannel, inbound: InboundMessage) -> None:
+    asyncio.new_event_loop().run_until_complete(channel._prepend_quoted_context(inbound))
+
+
+def test_reply_to_the_bot_card_of_another_person_carries_that_answer(tmp_path):
+    """Bob answers under Alice's card: new thread, but the quoted answer travels."""
+    channel, _ = _channel(tmp_path)
+    inbound = _quoted_inbound(channel)
+    channel._fetch_quoted_text = AsyncMock(return_value=("这是给 Alice 的回答", True))
+
+    _apply_quote(channel, inbound)
+
+    assert inbound.text == "[引用] 本机器人先前的回复：这是给 Alice 的回答\n\nwhat does this mean?"
+    assert inbound.metadata["quoted_message_id"] == "om_card_a"
+    assert inbound.topic_id == f"{BOB}:om_a1"
+
+
+def test_quoted_colleague_message_is_labelled_as_a_colleague(tmp_path):
+    channel, _ = _channel(tmp_path)
+    inbound = _quoted_inbound(channel, parent_id="om_a1", root_id="om_a1")
+    channel._fetch_quoted_text = AsyncMock(return_value=("Alex 问的是部署时间", False))
+
+    _apply_quote(channel, inbound)
+
+    assert inbound.text.startswith("[引用] 群里另一位同事的消息：Alex 问的是部署时间")
+    assert inbound.metadata["quoted_message_id"] == "om_a1"
+
+
+def test_reply_inside_my_own_thread_does_not_repeat_the_quote(tmp_path):
+    channel, _ = _channel(tmp_path)
+    inbound = _quoted_inbound(channel, resolved_from_stored_mapping=True)
+    channel._fetch_quoted_text = AsyncMock(return_value=("answer", True))
+
+    _apply_quote(channel, inbound)
+
+    assert inbound.text == "what does this mean?"
+    channel._fetch_quoted_text.assert_not_awaited()
+
+
+def test_pending_clarification_reply_does_not_repeat_the_quote(tmp_path):
+    channel, _ = _channel(tmp_path)
+    inbound = _quoted_inbound(channel, resolved_from_pending=True)
+    channel._fetch_quoted_text = AsyncMock(return_value=("answer", True))
+
+    _apply_quote(channel, inbound)
+
+    assert inbound.text == "what does this mean?"
+    channel._fetch_quoted_text.assert_not_awaited()
+
+
+def test_direct_chat_never_fetches_a_quote(tmp_path):
+    channel, _ = _channel(tmp_path)
+    inbound = _quoted_inbound(channel, chat_type="p2p", root_id=None, parent_id="om_a1")
+    channel._fetch_quoted_text = AsyncMock(return_value=("answer", True))
+
+    _apply_quote(channel, inbound)
+
+    assert inbound.text == "what does this mean?"
+    channel._fetch_quoted_text.assert_not_awaited()
+
+
+def test_commands_are_never_prefixed_with_a_quote(tmp_path):
+    channel, _ = _channel(tmp_path)
+    inbound = _quoted_inbound(channel, msg_type=InboundMessageType.COMMAND, text="/status")
+    channel._fetch_quoted_text = AsyncMock(return_value=("answer", True))
+
+    _apply_quote(channel, inbound)
+
+    assert inbound.text == "/status"
+    channel._fetch_quoted_text.assert_not_awaited()
+
+
+def test_unreadable_quote_keeps_the_question_untouched(tmp_path):
+    channel, _ = _channel(tmp_path)
+    inbound = _quoted_inbound(channel)
+    channel._fetch_quoted_text = AsyncMock(return_value=(None, False))
+
+    _apply_quote(channel, inbound)
+
+    assert inbound.text == "what does this mean?"
+    assert "quoted_message_id" not in inbound.metadata
+
+
+def test_quote_text_from_a_card_is_flattened_and_truncated(tmp_path):
+    channel, _ = _channel(tmp_path)
+    card = {
+        "schema": "2.0",
+        "body": {"elements": [{"tag": "div", "text": {"content": "line one"}}, {"tag": "div", "text": {"content": "line two"}}]},
+    }
+
+    extracted = channel._quote_text_from_content("interactive", json.dumps(card))
+
+    assert extracted is not None
+    assert "line one" in extracted and "line two" in extracted
+    assert "\n" not in extracted
+
+    long_card = {"text": "长" * 900}
+    truncated = channel._quote_text_from_content("text", json.dumps(long_card))
+    assert truncated is not None
+    assert len(truncated) <= 400
+    assert truncated.endswith("…")
+
+
+def test_prepare_inbound_injects_the_quote_before_publishing(tmp_path):
+    channel, _ = _channel(tmp_path)
+    inbound = _quoted_inbound(channel)
+    published: list[InboundMessage] = []
+
+    async def run() -> None:
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr(channel, "_add_reaction", AsyncMock())
+            m.setattr(channel, "_ensure_running_card_started", MagicMock())
+            m.setattr(channel, "_attach_connection_identity", AsyncMock(side_effect=lambda msg: msg))
+            m.setattr(channel, "_fetch_quoted_text", AsyncMock(return_value=("这是给 Alice 的回答", True)))
+
+            async def publish(msg):
+                published.append(msg)
+
+            m.setattr(channel.bus, "publish_inbound", publish)
+            await channel._prepare_inbound("om_b1", inbound)
+
+    asyncio.new_event_loop().run_until_complete(run())
+
+    assert len(published) == 1
+    assert published[0].text.startswith("[引用] 本机器人先前的回复：这是给 Alice 的回答")
