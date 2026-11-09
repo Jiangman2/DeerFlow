@@ -13,6 +13,10 @@ CALENDAR_WRITE = "calendar:calendar"
 CALENDAR_SCOPES = (CALENDAR_READ, CALENDAR_WRITE)
 CALENDAR_AUTH_SCOPE = " ".join(CALENDAR_SCOPES)
 CALENDAR_CONSENT_DESCRIPTION = "读取日历、查询日程、创建日程、编辑日程"
+DOCX_LOOKUP_GRANT_KIND = "docx_lookup_read_grant"
+FILE_GRANT_KINDS = {"sheet": "sheets_read_grant", "drive": "drive_read_grant", "bitable": "bitable_read_grant", "docx": DOCX_LOOKUP_GRANT_KIND}
+SEARCH_GRANT_KIND = "search_read_grant"
+GRANT_KINDS = frozenset({"grant", SEARCH_GRANT_KIND, *FILE_GRANT_KINDS.values()})
 
 API_SCOPES = {
     **dict.fromkeys(("document_create", "document_info", "document_content", "blocks", "block_get", "block_update", "block_append"), DOCUMENT_SCOPE),

@@ -19,6 +19,8 @@ MAX_OCCURRENCES = 31
 MAX_CREATE_OCCURRENCES = 10
 CROSS_DAY_QUESTION = "这段时间超过24小时。您要创建一条连续跨日的日程，还是每天分别创建独立日程？如为每天独立，请说明每天开始时间和持续多久。"
 TASK_RELATION_QUESTION = "这是继续修改当前未完成的安排，还是另建一项安排？"
+_MISSING_CREATE_QUESTION = "请补充{fields}；已提供的其他条件会保留。"
+TITLE_ONLY_QUESTION = _MISSING_CREATE_QUESTION.format(fields="标题")
 Operation = Literal["query", "create", "update", "delete", "repair"]
 Cardinality = Literal["single", "finite", "recurring"]
 
@@ -273,7 +275,7 @@ def missing_question(draft: CalendarDraft) -> str:
             if not draft.changes.end and draft.changes.duration_minutes is None:
                 missing.append("结束时间或持续多久")
         if missing:
-            return "请补充" + "、".join(missing) + "；已提供的其他条件会保留。"
+            return _MISSING_CREATE_QUESTION.format(fields="、".join(missing))
         if draft.cardinality == "single" and not uses_schedule:
             try:
                 _single_create(draft)

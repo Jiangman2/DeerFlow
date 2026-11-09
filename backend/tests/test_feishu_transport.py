@@ -1,6 +1,8 @@
 """Offline WS lifecycle regression: no Work messages or real sockets."""
 
 import asyncio
+import base64
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -81,6 +83,105 @@ async def test_observed_client_tracks_real_handshake_and_redacts_ticket_urls():
     assert "secret-ticket" not in client._fmt_log("connected to {}", "wss://example.test/ws?ticket=secret-ticket&access_key=secret-access")
     await client._disconnect()
     assert not owner.transport_connected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("frame_type", "parts"), [("EVENT", 1), ("EVENT", 2), ("CARD", 1), ("CARD", 2), ("CARD", 9)])
+async def test_work_card_frame_returns_sdk_ack_after_main_loop_admission(monkeypatch, frame_type, parts):
+    import lark_oapi as lark
+    from lark_oapi.ws import client as sdk
+
+    from app.integrations.work.cards import card_callback_response
+
+    channel = FeishuChannel(MessageBus(), {"app_id": "cli_synthetic"})
+    channel._work_ws_cards = True
+    main_loop = asyncio.get_running_loop()
+    channel._main_loop = main_loop
+    payload = {
+        "schema": "2.0",
+        "header": {"event_type": "card.action.trigger", "event_id": "event_test", "app_id": "cli_synthetic", "tenant_key": "tenant_test"},
+        "event": {
+            "action": {"tag": "button", "value": {"work_action": "cancel", "work_reference": "A" * 32}},
+            "operator": {"open_id": "ou_test"},
+            "context": {"open_chat_id": "oc_test", "open_message_id": "om_test"},
+        },
+    }
+    calls = []
+    started = asyncio.Event()
+    release = asyncio.Event()
+    messages = []
+
+    async def admit(received, *, channel):
+        assert asyncio.get_running_loop() is channel._main_loop
+        calls.append(received)
+        started.set()
+        await release.wait()
+        return card_callback_response("accepted")
+
+    monkeypatch.setattr("app.integrations.work.cards.dispatch_websocket_card_click", admit)
+    monkeypatch.setattr(channel, "_on_message", lambda event: messages.append(event.header.event_type))
+    client_class = observed_client(sdk.Client, channel, card_handler=channel._on_work_card_frame)
+    client = client_class("cli_synthetic", "synthetic", event_handler=channel._build_event_handler(lark))
+    writes = []
+
+    async def capture(raw):
+        ack = sdk.Frame()
+        ack.ParseFromString(raw)
+        writes.append(ack)
+
+    monkeypatch.setattr(client, "_write_message", capture)
+
+    async def receive(packet, *, message_id, kind, parts_count):
+        raw = json.dumps(packet).encode()
+        chunks = [raw[:50], raw[50:]] if parts_count == 2 else [raw]
+        for index, chunk in enumerate(chunks):
+            frame = sdk.Frame(SeqID=1, LogID=1, service=1, method=sdk.FrameType.DATA.value)
+            for key, value in (
+                (sdk.HEADER_MESSAGE_ID, message_id),
+                (sdk.HEADER_TRACE_ID, "2"),
+                (sdk.HEADER_SUM, str(parts_count)),
+                (sdk.HEADER_SEQ, str(index)),
+                (sdk.HEADER_TYPE, getattr(sdk.MessageType, kind).value),
+            ):
+                header = frame.headers.add()
+                header.key, header.value = key, value
+            frame.payload = chunk
+            await client._handle_data_frame(frame)
+
+    async def receive_normal_message_during_card_admission():
+        try:
+            await asyncio.wait_for(asyncio.wrap_future(asyncio.run_coroutine_threadsafe(started.wait(), main_loop)), 1.5)
+            ordinary = {"schema": "2.0", "header": {"event_type": "im.message.receive_v1"}, "event": {}}
+            await receive(ordinary, message_id="2", kind="EVENT", parts_count=2)
+            assert messages == ["im.message.receive_v1"]
+            assert len(writes) == 1 and sdk._get_by_key(writes[0].headers, sdk.HEADER_MESSAGE_ID) == "2"
+        finally:
+            main_loop.call_soon_threadsafe(release.set)
+
+    async def worker():
+        card = receive(payload, message_id="1", kind=frame_type, parts_count=parts)
+        if parts == 9:
+            await card
+        else:
+            await asyncio.gather(card, receive_normal_message_during_card_admission())
+
+    await asyncio.to_thread(lambda: asyncio.run(worker()))
+
+    assert len(writes) == (1 if parts == 9 else 2)
+    card_ack = writes[-1]
+    assert sdk._get_by_key(card_ack.headers, sdk.HEADER_TYPE) == getattr(sdk.MessageType, frame_type).value
+    result = json.loads(card_ack.payload)
+    assert result["code"] == 200
+    if parts == 9:
+        assert not calls and result.get("data") is None
+        return
+    assert len(calls) == 1
+    assert calls[0]["schema"] == "2.0"
+    assert calls[0]["header"]["app_id"] == "cli_synthetic"
+    assert calls[0]["header"]["tenant_key"] == "tenant_test"
+    assert calls[0]["event"]["action"]["value"] == payload["event"]["action"]["value"]
+    assert calls[0]["event"]["context"]["open_message_id"] == "om_test"
+    assert json.loads(base64.b64decode(result["data"])) == card_callback_response("accepted")
 
 
 @pytest.mark.asyncio

@@ -5,15 +5,19 @@ import logging
 import socket
 import uuid
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import Any, Literal
 
 from fastapi import HTTPException
 
 from deerflow.persistence.scheduled_task_runs import ActiveScheduledRunConflict, ScheduledTaskAdmissionRejected
+from deerflow.persistence.scheduled_task_runs.projection import WORK_NOTIFICATION_CONTEXT_KEY
 from deerflow.runtime import ConflictError, RunRecord
 from deerflow.scheduler.schedules import next_run_at
 from deerflow.trace_context import ensure_trace_context
 from deerflow.utils.thread_id import validate_thread_id
+
+from .work_notifications import WorkNotificationDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +42,7 @@ class ScheduledTaskService:
         queue_timeout_seconds: int = 3600,
         multi_instance: bool = False,
         run_lease_grace_seconds: int = 10,
+        work_notifications: WorkNotificationDispatcher | None = None,
     ) -> None:
         self._task_repo = task_repo
         self._task_run_repo = task_run_repo
@@ -48,6 +53,7 @@ class ScheduledTaskService:
         self._queue_timeout_seconds = queue_timeout_seconds
         self._multi_instance = multi_instance
         self._run_lease_grace_seconds = run_lease_grace_seconds
+        self._work_notifications = work_notifications
         self._lease_owner = f"{socket.gethostname()}:{uuid.uuid4().hex}"
         self._task: asyncio.Task | None = None
         self._stop = asyncio.Event()
@@ -68,6 +74,7 @@ class ScheduledTaskService:
             await self._task_run_repo.recover_expired_launch_claims(
                 error=_LEASE_RECOVERY_ERROR,
                 now=now,
+                **self._notification_recovery_options(),
             )
         await self._expire_waiting_runs(now=now)
         await self._drain_queue(now=now)
@@ -276,12 +283,14 @@ class ScheduledTaskService:
         launched_thread_id: str | None = None
         launch_succeeded = False
         try:
+            run_context = dict(task.get("run_context") or {})
+            run_context.pop(WORK_NOTIFICATION_CONTEXT_KEY, None)
             result = await self._launch_run(
                 thread_id=execution_thread_id,
                 assistant_id=task.get("assistant_id"),
                 prompt=task["prompt"],
                 owner_user_id=task.get("user_id"),
-                run_context=task.get("run_context") or {},
+                run_context=run_context,
                 metadata={
                     "scheduled_task_id": task["id"],
                     "scheduled_task_run_id": task_run_id,
@@ -554,7 +563,11 @@ class ScheduledTaskService:
         if terminal_status is None:
             return
 
-        await self._task_repo.complete_run(
+        notifications = self._work_notifications
+        completion_options = {}
+        if notifications is not None and terminal_status == "success":
+            completion_options["on_success"] = partial(notifications.enqueue, result_text=record.last_ai_message, thread_id=record.thread_id)
+        completed = await self._task_repo.complete_run(
             task_id,
             user_id=user_id,
             task_run_id=task_run_id,
@@ -562,7 +575,20 @@ class ScheduledTaskService:
             status=terminal_status,
             error=error,
             finished_at=datetime.now(UTC),
+            **completion_options,
         )
+        if completed and notifications is not None and completion_options:
+            notifications.wake()
+
+    def start_notifications(self) -> None:
+        """Manual task runs can notify even when automatic scheduling is off."""
+        if self._work_notifications is not None:
+            self._work_notifications.start()
+
+    def _notification_recovery_options(self) -> dict:
+        if self._work_notifications is None:
+            return {}
+        return {"on_success": self._work_notifications.enqueue}
 
     async def start(self) -> None:
         if self._task is not None:
@@ -578,7 +604,7 @@ class ScheduledTaskService:
             # returning; moving either pass into run_once() can interrupt live
             # work or race manual admission.
             try:
-                stale = await self._task_run_repo.mark_stale_active_runs(error=restart_error)
+                stale = await self._task_run_repo.mark_stale_active_runs(error=restart_error, **self._notification_recovery_options())
                 if stale:
                     logger.warning("Marked %d stale scheduled task run(s) as interrupted after restart", stale)
             except Exception:
@@ -596,6 +622,7 @@ class ScheduledTaskService:
                 raise
         self._stop.clear()
         self._task = asyncio.create_task(self._run_loop())
+        self.start_notifications()
 
     async def _reconcile_active_state(self, *, now: datetime) -> None:
         error = _LEASE_RECOVERY_ERROR
@@ -604,6 +631,7 @@ class ScheduledTaskService:
                 error=error,
                 now=now,
                 lease_grace_seconds=self._run_lease_grace_seconds,
+                **self._notification_recovery_options(),
             )
             if stale:
                 logger.warning("Marked %d stale scheduled task run(s) as interrupted after lease reconciliation", stale)
@@ -621,6 +649,8 @@ class ScheduledTaskService:
             logger.exception("Failed to reconcile once tasks with leases")
 
     async def stop(self) -> None:
+        if self._work_notifications is not None:
+            await self._work_notifications.stop()
         if self._task is None:
             return
         self._stop.set()

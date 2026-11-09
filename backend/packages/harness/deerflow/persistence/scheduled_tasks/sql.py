@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from deerflow.persistence.run import RunRepository
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
-from deerflow.persistence.scheduled_task_runs.projection import account_launch, can_project
+from deerflow.persistence.scheduled_task_runs.projection import WORK_NOTIFICATION_CONTEXT_KEY, account_launch, can_project, enqueue_work_notification_in_completion
 from deerflow.persistence.scheduled_tasks.model import ACTIVE_RUN_STATUSES, ONCE_TASK_STATUS_BY_RUN_STATUS, TERMINAL_RUN_STATUSES, ScheduledTaskRow
 from deerflow.scheduler.schedules import next_run_at as compute_next_run_at
 from deerflow.utils.time import coerce_iso
@@ -252,7 +253,8 @@ class ScheduledTaskRepository:
         require_mutable: bool = False,
     ) -> dict[str, Any] | None:
         async with self._sf() as session:
-            row = await self._lock_task(session, task_id) if require_mutable else await session.get(ScheduledTaskRow, task_id)
+            context_changed = "run_context" in updates or WORK_NOTIFICATION_CONTEXT_KEY in updates
+            row = await self._lock_task(session, task_id) if require_mutable or context_changed else await session.get(ScheduledTaskRow, task_id)
             if row is None or row.user_id != user_id:
                 return None
             if require_mutable:
@@ -270,6 +272,17 @@ class ScheduledTaskRepository:
                 if active_status is not None:
                     await session.rollback()
                     raise ActiveScheduledTaskMutationConflict(active_status)
+            if context_changed:
+                updates = dict(updates)
+                previous_context = row.run_context or {}
+                context = dict(updates.pop("run_context", previous_context) or {})
+                # Only the separately validated notification input may update this
+                # setting. A model/context edit alone keeps the existing choice.
+                notification = updates.pop(WORK_NOTIFICATION_CONTEXT_KEY, previous_context.get(WORK_NOTIFICATION_CONTEXT_KEY))
+                context.pop(WORK_NOTIFICATION_CONTEXT_KEY, None)
+                if notification is not None:
+                    context[WORK_NOTIFICATION_CONTEXT_KEY] = notification
+                row.run_context = context
             for key, value in updates.items():
                 if hasattr(row, key):
                     setattr(row, key, value)
@@ -471,6 +484,7 @@ class ScheduledTaskRepository:
         status: str,
         error: str | None,
         finished_at: datetime,
+        on_success: Callable[[AsyncSession, ScheduledTaskRow, ScheduledTaskRunRow], Awaitable[None]] | None = None,
     ) -> bool:
         """Commit occurrence completion, accounting and eligible parent outcome."""
         if status not in TERMINAL_RUN_STATUSES:
@@ -481,6 +495,7 @@ class ScheduledTaskRepository:
             if occurrence is None or occurrence.task_id != task_id or occurrence.run_id not in (None, run_id) or (task is not None and task.user_id != user_id):
                 await session.rollback()
                 return False
+            execution_in_progress = occurrence.status in {"launching", "running"}
             occurrence.status = status
             occurrence.run_id = run_id
             occurrence.error = error
@@ -508,6 +523,8 @@ class ScheduledTaskRepository:
                         # cron parents keep whatever status they already hold.
                         task.status = ONCE_TASK_STATUS_BY_RUN_STATUS[status]
                     task.updated_at = finished_at
+            if on_success is not None and status == "success" and execution_in_progress and task is not None:
+                await enqueue_work_notification_in_completion(session, task, occurrence, on_success)
             await session.commit()
             return True
 

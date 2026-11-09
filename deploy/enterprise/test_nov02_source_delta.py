@@ -6,6 +6,7 @@ from pathlib import Path
 import unittest
 
 from released_source_20261102 import CI_FOLLOWUP, CI_MANIFEST, DELTA, SOURCE, digest, historical_read, load
+from work_integration_source_20261106 import historical_view
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -16,7 +17,7 @@ SPEC.loader.exec_module(V)
 
 class SourceDeltaTests(unittest.TestCase):
     def setUp(self):
-        self.read = lambda path: (ROOT / path).read_bytes()
+        self.read, _ = historical_view(lambda path: (ROOT / path).read_bytes())
         self.delta, self.manifest = load(self.read)
 
     def replace(self, path, raw):

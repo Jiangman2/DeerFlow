@@ -28,6 +28,7 @@ from app.gateway.auth_disabled import (
 )
 from app.gateway.authz import _ALL_PERMISSIONS, AuthContext
 from app.gateway.internal_auth import INTERNAL_AUTH_HEADER_NAME, get_internal_user, is_valid_internal_auth_token
+from app.integrations.work.cards import CARD_CALLBACK_PATH
 from deerflow.runtime.user_context import reset_current_user, set_current_user
 
 _OA_POLICY_FLOW_PATH = "/api/v1/integrations/oa/policy-flow/jobs"
@@ -151,7 +152,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             request.state.auth_source = "oa_policy_flow"
             return await call_next(request)
 
-        if _is_public(request.url.path):
+        if _is_public(request.url.path) or request.method == "POST" and request.url.path == CARD_CALLBACK_PATH:
             return await call_next(request)
 
         internal_user = None

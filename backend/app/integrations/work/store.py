@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from deerflow.persistence.work.model import WorkRecordRow as Row
 
 from .client import WorkError
+from .scopes import GRANT_KINDS
 from .tasks import TaskRef, TurnReservation
 
 
@@ -136,7 +137,7 @@ class WorkStore:
         await session.execute(update(Row).where(*owned, Row.kind == "task_state").values(status="cancelled", revision=Row.revision + 1, updated_at=now))
         await session.execute(delete(Row).where(*owned, Row.kind == "context"))
 
-    async def reserve_turn(self, owner, source, *, ttl=900):
+    async def reserve_turn(self, owner, source, *, ttl=900, expected_ref=None):
         if not isinstance(source, str) or not source or len(source) > 4096:
             raise WorkError("missing_message_identity")
         # Ordinary Work chat also reserves turns; it must not depend on a later
@@ -152,7 +153,9 @@ class WorkStore:
             if previous is not None:
                 await session.delete(previous)
                 await session.flush()
-            row, old = await self._conversation(session, owner, now, create=True, ttl=ttl)
+            row, old = await self._conversation(session, owner, now, create=expected_ref is None, ttl=ttl)
+            if expected_ref is not None:
+                self._check_task(old, expected_ref)
             value = dict(old.value)
             context = deepcopy(value.get("context", {})) if value.get("context_expires_at", 0) > now else {}
             reservation = TurnReservation(turn_id, TaskRef.parse(value.get("task_ref")), deepcopy(value.get("task", {})), context)
@@ -544,15 +547,17 @@ class WorkStore:
                 value = {"schema_version": 1, "turn_id": "", "task_ref": None, "task": {}, "context": {}, "context_expires_at": 0}
                 self._update_row(row, "conversation", owner, owner, value, status="idle", ttl=900, now=now)
             await self._cancel_unexecuted(session, owner, now)
-            await session.execute(delete(Row).where(Row.namespace == self.namespace, Row.owner_hash == self.hash(owner), Row.kind == "grant"))
+            await session.execute(delete(Row).where(Row.namespace == self.namespace, Row.owner_hash == self.hash(owner), Row.kind.in_(GRANT_KINDS)))
             await session.commit()
 
-    async def install_authorized(self, ticket, old, *, owner, value, ttl, task_ref=None):
+    async def install_authorized(self, ticket, old, *, owner, value, ttl, task_ref=None, grant_kind="grant"):
         """Install a grant atomically with consuming its still-live OAuth job.
 
         This shares the revocation transaction guard. An old callback cannot
         re-install a token after a concurrent user explicitly revoked consent.
         """
+        if grant_kind not in GRANT_KINDS:
+            raise WorkError("invalid_grant_kind")
         task_ref = TaskRef.parse(task_ref) or TaskRef.parse(old.value.get("task_ref"))
         await self.create("guard", "admission", {}, ttl=10**10)
         now, revision = time.time(), secrets.randbits(60)
@@ -569,18 +574,18 @@ class WorkStore:
             if result.rowcount != 1:
                 await session.rollback()
                 raise WorkError("authorization_or_binding_invalid")
-            await session.execute(delete(Row).where(*self._where("grant", owner), Row.owner_hash == self.hash(owner)))
+            await session.execute(delete(Row).where(*self._where(grant_kind, owner), Row.owner_hash == self.hash(owner)))
             session.add(
                 Row(
                     namespace=self.namespace,
-                    kind="grant",
+                    kind=grant_kind,
                     key_hash=self.hash(owner),
                     owner_hash=self.hash(owner),
                     status="active",
                     revision=revision,
                     expires_at=now + ttl,
                     updated_at=now,
-                    ciphertext=self._encrypt("grant", owner, owner, value),
+                    ciphertext=self._encrypt(grant_kind, owner, owner, value),
                 )
             )
             await session.commit()

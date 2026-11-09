@@ -8,7 +8,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from pydantic import AwareDatetime, BaseModel, Field, field_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 from app.gateway.authz import require_permission
 from app.gateway.deps import (
@@ -19,6 +19,7 @@ from app.gateway.deps import (
     get_scheduled_task_service,
     get_thread_store,
 )
+from app.integrations.work.notifications import list_work_notification_connections, resolve_work_notification_connection, work_notifications_enabled
 from deerflow.config.agents_config import AGENT_NAME_PATTERN, load_agent_config
 from deerflow.persistence.engine import get_session_factory
 from deerflow.persistence.observability import ObservabilityRepository
@@ -63,6 +64,39 @@ def _sanitize_run_context(value: dict[str, Any] | None) -> dict[str, Any]:
     if not value:
         return {}
     return {key: item for key, item in value.items() if key in _SCHEDULED_RUN_CONTEXT_KEYS}
+
+
+class WorkNotificationPreference(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    connection_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+
+
+def _task_response(task: dict[str, Any]) -> dict[str, Any]:
+    context = task.get("run_context")
+    if not isinstance(context, dict) or "work_notification" not in context:
+        return task
+    notification = context["work_notification"]
+    connection_id = notification.get("connection_id") if isinstance(notification, dict) else None
+    preference = {"connection_id": connection_id} if isinstance(connection_id, str) and connection_id else None
+    return {**task, "run_context": {key: value for key, value in context.items() if key != "work_notification"}, "work_notification": preference}
+
+
+def _work_notifications_available(request: Request) -> bool:
+    return _notification_dispatcher(request) is not None and work_notifications_enabled()
+
+
+def _notification_dispatcher(request: Request):
+    app = getattr(request, "app", None)
+    return getattr(getattr(app, "state", None), "work_notification_dispatcher", None)
+
+
+async def _validate_work_notification(request: Request, owner: str, preference: WorkNotificationPreference) -> dict[str, str]:
+    if not _work_notifications_available(request):
+        raise HTTPException(status_code=409, detail="海能 Work 私聊通知当前未启用。")
+    target = await resolve_work_notification_connection(owner, preference.connection_id)
+    if target is None:
+        raise HTTPException(status_code=422, detail="请选择您本人已验证的海能 Work 私聊连接。")
+    return {"connection_id": target.connection_id, "binding_key": target.binding_key}
 
 
 async def _record_scheduled_task_creation(user: Any, task: dict[str, Any]) -> None:
@@ -168,6 +202,7 @@ class ScheduledTaskCreateRequest(BaseModel):
     schedule_spec: dict[str, Any]
     timezone: str = Field(max_length=64)
     run_context: dict[str, Any] = Field(default_factory=dict)
+    work_notification: WorkNotificationPreference | None = None
 
     @field_validator("title", "prompt")
     @classmethod
@@ -192,6 +227,7 @@ class ScheduledTaskUpdateRequest(BaseModel):
     schedule_spec: dict[str, Any] | None = None
     timezone: str | None = Field(default=None, max_length=64)
     run_context: dict[str, Any] | None = None
+    work_notification: WorkNotificationPreference | None = None
 
     @field_validator("title", "prompt")
     @classmethod
@@ -284,7 +320,19 @@ async def list_scheduled_tasks(request: Request):
     user = await get_optional_user_from_request(request)
     if user is None:
         return []
-    return await repo.list_by_user(str(user.id))
+    return [_task_response(task) for task in await repo.list_by_user(str(user.id))]
+
+
+@router.get("/scheduled-tasks/work-notification-targets")
+@require_permission("threads", "read")
+async def list_scheduled_work_notification_targets(request: Request):
+    user = await get_optional_user_from_request(request)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if not _work_notifications_available(request):
+        return {"enabled": False, "targets": []}
+    targets = await list_work_notification_connections(str(user.id))
+    return {"enabled": True, "targets": [{"connection_id": target.connection_id, "label": target.label} for target in targets]}
 
 
 @router.post("/scheduled-tasks")
@@ -338,6 +386,9 @@ async def create_scheduled_task(request: Request, body: ScheduledTaskCreateReque
         body.assistant_id,
         user_id=str(user.id),
     )
+    run_context = dict(body.run_context)
+    if body.work_notification is not None:
+        run_context["work_notification"] = await _validate_work_notification(request, str(user.id), body.work_notification)
     created = await repo.create(
         task_id=f"task-{uuid.uuid4().hex}",
         user_id=str(user.id),
@@ -349,11 +400,11 @@ async def create_scheduled_task(request: Request, body: ScheduledTaskCreateReque
         schedule_type=body.schedule_type,
         schedule_spec=schedule_spec,
         timezone=body.timezone,
-        run_context=body.run_context,
+        run_context=run_context,
         next_run_at=next_run_at,
     )
     await _record_scheduled_task_creation(user, created)
-    return created
+    return _task_response(created)
 
 
 @router.get("/scheduled-tasks/{task_id}")
@@ -366,7 +417,7 @@ async def get_scheduled_task(task_id: str, request: Request):
     task = await repo.get(task_id, user_id=str(user.id))
     if task is None:
         raise HTTPException(status_code=404, detail="Scheduled task not found")
-    return task
+    return _task_response(task)
 
 
 @router.patch("/scheduled-tasks/{task_id}")
@@ -383,7 +434,9 @@ async def update_scheduled_task(task_id: str, request: Request, body: ScheduledT
         raise HTTPException(status_code=404, detail="Scheduled task not found")
     await _ensure_task_mutable(existing, repo)
 
-    updates = body.model_dump(exclude_none=True)
+    updates = body.model_dump(exclude_none=True, exclude={"work_notification"})
+    if "work_notification" in body.model_fields_set:
+        updates["work_notification"] = await _validate_work_notification(request, str(user.id), body.work_notification) if body.work_notification is not None else None
     if "assistant_id" in updates:
         updates["assistant_id"] = await resolve_scheduled_task_assistant_id(
             updates["assistant_id"],
@@ -479,7 +532,7 @@ async def update_scheduled_task(task_id: str, request: Request, body: ScheduledT
         ) from exc
     if updated is None:
         raise HTTPException(status_code=404, detail="Scheduled task not found")
-    return updated
+    return _task_response(updated)
 
 
 @router.post("/scheduled-tasks/{task_id}/pause")
@@ -515,7 +568,8 @@ async def pause_scheduled_task(task_id: str, request: Request):
             status_code=409,
             detail="Scheduled task is already launching or running; retry after the active execution finishes",
         )
-    return await repo.get(task_id, user_id=str(user.id))
+    task = await repo.get(task_id, user_id=str(user.id))
+    return _task_response(task) if task is not None else None
 
 
 @router.post("/scheduled-tasks/{task_id}/resume")
@@ -549,7 +603,7 @@ async def resume_scheduled_task(task_id: str, request: Request):
         ) from exc
     if updated is None:
         raise HTTPException(status_code=404, detail="Scheduled task not found")
-    return updated
+    return _task_response(updated)
 
 
 @router.post("/scheduled-tasks/{task_id}/trigger")
@@ -613,7 +667,17 @@ async def list_scheduled_task_runs(
     task = await task_repo.get(task_id, user_id=str(user.id))
     if task is None:
         raise HTTPException(status_code=404, detail="Scheduled task not found")
-    return await run_repo.list_by_task(task_id, limit=limit, offset=offset)
+    runs = await run_repo.list_by_task(task_id, limit=limit, offset=offset)
+    dispatcher = _notification_dispatcher(request)
+    if not runs or dispatcher is None:
+        return runs
+    try:
+        statuses = await dispatcher.get_statuses([run["id"] for run in runs], owner_user_id=str(user.id))
+    except Exception:
+        logger.warning("Scheduled Work notification status lookup failed")
+        return runs
+    aliases = {"sending": "pending", "expired": "skipped"}
+    return [{**run, "work_notification_status": aliases.get(status, status)} if (status := statuses.get(run["id"])) else run for run in runs]
 
 
 @router.get("/threads/{thread_id}/scheduled-tasks")
@@ -623,4 +687,4 @@ async def list_thread_scheduled_tasks(thread_id: ThreadId, request: Request):
     user = await get_optional_user_from_request(request)
     if user is None:
         raise HTTPException(status_code=401, detail="Authentication required")
-    return await repo.list_by_user_and_thread(str(user.id), thread_id)
+    return [_task_response(task) for task in await repo.list_by_user_and_thread(str(user.id), thread_id)]

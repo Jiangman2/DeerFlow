@@ -15,8 +15,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from .calendar import CalendarIntent
 from .capabilities import Action, parse_time
 from .client import DOC_ID_RE, WorkError
-from .drafts import CROSS_DAY_QUESTION, TASK_RELATION_QUESTION, CalendarDraft, CalendarDraftPatch, _span_semantics, draft_summary, expand_create, merge_draft, missing_question
-from .routing import CALENDAR_OPERATIONS, DOCUMENT_OPERATIONS, WorkTurnDecision, preauthorization_question, validate_intent
+from .drafts import CROSS_DAY_QUESTION, TASK_RELATION_QUESTION, TITLE_ONLY_QUESTION, CalendarDraft, CalendarDraftPatch, _span_semantics, draft_summary, expand_create, merge_draft, missing_question
+from .routing import CALENDAR_OPERATIONS, DOCUMENT_OPERATIONS, FileLookupIntent, WorkTurnDecision, file_lookup_in_scope, preauthorization_question, validate_file_lookup, validate_intent
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +160,7 @@ def _turn_context(context: dict | None) -> dict:
         safe["document_id"] = doc
     try:
         intent = validate_intent(context.get("intent"))
-        if intent is not None:
+        if intent is not None and not isinstance(intent, FileLookupIntent):
             safe["intent"] = intent.model_dump(mode="json", exclude_defaults=True, exclude={"update_fields", "expected_event"})
     except (ValueError, RecursionError):
         # A stale/incompatible task is not authority to invent a replacement.
@@ -215,13 +215,18 @@ def _compact_schema(value):
     return value
 
 
-def _turn_schema() -> dict:
+def _turn_schema(*, file_lookup: bool = False) -> dict:
     schema = WorkTurnDecision.model_json_schema()
     # The first stage can plan documents, but calendar arguments belong only
     # to the domain tool protocol. Keep its prompt and visible schema small.
     for key in ("draft", "time_window", "target_clock"):
         schema["properties"].pop(key, None)
     schema["properties"]["intent"] = {"anyOf": [{"$ref": "#/$defs/Action"}, {"type": "null"}], "default": None}
+    if file_lookup:
+        schema["properties"]["intent"]["anyOf"].insert(1, {"$ref": "#/$defs/FileLookupIntent"})
+    else:
+        schema["properties"]["domain"]["anyOf"][0]["enum"].remove("file_lookup")
+        schema.get("$defs", {}).pop("FileLookupIntent", None)
     for key in ("CalendarDraft", "CalendarSchedule", "CalendarIntent", "Selector", "Changes"):
         schema.get("$defs", {}).pop(key, None)
     action = schema.get("$defs", {}).get("Action", {})
@@ -234,8 +239,14 @@ def _turn_schema() -> dict:
     return _compact_schema(schema)
 
 
-def _checked_turn(decision: WorkTurnDecision, documents: set[str], context: dict, windows: dict) -> WorkTurnDecision:
+def _checked_turn(decision: WorkTurnDecision, documents: set[str], context: dict, windows: dict, *, lookup_request: str = "") -> WorkTurnDecision:
     intent = decision.intent
+    if decision.domain == "file_lookup":
+        if not lookup_request:
+            raise ValueError("file_lookup_not_available_for_turn")
+        if isinstance(intent, FileLookupIntent):
+            validate_file_lookup(intent, lookup_request)
+        return decision
     if isinstance(intent, Action) and intent.document_id and intent.document_id not in documents:
         raise ValueError("model_changed_document_target")
     if isinstance(intent, CalendarIntent):
@@ -287,6 +298,9 @@ def _turn_repair_hint(error: ValueError) -> str:
         "work_route_requires_only_a_typed_intent": "new_work/continue_work必须有domain及对应intent，question为空；需要补问则route为clarify。",
         "time_window_requires_calendar_query_or_update": "time_window仅供日历查询或编辑目标定位；其他操作留null。",
         "model_changed_document_target": "document_id只能选当前请求已解析的文档ID；当前没有新链接时才可使用当前任务的文档ID。",
+        "file_lookup_title_not_in_current_request": "按名称查找只复制本条用户消息中的完整名称，保留扩展名。没有完整名称就询问，不能使用历史内容。",
+        "file_lookup_requires_new_current_request": "按名称查找是当前消息的新任务，不续接历史名称。",
+        "file_lookup_requires_read_or_find_request": "只收到文件名时补问用户要查找文件还是读取内容。",
         "model_changed_candidate_target": "候选序号只能来自当前任务候选；没有候选就补问目标日期和原名称。",
         "model_changed_event_target": "event_id只能选当前任务已查询ID，没有目标就补问，不猜ID。",
         "model_invented_recent_target": "没有recent_id时不能选择recent=true，请补问原日期和名称。",
@@ -564,6 +578,40 @@ def _calendar_result(route, draft, question="", *, reset_this_turn=False):
     return result
 
 
+def _fill_pending_calendar_title(request: str, context: dict) -> WorkTurnDecision | None:
+    """Use a short direct answer only for the server's title-only question."""
+    if context.get("domain") != "calendar" or context.get("stage") != "awaiting_input" or not context.get("question", "").endswith(TITLE_ONLY_QUESTION) or context.get("calendar_execution", {}).get("state") != "none":
+        return None
+    draft = CalendarDraft.model_validate(context.get("draft") or {})
+    if missing_question(draft) != TITLE_ONLY_QUESTION:
+        return None
+
+    answer = request.strip().removesuffix("。").strip()
+    label = re.match(r"标题 *(?:为|是|叫|[:：]) *", answer)
+    if label:
+        answer = answer[label.end() :].strip()
+    quoted = re.fullmatch(r"“([^”]+)”|\"([^\"]+)\"|《([^》]+)》", answer)
+    if quoted:
+        answer = next(part for part in quoted.groups() if part is not None).strip()
+    if not re.fullmatch(r"[\w ·()（）-]{1,80}", answer):
+        return None
+    if not quoted and re.search(r"改到|改成|改为|调到|提前|延后|持续|另建|今天|明天|后天|今晚|本周|下周|(?:\d|[一二两三四五六七八九十])\s*(?:点|时|分钟|月|日|号)", answer):
+        return None
+    if not (label or quoted):
+        # Other messages still go through semantic routing, including commands,
+        # date changes, and short text that could be a different task.
+        if not re.search(r"(?:会议|周会|例会|评审|复盘|汇报|培训|面试|讨论|交流|沟通|分享)$", answer) or answer in {"会议", "讨论", "交流", "沟通", "分享"}:
+            return None
+        if re.search(
+            r"^(?:请|帮|能否|能不能|可以|是否|我想|我要|我不|不|别|先|再|换|算了|取消|撤销|删除|退出|查询|查看|读取|看|总结|解释|介绍|写|新建|创建|安排|预约|修改|编辑|改|从|未来)",
+            answer,
+        ):
+            return None
+
+    filled = merge_draft(draft, {"changes": {"title": answer}}, user_request=request)
+    return _calendar_result("continue_work", filled)
+
+
 def _progress_question(draft, question, context):
     previous = context.get("question") or ""
     dialogues = context.get("pending_dialogue", [])
@@ -628,6 +676,7 @@ async def _plan_calendar(route, request, context, data, windows):
         "粗分流new/continue只是提示，不能丢弃当前已验证草稿。当前用户回答上轮补问或调整同一个未完成安排时，直接补丁合并，保留天数等条件；明确另起同类请求时调用start_new_calendar_task给当前原文依据，不把旧安排条件套入新目标。"
         "切换操作例如创建后改为查询，后端会自动清除不兼容条件；查询后明确选择候选编辑则保留后端定位事实。不能仅因粗分流new就认为当前草稿不存在。"
         "ask_user也必须先在patch保存当前用户已明确的所有条件；日期、起止、标题、每天钟点或时长不能仅写在question里而不存入草稿。已明确的跨日起止先保存，是否连续由后端补问。"
+        "当前草稿只缺标题且上轮明确询问标题时，用户可以直接回答名称，无需写‘标题为’。将当前原文中的名称填入changes.title，保留其他条件。"
         "operation=query/create/update/delete/repair；删除仅表示需求，尚未开放；repair表示用户纠正已执行结果，明确刚创建的对象可reference=recent_receipt，目标由后端查可信回执。"
         "新查询不能默认引用最近回执或历史日程；具体event_id只可来自当前任务查询事实，候选编号按原顺序，不能猜最近目标。"
         "‘最近的安排’没有明确日期，需要补问范围，不填selector.recent，也不猜未来七天。reference=recent_receipt已经定位已执行回执，不同时填selector.recent或猜event_id。"
@@ -755,6 +804,12 @@ async def plan_turn(
     if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or not 0 < timeout <= 180:
         raise WorkError("turn_timeout_configuration")
     context = _turn_context(task_context)
+    resource = capabilities.get("read_only_resource") if isinstance(capabilities, dict) else None
+    lookup_request = request if not links and resource is None and file_lookup_in_scope(request) else ""
+    if not links and not lookup_request and not context.get("document_id"):
+        title_answer = _fill_pending_calendar_title(request, context)
+        if title_answer is not None:
+            return title_answer
     current_documents = {item[0] for item in (links or [])[:5] if isinstance(item, (list, tuple)) and len(item) == 2 and isinstance(item[0], str) and DOC_ID_RE.fullmatch(item[0])}
     documents = set(current_documents)
     if not documents and context.get("document_id"):
@@ -778,7 +833,7 @@ async def plan_turn(
     dialogue = [{"role": row["role"], "content": row["content"][:1500]} for row in (recent_dialogue or [])[-6:] if isinstance(row, dict) and row.get("role") in {"user", "assistant"} and isinstance(row.get("content"), str)]
     available = capabilities.get("available") if isinstance(capabilities, dict) else None
     data = {
-        "turn_schema": _turn_schema(),
+        "turn_schema": _turn_schema(file_lookup=bool(lookup_request)),
         "calendar_route_schema": CalendarRoute.model_json_schema(),
         "当前时间": now.isoformat(),
         "日期参考表": {
@@ -806,6 +861,7 @@ async def plan_turn(
         "只需要解释Work功能或如何操作、无需访问用户资源时general。不确定用户是否在要求访问个人资源时clarify，简短问清，不编造‘没有接入日历’。"
         "所有日历请求或有待补充的日历短答均使用calendar_route_schema，仅输出route和domain=calendar；不得输出intent、draft、question、时间或日程参数。缺项、有限多条、纠错、未开放删除等均交领域代理处理。"
         "日历请求的route只区分new_work、continue_work、clarify；只有当前用户明确续接当前任务才continue_work，新的完整查询不是继续旧创建。"
+        "当前任务明确只追问日程标题时，单独回复名称也是continue_work日历续接，无需写‘标题为’。新话题、取消或新的时间要求仍按实际意图理解。"
         "domain=document时继续用turn_schema及对应文档intent；缺链接或业务歧义用clarify。general/cancel_current不得带domain、intent、draft或question。"
         "文档只用document_read/create/rename/append/replace；读取总结用document_read，document_id只能来自已解析链接或当前任务。缺链接/目标就clarify，不能要求用户提供内部ID。"
         "有文档链接且要求改名、追加或替换时，规划对应文档操作。文档名称或新标题包含‘会议纪要’等字样不等于普通写作。链接只是目标线索，用户明确不访问该链接而另提普通任务时仍general。"
@@ -816,6 +872,23 @@ async def plan_turn(
         "查询/编辑现有个人日历是后端已接入能力；未授权或服务暂不可用不等于unsupported，仍识别意图，由后端返回真实授权或故障状态。"
         "不得输出token、账号、URL、授权链接、请求方法、执行参数、update_fields或expected_event。所有写入都只是待确认提议，绝不能声称已成功。"
     )
+    if resource in ("sheet", "drive"):
+        system += (
+            "本轮服务端解析的链接指向只读在线表格或云盘文件。用户要求读取、总结或分析该文件时，用new_work及document_read，选择服务端给出的目标ID。"
+            "修改、删除、分享、复制或新建该文件用unsupported，不能降级为读取。与该文件无关的普通请求仍用general。"
+        )
+    if lookup_request:
+        system += (
+            "当前消息提到了云端位置或受支持的文件名。只有用户明确要查找、打开、读取、总结或分析自己海能 Work 空间内的一份具体文件，且未给资源链接，才可使用"
+            'route=new_work、domain=file_lookup、intent={"operation":"file_lookup","title":"本条消息中的完整原始文件名","read":true或false}。'
+            "只找文件、确认是否存在或找链接时 read=false；明确要打开或读取、总结、分析内容时 read=true。"
+            "从当前用户请求原样复制完整名称，有扩展名时保留，去除外围引号。禁止取历史名称、猜测扩展名、改写标题或输出路径、链接及标识。"
+            "例如，读取我云文档空间下的 AA标准测试.docx，标题就是 AA标准测试.docx。帮我打开Work里的项目进度表并总结，标题就是 项目进度表。"
+            "在Work私聊里，明确要求‘读取 AA标准测试.docx’或‘帮我总结一下《项目周报.xlsx》’也属于该场景，无需重复说Work空间。明确是本地、附件或其它服务的文件不使用此操作。"
+            "需要读取但未给名称、名称不明确或同时提到多个候选时，用domain=file_lookup及clarify询问一份完整名称。只给文件名时补问是查找文件还是读取内容。"
+            "按名称查找仅供读取。仅请求修改、删除、分享等动作时用domain=file_lookup及unsupported，不降级为读取。"
+            "仅讨论 Work 功能、举例、明确拒绝访问、处理其它云盘或普通问答仍用general。现有日历意图和文档链接处理规则仍适用。"
+        )
     try:
         async with asyncio.timeout(timeout):
             for attempt in range(2):
@@ -827,7 +900,7 @@ async def plan_turn(
                         # Domain failures retain their own technical category.
                         break
                     decision = WorkTurnDecision.model_validate(raw)
-                    return _checked_turn(decision, documents, context, windows)
+                    return _checked_turn(decision, documents, context, windows, lookup_request=lookup_request)
                 except (ValueError, RecursionError) as exc:
                     category = "schema" if isinstance(exc, ValidationError) else "json_or_shape"
                     logger.info("work_turn_validation attempt=%d category=%s", attempt + 1, category)

@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # identity guarded by the partial unique index). Each retry re-reads the
 # now-visible state, so a small bound converges under realistic contention.
 _UPSERT_MAX_ATTEMPTS = 3
+_WORK_NOTIFICATION_TARGET_KEY = "_work_notification_target"
 
 
 class ChannelCredentialCipher:
@@ -100,7 +101,10 @@ class ChannelConnectionRepository:
         data["workspace_id"] = data["workspace_id"] or None
         data["scopes"] = data.pop("scopes_json") or []
         data["capabilities"] = data.pop("capabilities_json") or {}
-        data["metadata"] = data.pop("metadata_json") or {}
+        metadata = data.pop("metadata_json") or {}
+        if isinstance(metadata, dict):
+            metadata = {key: value for key, value in metadata.items() if key != _WORK_NOTIFICATION_TARGET_KEY}
+        data["metadata"] = metadata
         for key in ("created_at", "updated_at", "last_seen_at", "last_error_at"):
             value = data.get(key)
             if isinstance(value, datetime):
@@ -195,6 +199,56 @@ class ChannelConnectionRepository:
         async with self.session_factory() as session:
             result = await session.execute(select(ChannelConnectionRow).where(ChannelConnectionRow.owner_user_id == owner_user_id).order_by(ChannelConnectionRow.updated_at.desc(), ChannelConnectionRow.id.desc()))
             return [self._connection_to_dict(row) for row in result.scalars()]
+
+    async def remember_work_notification_target(
+        self,
+        *,
+        connection_id: str,
+        owner_user_id: str,
+        external_account_id: str,
+        chat_id: str,
+        target: dict[str, str],
+    ) -> bool:
+        """Persist a trusted P2P observation only for the current connected owner."""
+        async with self.session_factory() as session:
+            row = (
+                await session.execute(
+                    select(ChannelConnectionRow)
+                    .where(
+                        ChannelConnectionRow.id == connection_id,
+                        ChannelConnectionRow.owner_user_id == owner_user_id,
+                        ChannelConnectionRow.provider == "feishu",
+                        ChannelConnectionRow.status == "connected",
+                        ChannelConnectionRow.external_account_id == external_account_id,
+                        ChannelConnectionRow.workspace_id == chat_id,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                return False
+            metadata = row.metadata_json or {}
+            if not isinstance(metadata, dict):
+                return False
+            existing = metadata.get(_WORK_NOTIFICATION_TARGET_KEY)
+            if existing is not None:
+                return existing == target
+            row.metadata_json = {**metadata, _WORK_NOTIFICATION_TARGET_KEY: target}
+            await session.commit()
+            return True
+
+    async def list_work_notification_targets(self, owner_user_id: str, connection_id: str | None = None) -> list[dict[str, Any]]:
+        """Internal target evidence, excluded from the ordinary connection response."""
+        stmt = select(ChannelConnectionRow).where(
+            ChannelConnectionRow.owner_user_id == owner_user_id,
+            ChannelConnectionRow.provider == "feishu",
+            ChannelConnectionRow.status == "connected",
+        )
+        if connection_id is not None:
+            stmt = stmt.where(ChannelConnectionRow.id == connection_id)
+        async with self.session_factory() as session:
+            rows = (await session.execute(stmt.order_by(ChannelConnectionRow.updated_at.desc(), ChannelConnectionRow.id.desc()))).scalars()
+            return [{**self._connection_to_dict(row), "work_notification_target": target} for row in rows if isinstance(row.metadata_json, dict) and isinstance(target := row.metadata_json.get(_WORK_NOTIFICATION_TARGET_KEY), dict)]
 
     async def disconnect_connection(self, *, connection_id: str, owner_user_id: str) -> bool:
         async with self.session_factory() as session:

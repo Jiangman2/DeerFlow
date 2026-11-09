@@ -2,13 +2,52 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import logging
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Protocol
 
 from sqlalchemy.orm.attributes import flag_modified
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
     from deerflow.persistence.scheduled_tasks.model import ScheduledTaskRow
+
+logger = logging.getLogger(__name__)
+
+WORK_NOTIFICATION_CONTEXT_KEY = "work_notification"
+
+
+class ScheduledWorkNotificationHook(Protocol):
+    async def __call__(
+        self,
+        session: AsyncSession,
+        task: ScheduledTaskRow,
+        occurrence: ScheduledTaskRunRow,
+        *,
+        result_text: str | None,
+        thread_id: str,
+        recovered: bool = False,
+    ) -> None: ...
+
+
+async def enqueue_work_notification_in_completion(
+    session: AsyncSession,
+    task: ScheduledTaskRow,
+    occurrence: ScheduledTaskRunRow,
+    enqueue: Callable[[AsyncSession, ScheduledTaskRow, ScheduledTaskRunRow], Awaitable[None]],
+) -> None:
+    if not (task.run_context or {}).get(WORK_NOTIFICATION_CONTEXT_KEY):
+        return
+    # Flush scheduled-task bookkeeping first so its own failures aren't
+    # suppressed. The optional outbox joins this transaction on success.
+    await session.flush()
+    try:
+        async with session.begin_nested():
+            await enqueue(session, task, occurrence)
+    except Exception:
+        logger.warning("Scheduled Work notification enqueue failed")
 
 
 def can_project(task: ScheduledTaskRow, occurrence: ScheduledTaskRunRow) -> bool:

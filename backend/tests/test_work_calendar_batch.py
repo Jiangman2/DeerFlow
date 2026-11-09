@@ -118,7 +118,7 @@ async def test_batch_preview_confirms_once_and_retains_owner_bound_successful_re
         await env.tools.confirm(principal("B"), plan.id)
     assert not env.provider.writes
     result = await env.tools.confirm(env.p, plan.id)
-    assert "成功 2 / 2" in result and len(env.provider.writes) == 2
+    assert result == "已创建 2 条日程。" and len(env.provider.writes) == 2
     assert env.provider.writes[0][1]["params"]["idempotency_key"] != env.provider.writes[1][1]["params"]["idempotency_key"]
     with pytest.raises(WorkError):
         await env.tools.confirm(env.p, plan.id)
@@ -139,10 +139,10 @@ async def test_topic_exit_stops_unstarted_items_but_keeps_already_claimed_succes
     await env.turns.finish_turn(env.owner, turn.turn_id, mode="exit")
     env.provider.release.set()
     result = await confirming
-    assert len(env.provider.writes) == 1 and "成功 1 / 2" in result and "未执行" in result
+    assert len(env.provider.writes) == 1 and "已完成 1/2" in result and "未执行" in result
     assert env.tools.plans[plan.id].stage == "partial"
     assert len(await env.tools.recent_calendar_receipts(env.p)) == 1
-    assert "成功 1 / 2" in await env.tools.terminal_notice(env.p, plan.id)
+    assert "已完成 1/2" in await env.tools.terminal_notice(env.p, plan.id)
 
 
 @pytest.mark.asyncio
@@ -155,7 +155,8 @@ async def test_response_loss_is_not_retried_and_reports_partial_and_unexecuted_i
     with pytest.raises(WorkError):
         await env.tools.confirm(env.p, plan.id)
     notice = await env.tools.terminal_notice(env.p, plan.id)
-    assert "成功 1 / 3" in notice and "结果不确定" in notice and "未执行" in notice
+    assert "已完成 1/3" in notice and "结果不确定" in notice and "未执行" in notice
+    assert "synthetic-event-1" not in notice and "不会自动重试" in notice
     assert len(env.provider.writes) == 2
     assert len(await env.tools.recent_calendar_receipts(env.p)) == 1
 
@@ -246,7 +247,7 @@ async def test_legacy_direct_capability_profile_can_still_read_its_old_signed_pr
     plan = await tools.prepare(p, action(1))
     plan.protocol = 0
     plan.signature = tools._sign(p, plan.payload_json, plan.snapshot, plan.preview)
-    assert "已执行" in await tools.confirm(p, plan.id)
+    assert await tools.confirm(p, plan.id) == "已创建「Synthetic 1」 · 2026-11-11 10:00–10:30"
     assert len(provider.writes) == 1
 
 
@@ -273,7 +274,9 @@ async def test_sql_batches_do_not_block_another_owner_but_serialize_the_same_own
         await asyncio.wait_for(env.provider.entered.wait(), 5)
         with pytest.raises(WorkError, match="another_write_in_progress"):
             await env.tools.confirm(env.p, same_owner.id)
-        assert "成功 1 / 1" in await asyncio.wait_for(env.tools.confirm(p_b, other_owner.id), 5)
+        result = await asyncio.wait_for(env.tools.confirm(p_b, other_owner.id), 5)
+        assert result.startswith("已创建「") and "10:00–10:30" in result
+        assert "event_id" not in result and "synthetic-event-" not in result
         assert len(provider_b.writes) == 1 and not pending.done()
     finally:
         env.provider.release.set()
