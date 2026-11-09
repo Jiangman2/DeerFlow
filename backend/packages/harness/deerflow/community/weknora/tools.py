@@ -892,7 +892,12 @@ def weknora_list_document_chunks_tool(
     page_size: int = _DEFAULT_PAGE_SIZE,
     chunk_types: list[str] | None = None,
 ) -> str:
-    """List parsed chunks for one WeKnora document with pagination.
+    """List one page of parsed chunks, not the whole WeKnora document.
+
+    Omitted page always means page 1. To read further, use pagination.next_call
+    with the same page_size and chunk_types; repeating the same arguments does
+    not advance. A saved tool-output file contains only the requested page.
+    Use weknora_search for targeted lookup rather than repeatedly listing page 1.
 
     Args:
         knowledge_id: WeKnora document/knowledge ID from a selected knowledge base.
@@ -936,12 +941,35 @@ def weknora_list_document_chunks_tool(
     rows = data.get("data") if isinstance(data.get("data"), list) else []
     chunks = [_public_chunk(item) for item in rows if isinstance(item, dict)]
     chunks.sort(key=lambda item: (item.get("chunk_index") is None, item.get("chunk_index") or 0))
+    result_page = int(data.get("page") or resolved_page)
+    result_size = int(data.get("page_size") or resolved_page_size)
+    raw_total = data.get("total")
+    total_known = isinstance(raw_total, int) and not isinstance(raw_total, bool) and raw_total >= 0
+    has_more = result_page * result_size < raw_total if total_known else None
+    next_call = None
+    if has_more and chunks and result_page < 1_000_000:
+        next_call = {
+            "knowledge_id": knowledge_id.strip(),
+            "page": result_page + 1,
+            "page_size": result_size,
+            "chunk_types": resolved_types,
+        }
     return json.dumps(
         {
             "knowledge_id": knowledge_id.strip(),
-            "page": int(data.get("page") or resolved_page),
-            "page_size": int(data.get("page_size") or resolved_page_size),
+            "page": result_page,
+            "page_size": result_size,
             "total": int(data.get("total") or len(chunks)),
+            "pagination": {
+                "returned_count": len(chunks),
+                "has_more": has_more,
+                "next_call": next_call,
+                "instruction": (
+                    "这是当前页，不是全文；保存的工具结果文件也只包含当前页。需要后续内容时使用 next_call，"
+                    "不要用相同参数重复读取。查找特定条目可使用 weknora_search。"
+                    "has_more 为 null 表示总数未知；若 has_more 为 true 但 next_call 为空，分页异常，勿宣称已读取全文。"
+                ),
+            },
             "chunks": chunks,
         },
         indent=2,
