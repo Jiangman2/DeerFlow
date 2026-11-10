@@ -50,5 +50,13 @@ jobs:
             tests/test_released_sync_source_20261110.py \
             tests/test_research_fund_expense_purposes*.py \
             tests/test_skillhub*.py deploy/enterprise/test_skillhub_registry_auth_activation_20261106*.py
+      - name: Verify root-owned synthetic private archive
+        # This one test creates only a temporary synthetic OCI fixture. The
+        # production installer deliberately requires UID 0; do not mock that guard.
+        run: |
+          sudo --preserve-env=PYTHONDONTWRITEBYTECODE,PYTHONUTF8,PYTHONIOENCODING \
+            backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=tests -q \
+            tests/test_skillhub_registry_auth_preload_20261106.py \
+            -k test_rewritten_archive_only_names_private_candidate
       - name: Review immutable original energy package
         run: backend/.venv/bin/python -B scripts/review_energy_market_original.py

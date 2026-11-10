@@ -632,7 +632,8 @@ class SkillhubPreloadTests(unittest.TestCase):
         scope = self.scope
         monkeypatch = self.monkeypatch
         tmp_path = Path(self.tmp.name)
-        if os.name != 'posix': self.skipTest('Linux dir_fd and ownership checks')
+        if os.name != 'posix' or os.geteuid() != 0:
+            self.skipTest('requires Linux root-owned private archive; CI runs this case separately as root')
         archive = synthetic_archive(scope, monkeypatch, tmp_path)
         I, unused, unused2 = scope.load_inputs()
         directory = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
