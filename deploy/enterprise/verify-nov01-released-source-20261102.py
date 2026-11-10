@@ -51,6 +51,8 @@ def verify(ref=None):
             roots.append(composer.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, WORK_MANIFEST], cwd=ROOT).strip():
             roots.append(WORK_MANIFEST)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.delivery.MANIFEST], cwd=ROOT).strip():
+            roots.append(followup.delivery.ARCHIVE)
         raw = subprocess.check_output(["git", "archive", ref, *roots], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             archived = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}
