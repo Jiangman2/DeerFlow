@@ -1,12 +1,16 @@
 """Qualify this Work source delta before reading its immutable Git parent."""
 
 import ast
-import lease_work_source_20261110 as lease_work
 import hashlib
+import importlib.util
 import io
 import json
 import subprocess
 from pathlib import Path, PurePosixPath
+
+_lease_spec = importlib.util.spec_from_file_location("lease_work_source_20261110", Path(__file__).with_name("lease_work_source_20261110.py"))
+lease_work = importlib.util.module_from_spec(_lease_spec)
+_lease_spec.loader.exec_module(lease_work)
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = "release/work-integration-followup-20261106/SOURCE.json"

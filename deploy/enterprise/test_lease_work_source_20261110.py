@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -15,6 +16,21 @@ class LeaseWorkSourceTests(unittest.TestCase):
     @staticmethod
     def read(path):
         return (ROOT / path).read_bytes()
+
+    def test_backend_can_load_verifier_without_sibling_on_sys_path(self):
+        script = """
+import importlib.util
+import sys
+spec = importlib.util.spec_from_file_location("standalone_verifier", sys.argv[1])
+verifier = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(verifier)
+assert verifier.lease_work.SOURCE_TREE == sys.argv[2]
+"""
+        result = subprocess.run(
+            [sys.executable, "-I", "-c", script, str(ROOT / "deploy/enterprise/verify-release-source-20261023.py"), lease.SOURCE_TREE],
+            cwd=ROOT / "backend", capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_exact_parent_projection_and_added_runtime_inventory(self):
         projected, result = lease.historical_view(self.read)

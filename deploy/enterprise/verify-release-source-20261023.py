@@ -4,7 +4,6 @@ No imports from the application, cluster calls, model calls or database access.
 Use --ref HEAD after committing to check Git objects rather than working files.
 """
 import argparse
-import lease_work_source_20261110 as lease_work
 import ast
 import hashlib
 import importlib.util
@@ -36,6 +35,7 @@ _stream_spec.loader.exec_module(terminal_stream)
 _work_followup_spec = importlib.util.spec_from_file_location("work_integration_source_20261106", Path(__file__).with_name("work_integration_source_20261106.py"))
 work_followup = importlib.util.module_from_spec(_work_followup_spec)
 _work_followup_spec.loader.exec_module(work_followup)
+lease_work = work_followup.lease_work
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = 'deploy/enterprise/production-source-lock-20261029.json'
