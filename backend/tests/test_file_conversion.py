@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from deerflow.utils.file_conversion import (
-    _ASYNC_THRESHOLD_BYTES,
     _MIN_CHARS_PER_PAGE,
     MAX_OUTLINE_ENTRIES,
     _do_convert,
@@ -241,49 +240,21 @@ class TestGetPdfConverter:
 
 
 class TestConvertFileToMarkdown:
-    def test_small_file_runs_synchronously(self, tmp_path):
-        """Small files (< 1 MB) are converted in the event loop thread."""
-        pdf = tmp_path / "small.pdf"
-        pdf.write_bytes(b"%PDF-1.4 " + b"x" * 100)  # well under 1 MB
+    @pytest.mark.parametrize("size", [100, 1024 * 1024 + 1])
+    def test_every_size_uses_isolated_worker(self, tmp_path, size):
+        from unittest.mock import AsyncMock
 
+        source = tmp_path / "report.pdf"
+        source.write_bytes(b"x" * size)
         with (
             patch("deerflow.utils.file_conversion._get_pdf_converter", return_value="auto"),
-            patch(
-                "deerflow.utils.file_conversion._do_convert",
-                return_value="# Small PDF",
-            ) as mock_convert,
-            patch("asyncio.to_thread") as mock_thread,
+            patch("deerflow.utils.file_conversion.convert_isolated", new_callable=AsyncMock, return_value="# Converted") as worker,
+            patch("deerflow.utils.file_conversion._do_convert") as inline,
         ):
-            md_path = _run(convert_file_to_markdown(pdf))
-
-        # asyncio.to_thread must NOT have been called
-        mock_thread.assert_not_called()
-        mock_convert.assert_called_once()
-        assert md_path == pdf.with_suffix(".md")
-        assert md_path.read_text() == "# Small PDF"
-
-    def test_large_file_offloaded_to_thread(self, tmp_path):
-        """Large files (> 1 MB) are offloaded via asyncio.to_thread."""
-        pdf = tmp_path / "large.pdf"
-        # Write slightly more than the threshold
-        pdf.write_bytes(b"%PDF-1.4 " + b"x" * (_ASYNC_THRESHOLD_BYTES + 1))
-
-        async def fake_to_thread(fn, *args, **kwargs):
-            return fn(*args, **kwargs)
-
-        with (
-            patch("deerflow.utils.file_conversion._get_pdf_converter", return_value="auto"),
-            patch(
-                "deerflow.utils.file_conversion._do_convert",
-                return_value="# Large PDF",
-            ),
-            patch("asyncio.to_thread", side_effect=fake_to_thread) as mock_thread,
-        ):
-            md_path = _run(convert_file_to_markdown(pdf))
-
-        mock_thread.assert_called_once()
-        assert md_path == pdf.with_suffix(".md")
-        assert md_path.read_text() == "# Large PDF"
+            result = _run(convert_file_to_markdown(source))
+        worker.assert_awaited_once_with(source, "auto")
+        inline.assert_not_called()
+        assert result.read_text(encoding="utf-8") == "# Converted"
 
     def test_returns_none_on_conversion_error(self, tmp_path):
         """If conversion raises, return None without propagating the exception."""
@@ -293,7 +264,7 @@ class TestConvertFileToMarkdown:
         with (
             patch("deerflow.utils.file_conversion._get_pdf_converter", return_value="auto"),
             patch(
-                "deerflow.utils.file_conversion._do_convert",
+                "deerflow.utils.file_conversion.convert_isolated",
                 side_effect=RuntimeError("conversion failed"),
             ),
         ):
@@ -309,7 +280,7 @@ class TestConvertFileToMarkdown:
 
         with (
             patch("deerflow.utils.file_conversion._get_pdf_converter", return_value="auto"),
-            patch("deerflow.utils.file_conversion._do_convert", return_value="  \n\t"),
+            patch("deerflow.utils.file_conversion.convert_isolated", return_value="  \n\t"),
         ):
             result = _run(convert_file_to_markdown(pdf))
 
@@ -325,7 +296,7 @@ class TestConvertFileToMarkdown:
         with (
             patch("deerflow.utils.file_conversion._get_pdf_converter", return_value="auto"),
             patch(
-                "deerflow.utils.file_conversion._do_convert",
+                "deerflow.utils.file_conversion.convert_isolated",
                 return_value=chinese_content,
             ),
         ):
@@ -342,7 +313,7 @@ class TestConvertFileToMarkdown:
         with (
             patch("deerflow.utils.file_conversion._get_pdf_converter", return_value="auto"),
             patch(
-                "deerflow.utils.file_conversion._do_convert",
+                "deerflow.utils.file_conversion.convert_isolated",
                 return_value="# Parsed report",
             ),
         ):

@@ -196,6 +196,7 @@ def test_feishu_receive_file_syncs_sandbox_with_explicit_user_id(tmp_path, monke
         channel._api_client.im.v1.message_resource.get.return_value = response
 
         provider = MagicMock()
+        provider.uses_thread_data_mounts = False
         provider.acquire.return_value = "aio-1"
         sandbox = MagicMock()
         provider.get.return_value = sandbox

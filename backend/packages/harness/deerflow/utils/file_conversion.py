@@ -8,22 +8,24 @@ PDF conversion strategy (auto mode):
      total when page count is unavailable), treat as image-based and fall back to MarkItDown.
   3. If pymupdf4llm is not installed, use MarkItDown directly (existing behaviour).
 
-Large files (> ASYNC_THRESHOLD_BYTES) are converted in a thread pool via
-asyncio.to_thread() to avoid blocking the event loop (fixes #1569).
+All local conversions use a bounded Linux subprocess; Gateway owns admission,
+cancellation cleanup and atomic Markdown publication.
 
 No FastAPI or HTTP dependencies — pure utility functions.
 """
 
-import asyncio
 import logging
 import os
 import re
 import tempfile
+from contextlib import contextmanager, nullcontext
 from functools import wraps
 from pathlib import Path
 from threading import Lock
 
 from deerflow.config.app_config import get_app_config
+from deerflow.utils.bounded_work import owned_call
+from deerflow.utils.isolated_conversion import convert_isolated
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +39,6 @@ CONVERTIBLE_EXTENSIONS = {
     ".doc",
     ".docx",
 }
-
-# Files larger than this threshold are converted in a background thread.
-# Small files complete in < 1s synchronously; spawning a thread adds unnecessary
-# scheduling overhead for them.
-_ASYNC_THRESHOLD_BYTES = 1 * 1024 * 1024  # 1 MB
 
 # If pymupdf4llm produces fewer characters *per page* than this threshold,
 # the PDF is likely image-based or encrypted — fall back to MarkItDown.
@@ -125,19 +122,56 @@ def _install_openpyxl_default_col_width_pt_compat() -> None:
         SheetFormatProperties.__init__ = compatible_init
 
 
-def _convert_with_markitdown(file_path: Path) -> str:
+@contextmanager
+def _bounded_onnx_sessions():
+    """Single-conversion child only: constrain native pools before session init.
+
+    Magika 0.6.3 creates a CPU InferenceSession without SessionOptions. BLAS/OMP
+    environment variables do not configure that pool. Its default pool can
+    exhaust a constrained child's address space during native initialization.
+    Keep model, providers and prediction behavior; restore the constructor even
+    on failure. Never enter this process-global adapter in a Gateway thread.
+    """
+    try:
+        import onnxruntime as ort
+    except ModuleNotFoundError as exc:
+        if exc.name != "onnxruntime":
+            raise
+        # Some Magika builds use a native backend without ONNX Runtime.
+        yield
+        return
+    original = ort.InferenceSession
+
+    def bounded(path_or_bytes, sess_options=None, *args, **kwargs):
+        options = sess_options if sess_options is not None else ort.SessionOptions()
+        options.intra_op_num_threads = 1
+        options.inter_op_num_threads = 1
+        options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        options.add_session_config_entry("session.intra_op.allow_spinning", "0")
+        options.add_session_config_entry("session.inter_op.allow_spinning", "0")
+        return original(path_or_bytes, options, *args, **kwargs)
+
+    ort.InferenceSession = bounded
+    try:
+        yield
+    finally:
+        ort.InferenceSession = original
+
+
+def _convert_with_markitdown(file_path: Path, *, bounded_threads: bool = False) -> str:
     """Convert any supported file to markdown text using MarkItDown."""
     from markitdown import MarkItDown
 
     if file_path.suffix.lower() == ".xlsx":
         _install_openpyxl_default_col_width_pt_compat()
 
-    md = MarkItDown()
-    return md.convert(str(file_path)).text_content
+    with _bounded_onnx_sessions() if bounded_threads else nullcontext():
+        md = MarkItDown()
+        return md.convert(str(file_path)).text_content
 
 
-def _do_convert(file_path: Path, pdf_converter: str) -> str:
-    """Synchronous conversion — called directly or via asyncio.to_thread.
+def _do_convert(file_path: Path, pdf_converter: str, *, bounded_threads: bool = False) -> str:
+    """Synchronous converter; worker requests bounded native inference pools.
 
     Args:
         file_path: Path to the file.
@@ -166,73 +200,59 @@ def _do_convert(file_path: Path, pdf_converter: str) -> str:
             )
         # pymupdf4llm not installed or fallback triggered → use MarkItDown
 
+    if bounded_threads:
+        return _convert_with_markitdown(file_path, bounded_threads=True)
     return _convert_with_markitdown(file_path)
 
 
-async def convert_file_to_markdown(
-    file_path: Path,
-    *,
-    output_path: Path | None = None,
-) -> Path | None:
-    """Convert a supported document file to Markdown.
+def _publish_markdown(file_path: Path, text: str, output_path: Path | None) -> Path | None:
+    md_path = output_path or file_path.with_suffix(".md")
+    if not isinstance(text, str) or not text.strip():
+        # Never leave a zero-byte companion behind. Upload middleware
+        # treats the companion as authoritative, so an empty file would
+        # falsely mark parsing as successful and encourage the agent to
+        # install ad-hoc OCR tools in its Sandbox.
+        md_path.unlink(missing_ok=True)
+        logger.error(
+            "Document conversion returned no readable text for %s",
+            file_path.name,
+        )
+        return None
 
-    PDF files are handled with a two-converter strategy (see module docstring).
-    Large files (> 1 MB) are offloaded to a thread pool to avoid blocking the
-    event loop.
+    temp_fd, temp_path_str = tempfile.mkstemp(
+        prefix=f".{md_path.name}.convert-",
+        suffix=".tmp",
+        dir=md_path.parent,
+    )
+    temp_path = Path(temp_path_str)
+    try:
+        with os.fdopen(temp_fd, "w", encoding="utf-8", newline="\n") as handle:
+            # Preserve converter output byte-for-byte (apart from UTF-8
+            # encoding) so existing Markdown consumers do not observe a
+            # formatting change. The strip above is validation only.
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, md_path)
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
 
-    Args:
-        file_path: Path to the file to convert.
-        output_path: Optional pre-claimed Markdown destination. When omitted,
-            the historical same-stem destination is preserved.
+    logger.info("Converted %s to markdown: %s (%d chars)", file_path.name, md_path.name, len(text))
+    return md_path
 
-    Returns:
-        Path to the generated .md file, or None if conversion failed.
+
+async def convert_file_to_markdown(file_path: Path, *, output_path: Path | None = None) -> Path | None:
+    """Convert in a bounded child process, then publish the complete Markdown.
+
+    Failure retains the existing caller contract (None); cancellation propagates
+    only after child termination and file IO cleanup. No size-based inline path.
     """
     try:
-        pdf_converter = _get_pdf_converter()
-        file_size = file_path.stat().st_size
-
-        if file_size > _ASYNC_THRESHOLD_BYTES:
-            text = await asyncio.to_thread(_do_convert, file_path, pdf_converter)
-        else:
-            text = _do_convert(file_path, pdf_converter)
-
-        md_path = output_path or file_path.with_suffix(".md")
-        if not isinstance(text, str) or not text.strip():
-            # Never leave a zero-byte companion behind. Upload middleware
-            # treats the companion as authoritative, so an empty file would
-            # falsely mark parsing as successful and encourage the agent to
-            # install ad-hoc OCR tools in its Sandbox.
-            md_path.unlink(missing_ok=True)
-            logger.error(
-                "Document conversion returned no readable text for %s",
-                file_path.name,
-            )
-            return None
-
-        temp_fd, temp_path_str = tempfile.mkstemp(
-            prefix=f".{md_path.name}.convert-",
-            suffix=".tmp",
-            dir=md_path.parent,
-        )
-        temp_path = Path(temp_path_str)
-        try:
-            with os.fdopen(temp_fd, "w", encoding="utf-8", newline="\n") as handle:
-                # Preserve converter output byte-for-byte (apart from UTF-8
-                # encoding) so existing Markdown consumers do not observe a
-                # formatting change. The strip above is validation only.
-                handle.write(text)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temp_path, md_path)
-        except Exception:
-            temp_path.unlink(missing_ok=True)
-            raise
-
-        logger.info("Converted %s to markdown: %s (%d chars)", file_path.name, md_path.name, len(text))
-        return md_path
-    except Exception as e:
-        logger.error("Failed to convert %s to markdown: %s", file_path.name, e)
+        text = await convert_isolated(file_path, _get_pdf_converter())
+        return await owned_call(_publish_markdown, file_path, text, output_path)
+    except Exception as exc:
+        logger.error("Local document conversion failed (%s): %s", type(exc).__name__, exc)
         return None
 
 
