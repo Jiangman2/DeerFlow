@@ -1,0 +1,20 @@
+{
+  "complete_original_stdout_available_to_writer": false,
+  "direct_cluster_read_performed_by_writer": false,
+  "interpretation": "refused_at_preclaim_server_pod_inventory_before_any_activation_or_temporary_pod_create",
+  "observed_fields": {
+    "commands": 4,
+    "error_code": "ONE_SERVER_POD_REQUIRED",
+    "once_claimed": false,
+    "operation": "98d21c83826c476fb527428415aa5a7c",
+    "patch_request_count": 0,
+    "raw_errors_exported": false,
+    "temporary_pod_create_requests": 0
+  },
+  "original_private_report_downloaded": false,
+  "original_r1_artifacts_modified": false,
+  "schema": "portal-skillhub-auth-operator-failure-partial-summary.v1",
+  "source": "operator_execution_result_forwarded_by_parent_agent",
+  "tool": "activate-portal-skillhub-registry-auth-20261106-r1.py",
+  "tool_sha256": "a130269d6aa88f4e9249fb332efd7d58d2667943517ca661c98202d394bd853b"
+}

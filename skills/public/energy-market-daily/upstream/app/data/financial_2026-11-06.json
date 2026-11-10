@@ -1,0 +1,144 @@
+{
+  "data_date": "2026-11-06",
+  "stocks": [
+    {
+      "name": "海油 A 股",
+      "code": "sh600938",
+      "unit": "元",
+      "date": "2026-11-06",
+      "value": 31.28,
+      "previous_date": "2026-11-05",
+      "previous_value": 30.98,
+      "change": 0.9683666881859176,
+      "change_method": "calculated",
+      "basis": "不复权收盘",
+      "source": "腾讯财经",
+      "url": "https://gu.qq.com/sh600938",
+      "retrieved_at": "2026-11-09T16:26:44.855452+08:00",
+      "evidence": [
+        "sources/browser-sh600938-1109.txt",
+        "sources/sh600938-20261106.json"
+      ]
+    },
+    {
+      "name": "海油港股",
+      "code": "hk00883",
+      "unit": "港元",
+      "date": "2026-11-06",
+      "value": 23.48,
+      "previous_date": "2026-11-05",
+      "previous_value": 23.28,
+      "change": 0.8591065292096189,
+      "change_method": "calculated",
+      "basis": "不复权收盘",
+      "source": "腾讯财经",
+      "url": "https://gu.qq.com/hk00883",
+      "retrieved_at": "2026-11-09T16:26:44.855452+08:00",
+      "evidence": [
+        "sources/browser-hk00883-1109.txt",
+        "sources/hk00883-20261106.json"
+      ]
+    },
+    {
+      "name": "中石油",
+      "code": "sh601857",
+      "unit": "元",
+      "date": "2026-11-06",
+      "value": 12.7,
+      "previous_date": "2026-11-05",
+      "previous_value": 12.54,
+      "change": 1.2759170653907415,
+      "change_method": "calculated",
+      "basis": "不复权收盘",
+      "source": "腾讯财经",
+      "url": "https://gu.qq.com/sh601857",
+      "retrieved_at": "2026-11-09T16:26:44.855452+08:00",
+      "evidence": [
+        "sources/browser-sh601857-1109.txt",
+        "sources/sh601857-20261106.json"
+      ]
+    },
+    {
+      "name": "中石化",
+      "code": "sh600028",
+      "unit": "元",
+      "date": "2026-11-06",
+      "value": 5.8,
+      "previous_date": "2026-11-05",
+      "previous_value": 5.7,
+      "change": 1.754385964912264,
+      "change_method": "calculated",
+      "basis": "不复权收盘",
+      "source": "腾讯财经",
+      "url": "https://gu.qq.com/sh600028",
+      "retrieved_at": "2026-11-09T16:26:44.855452+08:00",
+      "evidence": [
+        "sources/browser-sh600028-1109.txt",
+        "sources/sh600028-20261106.json"
+      ]
+    },
+    {
+      "name": "沪A指数",
+      "code": "sh000002",
+      "unit": "点",
+      "date": "2026-11-06",
+      "value": 3826.1,
+      "previous_date": "2026-11-05",
+      "previous_value": 3868.85,
+      "change": -1.1049795158768139,
+      "change_method": "calculated",
+      "basis": "不复权收盘",
+      "source": "腾讯财经",
+      "url": "https://gu.qq.com/sh000002",
+      "retrieved_at": "2026-11-09T16:26:44.855452+08:00",
+      "evidence": [
+        "sources/browser-sh000002-1109.txt",
+        "sources/sh000002-20261106.json"
+      ]
+    }
+  ],
+  "fx": [
+    {
+      "name": "美元指数",
+      "code": "DINIW",
+      "unit": "点",
+      "date": "2026-11-06",
+      "value": 102.2864,
+      "previous_date": "2026-11-05",
+      "previous_value": 101.59,
+      "change": 0.6855005413918702,
+      "source": "新浪财经",
+      "url": "https://finance.sina.com.cn/money/forex/hq/DINIW.shtml",
+      "decimals": 2,
+      "basis": "美元指数日线收盘",
+      "retrieved_at": "2026-11-09T16:29:06.172125+08:00",
+      "change_method": "calculated",
+      "verification": "已访问并存档新浪行情原页，辅助读取该页面历史日K数据",
+      "evidence": [
+        "sources/fxpage-DINIW-1109.txt",
+        "sources/DINIW-20261106.txt"
+      ]
+    },
+    {
+      "name": "美元兑人民币",
+      "code": "fx_susdcny",
+      "unit": "元/美元",
+      "date": "2026-11-06",
+      "value": 6.6763,
+      "previous_date": "2026-11-05",
+      "previous_value": 6.668,
+      "change": 0.12447510497901604,
+      "source": "新浪财经",
+      "url": "https://finance.sina.com.cn/money/forex/hq/USDCNY.shtml",
+      "decimals": 4,
+      "basis": "在岸日线收盘",
+      "retrieved_at": "2026-11-09T16:29:06.172125+08:00",
+      "change_method": "calculated",
+      "verification": "已访问并存档新浪行情原页，辅助读取该页面历史日K数据",
+      "evidence": [
+        "sources/fxpage-USDCNY-1109.txt",
+        "sources/fx_susdcny-20261106.txt"
+      ]
+    }
+  ]
+}

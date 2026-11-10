@@ -1,0 +1,78 @@
+{
+  "complete_raw_api_objects_available_to_writer": false,
+  "container_state_objects_not_in_forwarded_snapshot": true,
+  "deployment": {
+    "desired": 1,
+    "generation": 14,
+    "name": "skillhub-server",
+    "ready": 1,
+    "total": 1
+  },
+  "direct_cluster_read_performed_by_writer": false,
+  "endpoint_slice": {
+    "name": "skillhub-server-kntkm",
+    "service": "skillhub-server",
+    "targets": [
+      {
+        "pod": "skillhub-server-86c7d457bb-7vvbw",
+        "ready": true,
+        "terminating": false,
+        "uid": "04e4804a-f04e-49e2-b181-bbdfb276245f"
+      }
+    ]
+  },
+  "matched_pod_count": 3,
+  "namespace": "deer-flow",
+  "pod_deletion_authorized_or_requested": false,
+  "pods": [
+    {
+      "container_ready": [
+        true
+      ],
+      "deletion_timestamp_present": false,
+      "name": "skillhub-server-86c7d457bb-7vvbw",
+      "node": "datax-01",
+      "owner": {
+        "kind": "ReplicaSet",
+        "name": "skillhub-server-86c7d457bb",
+        "uid": "936e6d0b-a4b4-4823-bb99-ba54f2062924"
+      },
+      "phase": "Running",
+      "uid": "04e4804a-f04e-49e2-b181-bbdfb276245f"
+    },
+    {
+      "container_ready": [
+        false
+      ],
+      "deletion_timestamp_present": false,
+      "name": "skillhub-server-86c7d457bb-g6n2g",
+      "node": "datax-01",
+      "owner": {
+        "kind": "ReplicaSet",
+        "name": "skillhub-server-86c7d457bb",
+        "uid": "936e6d0b-a4b4-4823-bb99-ba54f2062924"
+      },
+      "phase": "Failed",
+      "uid": "a8daab52-a699-41a3-a02c-93b871b769ba"
+    },
+    {
+      "container_ready": [
+        false
+      ],
+      "deletion_timestamp_present": false,
+      "name": "skillhub-server-86c7d457bb-mhkgx",
+      "node": "datax-01",
+      "owner": {
+        "kind": "ReplicaSet",
+        "name": "skillhub-server-86c7d457bb",
+        "uid": "936e6d0b-a4b4-4823-bb99-ba54f2062924"
+      },
+      "phase": "Failed",
+      "uid": "ff0305ea-66a0-438c-9acc-beb32d6f1355"
+    }
+  ],
+  "r2_requires_fresh_non_running_state_for_every_ignored_record": true,
+  "readiness_source": "status.containerStatuses[*].ready",
+  "schema": "portal-skillhub-historical-pods-operator-snapshot.v1",
+  "source": "operator_readonly_kubectl_snapshot_forwarded_by_parent_agent"
+}

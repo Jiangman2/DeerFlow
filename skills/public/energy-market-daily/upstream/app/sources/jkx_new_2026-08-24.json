@@ -1,0 +1,104 @@
+{
+  "errcode": "0",
+  "data": [
+    {
+      "code_name": "NY0121",
+      "item": "WTI2612c1",
+      "value_date": "2026-08-24",
+      "unit": "美元/桶",
+      "close": "85.01"
+    },
+    {
+      "code_name": "XA0008",
+      "item": "DTD",
+      "value_date": "2026-08-24",
+      "unit": "美元/桶",
+      "close": "92.37"
+    },
+    {
+      "code_name": "LD0221",
+      "item": "布伦特2701c1",
+      "value_date": "2026-08-24",
+      "unit": "美元/桶",
+      "close": "92.17"
+    },
+    {
+      "code_name": "NY0421",
+      "item": "Henry Hub",
+      "value_date": "2026-08-24",
+      "unit": "美元/百万BTU",
+      "close": "2.782"
+    },
+    {
+      "code_name": "XA0942",
+      "item": "LNG JKM",
+      "value_date": "2026-08-24",
+      "unit": "美元/百万BTU",
+      "close": "23.649"
+    },
+    {
+      "code_name": "LD1221",
+      "item": "TTF天然气c1",
+      "value_date": "2026-08-24",
+      "unit": "美元/百万BTU",
+      "close": "23.345"
+    },
+    {
+      "code_name": "LPGD59",
+      "item": "西非-中国（整船）",
+      "value_date": "2026-08-24",
+      "unit": "万美元",
+      "close": "1684.2405"
+    },
+    {
+      "code_name": "LPGD60",
+      "item": "西非-中国（美元/桶）",
+      "value_date": "2026-08-24",
+      "unit": "美元/桶",
+      "close": "8.8644"
+    },
+    {
+      "code_name": "LPG1225",
+      "item": "阿曼湾-中国（整船）",
+      "value_date": "2026-08-24",
+      "unit": "万美元",
+      "close": "1082.34"
+    },
+    {
+      "code_name": "LPG1224",
+      "item": "阿曼湾-中国（美元/桶）",
+      "value_date": "2026-08-24",
+      "unit": "美元/桶",
+      "close": "5.6965"
+    },
+    {
+      "code_name": "LPG1179",
+      "item": "美湾-中国（整船）",
+      "value_date": "2026-08-24",
+      "unit": "万美元",
+      "close": "2435.556"
+    },
+    {
+      "code_name": "LPG1177",
+      "item": "美湾-中国（美元/桶）",
+      "value_date": "2026-08-24",
+      "unit": "美元/桶",
+      "close": "12.8187"
+    },
+    {
+      "code_name": "LPG1227",
+      "item": "波斯湾-中国（整船）",
+      "value_date": "2026-08-24",
+      "unit": "万美元",
+      "close": "4383.37"
+    },
+    {
+      "code_name": "LPG1226",
+      "item": "波斯湾-中国（美元/桶）",
+      "value_date": "2026-08-24",
+      "unit": "美元/桶",
+      "close": "23.0704"
+    }
+  ],
+  "用时": "320ms"
+}

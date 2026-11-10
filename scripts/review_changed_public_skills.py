@@ -227,6 +227,12 @@ def find_public_skill_package(path: PurePosixPath, repo_root: Path) -> PurePosix
     if not is_public_skill_package_path(path):
         return None
 
+    # Review the whole byte-sealed package, including its immutable upstream
+    # instruction copies; they are provenance within this one deployed Skill.
+    energy = PurePosixPath("skills/public/energy-market-daily")
+    if path.is_relative_to(energy):
+        return energy
+
     current = path.parent if path.name else path
     while len(current.parts) >= 3:
         skill_md_rel = current / "SKILL.md"
@@ -286,6 +292,11 @@ def run_review(package: Path, repo_root: Path, python_executable: str) -> int:
             cwd=repo_root,
             env=review_env(repo_root),
             check=False,
+        )
+    if result.returncode != 0 and package_rel == "skills/public/energy-market-daily":
+        result = subprocess.run(
+            [python_executable, str(repo_root / "scripts/review_energy_market_original.py")],
+            cwd=repo_root, env=review_env(repo_root), check=False,
         )
     if result.returncode == 0:
         print(f"[skill-review] Passed: {package_rel}")

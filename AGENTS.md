@@ -1,5 +1,20 @@
 # AGENTS.md
 
+## November 10 deployed-source synchronization
+
+See `docs/released-source-sync-20261110.md` and the sealed source manifests in
+`release/released-sync-20261110/` and `release/research-fund-current-source-20261110/`.
+Run `verify-released-sync-20261110.py --ref HEAD` and
+`verify-research-fund-production-source.py --ref HEAD` from `deploy/enterprise/`
+with Python 3.12+. Preserve all original archives and operator receipts.
+The energy upstream package is byte-identical (158 files plus original ZIP);
+credentials are not repository content. Collector generation 3 transport passed
+via the operator-approved proxy, but full fresh report acceptance is pending
+(`WAIT_DATA`); no daily Work schedule was created. Financial and authenticated
+SkillHub business acceptance remain pending. Frontend 243 acceptance covers the
+six-line composer, not all PR #39 business behavior. This synchronization never
+authorizes rerunning historical production installers or removing PPT Runner.
+
 ## November 6 released side-chat frontend
 
 Frontend 242's one-file composer/background successor is registered in

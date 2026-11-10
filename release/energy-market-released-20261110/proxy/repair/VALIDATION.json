@@ -1,0 +1,66 @@
+{
+  "files": {
+    "RELEASE.txt": {
+      "bytes": 3786,
+      "sha256": "1c196f137cc5a5885ebdb6cb26412d7954102e66dd748261f04235cb4e8f2c37"
+    },
+    "energy_market_collector.py": {
+      "bytes": 16517,
+      "sha256": "dee15a51dfaf497c9033a870146143b42ca2ae38f97ed5c3fc58176209c3fd00"
+    },
+    "fresh_target_probe.py": {
+      "bytes": 8918,
+      "sha256": "a8af74dc2a895599e14887500b8f8db56b5d68bb9a7136b8009441374b87a91f"
+    },
+    "repair-energy-market-proxy-20261110-r1.py": {
+      "bytes": 67086,
+      "sha256": "cb67cb4724bcd112a0704d04428a2d18b95dbc0397d5981a20c62dadb502f672"
+    },
+    "test_energy_market_collector.py": {
+      "bytes": 18550,
+      "sha256": "0858c61cea9df9215a9748004f841b94389ad319183cfafc8a09b8f4c3219af9"
+    },
+    "test_fresh_target_linux.py": {
+      "bytes": 7240,
+      "sha256": "6db16e164c0c967353a0f41d9f15c519e32f04551fcc56e6556869f8f0cfc2b3"
+    },
+    "test_fresh_target_probe.py": {
+      "bytes": 6791,
+      "sha256": "e55c6fabb650263c1dc7e4a4d903d8e7bddf2b853ff68a991d7c5e789fca4cfd"
+    },
+    "test_repair_energy_market_proxy.py": {
+      "bytes": 16213,
+      "sha256": "a269c32d0962d5a62857c3079a1a9f20f15b4e01aec72724ff4ba3ef710c4379"
+    }
+  },
+  "formal_report_ready": false,
+  "linux": {
+    "container_network": "none",
+    "failed": 0,
+    "image": "portal-finance-feedback-test:20261104-r1",
+    "passed": 71,
+    "tests": 71
+  },
+  "original_engine_sha256_checks": "PASS_158_FILES_UNCHANGED",
+  "production_candidate_installed": false,
+  "production_fresh_target_acceptance": "PENDING_OPERATOR_EXECUTION",
+  "production_proxy_without_credentials": "HTTP_200_OBSERVED_BY_OPERATOR",
+  "python37_entry_guard": {
+    "expected_error": "DATAX01_ROOT_REQUIRED",
+    "once_claimed": false,
+    "patch_requests": 0,
+    "status": "PASS"
+  },
+  "real_linux_private_copy_and_subprocess_synthetic_http": "PASS",
+  "schedule_created": false,
+  "schema": "energy-proxy-repair-offline-validation.v1",
+  "test_provider_requests": 0,
+  "test_real_credentials_used": false,
+  "windows": {
+    "failed": 0,
+    "passed": 69,
+    "skipped_linux_only": 2,
+    "tests": 71
+  },
+  "work_messages_sent": 0
+}

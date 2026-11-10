@@ -1,0 +1,36 @@
+{
+  "accepted_preload": {
+    "bytes": 62575,
+    "operation": "796641e830e84b05bf098d1ba309300d",
+    "path": "/var/lib/portal-skillhub-registry-auth-preload-20261106-r1/REPORT.json",
+    "sha256": "1d1e580d2c5846d5e9b16f6a449c782fcc93409ddd024d21d7a9fb7c1f2f144d",
+    "summary": "PRELOAD-OPERATOR-SUMMARY.json"
+  },
+  "delivery_bytes_revalidated": true,
+  "edge_activation_requires_accepted_native_backend_receipt": true,
+  "expected_brief_skillhub_outage": true,
+  "explicit_database_repair_requested": false,
+  "file": {
+    "bytes": 31500,
+    "filename": "activate-portal-skillhub-registry-auth-20261106-r1.py",
+    "operator_local_path": "C:\\Users\\15285\\Downloads\\activate-portal-skillhub-registry-auth-20261106-r1.py",
+    "sha256": "a130269d6aa88f4e9249fb332efd7d58d2667943517ca661c98202d394bd853b",
+    "source": "deploy/enterprise/activate-portal-skillhub-registry-auth-20261106-r1.py"
+  },
+  "nginx_edge_activation_included": false,
+  "normal_application_startup_uses_existing_database_and_redis": true,
+  "operator_execution_request_sent": true,
+  "operator_request_source": "parent_agent_confirmed_delivery_and_request",
+  "original_artifacts_modified": false,
+  "original_preload_delivery_record_preserved": true,
+  "preserved_strategy": "Recreate",
+  "production_actions_performed_by_record_writer": false,
+  "production_activation_result_received": false,
+  "production_activation_success_claimed": false,
+  "production_runtime_acceptance_pending": true,
+  "record_date": "2026-11-06",
+  "schema": "portal-skillhub-auth-activation-delivery.v1",
+  "scope": "skillhub-server_image_only_cas_no_other_deployment_update",
+  "status": "TOOL_DELIVERED_OPERATOR_ACTIVATION_RECEIPT_PENDING",
+  "verification_record": "ACTIVATION-TOOL-QUALIFICATION.json"
+}

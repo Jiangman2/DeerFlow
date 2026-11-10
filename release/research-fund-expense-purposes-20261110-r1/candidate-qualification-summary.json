@@ -1,0 +1,42 @@
+{
+  "status": "CANDIDATE_TESTED_PRODUCTION_PREFLIGHT_PENDING",
+  "root_cause": "The original Word template already contains all eight expense-purpose paragraphs. group_template._expense_sentence replaced whole paragraphs with amounts and variance_reason, dropping purposes.",
+  "before_tree_sha256": "883b98f54f2756c218e98bb535d4d6265fb7bd1fffc2049a54bbac7746ea39dc",
+  "candidate_tree_sha256": "0b417f6540cbab2f35ce9bbde28efe0d9d214273bf4fbf9baf47734f9ea01c85",
+  "changed_skill_files": [
+    "SKILL.md",
+    "references/data-contract.md",
+    "references/group-company.md",
+    "scripts/group_template.py"
+  ],
+  "template_assets_unchanged": true,
+  "financial_calculation_sources_unchanged": true,
+  "zero_budget_omission_preserved": true,
+  "windows_financial_tests": {
+    "passed": 320,
+    "failed": 0
+  },
+  "preflight_tests": {
+    "windows_passed": 45,
+    "windows_linux_only_skipped": 1,
+    "linux_passed": 46
+  },
+  "visual_review": {
+    "renderer": "Microsoft Word 16.0",
+    "source_unchanged": true,
+    "pages_checked": [
+      1,
+      5,
+      6,
+      7
+    ],
+    "scope": "cover and changed expense/balance sections with following section; no new clipping observed"
+  },
+  "production_actions": 0,
+  "production_acceptance_pending": true,
+  "preflight_delivery": {
+    "path": "C:/Users/15285/Downloads/inspect-portal-research-fund-expense-purposes-20261110-r1.py",
+    "bytes": 39469,
+    "sha256": "de292b0e175254d5510b4183afe1eabf634fb11b130773173dcbb1b026a20078"
+  }
+}

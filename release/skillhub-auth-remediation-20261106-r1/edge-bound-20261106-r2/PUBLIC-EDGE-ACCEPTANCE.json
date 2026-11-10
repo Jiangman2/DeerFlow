@@ -1,0 +1,123 @@
+{
+  "application_reads_may_access_existing_database": true,
+  "authenticated_browser_acceptance_pending": true,
+  "automatic_retry": false,
+  "body_bound_exceeded": false,
+  "body_limit_per_initial_request": 65536,
+  "checks": [
+    {
+      "body_bytes_read": 11470,
+      "fabricated_bearer": false,
+      "http_status": 307,
+      "initial_probe_pass": false,
+      "path": "/workspace/skills"
+    },
+    {
+      "body_bytes_read": 138,
+      "fabricated_bearer": false,
+      "http_status": 302,
+      "initial_probe_pass": true,
+      "path": "/platform/skillhub/"
+    },
+    {
+      "body_bytes_read": 172,
+      "fabricated_bearer": false,
+      "http_status": 401,
+      "initial_probe_pass": true,
+      "path": "/platform/skillhub/api/web/labels"
+    },
+    {
+      "body_bytes_read": 152,
+      "fabricated_bearer": true,
+      "http_status": 401,
+      "initial_probe_pass": true,
+      "path": "/platform/skillhub/api/web/labels"
+    },
+    {
+      "body_bytes_read": 172,
+      "fabricated_bearer": false,
+      "http_status": 401,
+      "initial_probe_pass": true,
+      "path": "/platform/skillhub/api/web/skills?page=0&size=1"
+    },
+    {
+      "body_bytes_read": 152,
+      "fabricated_bearer": true,
+      "http_status": 401,
+      "initial_probe_pass": true,
+      "path": "/platform/skillhub/api/web/skills?page=0&size=1"
+    },
+    {
+      "body_bytes_read": 172,
+      "fabricated_bearer": false,
+      "http_status": 401,
+      "initial_probe_pass": true,
+      "path": "/platform/skillhub/api/web/notifications/sse"
+    },
+    {
+      "body_bytes_read": 152,
+      "fabricated_bearer": true,
+      "http_status": 401,
+      "initial_probe_pass": true,
+      "path": "/platform/skillhub/api/web/notifications/sse"
+    },
+    {
+      "body_bytes_read": 172,
+      "fabricated_bearer": false,
+      "http_status": 401,
+      "initial_probe_pass": true,
+      "path": "/platform/skillhub/api/v1/auth/session/bootstrap"
+    },
+    {
+      "body_bytes_read": 172,
+      "fabricated_bearer": true,
+      "http_status": 401,
+      "initial_probe_pass": true,
+      "path": "/platform/skillhub/api/v1/auth/session/bootstrap"
+    }
+  ],
+  "configuration_modified": false,
+  "cookies_sent": false,
+  "explicit_database_queries": 0,
+  "followup": {
+    "body_read": false,
+    "conclusion": "Expected IAM login redirect; initial probe login-path expectation was too narrow. No production change performed.",
+    "frontend_source": "frontend/src/app/workspace/layout.tsx:30",
+    "http_status": 307,
+    "location_relative": true,
+    "method": "GET",
+    "path": "/workspace/skills",
+    "query_parameter_names": [
+      "next"
+    ],
+    "query_values_exported": false,
+    "redirect_followed": false,
+    "requests": 1,
+    "resolved_hostname": "cnoocclaw.cnooc.com.cn",
+    "resolved_path": "/api/v1/auth/iam/login",
+    "resolved_port": null,
+    "resolved_scheme": "https"
+  },
+  "initial_probe_expected_page_path": "/login",
+  "initial_probe_status": "PUBLIC_EDGE_REVIEW_REQUIRED",
+  "methods": [
+    "GET"
+  ],
+  "mount_redirect": {
+    "http_status": 302,
+    "path": "/platform/skillhub/",
+    "same_origin_https_login_redirect": true
+  },
+  "observed_at": "2026-11-06T04:14:26.939289+00:00",
+  "origin": "https://cnoocclaw.cnooc.com.cn",
+  "provider_requests": 0,
+  "real_credentials_used": false,
+  "recorded_at": "2026-11-06T04:15:44.476679+00:00",
+  "redirects_followed": false,
+  "response_bodies_exported": false,
+  "schema": "portal-skillhub-public-edge-accepted-evidence.v1",
+  "scope": "Public-domain anonymous and fabricated-token rejection only; authenticated browser use not tested by this probe.",
+  "status": "PUBLIC_EDGE_AUTH_ACCEPTED_AUTHENTICATED_BROWSER_PENDING",
+  "total_requests": 11,
+  "valid_native_bearer_acceptance_pending": true
+}

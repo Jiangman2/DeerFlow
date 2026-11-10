@@ -1,4 +1,4 @@
-"""Derived reason labels remain readable in both report sections."""
+"""Derived reasons stay in the balance section, separate from expense purposes."""
 import sys
 from pathlib import Path
 from zipfile import ZipFile
@@ -26,6 +26,6 @@ def test_derived_parent_reason_has_one_heading_per_paragraph(tmp_path):
     ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
     paragraphs = ["".join(p.xpath(".//w:t/text()", namespaces=ns)) for p in document.xpath(".//w:body/w:p", namespaces=ns)]
     affected = [p for p in paragraphs if reason in p]
-    assert len(affected) == 2
+    assert len(affected) == 1
     assert all(p.count("结余主要原因：") == 1 for p in affected)
     assert not any("结余原因：结余主要原因" in p for p in paragraphs)

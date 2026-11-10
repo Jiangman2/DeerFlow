@@ -20,6 +20,7 @@ from lxml import etree
 
 from report_model import get_path
 from text_color import black_text_findings, black_text_part, strip_font_color_for_structure
+from report_display import apply_report_display
 
 
 SCHEME = "http"
@@ -994,7 +995,9 @@ def build_template_docx(
         if mode == "final":
             _scrub_template_placeholders(document)
 
+        display_parts = apply_report_display(archive, document, profile)
         replacement = {
+            **display_parts,
             "word/document.xml": _serialize_document(document),
             "word/settings.xml": _enable_field_updates(
                 archive.read("word/settings.xml")
@@ -1014,6 +1017,8 @@ def build_template_docx(
                             replacement.get(info.filename, archive.read(info.filename)),
                         ),
                     )
+                for name in sorted(set(display_parts) - set(archive.namelist())):
+                    target.writestr(name, black_text_part(name, display_parts[name]))
             temp_path.replace(output)
         finally:
             if temp_path.exists():
@@ -1041,9 +1046,11 @@ def inspect_template_fidelity(docx_path: str | Path, profile: str) -> dict[str, 
     try:
         _verify_template(profile, source)
         with zipfile.ZipFile(source) as reference, zipfile.ZipFile(output) as actual:
-            reference_names = set(reference.namelist())
+            expected_document = etree.fromstring(reference.read("word/document.xml"))
+            display_parts = apply_report_display(reference, expected_document, profile)
+            reference_names = set(reference.namelist()) | set(display_parts)
             actual_names = set(actual.namelist())
-            if reference_names != actual_names:
+            if reference_names != actual_names or len(actual.namelist()) != len(actual_names):
                 findings.append(
                     {
                         "code": "PACKAGE_PART_SET_CHANGED",
@@ -1051,7 +1058,8 @@ def inspect_template_fidelity(docx_path: str | Path, profile: str) -> dict[str, 
                     }
                 )
             for name in sorted(reference_names & actual_names - EDITABLE_PARTS):
-                if black_text_part(name, reference.read(name)) != actual.read(name):
+                expected_part = display_parts[name] if name in display_parts else reference.read(name)
+                if black_text_part(name, expected_part) != actual.read(name):
                     findings.append(
                         {
                             "code": "PRESERVED_PART_CHANGED",
@@ -1060,7 +1068,7 @@ def inspect_template_fidelity(docx_path: str | Path, profile: str) -> dict[str, 
                     )
             findings.extend(black_text_findings(actual))
             if _document_structure_signature(
-                reference.read("word/document.xml")
+                _serialize_document(expected_document)
             ) != _document_structure_signature(actual.read("word/document.xml")):
                 findings.append(
                     {
@@ -1080,6 +1088,6 @@ def inspect_template_fidelity(docx_path: str | Path, profile: str) -> dict[str, 
         "status": "PASS" if not findings else "FAIL",
         "template": source.name,
         "template_sha256": TEMPLATES.get(profile, {}).get("sha256"),
-        "preserved_parts": "all except body text, explicit black font colors and settings updateFields",
+        "preserved_parts": "all except body text, exact first-page AI footer, explicit black font colors and settings updateFields",
         "findings": findings,
     }

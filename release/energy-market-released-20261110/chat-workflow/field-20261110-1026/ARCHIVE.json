@@ -1,0 +1,15 @@
+{
+  "business_acceptance_pending": true,
+  "evidence_basis": "operator_pasted_output_not_direct_cluster_access",
+  "normalization": "Only complete Markdown autolinks in JSON keys and string values are replaced by their visible label; raw pasted bytes retained.",
+  "operator_report_hashes_are_claims_not_rehashed_remote_files": true,
+  "production_latest_quote_accepted": false,
+  "schedule_created": false,
+  "schema": "energy-operator-receipts-local-archive.v1",
+  "skill_runtime_accepted": true,
+  "source_bytes": 14120,
+  "source_file": "C:\\Users\\15285\\.codex\\attachments\\4a6cbec2-50b5-478a-bd63-42d62d59316a\\已粘贴的文本.txt",
+  "source_inventory_preserved": true,
+  "source_sha256": "69c9f10273f39403d630e56d795c2f596a7fbcace3cfa3d46bcbf4915e4050d7",
+  "work_messages_sent": 0
+}

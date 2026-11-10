@@ -1,0 +1,63 @@
+{
+  "actual_operator_receipt_validates": true,
+  "authenticated_browser_and_valid_native_bearer_acceptance_pending": true,
+  "downloads_modified": false,
+  "generated_bound_tool": {
+    "bytes": 61569,
+    "path": "C:\\Users\\15285\\.codex\\worktrees\\sidechat-skillhub-security-20261105\\deer-flow\\release\\skillhub-auth-remediation-20261106-r1\\edge-bound-20261106-r1\\activate-portal-skillhub-edge-auth-20261106-r1.py",
+    "sha256": "484e6f96148e67e87032f1ebef45c538d3b3141aac6198af07e87e09ffdd3bda"
+  },
+  "native_receipt_binding": {
+    "bytes": 7130,
+    "operation": "25f363cb9f254e00b9f9dd196b2ade97",
+    "path": "/var/lib/portal-skillhub-registry-auth-activation-20261106-r2/REPORT.json",
+    "sha256": "29e159302c129098c28786ab4dd8267724d31ebe28e37f02293186b31d033c38"
+  },
+  "only_generated_difference_from_qualified_unbound": "NATIVE_RECEIPT_BINDING constant",
+  "operator_field_normalization": {
+    "full_private_report_not_downloaded": true,
+    "only_changed_field": "runtime.image",
+    "operation": "remove matching Markdown URL wrapper from exact image string",
+    "server_private_report_will_be_checked_by_hash_before_any_mutation": true,
+    "source_attachment_sha256": "d0ea773818bb8ed7c1f47ab61779b0d05ccf7b26421e0bd7369a58e4915abe82"
+  },
+  "prior_preparation_qualification_preserved": true,
+  "prior_qualification": "release/skillhub-auth-remediation-20261106-r1/edge-preparation/QUALIFICATION.json",
+  "production_commands_executed": false,
+  "production_edge_acceptance_pending": true,
+  "python37_bound_wrong_host": {
+    "actual_python": "3.7.17",
+    "commands": 0,
+    "configmap_patch_requests": 0,
+    "exitcode": 1,
+    "expected_error_code": "ROOT_ISOLATED_DATAX01_REQUIRED",
+    "filesystem": "read-only",
+    "image": "sha256:f3d31c8677d03f0b3c724446077f229a6ce9d3ac430f5c08cd7dff00292048c3",
+    "native_receipt_bound": true,
+    "network": "none",
+    "once_claimed": false,
+    "pods_created": 0,
+    "pods_deleted": 0,
+    "provider_requests": 0,
+    "status": "PASS"
+  },
+  "qualified_unbound_sha256": "d3755576bc9ec090e5d841153f8b365e010e04e40156205a8d33f35818e77e78",
+  "reconstructed_private_report_validation": {
+    "bytes": 7130,
+    "operator_seal_matches_exactly": true,
+    "path": "release/skillhub-auth-remediation-20261106-r1/ACTIVATION-R2-REPORT-RECONSTRUCTED.json",
+    "server_fixed_path_will_be_reread_before_actions": true,
+    "sha256": "29e159302c129098c28786ab4dd8267724d31ebe28e37f02293186b31d033c38",
+    "source": "canonical reconstruction from operator stdout, not server download",
+    "status": "PASS"
+  },
+  "schema": "portal-skillhub-edge-bound-qualification.v1",
+  "source_controller_remains_unbound": true,
+  "status": "BOUND_TO_NATIVE_SERVER_R2_ACCEPTANCE_PREPARED_NOT_DEPLOYED",
+  "windows_bound_wrong_host": {
+    "commands": 0,
+    "error_code": "ROOT_ISOLATED_DATAX01_REQUIRED",
+    "once_claimed": false,
+    "patch_requests": 0
+  }
+}

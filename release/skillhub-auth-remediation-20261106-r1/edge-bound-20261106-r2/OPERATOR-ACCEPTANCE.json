@@ -1,0 +1,242 @@
+{
+  "acceptance_scope": {
+    "application_auth_health_reads_may_access_existing_database": true,
+    "authenticated_browser_acceptance_pending": true,
+    "direct_database_queries": 0,
+    "native_backend_revalidated": true,
+    "old_worker_connections_may_remain": true,
+    "production_entry_anonymous_and_fabricated_bearer_checks_passed": true,
+    "public_domain_probe_recorded_here": false,
+    "valid_native_bearer_business_acceptance_pending": true
+  },
+  "archival_operation_production_commands": 0,
+  "historical_qualification_and_delivery_preserved": {
+    "DELIVERY.json": "8813a0696e8bba98d15fac2ab5b0a084cb48e417c4bea911f8a63c5747642e09",
+    "QUALIFICATION.json": "528cb3926b3dabdbd1a4e74e64a02e03aed3237a8161e1d2d6cea3e9461a2ea6"
+  },
+  "observed_at": "2026-11-06T04:12:17.615409+00:00",
+  "operation": "d6c641977c0445cba97999e6926d4ec7",
+  "operator_output": {
+    "application_auth_health_reads_may_access_existing_database": true,
+    "authenticated_browser_requests": 0,
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "browser_business_acceptance_pending": true,
+    "candidate_nginx_syntax_verified": true,
+    "commands": 89,
+    "configmap_patch_acknowledged": true,
+    "configmap_patch_may_have_applied": true,
+    "configmap_patch_requests": 1,
+    "configuration_modified": true,
+    "container_staging_may_exist": true,
+    "database_configuration_modified": false,
+    "deployment_modified": false,
+    "edge_http_checks": [
+      {
+        "observed_status": 200,
+        "path": "/health",
+        "redirect_to_login": false,
+        "status": 200
+      },
+      {
+        "observed_status": 302,
+        "path": "/platform/skillhub/",
+        "redirect": "/login",
+        "redirect_to_login": true,
+        "status": 302
+      },
+      {
+        "observed_status": 401,
+        "path": "/platform/skillhub/api/web/labels",
+        "redirect_to_login": false,
+        "status": 401
+      },
+      {
+        "observed_status": 401,
+        "path": "/platform/skillhub/api/web/skills?page=0&size=1",
+        "redirect_to_login": false,
+        "status": 401
+      },
+      {
+        "observed_status": 401,
+        "path": "/platform/skillhub/api/web/notifications/sse",
+        "redirect_to_login": false,
+        "status": 401
+      },
+      {
+        "observed_status": 401,
+        "path": "/platform/skillhub/api/v1/auth/session/bootstrap",
+        "redirect_to_login": false,
+        "status": 401
+      },
+      {
+        "fabricated_bearer": true,
+        "observed_status": 401,
+        "path": "/platform/skillhub/api/web/labels",
+        "redirect_to_login": false,
+        "status": 401
+      },
+      {
+        "fabricated_bearer": true,
+        "observed_status": 401,
+        "path": "/platform/skillhub/api/web/skills?page=0&size=1",
+        "redirect_to_login": false,
+        "status": 401
+      },
+      {
+        "fabricated_bearer": true,
+        "observed_status": 401,
+        "path": "/platform/skillhub/api/web/notifications/sse",
+        "redirect_to_login": false,
+        "status": 401
+      }
+    ],
+    "elapsed_seconds": 22.601,
+    "explicit_database_queries": 0,
+    "future_configmap_guard_persisted": true,
+    "graceful_reload_verified": true,
+    "last_step": "verify_installed_live",
+    "native_acceptance_receipt": {
+      "bytes": 7130,
+      "operation": "25f363cb9f254e00b9f9dd196b2ade97",
+      "path": "/var/lib/portal-skillhub-registry-auth-activation-20261106-r2/REPORT.json",
+      "sha256": "29e159302c129098c28786ab4dd8267724d31ebe28e37f02293186b31d033c38"
+    },
+    "native_auth_rechecked": true,
+    "native_http_after": [
+      {
+        "fabricated_bearer": false,
+        "path": "/api/v1/health",
+        "status": 200
+      },
+      {
+        "fabricated_bearer": false,
+        "path": "/api/web/labels",
+        "status": 401
+      },
+      {
+        "fabricated_bearer": false,
+        "path": "/api/web/skills?page=0&size=1",
+        "status": 401
+      },
+      {
+        "fabricated_bearer": true,
+        "path": "/api/web/labels",
+        "status": 401
+      },
+      {
+        "fabricated_bearer": true,
+        "path": "/api/web/skills?page=0&size=1",
+        "status": 401
+      }
+    ],
+    "native_http_before": [
+      {
+        "fabricated_bearer": false,
+        "path": "/api/v1/health",
+        "status": 200
+      },
+      {
+        "fabricated_bearer": false,
+        "path": "/api/web/labels",
+        "status": 401
+      },
+      {
+        "fabricated_bearer": false,
+        "path": "/api/web/skills?page=0&size=1",
+        "status": 401
+      },
+      {
+        "fabricated_bearer": true,
+        "path": "/api/web/labels",
+        "status": 401
+      },
+      {
+        "fabricated_bearer": true,
+        "path": "/api/web/skills?page=0&size=1",
+        "status": 401
+      }
+    ],
+    "native_receipt_bound": true,
+    "new_worker_observed": true,
+    "nginx_master_preserved": true,
+    "nginx_test_may_open_configured_logs": true,
+    "observed_at": "2026-11-06T04:12:17.615409+00:00",
+    "old_worker_connections_may_remain": true,
+    "once_claimed": true,
+    "operation": "d6c641977c0445cba97999e6926d4ec7",
+    "plan": {
+      "before_live_sha256": "139221024e43ad49e706138ae740093c1eefdb46f7f807094d10a39e1ad4a755",
+      "before_template_sha256": "85a9aee439cee462aaf81788594e55526ece023cbb4d63ff18b92276032dcbb4",
+      "candidate_live_sha256": "2e508ad18f4de362c7ca387ca93126296ab9c236569a7dba48718003c66d739e",
+      "candidate_template_sha256": "388d96db7093983c7428b7731d12766befc7a24e26b3c64475cc170b3079fb21",
+      "live": {
+        "bootstrap_unchanged": true,
+        "existing_auth_locations_changed": 2,
+        "existing_bytes_preserved": true,
+        "insertions": 5,
+        "new_locations": 4,
+        "new_maps": 1,
+        "ppt_guard_preserved": true,
+        "raw_configuration_exported": false
+      },
+      "native_server_auth_acceptance_required": true,
+      "nginx_syntax_verified": false,
+      "production_runtime_accepted": false,
+      "pure_substitutions": 7,
+      "ready_for_activation": false,
+      "schema": "portal-skillhub-nginx-auth-plan-summary.v1",
+      "stale_mounted_template_used": false,
+      "startup_replay_verified": false,
+      "startup_sha256": "c10f308cc45d31d3861799e706e5adef53e52f9c78d2f171bf47f13f29424cc3",
+      "template": {
+        "bootstrap_unchanged": true,
+        "existing_auth_locations_changed": 2,
+        "existing_bytes_preserved": true,
+        "insertions": 5,
+        "new_locations": 4,
+        "new_maps": 1,
+        "ppt_guard_preserved": true,
+        "raw_configuration_exported": false
+      }
+    },
+    "pods_created": 0,
+    "pods_deleted": 0,
+    "ppt_new_run_admission": "BLOCKED_409",
+    "private_backups_created": true,
+    "protected_deployments_preserved": true,
+    "provider_requests": 0,
+    "raw_configuration_exported": false,
+    "raw_errors_exported": false,
+    "real_credentials_used": false,
+    "reload_may_have_been_requested": true,
+    "report_bytes": 5051,
+    "report_path": "/var/lib/portal-skillhub-edge-auth-activation-20261106-r2/REPORT.json",
+    "report_sha256": "eb7f14080c002910835e6bfcc87352bf0825927d3bdcca46147971dba35a57e4",
+    "runtime_install_may_have_applied": true,
+    "sandbox_deleted": false,
+    "schema": "portal-skillhub-edge-auth-activation.v2",
+    "scope": "skillhub_edge_auth_only_no_deployment_rollout",
+    "service_backends_preserved": true,
+    "stable_readback": true,
+    "stale_mount_unchanged": true,
+    "stale_mount_used_as_candidate": false,
+    "startup_replay_verified": true,
+    "status": "SKILLHUB_EDGE_AUTH_ACCEPTED_BROWSER_PENDING",
+    "tool_revision": "r2",
+    "valid_native_bearer_requests": 0
+  },
+  "provenance": {
+    "downloaded_from_server": false,
+    "normalization": "None; JSON decoded from operator pasted stdout",
+    "reconstructed_report": "REPORT-RECONSTRUCTED.json",
+    "reconstructed_report_bytes": 5051,
+    "reconstructed_report_sha256": "eb7f14080c002910835e6bfcc87352bf0825927d3bdcca46147971dba35a57e4",
+    "reconstruction": "Remove only stdout-added report_bytes and report_sha256; canonical JSON serialization matches exact operator seal",
+    "source_attachment": "C:\\Users\\15285\\.codex\\attachments\\0a8c1f19-4261-4324-b1da-37754f21bd19\\\u5df2\u7c98\u8d34\u7684\u6587\u672c.txt",
+    "source_attachment_bytes": 5711,
+    "source_attachment_sha256": "851cc1b52a7062c148d1872d9660a32e7c74c5e5eb94748dfdf253714980b54b"
+  },
+  "schema": "portal-skillhub-edge-operator-acceptance.v1",
+  "status": "SKILLHUB_EDGE_AUTH_ACCEPTED_BROWSER_PENDING"
+}

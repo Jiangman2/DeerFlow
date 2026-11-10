@@ -21,10 +21,15 @@ class FinancialSourceTests(unittest.TestCase):
     def setUpClass(cls):
         # Exercise the immutable earlier verifier against its verified parent view.
         current = [p.relative_to(ROOT).as_posix() for p in (ROOT / source.SKILL).rglob("*") if p.is_file() and "__pycache__" not in p.parts]
-        _, cls.parent_projection = verifier.later.qualify(lambda path: (ROOT / path).read_bytes(), current)
+        raw_read = lambda path: (ROOT / path).read_bytes()
+        _, newest = verifier.current.qualify(raw_read, current)
+        prior_read = lambda path: newest[path] if newest and path in newest else raw_read(path)
+        if newest:
+            current = [p for p in newest if p.startswith(verifier.current.SKILL)]
+        _, older = verifier.later.qualify(prior_read, current)
+        cls.parent_projection = {**(newest or {}), **(older or {})}
         cls.manifest = json.loads((ROOT / source.MANIFEST).read_bytes())
-        cls.paths = [p.relative_to(ROOT).as_posix()
-                     for p in (ROOT / source.SKILL).rglob("*") if p.is_file()]
+        cls.paths = current
 
     def reader(self, overrides):
         def read(path):
@@ -32,7 +37,7 @@ class FinancialSourceTests(unittest.TestCase):
                 if overrides[path] is None:
                     raise KeyError(path)
                 return overrides[path]
-            if path == verifier.later.MANIFEST:
+            if path in (verifier.later.MANIFEST, verifier.current.MANIFEST):
                 raise KeyError(path)
             if self.parent_projection and path in self.parent_projection:
                 return self.parent_projection[path]

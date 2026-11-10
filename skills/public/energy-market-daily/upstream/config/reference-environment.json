@@ -1,0 +1,20 @@
+{
+  "python": "3.9.12 (main, Apr  4 2022, 05:22:27) [MSC v.1916 64 bit (AMD64)]",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "architecture": "AMD64",
+  "timezone": "Asia/Shanghai",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "device_scale_factor": 2,
+  "packages": {
+    "requests": "2.27.1",
+    "openpyxl": "3.0.9",
+    "playwright": "1.60.0",
+    "Pillow": "9.0.1",
+    "beautifulsoup4": "4.11.1",
+    "fonttools": "4.25.0"
+  },
+  "browser_version": "157.0.4341.42"
+}

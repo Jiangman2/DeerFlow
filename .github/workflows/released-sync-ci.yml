@@ -1,0 +1,62 @@
+name: Released Source Reconciliation
+on:
+  pull_request:
+    paths:
+      - 'skills/public/energy-market-daily/**'
+      - 'deploy/enterprise/*energy*'
+      - 'deploy/enterprise/*skillhub*'
+      - 'deploy/enterprise/*released*sync*'
+      - 'release/energy-market-released-20261110/**'
+      - 'release/skillhub-auth-remediation-20261106-r1/**'
+      - 'release/released-sync-20261110/**'
+      - 'scripts/review_energy_market_original.py'
+      - 'tests/test_energy*'
+      - 'tests/test_fresh_target_probe.py'
+      - 'tests/test_repair_energy_market_proxy.py'
+      - 'tests/test_released_sync_source_20261110.py'
+      - 'tests/test_skillhub*'
+      - 'tests/test_research_fund_expense_purposes*'
+      - '.gitattributes'
+      - '.github/workflows/released-sync-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: released-sync-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  offline-release-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v7
+      - name: Install test dependencies
+        working-directory: backend
+        run: uv sync --group dev
+      - name: Verify committed source and evidence
+        run: backend/.venv/bin/python -B deploy/enterprise/verify-released-sync-20261110.py --ref HEAD
+      - name: Offline release and transport tests
+        run: |
+          backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=tests -q \
+            tests/test_energy*.py tests/test_fresh_target_probe.py tests/test_repair_energy_market_proxy.py \
+            tests/test_released_sync_source_20261110.py \
+            tests/test_research_fund_expense_purposes*.py \
+            tests/test_skillhub*.py deploy/enterprise/test_skillhub_registry_auth_activation_20261106*.py
+      - name: Verify root-owned synthetic private archive
+        # This one test creates only a temporary synthetic OCI fixture. The
+        # production installer deliberately requires UID 0; do not mock that guard.
+        run: |
+          sudo --preserve-env=PYTHONDONTWRITEBYTECODE,PYTHONUTF8,PYTHONIOENCODING \
+            backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=tests -q \
+            tests/test_skillhub_registry_auth_preload_20261106.py \
+            -k test_rewritten_archive_only_names_private_candidate
+      - name: Review immutable original energy package
+        run: backend/.venv/bin/python -B scripts/review_energy_market_original.py

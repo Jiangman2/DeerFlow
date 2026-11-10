@@ -1,0 +1,22 @@
+[
+  {
+    "filename": "msyh.ttc",
+    "bytes": 19704352,
+    "sha256": "d79c55e68b1131eea0cc1c47be4f572d964f28c682e143db2ad09c1e4cb07a3f"
+  },
+  {
+    "filename": "msyhbd.ttc",
+    "bytes": 16883552,
+    "sha256": "4508821b3dffe01f0ef5e5326a3e60df705a44633858811f67b6982dce3f6ee6"
+  },
+  {
+    "filename": "arial.ttf",
+    "bytes": 1045720,
+    "sha256": "b3658eadae55e682b5f69eb64c439c1ecc8f196c0bb8d4756d145d13bc86476a"
+  },
+  {
+    "filename": "arialbd.ttf",
+    "bytes": 989780,
+    "sha256": "e8f4e3baf6cc35fed6fcce3a540e8b39e8f6cda1d22a28f2ec8f526fef7a43f5"
+  }
+]

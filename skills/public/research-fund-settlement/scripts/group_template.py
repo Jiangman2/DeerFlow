@@ -151,16 +151,46 @@ def _reason_text(item: dict[str, Any], label: str) -> str:
     return f"{label}{reason}"
 
 
-def _expense_sentence(item: dict[str, Any]) -> str:
-    adjusted = _effective_approved_budget(item)
-    sentence = (
-        f"{item.get('name', '')}：批复概预算{_money(adjusted, True)}，"
-        f"实际支出{_money(item.get('recognized'), True)}，"
-        f"结余（负数为超支）{_money(item.get('balance'), True)}。"
-    )
-    reason = str(item.get("variance_reason") or "").strip()
-    if reason:
-        sentence += _reason_text(item, "结余原因：").rstrip("。") + "。"
+def _expense_sentence(item: dict[str, Any], template_text: str) -> str:
+    """Fill amounts without discarding the template's expense-purpose prose.
+
+    ``description`` is the existing evidence-backed project-detail field. Missing
+    contract details are not a zero-contract declaration. Variance reasons belong
+    in the separate balance section, except the template's equipment savings note.
+    """
+    sentence = template_text
+    for placeholder, value in (
+        ("批复概预算XXX万元", _effective_approved_budget(item)),
+        ("实际支出XXX万元", item.get("recognized")),
+        ("结余XXX万元", item.get("balance")),
+    ):
+        if sentence.count(placeholder) != 1:
+            raise ValueError("支出用途模板金额槽位与已审核合同不一致")
+        label = placeholder.split("XXX", 1)[0]
+        sentence = sentence.replace(placeholder, label + _money(value, True), 1)
+
+    if item.get("code") == "equipment_software":
+        note = "（如有节约：说明原因，如方案优化、国产化替代、招标降价、取消冗余设备采购等）"
+        reason = str(item.get("variance_reason") or "").strip()
+        balance = item.get("balance")
+        savings = (
+            _reason_text(item, "节约原因：").rstrip("。") + "。"
+            if reason and balance is not None and Decimal(str(balance)) > 0 else ""
+        )
+        sentence = sentence.replace(note, savings)
+    elif item.get("code") == "external_testing":
+        sentence = sentence.replace(
+            "（本项目签订外协合同共计XXX项，合同名称分别为XXX内容，用于支撑项目研究XXX内容）。",
+            "",
+        )
+    elif item.get("code") == "commissioned_research":
+        # Appendix 4 names only outside-group contractors, not all contractors.
+        # Their verified names remain in the following external-ratio paragraph.
+        sentence = sentence.replace("委托XXX等单位", "委托相关单位")
+
+    description = str(item.get("description") or "").strip()
+    if description:
+        sentence += description.rstrip("。") + "。"
     return sentence
 
 
@@ -405,19 +435,20 @@ def _fill_cover_and_narrative(
         else "",
     )
     for index, code in EXPENSE_NARRATIVE_PARAGRAPHS.items():
-        _set_paragraph(paragraphs, index, _expense_sentence(_expense(case, code)))
+        template_text = "".join(paragraphs[index].xpath(".//w:t/text()", namespaces=NS))
+        _set_paragraph(paragraphs, index, _expense_sentence(_expense(case, code), template_text))
     outsourcing = get_path(case, "_derived.outsourcing", {})
     ratio = outsourcing.get("commissioned_to_direct_percent")
     ratio_text = (
-        f"外委研究费占直接经费总支出的比例为{_percent(ratio)}。"
-        if ratio is not None else "直接经费总支出为零，外委研究费占比不适用。"
+        f"外委比例情况：外委研究费占直接经费总支出比例{_percent(ratio)}。"
+        if ratio is not None else "外委比例情况：直接经费总支出为零，外委研究费占比不适用。"
     )
     external_ratio = outsourcing.get("external_to_direct_percent")
     if external_ratio is not None:
-        ratio_text += f"外委给系统外单位的外委研究费占直接经费总支出的比例为{_percent(external_ratio)}。"
+        ratio_text = ratio_text.rstrip("。") + f"，其中委托系统外单位的外委研究费占直接经费总支出比例{_percent(external_ratio)}。"
         organizations = outsourcing.get("external_organizations") or []
         if organizations:
-            ratio_text += "其中单位分别为：" + "、".join(organizations) + "。"
+            ratio_text += "受托单位分别为：" + "、".join(organizations) + "。"
     _set_paragraph(
         paragraphs,
         COMMISSIONED_RATIO_PARAGRAPH,

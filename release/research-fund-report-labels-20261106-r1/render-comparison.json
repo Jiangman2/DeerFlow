@@ -1,0 +1,72 @@
+[
+  {
+    "profile": "group-company",
+    "pages": 16,
+    "changed_pages": [
+      {
+        "page": 1,
+        "bbox_pixels": [
+          653,
+          1115,
+          720,
+          1128
+        ],
+        "page_pixels": [
+          849,
+          1200
+        ]
+      },
+      {
+        "page": 6,
+        "bbox_pixels": [
+          158,
+          385,
+          179,
+          763
+        ],
+        "page_pixels": [
+          849,
+          1200
+        ]
+      }
+    ]
+  },
+  {
+    "profile": "national-science",
+    "pages": 9,
+    "changed_pages": [
+      {
+        "page": 1,
+        "bbox_pixels": [
+          652,
+          1115,
+          720,
+          1128
+        ],
+        "page_pixels": [
+          849,
+          1200
+        ]
+      }
+    ]
+  },
+  {
+    "profile": "miit",
+    "pages": 8,
+    "changed_pages": [
+      {
+        "page": 1,
+        "bbox_pixels": [
+          426,
+          1064,
+          743,
+          1089
+        ],
+        "page_pixels": [
+          849,
+          1200
+        ]
+      }
+    ]
+  }
+]
