@@ -4,6 +4,7 @@ No imports from the application, cluster calls, model calls or database access.
 Use --ref HEAD after committing to check Git objects rather than working files.
 """
 import argparse
+import lease_work_source_20261110 as lease_work
 import ast
 import hashlib
 import importlib.util
@@ -411,6 +412,8 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(pagination.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
             extra.append("release/artifact-delivery-recovery-20261109/")
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.MANIFEST], cwd=ROOT).strip():
+            extra.extend(lease_work.ARCHIVE_INPUTS)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:

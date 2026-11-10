@@ -1,0 +1,68 @@
+{
+  "schema": "lease-work-source-provenance.v1",
+  "base_commit": "ced7db0cf083aeff02fd142a7d8fb7dcc266213d",
+  "tested_source_tree": "06933fb2211346321f47efa5d1ac07f706e9944e",
+  "production_acceptance_claimed": false,
+  "changes": {
+    "backend/app/channels/feishu.py": {
+      "base_sha256": "ad75143f8f07d69f763d94b33402792631d02a449be3dfa2f9a5b89d05d85a5f",
+      "current_sha256": "628e44048bee0e3f2e067957ce46079bb4fd5a365e584583131d73837d240e39"
+    },
+    "backend/app/channels/attachment_storage.py": {
+      "base_sha256": null,
+      "current_sha256": "041a8eb348d2c7c747ff18b5b3ab9d3aceaffdb0f600807e6a2d065c25ea65b2"
+    },
+    "backend/packages/harness/deerflow/utils/file_conversion.py": {
+      "base_sha256": "70fde6ab44ed622d5636bd78de2dc18733e94d7e211ff6c8bdb5845a97ec1a5c",
+      "current_sha256": "5786bd87d6369ddc5af62b9ec1ae8cd14464bcd9fe7ed7184aa76823b1cbb78e"
+    },
+    "backend/packages/harness/deerflow/utils/bounded_work.py": {
+      "base_sha256": null,
+      "current_sha256": "f7812e9040fb641b4ea0a334fce55d1ed4c5e8f9c18ecb867bc59a75515467b5"
+    },
+    "backend/packages/harness/deerflow/utils/isolated_conversion.py": {
+      "base_sha256": null,
+      "current_sha256": "862f87067614be13215d2a1d2ba5a1af69899217ed5f0b40728f6694a84ac096"
+    },
+    "backend/packages/harness/deerflow/utils/conversion_worker.py": {
+      "base_sha256": null,
+      "current_sha256": "a7b10e1bf1e09af39743759885b55d774a496915e3344404608ce219e8da647c"
+    },
+    "backend/tests/test_file_conversion.py": {
+      "base_sha256": "fb1e751905aee60c256b106d2ddbc0cf2efdfb53c42ad0777d66652e540ada52",
+      "current_sha256": "0faceb4f81cf5c632daaf67ff688d8cf150388b1b06358ebc73fb69de9da3ebf"
+    },
+    "backend/tests/test_feishu_parser.py": {
+      "base_sha256": "66ef7061c0b7492c1d735171288a9245eca6a7c1803bf60dc2d7ecf61352686f",
+      "current_sha256": "b3f018a4b22805c05b838f25f95d9b7070f49120710903078bfe2a63d6fd5766"
+    },
+    "backend/tests/test_attachment_storage.py": {
+      "base_sha256": null,
+      "current_sha256": "0479823922bba0148c406a19fd10b05889d6ffb2b3f42aba51bba69e6f006db2"
+    },
+    "backend/tests/test_isolated_conversion.py": {
+      "base_sha256": null,
+      "current_sha256": "cc301b9755f74829e19fd753be5f3c72da21505ae266573ab1df029406e05076"
+    },
+    "backend/tests/test_conversion_process_cleanup.py": {
+      "base_sha256": null,
+      "current_sha256": "1bd2b28d6c4006fa6e81787de4fe72589ad7c93321590cbb4a4461109e0b8c0d"
+    },
+    "backend/tests/test_work_production_release_config.py": {
+      "base_sha256": null,
+      "current_sha256": "eb88718d8c1f517b515c3d1d93daa3ba54baccefec2ce6ac2d4b4a90eebf10e7"
+    },
+    "backend/tests/test_conversion_native_threads.py": {
+      "base_sha256": null,
+      "current_sha256": "520ff3f0e8e2a6df2c2f843f665a4434afb2a8e516666c758db9a626ccce3d37"
+    },
+    "deploy/enterprise/work-production-env-20261110.json": {
+      "base_sha256": null,
+      "current_sha256": "46cf1d1c77fd98c962f59edc038b4d80c6fcc4a557dd397ef6f0195be2718587"
+    },
+    "docs/attachment-conversion-work-20261110.md": {
+      "base_sha256": null,
+      "current_sha256": "6b80a8043dd1332e6f9ee78ff2bb9c8d12ae689ddae71f01dc3605f0e6bf725f"
+    }
+  }
+}

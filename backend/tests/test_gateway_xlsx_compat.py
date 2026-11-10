@@ -94,6 +94,7 @@ def test_xlsx_conversion_shim_rejects_unrelated_attributes():
         SheetFormatProperties(unrelated_attribute="invalid")
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="conversion worker uses Linux resource limits")
 @pytest.mark.parametrize("with_backend_path", [False, True], ids=["without-startup-hook", "gateway-startup"])
 @pytest.mark.parametrize("affected", [False, True], ids=["standard", "defaultColWidthPt"])
 def test_gateway_converts_xlsx_without_startup_patch(tmp_path, affected, with_backend_path):
@@ -120,7 +121,8 @@ file_conversion._get_pdf_converter = lambda: "auto"
 source = pathlib.Path(sys.argv[1])
 converted = asyncio.run(file_conversion.convert_file_to_markdown(source))
 assert converted is not None
-assert getattr(SheetFormatProperties.__init__, "__deerflow_default_col_width_pt_compat__", False)
+# Compatibility belongs to the conversion child, not the Gateway process.
+assert not getattr(SheetFormatProperties.__init__, "__deerflow_default_col_width_pt_compat__", False)
 text = converted.read_text(encoding="utf-8")
 assert "井号" in text and "NB27-1-1" in text
 """
@@ -152,6 +154,8 @@ def test_other_formats_do_not_install_xlsx_shim(tmp_path, monkeypatch, suffix):
 
 
 def test_xlsx_dependency_failure_uses_normal_conversion_error(tmp_path, monkeypatch, caplog):
+    from unittest.mock import AsyncMock
+
     source = tmp_path / "source.xlsx"
     source.write_bytes(_workbook_bytes())
     monkeypatch.setattr(file_conversion, "_get_pdf_converter", lambda: "auto")
@@ -160,8 +164,15 @@ def test_xlsx_dependency_failure_uses_normal_conversion_error(tmp_path, monkeypa
         raise ModuleNotFoundError("openpyxl unavailable", name="openpyxl")
 
     monkeypatch.setattr(file_conversion, "_install_openpyxl_default_col_width_pt_compat", unavailable)
+    # A parent-process monkeypatch cannot reach the isolated worker. Verify the
+    # converter's dependency error, then the public API's worker-failure boundary.
+    with pytest.raises(ModuleNotFoundError, match="openpyxl unavailable"):
+        file_conversion._convert_with_markitdown(source)
+    isolated = AsyncMock(side_effect=RuntimeError("Document conversion worker failed: openpyxl unavailable"))
+    monkeypatch.setattr(file_conversion, "convert_isolated", isolated)
     import asyncio
 
     assert asyncio.run(file_conversion.convert_file_to_markdown(source)) is None
+    isolated.assert_awaited_once_with(source, "auto")
     assert not source.with_suffix(".md").exists()
-    assert "Failed to convert" in caplog.text
+    assert "Local document conversion failed (RuntimeError)" in caplog.text

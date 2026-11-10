@@ -1,6 +1,7 @@
 """Qualify this Work source delta before reading its immutable Git parent."""
 
 import ast
+import lease_work_source_20261110 as lease_work
 import hashlib
 import io
 import json
@@ -57,6 +58,7 @@ def _parent_sources(paths):
 
 def historical_view(read):
     """Validate all declared current and parent bytes, then expose only their parents."""
+    read, lease_result = lease_work.historical_view(read)
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):
@@ -97,7 +99,8 @@ def historical_view(read):
         "status": manifest["status"],
         "base_commit": BASE_COMMIT,
         "changed_paths_verified": len(changes),
-        "added_gateway_runtime": sorted(path for path in added if _gateway_source(path)),
+        "added_gateway_runtime": sorted({path for path in added if _gateway_source(path)} | set(lease_result["added_gateway_runtime"] if lease_result else [])),
         "added_frontend_runtime": sorted(path for path in added if path.startswith("frontend/src/")),
+        "lease_work_source": lease_result,
         "production_acceptance_claimed": False,
     }

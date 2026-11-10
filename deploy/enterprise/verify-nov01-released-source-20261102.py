@@ -1,5 +1,6 @@
 """Verify the scoped, already-released November 1 source and receipt archive offline."""
 import argparse
+import lease_work_source_20261110 as lease_work
 import ast
 import hashlib
 import io
@@ -53,6 +54,8 @@ def verify(ref=None):
             roots.append(WORK_MANIFEST)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.delivery.MANIFEST], cwd=ROOT).strip():
             roots.append(followup.delivery.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.MANIFEST], cwd=ROOT).strip():
+            roots.extend(lease_work.ARCHIVE_INPUTS)
         raw = subprocess.check_output(["git", "archive", ref, *roots], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             archived = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}

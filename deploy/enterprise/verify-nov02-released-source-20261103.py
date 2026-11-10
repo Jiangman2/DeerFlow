@@ -1,5 +1,6 @@
 """Offline verification of the November 2 Gateway403 / Frontend239 source archive."""
 import argparse
+import lease_work_source_20261110 as lease_work
 import io
 import json
 from pathlib import Path
@@ -40,6 +41,8 @@ def verify(ref=None):
             extra.append(WORK_MANIFEST)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
             extra.append("release/artifact-delivery-recovery-20261109/")
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.MANIFEST], cwd=ROOT).strip():
+            extra.extend(lease_work.ARCHIVE_INPUTS)
         raw = subprocess.check_output(["git", "archive", ref, "backend/app", "backend/packages/harness", "backend/tests", "frontend/src", "frontend/tests", ARCHIVE, DELTA, PARENT_DELTA, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             cache = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}
