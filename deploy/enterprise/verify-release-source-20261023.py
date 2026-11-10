@@ -13,6 +13,10 @@ from pathlib import Path, PurePosixPath
 import subprocess
 import tarfile
 
+_pagination_spec = importlib.util.spec_from_file_location("weknora_pagination_source_20261109", Path(__file__).with_name("weknora_pagination_source_20261109.py"))
+pagination = importlib.util.module_from_spec(_pagination_spec)
+_pagination_spec.loader.exec_module(pagination)
+
 # This verifier is also loaded by file path from backend tests. Resolve its
 # sibling explicitly so those callers need no process-wide sys.path mutation.
 _spec = importlib.util.spec_from_file_location("released_source_20261102", Path(__file__).with_name("released_source_20261102.py"))
@@ -403,11 +407,16 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(_nov02.composer.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, work_followup.MANIFEST], cwd=ROOT).strip():
             extra.append(work_followup.MANIFEST)
+        if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, pagination.MANIFEST], cwd=ROOT).strip():
+            extra.append(pagination.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
+            extra.append("release/artifact-delivery-recovery-20261109/")
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
     current_read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    current_read = pagination.historical_read(current_read)
     current_read, work_followup_manifest = work_followup.historical_view(current_read)
     composer_manifest = _nov02.composer.qualify(current_read)
     current_read = _nov02.composer.historical_read(current_read)

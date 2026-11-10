@@ -2477,3 +2477,15 @@ acceptance. Already-built agents and direct external MCP calls are not revoked.
 The coordinated Gateway release also preserves the OA environment override
 OA_POLICY_FLOW_RUN_TIMEOUT_SECONDS=3600. Do not replay the archived OA mutation
 script or silently resume a paused Deployment while preparing source.
+
+### Artifact delivery recovery (November 9 candidate)
+
+Directory-only final prose may reference multiple directories, but each needs
+direct-child `present_files` success receipts with the current `publication_run_id`.
+Validate artifact state, owner-root containment and actual file existence before
+appending at most 40 links. Never scan directories to infer publication or reuse
+prior-run receipts. Preserve Office preview enforcement in `present_files`.
+Recovery prompts identify exact unverified paths and distinguish verified files;
+remaining failures retain only verified current-run downloads and the existing
+error-fallback marker. Loop hard stops stay terminal. Regression tests live in
+`tests/test_artifact_delivery_recovery.py` and `tests/test_directory_listing_delivery.py`.

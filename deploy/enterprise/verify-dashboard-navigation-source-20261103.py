@@ -20,6 +20,8 @@ def verify(ref=None):
             extra.append(navigation.model_default_test.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, work_followup.MANIFEST], cwd=ROOT).strip():
             extra.extend((work_followup.MANIFEST, "backend/app", "backend/packages/harness"))
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
+            extra.append("release/artifact-delivery-recovery-20261109/")
         raw = subprocess.check_output(["git", "archive", ref, "frontend/src", "frontend/tests", navigation.ARCHIVE, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             files = {m.name: archive.extractfile(m).read() for m in archive if m.isfile()}

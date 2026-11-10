@@ -2048,3 +2048,11 @@ No database upgrade, downgrade, table deletion, push or deployment is performed
 by source candidate preparation. This candidate supersedes catalogue-only tree
 345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
 Previous broader-tree test results are historical, not acceptance of this tree.
+
+### Artifact delivery recovery (November 9 candidate)
+
+Final directory descriptions are expanded into download links only from successful
+publication receipts in the current run and existing owner-scoped files. Mixed
+deliveries identify unverified files for a bounded repair; an incomplete delivery
+retains verified downloads with an explicit error instead of hiding every file.
+See `docs/artifact-delivery-recovery-20261109.md`.

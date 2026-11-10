@@ -25,6 +25,10 @@ _sidechat_spec = importlib.util.spec_from_file_location("sidechat_frontend_sourc
 sidechat = importlib.util.module_from_spec(_sidechat_spec)
 _sidechat_spec.loader.exec_module(sidechat)
 
+_delivery_spec = importlib.util.spec_from_file_location("artifact_delivery_source_20261109", Path(__file__).with_name("artifact_delivery_source_20261109.py"))
+delivery = importlib.util.module_from_spec(_delivery_spec)
+_delivery_spec.loader.exec_module(delivery)
+
 ARCHIVE = "release/enterprise-source-followup-20261103/"
 MANIFEST = ARCHIVE + "SOURCE.json"
 MANIFEST_SHA256 = "d383005667ae3f623045ae54fe333ba98677ec3ea03096914b23daf59342d1bc"
@@ -60,6 +64,7 @@ LISTING_SUPPORT = {
 
 
 def artifact_directory_historical_read(read):
+    read = delivery.historical_read(read)
     try:
         parent = read(ARTIFACT_PARENT)
     except (FileNotFoundError, KeyError):

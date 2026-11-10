@@ -22,7 +22,11 @@ class ArtifactDirectoryHistoryTests(unittest.TestCase):
         self.assertNotEqual(read(q.ARTIFACT_SOURCE), projected(q.ARTIFACT_SOURCE))
         self.assertEqual(projected(q.ARTIFACT_TEST), read(q.ARTIFACT_TEST))
         for path in (q.ARTIFACT_SOURCE, q.ARTIFACT_TEST, q.ARTIFACT_PARENT):
-            with self.subTest(path=path), self.assertRaisesRegex(ValueError, "ARTIFACT_DIRECTORY_SOURCE_CHANGED"):
+            # Newest sealed runtime is checked before the older directory delta.
+            error, code = ((AssertionError, "ARTIFACT_DELIVERY_CURRENT_CHANGED")
+                           if path == q.ARTIFACT_SOURCE
+                           else (ValueError, "ARTIFACT_DIRECTORY_SOURCE_CHANGED"))
+            with self.subTest(path=path), self.assertRaisesRegex(error, code):
                 q.artifact_directory_historical_read(lambda name: b"changed" if name == path else read(name))
 
     def test_unqualified_historical_ref_keeps_original_reader(self):

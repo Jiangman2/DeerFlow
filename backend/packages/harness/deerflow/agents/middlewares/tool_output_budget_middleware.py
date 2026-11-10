@@ -435,6 +435,40 @@ def _build_weknora_ask_preview(
     return json.dumps(compact, indent=2, ensure_ascii=False)
 
 
+def _build_weknora_chunks_preview(content: str, *, virtual_path: str | None, max_chars: int) -> str | None:
+    """Keep page navigation and partial-read disclosure outside chunk excerpts."""
+    try:
+        payload = json.loads(content)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(payload, dict) or not isinstance(payload.get("pagination"), dict) or not isinstance(payload.get("chunks"), list):
+        return None
+    compact = {key: payload.get(key) for key in ("knowledge_id", "page", "page_size", "total", "pagination")}
+    compact["preview_only"] = True
+    compact["full_output"] = {
+        "path": virtual_path,
+        "scope": "current_page_only",
+        "instruction": ("用 read_file 分段读取当前页完整内容；下一页须使用 pagination.next_call。" if virtual_path else "当前页未能保存，摘录不是完整结果。需要缺失内容时缩小 page_size 并重新计算页码，或使用 weknora_search 定位。"),
+    }
+    compact["chunks"] = []
+    compact["omitted_chunks"] = len(payload["chunks"])
+    if len(json.dumps(compact, ensure_ascii=False)) > max_chars:
+        return None
+    for chunk in payload["chunks"][:6]:
+        if not isinstance(chunk, dict):
+            continue
+        excerpt = {key: chunk.get(key) for key in ("id", "chunk_index", "chunk_type")}
+        raw = str(chunk.get("content") or "")
+        excerpt.update(content=raw[:600], content_truncated=len(raw) > 600)
+        compact["chunks"].append(excerpt)
+        compact["omitted_chunks"] -= 1
+        if len(json.dumps(compact, ensure_ascii=False)) > max_chars:
+            compact["chunks"].pop()
+            compact["omitted_chunks"] += 1
+            break
+    return json.dumps(compact, ensure_ascii=False)
+
+
 def _build_fallback(
     content: str,
     *,
@@ -590,6 +624,10 @@ def _budget_content(
                 len(content),
                 virtual_path,
             )
+            if tool_name == "weknora_list_document_chunks":
+                compact_preview = _build_weknora_chunks_preview(content, virtual_path=virtual_path, max_chars=min(_WEKNORA_SEARCH_COMPACT_MAX_CHARS, config.preview_head_chars + config.preview_tail_chars))
+                if compact_preview is not None:
+                    return compact_preview
             if tool_name == "weknora_search":
                 compact_preview = _build_weknora_search_preview(
                     content,
@@ -613,6 +651,10 @@ def _budget_content(
             )
 
     if config.fallback_max_chars > 0 and len(content) > config.fallback_max_chars:
+        if tool_name == "weknora_list_document_chunks":
+            compact_preview = _build_weknora_chunks_preview(content, virtual_path=None, max_chars=min(_WEKNORA_SEARCH_COMPACT_MAX_CHARS, config.fallback_max_chars))
+            if compact_preview is not None:
+                return compact_preview
         logger.warning(
             "Fallback-truncating %s output: %d chars → %d max",
             tool_name,
