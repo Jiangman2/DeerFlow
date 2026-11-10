@@ -90,6 +90,14 @@
       "bytes": 13361,
       "sha256": "ce06ffcf09ffce8629734fe84e537c164644e2e01b51bae4d98845c418840a07"
     },
+    "release/energy-market-released-20261110/baseline/skill/SKILL.md": {
+      "bytes": 6080,
+      "sha256": "757bec043e2b0400e5160ff7d8903437b5029f9cc4ce624c4018e53826efd1a7"
+    },
+    "release/energy-market-released-20261110/baseline/skill/scripts/entry.py": {
+      "bytes": 20829,
+      "sha256": "b250a6931dc0547b0d478894db628abb35db5cf282ef9d8021c2e6b1d19f9844"
+    },
     "release/energy-market-released-20261110/chat-workflow/SOURCE.json": {
       "bytes": 21139,
       "sha256": "58aa1409760a5c2b341e3929e1bfa9916bb469627c0789c9b516c1b730f40e5c"

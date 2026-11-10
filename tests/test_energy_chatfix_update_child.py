@@ -18,7 +18,7 @@ SOURCE = BASE / 'deploy/enterprise/energy_chatfix_update_child.py'
 SPEC = importlib.util.spec_from_file_location('energy_chatfix_update_child_tested', SOURCE)
 child = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(child)
-OLD_SKILL = BASE.parent / '.codex-energy-daily-thin/skills/public/energy-market-daily'
+OLD_SKILL = BASE / 'release/energy-market-released-20261110/baseline/skill'
 NEW_SKILL = BASE / 'skills/public/energy-market-daily'
 OPERATION = '1234567890abcdef1234567890abcdef'
 
@@ -35,7 +35,13 @@ class UpdateChildTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.top = Path(temporary.name)
         self.live = self.top / 'skills/public/energy-market-daily'
-        shutil.copytree(OLD_SKILL, self.live)
+        # The upstream/archive are unchanged; restore only the two pinned old
+        # entry files, without relying on a developer's sibling worktree.
+        shutil.copytree(NEW_SKILL, self.live)
+        for name, expected in child.OLD.items():
+            raw = (OLD_SKILL / name).read_bytes()
+            self.assertEqual(child.sha(raw), expected)
+            (self.live / name).write_bytes(raw)
         self.temp = self.top / 'tmp'
         self.temp.mkdir()
         self.root_patch = patch.object(child, 'ROOT', self.live)
@@ -243,7 +249,7 @@ class UpdateChildTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'SYMLINK_REFUSED'):
             child.stage(OPERATION, self.inputs)
 
-    @unittest.skipUnless(sys.platform.startswith('linux') and Path(child.BROWSER).is_file(),
+    @unittest.skipUnless(sys.platform.startswith('linux') and os.path.isfile(child.BROWSER),
                          'requires the approved Linux ARM64 browser runtime')
     def test_real_headless_fixed_original_render_then_publish(self):
         result = child.stage(OPERATION, self.inputs)

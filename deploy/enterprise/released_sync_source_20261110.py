@@ -7,7 +7,7 @@ import zipfile
 
 ARCHIVE = 'release/released-sync-20261110/'
 MANIFEST = ARCHIVE+'SOURCE.json'
-MANIFEST_SHA256 = '68550c51e01be64606b8cf7805044d8a0b39a4c36e5c3458056baa676930c883'
+MANIFEST_SHA256 = '3f570a30ac92fb02511af9e306b2f8d5188b4b06cf4ad80fce87e7dbf99671b7'
 ENERGY = 'skills/public/energy-market-daily/'
 FIELD = 'release/energy-market-released-20261110/proxy/field-20261110-1116/'
 HUB = 'release/skillhub-auth-remediation-20261106-r1/'
