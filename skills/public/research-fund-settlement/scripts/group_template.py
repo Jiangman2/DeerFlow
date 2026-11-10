@@ -167,6 +167,8 @@ def _expense_sentence(item: dict[str, Any], template_text: str) -> str:
         if sentence.count(placeholder) != 1:
             raise ValueError("支出用途模板金额槽位与已审核合同不一致")
         label = placeholder.split("XXX", 1)[0]
+        if placeholder == "批复概预算XXX万元":
+            label += "（调整后）"
         sentence = sentence.replace(placeholder, label + _money(value, True), 1)
 
     if item.get("code") == "equipment_software":
@@ -407,7 +409,7 @@ def _fill_cover_and_narrative(
     )
     budget_execution_summary = (
         "截至决算报告编制日，本项目任务合同书批复概预算总额"
-        f"{_money(get_path(case, 'funding.approved_total'), True)}，经费实际支出"
+        f"{_money(totals.get('target_budget'), True)}（调整后），经费实际支出"
         f"{_money(totals.get('recognized'), True)}，预算执行率"
         f"{_percent(totals.get('execution_rate'))}。其中：直接经费支出"
         f"{_money(direct_spent, True)}，间接经费支出"
@@ -417,7 +419,7 @@ def _fill_cover_and_narrative(
     if direct_only:
         budget_execution_summary = (
             "截至决算报告编制日，本项目任务合同书批复概预算总额"
-            f"{_money(get_path(case, 'funding.approved_total'), True)}，预算执行支出"
+            f"{_money(totals.get('target_budget'), True)}（调整后），预算执行支出"
             f"（直接经费）{_money(totals.get('recognized'), True)}，预算执行率"
             f"{_percent(totals.get('execution_rate'))}。"
         )

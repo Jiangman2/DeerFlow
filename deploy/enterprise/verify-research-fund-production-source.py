@@ -95,6 +95,7 @@ def snapshot(ref):
              "release/production-source-20261027/research-fund-settlement", *successor.SUPPORT_PATHS,
              later.ARCHIVE, later.ROUND3, later.PROJECT_TYPE, later.INSPECTOR, *later.SUPPORT_PATHS]
     roots.extend((current.ARCHIVE, current.OLD, current.NEW, 'tests/skills',
+                  current.adjusted.ARCHIVE,
                   'tests/test_research_fund_expense_purposes_release_20261110.py',
                   'tests/test_research_fund_expense_purposes_preflight_20261110.py',
                   'deploy/enterprise/inspect-portal-research-fund-expense-purposes-20261110-r1.py'))

@@ -111,6 +111,10 @@ jobs:
         working-directory: backend
         run: uv run python -B ../deploy/enterprise/test_research_fund_current_source_20261110.py
 
+      - name: Reject adjusted-budget candidate drift and deployment overclaims
+        working-directory: backend
+        run: uv run python -B ../deploy/enterprise/test_research_fund_adjusted_budget_source_20261110.py
+
       - name: Test Round3 release guards without production access
         working-directory: backend
         run: uv run python -B ../release/research-fund-feedback-round3-20261105/round3_release_template_test.py
@@ -145,6 +149,7 @@ jobs:
             ../tests/skills/test_research_fund_project_type_text.py \
             ../tests/skills/test_research_fund_report_labels.py \
             ../tests/skills/test_research_fund_expense_purposes.py \
+            ../tests/skills/test_research_fund_adjusted_budget.py \
             tests/test_research_fund_settlement_skill.py -q --confcutdir=../tests/skills
 
       - name: Review changed public skills (push)

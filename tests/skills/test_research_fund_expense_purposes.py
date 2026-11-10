@@ -116,7 +116,7 @@ def test_audited_amount_and_original_budget_fallback_remain_authoritative(tmp_pa
     raw = case()
     raw["expenses"][0].update(adjusted_budget=None, audited=160)
     expense, _ = sections(build(tmp_path, raw))
-    assert "批复概预算180万元，实际支出160万元，结余20万元。" in expense[0]
+    assert "批复概预算（调整后）180万元，实际支出160万元，结余20万元。" in expense[0]
 
 
 def test_zero_budget_omission_preserves_remaining_order_and_child_reasons(tmp_path):

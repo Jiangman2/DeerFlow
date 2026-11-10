@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## November 10 adjusted-budget financial candidate
+
+`docs/research-fund-adjusted-budget-20261110.md` documents an unshipped candidate:
+the group/company expenditure summary now displays the adjusted budget used by
+its execution rate, and expenditure items explicitly label that basis. Preserve
+the earlier source seals and receipts. The financial verifier qualifies the new
+candidate before projecting the deployed files; candidate verification is not
+production acceptance. No production update is implied by this source change.
+
 ## November 10 deployed-source synchronization
 
 See `docs/released-source-sync-20261110.md` and the sealed source manifests in

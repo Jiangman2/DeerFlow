@@ -79,6 +79,7 @@ skills/public/energy-market-daily/** -text whitespace=blank-at-eol,blank-at-eof,
 release/research-fund-report-labels-20261106-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/research-fund-expense-purposes-20261110-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/research-fund-current-source-20261110/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-adjusted-budget-20261110-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/energy-market-released-20261110/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/skillhub-auth-remediation-20261106-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/released-sync-20261110/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
