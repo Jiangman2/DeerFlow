@@ -1,0 +1,17 @@
+{
+  "tests/skills/test_research_fund_nov05_model.py": {
+    "bytes": 16588,
+    "sha256": "e174d43c560cbe79614bf29075f5246a713edbe9685eb5ffc4faaff861a70af4",
+    "snapshot": "release/research-fund-current-source-20261110/parent/tests/skills/test_research_fund_nov05_model.py"
+  },
+  "tests/skills/test_research_fund_round3_render.py": {
+    "bytes": 1635,
+    "sha256": "3e2eb30fd93a4670f9fe23ef02fd6bb26c616b78b62be08625a25045dbfd31db",
+    "snapshot": "release/research-fund-current-source-20261110/parent/tests/skills/test_research_fund_round3_render.py"
+  },
+  "tests/skills/test_research_fund_settlement.py": {
+    "bytes": 6971,
+    "sha256": "d9fdf00c87bbf4621037eb8c26526d62b5f57541883a84087fcaa1637b42bb3e",
+    "snapshot": "release/research-fund-current-source-20261110/parent/tests/skills/test_research_fund_settlement.py"
+  }
+}

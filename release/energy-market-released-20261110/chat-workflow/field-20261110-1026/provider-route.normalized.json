@@ -1,0 +1,78 @@
+{
+  "application_started": false,
+  "automatic_retry": false,
+  "business_acceptance_pending": true,
+  "configuration_modified": false,
+  "credential_api_reads": 0,
+  "credentials_read": false,
+  "credentials_used": false,
+  "database_access": false,
+  "dns_matches_prior": true,
+  "fixed_target": "116.204.43.227",
+  "http_requests": 1,
+  "interpretation_limits": [
+    "LOCAL_SOURCE_IS_NOT_PUBLIC_NAT_IP",
+    "RST_SOURCE_ADDRESS_DOES_NOT_IDENTIFY_RESET_ORIGIN",
+    "HTTP_STATUS_IS_NOT_FRESH_MARKET_DATA_ACCEPTANCE"
+  ],
+  "max_http_requests": 1,
+  "new_market_data_verified": false,
+  "observed_at": "2026-11-10T02:26:44.925017+00:00",
+  "once_claimed": true,
+  "probe": {
+    "capture": {
+      "captured_process_exitcode": 0,
+      "filter_scope": "FIXED_PROVIDER_LOCAL_PORT_SYN_OR_RST_ONLY",
+      "packets": [],
+      "payload_exported": false,
+      "pcap_written": false,
+      "snapshot_bytes": 96,
+      "socket_source_bound": true,
+      "startup_confirmed": true,
+      "status": "NO_MATCHING_HEADERS_OBSERVED"
+    },
+    "connect_completed_at": "2026-11-10T02:26:46.427555+00:00",
+    "connect_started_at": "2026-11-10T02:26:46.415937+00:00",
+    "connection": {
+      "destination": "116.204.43.227",
+      "destination_port": 6688,
+      "source": "192.168.111.2",
+      "source_port": 62505
+    },
+    "elapsed_ms": 490,
+    "exception": {
+      "class": "ConnectionResetError",
+      "errno": 104
+    },
+    "failure_stage": "request_until_response_headers",
+    "http_requests": 1,
+    "local_port": 62505,
+    "request_started_at": "2026-11-10T02:26:46.427742+00:00",
+    "stage": "request_until_response_headers",
+    "status": "INCOMPLETE",
+    "tcp_connected": true
+  },
+  "proxy_used": false,
+  "query_parameters": false,
+  "raw_errors_exported": false,
+  "redirects_followed": false,
+  "report_bytes": 1997,
+  "report_path": "/var/lib/portal-energy-provider-route-20261110-r1/REPORT.json",
+  "report_sha256": "b039a656e69bc98b9118c64cda2ef2b82dc18c97b8e82cf839c055014cca563d",
+  "resolved_ipv4": [
+    "116.204.43.227"
+  ],
+  "response_body_explicitly_read": false,
+  "response_body_exported": false,
+  "route": {
+    "gateway": "192.168.111.1",
+    "interface": "enp3s0",
+    "source": "192.168.111.2",
+    "status": "ROUTE_OBSERVED"
+  },
+  "schema": "energy-provider-route-diagnostic.v1",
+  "shared_files_modified": false,
+  "status": "ROUTE_DIAGNOSTIC_COLLECTED_NO_CHANGE",
+  "work_messages_sent": 0,
+  "workload_modified": false
+}

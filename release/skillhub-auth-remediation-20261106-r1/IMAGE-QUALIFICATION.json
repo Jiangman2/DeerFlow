@@ -1,0 +1,35 @@
+{
+  "all_blob_hashes_verified": true,
+  "append_diff_id": "sha256:ee12b3bd8f17320b730de16d7213a82de9b617976f82c3c7be5504a13327a52b",
+  "append_entries": [
+    {
+      "bytes": 0,
+      "gid": 101,
+      "mode": "0o755",
+      "path": "app",
+      "uid": 100
+    },
+    {
+      "bytes": 103442872,
+      "gid": 101,
+      "mode": "0o666",
+      "path": "app/app.jar",
+      "uid": 100
+    }
+  ],
+  "archive": {
+    "bytes": 848886784,
+    "sha256": "d2e8fbebeddc1a4667dfae26eefb5a9f83e79ce4fcb1724361e09d1d4c561728"
+  },
+  "candidate_jar_sha256": "342d0e02914d790a1c01a845cce4047af8b634fd34ecef0b01a66d5425fe7e3f",
+  "config": "sha256:a879b4980c86299373079e63fbda8df76bb62873aea32e4a9021fa50ca094db7",
+  "layers": 15,
+  "manifest": "sha256:4f3118867605fea38508bbc38014c731155b43296771c2cd61fb53d82f43bb68",
+  "original_jar_sha256": "6fc23f8056b763a1590a9953a83e6bee873e7bb2e935b2dddf93589585500363",
+  "platform": "linux/arm64",
+  "preserved_base_layers": 14,
+  "production_mutations": 0,
+  "runtime_config_identical": true,
+  "runtime_tests_pending": true,
+  "schema": "skillhub-auth-candidate-image.v1"
+}

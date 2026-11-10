@@ -1,0 +1,8 @@
+{
+  "status": "INTERRUPTED_FOR_LOCAL_RESOURCE_CONTENTION",
+  "operation": "6c9d089ad8e146d0a378081a614801d3",
+  "scope": "owned_arm64_trial_baseline_only",
+  "auth_failure_claimed": false,
+  "stop_exitcode": 0,
+  "remaining_owned_resources_cleanup": "harness_finally"
+}

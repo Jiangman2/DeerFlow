@@ -1,0 +1,15 @@
+Final independent source review: no release-blocking findings.
+
+Reviewed sealed operator tool SHA256:
+cb67cb4724bcd112a0704d04428a2d18b95dbc0397d5981a20c62dadb502f672
+
+Confirmed: fixed immutable ConfigMap plus exactly two Collector template changes,
+UID/resourceVersion/full-spec tests, private uncached target probe using original
+fetch/normalize, fixed proxy admission, one POST followed only by GET polling,
+no Secret API read and no original Skill/158-file engineering package mutation.
+
+Diagnostic limitation: credentials_read_by_dedicated_probe is set true only after
+credential() returns successfully. If credential() reads the file and then rejects
+its schema, false is not proof that no file bytes were read. Host never receives
+or exports credential contents. Do not expand this failure flag into a no-read
+claim. Production credentialed market acceptance remains pending operator output.

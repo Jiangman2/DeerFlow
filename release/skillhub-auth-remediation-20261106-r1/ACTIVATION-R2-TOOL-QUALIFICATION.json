@@ -1,0 +1,58 @@
+{
+  "change_scope": [
+    "exclude_only_two_operator_pinned_historical_failed_pods_after_fresh_identity_state_and_owner_checks",
+    "reject_any_unknown_extra_or_running_state_including_empty_objects",
+    "verify_current_service_endpoint_before_claim_and_immediately_before_patch",
+    "separate_r2_once_directory_and_report"
+  ],
+  "edge_activation_included": false,
+  "expected_brief_skillhub_outage": true,
+  "files": {
+    "activate-portal-skillhub-registry-auth-20261106-r2.py": {
+      "bytes": 35493,
+      "sha256": "e1bcba067a40b2f87db9203871c81e9a3b217071e6d4494194576d8b5ba9adc1"
+    },
+    "test_skillhub_registry_auth_activation_20261106_r2.py": {
+      "bytes": 31871,
+      "sha256": "523f2645fcf527f693eba28dc1686c55bfdd64e662153c2be59507baac5f022b"
+    }
+  },
+  "historical_pod_delete_requests": 0,
+  "image_and_native_checks_unchanged": true,
+  "operator_evidence": "ACTIVATION-HISTORICAL-PODS-OPERATOR-SNAPSHOT.json",
+  "preload_binding_unchanged": true,
+  "preserved_strategy": "Recreate",
+  "production_activation_executed": false,
+  "production_runtime_acceptance_pending": true,
+  "r1_preserved_sha256": "a130269d6aa88f4e9249fb332efd7d58d2667943517ca661c98202d394bd853b",
+  "review": {
+    "independent_agent": "/root/pr40_ci_followup",
+    "independent_boundary_matrix_cases": 20,
+    "independent_review": "PASS_NO_BLOCKER",
+    "root_review": "PASS",
+    "source_derived_maximum_successful_command_count": 220,
+    "unchanged_command_limit": 240
+  },
+  "schema": "portal-skillhub-auth-activation-tool-qualification.v2",
+  "status": "OFFLINE_CHECKS_AND_INDEPENDENT_REVIEW_ACCEPTED_PRODUCTION_PENDING",
+  "tests": {
+    "linux": {
+      "failed": 0,
+      "passed": 40,
+      "skipped": 0
+    },
+    "python37_wrong_host": {
+      "commands": 0,
+      "error_code": "ROOT_ON_DATAX01_REQUIRED",
+      "once_claimed": false,
+      "patch_request_count": 0,
+      "status": "REFUSED_BEFORE_COMMANDS_AND_MUTATIONS"
+    },
+    "windows": {
+      "failed": 0,
+      "passed": 37,
+      "skipped": 3
+    }
+  },
+  "tool_revision": "r2"
+}

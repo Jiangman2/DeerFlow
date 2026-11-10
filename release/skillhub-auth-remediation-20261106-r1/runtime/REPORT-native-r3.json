@@ -1,0 +1,378 @@
+{
+  "schema": "skillhub-native-image-auth-qualification.v1",
+  "operation": "ab5fd422a5a242c8816325d5ba0a62df",
+  "production_mutations": 0,
+  "production_credentials_used": false,
+  "production_database_access": false,
+  "provider_requests": 0,
+  "only_synthetic_local_data": true,
+  "tests": [
+    {
+      "name": "baseline_anonymous_/api/web/labels",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "baseline_anonymous_/api/web/skills?page=0&size=1",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "public_discovery_/api/v1/health",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "public_discovery_/api/v1/auth/providers",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "public_discovery_/api/v1/auth/methods",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/web/labels",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/web/skills?page=0&size=1",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/v1/labels",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/v1/skills?page=0&size=1",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/v1/search?q=synthetic",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/v1/skills/global/qualification/versions/1.0.0/files",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/v1/skills/global/qualification/download",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/cli/v1/skills/search?q=synthetic",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/v1/check",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/v1/download?slug=qualification",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/v1/download/qualification",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/v1/resolve?slug=qualification",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/v1/resolve/qualification",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/web/skills/global/qualification/versions/1.0.0/files",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/web/skills/global/qualification/versions/1.0.0/file?path=SKILL.md",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "candidate_anonymous_/api/web/skills/global/qualification/download",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "fabricated_bearer_/api/web/labels",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "fabricated_bearer_/api/web/skills?page=0&size=1",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "fabricated_cookie_/api/web/labels",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "fabricated_cookie_/api/web/skills?page=0&size=1",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "fabricated_identity_/api/web/labels",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "fabricated_identity_/api/web/skills?page=0&size=1",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "signed_header_without_session_/api/web/labels",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "signed_header_without_session_/api/web/skills?page=0&size=1",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "unsigned_bootstrap",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "invalid_signed_bootstrap",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "expired_signed_bootstrap",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "valid_signed_bootstrap",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "native_session_/api/web/labels",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "native_session_/api/web/skills?page=0&size=1",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "native_session_/api/v1/labels",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "native_session_/api/v1/skills?page=0&size=1",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "ordinary_user_admin_denied",
+      "http_status": 403,
+      "expected_status": 403,
+      "status": "PASS"
+    },
+    {
+      "name": "session_write_requires_csrf",
+      "http_status": 403,
+      "expected_status": 403,
+      "status": "PASS"
+    },
+    {
+      "name": "csrf_refresh",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "native_token_create",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "anonymous_real_download_denied",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "native_session_download",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "native_session_download_zip_identity",
+      "status": "PASS",
+      "bytes": 217,
+      "sha256": "adef2d38bcf2b7ef897d771b524bbba78028a4885dea1180e7a6e394ecb918af"
+    },
+    {
+      "name": "valid_read_token_download",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "valid_read_token_download_zip_identity",
+      "status": "PASS",
+      "bytes": 217,
+      "sha256": "adef2d38bcf2b7ef897d771b524bbba78028a4885dea1180e7a6e394ecb918af"
+    },
+    {
+      "name": "valid_bearer_/api/web/labels",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "valid_bearer_/api/web/skills?page=0&size=1",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "valid_bearer_/api/v1/labels",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "valid_bearer_/api/v1/skills?page=0&size=1",
+      "http_status": 200,
+      "expected_status": 200,
+      "status": "PASS"
+    },
+    {
+      "name": "read_token_publish_denied",
+      "http_status": 403,
+      "expected_status": 403,
+      "status": "PASS"
+    },
+    {
+      "name": "read_token_manage_denied",
+      "http_status": 403,
+      "expected_status": 403,
+      "status": "PASS"
+    },
+    {
+      "name": "token_admin_denied",
+      "http_status": 403,
+      "expected_status": 403,
+      "status": "PASS"
+    },
+    {
+      "name": "native_token_revoke",
+      "http_status": 204,
+      "expected_status": 204,
+      "status": "PASS"
+    },
+    {
+      "name": "revoked_bearer_denied",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    },
+    {
+      "name": "revoked_bearer_download_denied",
+      "http_status": 401,
+      "expected_status": 401,
+      "status": "PASS"
+    }
+  ],
+  "status": "NATIVE_AUTH_RUNTIME_ACCEPTED",
+  "baseline_image": "sha256:71a60be927744fca0c78c922f2aa4083283347cc4b17df60dde50263f20076e2",
+  "candidate_image": "sha256:4f3118867605fea38508bbc38014c731155b43296771c2cd61fb53d82f43bb68",
+  "runtime_mode": "exact_jar_on_native_java21",
+  "arm64_runtime_accepted": false,
+  "runtime_identities": {
+    "baseline": {
+      "image_id": "sha256:850d3575de1cf32ee99e6da31acd943242113ee9b7d320564784a30b2f9b0a42",
+      "jar_sha256": "6fc23f8056b763a1590a9953a83e6bee873e7bb2e935b2dddf93589585500363",
+      "executed_jar_sha256": "6fc23f8056b763a1590a9953a83e6bee873e7bb2e935b2dddf93589585500363"
+    },
+    "candidate": {
+      "image_id": "sha256:850d3575de1cf32ee99e6da31acd943242113ee9b7d320564784a30b2f9b0a42",
+      "jar_sha256": "342d0e02914d790a1c01a845cce4047af8b634fd34ecef0b01a66d5425fe7e3f",
+      "executed_jar_sha256": "342d0e02914d790a1c01a845cce4047af8b634fd34ecef0b01a66d5425fe7e3f"
+    }
+  },
+  "synthetic_download_fixture": {
+    "source": "direct_seed_in_disposable_owned_database_and_tmpfs",
+    "zip_bytes": 217,
+    "zip_sha256": "adef2d38bcf2b7ef897d771b524bbba78028a4885dea1180e7a6e394ecb918af",
+    "publish_or_review_acceptance": false
+  },
+  "native_session_authenticated": true,
+  "api_token_scope_and_revocation_verified": true,
+  "production_acceptance": false,
+  "synthetic_authenticated_download_verified": true,
+  "production_download_business_acceptance_pending": true,
+  "temporary_resources_cleaned": true,
+  "passed": 56,
+  "failed": 0
+}

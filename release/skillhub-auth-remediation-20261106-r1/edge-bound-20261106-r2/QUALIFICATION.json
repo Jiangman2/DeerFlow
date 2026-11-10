@@ -1,0 +1,109 @@
+{
+  "actual_reconstructed_operator_receipt_validates": true,
+  "authenticated_browser_and_valid_native_bearer_acceptance_pending": true,
+  "failure_record": "../edge-bound-20261106-r1/OPERATOR-ATTEMPT-NO-CHANGE.json",
+  "generated_matches_source_and_binding": true,
+  "independent_review": "PASS_NO_BLOCKERS",
+  "limitations": [
+    "Five route structures were independently reproduced; full live/ConfigMap content is not reconstructed locally.",
+    "Tool rechecks full current file hashes, native acceptance, seven startup substitutions, nginx syntax and HTTP before declaring success.",
+    "Synthetic upstream HTTP tests do not prove production SSO or native token business acceptance."
+  ],
+  "linux_tests": {
+    "controller_passed": 27,
+    "failed": 0,
+    "network": "none",
+    "policy_passed": 29,
+    "repository_mount": "read-only",
+    "skipped": 0,
+    "total_passed": 56
+  },
+  "native_receipt_binding": {
+    "bytes": 7130,
+    "operation": "25f363cb9f254e00b9f9dd196b2ade97",
+    "path": "/var/lib/portal-skillhub-registry-auth-activation-20261106-r2/REPORT.json",
+    "sha256": "29e159302c129098c28786ab4dd8267724d31ebe28e37f02293186b31d033c38"
+  },
+  "nginx_http_evidence": {
+    "fresh_runtime_test_this_revision": false,
+    "prior_actual_fixed_nginx_synthetic_checks_passed": 24,
+    "prior_qualification": "../edge-preparation/QUALIFICATION.json",
+    "production_http_and_reload_pending": true,
+    "reuse_basis": "Insertion code unchanged and candidate configuration bytes equal r1 qualified output for synthetic and production-route fixtures. No claim of full production configuration byte reconstruction."
+  },
+  "production_commands_executed": false,
+  "production_edge_acceptance_pending": true,
+  "proven_local_defect": "Baseline inspector seals ordered parsed route structures; r1 compared raw block bytes. r2 uses the exact original parser while retaining whole-config and startup seals.",
+  "python37": {
+    "commands": 0,
+    "configmap_patch_requests": 0,
+    "expected_wrong_host_error": "ROOT_ISOLATED_DATAX01_REQUIRED",
+    "filesystem": "read-only",
+    "image": "python:3.7.17-alpine",
+    "network": "none",
+    "once_claimed": false,
+    "syntax_passed": true
+  },
+  "r1_failure": {
+    "configmap_patch_requests": 0,
+    "configuration_modified": false,
+    "error_class": "ValueError",
+    "error_code": "LOCAL_FAILURE",
+    "exact_historical_error_text_not_available": true,
+    "last_step": "read_live",
+    "once_claimed": false,
+    "operation": "971b34b5f4fd4e12986f9f64f09a730c"
+  },
+  "r1_sources_and_both_deliveries_preserved": true,
+  "regressions": {
+    "all_five_observed_production_route_pins_reproduced": true,
+    "candidate_byte_identical_for_two_fixtures": true,
+    "changed_config_still_refused": true,
+    "original_inspector_parser_functions_ast_identical": true,
+    "r1_refusal_reproduced_with_independent_inspector_pins": true,
+    "r2_full_transform_guards_accept_reconstructed_routes": true,
+    "unknown_exception_content_redacted": true
+  },
+  "schema": "portal-skillhub-edge-r2-qualification.v1",
+  "source_files": {
+    "deploy/enterprise/package-skillhub-edge-activation-20261106-r2.py": {
+      "bytes": 2172,
+      "sha256": "4151c5174cce9c9fc99de212d3625245abdc60895640c9fb902728d4143b2b7f"
+    },
+    "deploy/enterprise/skillhub_edge_activation_20261106_r2.py": {
+      "bytes": 38286,
+      "sha256": "bcfc02cdbb10083d9c0915ed402da73fbe3f1f720d8e4855fa218a51f30d6dba"
+    },
+    "deploy/enterprise/skillhub_nginx_auth_transform_20261106_r2.py": {
+      "bytes": 28386,
+      "sha256": "cdb21eb0c088071455f731ea96408e569e5decc082d9e63a688034ab469eb006"
+    },
+    "tests/test_skillhub_edge_activation_20261106_r2.py": {
+      "bytes": 21637,
+      "sha256": "1bcfc456d3b33ac9ac3a22e046f57844c5ad5fcd9e5d174973409b8e99f4b305"
+    },
+    "tests/test_skillhub_nginx_auth_transform_20261106_r2.py": {
+      "bytes": 26702,
+      "sha256": "eac1f293fdca5b14d7ab65a90ca818488bea9145cdc7f5277e43ec230372eb68"
+    }
+  },
+  "status": "R2_PREPARED_AND_REVIEWED_NOT_DEPLOYED",
+  "tool": {
+    "bytes": 68166,
+    "filename": "activate-portal-skillhub-edge-auth-20261106-r2.py",
+    "sha256": "7dc6f26bf02f7ecae181d9d48b73417599345ef14634166ce3e376bfb38a536f"
+  },
+  "windows_bound_wrong_host": {
+    "commands": 0,
+    "configmap_patch_requests": 0,
+    "error_code": "ROOT_ISOLATED_DATAX01_REQUIRED",
+    "once_claimed": false
+  },
+  "windows_tests": {
+    "controller_passed": 27,
+    "failed": 0,
+    "policy_passed": 29,
+    "skipped": 0,
+    "total_passed": 56
+  }
+}

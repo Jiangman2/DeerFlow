@@ -1,0 +1,23 @@
+{
+  "compiler": "Java 21",
+  "original_runtime_dependencies_preserved": true,
+  "production_deployed": false,
+  "schema": "skillhub-auth-compiled-source-binding.v1",
+  "sources": [
+    {
+      "class_bytes": 4053,
+      "class_path": "integration/deerflow/DeerFlowRouteSecurityPolicyRegistry.class",
+      "class_sha256": "625596c3bef759024d909fe0265160ffa94f022f434ef764eec0116b15752ec4",
+      "source": "k8s/skillhub/server-overlay/src/main/java/com/iflytek/skillhub/integration/deerflow/DeerFlowRouteSecurityPolicyRegistry.java",
+      "source_sha256_lf": "3adc1e46fee1eaebccaca92cdd2ec4a83b9b0b477a332bf48bb7007ee0ab9326"
+    },
+    {
+      "class_bytes": 7031,
+      "class_path": "compat/ClawHubRegistrySecurityConfig.class",
+      "class_sha256": "0c5517708d2cb7fd54352b647f8180c725d536b580a5d0a783abf099aba7aa7e",
+      "source": "k8s/skillhub/server-overlay/src/main/java/com/iflytek/skillhub/compat/ClawHubRegistrySecurityConfig.java",
+      "source_sha256_lf": "e74b99180b38af43f60d994140d87ece7ff01c29adaf61ca8909653290c89e15"
+    }
+  ],
+  "upstream_commit": "b896c698cde8e50e58023bb80eb1004bcf67fdd5"
+}

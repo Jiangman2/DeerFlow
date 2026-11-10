@@ -1,0 +1,121 @@
+{
+  "schema": "portal-skillhub-auth-preload-tool-qualification.v1",
+  "qualification_date": "2026-11-06",
+  "status": "LOCAL_TOOL_CHECKS_ACCEPTED_PRODUCTION_IMPORT_NOT_EXECUTED",
+  "scope": "fixed_datax01_preload_script_generation_and_offline_safety_checks",
+  "script": {
+    "path": "deploy/enterprise/preload-portal-skillhub-registry-auth-datax01-20261106-r1.py",
+    "bytes": 93366,
+    "sha256": "0011cf466f5a4724a267d1c147ba10735ea66614a64e2265e0126c00dca5e188"
+  },
+  "generator": {
+    "path": "deploy/enterprise/package-skillhub-registry-auth-preload-20261106.py",
+    "bytes": 14495,
+    "sha256": "3b1f408282c06c53c0776efad99660b3a485bbc5f4a51e948a733078ec0d3a5f"
+  },
+  "tests": {
+    "path": "tests/test_skillhub_registry_auth_preload_20261106.py",
+    "bytes": 34480,
+    "sha256": "ba0c02a6391ddf5af0503f98ab522ff15ce01ceb3a1a5bf0f6cca2d4e8e15201",
+    "framework": "stdlib_unittest",
+    "windows": {
+      "python": "3.12.14",
+      "total": 35,
+      "passed": 33,
+      "failed": 0,
+      "skipped": 2,
+      "skip_scope": ["Linux dir_fd and ownership checks", "Linux symlink path semantics"]
+    },
+    "linux": {
+      "local_container_image": "python:3.12-slim",
+      "image_pull_requested": false,
+      "network": "none",
+      "root_filesystem": "read_only",
+      "repository_mount": "read_only",
+      "temporary_filesystem": "private_tmpfs_64MiB",
+      "total": 35,
+      "passed": 35,
+      "failed": 0,
+      "skipped": 0
+    },
+    "coverage": [
+      "fixed_component_image_and_node_pins",
+      "preserved_hash_pinned_importer_helpers",
+      "original_tag_requires_index_not_platform_digest",
+      "optional_old_alias_absence_preserved",
+      "fresh_node_uid_readiness_and_disk_pressure",
+      "effective_kubelet_gc_and_eviction_policy",
+      "exact_import_and_candidate_tag_mutation_allowlist",
+      "bounded_command_count",
+      "shared_root_filesystem_cost_and_reserve_accounting",
+      "preflight_failure_creates_no_once_marker",
+      "existing_once_marker_refusal",
+      "complete_archive_closure_compressed_hash_and_diff_id",
+      "private_archive_names_only_unique_temporary_candidate",
+      "input_symlink_refusal",
+      "two_phase_import_control_flow_with_mocked_runtime",
+      "interrupted_import_preserves_uncertain_phase_without_retry",
+      "already_complete_candidate_is_verified_without_import",
+      "full_fifteen_layer_controller_mock_82_commands_4_mutations_old_alias_absent_and_present"
+    ]
+  },
+  "mocked_full_controller_budget": {
+    "candidate_layers": 15,
+    "optional_old_alias_cases": ["all_absent", "all_present_with_expected_identity"],
+    "controller_commands_per_case": 82,
+    "preclaim_reads_accounted_separately": 11,
+    "combined_accounted_commands": 93,
+    "controller_command_limit": 140,
+    "simulated_mutation_commands_per_case": 4,
+    "simulated_mutations": ["temporary_reference_import_without_unpack", "temporary_reference_import_with_unpack", "candidate_tag_creation", "candidate_digest_reference_creation"],
+    "controller_call_verify_publish_import_phase_functions_retained": true,
+    "runtime_outputs_and_private_io_mocked": true,
+    "archive_payload_imported": false,
+    "full_main_executed": false
+  },
+  "python37_entry_guard": {
+    "local_container_image": "python:3.7.17-alpine",
+    "actual_entry_executed": true,
+    "flags": ["-I", "-B", "-u"],
+    "hostname": "skillhub-offline-guard",
+    "network": "none",
+    "root_filesystem": "read_only",
+    "script_mount": "read_only",
+    "expected_exitcode": 1,
+    "observed_exitcode": 1,
+    "observed_error_code": "fixed_skillhub_node_required",
+    "observed_failure_phase": "HOST_AND_ARGUMENTS",
+    "mutation_once_claimed": false,
+    "image_import_requested": false,
+    "application_started": false,
+    "status": "PASS_EXPECTED_WRONG_HOST_REFUSAL"
+  },
+  "actual_candidate_archive_inspection": {
+    "archive": "skillhub.registry-auth-r1.full.oci.tar",
+    "bytes": 848886784,
+    "sha256": "d2e8fbebeddc1a4667dfae26eefb5a9f83e79ce4fcb1724361e09d1d4c561728",
+    "manifest": "sha256:4f3118867605fea38508bbc38014c731155b43296771c2cd61fb53d82f43bb68",
+    "config": "sha256:a879b4980c86299373079e63fbda8df76bb62873aea32e4a9021fa50ca094db7",
+    "platform": "linux/arm64",
+    "layers": 15,
+    "archive_transport_sha256_checked": true,
+    "all_compressed_blob_hashes_checked": true,
+    "all_uncompressed_layer_diff_ids_checked": true,
+    "exact_blob_closure_checked": true,
+    "raw_layer_tar_bytes_total": 1144445440,
+    "layer_members_total": 6081,
+    "filesystem_extraction_performed": false,
+    "used_to_generate_early_resource_costs": true
+  },
+  "limitations": {
+    "full_containerd_import_test_performed": false,
+    "production_node_access_performed": false,
+    "production_preload_executed": false,
+    "production_cri_visibility_proven": false,
+    "production_rollout_executed": false,
+    "skillhub_application_started_by_this_qualification": false,
+    "database_access": false,
+    "independent_review_recorded_here": false,
+    "ready_for_rollout": false
+  }
+}

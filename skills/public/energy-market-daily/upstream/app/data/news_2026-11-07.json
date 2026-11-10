@@ -1,0 +1,98 @@
+{
+  "publication_date": "2026-11-07",
+  "news_as_of": "2026-11-07T23:59:59+08:00",
+  "retrieved_at": "2026-11-09T16:29:53.415443+08:00",
+  "edition_basis": "按11月7日期次回溯选编，检索实际发生于11月9日，未纳入11月8日及以后新闻",
+  "market_news": [
+    {
+      "title": "美国扩大对伊朗关联资金网络制裁",
+      "text": "美国财政部制裁加拿大境内8家资金服务企业，指控其协助伊朗关联主体转移资产；相关在美财产被冻结，未经授权的相关交易被禁止。",
+      "source": "新华社",
+      "published": "2026-11-07",
+      "event_date": "2026-11-06",
+      "url": "https://www.news.cn/world/20261107/adc342f91947423b9b2b5097985f47bb/c.html",
+      "retrieved_at": "2026-11-09T16:28:28.456595+08:00",
+      "evidence": "sources/1107-market-0.txt",
+      "original_text_archive": "sources/1107-market-0.txt"
+    },
+    {
+      "title": "国际能源署警示供应安全风险延续",
+      "text": "据报道，国际能源署署长认为，能源市场2027年难以恢复战前状态，供应瓶颈及运输路线变化仍将影响市场，推动各国分散能源来源。",
+      "source": "Offshore Energy",
+      "published": "2026-11-05",
+      "event_date": null,
+      "url": "https://www.offshore-energy.biz/2026/11/05/energy-security-to-keep-running-the-show-into-2027-amid-market-shifts-iea-chief-warns",
+      "retrieved_at": "2026-11-09T16:28:28.918778+08:00",
+      "evidence": "sources/1107-market-2.txt",
+      "original_text_archive": "sources/1107-market-2.txt"
+    },
+    {
+      "title": "东北新增煤制气气源投入保供",
+      "text": "中国大唐阜新煤制天然气项目首条生产线11月2日投产并接入国家管网，设计年产天然气13.3亿立方米，为东北、华北地区增加供应。",
+      "source": "新华网",
+      "published": "2026-11-06",
+      "event_date": "2026-11-02",
+      "url": "https://www.news.cn/energy/20261106/a3fc1bb7b6f14c1e95f6378ff29b9366/c.html",
+      "retrieved_at": "2026-11-09T16:25:40.889653+08:00",
+      "evidence": "sources/1107-news-5.txt",
+      "original_text_archive": "sources/1107-news-5.txt"
+    }
+  ],
+  "company_news": [
+    {
+      "title": "中国石油进博会采购签约超188亿美元",
+      "text": "与35家伙伴签署38份采购协议，来源覆盖16个国家和地区，涉及油气资源、高端装备、绿色低碳等领域，签约金额较去年稳中有升。",
+      "source": "新华网",
+      "published": "2026-11-06",
+      "event_date": "2026-11-06",
+      "url": "https://www.news.cn/energy/20261106/3f5ec34e6c73431d85664c98c83d60a6/c.html",
+      "retrieved_at": "2026-11-09T16:25:40.857709+08:00",
+      "evidence": "sources/1107-news-4.txt",
+      "original_text_archive": "sources/1107-news-4.txt"
+    },
+    {
+      "title": "法国能源公司 TotalEnergies 扩大 LNG 长协布局",
+      "text": "与阿联酋天然气公司 ADNOC Gas 签署五年合计最多160万吨供气协议；另与江苏国信签署15年、每年90万吨采购框架协议，拟2028年起供，尚待最终购销协议。",
+      "source": "Offshore Energy",
+      "published": "2026-11-06",
+      "event_date": null,
+      "url": "https://www.offshore-energy.biz/2026/11/06/totalenergies-locks-in-lng-supply-from-adnoc-and-offtake-deal-with-chinese-firm",
+      "retrieved_at": "2026-11-09T16:25:40.961801+08:00",
+      "evidence": "sources/1107-news-3.txt",
+      "original_text_archive": "sources/1107-news-3.txt"
+    },
+    {
+      "title": "四家油气公司联合开发马来西亚气田",
+      "text": "泰国油气公司 PTTEP、法国能源公司 TotalEnergies、科威特勘探公司 KUFPEC 与马来西亚国家石油公司 Petronas 签署权益转让协议，拟协同开发资源量超6.5万亿立方英尺的气田，尚待监管批准。",
+      "source": "Offshore Energy",
+      "published": "2026-11-06",
+      "event_date": null,
+      "url": "https://www.offshore-energy.biz/2026/11/06/oil-and-gas-quartet-partners-up-to-unlock-over-65-trillion-cubic-feet-of-asian-gas",
+      "retrieved_at": "2026-11-09T16:25:40.547195+08:00",
+      "evidence": "sources/1107-news-1.txt",
+      "original_text_archive": "sources/1107-news-1.txt"
+    },
+    {
+      "title": "美国 LNG 公司 Venture Global 推进 CP2 扩建",
+      "text": "澳大利亚工程公司 Worley 获得扩建项目工程、采购和施工合同。Venture Global 计划2027年初作出最终投资决定，目前尚未完成该决定。",
+      "source": "Offshore Energy",
+      "published": "2026-11-06",
+      "event_date": null,
+      "url": "https://www.offshore-energy.biz/2026/11/06/worley-on-epc-duty-at-venture-globals-us-lng-expansion-project",
+      "retrieved_at": "2026-11-09T16:25:40.612355+08:00",
+      "evidence": "sources/1107-news-2.txt",
+      "original_text_archive": "sources/1107-news-2.txt"
+    },
+    {
+      "title": "菲律宾能源公司 Prime Energy 深水项目产气",
+      "text": "Malampaya 四期接入两口新井，较原计划提前约五个月；投资接近10亿美元，新增预计可采天然气储量2220亿立方英尺，后续仍将逐步爬产。",
+      "source": "Offshore Energy",
+      "published": "2026-11-06",
+      "event_date": "2026-11-05",
+      "url": "https://www.offshore-energy.biz/2026/11/06/first-gas-gushes-out-of-southeast-asian-deepwater-project",
+      "retrieved_at": "2026-11-09T16:25:40.587139+08:00",
+      "evidence": "sources/1107-news-0.txt",
+      "original_text_archive": "sources/1107-news-0.txt"
+    }
+  ]
+}

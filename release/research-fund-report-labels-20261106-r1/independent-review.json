@@ -1,0 +1,183 @@
+{
+  "budget_regression_independent": {
+    "command_limit": 180,
+    "fourth_round_success_with_final_guard_and_longest_cleanup_reserve": {
+      "counter": 170,
+      "outcome": "PASS_WITH_FINAL_CLEANUP_RESERVE",
+      "remaining": 10,
+      "rounds": 4,
+      "seconds": 45
+    },
+    "initial_counter": 95,
+    "method": "Actual updated host command guard and propagation loop; subprocess responses and time are mocked. Initial counter is the normal 36-query publication point plus 59 queries for longest permitted Pod startup polling; this is a focused budget simulation, not a complete production controller run.",
+    "persistent_last_node_delay": {
+      "budget_exhausted": false,
+      "counter": 139,
+      "error": "GATEWAY_SKILL_MANIFEST_CHANGED",
+      "remaining": 41,
+      "rounds": 4,
+      "seconds": 45
+    },
+    "production_calls": 0
+  },
+  "code_scope": {
+    "added_skill_files": [
+      "scripts/report_display.py"
+    ],
+    "before_tree_sha256": "28944ec28d4644acb09cd10eb8e73dc546a4250d0c21172d325b23cb713d7d43",
+    "calculation_code_changed": false,
+    "changed_existing_skill_files": [
+      "SKILL.md",
+      "references/group-company.md",
+      "references/layout-contract.md",
+      "scripts/group_build.py",
+      "scripts/template_builder.py"
+    ],
+    "historical_receipts_changed": false,
+    "reference_templates_changed": false
+  },
+  "display_review": {
+    "body_financial_text_and_section_geometry_unchanged": true,
+    "existing_footer_parts_and_page_fields_preserved": true,
+    "group_numbering_only": {
+      "abstractNumId": "3",
+      "after": "%1.",
+      "before": "(%1)",
+      "level": "0",
+      "numId": "9"
+    },
+    "independent_generation_comparison": "Current output compared against same-case output with only the display transform disabled; ephemeral files were cleaned. This was structural comparison, not visual rendering.",
+    "inspect_status_by_profile": {
+      "group_company": "PASS",
+      "miit": "PASS",
+      "national_science": "PASS"
+    },
+    "label": {
+      "alignment": "right",
+      "color": "000000",
+      "font_points": 9,
+      "text": "AI\u81ea\u52a8\u751f\u6210"
+    },
+    "miit_first_footer_copy_preserves_entire_original_footer": true,
+    "one_new_footer_part_and_one_relationship_and_content_type": true,
+    "only_first_section_first_footer_reference_and_titlePg_added": true,
+    "profiles": [
+      "group_company",
+      "national_science",
+      "miit"
+    ],
+    "visual_qa_owned_by_parent": true
+  },
+  "findings_resolved": [
+    {
+      "issue": "Qualification plan referenced five nonexistent renamed report_labels tests.",
+      "resolution": "Restored existing round3 test paths without copying or renaming historical tests."
+    },
+    {
+      "issue": "Unbounded-by-count 3-second propagation loops could exhaust the host command budget after publication.",
+      "original_reproduction": {
+        "command_counter": 181,
+        "error": "COMMAND_BUDGET",
+        "method": "Actual host command budget and verify_after_publication control flow with mocked subprocess GET responses and mocked clock; each last-node mismatch costs 11 queries.",
+        "prepublication_counter": 36,
+        "production_calls": 0,
+        "seconds": 39
+      },
+      "resolution": "At most four full verification rounds within the existing 45-second observation window."
+    }
+  ],
+  "github_mutations": 0,
+  "observed_at": "2026-11-06T05:31:13.240018+00:00",
+  "production_mutations": 0,
+  "production_requests": 0,
+  "publication_boundaries_reviewed": {
+    "currently_unbound": true,
+    "database_or_gateway_mutation_commands_allowed": false,
+    "failure_does_not_replay_publication": true,
+    "fresh_readonly_receipt_and_old_tree_required": true,
+    "gateway_runner_provisioner_specs_preserved": true,
+    "mixed_gateway_rollout_refused": true,
+    "old_backup_and_receipt_paths_not_reused": true,
+    "one_shared_public_skill_stage_publish_only": true,
+    "only_constructed_maintenance_pod_create_and_uid_precondition_delete_allowed": true,
+    "prior_release_receipt_exact_bytes_hash_operation_required": true
+  },
+  "release_tests": {
+    "actual_rolling_observation_refused": true,
+    "argv": [
+      "-I",
+      "-B",
+      "tests/test_research_fund_report_labels_release_20261106.py",
+      "-q"
+    ],
+    "failed": 0,
+    "overlapping_runs_not_added": true,
+    "passed": 14,
+    "runtime": "C:/Users/15285/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe",
+    "unbound_host_zero_action_refusal": true
+  },
+  "remaining_code_blockers_found": [],
+  "remaining_delivery_conditions": [
+    "Obtain an unmodified fresh readonly observation with fully converged current Gateway and required node coverage; the existing rolling observation cannot authorize publication.",
+    "Complete and archive actual isolated installation qualification of the frozen candidate and bound synthetic qualifier.",
+    "Bind the reviewed fresh observation, exact prior receipt, candidate tree and qualification evidence; compare generated standalone and embedded sources with reviewed files.",
+    "Check final bound remote -c argument UTF-8 length against the Linux per-argument limit and run Python 3.7 wrong-host/no-action entry protection.",
+    "Archive final standalone bytes and SHA256 only after final review; do not publish or execute the currently unbound template."
+  ],
+  "reviewed_sources": [
+    {
+      "bytes": 7044,
+      "path": "skills/public/research-fund-settlement/scripts/report_display.py",
+      "sha256": "3846aabdcf515e73be3e3d8951923f85e84a2b3269c98bc18c8bd937fa85c3b8"
+    },
+    {
+      "bytes": 6814,
+      "path": "skills/public/research-fund-settlement/scripts/group_build.py",
+      "sha256": "e148fca7858788ae9cd364b6d22217275707f44d6a79208154c97df28111cdc1"
+    },
+    {
+      "bytes": 43649,
+      "path": "skills/public/research-fund-settlement/scripts/template_builder.py",
+      "sha256": "1bec0061aba4474bba2ef1ad34fc2b2d0905f159d9c65d9bbe3b82f15dac7639"
+    },
+    {
+      "bytes": 15839,
+      "path": "release/research-fund-report-labels-20261106-r1/report_labels_release_builder.py",
+      "sha256": "d0602ace0e6c8ec59bbdd63055ead87edcd27c302b93134b77452a320a2b394e"
+    },
+    {
+      "bytes": 15276,
+      "path": "release/research-fund-report-labels-20261106-r1/report_labels_remote.py",
+      "sha256": "c520e9344ee857fa9752a5a652c9be67922b0fde9762642674fa33956b82a2ce"
+    },
+    {
+      "bytes": 25165,
+      "path": "release/research-fund-report-labels-20261106-r1/report_labels_updater_template.py",
+      "sha256": "ef0ff324c2107f1926bd6500b18448b627f4bf7c92f98e85b370e801f6d83940"
+    },
+    {
+      "bytes": 4795,
+      "path": "release/research-fund-report-labels-20261106-r1/report_labels_qualification_plan.py",
+      "sha256": "b3879a2ba77676a81e6aea86557f5ea435d1b5e3fcfba7acb3bfaa6949725613"
+    },
+    {
+      "bytes": 9547,
+      "path": "release/research-fund-report-labels-20261106-r1/report_labels_qualifier_template.py",
+      "sha256": "3212d08bf16bea0136736b39f1eed673b84233c808d32661e927f66330e13a46"
+    },
+    {
+      "bytes": 3608,
+      "path": "release/research-fund-report-labels-20261106-r1/report_labels_bind.py",
+      "sha256": "5dd4019435d8adff00604421b33e43269c5a588cf67a84ab8f6b1705a8685e34"
+    },
+    {
+      "bytes": 10377,
+      "path": "tests/test_research_fund_report_labels_release_20261106.py",
+      "sha256": "8d07bbd1fffe995bffd87a97146fa1e8a13d36c996d621e425d621dabc37aefd"
+    }
+  ],
+  "reviewer": "pr40_ci_followup",
+  "schema": "research-fund-report-labels-independent-review.v1",
+  "status": "OFFLINE_REVIEW_ACCEPTED_PRODUCTION_BINDING_PENDING",
+  "tests_rerun_for_archival": false
+}

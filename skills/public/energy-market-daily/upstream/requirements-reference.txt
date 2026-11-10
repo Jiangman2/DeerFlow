@@ -1,0 +1,6 @@
+requests==2.27.1
+openpyxl==3.0.9
+playwright==1.60.0
+Pillow==9.0.1
+beautifulsoup4==4.11.1
+fonttools==4.25.0

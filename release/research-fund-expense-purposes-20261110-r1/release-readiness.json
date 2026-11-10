@@ -1,0 +1,45 @@
+{
+  "baseline_sha256": "9dbfd039001fccd340dc97ecde8cb8065a03b41caabc507d412633ca372a5132",
+  "baseline_status": "READONLY_EXPENSE_PURPOSES_BASELINE_ACCEPTED_NO_CHANGE",
+  "before_tree_sha256": "883b98f54f2756c218e98bb535d4d6265fb7bd1fffc2049a54bbac7746ea39dc",
+  "business_acceptance_pending": true,
+  "candidate_tree_sha256": "0b417f6540cbab2f35ce9bbde28efe0d9d214273bf4fbf9baf47734f9ea01c85",
+  "changed_skill_files": [
+    "SKILL.md",
+    "references/data-contract.md",
+    "references/group-company.md",
+    "scripts/group_template.py"
+  ],
+  "exact_bundle_local_install": {
+    "backup_verified": true,
+    "command_checks": 9,
+    "passed": 320,
+    "publication_verified": true,
+    "qualifier_invocations": 1,
+    "status": "PASS"
+  },
+  "file": {
+    "bytes": 899500,
+    "name": "update-portal-research-fund-expense-purposes-20261110-r1.py",
+    "sha256": "a4725100490de32c20e324955d8bd516122ebdc175d48f3afe56310920b426f9"
+  },
+  "financial_regressions": {
+    "linux_passed": 320,
+    "windows_passed": 320
+  },
+  "preflight_checks": {
+    "linux_passed": 46,
+    "windows_linux_only_skipped": 1,
+    "windows_passed": 45
+  },
+  "production_actions": 0,
+  "python37_syntax": true,
+  "release_boundary_checks": {
+    "linux_passed": 20,
+    "windows_passed": 20
+  },
+  "schema": "research-fund-expense-purposes-release-readiness.v1",
+  "status": "READY_FOR_OPERATOR_UPDATE_NOT_DEPLOYED",
+  "visual_review": "16-page synthetic report rendered with Microsoft Word; pages 1, 5, 6, 7 inspected; original template unchanged",
+  "wrong_host_zero_actions_verified": true
+}

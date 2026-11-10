@@ -1,0 +1,78 @@
+{
+  "authenticated_browser_and_business_acceptance_pending": true,
+  "full_raw_tool_output_archived": false,
+  "nginx_edge_activation_pending": true,
+  "observations": [
+    {
+      "body_bytes": 11470,
+      "fabricated_bearer": false,
+      "http_status": 307,
+      "output_bound_exceeded": false,
+      "path": "/workspace/skills"
+    },
+    {
+      "body_bytes": 152,
+      "business_code": 401,
+      "fabricated_bearer": false,
+      "http_status": 401,
+      "output_bound_exceeded": false,
+      "path": "/platform/skillhub/api/web/labels"
+    },
+    {
+      "body_bytes": 152,
+      "business_code": 401,
+      "fabricated_bearer": true,
+      "http_status": 401,
+      "output_bound_exceeded": false,
+      "path": "/platform/skillhub/api/web/labels"
+    },
+    {
+      "body_bytes": 152,
+      "business_code": 401,
+      "fabricated_bearer": false,
+      "http_status": 401,
+      "output_bound_exceeded": false,
+      "path": "/platform/skillhub/api/web/skills?page=0&size=1"
+    },
+    {
+      "body_bytes": 152,
+      "business_code": 401,
+      "fabricated_bearer": true,
+      "http_status": 401,
+      "output_bound_exceeded": false,
+      "path": "/platform/skillhub/api/web/skills?page=0&size=1"
+    }
+  ],
+  "observed_at": "2026-11-06T03:07:23.194836+00:00",
+  "origin": "https://cnoocclaw.cnooc.com.cn",
+  "original_probe_output_modified": false,
+  "probe_boundaries": {
+    "automatic_retry": false,
+    "configuration_modified": false,
+    "cookies_used": false,
+    "http_requests": 5,
+    "provider_requests": 0,
+    "redirects_followed": false,
+    "valid_credentials_used": false
+  },
+  "probe_rerun_by_record_writer": false,
+  "production_actions_performed_by_record_writer": false,
+  "raw_http_responses_or_bodies_archived": false,
+  "schema": "portal-skillhub-public-anonymous-backend-acceptance.v1",
+  "separate_known_native_acceptance": {
+    "canonical_reconstruction": "ACTIVATION-R2-REPORT-RECONSTRUCTED.json",
+    "evidence": "ACTIVATION-R2-OPERATOR-SUMMARY.json",
+    "operation": "25f363cb9f254e00b9f9dd196b2ade97",
+    "report_bytes": 7130,
+    "report_sha256": "29e159302c129098c28786ab4dd8267724d31ebe28e37f02293186b31d033c38",
+    "source": "operator_supplied_activation_receipt",
+    "status": "SKILLHUB_REGISTRY_AUTH_RUNTIME_ACCEPTED_EDGE_PENDING"
+  },
+  "source": "root_agent_tool_observed_summary",
+  "standalone_probe_scope": {
+    "internal_service_acceptance_pending": true,
+    "meaning": "The public anonymous probe alone does not establish internal service acceptance; this field from its original result is preserved."
+  },
+  "status": "ANONYMOUS_API_REJECTED",
+  "valid_native_bearer_production_acceptance_claimed": false
+}

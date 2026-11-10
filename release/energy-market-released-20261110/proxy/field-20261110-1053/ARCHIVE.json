@@ -1,0 +1,25 @@
+{
+  "schema": "operator-paste-archive.v1",
+  "original_source": "C:\\Users\\15285\\.codex\\attachments\\e1535113-b193-4040-8664-6ee2ecea406b\\已粘贴的文本.txt",
+  "files": {
+    "operator-paste.txt": {
+      "bytes": 7401,
+      "sha256": "bea38e9640edcb90af85e4a70b57a82bdecf3af1ba32f28ae0d77c8a9d7d8502"
+    },
+    "proxy-inspection.normalized.json": {
+      "bytes": 8421,
+      "sha256": "4a96e518ab1360ecbf16fe1360306a0ffb2069c48e2085e77dde1aa9109ebd96"
+    }
+  },
+  "normalization": "Markdown URL wrappers removed in derived JSON only; exact source retained.",
+  "operator_server_report_hash_is_not_derived_json_hash": true,
+  "claims": [
+    "Configured proxy returned HTTP 200 to one uncredentialed supplier request from collector Pod.",
+    "No production mutation; no supplier credentials read in this inspection."
+  ],
+  "not_claimed": [
+    "Authenticated current target response",
+    "Complete market quotes",
+    "Daily report or Work delivery"
+  ]
+}
