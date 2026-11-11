@@ -157,8 +157,13 @@ export default function LoginPage() {
       const endpoint = isLogin
         ? "/api/v1/auth/login/local"
         : "/api/v1/auth/register";
+      // Local test bench convenience: allow a bare handle ("1") to sign in as
+      // the matching local account ("1@1.cn"). The backend user model still
+      // stores and validates a real email; signup keeps the strict form.
+      const identifier =
+        isLogin && !email.includes("@") ? `${email}@1.cn` : email;
       const body = isLogin
-        ? `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
+        ? `username=${encodeURIComponent(identifier)}&password=${encodeURIComponent(password)}`
         : JSON.stringify({ email, password });
 
       const headers: HeadersInit = isLogin
@@ -230,7 +235,7 @@ export default function LoginPage() {
             </label>
             <Input
               id="email"
-              type="email"
+              type={isLogin ? "text" : "email"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={t.login.emailPlaceholder}
@@ -248,7 +253,9 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder={t.login.passwordPlaceholder}
               required
-              minLength={isLogin ? 6 : 8}
+              // Login only checks the stored hash; the length floor is a signup
+              // policy, so a short throwaway password must still be attemptable.
+              minLength={isLogin ? 1 : 8}
             />
           </div>
 

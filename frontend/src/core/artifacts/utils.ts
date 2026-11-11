@@ -120,6 +120,23 @@ export function filterUserVisibleArtifacts(
   );
 }
 
+/** Files under this mount are the only ones a thread may upload outward. */
+export const FEISHU_SENDABLE_ARTIFACT_PREFIX = "/mnt/user-data/outputs/";
+
+/**
+ * Whether a generated file may be pushed to the user's 海能 Work chat.
+ *
+ * Mirrors the gateway's `_resolve_artifact_for_send`: only files published
+ * under the thread's `outputs/` mount are eligible. Skill bundles are agent
+ * instructions rather than deliverables, so the UI never offers them.
+ */
+export function isFeishuSendableArtifact(filepath: string): boolean {
+  return (
+    filepath.startsWith(FEISHU_SENDABLE_ARTIFACT_PREFIX) &&
+    !filepath.endsWith(".skill")
+  );
+}
+
 export function artifactPathFromHref(
   href: string | undefined,
   threadId: string,

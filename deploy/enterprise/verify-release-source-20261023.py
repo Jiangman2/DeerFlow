@@ -36,6 +36,10 @@ _work_followup_spec = importlib.util.spec_from_file_location("work_integration_s
 work_followup = importlib.util.module_from_spec(_work_followup_spec)
 _work_followup_spec.loader.exec_module(work_followup)
 
+_im_s08_spec = importlib.util.spec_from_file_location("im_s08_source_20261111", Path(__file__).with_name("im_s08_source_20261111.py"))
+im_s08 = importlib.util.module_from_spec(_im_s08_spec)
+_im_s08_spec.loader.exec_module(im_s08)
+
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = 'deploy/enterprise/production-source-lock-20261029.json'
 RUNNER = 'release/production-source-20261022/ppt-master-runner/'
@@ -61,6 +65,10 @@ WORK_AUTHORITY_SANITIZER_DELTA = 'deploy/enterprise/work-authority-sanitizer-sou
 WORK_AUTHORITY_SANITIZER_BASE_COMMIT = 'a651e31ee39cb88d123989b083d0f490bd96162f'
 WORK_AUTHORITY_SANITIZER_PATH = 'backend/packages/harness/deerflow/agents/middlewares/input_sanitization_middleware.py'
 WORK_AUTHORITY_SANITIZER_SHA256 = '6db8263377b00c07151cb8f8da84b220fdc034aa0e828c0438c3de3daf8b58e3'
+FEISHU_EXPORT_SOURCE = 'deploy/enterprise/feishu-export-source-candidate-20261106.json'
+FEISHU_EXPORT_SHA256 = '4cf42545941e8126bb374dbdcf9d5d1b7420bf13fa8b28d7b4ec6193f269f7ca'
+FEISHU_EXPORT_BASE_COMMIT = '2d6b9a7ed95c6a9a01114110a38585576c467451'
+FEISHU_EXPORT_NEW_GATEWAY_PATHS = frozenset({'backend/app/channels/audit.py'})
 
 
 def candidate_overrides(lock, manifest, lock_digest):
@@ -289,6 +297,39 @@ def work_authority_sanitizer_overrides(lock, prior, manifest, lock_digest, paren
     return {WORK_AUTHORITY_SANITIZER_PATH: digest}
 
 
+def feishu_export_overrides(lock, prior, manifest, lock_digest, parent_digest):
+    """Qualify the Feishu @-mention gate and export sources, leaving Runner unchanged."""
+    required = {'schema', 'status', 'base_commit', 'base_lock_sha256', 'parent_candidate_sha256', 'changes', 'scope'}
+    assert isinstance(manifest, dict) and set(manifest) == required, 'FEISHU_EXPORT_SCHEMA'
+    assert manifest['schema'] == 'feishu-export-source-candidate.v1', 'FEISHU_EXPORT_SCHEMA'
+    assert manifest['status'] == 'NOT_DEPLOYED', 'FEISHU_EXPORT_NOT_DEPLOYED_REQUIRED'
+    assert manifest['base_commit'] == FEISHU_EXPORT_BASE_COMMIT, 'FEISHU_EXPORT_BASE_COMMIT'
+    assert manifest['base_lock_sha256'] == lock_digest, 'FEISHU_EXPORT_BASE_LOCK_CHANGED'
+    assert manifest['parent_candidate_sha256'] == parent_digest, 'FEISHU_EXPORT_PARENT_CHANGED'
+    assert isinstance(manifest['scope'], str) and manifest['scope'], 'FEISHU_EXPORT_SCHEMA'
+    changes = manifest['changes']
+    assert isinstance(changes, dict) and set(changes) == {'gateway', 'frontend'}, 'FEISHU_EXPORT_COMPONENT_SCOPE'
+    result = {}
+    for component, rows in changes.items():
+        assert isinstance(rows, dict) and rows, 'FEISHU_EXPORT_COMPONENT_SCOPE'
+        qualified = {}
+        for path, row in rows.items():
+            assert isinstance(row, dict) and set(row) == {'base_sha256', 'candidate_sha256'}, 'FEISHU_EXPORT_CHANGE_SCHEMA'
+            expected = prior.get(path, lock.get('format_normalizations', {}).get(path, {}).get(
+                'formatted_sha256', lock['source_sets'][component].get(path)))
+            if row['base_sha256'] is None:
+                assert expected is None, (path, 'FEISHU_EXPORT_UNEXPECTED_NEW_SOURCE')
+            else:
+                assert row['base_sha256'] == expected and expected is not None, (path, 'FEISHU_EXPORT_BASE_SOURCE_CHANGED', row['base_sha256'], expected)
+            digest = row['candidate_sha256']
+            assert isinstance(digest, str) and len(digest) == 64 and all(c in '0123456789abcdef' for c in digest), 'FEISHU_EXPORT_HASH_FORMAT'
+            qualified[path] = digest
+        result[component] = qualified
+    new_gateway = {path for path, row in changes['gateway'].items() if row['base_sha256'] is None}
+    assert new_gateway == set(FEISHU_EXPORT_NEW_GATEWAY_PATHS), 'FEISHU_EXPORT_NEW_SOURCE_SCOPE'
+    return result
+
+
 def syntax_fingerprint(raw, *, import_order=False):
     """Ignore layout; optionally sort only consecutive module-level imports."""
     tree = ast.parse(raw)
@@ -376,7 +417,7 @@ def verify(ref=None, lock_path=LOCK):
         if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, _nov02.followup.ARTIFACT_LISTING_BASE.rstrip('/')], cwd=ROOT).strip():
             extra.append(_nov02.followup.ARTIFACT_LISTING_BASE)
         extra += [row['baseline_path'] for row in selected_lock.get('line_ending_normalizations', {}).values()]
-        for manifest_path in (CANDIDATE, INCIDENT_DELTA, RELEASED_DELTA, "release/nov01-released-fixes-source-20261102/SOURCE.json", WORK_ROUTING_DELTA, WORK_TASK_AGENT_DELTA, WORK_TASK_AGENT_FIX_DELTA, WORK_TASK_AGENT_MODEL_FIX_DELTA, WORK_AUTHORITY_SANITIZER_DELTA):
+        for manifest_path in (CANDIDATE, INCIDENT_DELTA, RELEASED_DELTA, "release/nov01-released-fixes-source-20261102/SOURCE.json", WORK_ROUTING_DELTA, WORK_TASK_AGENT_DELTA, WORK_TASK_AGENT_FIX_DELTA, WORK_TASK_AGENT_MODEL_FIX_DELTA, WORK_AUTHORITY_SANITIZER_DELTA, FEISHU_EXPORT_SOURCE):
             if subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, manifest_path], cwd=ROOT).strip():
                 extra.append(manifest_path)
         if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, WORK_RELEASE_ALIGNMENT], cwd=ROOT).strip():
@@ -407,15 +448,21 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(_nov02.composer.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, work_followup.MANIFEST], cwd=ROOT).strip():
             extra.append(work_followup.MANIFEST)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, im_s08.ARCHIVE.rstrip("/")], cwd=ROOT).strip():
+            extra.append(im_s08.ARCHIVE)
         if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, pagination.MANIFEST], cwd=ROOT).strip():
             extra.append(pagination.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
             extra.append("release/artifact-delivery-recovery-20261109/")
-        raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
-            'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
+        roots = ['backend/app', 'backend/packages/harness']
+        if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, 'backend/scripts'], cwd=ROOT).strip():
+            roots.append('backend/scripts')
+        roots += ['frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra]
+        raw = subprocess.check_output(['git', 'archive', '--format=tar', ref, *roots], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
     current_read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    source_read = current_read
     current_read = pagination.historical_read(current_read)
     current_read, work_followup_manifest = work_followup.historical_view(current_read)
     composer_manifest = _nov02.composer.qualify(current_read)
@@ -434,6 +481,7 @@ def verify(ref=None, lock_path=LOCK):
     navigation = _nov02.followup.navigation.qualify(read)
     followup = _nov02.followup.qualify(read)
     read = _nov02.followup.historical_read(read)
+    im_s08_manifest = (work_followup_manifest or {}).get("im_s08_parent")
     lock_raw = read(lock_path)
     lock = json.loads(lock_raw)
     has_candidate = CANDIDATE in archived if archived is not None else (ROOT / CANDIDATE).is_file()
@@ -492,11 +540,27 @@ def verify(ref=None, lock_path=LOCK):
         sanitizer_manifest = json.loads(raw)
         sanitizer = work_authority_sanitizer_overrides(lock, {**production, **routing, **task_agent, **task_agent_fix, **model_fix, **aligned}, sanitizer_manifest,
             hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest(), hashlib.sha256(current_read(WORK_RELEASE_ALIGNMENT).replace(b'\r\n', b'\n')).hexdigest())
+    has_feishu_export = FEISHU_EXPORT_SOURCE in archived if archived is not None else (ROOT / FEISHU_EXPORT_SOURCE).is_file()
+    feishu_manifest = None
+    feishu = {'gateway': {}, 'frontend': {}}
+    if has_feishu_export:
+        raw = read(FEISHU_EXPORT_SOURCE).replace(b'\r\n', b'\n')
+        assert hashlib.sha256(raw).hexdigest() == FEISHU_EXPORT_SHA256, 'FEISHU_EXPORT_SEAL_CHANGED'
+        feishu_manifest = json.loads(raw)
+        parent_digest = hashlib.sha256(read(WORK_AUTHORITY_SANITIZER_DELTA).replace(b'\r\n', b'\n')).hexdigest() if has_sanitizer else FEISHU_EXPORT_SHA256
+        feishu = feishu_export_overrides(lock, {**production, **routing, **task_agent, **task_agent_fix, **model_fix, **aligned, **sanitizer}, feishu_manifest,
+            hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest(), parent_digest)
     normalizations = lock.get('format_normalizations', {})
     assert set(lock.get('qualification_test_overrides', {})) <= set(lock['source_sets']['frontend']), 'UNKNOWN_QUALIFICATION_TEST'
+    im_s08_overrides = {'gateway': {}, 'frontend': {}}
+    if im_s08_manifest is not None:
+        im_s08_prior = {**production, **routing, **task_agent, **task_agent_fix, **model_fix, **aligned, **sanitizer, **feishu}
+        im_s08_overrides = im_s08.overrides(lock, im_s08_prior, im_s08.load(source_read),
+            hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest(),
+            hashlib.sha256(source_read(FEISHU_EXPORT_SOURCE).replace(b'\r\n', b'\n')).hexdigest() if has_feishu_export else im_s08_manifest['parent_candidate_sha256'])
     results = []
     for component, expected in lock['source_sets'].items():
-        component_overrides = {**(overrides if component == 'gateway' else {}), **incident.get(component, {}), **released.get(component, {}), **nov02.get(component, {}), **(routing if component == 'gateway' else {}), **(task_agent if component == 'gateway' else {}), **(task_agent_fix if component == 'gateway' else {}), **(model_fix if component == 'gateway' else {}), **(aligned if component == 'gateway' else {}), **(sanitizer if component == 'gateway' else {})}
+        component_overrides = {**(overrides if component == 'gateway' else {}), **incident.get(component, {}), **released.get(component, {}), **nov02.get(component, {}), **(routing if component == 'gateway' else {}), **(task_agent if component == 'gateway' else {}), **(task_agent_fix if component == 'gateway' else {}), **(model_fix if component == 'gateway' else {}), **(aligned if component == 'gateway' else {}), **(sanitizer if component == 'gateway' else {}), **feishu.get(component, {}), **im_s08_overrides.get(component, {})}
         expected = {**expected, **component_overrides}
         prefix = RUNNER if component == 'ppt-master-runner' else ''
         if component != 'frontend':
@@ -517,7 +581,13 @@ def verify(ref=None, lock_path=LOCK):
                 raise AssertionError((component, 'SOURCE_SET_MISMATCH', sorted(actual ^ set(expected))))
         for name, digest in expected.items():
             if name in component_overrides:
-                raw = (current_read(name) if name in aligned or name in sanitizer else read(name)).replace(b'\r\n', b'\n')
+                if name in im_s08_overrides['gateway'] or name in im_s08_overrides['frontend']:
+                    raw = source_read(name)
+                elif name in aligned or name in sanitizer or name in feishu['gateway'] or name in feishu['frontend']:
+                    raw = current_read(name)
+                else:
+                    raw = read(name)
+                raw = raw.replace(b'\r\n', b'\n')
                 assert hashlib.sha256(raw).hexdigest() == digest, (name, 'CANDIDATE_HASH_MISMATCH')
                 if name.endswith('.py'):
                     ast.parse(raw, filename=name)
@@ -563,6 +633,7 @@ def verify(ref=None, lock_path=LOCK):
             'terminal_stream_candidate': {'status': 'NOT_DEPLOYED', 'frontend_runtime_paths': [terminal_stream.CLIENT, terminal_stream.HELPER]} if terminal_stream_candidate else None,
             'enterprise_source_followup': _nov02.followup.summary(followup),
             'work_integration_followup': work_followup_manifest,
+            'im_s08_source': im_s08_manifest,
             'sidechat_frontend_source': _nov02.followup.sidechat.summary(sidechat_manifest),
             'new_chat_model_source': _nov02.followup.new_chat.summary(new_chat_manifest),
             'dashboard_navigation_candidate': _nov02.followup.navigation.summary(navigation),
@@ -576,7 +647,8 @@ def verify(ref=None, lock_path=LOCK):
                           **({'work_task_agent_fix_delta': {'status': 'NOT_DEPLOYED', 'base_commit': task_agent_fix_manifest['base_commit'], 'changed_sources': len(task_agent_fix)}} if task_agent_fix_manifest is not None else {}),
                           **({'work_task_agent_model_fix_delta': {'status': 'NOT_DEPLOYED', 'base_commit': model_fix_manifest['base_commit'], 'changed_sources': len(model_fix)}} if model_fix_manifest is not None else {}),
                           **({'work_release_alignment': {'status': 'NOT_DEPLOYED', 'base_commit': alignment_manifest['base_commit'], 'changed_sources': len(aligned)}} if alignment_manifest is not None else {}),
-                          **({'work_authority_sanitizer_delta': {'status': 'NOT_DEPLOYED', 'base_commit': sanitizer_manifest['base_commit'], 'changed_sources': len(sanitizer)}} if sanitizer_manifest is not None else {})} if manifest else None}
+                          **({'work_authority_sanitizer_delta': {'status': 'NOT_DEPLOYED', 'base_commit': sanitizer_manifest['base_commit'], 'changed_sources': len(sanitizer)}} if sanitizer_manifest is not None else {}),
+                          **({'feishu_export_source': {'status': 'NOT_DEPLOYED', 'base_commit': feishu_manifest['base_commit'], 'changed_sources': len(feishu['gateway']) + len(feishu['frontend']), 'new_gateway_sources': sorted(FEISHU_EXPORT_NEW_GATEWAY_PATHS), 'frontend_runtime_paths': sorted(p for p in feishu['frontend'] if p.startswith(('frontend/src/', 'frontend/public/')))}} if feishu_manifest is not None else {})} if manifest else None}
 
 
 if __name__ == '__main__':

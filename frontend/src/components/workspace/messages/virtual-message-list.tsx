@@ -79,22 +79,16 @@ export function VirtualMessageList({
     }
     if (positionedInitialVirtualWindowRef.current) return;
 
-    const element = scrollRef.current;
-    if (!element) return;
     let frame = 0;
     let attempts = 0;
     let stableFrames = 0;
     let previousHeight = -1;
     let cancelled = false;
+    let element: HTMLElement | null = null;
+    let detachElementListeners: (() => void) | undefined;
     let finishRestoration: () => void = () => undefined;
     const restorationFinished = new Promise<void>((resolve) => {
       finishRestoration = resolve;
-    });
-    // Keep one scroll owner while estimated rows become measured rows. Native
-    // scrollTop writes bypass the stick-to-bottom hook's resize/escape tracking.
-    void scrollToBottom({
-      animation: "instant",
-      duration: restorationFinished,
     });
     const cancelRestoration = () => {
       cancelled = true;
@@ -104,7 +98,7 @@ export function VirtualMessageList({
       stopScroll();
     };
     const restoreBottom = () => {
-      if (cancelled) return;
+      if (cancelled || !element) return;
       // scrollToIndex uses estimates for rows outside the virtual window.
       // Anchor to the real scroll extent while the final rows are measured.
       state.scrollTop = Math.max(
@@ -126,17 +120,49 @@ export function VirtualMessageList({
       }
       frame = requestAnimationFrame(restoreBottom);
     };
-    element.addEventListener("wheel", cancelRestoration, { passive: true });
-    element.addEventListener("touchstart", cancelRestoration, {
-      passive: true,
-    });
-    restoreBottom();
+    const startRestoration = (scrollElement: HTMLElement) => {
+      element = scrollElement;
+      attempts = 0;
+      element.addEventListener("wheel", cancelRestoration, { passive: true });
+      element.addEventListener("touchstart", cancelRestoration, {
+        passive: true,
+      });
+      detachElementListeners = () => {
+        element?.removeEventListener("wheel", cancelRestoration);
+        element?.removeEventListener("touchstart", cancelRestoration);
+      };
+      // Keep one scroll owner while estimated rows become measured rows. Native
+      // scrollTop writes bypass the stick-to-bottom hook's resize/escape tracking.
+      void scrollToBottom({
+        animation: "instant",
+        duration: restorationFinished,
+      });
+      restoreBottom();
+    };
+    // The stick-to-bottom scroll element is owned by an ancestor, so it can
+    // attach after this child's layout effect already ran. Wait for it instead
+    // of giving up on the first pass, which would leave the first virtual
+    // window stranded mid-list.
+    const waitForScrollElement = () => {
+      if (cancelled) return;
+      const scrollElement = scrollRef.current;
+      if (scrollElement) {
+        startRestoration(scrollElement);
+        return;
+      }
+      if (attempts >= 60) {
+        finishRestoration();
+        return;
+      }
+      attempts += 1;
+      frame = requestAnimationFrame(waitForScrollElement);
+    };
+    waitForScrollElement();
     return () => {
       cancelled = true;
       cancelAnimationFrame(frame);
       finishRestoration();
-      element.removeEventListener("wheel", cancelRestoration);
-      element.removeEventListener("touchstart", cancelRestoration);
+      detachElementListeners?.();
     };
   }, [
     groups.length,

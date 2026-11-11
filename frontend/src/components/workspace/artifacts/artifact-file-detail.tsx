@@ -41,6 +41,7 @@ import {
   filterUserVisibleArtifacts,
   findPreviewPdfPath,
   guessPreviewPdfPaths,
+  isFeishuSendableArtifact,
   urlOfArtifact,
   urlOfPdfArtifactPreview,
 } from "@/core/artifacts/utils";
@@ -68,6 +69,7 @@ import { Tooltip } from "../tooltip";
 
 import { useArtifacts } from "./context";
 import { artifactMarkdownPlugins } from "./markdown-preview-plugins";
+import { SendArtifactToFeishuButton } from "./send-artifact-to-feishu";
 
 const WRITE_FILE_PREVIEW_REFRESH_INTERVAL_MS = 3000;
 const OFFICE_PREVIEW_PROBE_DELAYS_MS = [0, 300, 900] as const;
@@ -426,6 +428,15 @@ export function ArtifactFileDetail({
                   });
                 }}
                 tooltip={t.clipboard.copyToClipboard}
+              />
+            )}
+            {!isWriteFile && isFeishuSendableArtifact(filepath) && (
+              <SendArtifactToFeishuButton
+                threadId={threadId}
+                filepaths={[filepath]}
+                variant="ghost"
+                size="icon-sm"
+                showLabel={false}
               />
             )}
             {!isWriteFile && (

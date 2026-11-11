@@ -53,6 +53,8 @@ jobs:
       - run: python -B deploy/enterprise/verify-sidechat-frontend-source-20261106.py --ref HEAD
       - run: python -B deploy/enterprise/test_new_chat_model_source_20261105.py
       - run: python -B deploy/enterprise/test_work_integration_source_20261106.py
+      - run: python -B deploy/enterprise/test_im_s08_source_20261111.py
+      - run: python deploy/enterprise/verify-im-s08-source-20261111.py --ref HEAD
       - run: python deploy/enterprise/test_nov02_source_delta.py
       - run: python deploy/enterprise/test_dashboard_navigation_source_20261103.py
       - run: python deploy/enterprise/test_dashboard_navigation_frontend_package_20261103.py

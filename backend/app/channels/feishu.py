@@ -11,6 +11,10 @@ import time
 from collections import OrderedDict
 from typing import Any, Literal
 
+from app.channels.audit import (
+    ACTION_MESSAGE_SKIPPED,
+    schedule_channel_audit,
+)
 from app.channels.base import Channel
 from app.channels.commands import is_known_channel_command, strip_leading_mentions
 from app.channels.connection_identity import attach_connection_identity
@@ -36,6 +40,25 @@ logger = logging.getLogger(__name__)
 PENDING_CLARIFICATION_TTL_SECONDS = 30 * 60
 FEISHU_INBOUND_BATCH_WINDOW_SECONDS = 0.75
 SOURCE_PREVIEW_METADATA_KEY = "feishu_source_preview"
+# A quoted message is injected as plain text so a cross-thread reply ("what does
+# this mean?") reaches a model that has never seen the message it points at.
+QUOTED_MESSAGE_TEXT_LIMIT = 400
+# Feishu reports both ``group`` and ``topic`` for multi-person chats; a topic
+# chat is a group whose messages are threaded, not a separate kind of chat.
+# Every group-level rule (@-mention gate, per-sender thread scoping) must apply
+# to both, otherwise a topic group silently answers every message and mixes
+# every participant into one conversation.
+FEISHU_GROUP_CHAT_TYPES = frozenset({"group", "topic"})
+# Metadata keys carrying reply provenance to the manager's V2 router. The
+# manager decides restore / quote-only / fail-closed from these; the adapter
+# only reports what Feishu told it.
+REPLY_MESSAGE_ID_METADATA_KEY = "reply_message_id"
+REPLY_SENDER_TYPE_METADATA_KEY = "reply_sender_type"
+REPLY_SENDER_ID_METADATA_KEY = "reply_sender_id"
+REPLY_FROM_SELF_BOT_METADATA_KEY = "reply_from_self_bot"
+QUOTED_TEXT_METADATA_KEY = "quoted_text"
+# Cap on how long the WebSocket card-click admission may occupy the
+# Feishu push thread before the callback answers ``busy``.
 _WORK_CARD_ADMISSION_SECONDS = 2
 
 
@@ -60,6 +83,13 @@ class FeishuChannel(Channel):
         4. Bot updates the card with the result
         5. Bot adds "DONE" emoji reaction to the original message
     """
+
+    # Bot-identity lookup policy. The group @-mention gate fails closed while
+    # our own ``open_id`` is unknown, so a transient ``bot/v3/info`` failure
+    # must heal on its own instead of muting the bot until the next restart.
+    _BOT_OPEN_ID_FETCH_ATTEMPTS = 3
+    _BOT_OPEN_ID_RETRY_BACKOFF_SECONDS = 2.0
+    _BOT_OPEN_ID_RETRY_COOLDOWN_SECONDS = 60.0
 
     def __init__(self, bus: MessageBus, config: dict[str, Any]) -> None:
         super().__init__(name="feishu", bus=bus, config=config)
@@ -88,7 +118,36 @@ class FeishuChannel(Channel):
         self._CreateImageRequest = None
         self._CreateImageRequestBody = None
         self._GetMessageResourceRequest = None
+        self._GetMessageRequest = None
         self._thread_lock = threading.Lock()
+        # In group chats, only respond when the bot itself is @-mentioned.
+        # Defaults to True because the majority of Feishu group bots are
+        # expected to stay silent unless explicitly addressed. Set to False
+        # in ``channels.feishu`` to opt back into "reply to everything".
+        self._mention_only_in_group: bool = bool(config.get("mention_only_in_group", True))
+        # Bot's own open_id, resolved via ``/open-apis/bot/v3/info``.
+        # Used to precisely detect whether an inbound ``mentions[]`` entry
+        # targets this bot. ``None`` before resolution — the group gate then
+        # fails closed (see ``_message_mentions_bot``) and schedules a retry.
+        self._bot_open_id: str | None = None
+        self._bot_open_id_lock = threading.Lock()
+        self._bot_open_id_next_retry_at: float = 0.0
+        self._bot_credentials: tuple[str, str, str] | None = None
+        # V2 routing: when enabled, the manager owns thread selection through
+        # durable per-owner pointers, so this adapter only reports provenance
+        # (which message was replied to, who wrote it) and must NOT bake the
+        # quoted text into the prompt — the manager adds it as a ``[引用]``
+        # prefix only for the quote-only routes, and never for restores.
+        self._route_v2_enabled: bool = bool(config.get("route_v2_enabled", False))
+        self._routing_repo = config.get("routing_repo")
+        # S08: the app id is part of the identity/bot scope, so it is carried on
+        # every inbound message and on each user binding. Filled from config
+        # here and refreshed in ``start()`` from the effective credentials.
+        self._app_id: str = str(config.get("app_id", "") or "").strip()
+        # S08: cached group name/status; written by /api/im reads and by the
+        # chat membership events below. Only ever a cache: the sidebar decides
+        # which groups to show from the thread registry, never from here.
+        self._catalog_repo = config.get("catalog_repo")
 
     @staticmethod
     def _non_empty_str(value: Any) -> str | None:
@@ -128,16 +187,198 @@ class FeishuChannel(Channel):
 
     @classmethod
     def _compose_card_text(cls, text: str, metadata: dict[str, Any] | None = None) -> str:
+        """Compose the final card markdown body.
+
+        Two decorations are applied on top of the raw *text* when the
+        corresponding metadata is present:
+
+        1. **Group-reply @ prefix**: when ``metadata['chat_type'] == 'group'``
+           and ``metadata['user_id']`` holds the asker's ``open_id``, prepend
+           ``<at id={open_id}></at>`` so the asker gets a mention notification.
+           This is the Feishu card-markdown @ syntax; P2P replies skip it to
+           avoid noise in DMs.
+        2. **Quoted source preview**: when ``metadata[SOURCE_PREVIEW_METADATA_KEY]``
+           is set (a reply/topic continuation in a group), inline the first few
+           lines of the source message as a markdown blockquote so the reader
+           can see which turn we're answering.
+        """
         preview = None
+        at_prefix = ""
         if isinstance(metadata, dict):
             raw_preview = metadata.get(SOURCE_PREVIEW_METADATA_KEY)
             if isinstance(raw_preview, str) and raw_preview.strip():
                 preview = raw_preview.strip()
-        if not preview:
-            return text
 
-        quoted_preview = "\n".join(f"> {line}" for line in preview.splitlines())
-        return f"{quoted_preview}\n\n{text}"
+            chat_type = metadata.get("chat_type")
+            sender_open_id = metadata.get("user_id")
+            if chat_type == "group" and isinstance(sender_open_id, str) and sender_open_id:
+                # Card markdown @ syntax: ``<at id=ou_xxx></at>``. The trailing
+                # blank line keeps the mention visually separated from the body.
+                at_prefix = f"<at id={sender_open_id}></at>\n\n"
+
+        if preview:
+            quoted_preview = "\n".join(f"> {line}" for line in preview.splitlines())
+            return f"{at_prefix}{quoted_preview}\n\n{text}"
+        if at_prefix:
+            return f"{at_prefix}{text}"
+        return text
+
+    async def _request_bot_open_id(self, app_id: str, app_secret: str, domain: str) -> str | None:
+        """Single ``bot/v3/info`` attempt. Returns ``None`` on any failure."""
+        try:
+            import httpx
+        except ImportError:
+            logger.warning("[Feishu] httpx not available; cannot resolve bot open_id")
+            return None
+
+        base = (domain or "https://open.feishu.cn").rstrip("/")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            token_resp = await client.post(
+                f"{base}/open-apis/auth/v3/tenant_access_token/internal",
+                json={"app_id": app_id, "app_secret": app_secret},
+            )
+            token_data = token_resp.json()
+            if token_data.get("code") != 0:
+                logger.warning(
+                    "[Feishu] tenant_access_token fetch failed: code=%s msg=%s",
+                    token_data.get("code"),
+                    token_data.get("msg"),
+                )
+                return None
+            token = token_data.get("tenant_access_token")
+            if not isinstance(token, str) or not token:
+                logger.warning("[Feishu] tenant_access_token missing in response")
+                return None
+
+            info_resp = await client.get(
+                f"{base}/open-apis/bot/v3/info",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            info_data = info_resp.json()
+            if info_data.get("code") != 0:
+                logger.warning(
+                    "[Feishu] bot/v3/info failed: code=%s msg=%s",
+                    info_data.get("code"),
+                    info_data.get("msg"),
+                )
+                return None
+            bot = info_data.get("bot") or {}
+            open_id = bot.get("open_id")
+            if not isinstance(open_id, str) or not open_id:
+                logger.warning("[Feishu] bot/v3/info returned no open_id: %s", info_data)
+                return None
+            logger.info(
+                "[Feishu] bot open_id resolved: %s (app_name=%s)",
+                open_id,
+                bot.get("app_name"),
+            )
+            return open_id
+
+    async def _fetch_bot_open_id(self, app_id: str, app_secret: str, domain: str) -> None:
+        """Resolve the bot's own ``open_id`` via ``/open-apis/bot/v3/info``.
+
+        Cached in ``self._bot_open_id`` and used by ``_message_mentions_bot`` to
+        precisely detect whether an inbound group message @-mentions this bot.
+        Transient failures are retried a bounded number of times; while the id
+        stays unknown the group gate fails closed rather than guessing.
+        """
+        for attempt in range(1, self._BOT_OPEN_ID_FETCH_ATTEMPTS + 1):
+            try:
+                open_id = await self._request_bot_open_id(app_id, app_secret, domain)
+            except Exception:
+                logger.exception(
+                    "[Feishu] failed to fetch bot open_id (attempt %d/%d)",
+                    attempt,
+                    self._BOT_OPEN_ID_FETCH_ATTEMPTS,
+                )
+                open_id = None
+            if open_id:
+                with self._bot_open_id_lock:
+                    self._bot_open_id = open_id
+                return
+            if attempt < self._BOT_OPEN_ID_FETCH_ATTEMPTS:
+                await asyncio.sleep(self._BOT_OPEN_ID_RETRY_BACKOFF_SECONDS * attempt)
+        logger.warning(
+            "[Feishu] bot open_id unresolved after %d attempts; group messages stay ignored until a retry succeeds",
+            self._BOT_OPEN_ID_FETCH_ATTEMPTS,
+        )
+
+    def _schedule_bot_open_id_refresh(self) -> None:
+        """Retry the bot-identity lookup in the background (cooldown-bounded).
+
+        Called from the group gate whenever our own ``open_id`` is unknown.
+        That gate fails closed, so without a retry a transient ``bot/v3/info``
+        failure would silently mute the bot in every group chat until the
+        process restarted. The cooldown keeps a persistently broken deployment
+        from hammering the Feishu API.
+        """
+        with self._bot_open_id_lock:
+            if self._bot_open_id:
+                return
+            credentials = self._bot_credentials
+            now = time.monotonic()
+            if credentials is None or now < self._bot_open_id_next_retry_at:
+                return
+            self._bot_open_id_next_retry_at = now + self._BOT_OPEN_ID_RETRY_COOLDOWN_SECONDS
+
+        loop = self._main_loop
+        if loop is None or not loop.is_running():
+            return
+        try:
+            future = asyncio.run_coroutine_threadsafe(self._fetch_bot_open_id(*credentials), loop)
+        except RuntimeError:
+            logger.debug("[Feishu] cannot schedule bot open_id retry", exc_info=True)
+            return
+        future.add_done_callback(lambda done: self._log_future_error(done, "fetch_bot_open_id", "<retry>"))
+
+    def _message_mentions_bot(self, message) -> bool:
+        """Return True only when *message* @-mentions *this* bot.
+
+        The match is an exact ``mention.id.open_id == self._bot_open_id``
+        comparison. While our own ``open_id`` is unknown the answer is
+        ``False``: heuristics such as "a bot mention carries no ``user_id``"
+        also match every *other* bot in the group, which would make this bot
+        answer messages addressed to someone else. ``_on_message`` schedules a
+        background retry of the lookup in that state.
+        """
+        if not self._bot_open_id:
+            return False
+
+        mentions = getattr(message, "mentions", None) or []
+        if not mentions:
+            return False
+
+        bot_open_id = self._bot_open_id
+        for mention in mentions:
+            mention_id = getattr(mention, "id", None)
+            if mention_id is None:
+                continue
+            if getattr(mention_id, "open_id", None) == bot_open_id:
+                return True
+        return False
+
+    def _content_mentions_bot(self, content: Any) -> bool:
+        """Return True when a rich-text (post) body @-mentions this bot.
+
+        ``im.message.receive_v1`` fills ``message.mentions`` for plain text
+        messages, but rich-text bodies carry the @ inline as
+        ``{"tag": "at", "user_id": "<open_id>"}`` elements. Without this
+        fallback an @-mention written inside a post would be dropped by the
+        group gate even though the bot was explicitly addressed.
+        """
+        if not self._bot_open_id or not isinstance(content, dict):
+            return False
+
+        bot_open_id = self._bot_open_id
+        for paragraph in content.get("content") or []:
+            if not isinstance(paragraph, list):
+                continue
+            for element in paragraph:
+                if not isinstance(element, dict) or element.get("tag") != "at":
+                    continue
+                if element.get("user_id") == bot_open_id or element.get("open_id") == bot_open_id:
+                    return True
+        return False
 
     @property
     def supports_streaming(self) -> bool:
@@ -155,15 +396,27 @@ class FeishuChannel(Channel):
         return bool(self.config.get("_work_receiver_ready")) if self.config.get("_work_send_only") else self._ws_connected.is_set()
 
     def _build_event_handler(self, lark):
-        return (
+        builder = (
             lark.EventDispatcherHandler.builder("", "")
             .register_p2_im_message_receive_v1(self._on_message)
             .register_p2_im_message_message_read_v1(self._on_ignored_message_event)
             .register_p2_im_message_reaction_created_v1(self._on_ignored_message_event)
             .register_p2_im_message_reaction_deleted_v1(self._on_ignored_message_event)
             .register_p2_im_message_recalled_v1(self._on_ignored_message_event)
-            .build()
+            .register_p2_im_chat_updated_v1(self._on_chat_updated_event)
+            .register_p2_im_chat_disbanded_v1(self._on_chat_disbanded_event)
         )
+        # The bot-removed event is named ``im.chat.member.bot.deleted_v1`` and the
+        # generated SDK method differs between lark-oapi releases
+        # (``register_p2_im_chat_member_bot_deleted_v1`` vs an older spelling).
+        # Probe instead of hard-coding: a missing method must not kill the whole
+        # WebSocket worker, which would take every Feishu message down with it.
+        register_bot_removed = getattr(builder, "register_p2_im_chat_member_bot_deleted_v1", None)
+        if register_bot_removed is not None:
+            builder = register_bot_removed(self._on_bot_removed_event)
+        else:
+            logger.warning("lark-oapi has no bot-removed event registration; group LEFT detection is disabled")
+        return builder.build()
 
     def _work_ws_cards_enabled(self, app_id: str) -> bool:
         if not callable(self.config.get("_work_receiver_guard")):
@@ -222,6 +475,7 @@ class FeishuChannel(Channel):
                 CreateMessageRequest,
                 CreateMessageRequestBody,
                 Emoji,
+                GetMessageRequest,
                 GetMessageResourceRequest,
                 PatchMessageRequest,
                 PatchMessageRequestBody,
@@ -247,6 +501,7 @@ class FeishuChannel(Channel):
         self._CreateImageRequest = CreateImageRequest
         self._CreateImageRequestBody = CreateImageRequestBody
         self._GetMessageResourceRequest = GetMessageResourceRequest
+        self._GetMessageRequest = GetMessageRequest
 
         app_id = self.config.get("app_id", "")
         app_secret = self.config.get("app_secret", "")
@@ -256,6 +511,8 @@ class FeishuChannel(Channel):
             logger.error("Feishu channel requires app_id and app_secret")
             return
 
+        self._bot_credentials = (app_id, app_secret, domain)
+        self._app_id = str(app_id or "").strip()
         self._api_client = lark.Client.builder().app_id(app_id).app_secret(app_secret).domain(domain).build()
         logger.info("[Feishu] using domain: %s", domain)
         self._main_loop = asyncio.get_event_loop()
@@ -266,6 +523,14 @@ class FeishuChannel(Channel):
         if self.config.get("_work_send_only"):
             logger.info("Work HTTP sender ready; another process owns the receiver lease")
             return
+
+        # Resolve the bot's own open_id so ``_message_mentions_bot`` can do an
+        # exact ``message.mentions[].id.open_id`` match. Fire-and-forget; while
+        # it is unknown the group gate fails closed and schedules a retry, so a
+        # transient failure here never lets the bot answer another bot's @.
+        if self._mention_only_in_group:
+            bot_info_task = asyncio.create_task(self._fetch_bot_open_id(app_id, app_secret, domain))
+            self._track_background_task(bot_info_task, name="fetch_bot_open_id", msg_id="<startup>")
 
         # Both ws.Client construction and start() must happen in a dedicated
         # thread with its own event loop.  lark-oapi caches the running loop
@@ -334,7 +599,7 @@ class FeishuChannel(Channel):
             pass
         except Exception:
             if self._running:
-                logger.error("Feishu WebSocket worker stopped; handshake=%s", self._ws_failure)
+                logger.exception("Feishu WebSocket worker stopped; handshake=%s", self._ws_failure)
         finally:
             loop.set_task_factory(None)  # Cleanup coroutines must still run.
             self._ws_connected.clear()
@@ -362,6 +627,89 @@ class FeishuChannel(Channel):
 
     def _on_ignored_message_event(self, event) -> None:
         logger.debug("[Feishu] ignoring non-content message event: %s", type(event).__name__)
+
+    # ---- S08 group catalog events -------------------------------------
+    @staticmethod
+    def _event_chat_id(event) -> str:
+        payload = getattr(event, "event", None)
+        chat_id = getattr(payload, "chat_id", None)
+        if not chat_id:
+            chat_id = getattr(getattr(payload, "chat", None), "chat_id", None)
+        return str(chat_id or "").strip()
+
+    def _schedule_chat_event(self, event, *, kind: str) -> None:
+        """Bridge a lark-thread event into the main loop (fire and forget)."""
+        chat_id = self._event_chat_id(event)
+        if not chat_id or self._catalog_repo is None:
+            return
+        if not (self._main_loop and self._main_loop.is_running()):
+            logger.warning("[Feishu] main loop not running, cannot apply chat event kind=%s", kind)
+            return
+        fut = asyncio.run_coroutine_threadsafe(self._apply_chat_event(chat_id, kind), self._main_loop)
+        fut.add_done_callback(lambda f, cid=chat_id: self._log_future_error(f, f"chat_event:{kind}", cid))
+
+    def _on_chat_updated_event(self, event) -> None:
+        self._schedule_chat_event(event, kind="updated")
+
+    def _on_chat_disbanded_event(self, event) -> None:
+        self._schedule_chat_event(event, kind="disbanded")
+
+    def _on_bot_removed_event(self, event) -> None:
+        self._schedule_chat_event(event, kind="bot_removed")
+
+    async def _apply_chat_event(self, chat_id: str, kind: str) -> None:
+        """Update the cached group status after a membership/rename event."""
+        if self._catalog_repo is None:
+            return
+        try:
+            if kind == "disbanded":
+                await self._catalog_repo.mark_status(chat_id, "DISSOLVED", bot_app_id=self._app_id)
+                return
+            if kind == "bot_removed":
+                await self._catalog_repo.mark_status(chat_id, "LEFT", bot_app_id=self._app_id)
+                return
+            meta = await self.fetch_chat_meta(chat_id)
+            if meta is None:
+                # The chat may not be in the catalog yet; a rename event alone
+                # is not a reason to invent a sidebar entry.
+                return
+            name = str(meta.get("name") or "").strip()
+            await self._catalog_repo.update_meta(
+                chat_id=chat_id,
+                display_name=name or None,
+                name_source="CHAT_INFO" if name else "UNKNOWN",
+                chat_status=str(meta.get("chat_status") or "").strip() or None,
+                member_count=meta.get("member_count"),
+                bot_app_id=self._app_id,
+            )
+        except Exception:
+            logger.warning("[Feishu] failed to apply chat event kind=%s chat=%s", kind, chat_id, exc_info=True)
+
+    async def fetch_chat_meta(self, chat_id: str) -> dict[str, Any] | None:
+        """Read chat name/status/member count through ``im.v1.chat.get``."""
+        if self._api_client is None or not chat_id:
+            return None
+        try:
+            from lark_oapi.api.im.v1 import GetChatRequest
+
+            request = GetChatRequest.builder().chat_id(chat_id).build()
+            response = await asyncio.to_thread(self._api_client.im.v1.chat.get, request)
+            code = getattr(response, "code", None)
+            if isinstance(code, int) and code != 0:
+                logger.info("[Feishu] chat meta for %s is unreadable (code=%s)", chat_id, code)
+                return None
+            data = getattr(response, "data", None)
+            if data is None:
+                return None
+            return {
+                "name": getattr(data, "name", "") or "",
+                "chat_status": getattr(data, "chat_status", "") or "",
+                "chat_type": getattr(data, "chat_type", "") or "",
+                "member_count": getattr(data, "member_count", None),
+            }
+        except Exception:
+            logger.warning("[Feishu] failed to fetch chat meta for %s", chat_id, exc_info=True)
+            return None
 
     async def stop(self) -> None:
         self._running = False
@@ -635,14 +983,15 @@ class FeishuChannel(Channel):
         response_data = getattr(response, "data", None)
         return getattr(response_data, "message_id", None)
 
-    async def _create_card(self, chat_id: str, text: str) -> None:
-        """Create a new card message in the target chat."""
+    async def _create_card(self, chat_id: str, text: str) -> str | None:
+        """Create a new card message in the target chat; return its message id."""
         if not self._api_client:
-            return
+            return None
 
         content = self._build_card_content(text)
         request = self._CreateMessageRequest.builder().receive_id_type("chat_id").request_body(self._CreateMessageRequestBody.builder().receive_id(chat_id).msg_type("interactive").content(content).build()).build()
-        await asyncio.to_thread(self._api_client.im.v1.message.create, request)
+        response = await asyncio.to_thread(self._api_client.im.v1.message.create, request)
+        return getattr(getattr(response, "data", None), "message_id", None)
 
     async def _update_card(self, message_id: str, text: str, *, preview: CardPreview | None = None) -> None:
         """Patch an existing card message in place."""
@@ -802,10 +1151,10 @@ class FeishuChannel(Channel):
                         running_card_id,
                     )
                     fallback_card_id = await self._deliver_work_preview(source_message_id, card_text, preview)
-                    self._remember_thread_mapping(msg, source_message_id, fallback_card_id)
+                    await self._remember_outbound_message(msg, source_message_id, fallback_card_id)
                     self._remember_pending_clarification(msg, fallback_card_id)
                 else:
-                    self._remember_thread_mapping(msg, source_message_id, running_card_id)
+                    await self._remember_outbound_message(msg, source_message_id, running_card_id)
                     self._remember_pending_clarification(msg, running_card_id)
                     logger.info("[Feishu] running card updated: source=%s card=%s", source_message_id, running_card_id)
             elif msg.is_final:
@@ -814,7 +1163,7 @@ class FeishuChannel(Channel):
                     self._compose_card_text(msg.text, msg.metadata),
                     preview,
                 )
-                self._remember_thread_mapping(msg, source_message_id, final_card_id)
+                await self._remember_outbound_message(msg, source_message_id, final_card_id)
                 self._remember_pending_clarification(msg, final_card_id)
             elif awaited_running_card_task:
                 logger.warning(
@@ -834,13 +1183,65 @@ class FeishuChannel(Channel):
                 await self._add_reaction(source_message_id, "DONE")
             return
 
-        await self._create_card(msg.chat_id, msg.text)
+        created_card_id = await self._create_card(msg.chat_id, msg.text)
+        await self._remember_outbound_message(msg, created_card_id)
 
     # -- internal ----------------------------------------------------------
+
+    async def _remember_outbound_message(self, msg: OutboundMessage, *message_ids: str | None) -> None:
+        """Persist the platform ids of a bot reply.
+
+        Under V2 the durable message-link table is what lets a later reply to
+        this bot message restore the thread that produced it, so the link must
+        be written for every card we send — including the streaming placeholder
+        that gets patched in place, whose id never changes afterwards.
+        """
+        if not self._route_v2_enabled:
+            self._remember_thread_mapping(msg, *message_ids)
+            return
+
+        repo = self._routing_repo
+        if repo is None or not msg.thread_id:
+            return
+        owner_user_id = self._non_empty_str(msg.owner_user_id)
+        if not owner_user_id:
+            logger.warning(
+                "[Feishu] cannot record outbound message link without owner: chat=%s thread=%s",
+                msg.chat_id,
+                msg.thread_id,
+            )
+            return
+        seen: set[str] = set()
+        for message_id in message_ids:
+            message_id = self._non_empty_str(message_id)
+            if not message_id or message_id in seen:
+                continue
+            seen.add(message_id)
+            try:
+                await repo.record_link(
+                    provider=self.name,
+                    message_id=message_id,
+                    chat_id=msg.chat_id,
+                    owner_user_id=owner_user_id,
+                    thread_id=msg.thread_id,
+                    direction="outbound",
+                    message_kind="card",
+                    connection_id=msg.connection_id or "",
+                    sender_external_id=self._bot_open_id or "",
+                    root_message_id=self._non_empty_str(msg.metadata.get("root_id")) or "",
+                    parent_message_id=self._non_empty_str(msg.metadata.get("parent_id")) or "",
+                )
+            except Exception:
+                logger.exception("[Feishu] failed to record outbound message link: %s", message_id)
 
     def _remember_thread_mapping(self, msg: OutboundMessage, *topic_ids: str | None) -> None:
         store = self.config.get("channel_store")
         if store is None or not msg.thread_id:
+            return
+        if self._route_v2_enabled:
+            # The JSON store is the legacy pointer model. Under V2 the durable
+            # pointer/link tables own routing, and writing both would let a
+            # stale JSON entry silently override the per-owner pointer.
             return
 
         metadata_topic_ids = [
@@ -854,10 +1255,11 @@ class FeishuChannel(Channel):
         raw_user_id = msg.metadata.get("user_id")
         if isinstance(raw_user_id, str):
             user_id = raw_user_id
+        chat_type = self._non_empty_str(msg.metadata.get("chat_type"))
 
         seen: set[str] = set()
         for topic_id in [*topic_ids, *metadata_topic_ids]:
-            topic_id = self._non_empty_str(topic_id)
+            topic_id = self._scoped_topic_id(chat_type, user_id, topic_id)
             if not topic_id or topic_id in seen:
                 continue
             seen.add(topic_id)
@@ -936,6 +1338,28 @@ class FeishuChannel(Channel):
         except Exception:
             logger.exception("[Feishu] failed to restore pending clarification mapping for topic_id=%s", topic_id)
 
+    def _scoped_topic_id(self, chat_type: str | None, user_id: str | None, topic_id: str | None) -> str | None:
+        """Namespace a Feishu thread key by the person who started it.
+
+        A Feishu group has ONE shared thread id for everybody who posts in the
+        same topic (``thread_id``/``root_id`` are group-wide). Using that id as
+        the DeerFlow topic made every participant share one conversation, so
+        Bob's follow-up question was answered with Alice's history — and the
+        bot replied "in Alice's @-message". Group topics are therefore scoped
+        per sender: ``<sender_open_id>:<feishu_topic>``. P2P chats already have
+        a per-user ``chat_id`` and keep their unscoped key.
+        """
+        topic_id = self._non_empty_str(topic_id)
+        if not topic_id:
+            return None
+        user_id = self._non_empty_str(user_id)
+        if chat_type not in FEISHU_GROUP_CHAT_TYPES or not user_id:
+            return topic_id
+        prefix = f"{user_id}:"
+        if topic_id.startswith(prefix):
+            return topic_id
+        return f"{prefix}{topic_id}"
+
     def _resolve_topic_id(
         self,
         chat_id: str,
@@ -944,6 +1368,8 @@ class FeishuChannel(Channel):
         root_id: str | None,
         parent_id: str | None,
         thread_id: str | None,
+        chat_type: str | None = None,
+        user_id: str | None = None,
     ) -> tuple[str, bool]:
         store = self.config.get("channel_store")
         candidates = [root_id, parent_id, thread_id]
@@ -953,13 +1379,17 @@ class FeishuChannel(Channel):
                 candidate = self._non_empty_str(candidate)
                 if not candidate:
                     continue
+                candidate = self._scoped_topic_id(chat_type, user_id, candidate)
+                if not candidate:
+                    continue
                 try:
                     if store.get_thread_id(self.name, chat_id, topic_id=candidate):
                         return candidate, True
                 except Exception:
                     logger.exception("[Feishu] failed to resolve stored topic mapping for topic_id=%s", candidate)
 
-        return root_id or msg_id, False
+        fallback = self._scoped_topic_id(chat_type, user_id, root_id or msg_id) or msg_id
+        return fallback, False
 
     @staticmethod
     def _is_batchable_file_inbound(
@@ -1110,6 +1540,7 @@ class FeishuChannel(Channel):
                     chat_id=inbound.chat_id,
                     tenant_key=tenant,
                 )
+            await self._prepend_quoted_context(inbound)
             reaction_message_ids = source_message_ids or [msg_id]
             for reaction_message_id in reaction_message_ids:
                 reaction_task = asyncio.create_task(self._add_reaction(reaction_message_id, "OK"))
@@ -1122,14 +1553,172 @@ class FeishuChannel(Channel):
             raise
 
     async def _attach_connection_identity(self, inbound: InboundMessage) -> InboundMessage:
+        metadata = inbound.metadata if isinstance(inbound.metadata, dict) else {}
         return await attach_connection_identity(
             inbound,
             repo=self._connection_repo,
             provider="feishu",
             workspace_id=inbound.chat_id,
+            binding_repo=self._binding_repo,
+            tenant_key=str(metadata.get("tenant_key") or ""),
+            bot_app_id=str(metadata.get("bot_app_id") or self._app_id or ""),
         )
 
-    async def _bind_connection_from_connect_code(self, *, message_id: str, chat_id: str, user_id: str, code: str, notification_tenant: str | None = None) -> bool:
+    async def _prepend_quoted_context(self, inbound: InboundMessage) -> None:
+        """Record what an inbound message quotes, and (legacy) inline its text.
+
+        Group threads are namespaced per sender, so a colleague replying to
+        somebody else's answer starts an empty DeerFlow thread. Without this
+        the model would only see "what does this mean?" and have nothing to
+        interpret. The quote is skipped whenever the reply already resolves
+        into a thread that holds the context.
+
+        Under V2 routing the manager owns that decision (restore the quoted
+        thread, quote the text into the current thread, or fail closed), so the
+        adapter only reports the provenance and leaves the prompt untouched.
+        """
+        if self._route_v2_enabled:
+            await self._attach_reply_provenance(inbound)
+            return
+
+        metadata = inbound.metadata or {}
+        if metadata.get("chat_type") not in FEISHU_GROUP_CHAT_TYPES:
+            return
+        if inbound.msg_type != InboundMessageType.CHAT or not inbound.text:
+            return
+        if metadata.get("resolved_from_stored_mapping"):
+            return
+        if metadata.get(RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY):
+            return
+
+        quoted_message_id = self._non_empty_str(metadata.get("parent_id")) or self._non_empty_str(metadata.get("root_id"))
+        if not quoted_message_id:
+            return
+        quoted, from_bot = await self._fetch_quoted_text(quoted_message_id)
+        if not quoted:
+            return
+
+        author = "本机器人先前的回复" if from_bot else "群里另一位同事的消息"
+        inbound.text = f"[引用] {author}：{quoted}\n\n{inbound.text}"
+        metadata["quoted_message_id"] = quoted_message_id
+
+    async def _attach_reply_provenance(self, inbound: InboundMessage) -> None:
+        """Describe the quoted message so the manager can route the reply.
+
+        Only an explicit reply (``parent_id``) counts. ``root_id`` alone means
+        "this message lives in that Feishu topic" — every message in a topic
+        group carries it, so treating it as a reply would misroute normal
+        conversation into the topic root's owner thread.
+        """
+        metadata = inbound.metadata or {}
+        reply_message_id = self._non_empty_str(metadata.get(REPLY_MESSAGE_ID_METADATA_KEY))
+        if not reply_message_id:
+            return
+        text, sender_id, sender_type = await self._fetch_quoted_message_details(reply_message_id)
+        metadata[REPLY_MESSAGE_ID_METADATA_KEY] = reply_message_id
+        metadata[REPLY_SENDER_TYPE_METADATA_KEY] = sender_type or "unknown"
+        metadata[REPLY_SENDER_ID_METADATA_KEY] = sender_id or ""
+        from_self_bot: bool | None = None
+        if sender_type == "app":
+            if self._bot_open_id:
+                from_self_bot = sender_id == self._bot_open_id
+            else:
+                # Cannot tell our own messages from another app's without our
+                # open_id; leave the answer unknown (the router fails closed)
+                # and heal the identity in the background.
+                self._schedule_bot_open_id_refresh()
+            metadata[REPLY_FROM_SELF_BOT_METADATA_KEY] = from_self_bot
+        # The public text is kept even for this bot's own replies: a colleague
+        # quoting my answer cannot share my thread, so the router injects that
+        # text into *their* conversation instead (CROSS_OWNER_QUOTE).
+        if text:
+            metadata[QUOTED_TEXT_METADATA_KEY] = text
+
+    async def _fetch_quoted_text(self, message_id: str) -> tuple[str | None, bool]:
+        """Legacy ``(text, from_bot)`` accessor used by the pre-V2 quote path."""
+        text, sender_id, sender_type = await self._fetch_quoted_message_details(message_id)
+        return text, sender_type == "app"
+
+    async def _fetch_quoted_message_details(self, message_id: str) -> tuple[str | None, str, str]:
+        """Return ``(text, sender_id, sender_type)`` for a quoted message.
+
+        ``sender_type`` is verbatim from Feishu (``app``/``user``) or ``""`` when
+        the message cannot be read; callers decide what an unknown source means
+        instead of the adapter guessing.
+        """
+        if not self._api_client or not self._GetMessageRequest or not message_id:
+            return None, "", ""
+        try:
+            request = self._GetMessageRequest.builder().message_id(message_id).build()
+            response = await asyncio.to_thread(self._api_client.im.v1.message.get, request)
+            code = getattr(response, "code", None)
+            if isinstance(code, int) and code != 0:
+                logger.info("[Feishu] quoted message %s is unreadable (code=%s)", message_id, code)
+                return None, "", ""
+            items = getattr(getattr(response, "data", None), "items", None) or []
+            if not items:
+                return None, "", ""
+            item = items[0]
+            body = getattr(item, "body", None)
+            raw = getattr(body, "content", None)
+            text = self._quote_text_from_content(getattr(item, "msg_type", None), raw)
+            sender = getattr(item, "sender", None)
+            sender_type = getattr(sender, "sender_type", None) or ""
+            sender_id_obj = getattr(sender, "id", None)
+            sender_id = getattr(sender_id_obj, "open_id", None) or getattr(sender, "id", None) or ""
+            if not isinstance(sender_id, str):
+                sender_id = ""
+            return text, sender_id, sender_type if isinstance(sender_type, str) else ""
+        except Exception:
+            logger.warning("[Feishu] failed to read quoted message %s", message_id, exc_info=True)
+            return None, "", ""
+
+    def _quote_text_from_content(self, msg_type: str | None, raw: Any) -> str | None:
+        if not isinstance(raw, str) or not raw:
+            return None
+        try:
+            content = json.loads(raw)
+        except (TypeError, ValueError):
+            return None
+        if msg_type == "text" and isinstance(content, dict):
+            text = str(content.get("text") or "")
+        else:
+            parts: list[str] = []
+            text_keys = ("text", "content", "title", "label")
+
+            def _walk(node: Any, key: str | None = None, depth: int = 0) -> None:
+                if depth > 8 or len(" ".join(parts)) > QUOTED_MESSAGE_TEXT_LIMIT * 2:
+                    return
+                if isinstance(node, dict):
+                    for child_key, child in node.items():
+                        _walk(child, child_key, depth + 1)
+                elif isinstance(node, list):
+                    for child in node:
+                        _walk(child, key, depth + 1)
+                elif isinstance(node, str) and key in text_keys:
+                    parts.append(node)
+
+            _walk(content)
+            text = " ".join(part.strip() for part in parts if part and part.strip())
+
+        collapsed = re.sub(r"\s+", " ", text).strip()
+        if not collapsed:
+            return None
+        if len(collapsed) > QUOTED_MESSAGE_TEXT_LIMIT:
+            collapsed = collapsed[: QUOTED_MESSAGE_TEXT_LIMIT - 1].rstrip() + "…"
+        return collapsed
+
+    async def _bind_connection_from_connect_code(
+        self,
+        *,
+        message_id: str,
+        chat_id: str,
+        user_id: str,
+        code: str,
+        chat_type: str | None = None,
+        tenant_key: str = "",
+        notification_tenant: str | None = None,
+    ) -> bool:
         guard = self.config.get("_work_receiver_guard")
         if guard is not None and not await guard():
             return True
@@ -1153,9 +1742,30 @@ class FeishuChannel(Channel):
             metadata={
                 "chat_id": chat_id,
                 "message_id": message_id,
+                # Chat type is what lets the browser-side export default to the
+                # caller's private chat instead of guessing from recency (a
+                # group binding is often the newest row).
+                "chat_type": chat_type or "",
             },
             status="connected",
         )
+        # S08: also write the chat-independent, user-level binding. Without it
+        # the owner is only resolvable inside this one chat, so the same person
+        # in another group looks unbound and their threads cannot be attributed.
+        if self._binding_repo is not None:
+            try:
+                await self._binding_repo.upsert_active(
+                    owner_user_id=state["owner_user_id"],
+                    feishu_user_id=user_id,
+                    tenant_key=tenant_key,
+                    bot_app_id=self._app_id,
+                    source="CONNECT_CODE",
+                )
+            except Exception:
+                # The connect card still succeeds; the next message is then
+                # rejected with an explicit "identity unbound" notice rather
+                # than silently creating an unowned thread.
+                logger.exception("[Feishu] failed to persist IM user binding")
         if notification_tenant:
             await remember_work_notification_target(
                 self,
@@ -1183,6 +1793,8 @@ class FeishuChannel(Channel):
             chat_type = getattr(message, "chat_type", None)
             parent_id = self._non_empty_str(getattr(message, "parent_id", None))
             feishu_thread_id = self._non_empty_str(getattr(message, "thread_id", None))
+            # The tenant lives on the event envelope, not on the message body.
+            tenant_key = str(getattr(getattr(event, "header", None), "tenant_key", "") or "").strip()
             private_notifications = chat_type == "p2p" and work_notifications_enabled()
             tenant = None
             if self._work_ws_cards or private_notifications:
@@ -1271,6 +1883,12 @@ class FeishuChannel(Channel):
                 logger.info("[Feishu] empty text, ignoring message")
                 return
 
+            # Connect-code binding MUST be checked before the group @-mention
+            # gate (see Channel._pending_connect_code contract): a browser-
+            # initiated ``/connect <code>`` bootstraps an external identity the
+            # bot has never seen, so it cannot be required to @-mention first.
+            # All other adapters (dingtalk/discord/slack/wechat/wecom) likewise
+            # consume the connect code before any allowed_users/mention gate.
             connect_code = self._pending_connect_code(text)
             if connect_code:
                 if self._main_loop and self._main_loop.is_running():
@@ -1280,6 +1898,8 @@ class FeishuChannel(Channel):
                             chat_id=chat_id,
                             user_id=sender_id,
                             code=connect_code,
+                            chat_type=chat_type,
+                            tenant_key=tenant_key,
                             notification_tenant=tenant if private_notifications else None,
                         ),
                         self._main_loop,
@@ -1287,6 +1907,67 @@ class FeishuChannel(Channel):
                     fut.add_done_callback(lambda f, mid=msg_id: self._log_future_error(f, "bind_connection", mid))
                 else:
                     logger.warning("[Feishu] main loop not running, cannot bind channel connection")
+                return
+
+            # Group-chat gate: when ``mention_only_in_group`` is enabled, drop
+            # any group message that does not @-mention the bot. This is the
+            # earliest safe point — we've parsed the message enough to inspect
+            # ``mentions`` but have not yet emitted any side effects (no
+            # reaction, no running card, no bus publish). P2P chats skip this
+            # check entirely so DMs still work without @.
+            #
+            # Both mention shapes are accepted: ``message.mentions[]`` (plain
+            # text) and ``{"tag": "at"}`` elements inside a rich-text body.
+            # ``@all`` carries no matching open_id, so it never opens the gate.
+            # NOTE: there is deliberately NO "pending clarification" bypass here.
+            # A previous version exempted this ``(chat_id, user_id)`` from the
+            # @-requirement whenever a clarification was remembered, so the user
+            # could answer the bot's question without re-@ing. But the LLM ends
+            # most turns with a fresh clarifying question, which re-armed the
+            # exemption every turn (its TTL refreshed each time) and permanently
+            # disabled the gate — the bot then answered *every* group message
+            # with no @ at all. Group multi-turn clarification now requires an
+            # explicit @ each turn. P2P still continues clarification answers
+            # without @ because it skips this gate entirely.
+            mentioned = self._message_mentions_bot(message) or self._content_mentions_bot(content)
+            if chat_type in FEISHU_GROUP_CHAT_TYPES and self._mention_only_in_group and not mentioned:
+                if self._bot_open_id:
+                    skip_reason = "mention_only_in_group"
+                    audit_error = "group message without @-mention"
+                else:
+                    # Our own open_id is unknown, so an exact match is
+                    # impossible and the gate fails closed instead of treating
+                    # "any bot mention" as addressed to us. Retry the identity
+                    # lookup in the background so this heals on its own.
+                    skip_reason = "bot_identity_unavailable"
+                    audit_error = "group message skipped while bot identity is unresolved"
+                    self._schedule_bot_open_id_refresh()
+                logger.debug(
+                    "[Feishu] skipping group message (%s): chat_id=%s msg_id=%s sender=%s",
+                    skip_reason,
+                    chat_id,
+                    msg_id,
+                    sender_id,
+                )
+                # This drop happens inside the adapter, before the manager ever
+                # sees the message, so it has to be audited here or it leaves no
+                # trace at all. The body is deliberately NOT recorded: the
+                # message was never addressed to this bot, so only identifiers
+                # and the skip reason belong in the audit trail.
+                schedule_channel_audit(
+                    action=ACTION_MESSAGE_SKIPPED,
+                    channel_name=self.name,
+                    result="failure",
+                    status_code=204,
+                    error=audit_error,
+                    details={
+                        "reason": skip_reason,
+                        "chat_id": chat_id,
+                        "chat_type": chat_type,
+                        "platform_user_id": sender_id,
+                        "message_id": msg_id,
+                    },
+                )
                 return
 
             # Only treat known slash commands as commands; absolute paths and
@@ -1301,12 +1982,18 @@ class FeishuChannel(Channel):
             # topic_id determines which LangGraph thread the message maps to.
             # P2P chats: topic_id=None so all messages share one thread (like Telegram DMs).
             # But check stored mappings first for backward compatibility with pre-upgrade P2P threads.
+            # Group chats: the Feishu thread ids are group-wide, so the topic
+            # is namespaced by the sender (``<open_id>:<feishu_topic>``). Two
+            # people who reply in the same Feishu topic therefore land in two
+            # separate DeerFlow threads and never see each other's history.
             topic_id, resolved_from_stored_mapping = self._resolve_topic_id(
                 chat_id,
                 msg_id,
                 root_id=root_id,
                 parent_id=parent_id,
                 thread_id=feishu_thread_id,
+                chat_type=chat_type,
+                user_id=sender_id,
             )
             if chat_type == "p2p" and not resolved_from_stored_mapping:
                 topic_id = None
@@ -1328,6 +2015,13 @@ class FeishuChannel(Channel):
             ):
                 source_preview = self._compact_source_preview(text)
 
+            # An explicit reply carries ``parent_id``; plain messages in a topic
+            # chat only carry ``root_id`` (topic membership), so only
+            # ``parent_id`` may be treated as "replying to that message".
+            reply_message_id = self._non_empty_str(parent_id)
+            if reply_message_id == msg_id:
+                reply_message_id = None
+
             metadata = {
                 "message_id": msg_id,
                 "root_id": root_id,
@@ -1336,7 +2030,13 @@ class FeishuChannel(Channel):
                 "topic_id": topic_id,
                 "user_id": sender_id,
                 "chat_type": chat_type,
+                # S08 scope: the same open_id under another tenant or another
+                # bot app is a different person, so the archive keys on both.
+                "tenant_key": tenant_key,
+                "bot_app_id": self._app_id,
+                REPLY_MESSAGE_ID_METADATA_KEY: reply_message_id,
                 RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY: resolved_from_pending,
+                "resolved_from_stored_mapping": resolved_from_stored_mapping,
             }
             if source_preview:
                 metadata[SOURCE_PREVIEW_METADATA_KEY] = source_preview

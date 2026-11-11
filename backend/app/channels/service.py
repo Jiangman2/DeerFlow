@@ -8,7 +8,12 @@ import os
 from typing import TYPE_CHECKING, Any
 
 from app.channels.base import Channel
-from app.channels.manager import DEFAULT_GATEWAY_URL, DEFAULT_LANGGRAPH_URL, ChannelManager
+from app.channels.manager import (
+    DEFAULT_GATEWAY_URL,
+    DEFAULT_LANGGRAPH_URL,
+    ROUTING_V2_CHANNELS,
+    ChannelManager,
+)
 from app.channels.message_bus import MessageBus
 from app.channels.runtime_config_store import merge_runtime_channel_configs
 from app.channels.store import ChannelStore
@@ -87,6 +92,96 @@ def _make_connection_repo(connection_config: ChannelConnectionsConfig | None):
     return ChannelConnectionRepository(session_factory)
 
 
+def _make_routing_repo():
+    """Build the durable IM routing repository when SQL persistence exists.
+
+    The V2 router degrades to the legacy JSON channel store when this returns
+    ``None`` (no database, e.g. a SQLite-less single-node dev run), so the
+    service never depends on the new tables to start.
+    """
+    try:
+        from deerflow.persistence.engine import get_session_factory
+        from deerflow.persistence.im_routing import ImRoutingRepository
+    except Exception:
+        logger.exception("Failed to import IM routing repository")
+        return None
+
+    session_factory = get_session_factory()
+    if session_factory is None:
+        logger.info("IM routing V2 disabled: database persistence is not available")
+        return None
+    return ImRoutingRepository(session_factory)
+
+
+def _route_v2_enabled_from_env() -> bool:
+    raw = os.getenv("DEER_FLOW_ROUTE_V2_ENABLED", "1").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
+
+
+def _make_binding_repo():
+    """Build the S08 user-level IM identity binding repository."""
+    try:
+        from deerflow.persistence.engine import get_session_factory
+        from deerflow.persistence.im_routing import ImUserBindingRepository
+    except Exception:
+        logger.exception("Failed to import IM user binding repository")
+        return None
+
+    session_factory = get_session_factory()
+    if session_factory is None:
+        logger.info("IM identity bindings disabled: database persistence is not available")
+        return None
+    return ImUserBindingRepository(session_factory)
+
+
+def _s08_enabled_from_env() -> bool:
+    """Read the S08 archive flag; disabled unless explicitly switched on."""
+    raw = os.getenv("DEER_FLOW_S08_ENABLED", "0").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _group_catalog_ttl_from_env() -> int:
+    """Group name-cache TTL in seconds (``IM_GROUP_SYNC_TTL_SECONDS``)."""
+    raw = os.getenv("IM_GROUP_SYNC_TTL_SECONDS", "3600").strip()
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        logger.warning("Invalid IM_GROUP_SYNC_TTL_SECONDS=%r; using 3600", raw)
+        return 3600
+
+
+def _make_registry_repo():
+    """Build the S08 thread registry repository (ownership/classification)."""
+    try:
+        from deerflow.persistence.engine import get_session_factory
+        from deerflow.persistence.im_routing import ImThreadRegistryRepository
+    except Exception:
+        logger.exception("Failed to import IM thread registry repository")
+        return None
+
+    session_factory = get_session_factory()
+    if session_factory is None:
+        logger.info("IM thread registry disabled: database persistence is not available")
+        return None
+    return ImThreadRegistryRepository(session_factory)
+
+
+def _make_catalog_repo():
+    """Build the S08 group catalog repository (cached group name/status)."""
+    try:
+        from deerflow.persistence.engine import get_session_factory
+        from deerflow.persistence.im_routing import ImGroupCatalogRepository
+    except Exception:
+        logger.exception("Failed to import IM group catalog repository")
+        return None
+
+    session_factory = get_session_factory()
+    if session_factory is None:
+        logger.info("IM group catalog disabled: database persistence is not available")
+        return None
+    return ImGroupCatalogRepository(session_factory)
+
+
 class ChannelService:
     """Manages the lifecycle of all configured IM channels.
 
@@ -99,11 +194,25 @@ class ChannelService:
         channels_config: dict[str, Any] | None = None,
         *,
         connection_repo: Any | None = None,
+        routing_repo: Any | None = None,
+        route_v2_enabled: bool = True,
         require_bound_identity: bool = False,
+        binding_repo: Any | None = None,
+        s08_enabled: bool = False,
+        registry_repo: Any | None = None,
+        catalog_repo: Any | None = None,
+        group_catalog_ttl_seconds: int = 3600,
     ) -> None:
         self.bus = MessageBus()
         self.store = ChannelStore()
         self._connection_repo = connection_repo
+        self._routing_repo = routing_repo
+        self._route_v2_enabled = route_v2_enabled
+        self._binding_repo = binding_repo
+        self._s08_enabled = s08_enabled
+        self._registry_repo = registry_repo
+        self._catalog_repo = catalog_repo
+        self._group_catalog_ttl_seconds = group_catalog_ttl_seconds
         config = dict(channels_config or {})
         langgraph_url = _resolve_service_url(config, "langgraph_url", _CHANNELS_LANGGRAPH_URL_ENV, DEFAULT_LANGGRAPH_URL)
         gateway_url = _resolve_service_url(config, "gateway_url", _CHANNELS_GATEWAY_URL_ENV, DEFAULT_GATEWAY_URL)
@@ -117,7 +226,14 @@ class ChannelService:
             default_session=default_session if isinstance(default_session, dict) else None,
             channel_sessions=channel_sessions,
             connection_repo=connection_repo,
+            routing_repo=routing_repo,
+            route_v2_enabled=route_v2_enabled,
             require_bound_identity=require_bound_identity,
+            binding_repo=binding_repo,
+            s08_enabled=s08_enabled,
+            registry_repo=registry_repo,
+            catalog_repo=catalog_repo,
+            group_catalog_ttl_seconds=group_catalog_ttl_seconds,
         )
         self._channels: dict[str, Any] = {}  # name -> Channel instance
         self._config = config
@@ -143,10 +259,18 @@ class ChannelService:
         connection_config = getattr(app_config, "channel_connections", None)
         connections_enabled = connection_config is not None and getattr(connection_config, "enabled", False)
         require_bound_identity = bool(connections_enabled and getattr(connection_config, "require_bound_identity", True))
+        s08_enabled = _s08_enabled_from_env()
         return cls(
             channels_config=channels_config,
             connection_repo=_make_connection_repo(connection_config),
+            routing_repo=_make_routing_repo(),
+            route_v2_enabled=_route_v2_enabled_from_env(),
             require_bound_identity=require_bound_identity,
+            binding_repo=_make_binding_repo() if s08_enabled else None,
+            s08_enabled=s08_enabled,
+            registry_repo=_make_registry_repo() if s08_enabled else None,
+            catalog_repo=_make_catalog_repo() if s08_enabled else None,
+            group_catalog_ttl_seconds=_group_catalog_ttl_from_env(),
         )
 
     async def start(self) -> None:
@@ -436,6 +560,15 @@ class ChannelService:
             config["channel_store"] = self.store
             if self._connection_repo is not None:
                 config["connection_repo"] = self._connection_repo
+            # Routing V2 is opt-in per adapter: only adapters that report
+            # structured reply provenance may own the durable pointer.
+            config["route_v2_enabled"] = self._route_v2_enabled and name in ROUTING_V2_CHANNELS
+            if self._routing_repo is not None:
+                config["routing_repo"] = self._routing_repo
+            if self._binding_repo is not None:
+                config["binding_repo"] = self._binding_repo
+            if self._catalog_repo is not None:
+                config["catalog_repo"] = self._catalog_repo
             channel = channel_cls(bus=self.bus, config=config)
             self._channels[name] = channel
             await channel.start()

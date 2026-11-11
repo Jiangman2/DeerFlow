@@ -11,8 +11,10 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useImCapabilities } from "@/core/im/hooks";
 
 import { WorkspaceChannelsList } from "./channels/workspace-channels-list";
+import { ImSessionTree } from "./im-session-tree";
 import { RecentChatList } from "./recent-chat-list";
 import { ThreadDeleteDialogProvider } from "./thread-delete-dialog";
 import { WorkspaceHeader } from "./workspace-header";
@@ -24,6 +26,8 @@ export function WorkspaceSidebar({
 }: React.ComponentProps<typeof Sidebar>) {
   const { open: isSidebarOpen, isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
+  const { data: imCapabilities } = useImCapabilities();
+  const imSessionTreeEnabled = imCapabilities?.im_session_tree_enabled === true;
   const previousPathnameRef = useRef(pathname);
   const hasObservedInitialPathnameRef = useRef(false);
 
@@ -52,7 +56,10 @@ export function WorkspaceSidebar({
         <SidebarContent className="mx-1 rounded-md border border-transparent bg-transparent group-data-[collapsible=icon]:mx-0">
           <WorkspaceNavChatList />
           <WorkspaceChannelsList />
-          {(isSidebarOpen || isMobile) && <RecentChatList />}
+          {(isSidebarOpen || isMobile) && <ImSessionTree />}
+          {(isSidebarOpen || isMobile) && (
+            <RecentChatList hideImThreads={imSessionTreeEnabled} />
+          )}
         </SidebarContent>
         <SidebarFooter className="mx-1 rounded-md border border-transparent bg-transparent group-data-[collapsible=icon]:mx-0">
           <WorkspaceNavMenu />

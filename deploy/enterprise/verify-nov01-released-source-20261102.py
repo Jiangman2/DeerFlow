@@ -13,6 +13,7 @@ from released_source_20261102 import CI_ARCHIVE, CI_MANIFEST, followup
 
 from released_source_20261102 import composer
 from work_integration_source_20261106 import MANIFEST as WORK_MANIFEST, historical_view as work_historical_view
+import im_s08_source_20261111 as im_s08
 
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = "release/nov01-released-fixes-source-20261102/"
@@ -22,7 +23,7 @@ def verify(ref=None):
     has_nov02 = bool(subprocess.check_output(["git", "ls-tree", "--name-only", ref, NOV02_DELTA], cwd=ROOT).strip()) if ref else (ROOT / NOV02_DELTA).is_file()
     archived = {}
     if ref:
-        roots = ["backend/app", "backend/packages/harness", "backend/tests", "frontend/src", "frontend/tests", "skills/public/data-analysis", ARCHIVE]
+        roots = ["backend/app", "backend/packages/harness", "backend/tests", "frontend", "skills/public/data-analysis", ARCHIVE]
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.ARTIFACT_PARENT], cwd=ROOT).strip():
             roots.append(followup.ARTIFACT_PARENT)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.ARTIFACT_LISTING_BASE.rstrip("/")], cwd=ROOT).strip():
@@ -51,6 +52,8 @@ def verify(ref=None):
             roots.append(composer.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, WORK_MANIFEST], cwd=ROOT).strip():
             roots.append(WORK_MANIFEST)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, im_s08.MANIFEST], cwd=ROOT).strip():
+            roots.extend((im_s08.ARCHIVE, "backend/scripts"))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.delivery.MANIFEST], cwd=ROOT).strip():
             roots.append(followup.delivery.ARCHIVE)
         raw = subprocess.check_output(["git", "archive", ref, *roots], cwd=ROOT)

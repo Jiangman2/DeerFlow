@@ -27,6 +27,11 @@ const config = {
     defaultLocale: "en",
   },
   devIndicators: false,
+  // The dev server is normally opened at http://localhost:3000, but the S08
+  // acceptance run needs a second, cookie-isolated window on 127.0.0.1:3000
+  // (auth cookies are host-only). Next blocks dev assets for unlisted hosts,
+  // which silently kills hydration and makes the login form do a native GET.
+  allowedDevOrigins: ["127.0.0.1", "10.64.104.16"],
   async redirects() {
     // These retired public documentation entries already redirect to the
     // enterprise workspace at page level. Resolve them before Nextra/locale

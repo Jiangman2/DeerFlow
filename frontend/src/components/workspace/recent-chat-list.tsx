@@ -55,6 +55,7 @@ import {
 import { getAPIClient } from "@/core/api";
 import { writeTextToClipboard } from "@/core/clipboard";
 import { useI18n } from "@/core/i18n/hooks";
+import { imSessionCopy } from "@/core/i18n/im-session-tree";
 import {
   exportThreadAsJSON,
   exportThreadAsMarkdown,
@@ -79,8 +80,13 @@ import { ThreadChannelIcon } from "./thread-channel-source";
 import { useThreadDeleteDialog } from "./thread-delete-dialog";
 import { useThreadArchiveAction } from "./use-thread-archive-action";
 
-export function RecentChatList() {
-  const { t } = useI18n();
+export function RecentChatList({
+  hideImThreads = false,
+}: {
+  hideImThreads?: boolean;
+} = {}) {
+  const { locale, t } = useI18n();
+  const copy = imSessionCopy(locale);
   const pathname = usePathname();
   const archiveAction = useThreadArchiveAction();
   const requestDelete = useThreadDeleteDialog();
@@ -94,10 +100,13 @@ export function RecentChatList() {
       env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ? undefined : false,
   });
   const threads = useMemo(() => {
-    return (infiniteThreads?.pages.flat() ?? []).filter(
-      (thread) => thread.metadata?.demo !== true,
-    );
-  }, [infiniteThreads]);
+    return (infiniteThreads?.pages.flat() ?? []).filter((thread) => {
+      if (thread.metadata?.demo === true) {
+        return false;
+      }
+      return !(hideImThreads && channelSourceOfThread(thread) !== null);
+    });
+  }, [hideImThreads, infiniteThreads]);
   const displayedThreads = useMemo(() => sortPinnedThreads(threads), [threads]);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -215,7 +224,7 @@ export function RecentChatList() {
   return (
     <>
       <SidebarGroup>
-        <SidebarGroupLabel>对话</SidebarGroupLabel>
+        <SidebarGroupLabel>{copy.webChats}</SidebarGroupLabel>
         <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
           <SidebarMenu>
             <div className="flex w-full flex-col gap-1">
@@ -227,7 +236,7 @@ export function RecentChatList() {
                   <Fragment key={thread.thread_id}>
                     {index === 0 && (
                       <div className="text-muted-foreground/70 mt-3 mb-1 px-2 text-[11px] font-medium tracking-wide first:mt-0">
-                        最近对话
+                        {t.sidebar.recentChats}
                       </div>
                     )}
                     <SidebarMenuItem className="group/side-menu-item">

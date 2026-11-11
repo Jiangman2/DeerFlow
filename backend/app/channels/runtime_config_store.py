@@ -60,31 +60,75 @@ class ChannelRuntimeConfigStore:
             raise ValueError("Invalid channel configuration shape")
         return raw
 
+    @staticmethod
+    def _lock_fd(fd: int) -> None:
+        """Take one non-blocking exclusive lock on ``fd`` (raises when busy).
+
+        POSIX uses ``flock``; Windows has no ``fcntl`` and uses ``msvcrt.locking``
+        on a single byte at offset 0. Both raise ``OSError`` when the lock is
+        already held, which the caller retries until its deadline.
+        """
+        import os
+
+        try:
+            import fcntl
+        except ImportError:  # Windows
+            import msvcrt
+
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        else:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    @staticmethod
+    def _unlock_fd(fd: int) -> None:
+        import os
+
+        try:
+            import fcntl
+        except ImportError:  # Windows
+            import msvcrt
+
+            try:
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+            except OSError:  # closing the fd also releases it
+                pass
+        else:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            except OSError:
+                pass
+
     @contextmanager
     def _transaction(self):
-        import fcntl
         import os
         import stat
         import time
 
         with self._lock:
             lock_path = self._path.with_name(self._path.name + ".lock")
-            fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+            flags = os.O_RDWR | os.O_CREAT
+            # POSIX-only hardening; Windows has no O_NOFOLLOW.
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            fd = os.open(lock_path, flags, 0o600)
             try:
                 if not stat.S_ISREG(os.fstat(fd).st_mode):
                     raise ValueError("Invalid channel lock file")
                 deadline = time.monotonic() + 5
                 while True:
                     try:
-                        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        self._lock_fd(fd)
                         break
-                    except BlockingIOError:
+                    except OSError:
                         if time.monotonic() >= deadline:
                             raise TimeoutError("Channel configuration lock busy") from None
                         time.sleep(0.025)
                 self._data = self._load()
                 yield
             finally:
+                self._unlock_fd(fd)
                 os.close(fd)
 
     def _save(self):

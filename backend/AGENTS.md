@@ -1474,7 +1474,7 @@ Bridges external messaging platforms (Feishu, Slack, Telegram, Discord, DingTalk
 **Components**:
 
 - `message_bus.py` - Async pub/sub hub (`InboundMessage` → queue → dispatcher; `OutboundMessage` → callbacks → channels)
-- `store.py` - JSON-file persistence mapping `channel_name:chat_id[:topic_id]` → `thread_id` (keys are `channel:chat` for root conversations and `channel:chat:topic` for threaded conversations)
+- `store.py` - JSON-file persistence mapping `channel_name:chat_id[:topic_id]` → `thread_id` (keys are `channel:chat` for root conversations and `channel:chat:topic` for threaded conversations). This is the **V1** pointer store; under IM routing V2 (see below) the Feishu adapter no longer writes it and never consults it
 - `manager.py` - Core dispatcher: creates threads via `client.threads.create()`, routes commands including `/goal` (setting a goal persists it through Gateway and then routes the objective as a chat turn), keeps Slack/Discord on `client.runs.wait()`, uses `client.runs.stream(["messages-tuple", "values"])` for Feishu/Telegram incremental outbound updates, serializes same-thread Feishu turns in-manager when the channel's `ChannelRunPolicy.serialize_thread_runs=True` so rapid follow-ups queue instead of tripping the runtime busy reply, and switches to `client.runs.create()` (fire-and-forget, returns once the run is `pending`) for channels whose `ChannelRunPolicy.fire_and_forget=True` so long autonomous runs do not hit the SDK default 300s `httpx.ReadTimeout`
 - `base.py` - Abstract `Channel` base class (start/stop/send lifecycle)
 - `service.py` - Manages lifecycle of all configured channels from `config.yaml`. A failed or cancelled startup drains `ChannelService.stop()` before propagating and clears the singleton only after successful rollback, so no half-started channel workers survive Gateway startup cancellation.
@@ -1482,6 +1482,113 @@ Bridges external messaging platforms (Feishu, Slack, Telegram, Discord, DingTalk
 - `github.py` - Webhook-driven GitHub channel. Inbound messages come from `POST /api/webhooks/github`; outbound is log-only because GitHub agents post explicitly with `gh` from their sandbox when they choose to comment or create a PR
 - `app/gateway/routers/channel_connections.py` - Browser-facing user connection and disconnect APIs
 - `deerflow.persistence.channel_connections` - SQL-backed user-owned connection, optional credential, connect state, and conversation store
+- `routing_v2.py` - Pure routing decision function (`resolve_route()`) for IM routing V2; see below
+- `deerflow.persistence.im_routing` - SQL repository (session pointers, message links, event inbox) for IM routing V2
+
+**IM routing V2** (`docs/im-routing-v2-architecture.md`, ADRs in `docs/im-routing-v2-adr.md`):
+
+V1 resolved a conversation to a thread through `store.py`'s `channel:chat[:topic]` →
+`thread_id` JSON map, which has no owner dimension, no generation/CAS for `/new`, only
+in-process deduplication, and cannot restore "reply to an old bot answer" (it merely
+prepends the quoted text). V2 replaces that for Feishu with three tables added by
+migration `0023_im_session_routing` (pure additive; `downgrade()` only drops these
+three tables — see `docs/im-routing-v2-migration-runbook.md`):
+
+- `im_session_pointers` - current thread per
+  `(provider, connection_id, owner_user_id, channel_type, external_conversation_id)`,
+  plus `generation`. `external_topic_id` is always `""`: **the pointer is scoped to the
+  chat, never to a Feishu topic** — a Feishu topic is a membership relationship, not a
+  separate conversation. Unique constraint `uq_im_session_pointer_scope`.
+- `im_message_links` - platform message id → thread id for both inbound messages and
+  outbound cards (`direction`, `message_kind`), unique on `(provider, message_id)`;
+  this is what makes "reply to an old card" resolvable.
+- `im_event_inbox` - `(provider, event_key)` idempotency with `PROCESSING → COMPLETED`;
+  the record is removed on failure so a Feishu redelivery can be retried.
+
+Writes never read-modify-write: a first message uses `insert_pointer_if_absent`
+(the loser of the race adopts the winner's thread), and `/new` uses
+`cas_switch_pointer(expected_generation)` retried at most 5 times. Process-local locks
+are only an optimization; the database is the authority.
+
+`ChannelManager._handle_routed_chat()` is entered only when `_routing_v2_active()` is
+true (`routing_repo` present **and** `route_v2_enabled` **and** the channel is in
+`ROUTING_V2_CHANNELS`). Anything else keeps the V1 JSON-store path, so a deployment
+without a database degrades instead of half-switching. `ChannelService` resolves the
+repo from `get_session_factory()` and the flag from `DEER_FLOW_ROUTE_V2_ENABLED`
+(default `1`).
+
+Decision table (`app/channels/routing_v2.py`): no reply → `CURRENT/NORMAL`; reply to a
+colleague → `QUOTE_ONLY`; reply to one's own earlier question or this bot's answer in
+the same chat/owner → `RESTORE` (runs on the old thread and **does not move the
+pointer**, ADR-01); same-chat reply to another owner's bot answer → `QUOTE_ONLY` with
+`[引用] 群里另一位同事的消息：…`; another chat → `REJECT/CROSS_CHAT_REFERENCE`;
+unverifiable sender or another app → `REJECT/REPLY_SOURCE_UNKNOWN`; this bot's message
+without a stored link → `FAIL_CLOSED/REPLY_MAPPING_MISSING`; thread gone →
+`THREAD_DELETED`. `REJECT`/`FAIL_CLOSED` create no run, keep the pointer, and answer
+with one explicit Chinese message (ADR-04) — never silently fall back to the current
+thread.
+
+The Feishu adapter's V2 contract is to *describe* a quote, not rewrite the prompt: it
+writes `reply_message_id` (from `parent_id` only, never `root_id`), `reply_sender_type`,
+`reply_sender_id`, `reply_from_self_bot` (`None` when `bot_open_id` is unknown → fail
+closed) and `quoted_text`. `chat_type in {"group", "topic"}` both require a structured
+mention and both isolate senders. Under V2 the adapter records every outbound card id
+via `_remember_outbound_message()` and `_remember_thread_mapping()` becomes a no-op, so
+the JSON store can never diverge from the per-owner pointer (ADR-03).
+Known limitation: `_resolve_available_skill_names()` still reads the JSON store, so
+under V2 it returns `None` (default skill set).
+
+**IM session archive (S08)** — adds the read-only Web session tree on top of V2 without
+changing routing semantics. Migration `0024_im_s08_archive` (additive, single head;
+`downgrade()` drops only its three tables plus the one pointer index) adds:
+
+- `im_user_bindings` — user-level Feishu identity (`tenant_key`, `bot_app_id`,
+  `feishu_id_type`, `feishu_user_id` → `owner_user_id`, `status`, `source`), written by
+  `/connect` in `feishu.py`. The partial unique index `uq_im_user_binding_active` covers
+  ACTIVE rows only, so revoked history is retained. This fixes the earlier gap where
+  `channel_connections.workspace_id` stored the chat id, making an owner resolvable only
+  in the chat where `/connect` happened.
+- `im_group_catalog` — cached group name/status (`ACTIVE` / `LEFT` / `DISSOLVED`), unique
+  on `(tenant_key, bot_app_id, chat_id)`. It never decides whether a directory is
+  rendered: group directories come from `im_thread_registry` rows only, so a group with
+  no thread produces no empty entry.
+- `im_thread_registry` — Thread ownership/classification source of truth (`provider`,
+  `owner_user_id`, `channel_type` `private|group`, `external_conversation_id`,
+  `status` `active|archived|deleted|orphaned`, `classification_source`, `title_snapshot`,
+  `last_active_at`). Titles still come from `threads_meta`; registry never replaces it.
+
+Identity resolution order is `im_user_bindings` (ACTIVE) → `channel_connections`
+scoped to the chat → `channel_connections` unscoped → unresolved. It lives in
+`app/channels/identity_resolver.py` and is used by `connection_identity.py` and by
+`ChannelManager._resolve_s08_identity_rejection()`; an unresolved sender is rejected with
+an explicit Chinese message and no thread is created. Registration has exactly one call
+site: `ChannelManager._create_thread()` → `_register_thread()`; `_touch_thread()` maintains
+`last_active_at` (60s throttle); the losing candidate thread of a pointer race and an
+exhausted `/new` CAS are marked `orphaned`; `deleted`/`orphaned` threads are never restored
+(`THREAD_OWNERSHIP_MISMATCH` / `THREAD_DELETED`). `/new` moves the pointer only, never the
+registry row. None of this runs unless the feature is on.
+
+Flags: `DEER_FLOW_S08_ENABLED` (default `0`) enables binding resolution, registry
+writes and `/api/im`; `IM_GROUP_SYNC_TTL_SECONDS` (default `3600`) bounds group metadata
+refresh. The Web UI reads `GET /api/im/capabilities`
+(`im_session_tree_enabled`) and hides the whole tree when it is false, so a flag-off
+deployment behaves exactly like V2.
+
+`app/gateway/im_conversations.py` + `routers/im_conversations.py` expose read-only
+`GET /api/im/{capabilities,session-tree,groups/{chat_id}/threads,threads,threads/search,
+threads/{thread_id}/origin}`. `/threads/search` is declared before `/{thread_id}/origin`
+on purpose. `is_current` is projected from `im_session_pointers` via
+`ImRoutingRepository.list_pointers_for_owner()`; the API never writes, so viewing history
+cannot move the Feishu pointer. The Web tree (`frontend/src/core/im/*`,
+`components/workspace/im-session-tree.tsx`) renders Private and Group sections, filters
+IM threads out of the Web recent-chat list while enabled, and returns null for an empty
+tree.
+
+`backend/scripts/backfill_im_thread_registry.py` rebuilds registry rows from
+`im_message_links` (`--dry-run` default, `--apply`, `--undo-batch`, `--repair-owner`,
+JSON+CSV report). Rows created this way carry `classification_source`
+`BACKFILL_POINTER` or `HEURISTIC`; a second run is a no-op because `register()` is
+`INSERT ... ON CONFLICT DO NOTHING`.
 
 **Message Flow**:
 
@@ -1526,6 +1633,9 @@ Bridges external messaging platforms (Feishu, Slack, Telegram, Discord, DingTalk
 - Telegram, Slack, Discord, Feishu/Lark, DingTalk, WeChat, and WeCom workers resolve incoming platform identities to connection records before reaching `ChannelManager`.
 - **Connect-code ordering vs `allowed_users`**: inbound workers consume a valid `/connect <code>` (or Telegram `/start <code>`) **before** applying the `allowed_users` filter, so a newly allowlisted-but-unbound user can bootstrap their first bind via the browser flow. Consequence: `allowed_users` is **not** a bind-time defense — any sender who possesses a valid code can consume it (not only allowlisted users). The bind security model rests on the code's confidentiality: `secrets.token_urlsafe(16)`, 600 s TTL, one-time `consume_oauth_state`, and codes surfaced only in the initiating browser (never echoed to chat). `allowed_users` still gates ordinary (non-bind) messages.
 - **Single-active-owner transfer semantics**: an external identity is keyed by `(provider, external_account_id, workspace_id)`. The latest successful bind wins — `upsert_connection` revokes other owners' active rows for the same identity (ownership transfer). This invariant is enforced at the DB layer by the partial unique index `uq_channel_connection_active_identity` (`WHERE status != 'revoked'`), so concurrent connects from different owners cannot both end `connected`; the losing writer retries against the now-visible state. `find_connection_by_external_identity` therefore resolves deterministically.
+- **Feishu group @-mention gate**: `FeishuChannel._message_mentions_bot()` only matches an exact `open_id` equal to the bot's own id, resolved from `GET /open-apis/bot/v3/info` on startup. The lookup retries (3 attempts, 2 s backoff) and, if it still fails, a cooldown-limited refresh is scheduled on the next skipped group message. Until the id is known the gate **fails closed** — a group message is skipped rather than accepting a heuristic "any bot mention" match, so mentioning a different bot cannot trigger this one. P2P messages and the `/connect` binding flow bypass the gate entirely.
+- **Feishu conversation/file export** (`POST /feishu/export-thread`, `POST /feishu/export-artifacts`): the browser never names a destination implicitly. Without `target_chat_id` both endpoints resolve the caller's live **personal** (`chat_type == "p2p"`) binding, never the newest row by `updated_at`; a group id is accepted only when it belongs to the caller's own connected bindings. The response echoes `target_chat_id` / `target_chat_type` / `target_name` so the UI can state where the file went. Bindings record `metadata.chat_type` at `/connect` time, and legacy rows without it are treated as non-personal rather than guessed as private.
+- **Artifact export authorization**: `export-artifacts` accepts only paths that (a) normalize under `/mnt/user-data/outputs/`, (b) appear in the thread's published artifact set read from the LangGraph checkpoint `channel_values["artifacts"]`, and (c) resolve inside the owner's `sandbox_outputs_dir`. The storage owner comes from the trusted `threads_meta` record (`_resolve_artifact_owner_user_id`), not from the browser session, and the route verifies thread read access first. `uploads/`, `workspace/`, and unpublished output files are rejected; `GET /api/channels/connections` is the source the frontend uses to list the caller's send targets.
 - See `backend/docs/IM_CHANNEL_CONNECTIONS.md` for provider setup, operational notes, and the architecture diagrams (connect-code flow, single-active-owner transfer, sync vs streaming dispatch, owner-scoped file storage pipeline).
 
 **GitHub event-driven agents** (webhook-driven IM channel):

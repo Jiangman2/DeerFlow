@@ -57,7 +57,7 @@ describe("workspace authentication boundary", () => {
     rs.mocked(getServerSideUser).mockResolvedValue({ tag: "unauthenticated" });
     await WorkspaceLayout({ children: <p>Private skill data</p> });
     expect(redirect).toHaveBeenCalledWith(
-      "/api/v1/auth/iam/login?next=%2Fworkspace%2Fchats%2Fnew",
+      "/login?next=%2Fworkspace%2Fchats%2Fnew",
     );
   });
 });

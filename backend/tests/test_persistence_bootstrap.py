@@ -48,10 +48,21 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0022_work_integration_state"
+HEAD = "0024_im_s08_archive"
 BASELINE = "0001_baseline"
 PRE_CONFIRMATION_HEAD = "0019_digital_employee_agents"
 CONFIRMATION_TABLES = frozenset({"ppt_confirmation_tasks", "ppt_confirmation_gates"})
+# Tables added after the pre-confirmation head by 0022/0023/0024.
+IM_TABLES = frozenset(
+    {
+        "im_session_pointers",
+        "im_message_links",
+        "im_event_inbox",
+        "im_thread_registry",
+        "im_group_catalog",
+        "im_user_bindings",
+    }
+)
 
 
 def _url(tmp_path: Path, name: str = "test.db") -> str:
@@ -314,7 +325,7 @@ async def test_legacy_with_manual_workaround_column_warns_on_drift(
         assert "server_default" in msg
         # Type info is always echoed in the payload for triage context.
         assert "actual_type=" in msg and "desired_type=" in msg, f"warning missing type info: {msg!r}"
-        # JSON ≈ JSON, so the equivalence check must NOT produce a "type" diff
+        # JSON 鈮?JSON, so the equivalence check must NOT produce a "type" diff
         # entry here -- that would be a false positive on the matching-type case.
         assert "type actual=" not in msg, f"unexpected type drift on matching JSON column: {msg!r}"
     finally:
@@ -372,7 +383,7 @@ async def test_legacy_with_wrong_type_workaround_warns_on_type_drift(
 def test_type_equivalent_matches_known_dialect_synonyms() -> None:
     from deerflow.persistence.migrations._helpers import _type_equivalent
 
-    # JSON ↔ JSONB (Postgres dialect difference, operationally interchangeable
+    # JSON 鈫?JSONB (Postgres dialect difference, operationally interchangeable
     # for our schema). Both directions, and via raw strings.
     assert _type_equivalent(sa.JSON(), "JSONB()") is True
     assert _type_equivalent("JSON", "JSONB") is True
@@ -427,7 +438,7 @@ async def test_pre_confirmation_versioned_database_preserves_users_and_creates_n
         for _ in range(2):
             await bootstrap_schema(engine, backend="sqlite")
             assert await _alembic_version(engine) == HEAD
-            assert await _table_names(engine) == before | CONFIRMATION_TABLES | {"work_integration_records"}
+            assert await _table_names(engine) == before | CONFIRMATION_TABLES | IM_TABLES | {"work_integration_records"}
             async with engine.connect() as conn:
                 row = (await conn.execute(sa.text("SELECT id, email, system_role, token_version FROM users"))).one()
             assert tuple(row) == ("historical-user", "history@example.invalid", "user", 7)
@@ -500,7 +511,7 @@ async def test_token_usage_column_parity_between_fresh_and_upgraded(tmp_path: Pa
 # they diverge, two users running the same app version end up with different
 # DB structures: exactly the cross-deployment drift this PR exists to kill.
 #
-# The check is intentionally scoped to columns × (nullable, server_default)
+# The check is intentionally scoped to columns 脳 (nullable, server_default)
 # instead of full type/index/FK reflection. Those are the two highest-signal
 # attributes for the drift modes seen so far (#3682 was a nullability
 # mismatch; review todo #6 was a server_default mismatch). Type, index, and
@@ -894,7 +905,7 @@ class TestDecideState:
 # ---------------------------------------------------------------------------
 
 
-def test_head_revision_is_oa_result_sets_revision() -> None:
+def test_head_revision_matches_expected_revision() -> None:
     assert _get_head_revision() == HEAD
 
 

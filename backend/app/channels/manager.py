@@ -11,6 +11,7 @@ import time
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -20,6 +21,7 @@ from langgraph_sdk.errors import ConflictError
 
 from app.channels import feishu_run_policy as _feishu_run_policy  # noqa: F401
 from app.channels.commands import KNOWN_CHANNEL_COMMANDS
+from app.channels.identity_resolver import resolve_im_identity
 from app.channels.message_bus import (
     PENDING_CLARIFICATION_METADATA_KEY,
     InboundMessage,
@@ -27,6 +29,15 @@ from app.channels.message_bus import (
     MessageBus,
     OutboundMessage,
     ResolvedAttachment,
+)
+from app.channels.routing_v2 import (
+    ReplyRef,
+    RouteAction,
+    RouteDecision,
+    RouteReason,
+    apply_quote,
+    failure_message,
+    resolve_route,
 )
 from app.channels.run_policy import CHANNEL_RUN_POLICY, ChannelRunPolicy
 from app.channels.store import ChannelStore
@@ -74,12 +85,31 @@ MESSAGE_STREAM_EVENTS = ("messages-tuple", "messages")
 THREAD_BUSY_MESSAGE = "This conversation is already processing another request. Please wait for it to finish and try again."
 BOUND_IDENTITY_REQUIRED_MESSAGE = f"请先在{ENTERPRISE_PRODUCT_NAME}的「设置 → 渠道」中连接此渠道，完成渠道内绑定后再发送消息。"
 BOUND_IDENTITY_UNAVAILABLE_MESSAGE = f"渠道连接暂时无法验证，请稍后重试或联系{ENTERPRISE_PRODUCT_NAME}管理员。"
+# S08: with the archive enabled an inbound sender must resolve to exactly one
+# DeerFlow owner before any thread (or /new) is created. Saying so explicitly
+# beats creating a thread nobody owns and hiding it from every sidebar.
+IDENTITY_UNBOUND_MESSAGE = f"无法识别您的会话身份：请先在{ENTERPRISE_PRODUCT_NAME}的「设置 → 渠道」中完成飞书绑定，再重新发送消息。"
+# S08: /new must never leave the user believing the pointer moved when every
+# compare-and-swap lost. Report the failure instead of pretending success.
+NEW_THREAD_SWITCH_FAILED_MESSAGE = "无法开始新会话：当前会话正忙，请稍后重试。"
+# Registry touches are rate limited per thread: last_active_at is a coarse
+# sidebar-recency signal, so writing it on every inbound message would create
+# pointless row churn on an active conversation.
+THREAD_TOUCH_MIN_INTERVAL_SECONDS = 60
 INBOUND_DEDUPE_TTL_SECONDS = 10 * 60
 INBOUND_DEDUPE_MAX_ENTRIES = 4096
 # Only server-stable provider message ids: client-generated ids (client_msg_id,
 # client_id) are not guaranteed identical across a provider's own redelivery, so
 # keying dedupe on them would miss exactly the retries we want to absorb.
 INBOUND_DEDUPE_METADATA_KEYS = ("event_id", "message_id", "msg_id")
+
+# Channels whose adapter reports structured reply provenance (reply_message_id,
+# reply_sender_type, reply_from_self_bot) and may therefore use the durable V2
+# routing kernel: per-owner session pointers, message links, restore-on-reply.
+# Other adapters keep the legacy topic-derived thread lookup until they can
+# supply the same provenance, because a partial signal would turn every reply
+# into a routing failure.
+ROUTING_V2_CHANNELS = frozenset({"feishu"})
 
 CHANNEL_CAPABILITIES = {
     "dingtalk": {"supports_streaming": False},
@@ -818,6 +848,13 @@ class ChannelManager:
         channel_sessions: dict[str, Any] | None = None,
         connection_repo: Any | None = None,
         require_bound_identity: bool = False,
+        routing_repo: Any | None = None,
+        route_v2_enabled: bool = True,
+        binding_repo: Any | None = None,
+        s08_enabled: bool = False,
+        registry_repo: Any | None = None,
+        catalog_repo: Any | None = None,
+        group_catalog_ttl_seconds: int = 3600,
     ) -> None:
         self.bus = bus
         self.store = store
@@ -829,6 +866,23 @@ class ChannelManager:
         self._channel_sessions = dict(channel_sessions or {})
         self._connection_repo = connection_repo
         self._require_bound_identity = require_bound_identity
+        # V2 routing: session pointers + message links + durable event inbox.
+        # Only active when the SQL routing repository is available, so a
+        # deployment without a database keeps the legacy channel-store path.
+        self._routing_repo = routing_repo
+        self._route_v2_enabled = route_v2_enabled
+        # S08 session archive: user-level identity bindings + (PR-3) thread
+        # registry/group catalog. Gated by its own flag so the legacy behaviour
+        # stays byte-identical when the feature is off.
+        self._binding_repo = binding_repo
+        self._s08_enabled = s08_enabled
+        # S08 archive: ownership/classification registry and the group name
+        # cache. Both are optional; when absent the feature degrades to the
+        # pre-S08 behaviour instead of failing message delivery.
+        self._registry_repo = registry_repo
+        self._catalog_repo = catalog_repo
+        self._group_catalog_ttl_seconds = max(0, int(group_catalog_ttl_seconds))
+        self._thread_touch_cache: dict[str, datetime] = {}
         self._work_documents = None  # Opt-in Work integration; production state is shared in SQL.
         self._work_unavailable_semaphore: asyncio.Semaphore | None = None
         self._client = None  # lazy init — langgraph_sdk async client
@@ -1235,8 +1289,476 @@ class ChannelManager:
         if exc:
             logger.error("[Manager] unhandled error in message task: %s", exc, exc_info=exc)
 
+    # -- V2 routing: pointers, message links, event inbox ------------------
+
+    def _routing_v2_active(self, msg: InboundMessage | None = None) -> bool:
+        """True when this message must go through the durable V2 router.
+
+        Requires an SQL routing repository: without it the legacy channel store
+        (one JSON pointer per ``channel:chat[:topic]``) stays authoritative, so
+        existing single-node deployments keep working unchanged.
+        """
+        if self._routing_repo is None or not self._route_v2_enabled:
+            return False
+        if msg is not None and msg.channel_name not in ROUTING_V2_CHANNELS:
+            return False
+        return True
+
+    @staticmethod
+    def _routing_channel_type(msg: InboundMessage) -> str:
+        chat_type = str((msg.metadata or {}).get("chat_type") or "").lower()
+        return "group" if chat_type in {"group", "topic"} else "private"
+
+    def _s08_active(self, msg: InboundMessage | None = None) -> bool:
+        """True when the S08 archive may act on this message.
+
+        The archive is strictly additive: it needs its own flag *and* the V2
+        routing kernel, because archived threads are exactly the threads the V2
+        kernel owns. When either is missing every legacy code path is unchanged.
+        """
+        if not self._s08_enabled:
+            return False
+        return self._routing_v2_active(msg)
+
+    @staticmethod
+    def _im_scope(msg: InboundMessage) -> tuple[str, str]:
+        """Return ``(tenant_key, bot_app_id)`` carried by the adapter metadata."""
+        metadata = msg.metadata if isinstance(msg.metadata, dict) else {}
+        tenant_key = str(metadata.get("tenant_key") or "").strip()
+        bot_app_id = str(metadata.get("bot_app_id") or "").strip()
+        return tenant_key, bot_app_id
+
+    async def _register_thread(self, msg: InboundMessage, thread_id: str, *, title: str | None = None) -> None:
+        """Record a newly created thread in the S08 ownership registry.
+
+        This is the single registration point: it is called from
+        :meth:`_create_thread` only, so every thread the V2 kernel can later
+        restore has exactly one registry row.
+        """
+        if not self._s08_active(msg) or self._registry_repo is None or not thread_id:
+            return
+        tenant_key, bot_app_id = self._im_scope(msg)
+        try:
+            await self._registry_repo.register(
+                thread_id=thread_id,
+                owner_user_id=msg.owner_user_id or "",
+                channel_type=self._routing_channel_type(msg),
+                external_conversation_id=msg.chat_id,
+                provider=msg.channel_name,
+                connection_id=msg.connection_id or "",
+                tenant_key=tenant_key,
+                bot_app_id=bot_app_id,
+                external_topic_id=msg.topic_id or "",
+                status="active",
+                classification_source="RUNTIME",
+                title_snapshot=title,
+                last_active_at=datetime.now(UTC),
+            )
+        except Exception:
+            # Archiving must never break message delivery; the row can be
+            # rebuilt from im_message_links by the backfill script.
+            logger.warning(
+                "[Manager] failed to register archived thread: chat=%s owner=%s thread=%s",
+                msg.chat_id,
+                msg.owner_user_id,
+                thread_id,
+                exc_info=True,
+            )
+
+    async def _touch_thread(self, thread_id: str, *, at: datetime | None = None) -> None:
+        """Advance ``last_active_at`` for a thread, rate limited per thread."""
+        if not self._s08_enabled or self._registry_repo is None or not thread_id:
+            return
+        now = at or datetime.now(UTC)
+        previous = self._thread_touch_cache.get(thread_id)
+        if previous is not None and (now - previous).total_seconds() < THREAD_TOUCH_MIN_INTERVAL_SECONDS:
+            return
+        if len(self._thread_touch_cache) >= INBOUND_DEDUPE_MAX_ENTRIES:
+            self._thread_touch_cache.clear()
+        self._thread_touch_cache[thread_id] = now
+        try:
+            await self._registry_repo.touch(thread_id, at=now)
+        except Exception:
+            logger.warning("[Manager] failed to touch archived thread: thread=%s", thread_id, exc_info=True)
+
+    async def _ensure_group_catalog(self, msg: InboundMessage) -> None:
+        """Make sure a group chat has a catalog row and refresh it when stale."""
+        if not self._s08_active(msg) or self._catalog_repo is None:
+            return
+        if self._routing_channel_type(msg) != "group":
+            return
+        tenant_key, bot_app_id = self._im_scope(msg)
+        metadata = msg.metadata if isinstance(msg.metadata, dict) else {}
+        chat_type = str(metadata.get("chat_type") or "").strip().lower()
+        try:
+            await self._catalog_repo.ensure(
+                chat_id=msg.chat_id,
+                provider=msg.channel_name,
+                tenant_key=tenant_key,
+                bot_app_id=bot_app_id,
+                chat_type=chat_type,
+            )
+            if not await self._catalog_repo.needs_sync(
+                msg.chat_id,
+                ttl_seconds=self._group_catalog_ttl_seconds,
+                tenant_key=tenant_key,
+                bot_app_id=bot_app_id,
+            ):
+                return
+            claimed = await self._catalog_repo.try_claim_sync(
+                msg.chat_id,
+                now=datetime.now(UTC),
+                ttl_seconds=self._group_catalog_ttl_seconds,
+            )
+            if not claimed:
+                return
+            await self._sync_group_meta(msg, tenant_key=tenant_key, bot_app_id=bot_app_id)
+        except Exception:
+            logger.warning("[Manager] failed to refresh group catalog: chat=%s", msg.chat_id, exc_info=True)
+
+    async def _sync_group_meta(self, msg: InboundMessage, *, tenant_key: str, bot_app_id: str) -> None:
+        """Fetch chat metadata from the adapter and store it in the catalog."""
+        if self._catalog_repo is None:
+            return
+        meta = await self._fetch_chat_meta(msg.channel_name, msg.chat_id)
+        if meta is None:
+            await self._catalog_repo.update_meta(
+                chat_id=msg.chat_id,
+                display_name=None,
+                name_source="UNKNOWN",
+                sync_error="FETCH_FAILED",
+                tenant_key=tenant_key,
+                bot_app_id=bot_app_id,
+            )
+            return
+        name = str(meta.get("name") or "").strip()
+        await self._catalog_repo.update_meta(
+            chat_id=msg.chat_id,
+            display_name=name or None,
+            name_source="CHAT_INFO" if name else "UNKNOWN",
+            chat_status=str(meta.get("chat_status") or "").strip() or None,
+            member_count=meta.get("member_count"),
+            sync_error="",
+            tenant_key=tenant_key,
+            bot_app_id=bot_app_id,
+        )
+
+    async def _fetch_chat_meta(self, channel_name: str, chat_id: str) -> dict[str, Any] | None:
+        """Ask a channel adapter for chat metadata (Feishu implements this)."""
+        try:
+            from .service import get_channel_service
+
+            service = get_channel_service()
+            channel = service.get_channel(channel_name) if service is not None else None
+            fetcher = getattr(channel, "fetch_chat_meta", None)
+            if fetcher is None:
+                return None
+            meta = await asyncio.wait_for(fetcher(chat_id), timeout=10)
+            return meta if isinstance(meta, dict) else None
+        except Exception:
+            logger.warning(
+                "[Manager] failed to fetch chat meta: channel=%s chat=%s",
+                channel_name,
+                chat_id,
+                exc_info=True,
+            )
+            return None
+
+    @staticmethod
+    def _routing_event_key(msg: InboundMessage) -> str | None:
+        message_id = str((msg.metadata or {}).get("message_id") or "").strip()
+        if not message_id:
+            return None
+        return f"{msg.channel_name}:{msg.chat_id}:{message_id}"
+
+    async def _claim_routing_event(self, msg: InboundMessage, event_key: str) -> bool:
+        return await self._routing_repo.claim_event(
+            provider=msg.channel_name,
+            event_key=event_key,
+            chat_id=msg.chat_id,
+            owner_user_id=msg.owner_user_id or "",
+            message_id=str((msg.metadata or {}).get("message_id") or ""),
+            connection_id=msg.connection_id or "",
+            route_reason="INBOUND",
+        )
+
+    async def _finish_routing_event(self, msg: InboundMessage, event_key: str) -> None:
+        await self._routing_repo.finish_event(
+            provider=msg.channel_name,
+            event_key=event_key,
+            status="COMPLETED",
+        )
+
+    async def _release_routing_event(self, msg: InboundMessage, event_key: str | None) -> None:
+        if event_key is None:
+            return
+        await self._routing_repo.release_event(provider=msg.channel_name, event_key=event_key)
+
+    async def _get_pointer(self, msg: InboundMessage):
+        return await self._routing_repo.get_pointer(
+            provider=msg.channel_name,
+            owner_user_id=msg.owner_user_id or "",
+            chat_id=msg.chat_id,
+            channel_type=self._routing_channel_type(msg),
+            connection_id=msg.connection_id or "",
+        )
+
+    async def _get_pointer_thread_id(self, msg: InboundMessage) -> str | None:
+        pointer = await self._get_pointer(msg)
+        return pointer.thread_id if pointer is not None else None
+
+    async def _current_thread_id(self, msg: InboundMessage) -> str | None:
+        """Current thread for outbound bookkeeping (pointer under V2)."""
+        if self._routing_v2_active(msg):
+            return await self._get_pointer_thread_id(msg)
+        return await self._lookup_thread_id(msg)
+
+    async def _ensure_pointer_thread(self, client, msg: InboundMessage) -> str:
+        """Return the pointer thread, creating the first one atomically.
+
+        Two racing first messages may both create a DeerFlow thread; the unique
+        pointer key decides the winner and the loser's empty thread is
+        discarded, so a chat never ends up with two "current" threads.
+        """
+        existing = await self._get_pointer_thread_id(msg)
+        if existing:
+            return existing
+        candidate = await self._create_thread(client, msg, store_mapping=False)
+        pointer = await self._routing_repo.insert_pointer_if_absent(
+            provider=msg.channel_name,
+            owner_user_id=msg.owner_user_id or "",
+            chat_id=msg.chat_id,
+            thread_id=candidate,
+            channel_type=self._routing_channel_type(msg),
+            connection_id=msg.connection_id or "",
+        )
+        if pointer.thread_id != candidate:
+            logger.info(
+                "[Manager] lost pointer creation race for chat=%s owner=%s; adopting thread=%s",
+                msg.chat_id,
+                msg.owner_user_id,
+                pointer.thread_id,
+            )
+            # S08: the losing candidate is an empty thread nobody will ever see
+            # again. Mark it orphaned instead of leaving it looking active.
+            if self._s08_active(msg) and self._registry_repo is not None:
+                try:
+                    await self._registry_repo.mark_status(candidate, "orphaned")
+                except Exception:
+                    logger.warning("[Manager] failed to mark orphaned thread: %s", candidate, exc_info=True)
+        return pointer.thread_id
+
+    @staticmethod
+    def _reply_ref(msg: InboundMessage) -> ReplyRef | None:
+        metadata = msg.metadata or {}
+        quoted_id = str(metadata.get("reply_message_id") or "").strip()
+        if not quoted_id:
+            return None
+        return ReplyRef(
+            message_id=quoted_id,
+            sender_type=str(metadata.get("reply_sender_type") or "unknown"),
+            sender_id=str(metadata.get("reply_sender_id") or ""),
+            from_self_bot=metadata.get("reply_from_self_bot"),
+        )
+
+    async def _thread_exists(self, client, thread_id: str) -> bool:
+        """Verify a restored thread still exists.
+
+        Any failure to verify (deleted thread, permission error, gateway down)
+        is treated as "cannot restore": ADR-04 requires failing closed instead
+        of answering in the current conversation under the guise of a restore.
+        """
+        if not thread_id:
+            return False
+        try:
+            await client.threads.get(thread_id)
+            return True
+        except Exception:
+            logger.warning("[Manager] cannot verify restored thread %s; failing closed", thread_id, exc_info=True)
+            return False
+
+    async def _resolve_v2_route(self, client, msg: InboundMessage) -> tuple[str | None, RouteDecision]:
+        reply = self._reply_ref(msg)
+        link = None
+        registry_owner_ok: bool | None = None
+        if reply is not None:
+            link = await self._routing_repo.get_link(provider=msg.channel_name, message_id=reply.message_id)
+            if link is not None and self._s08_active(msg) and self._registry_repo is not None:
+                # An archived thread must never be restored by another account,
+                # even if a stale message link still points at it.
+                try:
+                    row = await self._registry_repo.get(link.thread_id)
+                except Exception:
+                    logger.warning(
+                        "[Manager] cannot verify registry ownership for thread=%s",
+                        link.thread_id,
+                        exc_info=True,
+                    )
+                    row = None
+                if row is not None:
+                    if row.status not in ("active", "archived"):
+                        # A deleted/orphaned thread is never revived, even if a
+                        # stale message link still points at it.
+                        return None, RouteDecision(
+                            action=RouteAction.FAIL_CLOSED,
+                            reason=RouteReason.THREAD_DELETED,
+                            error_code=RouteReason.THREAD_DELETED.value,
+                        )
+                    registry_owner_ok = row.owner_user_id == (msg.owner_user_id or "")
+        decision = resolve_route(
+            chat_id=msg.chat_id,
+            owner_user_id=msg.owner_user_id,
+            reply=reply,
+            link=link,
+            quoted_text=(msg.metadata or {}).get("quoted_text"),
+            registry_owner_ok=registry_owner_ok,
+        )
+        if decision.action is RouteAction.RESTORE:
+            thread_id = decision.thread_id or ""
+            if not await self._thread_exists(client, thread_id):
+                return None, RouteDecision(
+                    action=RouteAction.FAIL_CLOSED,
+                    reason=RouteReason.THREAD_DELETED,
+                    error_code=RouteReason.THREAD_DELETED.value,
+                )
+            return thread_id, decision
+        if decision.blocks_run:
+            return None, decision
+        return await self._ensure_pointer_thread(client, msg), decision
+
+    async def _record_inbound_link(self, msg: InboundMessage, thread_id: str, *, route_reason: str) -> None:
+        metadata = msg.metadata or {}
+        message_id = str(metadata.get("message_id") or "").strip()
+        if not message_id or not thread_id:
+            return
+        await self._routing_repo.record_link(
+            provider=msg.channel_name,
+            message_id=message_id,
+            chat_id=msg.chat_id,
+            owner_user_id=msg.owner_user_id or "",
+            thread_id=thread_id,
+            direction="inbound",
+            message_kind="message",
+            connection_id=msg.connection_id or "",
+            sender_external_id=msg.user_id,
+            root_message_id=str(metadata.get("root_id") or ""),
+            parent_message_id=str(metadata.get("parent_id") or ""),
+        )
+        logger.info(
+            "[Manager] routed inbound: chat=%s owner=%s thread=%s reason=%s",
+            msg.chat_id,
+            msg.owner_user_id,
+            thread_id,
+            route_reason,
+        )
+
+    async def _send_routing_failure(self, msg: InboundMessage, decision: RouteDecision) -> None:
+        logger.info(
+            "[Manager] routing failure: chat=%s owner=%s code=%s action=%s",
+            msg.chat_id,
+            msg.owner_user_id,
+            decision.error_code,
+            decision.action.value,
+        )
+        outbound = OutboundMessage(
+            channel_name=msg.channel_name,
+            chat_id=msg.chat_id,
+            thread_id=decision.thread_id or "",
+            text=failure_message(decision.error_code),
+            thread_ts=msg.thread_ts,
+            connection_id=msg.connection_id,
+            owner_user_id=msg.owner_user_id,
+            metadata=_slim_metadata(msg.metadata),
+        )
+        await self.bus.publish_outbound(outbound)
+
+    async def _handle_routed_chat(self, msg: InboundMessage, *, extra_context: dict[str, Any] | None = None) -> None:
+        client = self._get_client()
+        thread_id, decision = await self._resolve_v2_route(client, msg)
+        if thread_id is None or decision.blocks_run:
+            await self._send_routing_failure(msg, decision)
+            return
+        if decision.action is RouteAction.QUOTE_ONLY:
+            msg.text = apply_quote(
+                msg.text,
+                decision.quote_text,
+                cross_owner=decision.reason is RouteReason.CROSS_OWNER_QUOTE,
+            )
+        await self._record_inbound_link(msg, thread_id, route_reason=decision.reason.value)
+        await self._ensure_group_catalog(msg)
+        await self._touch_thread(thread_id)
+        await self._run_chat_on_thread(
+            client,
+            msg,
+            thread_id,
+            created=False,
+            extra_context=extra_context,
+            storage_user_id=_channel_storage_user_id(msg),
+        )
+
+    async def _handle_new_conversation_v2(self, msg: InboundMessage) -> str:
+        """``/new``: create a thread and move the pointer with compare-and-swap."""
+        client = self._get_client()
+        chat_id = msg.chat_id
+        owner_user_id = msg.owner_user_id or ""
+        channel_type = self._routing_channel_type(msg)
+        connection_id = msg.connection_id or ""
+        thread_id = await self._create_thread(client, msg, store_mapping=False)
+        for _ in range(5):
+            pointer = await self._get_pointer(msg)
+            if pointer is None:
+                adopted = await self._routing_repo.insert_pointer_if_absent(
+                    provider=msg.channel_name,
+                    owner_user_id=owner_user_id,
+                    chat_id=chat_id,
+                    thread_id=thread_id,
+                    channel_type=channel_type,
+                    connection_id=connection_id,
+                )
+                if adopted.thread_id == thread_id:
+                    return "New conversation started."
+                expected_generation = adopted.generation
+            else:
+                expected_generation = pointer.generation
+            switched = await self._routing_repo.cas_switch_pointer(
+                provider=msg.channel_name,
+                owner_user_id=owner_user_id,
+                chat_id=chat_id,
+                thread_id=thread_id,
+                expected_generation=expected_generation,
+                channel_type=channel_type,
+                connection_id=connection_id,
+            )
+            if switched:
+                return "New conversation started."
+        logger.warning(
+            "[Manager] /new pointer switch contention for chat=%s owner=%s; keeping thread=%s",
+            chat_id,
+            owner_user_id,
+            thread_id,
+        )
+        # The pointer never moved, so the freshly created thread has no owner
+        # path to it. Say the switch failed instead of claiming success (the
+        # user would otherwise keep talking in the old conversation believing
+        # it is new).
+        if self._s08_active(msg) and self._registry_repo is not None:
+            try:
+                await self._registry_repo.mark_status(thread_id, "orphaned")
+            except Exception:
+                logger.warning("[Manager] failed to mark orphaned /new thread: %s", thread_id, exc_info=True)
+        return NEW_THREAD_SWITCH_FAILED_MESSAGE
+
     async def _handle_message(self, msg: InboundMessage) -> None:
         msg = _apply_effective_owner(msg)
+        routing_event_key = self._routing_event_key(msg) if self._routing_v2_active(msg) else None
+        if routing_event_key is not None and not await self._claim_routing_event(msg, routing_event_key):
+            logger.info(
+                "[Manager] dropping duplicate inbound event: channel=%s chat=%s key=%s",
+                msg.channel_name,
+                msg.chat_id,
+                routing_event_key,
+            )
+            return
         try:
             # Non-command chat can be rejected before it consumes a semaphore
             # slot. Commands are handled below because provider adapters consume
@@ -1246,6 +1768,10 @@ class ChannelManager:
             if msg.msg_type != InboundMessageType.COMMAND:
                 bound_identity_rejection = await self._get_bound_identity_rejection(msg)
             if bound_identity_rejection is not None:
+                # Release the dedupe claim: once the user binds their identity,
+                # a provider redelivery of the same message must be processable
+                # instead of being dropped as a duplicate forever.
+                await self._release_routing_event(msg, routing_event_key)
                 await self._reject_unbound_channel_message(msg, bound_identity_rejection=bound_identity_rejection)
                 return
 
@@ -1261,6 +1787,7 @@ class ChannelManager:
                 msg.chat_id,
                 exc,
             )
+            await self._release_routing_event(msg, routing_event_key)
             await self._send_error(msg, str(exc))
         except SlashSkillCommandResolutionError as exc:
             logger.warning(
@@ -1269,6 +1796,7 @@ class ChannelManager:
                 msg.chat_id,
                 exc,
             )
+            await self._release_routing_event(msg, routing_event_key)
             await self._send_error(msg, str(exc))
         except Exception:
             logger.exception(
@@ -1280,7 +1808,11 @@ class ChannelManager:
             # redelivery of the same message can recover instead of being dropped
             # for the dedupe TTL.
             self._release_inbound_dedupe_key(msg)
+            await self._release_routing_event(msg, routing_event_key)
             await self._send_error(msg, "An internal error occurred. Please try again.")
+        else:
+            if routing_event_key is not None:
+                await self._finish_routing_event(msg, routing_event_key)
 
     # -- chat handling -----------------------------------------------------
 
@@ -1292,7 +1824,7 @@ class ChannelManager:
         the connection repository, so rejection outbounds never trust a rejected
         inbound message's asserted connection metadata.
         """
-        if not self._require_bound_identity:
+        if not self._require_bound_identity and not self._s08_active(msg):
             return None
         # Webhook-authenticated channels (GitHub) opt out via
         # ChannelRunPolicy.requires_bound_identity=False. Authenticity is
@@ -1308,6 +1840,10 @@ class ChannelManager:
 
         has_connection = bool(msg.connection_id)
         has_owner = bool(msg.owner_user_id)
+
+        if self._s08_active(msg):
+            return await self._resolve_s08_identity_rejection(msg)
+
         if not (has_connection and has_owner):
             return _BoundIdentityRejection()
         if self._connection_repo is None:
@@ -1331,6 +1867,44 @@ class ChannelManager:
         if connection_id == msg.connection_id and owner_user_id == msg.owner_user_id:
             return None
         return _BoundIdentityRejection(outbound_connection_id=connection_id, outbound_owner_user_id=owner_user_id)
+
+    async def _resolve_s08_identity_rejection(self, msg: InboundMessage) -> _BoundIdentityRejection | None:
+        """Verify the sender through the S08 identity chain, adopting its owner.
+
+        The adapter's asserted identity is only a hint: a user-level binding
+        (``im_user_bindings``) is authoritative, and the chat-scoped /
+        workspace-less connection rows remain as fallbacks for deployments that
+        never wrote a binding. An unresolved sender is rejected *before* any
+        thread is created, so a group can never accumulate unowned threads that
+        the web sidebar cannot attribute to anybody.
+        """
+        if self._connection_repo is None and self._binding_repo is None:
+            return _BoundIdentityRejection(message=BOUND_IDENTITY_UNAVAILABLE_MESSAGE)
+
+        tenant_key, bot_app_id = self._im_scope(msg)
+        resolution = await resolve_im_identity(
+            binding_repo=self._binding_repo,
+            connection_repo=self._connection_repo,
+            provider=msg.channel_name,
+            external_user_id=msg.user_id,
+            chat_id=msg.chat_id,
+            tenant_key=tenant_key,
+            bot_app_id=bot_app_id,
+        )
+        if not resolution.resolved:
+            return _BoundIdentityRejection(message=IDENTITY_UNBOUND_MESSAGE)
+
+        if msg.owner_user_id and msg.owner_user_id != resolution.owner_user_id:
+            # Keep only the server-side values as outbound routing hints.
+            return _BoundIdentityRejection(
+                outbound_connection_id=resolution.connection_id,
+                outbound_owner_user_id=resolution.owner_user_id,
+            )
+
+        msg.owner_user_id = resolution.owner_user_id
+        if resolution.connection_id:
+            msg.connection_id = resolution.connection_id
+        return None
 
     async def _reject_unbound_channel_message(
         self,
@@ -1444,10 +2018,13 @@ class ChannelManager:
             )
             if store_mapping:
                 await self._store_thread_id(msg, preferred_thread_id)
+            await self._register_thread(msg, preferred_thread_id)
             return preferred_thread_id
         thread_id = thread["thread_id"]
         if store_mapping:
             await self._store_thread_id(msg, thread_id)
+        title = thread.get("title") if isinstance(thread, dict) else None
+        await self._register_thread(msg, thread_id, title=str(title) if title else None)
         logger.info("[Manager] new thread created through Gateway: thread_id=%s for chat_id=%s topic_id=%s", thread_id, msg.chat_id, msg.topic_id)
         return thread_id
 
@@ -1567,6 +2144,10 @@ class ChannelManager:
             if work_enabled:
                 extra_context["work_capabilities"] = {"available": bool(work_service)}
 
+        if self._routing_v2_active(msg):
+            await self._handle_routed_chat(msg, extra_context=extra_context)
+            return
+
         client = self._get_client()
         storage_user_id = _channel_storage_user_id(msg)
 
@@ -1577,6 +2158,33 @@ class ChannelManager:
         thread_id, created = await self._get_or_create_thread(client, msg)
         if not created:
             logger.info("[Manager] reusing thread: thread_id=%s for topic_id=%s", thread_id, msg.topic_id)
+        await self._run_chat_on_thread(
+            client,
+            msg,
+            thread_id,
+            created=created,
+            extra_context=extra_context,
+            storage_user_id=storage_user_id,
+        )
+
+    async def _run_chat_on_thread(
+        self,
+        client,
+        msg: InboundMessage,
+        thread_id: str,
+        *,
+        created: bool,
+        extra_context: dict[str, Any] | None = None,
+        storage_user_id: str | None = None,
+    ) -> None:
+        """Run one chat turn on an already resolved thread.
+
+        Serialized per thread so two messages for the same conversation never
+        interleave; different threads still run concurrently.
+        """
+        if storage_user_id is None:
+            storage_user_id = _channel_storage_user_id(msg)
+        if not created:
             await self._update_thread_channel_metadata(client, msg, thread_id)
 
         serial_state, queued = self._begin_serialized_thread_run(
@@ -1921,11 +2529,17 @@ class ChannelManager:
 
         if reply is None and command == "new":
             # Create a new thread through Gateway
-            client = self._get_client()
-            await self._create_thread(client, msg)
-            reply = "New conversation started."
+            if self._routing_v2_active(msg):
+                reply = await self._handle_new_conversation_v2(msg)
+                switched_thread_id = await self._current_thread_id(msg)
+                if switched_thread_id:
+                    await self._record_inbound_link(msg, switched_thread_id, route_reason=RouteReason.NORMAL.value)
+            else:
+                client = self._get_client()
+                await self._create_thread(client, msg)
+                reply = "New conversation started."
         elif reply is None and command == "status":
-            thread_id = await self._lookup_thread_id(msg)
+            thread_id = await self._current_thread_id(msg)
             reply = f"Active thread: {thread_id}" if thread_id else "No active conversation."
         elif reply is None and command == "models":
             reply = await self._fetch_gateway("/api/models", "models", msg=msg)
@@ -1969,7 +2583,7 @@ class ChannelManager:
         outbound = OutboundMessage(
             channel_name=msg.channel_name,
             chat_id=msg.chat_id,
-            thread_id=await self._lookup_thread_id(msg) or "",
+            thread_id=await self._current_thread_id(msg) or "",
             text=reply,
             thread_ts=msg.thread_ts,
             connection_id=msg.connection_id,
@@ -2067,7 +2681,7 @@ class ChannelManager:
         outbound = OutboundMessage(
             channel_name=msg.channel_name,
             chat_id=msg.chat_id,
-            thread_id=await self._lookup_thread_id(msg) or "",
+            thread_id=await self._current_thread_id(msg) or "",
             text=error_text,
             thread_ts=msg.thread_ts,
             connection_id=msg.connection_id,

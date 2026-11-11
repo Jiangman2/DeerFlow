@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   filterUserVisibleArtifacts,
+  isFeishuSendableArtifact,
   urlOfArtifact,
 } from "@/core/artifacts/utils";
 import { useAuth } from "@/core/auth/AuthProvider";
@@ -19,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { useArtifacts } from "./context";
+import { SendArtifactToFeishuButton } from "./send-artifact-to-feishu";
 
 export function ArtifactFileList({
   className,
@@ -162,6 +164,13 @@ export function ArtifactFileList({
                     </span>
                   </a>
                 </Button>
+                {isFeishuSendableArtifact(file) && (
+                  <SendArtifactToFeishuButton
+                    threadId={threadId}
+                    filepaths={[file]}
+                    variant="outline"
+                  />
+                )}
               </CardAction>
             </CardHeader>
           </Card>

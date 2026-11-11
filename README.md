@@ -622,6 +622,22 @@ DeerFlow supports receiving tasks from messaging apps. Channels auto-start when 
 
 DeerFlow can also expose user-owned IM channel connections in the workspace UI. When `channel_connections` is enabled, logged-in users can bind Telegram, Slack, Discord, Feishu/Lark, DingTalk, WeChat, or WeCom from the sidebar / Settings > Channels. It reuses the existing outbound `channels.*` transports, so no public IP or provider callback URL is required. Incoming IM messages then run under the connected DeerFlow user account. See [IM Channel Connections](backend/docs/IM_CHANNEL_CONNECTIONS.md) for setup and security notes.
 
+Feishu conversations can also be browsed in the workspace sidebar. With
+`DEER_FLOW_S08_ENABLED=1`, private Feishu chats appear under **私聊 / Private**
+and group chats under **群聊 / Group**, with the group name and that group's
+Threads nested underneath; Web sessions stay under **Web 会话 / Web chats**.
+Only Threads that actually exist are listed, so a group that never produced a
+Thread shows no empty folder, and the sidebar hides IM Threads from the Web list
+to avoid duplicates. The tree and its history search are read-only: opening an
+old Feishu Thread in the Web UI never moves the conversation that Feishu keeps
+answering in. Each Feishu user sees only their own Threads, resolved from the
+account bound during `/connect`, so the same group can hold separate Threads for
+different people. `IM_GROUP_SYNC_TTL_SECONDS` (default `3600`) controls how
+often group names are refreshed, and `backend/scripts/backfill_im_thread_registry.py`
+can rebuild the archive from existing message links (dry-run by default). See
+[IM Channel Connections](backend/docs/IM_CHANNEL_CONNECTIONS.md) for the binding
+flow.
+
 If Gateway shutdown or startup cancellation interrupts IM-channel activation, DeerFlow now drains the partial `ChannelService` rollback before propagating the cancellation. This prevents an interrupted startup from leaving orphaned channel workers or a half-initialized global service.
 
 Gateway shutdown also keeps the bounded in-flight RunManager drain alive across repeated cancellation. The checkpointer and database engines therefore cannot close underneath runs that are still writing their terminal state; the first cancellation is propagated after the drain reaches a safe terminal boundary.
@@ -743,6 +759,9 @@ Notes:
 - If `assistant_id` is set to a custom agent name, DeerFlow still routes through `lead_agent` and injects that value as `agent_name`, so the custom agent's SOUL/config takes effect for IM channels.
 - IM channel workers call Gateway's LangGraph-compatible API internally and automatically attach process-local internal auth plus the CSRF cookie/header pair required for thread and run creation.
 - Feishu/Lark now queues rapid follow-up messages per mapped DeerFlow `thread_id` instead of immediately surfacing the generic busy reply, and topic replies keep a per-message card with a compact source-message preview across queued/running/final patches.
+- Feishu/Lark group chats answer only when the message @-mentions this bot's own `open_id`, either through the message's own mention list or through an inline `<at>` element inside a rich-text (`post`) payload. The identity is resolved at startup and retried (with a cooldown) when that lookup fails; until it succeeds the bot stays silent in groups instead of guessing, so mentioning a different bot, replying without a mention, or broadcasting `@all` never triggers it. Private chats and `/connect` binding are unaffected.
+- Group conversations are namespaced per sender: the Feishu topic id (`root_id`/`parent_id`/`thread_id`) is shared by everyone in the chat, so the channel scopes it with the sender's `open_id` before resolving or storing the mapping. Two people replying under the same Feishu message therefore get two independent DeerFlow threads, and a bot reply only continues the thread of the person who asked.
+- The workspace "Send to Haineng Work" (发送到海能 Work) menu always defaults to the caller's verified personal chat. Bound group chats are listed separately as an explicit choice, and the confirmation toast names the destination that actually received the file. "Send generated files" (发送生成文件) uploads the conversation's published output files — never raw uploads or scratch workspace files — using the same target choice.
 
 Set the corresponding API keys in your `.env` file:
 
