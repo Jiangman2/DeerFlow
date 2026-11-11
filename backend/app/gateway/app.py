@@ -37,6 +37,7 @@ from app.gateway.routers import (
     github_webhooks,
     home_statistics,
     iam_account_sync,
+    im_conversations,
     input_polish,
     mcp,
     memory,
@@ -618,6 +619,9 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Thread cleanup API is mounted at /api/threads/{thread_id}
     app.include_router(threads.router)
+
+    # Read-only IM conversation tree for the sidebar (S08) at /api/im
+    app.include_router(im_conversations.router)
 
     # Scheduled tasks API is mounted at /api/scheduled-tasks
     app.include_router(scheduled_tasks.router)

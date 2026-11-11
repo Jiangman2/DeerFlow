@@ -258,6 +258,32 @@ class ImThreadRegistryRepository:
                 for chat_id, count, latest in rows
             ]
 
+    async def count_private(self, *, owner_user_id: str) -> int:
+        """Count every visible private thread, independent of pagination."""
+        async with self.session_factory() as session:
+            total = await session.scalar(
+                select(func.count())
+                .select_from(ImThreadRegistryRow)
+                .where(
+                    ImThreadRegistryRow.owner_user_id == owner_user_id,
+                    ImThreadRegistryRow.channel_type == "private",
+                    ImThreadRegistryRow.status.in_(VISIBLE_STATUSES),
+                ),
+            )
+            return int(total or 0)
+
+    async def count_groups(self, *, owner_user_id: str) -> int:
+        """Count distinct groups that own at least one visible thread."""
+        async with self.session_factory() as session:
+            total = await session.scalar(
+                select(func.count(func.distinct(ImThreadRegistryRow.external_conversation_id))).where(
+                    ImThreadRegistryRow.owner_user_id == owner_user_id,
+                    ImThreadRegistryRow.channel_type == "group",
+                    ImThreadRegistryRow.status.in_(VISIBLE_STATUSES),
+                ),
+            )
+            return int(total or 0)
+
     async def first_threads_per_group(
         self,
         *,
