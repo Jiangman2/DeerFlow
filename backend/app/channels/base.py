@@ -33,6 +33,9 @@ class Channel(ABC):
         self.config = config
         self._running = False
         self._connection_repo: Any = config.get("connection_repo")
+        # S08: user-level Feishu identity bindings (im_user_bindings). Kept
+        # optional so channels still start when SQL persistence is absent.
+        self._binding_repo: Any = config.get("binding_repo")
 
     @property
     def is_running(self) -> bool:

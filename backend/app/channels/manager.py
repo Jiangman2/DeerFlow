@@ -20,6 +20,7 @@ from langgraph_sdk.errors import ConflictError
 
 from app.channels import feishu_run_policy as _feishu_run_policy  # noqa: F401
 from app.channels.commands import KNOWN_CHANNEL_COMMANDS
+from app.channels.identity_resolver import resolve_im_identity
 from app.channels.message_bus import (
     PENDING_CLARIFICATION_METADATA_KEY,
     InboundMessage,
@@ -83,6 +84,10 @@ MESSAGE_STREAM_EVENTS = ("messages-tuple", "messages")
 THREAD_BUSY_MESSAGE = "This conversation is already processing another request. Please wait for it to finish and try again."
 BOUND_IDENTITY_REQUIRED_MESSAGE = f"请先在{ENTERPRISE_PRODUCT_NAME}的「设置 → 渠道」中连接此渠道，完成渠道内绑定后再发送消息。"
 BOUND_IDENTITY_UNAVAILABLE_MESSAGE = f"渠道连接暂时无法验证，请稍后重试或联系{ENTERPRISE_PRODUCT_NAME}管理员。"
+# S08: with the archive enabled an inbound sender must resolve to exactly one
+# DeerFlow owner before any thread (or /new) is created. Saying so explicitly
+# beats creating a thread nobody owns and hiding it from every sidebar.
+IDENTITY_UNBOUND_MESSAGE = f"无法识别您的会话身份：请先在{ENTERPRISE_PRODUCT_NAME}的「设置 → 渠道」中完成飞书绑定，再重新发送消息。"
 INBOUND_DEDUPE_TTL_SECONDS = 10 * 60
 INBOUND_DEDUPE_MAX_ENTRIES = 4096
 # Only server-stable provider message ids: client-generated ids (client_msg_id,
@@ -837,6 +842,8 @@ class ChannelManager:
         require_bound_identity: bool = False,
         routing_repo: Any | None = None,
         route_v2_enabled: bool = True,
+        binding_repo: Any | None = None,
+        s08_enabled: bool = False,
     ) -> None:
         self.bus = bus
         self.store = store
@@ -853,6 +860,11 @@ class ChannelManager:
         # deployment without a database keeps the legacy channel-store path.
         self._routing_repo = routing_repo
         self._route_v2_enabled = route_v2_enabled
+        # S08 session archive: user-level identity bindings + (PR-3) thread
+        # registry/group catalog. Gated by its own flag so the legacy behaviour
+        # stays byte-identical when the feature is off.
+        self._binding_repo = binding_repo
+        self._s08_enabled = s08_enabled
         self._work_documents = None  # Opt-in Work integration; production state is shared in SQL.
         self._work_unavailable_semaphore: asyncio.Semaphore | None = None
         self._client = None  # lazy init — langgraph_sdk async client
@@ -1279,6 +1291,25 @@ class ChannelManager:
         chat_type = str((msg.metadata or {}).get("chat_type") or "").lower()
         return "group" if chat_type in {"group", "topic"} else "private"
 
+    def _s08_active(self, msg: InboundMessage | None = None) -> bool:
+        """True when the S08 archive may act on this message.
+
+        The archive is strictly additive: it needs its own flag *and* the V2
+        routing kernel, because archived threads are exactly the threads the V2
+        kernel owns. When either is missing every legacy code path is unchanged.
+        """
+        if not self._s08_enabled:
+            return False
+        return self._routing_v2_active(msg)
+
+    @staticmethod
+    def _im_scope(msg: InboundMessage) -> tuple[str, str]:
+        """Return ``(tenant_key, bot_app_id)`` carried by the adapter metadata."""
+        metadata = msg.metadata if isinstance(msg.metadata, dict) else {}
+        tenant_key = str(metadata.get("tenant_key") or "").strip()
+        bot_app_id = str(metadata.get("bot_app_id") or "").strip()
+        return tenant_key, bot_app_id
+
     @staticmethod
     def _routing_event_key(msg: InboundMessage) -> str | None:
         message_id = str((msg.metadata or {}).get("message_id") or "").strip()
@@ -1541,6 +1572,10 @@ class ChannelManager:
             if msg.msg_type != InboundMessageType.COMMAND:
                 bound_identity_rejection = await self._get_bound_identity_rejection(msg)
             if bound_identity_rejection is not None:
+                # Release the dedupe claim: once the user binds their identity,
+                # a provider redelivery of the same message must be processable
+                # instead of being dropped as a duplicate forever.
+                await self._release_routing_event(msg, routing_event_key)
                 await self._reject_unbound_channel_message(msg, bound_identity_rejection=bound_identity_rejection)
                 return
 
@@ -1593,7 +1628,7 @@ class ChannelManager:
         the connection repository, so rejection outbounds never trust a rejected
         inbound message's asserted connection metadata.
         """
-        if not self._require_bound_identity:
+        if not self._require_bound_identity and not self._s08_active(msg):
             return None
         # Webhook-authenticated channels (GitHub) opt out via
         # ChannelRunPolicy.requires_bound_identity=False. Authenticity is
@@ -1609,6 +1644,10 @@ class ChannelManager:
 
         has_connection = bool(msg.connection_id)
         has_owner = bool(msg.owner_user_id)
+
+        if self._s08_active(msg):
+            return await self._resolve_s08_identity_rejection(msg)
+
         if not (has_connection and has_owner):
             return _BoundIdentityRejection()
         if self._connection_repo is None:
@@ -1632,6 +1671,44 @@ class ChannelManager:
         if connection_id == msg.connection_id and owner_user_id == msg.owner_user_id:
             return None
         return _BoundIdentityRejection(outbound_connection_id=connection_id, outbound_owner_user_id=owner_user_id)
+
+    async def _resolve_s08_identity_rejection(self, msg: InboundMessage) -> _BoundIdentityRejection | None:
+        """Verify the sender through the S08 identity chain, adopting its owner.
+
+        The adapter's asserted identity is only a hint: a user-level binding
+        (``im_user_bindings``) is authoritative, and the chat-scoped /
+        workspace-less connection rows remain as fallbacks for deployments that
+        never wrote a binding. An unresolved sender is rejected *before* any
+        thread is created, so a group can never accumulate unowned threads that
+        the web sidebar cannot attribute to anybody.
+        """
+        if self._connection_repo is None and self._binding_repo is None:
+            return _BoundIdentityRejection(message=BOUND_IDENTITY_UNAVAILABLE_MESSAGE)
+
+        tenant_key, bot_app_id = self._im_scope(msg)
+        resolution = await resolve_im_identity(
+            binding_repo=self._binding_repo,
+            connection_repo=self._connection_repo,
+            provider=msg.channel_name,
+            external_user_id=msg.user_id,
+            chat_id=msg.chat_id,
+            tenant_key=tenant_key,
+            bot_app_id=bot_app_id,
+        )
+        if not resolution.resolved:
+            return _BoundIdentityRejection(message=IDENTITY_UNBOUND_MESSAGE)
+
+        if msg.owner_user_id and msg.owner_user_id != resolution.owner_user_id:
+            # Keep only the server-side values as outbound routing hints.
+            return _BoundIdentityRejection(
+                outbound_connection_id=resolution.connection_id,
+                outbound_owner_user_id=resolution.owner_user_id,
+            )
+
+        msg.owner_user_id = resolution.owner_user_id
+        if resolution.connection_id:
+            msg.connection_id = resolution.connection_id
+        return None
 
     async def _reject_unbound_channel_message(
         self,

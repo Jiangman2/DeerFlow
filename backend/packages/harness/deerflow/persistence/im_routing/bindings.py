@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Index, String, select, text, update
+from sqlalchemy import DateTime, Index, String, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
@@ -81,8 +81,10 @@ class ImUserBindingRepository:
 
         Exact ``(tenant_key, bot_app_id, feishu_id_type, feishu_user_id)`` first,
         then a loose ``(bot_app_id, feishu_user_id)`` lookup for bindings created
-        before the tenant was recorded. Several distinct owners in the loose
-        lookup are ambiguous: return ``None`` instead of guessing.
+        before the tenant was recorded. The loose step never crosses a *known*
+        tenant: a row bound to another tenant is a different person, so only
+        rows with an empty or equal tenant key participate. Several distinct
+        owners are still ambiguous: return ``None`` instead of guessing.
         """
         if not feishu_user_id:
             return None
@@ -110,6 +112,10 @@ class ImUserBindingRepository:
                             ImUserBindingRow.bot_app_id == bot_app_id,
                             ImUserBindingRow.feishu_user_id == feishu_user_id,
                             ImUserBindingRow.status == _ACTIVE,
+                            or_(
+                                ImUserBindingRow.tenant_key == tenant_key,
+                                ImUserBindingRow.tenant_key == "",
+                            ),
                         )
                         .distinct(),
                     )

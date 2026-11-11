@@ -99,3 +99,11 @@ async def test_find_active_tenant_exact_then_loose(env):
             await session.execute(select(func.count()).select_from(ImUserBindingRow).where(ImUserBindingRow.status == "ACTIVE"))
         ).scalar_one()
     assert active == 0
+
+async def test_known_tenant_never_matches_another_tenant(env):
+    """A binding is scoped to its tenant: no cross-tenant identity leak."""
+    repo, _ = env
+    await repo.upsert_active(owner_user_id="u_alice", feishu_user_id=OPEN_A, tenant_key="tenant_2", bot_app_id=BOT)
+
+    assert await repo.find_active(feishu_user_id=OPEN_A, tenant_key="tenant_1", bot_app_id=BOT) is None
+    assert await repo.find_active(feishu_user_id=OPEN_A, tenant_key="tenant_2", bot_app_id=BOT) == "u_alice"

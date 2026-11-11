@@ -118,6 +118,28 @@ def _route_v2_enabled_from_env() -> bool:
     return raw not in {"0", "false", "no", "off"}
 
 
+def _make_binding_repo():
+    """Build the S08 user-level IM identity binding repository."""
+    try:
+        from deerflow.persistence.engine import get_session_factory
+        from deerflow.persistence.im_routing import ImUserBindingRepository
+    except Exception:
+        logger.exception("Failed to import IM user binding repository")
+        return None
+
+    session_factory = get_session_factory()
+    if session_factory is None:
+        logger.info("IM identity bindings disabled: database persistence is not available")
+        return None
+    return ImUserBindingRepository(session_factory)
+
+
+def _s08_enabled_from_env() -> bool:
+    """Read the S08 archive flag; disabled unless explicitly switched on."""
+    raw = os.getenv("DEER_FLOW_S08_ENABLED", "0").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
 class ChannelService:
     """Manages the lifecycle of all configured IM channels.
 
@@ -133,12 +155,16 @@ class ChannelService:
         routing_repo: Any | None = None,
         route_v2_enabled: bool = True,
         require_bound_identity: bool = False,
+        binding_repo: Any | None = None,
+        s08_enabled: bool = False,
     ) -> None:
         self.bus = MessageBus()
         self.store = ChannelStore()
         self._connection_repo = connection_repo
         self._routing_repo = routing_repo
         self._route_v2_enabled = route_v2_enabled
+        self._binding_repo = binding_repo
+        self._s08_enabled = s08_enabled
         config = dict(channels_config or {})
         langgraph_url = _resolve_service_url(config, "langgraph_url", _CHANNELS_LANGGRAPH_URL_ENV, DEFAULT_LANGGRAPH_URL)
         gateway_url = _resolve_service_url(config, "gateway_url", _CHANNELS_GATEWAY_URL_ENV, DEFAULT_GATEWAY_URL)
@@ -155,6 +181,8 @@ class ChannelService:
             routing_repo=routing_repo,
             route_v2_enabled=route_v2_enabled,
             require_bound_identity=require_bound_identity,
+            binding_repo=binding_repo,
+            s08_enabled=s08_enabled,
         )
         self._channels: dict[str, Any] = {}  # name -> Channel instance
         self._config = config
@@ -180,12 +208,15 @@ class ChannelService:
         connection_config = getattr(app_config, "channel_connections", None)
         connections_enabled = connection_config is not None and getattr(connection_config, "enabled", False)
         require_bound_identity = bool(connections_enabled and getattr(connection_config, "require_bound_identity", True))
+        s08_enabled = _s08_enabled_from_env()
         return cls(
             channels_config=channels_config,
             connection_repo=_make_connection_repo(connection_config),
             routing_repo=_make_routing_repo(),
             route_v2_enabled=_route_v2_enabled_from_env(),
             require_bound_identity=require_bound_identity,
+            binding_repo=_make_binding_repo() if s08_enabled else None,
+            s08_enabled=s08_enabled,
         )
 
     async def start(self) -> None:
@@ -480,6 +511,8 @@ class ChannelService:
             config["route_v2_enabled"] = self._route_v2_enabled and name in ROUTING_V2_CHANNELS
             if self._routing_repo is not None:
                 config["routing_repo"] = self._routing_repo
+            if self._binding_repo is not None:
+                config["binding_repo"] = self._binding_repo
             channel = channel_cls(bus=self.bus, config=config)
             self._channels[name] = channel
             await channel.start()

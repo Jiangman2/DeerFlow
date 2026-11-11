@@ -133,6 +133,10 @@ class FeishuChannel(Channel):
         # prefix only for the quote-only routes, and never for restores.
         self._route_v2_enabled: bool = bool(config.get("route_v2_enabled", False))
         self._routing_repo = config.get("routing_repo")
+        # S08: the app id is part of the identity/bot scope, so it is carried on
+        # every inbound message and on each user binding. Filled from config
+        # here and refreshed in ``start()`` from the effective credentials.
+        self._app_id: str = str(config.get("app_id", "") or "").strip()
 
     @staticmethod
     def _non_empty_str(value: Any) -> str | None:
@@ -448,6 +452,7 @@ class FeishuChannel(Channel):
             return
 
         self._bot_credentials = (app_id, app_secret, domain)
+        self._app_id = str(app_id or "").strip()
         self._api_client = lark.Client.builder().app_id(app_id).app_secret(app_secret).domain(domain).build()
         logger.info("[Feishu] using domain: %s", domain)
         self._main_loop = asyncio.get_event_loop()
@@ -1352,11 +1357,15 @@ class FeishuChannel(Channel):
             raise
 
     async def _attach_connection_identity(self, inbound: InboundMessage) -> InboundMessage:
+        metadata = inbound.metadata if isinstance(inbound.metadata, dict) else {}
         return await attach_connection_identity(
             inbound,
             repo=self._connection_repo,
             provider="feishu",
             workspace_id=inbound.chat_id,
+            binding_repo=self._binding_repo,
+            tenant_key=str(metadata.get("tenant_key") or ""),
+            bot_app_id=str(metadata.get("bot_app_id") or self._app_id or ""),
         )
 
     async def _prepend_quoted_context(self, inbound: InboundMessage) -> None:
@@ -1511,6 +1520,7 @@ class FeishuChannel(Channel):
         user_id: str,
         code: str,
         chat_type: str | None = None,
+        tenant_key: str = "",
     ) -> bool:
         guard = self.config.get("_work_receiver_guard")
         if guard is not None and not await guard():
@@ -1542,6 +1552,23 @@ class FeishuChannel(Channel):
             },
             status="connected",
         )
+        # S08: also write the chat-independent, user-level binding. Without it
+        # the owner is only resolvable inside this one chat, so the same person
+        # in another group looks unbound and their threads cannot be attributed.
+        if self._binding_repo is not None:
+            try:
+                await self._binding_repo.upsert_active(
+                    owner_user_id=state["owner_user_id"],
+                    feishu_user_id=user_id,
+                    tenant_key=tenant_key,
+                    bot_app_id=self._app_id,
+                    source="CONNECT_CODE",
+                )
+            except Exception:
+                # The connect card still succeeds; the next message is then
+                # rejected with an explicit "identity unbound" notice rather
+                # than silently creating an unowned thread.
+                logger.exception("[Feishu] failed to persist IM user binding")
         await self._reply_card(message_id, f"海能 Work已连接至{ENTERPRISE_PRODUCT_NAME}。")
         return True
 
@@ -1560,6 +1587,8 @@ class FeishuChannel(Channel):
             chat_type = getattr(message, "chat_type", None)
             parent_id = self._non_empty_str(getattr(message, "parent_id", None))
             feishu_thread_id = self._non_empty_str(getattr(message, "thread_id", None))
+            # The tenant lives on the event envelope, not on the message body.
+            tenant_key = str(getattr(getattr(event, "header", None), "tenant_key", "") or "").strip()
 
             # Parse message content
             content = json.loads(message.content)
@@ -1658,6 +1687,7 @@ class FeishuChannel(Channel):
                             user_id=sender_id,
                             code=connect_code,
                             chat_type=chat_type,
+                            tenant_key=tenant_key,
                         ),
                         self._main_loop,
                     )
@@ -1787,6 +1817,10 @@ class FeishuChannel(Channel):
                 "topic_id": topic_id,
                 "user_id": sender_id,
                 "chat_type": chat_type,
+                # S08 scope: the same open_id under another tenant or another
+                # bot app is a different person, so the archive keys on both.
+                "tenant_key": tenant_key,
+                "bot_app_id": self._app_id,
                 REPLY_MESSAGE_ID_METADATA_KEY: reply_message_id,
                 RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY: resolved_from_pending,
                 "resolved_from_stored_mapping": resolved_from_stored_mapping,
