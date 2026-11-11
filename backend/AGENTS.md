@@ -2341,6 +2341,14 @@ admission. Reuse the verified proposal after OAuth; missing requirements are
 asked before consent. Common date windows are server-calculated from the model's
 semantic enum. Never infer resource permission from source or a model answer.
 
+Cloud-title lookup is visible to the semantic planner for trusted Work private
+turns. Ground the file title in user-authored text and clarify the source or
+action when needed. Only an awaiting-input lookup task may retain verified
+lookup facts across turns, under the existing owner, TaskRef and expiry checks.
+Revalidate the same request evidence after OAuth. Topic changes and explicit
+new requests rotate the task before any lookup. Cover the normal service entry,
+cross-instance pending replies, negative source examples and stale callbacks.
+
 Gateway stamps runtime-only message_source and the fixed Work capability note
 from authenticated current input. Strip caller/config/checkpoint provenance;
 a web continuation of an IM-origin thread remains web. Keep existing other-channel

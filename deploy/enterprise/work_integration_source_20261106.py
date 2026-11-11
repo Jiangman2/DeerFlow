@@ -2,10 +2,17 @@
 
 import ast
 import hashlib
+import importlib.util
 import io
 import json
 import subprocess
 from pathlib import Path, PurePosixPath
+
+_cloud_spec = importlib.util.spec_from_file_location(
+    "work_cloud_routing_source_20261111", Path(__file__).with_name("work_cloud_routing_source_20261111.py")
+)
+cloud = importlib.util.module_from_spec(_cloud_spec)
+_cloud_spec.loader.exec_module(cloud)
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = "release/work-integration-followup-20261106/SOURCE.json"
@@ -57,6 +64,7 @@ def _parent_sources(paths):
 
 def historical_view(read):
     """Validate all declared current and parent bytes, then expose only their parents."""
+    read, cloud_candidate = cloud.historical_view(read)
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):
@@ -100,4 +108,5 @@ def historical_view(read):
         "added_gateway_runtime": sorted(path for path in added if _gateway_source(path)),
         "added_frontend_runtime": sorted(path for path in added if path.startswith("frontend/src/")),
         "production_acceptance_claimed": False,
+        "work_cloud_routing": cloud_candidate,
     }

@@ -53,6 +53,11 @@ def verify(ref=None):
             roots.append(WORK_MANIFEST)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.delivery.MANIFEST], cwd=ROOT).strip():
             roots.append(followup.delivery.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/work-cloud-routing-20261111"], cwd=ROOT).strip():
+            roots.append("release/work-cloud-routing-20261111/")
+            for cloud_path in ("release/work-integration-followup-20261106/SOURCE.json", "release/artifact-delivery-recovery-20261109/SOURCE.json", "release/released-sync-20261110/SOURCE.json", "backend/AGENTS.md", "backend/README.md", "backend/docs/WORK_CLOUD_ROUTING_20261111.md"):
+                if subprocess.check_output(["git", "ls-tree", "--name-only", ref, cloud_path], cwd=ROOT).strip():
+                    roots.append(cloud_path)
         raw = subprocess.check_output(["git", "archive", ref, *roots], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             archived = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}

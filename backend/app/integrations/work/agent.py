@@ -16,7 +16,20 @@ from .calendar import CalendarIntent
 from .capabilities import Action, parse_time
 from .client import DOC_ID_RE, WorkError
 from .drafts import CROSS_DAY_QUESTION, TASK_RELATION_QUESTION, TITLE_ONLY_QUESTION, CalendarDraft, CalendarDraftPatch, _span_semantics, draft_summary, expand_create, merge_draft, missing_question
-from .routing import CALENDAR_OPERATIONS, DOCUMENT_OPERATIONS, FileLookupIntent, WorkTurnDecision, file_lookup_in_scope, preauthorization_question, validate_file_lookup, validate_intent
+from .routing import (
+    CALENDAR_OPERATIONS,
+    DOCUMENT_OPERATIONS,
+    FileLookupDraft,
+    FileLookupIntent,
+    WorkTurnDecision,
+    explicit_lookup_facts,
+    file_lookup_in_scope,
+    lookup_body,
+    multiple_lookup_titles,
+    preauthorization_question,
+    validate_file_lookup,
+    validate_intent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -150,11 +163,19 @@ def _turn_context(context: dict | None) -> dict:
     if not isinstance(context, dict):
         return {}
     safe = {}
-    if context.get("domain") in {"calendar", "document"}:
+    if context.get("domain") in {"calendar", "document", "file_lookup"}:
         safe["domain"] = context["domain"]
     for key, limit in (("question", 1000), ("request", 1500), ("original_request", 1500), ("stage", 40)):
         if isinstance(context.get(key), str):
             safe[key] = context[key][:limit]
+    if context.get("domain") == "file_lookup" and context.get("stage") == "awaiting_input":
+        try:
+            safe["lookup"] = FileLookupDraft.model_validate(context.get("lookup")).model_dump(mode="json")
+        except ValueError:
+            pass
+        else:
+            if isinstance(context.get("lookup_evidence"), str):
+                safe["lookup_evidence"] = context["lookup_evidence"][:13_000]
     doc = context.get("document_id") or context.get("document")
     if isinstance(doc, str) and DOC_ID_RE.fullmatch(doc):
         safe["document_id"] = doc
@@ -225,8 +246,10 @@ def _turn_schema(*, file_lookup: bool = False) -> dict:
     if file_lookup:
         schema["properties"]["intent"]["anyOf"].insert(1, {"$ref": "#/$defs/FileLookupIntent"})
     else:
+        schema["properties"].pop("lookup", None)
         schema["properties"]["domain"]["anyOf"][0]["enum"].remove("file_lookup")
         schema.get("$defs", {}).pop("FileLookupIntent", None)
+        schema.get("$defs", {}).pop("FileLookupDraft", None)
     for key in ("CalendarDraft", "CalendarSchedule", "CalendarIntent", "Selector", "Changes"):
         schema.get("$defs", {}).pop(key, None)
     action = schema.get("$defs", {}).get("Action", {})
@@ -239,14 +262,129 @@ def _turn_schema(*, file_lookup: bool = False) -> dict:
     return _compact_schema(schema)
 
 
+def _title_evidence(request: str, title: str) -> str:
+    index = request.find(title)
+    if index < 0:
+        raise ValueError("file_lookup_title_not_in_current_request")
+    return request[max(0, index - 64) : index + len(title) + 64]
+
+
+def _lookup_conflict_choice(request: str, choice: str) -> bool:
+    """Validate the scoped business choices offered by the previous question.
+
+    This is not an admission rule: all natural language still reaches the
+    semantic planner. A model label alone cannot waive a known read/write
+    conflict, and this choice never authorizes data access or a write.
+    """
+    reply = re.sub(r"[\s，,。.!！?？；;：:]+", "", lookup_body(request)).strip('“”"')
+    choices = {
+        "read_only": {"只读取", "仅读取", "只读", "本次只读取不修改"},
+        "find_only": {"只查找", "仅查找", "只找链接", "本次只查找链接不修改"},
+    }
+    return reply in choices.get(choice, set())
+
+
+def _checked_lookup(decision: WorkTurnDecision, request: str, context: dict, explicit: FileLookupDraft | None) -> WorkTurnDecision:
+    pending = context.get("domain") == "file_lookup" and context.get("stage") == "awaiting_input" and isinstance(context.get("lookup"), dict)
+    previous = FileLookupDraft.model_validate(context["lookup"]) if pending else FileLookupDraft()
+    continuing = pending and decision.route in {"continue_work", "clarify"} and explicit is None
+    if decision.lookup is None:
+        if isinstance(decision.intent, FileLookupIntent):
+            # Full legacy proposals remain compatible; names still have to be
+            # grounded in this message and must not borrow historical targets.
+            validate_file_lookup(decision.intent, request, semantic_scope=True)
+            if file_lookup_in_scope(request):
+                return decision
+            draft = FileLookupDraft(source="unknown", title=decision.intent.title, read=decision.intent.read)
+            result = WorkTurnDecision(route="clarify", domain="file_lookup", lookup=draft, question="您是要在海能 Work 云空间中查找这份文件，还是处理本地文件、上传附件或其他网盘？")
+            result._lookup_evidence = request
+            return result
+        draft = explicit or (previous if continuing else FileLookupDraft())
+    else:
+        slots = previous.model_dump(mode="json") if continuing else {}
+        patch = decision.lookup.model_dump(mode="json", exclude_unset=True)
+        if continuing:
+            # Providers often serialize all optional defaults rather than omit
+            # them. Unknown/null is absence of new information, not evidence
+            # that a previously verified source, name or action changed.
+            patch = {key: value for key, value in patch.items() if key not in {"source", "title", "read"} or value is not None and not (key == "source" and value == "unknown")}
+            if previous.ambiguity != "none" and not ({"source", "title", "read"} & patch.keys()):
+                patch.pop("ambiguity", None)
+            uncertain = set(previous.uncertain_fields)
+            uncertain.difference_update({"source", "title", "read"} & patch.keys())
+            uncertain.update(decision.lookup.uncertain_fields)
+            patch["uncertain_fields"] = sorted(uncertain)
+            if previous.ambiguity == "conflicting_request":
+                if decision.lookup.conflict_resolution is not None and _lookup_conflict_choice(request, decision.lookup.conflict_resolution):
+                    patch.update(ambiguity="none", read=decision.lookup.conflict_resolution == "read_only")
+                else:
+                    patch["ambiguity"] = "conflicting_request"
+        if decision.lookup.conflict_resolution is not None and not (continuing and previous.ambiguity == "conflicting_request"):
+            raise ValueError("file_lookup_resolution_requires_current_conflict")
+        # A choice belongs only to this message and must never be replayed as
+        # a reusable acknowledgement by a later task or clarification.
+        patch["conflict_resolution"] = None
+        slots.update(patch)
+        if explicit is not None and decision.lookup.ambiguity == "none" and not decision.lookup.uncertain_fields and decision.lookup.source in {"work", "unknown"}:
+            # A complete, narrow user command is stronger than a spurious
+            # model missing-title question. This never creates execution IDs.
+            slots.update(explicit.model_dump(mode="json"))
+        draft = FileLookupDraft.model_validate(slots)
+    if draft.uncertain_fields:
+        draft = draft.model_copy(update={key: "unknown" if key == "source" else None for key in draft.uncertain_fields})
+    if draft.source in {"external", "local", "attachment"}:
+        return WorkTurnDecision(route="general")
+    if multiple_lookup_titles(request):
+        draft = draft.model_copy(update={"title": None, "ambiguity": "multiple_targets"})
+    elif continuing and previous.ambiguity == "multiple_targets" and draft.title and lookup_body(request).strip('《》“”「」『』" ') == draft.title:
+        draft = draft.model_copy(update={"ambiguity": "none"})
+    evidence = request
+    if continuing:
+        old_evidence = context.get("lookup_evidence", "")
+        prior = _title_evidence(old_evidence, previous.title) if previous.title else old_evidence[:1500]
+        if previous.ambiguity == "multiple_targets" or draft.title and draft.title in request and previous.title != draft.title:
+            prior = re.split(r'[《“「『"]', prior, maxsplit=1)[0]
+            if previous.title:
+                prior = prior.split(previous.title, 1)[0]
+        evidence = lookup_body(prior) + "\n" + lookup_body(request)
+    if draft.title:
+        intent = FileLookupIntent(operation="file_lookup", title=draft.title, read=draft.read if draft.read is not None else False)
+        if draft.title not in request:
+            if not continuing or previous.title != draft.title:
+                raise ValueError("file_lookup_title_not_in_current_request")
+        validate_file_lookup(intent, evidence, semantic_scope=True, allow_title_only=continuing or draft.read is None)
+    if len(evidence) > 13_000:
+        evidence = _title_evidence(evidence, draft.title) if draft.title else evidence[:1500]
+    if draft.ambiguity == "conflicting_request":
+        question = "这次包含读写冲突。若本次仅处理读取，请回复“只读取”；若只找文件或链接，请回复“只查找”。本次不会进行写入。" + ("已保留您提供的标题。" if draft.title else "还需要提供一份文件的完整标题。")
+    elif draft.ambiguity == "multiple_targets":
+        question = "请明确一份文件的完整标题，本次不会替您选择多份文件中的某一份。" + ("同时说明是查找文件还是读取内容。" if draft.read is None else "")
+    elif draft.source != "work":
+        question = "您是要在海能 Work 云空间中查找这份文件，还是处理本地文件、上传附件或其他网盘？"
+    elif not draft.title:
+        question = "请提供要处理的一份 Work 文件的完整标题；也可以直接发送文件链接。"
+    elif draft.read is None:
+        question = "您要查找这份文件或获取链接，还是读取、总结它的内容？"
+    else:
+        result = WorkTurnDecision(route="new_work", domain="file_lookup", lookup=draft, intent=FileLookupIntent(operation="file_lookup", title=draft.title, read=draft.read))
+        result._lookup_evidence, result._lookup_continuation = evidence, continuing
+        return result
+    result = WorkTurnDecision(route="clarify", domain="file_lookup", lookup=draft, question=question)
+    result._lookup_evidence, result._lookup_continuation = evidence, continuing
+    return result
+
+
 def _checked_turn(decision: WorkTurnDecision, documents: set[str], context: dict, windows: dict, *, lookup_request: str = "") -> WorkTurnDecision:
     intent = decision.intent
+    explicit = explicit_lookup_facts(lookup_request) if lookup_request else None
+    if explicit is not None and decision.route == "clarify" and decision.domain in {"document", "file_lookup"} and decision.lookup is None:
+        decision = WorkTurnDecision(route="new_work", domain="file_lookup", lookup=explicit)
     if decision.domain == "file_lookup":
         if not lookup_request:
             raise ValueError("file_lookup_not_available_for_turn")
-        if isinstance(intent, FileLookupIntent):
-            validate_file_lookup(intent, lookup_request)
-        return decision
+        if decision.route == "unsupported":
+            return decision
+        return _checked_lookup(decision, lookup_request, context, explicit)
     if isinstance(intent, Action) and intent.document_id and intent.document_id not in documents:
         raise ValueError("model_changed_document_target")
     if isinstance(intent, CalendarIntent):
@@ -301,6 +439,9 @@ def _turn_repair_hint(error: ValueError) -> str:
         "file_lookup_title_not_in_current_request": "按名称查找只复制本条用户消息中的完整名称，保留扩展名。没有完整名称就询问，不能使用历史内容。",
         "file_lookup_requires_new_current_request": "按名称查找是当前消息的新任务，不续接历史名称。",
         "file_lookup_requires_read_or_find_request": "只收到文件名时补问用户要查找文件还是读取内容。",
+        "file_lookup_multiple_targets": "本条存在多份不同名称，使用lookup草稿及ambiguity=multiple_targets补问一份目标，不替用户挑选。",
+        "lookup_and_intent_conflict": "lookup草稿与完整file_lookup intent不能冲突；优先仅给lookup草稿，不携带执行标识。",
+        "file_lookup_resolution_requires_current_conflict": "conflict_resolution只用于当前awaiting_input且已有conflicting_request的补问；新任务或没有读写冲突时必须为null。",
         "model_changed_candidate_target": "候选序号只能来自当前任务候选；没有候选就补问目标日期和原名称。",
         "model_changed_event_target": "event_id只能选当前任务已查询ID，没有目标就补问，不猜ID。",
         "model_invented_recent_target": "没有recent_id时不能选择recent=true，请补问原日期和名称。",
@@ -805,8 +946,8 @@ async def plan_turn(
         raise WorkError("turn_timeout_configuration")
     context = _turn_context(task_context)
     resource = capabilities.get("read_only_resource") if isinstance(capabilities, dict) else None
-    lookup_request = request if not links and resource is None and file_lookup_in_scope(request) else ""
-    if not links and not lookup_request and not context.get("document_id"):
+    lookup_request = request if not links and resource is None else ""
+    if not links and resource is None and not file_lookup_in_scope(request) and not context.get("document_id"):
         title_answer = _fill_pending_calendar_title(request, context)
         if title_answer is not None:
             return title_answer
@@ -879,10 +1020,19 @@ async def plan_turn(
         )
     if lookup_request:
         system += (
-            "当前消息提到了云端位置或受支持的文件名。只有用户明确要查找、打开、读取、总结或分析自己海能 Work 空间内的一份具体文件，且未给资源链接，才可使用"
+            "当前可信Work私聊可以按名称查找云文件，不依赖固定位置词或动词。云盘、云空间、云文档是同一Work云端能力的常见说法。"
+            "语义判断当前用户在请求查找/读取、讨论举例还是修改，并区分Work、本地、附件、外部网盘和来源不明确。"
+            "位置不明确时先补问来源，不能猜Work；明确本地、附件或其他网盘时general，不搜索Work。否定访问、只解释或举例时general。"
+            "优先用domain=file_lookup及lookup草稿{source:work|local|attachment|external|unknown,title:完整原文名称或null,read:true|false|null}。"
+            "read=true表示读取/总结/分析，false表示仅查找/存在/链接，null表示用户未说。ambiguity=none|multiple_targets|conflicting_request，默认none；确有多个目标或读写冲突则补问，不可偷选一个。只补问缺少的槽位，不得重问已有标题或强求链接。"
+            "续接时unknown/null只是未提供新信息，会保留原有已核实槽位。用户明确撤回或表示先前某个槽位不确定时，填写uncertain_fields:[source|title|read]，程序才清除对应旧值并补问；不能用默认unknown/null冒充明确撤回。"
+            "上一个待补问草稿有conflicting_request读写冲突时，仅当前用户明确选择本次纯读取或纯查找并放弃写入，才填写conflict_resolution=read_only或find_only；其他时候为null。只补标题或来源不能清除读写冲突。"
+            "当上一任务为awaiting_input时，可只补本条用户已明确的槽位；省略的source/read/title保留原值，不能从已完成任务或历史搜索取旧标题。"
+            "新完整请求替换旧任务，换话题或取消退出。短答仅在确实回答当前问题时续接；普通解释请求不能当文件标题。"
+            "完整的既有输出也兼容：只有明确一份Work文件且未给链接时可用"
             'route=new_work、domain=file_lookup、intent={"operation":"file_lookup","title":"本条消息中的完整原始文件名","read":true或false}。'
             "只找文件、确认是否存在或找链接时 read=false；明确要打开或读取、总结、分析内容时 read=true。"
-            "从当前用户请求原样复制完整名称，有扩展名时保留，去除外围引号。禁止取历史名称、猜测扩展名、改写标题或输出路径、链接及标识。"
+            "从当前用户请求原样复制完整名称，有扩展名时保留，去除外围引号。只在当前awaiting_input补问任务可保留已核验标题。禁止取其他历史名称、猜测扩展名、改写标题或输出路径、链接及标识。"
             "例如，读取我云文档空间下的 AA标准测试.docx，标题就是 AA标准测试.docx。帮我打开Work里的项目进度表并总结，标题就是 项目进度表。"
             "在Work私聊里，明确要求‘读取 AA标准测试.docx’或‘帮我总结一下《项目周报.xlsx》’也属于该场景，无需重复说Work空间。明确是本地、附件或其它服务的文件不使用此操作。"
             "需要读取但未给名称、名称不明确或同时提到多个候选时，用domain=file_lookup及clarify询问一份完整名称。只给文件名时补问是查找文件还是读取内容。"

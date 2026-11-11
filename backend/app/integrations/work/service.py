@@ -28,7 +28,7 @@ from .date_grounding import ground_write_dates
 from .drafts import CalendarDraft, draft_summary, missing_question
 from .file_read import FILE_JOB_PROTOCOL, FILE_PLAN_TARGET, WorkFileRef, WorkFileSettings, file_error_explanation, file_links, read_file, requested_range
 from .file_search import LEGACY_SEARCH_SCOPE, SEARCH_JOB_PROTOCOL, SEARCH_SCOPE, WorkSearchSettings, is_exact_title, search_documents
-from .routing import FileLookupIntent, WorkTurnDecision, validate_file_lookup
+from .routing import FileLookupIntent, WorkTurnDecision, lookup_body, validate_file_lookup
 from .scopes import CALENDAR_AUTH_SCOPE, CALENDAR_CONSENT_DESCRIPTION, DOCUMENT_SCOPE, FILE_GRANT_KINDS, SEARCH_GRANT_KIND, has_scopes
 from .tasks import TaskRef
 from .turn_state import MemoryTurns
@@ -365,7 +365,17 @@ class WorkDocumentService:
             if not links and (numbered_choice or choice_command):
                 return await self._handle_search_choice(msg, p, owner, source, turn)
             task_context = {}
-            if turn.task_ref is not None and turn.task.get("domain") not in {"file_lookup", "file_search_read"}:
+            pending_lookup = (
+                turn.task_ref is not None
+                and turn.task.get("domain") == "file_lookup"
+                and turn.task.get("stage") == "awaiting_input"
+                and type(turn.task.get("lookup_expires_at")) in {int, float}
+                and turn.task["lookup_expires_at"] > time.time()
+                and bool(turn.context)
+            )
+            if pending_lookup:
+                task_context = dict(turn.task)
+            elif turn.task_ref is not None and turn.task.get("domain") not in {"file_lookup", "file_search_read"}:
                 task_context = dict(turn.task)
                 task_context.update(self.calendar.facts(p))
                 task_context["pending_dialogue"] = turn.context.get("dialogue", [])
@@ -380,7 +390,7 @@ class WorkDocumentService:
             if isinstance(decision.intent, FileLookupIntent):
                 if decision.route != "new_work" or links:
                     raise WorkError("invalid_search_request")
-                return await self._handle_search_turn(msg, p, owner, source, turn, decision.intent)
+                return await self._handle_search_turn(msg, p, owner, source, turn, decision.intent, evidence=decision.lookup_evidence, continuing=decision.lookup_continuation and pending_lookup)
             execution = task_context.get("calendar_execution", {})
             blocked_recreate = decision.draft is not None and decision.draft.operation == "create" and execution.get("state", "none") != "none" and not decision.calendar_task_reset_validated
             if blocked_recreate:
@@ -394,6 +404,8 @@ class WorkDocumentService:
                 )
                 decision = decision.model_copy(update={"route": "clarify", "question": question})
             mode = "continue" if turn.task_ref and not decision.calendar_task_reset_validated and (decision.route == "continue_work" or decision.route == "clarify" and decision.domain == turn.task.get("domain")) else "new"
+            if decision.lookup is not None:
+                mode = "continue" if decision.lookup_continuation and pending_lookup else "new"
             prior_operation = (turn.task.get("draft") or {}).get("operation") or (turn.task.get("intent") or {}).get("operation")
             if (
                 turn.task_ref
@@ -486,10 +498,19 @@ class WorkDocumentService:
                 "domain": decision.domain,
                 "intent": snapshot["intent"],
                 "draft": snapshot.get("draft"),
+                "lookup": snapshot.get("lookup"),
                 "question": decision.question,
                 "stage": "awaiting_input" if decision.route == "clarify" else "requested",
                 "original_request": turn.task.get("original_request", msg.text) if mode == "continue" else msg.text,
             }
+            if decision.lookup is not None:
+                rounds = turn.task.get("lookup_rounds", 0) if mode == "continue" else 0
+                if type(rounds) is not int or rounds >= 4:
+                    await self._turn_state.finish_turn(owner, turn.turn_id, mode="exit")
+                    self._cancel_local_pending(p)
+                    await self._reply(msg, "【本地 UAT】这次文件信息尚未核对完整。请重新发送来源、完整标题和希望读取还是查找；尚未访问 Work 数据。")
+                    return True
+                task_data.update(lookup_evidence=decision.lookup_evidence, lookup_rounds=rounds + 1, lookup_expires_at=turn.task["lookup_expires_at"] if mode == "continue" else time.time() + 600)
             task_data["document_id"] = links[0][0] if links else turn.context.get("document", "") if mode == "continue" else ""
             ref = await self._turn_state.finish_turn(owner, turn.turn_id, mode=mode, task=task_data)
             self._cancel_local_pending(p)
@@ -535,7 +556,7 @@ class WorkDocumentService:
             if exc.stage != "task_superseded":
                 kept_draft = False
                 if "turn" in locals() and turn is not None:
-                    preserve = (exc.stage.startswith("turn_model_") or exc.stage == "turn_queue_busy") and turn.task_ref is not None and bool(turn.task.get("draft"))
+                    preserve = (exc.stage.startswith("turn_model_") or exc.stage == "turn_queue_busy") and turn.task_ref is not None and (bool(turn.task.get("draft")) or locals().get("pending_lookup", False))
                     try:
                         await self._turn_state.finish_turn(owner, turn.turn_id, mode="continue" if preserve else "exit", task=turn.task if preserve else None)
                     except WorkError:
@@ -564,9 +585,15 @@ class WorkDocumentService:
             await self._reply(msg, "【本地 UAT】本次 Work 请求暂未确认完成，请稍后重试或联系平台管理员。如果此前已确认修改，请先到 Work 核查结果；系统不会自动重复写入。")
             return True
 
-    async def _handle_search_turn(self, msg, p, owner, source, turn, intent):
+    async def _handle_search_turn(self, msg, p, owner, source, turn, intent, *, evidence="", continuing=False):
+        request = msg
+        if evidence and evidence != msg.text:
+            prior = turn.task.get("lookup") or {}
+            if not continuing or turn.task.get("stage") != "awaiting_input" or not evidence.endswith(lookup_body(msg.text)) or intent.title not in msg.text and prior.get("title") != intent.title:
+                raise WorkError("invalid_search_request")
+            request = replace(msg, text=evidence, metadata=dict(msg.metadata), files=[])
         try:
-            validate_file_lookup(intent, msg.text)
+            validate_file_lookup(intent, request.text, semantic_scope=bool(evidence), allow_title_only=continuing)
         except ValueError:
             raise WorkError("invalid_search_request") from None
         scope = self._search_settings.scope
@@ -577,10 +604,10 @@ class WorkDocumentService:
             await self._reply(msg, "【本地 UAT】" + detail)
             return True
         intent_data = intent.model_dump(mode="json")
-        task = {"protocol": SEARCH_JOB_PROTOCOL, "domain": "file_lookup", "intent": intent_data, "stage": "requested", "original_request": msg.text[:1500]}
-        ref = await self._turn_state.finish_turn(owner, turn.turn_id, mode="new", task=task)
+        task = {"protocol": SEARCH_JOB_PROTOCOL, "domain": "file_lookup", "intent": intent_data, "stage": "requested", "original_request": request.text[:1500]}
+        ref = await self._turn_state.finish_turn(owner, turn.turn_id, mode="continue" if continuing else "new", task=task)
         self._cancel_local_pending(p)
-        job = DocumentJob(replace(msg, metadata=dict(msg.metadata), files=[]), "", "", time.monotonic() + 600, scope, intent=intent_data, task_ref=ref.as_dict(), protocol=SEARCH_JOB_PROTOCOL)
+        job = DocumentJob(replace(request, metadata=dict(msg.metadata), files=[]), "", "", time.monotonic() + 600, scope, intent=intent_data, task_ref=ref.as_dict(), protocol=SEARCH_JOB_PROTOCOL)
         consent = "本次申请 Work 云空间的查看、评论和下载权限，用于查找文件标题。" if scope == LEGACY_SEARCH_SCOPE else "本次只申请按标题搜索 Work 文件的用户权限。"
         await self._submit_job(job, p, source, consent=consent + "读取正文时会另行核对对应权限。\n\n")
         return True
@@ -708,7 +735,7 @@ class WorkDocumentService:
             if job.protocol != SEARCH_JOB_PROTOCOL or not scope or job.scope != scope or job.document_id or job.document_url:
                 raise WorkError("file_search_unavailable")
             try:
-                validate_file_lookup(FileLookupIntent.model_validate(job.intent), job.message.text)
+                validate_file_lookup(FileLookupIntent.model_validate(job.intent), job.message.text, semantic_scope=True)
             except ValueError:
                 raise WorkError("invalid_search_request") from None
             return self._search_vault

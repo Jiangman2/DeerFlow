@@ -1,0 +1,46 @@
+{
+  "schema": "work-cloud-routing.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "ced7db0cf083aeff02fd142a7d8fb7dcc266213d",
+  "production_acceptance_claimed": false,
+  "schema_migration_requested": false,
+  "parent_manifests": {
+    "release/work-integration-followup-20261106/SOURCE.json": "535503070c0c53a0a928fe6ab362bbc6bfc8de685a681fed7fd7832c6629dd76",
+    "release/artifact-delivery-recovery-20261109/SOURCE.json": "0420e05dc6de2a8da22ef6a3c0962aa762dbc81c2543e4b934d71c329ff4ab30",
+    "release/released-sync-20261110/SOURCE.json": "3f570a30ac92fb02511af9e306b2f8d5188b4b06cf4ad80fce87e7dbf99671b7"
+  },
+  "changes": {
+    "backend/AGENTS.md": {
+      "base_sha256": "f73c253812d02bc048535a8cae99fdda47ec2f865442904454b1ca74fb926144",
+      "current_sha256": "2eca11cb448876fd592f1163ddecd0927ed92804cbc965af33e79aefe9dc87ac"
+    },
+    "backend/README.md": {
+      "base_sha256": "49de3961c8ba07ffab3d415584430d59f623b57f2ae67718c34e1a4ec1be658f",
+      "current_sha256": "39e5878f983edabf1810a4bc87ee0fc4372c6294aab115ccd62073886a7f2926"
+    },
+    "backend/app/integrations/work/agent.py": {
+      "base_sha256": "924c04e341777a1cd8df270eb52c7a4615156b72c06c15dfd94b90f54e37260e",
+      "current_sha256": "51b76345d941acf82131f06faa1f3e34b424c335dab7cf84a8bc88a9326736df"
+    },
+    "backend/app/integrations/work/routing.py": {
+      "base_sha256": "c99a74e1c3a09fb9b7379989ae8df9b6e4d9d8f76552675b9c98d5c79deb3110",
+      "current_sha256": "4ae7b4e14e73794e30418eb86f9eb0a40f8e373b2e733ed5d12efe2e2ba81765"
+    },
+    "backend/app/integrations/work/service.py": {
+      "base_sha256": "409988778a66bce701f6b7bc71f8d53a893dab74a1e3d79743bf32cc84312d0a",
+      "current_sha256": "8626cfbedcae348e9e6cc0f5132180421b613aece477fa3dd898b53ca03fff0d"
+    },
+    "backend/docs/WORK_CLOUD_ROUTING_20261111.md": {
+      "base_sha256": null,
+      "current_sha256": "dffb4472653220c50e31ad3cde138428854ade150a94eb82c8ef5b603aedd54f"
+    },
+    "backend/tests/test_work_cloud_lookup_dialogue.py": {
+      "base_sha256": null,
+      "current_sha256": "3d352b08b571fdebfebf07c6e9eb3bc7abcb7e2fdac44727e3a7705f110c9098"
+    },
+    "backend/tests/test_work_file_lookup_routing.py": {
+      "base_sha256": "2d7a6dfe503346e7c817d6674e4fdb3264099a5568ecfc2f82ed84a81ee3afc5",
+      "current_sha256": "31462e702fe467506bce521450134c70e09d615c9289d7487bf49c362554b65d"
+    }
+  }
+}

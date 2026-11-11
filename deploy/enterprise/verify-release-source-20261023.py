@@ -411,6 +411,11 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(pagination.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
             extra.append("release/artifact-delivery-recovery-20261109/")
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/work-cloud-routing-20261111"], cwd=ROOT).strip():
+            extra.append("release/work-cloud-routing-20261111/")
+            for cloud_path in ("release/work-integration-followup-20261106/SOURCE.json", "release/artifact-delivery-recovery-20261109/SOURCE.json", "release/released-sync-20261110/SOURCE.json", "backend/AGENTS.md", "backend/README.md", "backend/docs/WORK_CLOUD_ROUTING_20261111.md"):
+                if subprocess.check_output(["git", "ls-tree", "--name-only", ref, cloud_path], cwd=ROOT).strip():
+                    extra.append(cloud_path)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
@@ -563,6 +568,7 @@ def verify(ref=None, lock_path=LOCK):
             'terminal_stream_candidate': {'status': 'NOT_DEPLOYED', 'frontend_runtime_paths': [terminal_stream.CLIENT, terminal_stream.HELPER]} if terminal_stream_candidate else None,
             'enterprise_source_followup': _nov02.followup.summary(followup),
             'work_integration_followup': work_followup_manifest,
+            'work_cloud_routing_candidate': work_followup_manifest.get('work_cloud_routing') if work_followup_manifest else None,
             'sidechat_frontend_source': _nov02.followup.sidechat.summary(sidechat_manifest),
             'new_chat_model_source': _nov02.followup.new_chat.summary(new_chat_manifest),
             'dashboard_navigation_candidate': _nov02.followup.navigation.summary(navigation),

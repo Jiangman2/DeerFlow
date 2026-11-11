@@ -51,7 +51,8 @@ async def test_link_and_ordinary_routes_keep_existing_schema(monkeypatch):
     url = "https://documents.example.test/docx/doxTest123"
     doc = await agent.plan_turn("总结 Work 里的 " + url, links=[("doxTest123", url)])
     assert isinstance(doc.intent, Action) and doc.intent.document_id == "doxTest123"
-    assert all("FileLookupIntent" not in call.args[1]["turn_schema"]["$defs"] for call in model.await_args_list)
+    assert "FileLookupIntent" in model.await_args_list[0].args[1]["turn_schema"]["$defs"]
+    assert "FileLookupIntent" not in model.await_args_list[1].args[1]["turn_schema"]["$defs"]
 
 
 @pytest.mark.asyncio
