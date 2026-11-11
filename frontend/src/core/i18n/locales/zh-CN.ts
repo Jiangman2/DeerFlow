@@ -249,6 +249,7 @@ export const zhCN: Translations = {
     newShopCartComplete: "可下载",
     newShopCartProcessing: "下载中",
     newShopCartFailed: "下载失败",
+    newShopCartOversized: "超大文件",
     newShopCartFailureUnknown: "未提供失败原因",
     newShopCartSelectionSummary: (selected: number, total: number) =>
       `已选择 ${selected} / ${total} 个文件`,

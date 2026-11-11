@@ -65,6 +65,7 @@ void test("failed records do not block ready files and cannot be downloaded", ()
 void test("unknown states and completed files without download fields remain invalid", () => {
   for (const item of [
     { ...exampleItem, isComplete: -2 },
+    { ...exampleItem, isComplete: 3 },
     { ...exampleItem, isComplete: "-1" },
     { ...exampleItem, fileId: null, num: null },
   ]) {
@@ -72,6 +73,30 @@ void test("unknown states and completed files without download fields remain inv
       parseNewShopCartListResponse({ code: 0, data: [item] }).ok,
       false,
     );
+  }
+});
+
+void test("oversized files load with nullable or populated download fields but remain unavailable", () => {
+  for (const fileId of [null, exampleItem.fileId]) {
+    for (const num of [null, 1]) {
+      const oversized = {
+        ...exampleItem,
+        id: "oversized",
+        isComplete: 2,
+        fileId,
+        num,
+      };
+      const result = parseNewShopCartListResponse({
+        code: 0,
+        data: [oversized, exampleItem],
+      });
+      assert.equal(result.ok, true);
+      assert.deepEqual(result.files, [oversized, exampleItem]);
+      assert.deepEqual(result.files.filter(isDownloadableNewShopCartFile), [
+        exampleItem,
+      ]);
+      assert.equal(parseNewShopCartFile(oversized).ok, false);
+    }
   }
 });
 

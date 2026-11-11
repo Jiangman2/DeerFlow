@@ -259,6 +259,7 @@ export const enUS: Translations = {
     newShopCartComplete: "Ready",
     newShopCartProcessing: "Downloading",
     newShopCartFailed: "Download failed",
+    newShopCartOversized: "Oversized file",
     newShopCartFailureUnknown: "No failure reason provided",
     newShopCartSelectionSummary: (selected: number, total: number) =>
       `${selected} / ${total} files selected`,

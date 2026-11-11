@@ -48,6 +48,13 @@ it("loads mixed records, shows failure reasons and adds only the selected ready 
     data: [
       failed,
       ready,
+      {
+        ...ready,
+        id: "oversized",
+        fileName: "oversized.zip",
+        isComplete: 2,
+        errorInfo: "上游大小限制",
+      },
       { ...failed, id: "unknown", fileName: "unknown.zip", errorInfo: null },
       {
         ...failed,
@@ -77,6 +84,11 @@ it("loads mixed records, shows failure reasons and adds only the selected ready 
   expect(failedRow.hasAttribute("disabled")).toBe(true);
   expect(failedRow.textContent).toContain("文件下载异常");
   expect(failedRow.textContent).toContain("下载失败");
+  const oversizedRow = screen.getByRole("button", { name: /oversized.zip/ });
+  expect(oversizedRow.hasAttribute("disabled")).toBe(true);
+  expect(oversizedRow.textContent).toContain("超大文件");
+  expect(oversizedRow.textContent).toContain("上游大小限制");
+  fireEvent.click(oversizedRow);
   expect(
     screen.getByRole("button", { name: /pending.zip/ }).textContent,
   ).toContain("下载中");
