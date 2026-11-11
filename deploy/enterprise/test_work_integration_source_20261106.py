@@ -29,7 +29,7 @@ class WorkIntegrationSourceTests(unittest.TestCase):
         self.assertEqual(projected("backend/app/gateway/routers/model_monitor.py"), self.read("backend/app/gateway/routers/model_monitor.py"))
 
     def test_rejects_changed_runtime_or_manifest(self):
-        for target, error in ((MODIFIED, "WORK_FOLLOWUP_CURRENT_CHANGED"), (ADDED, "WORK_FOLLOWUP_CURRENT_CHANGED"), (work.MANIFEST, "WORK_FOLLOWUP_SEAL_CHANGED|WORK_CLOUD_ROUTING_PARENT_MANIFEST_CHANGED")):
+        for target, error in ((MODIFIED, "WORK_FOLLOWUP_CURRENT_CHANGED"), (ADDED, "WORK_FOLLOWUP_CURRENT_CHANGED|WORK_SEARCH_CANDIDATES_CURRENT_CHANGED"), (work.MANIFEST, "WORK_FOLLOWUP_SEAL_CHANGED|WORK_CLOUD_ROUTING_PARENT_MANIFEST_CHANGED|WORK_SEARCH_CANDIDATES_PARENT_MANIFEST_CHANGED")):
             with self.subTest(target=target), self.assertRaisesRegex(AssertionError, error):
                 work.historical_view(lambda path: self.read(path) + (b"\n" if path == target else b""))
 
@@ -45,7 +45,7 @@ class WorkIntegrationSourceTests(unittest.TestCase):
                 raise KeyError(path)
             return self.read(path)
 
-        with self.assertRaisesRegex(AssertionError, "WORK_FOLLOWUP_MANIFEST_REQUIRED|WORK_CLOUD_ROUTING_PARENT_MANIFEST_REQUIRED"):
+        with self.assertRaisesRegex(AssertionError, "WORK_FOLLOWUP_MANIFEST_REQUIRED|WORK_CLOUD_ROUTING_PARENT_MANIFEST_REQUIRED|WORK_SEARCH_CANDIDATES_PARENT_MANIFEST_REQUIRED"):
             work.historical_view(without_manifest)
         historical = {}.__getitem__
         read, result = work.historical_view(historical)

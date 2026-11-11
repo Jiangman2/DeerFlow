@@ -45,6 +45,11 @@ def verify(ref=None):
             for cloud_path in ("release/work-integration-followup-20261106/SOURCE.json", "release/artifact-delivery-recovery-20261109/SOURCE.json", "release/released-sync-20261110/SOURCE.json", "backend/AGENTS.md", "backend/README.md", "backend/docs/WORK_CLOUD_ROUTING_20261111.md"):
                 if subprocess.check_output(["git", "ls-tree", "--name-only", ref, cloud_path], cwd=ROOT).strip():
                     extra.append(cloud_path)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/work-search-candidates-20261111"], cwd=ROOT).strip():
+            extra.append("release/work-search-candidates-20261111/")
+            for search_path in ("release/work-cloud-routing-20261111/SOURCE.json", "release/work-integration-followup-20261106/SOURCE.json", "release/artifact-delivery-recovery-20261109/SOURCE.json", "release/released-sync-20261110/SOURCE.json", "backend/AGENTS.md", "backend/README.md", "backend/docs/WORK_CLOUD_ROUTING_20261111.md", "backend/docs/WORK_SEARCH_CANDIDATES_20261111.md"):
+                if subprocess.check_output(["git", "ls-tree", "--name-only", ref, search_path], cwd=ROOT).strip():
+                    extra.append(search_path)
         raw = subprocess.check_output(["git", "archive", ref, "backend/app", "backend/packages/harness", "backend/tests", "frontend/src", "frontend/tests", ARCHIVE, DELTA, PARENT_DELTA, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             cache = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}

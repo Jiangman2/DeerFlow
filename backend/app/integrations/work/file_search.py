@@ -53,6 +53,97 @@ def is_exact_title(candidate: str, requested: str) -> bool:
     return _normalized_title(candidate) == _normalized_title(requested)
 
 
+def _near_title_parts(title: str) -> tuple[str, str]:
+    value = unicodedata.normalize("NFKC", title).strip().casefold()
+    suffix = re.search(r"\.(docx|xlsx|pdf)\Z", value)
+    return (value[: suffix.start()], suffix[1]) if suffix else (value, "")
+
+
+def _near_title_key(title: str) -> str:
+    # This key admits candidates only. Never use it for automatic reading.
+    value, _ = _near_title_parts(title)
+    value = "".join(char for char in value if not char.isspace())
+    value = re.sub(r"(?<!\d)((?:19|20)\d{2})年", r"\1", value)
+    return "".join(char for char in value if not unicodedata.category(char).startswith("P"))
+
+
+def _title_references(title: str) -> tuple:
+    value, _ = _near_title_parts(title)
+    numbers = tuple(re.findall(r"\d+(?:[._-]\d+)*", value))
+    ordinals = tuple(re.findall(r"第[零〇一二两三四五六七八九十百千]+(?:版|期|号|章|册|卷)", value))
+    # Short Latin segments commonly identify projects, revisions or versions.
+    # Protect them rather than interpreting A/B or V1a/V1b as spelling errors.
+    identifiers = tuple(part for part in re.findall(r"[a-z]+", value) if len(part) <= 3)
+    return numbers, ordinals, identifiers
+
+
+def _bounded_distance(left: str, right: str, limit: int) -> int:
+    """Levenshtein distance capped at 1/2, over validated <=240-char titles."""
+    if abs(len(left) - len(right)) > limit:
+        return limit + 1
+    previous = list(range(len(right) + 1))
+    for index, char in enumerate(left, 1):
+        current = [limit + 1] * (len(right) + 1)
+        current[0] = index
+        for column in range(max(1, index - limit), min(len(right), index + limit) + 1):
+            current[column] = min(current[column - 1] + 1, previous[column] + 1, previous[column - 1] + (char != right[column - 1]))
+        if min(current) > limit:
+            return limit + 1
+        previous = current
+    return previous[-1]
+
+
+def _literal_title_contains(candidate: str, requested: str) -> bool:
+    """Preserve containment without matching part of a longer number/version.
+
+    References outside the matched title are allowed: a backup suffix such as
+    '备份2' is not a reason to discard an otherwise literal title match.
+    """
+    numbers = tuple(re.finditer(r"\d+(?:[._-]\d+)*", requested))
+    for match in re.finditer(re.escape(requested), candidate):
+        valid = True
+        for number in numbers:
+            start, end = match.start() + number.start(), match.start() + number.end()
+            if (start and candidate[start - 1].isdigit()) or (end < len(candidate) and candidate[end].isdigit()):
+                valid = False
+            if start >= 2 and candidate[start - 1] in "._-" and candidate[start - 2].isdigit():
+                valid = False
+            if end + 1 < len(candidate) and candidate[end] in "._-" and candidate[end + 1].isdigit():
+                valid = False
+            version = number.start() > 0 and requested[number.start() - 1].isascii() and requested[number.start() - 1].isalpha()
+            if version and end < len(candidate) and candidate[end].isascii() and candidate[end].isalpha():
+                valid = False
+        if valid:
+            return True
+    return False
+
+
+def _title_match_rank(candidate: str, requested: str) -> tuple[int, int] | None:
+    """Keep literal matches and narrowly related titles, never content matches."""
+    literal, query = _normalized_title(candidate), _normalized_title(requested)
+    if literal == query:
+        return 0, 0
+    near, key = _near_title_key(candidate), _near_title_key(requested)
+    _, candidate_suffix = _near_title_parts(candidate)
+    _, requested_suffix = _near_title_parts(requested)
+    same_references = _title_references(candidate) == _title_references(requested) and not (candidate_suffix and requested_suffix and candidate_suffix != requested_suffix)
+    if key and near == key and same_references:
+        return 1, 0
+    if _literal_title_contains(literal, query):
+        return 2, 0
+    if not key or not near or not same_references:
+        return None
+    if key in near:
+        return 3, 0
+    # Numeric prefixes must not make an unrelated short word look similar.
+    # Short titles may normalize/contain one another, but never use distance.
+    if min(len(key), len(near)) <= 3 or max(len(key), len(near)) > WORK_LEGACY_SEARCH_TITLE_LIMIT or min(sum(char.isalpha() for char in key), sum(char.isalpha() for char in near)) < 4:
+        return None
+    limit = 2 if min(len(key), len(near)) >= 12 else 1
+    distance = _bounded_distance(key, near, limit)
+    return (4, distance) if distance <= limit else None
+
+
 def _updated_at(value: object) -> str:
     if type(value) is not int or not 0 < value < 4_102_444_800:
         return ""
@@ -89,10 +180,13 @@ def _make_candidate(raw_title: object, doc_type: str, token: object, host: str, 
 def _legacy_candidate(unit: object, host: str, requested: str) -> SearchCandidate | None:
     if not isinstance(unit, dict) or not isinstance(unit.get("docs_type"), str) or not isinstance(unit.get("title"), str):
         raise WorkError("file_search_invalid")
+    if not unit["title"].isprintable() or len(unit["title"]) > WORK_LEGACY_SEARCH_TITLE_LIMIT:
+        raise WorkError("file_search_invalid")
     doc_type = unit["docs_type"].upper()
     title = _normalized_title(unit["title"])
-    # The legacy API can also match document content. Only expose title matches.
-    if not title or requested not in title:
+    # Legacy search can also match content. Admit only bounded title-related
+    # results; normalized/near matches still require an explicit user choice.
+    if not title or _title_match_rank(unit["title"], requested) is None:
         return None
     if doc_type == "DOC" and title == requested:
         # The request filter "doc" includes both document formats. A generic
@@ -126,8 +220,8 @@ async def search_documents(api, token: str, title: str, *, host: str, guard, sco
             response = await api("file_search_legacy", token=token, search_query=title, search_offset=offset)
         else:
             response = await api("file_search", token=token, search_query=query, page_token=cursor)
-        data = response.get("data")
-        units = data.get("docs_entities" if legacy else "res_units", []) if isinstance(data, dict) else None
+        data = response.get("data") if isinstance(response, dict) else None
+        units = data.get("docs_entities" if legacy else "res_units") if isinstance(data, dict) else None
         if not isinstance(units, list) or len(units) > WORK_SEARCH_PAGE_SIZE:
             raise WorkError("file_search_invalid")
         if legacy and (units == previous_page or (offset and not units)):
@@ -142,7 +236,7 @@ async def search_documents(api, token: str, title: str, *, host: str, guard, sco
             if candidate is not None:
                 key = candidate.kind, candidate.token
                 previous = seen.get(key)
-                if previous is None or (not is_exact_title(previous.title, title) and is_exact_title(candidate.title, title)):
+                if previous is None or (_title_match_rank(candidate.title, title) or (5, 0)) < (_title_match_rank(previous.title, title) or (5, 0)):
                     seen[key] = candidate
         if data.get("has_more") is False:
             complete = not malformed
@@ -158,5 +252,5 @@ async def search_documents(api, token: str, title: str, *, host: str, guard, sco
         if not valid_page_token(cursor) or cursor in cursors:
             break
         cursors.add(cursor)
-    items = sorted(seen.values(), key=lambda item: not is_exact_title(item.title, title))
+    items = sorted(seen.values(), key=lambda item: _title_match_rank(item.title, title) or (5, 0))
     return SearchResults(tuple(items), complete)

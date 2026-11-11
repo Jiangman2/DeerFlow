@@ -95,6 +95,11 @@ When the source, title or requested action needs clarification, the same task
 retains the supplied details for the next reply. See the
 [cloud-document routing cases](docs/WORK_CLOUD_ROUTING_20261111.md).
 
+Cloud-file searches retain relevant approximate title matches as selectable
+candidates, including spacing and minor title differences. Only a unique exact
+title in a complete result set may proceed automatically to the existing
+content authorization/read flow. See [filename candidate selection](docs/WORK_SEARCH_CANDIDATES_20261111.md).
+
 The Work receiver closes SDK sockets/tasks on removal or reconfiguration and
 serializes channel lifecycle changes. Availability reflects handshake health,
 not merely a live thread. Work quota error `1000040350` also requires checking

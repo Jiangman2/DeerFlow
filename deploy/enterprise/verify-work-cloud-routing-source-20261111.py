@@ -23,7 +23,12 @@ def snapshot(ref=None):
     if ref is None:
         return lambda path: (ROOT / path).read_bytes()
     roots = list(SOURCE_ROOTS)
-    for path in (*source.PARENT_MANIFESTS, *source.DOCUMENTATION_PATHS):
+    for path in (
+        *source.PARENT_MANIFESTS,
+        *source.DOCUMENTATION_PATHS,
+        *source.search.PARENT_MANIFESTS,
+        *source.search.DOCUMENTATION_PATHS,
+    ):
         if subprocess.check_output(
             ["git", "ls-tree", "--name-only", ref, path], cwd=ROOT
         ).strip():
@@ -32,6 +37,11 @@ def snapshot(ref=None):
         ["git", "ls-tree", "--name-only", ref, source.ARCHIVE.rstrip("/")], cwd=ROOT
     ).strip():
         roots.append(source.ARCHIVE)
+    if subprocess.check_output(
+        ["git", "ls-tree", "--name-only", ref, source.search.ARCHIVE.rstrip("/")],
+        cwd=ROOT,
+    ).strip():
+        roots.append(source.search.ARCHIVE)
     raw = subprocess.check_output(["git", "archive", ref, *roots], cwd=ROOT)
     with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
         files = {
@@ -42,8 +52,25 @@ def snapshot(ref=None):
     return files.__getitem__
 
 
+def effective_parent_delta(read, changed):
+    """Compare the qualified 28b view to ced7 without discarding shared docs."""
+    ancestors = source._parent_sources(sorted(changed))
+    effective = set()
+    for path in changed:
+        try:
+            current = read(path)
+        except (KeyError, FileNotFoundError):
+            current = None
+        previous = ancestors[path]
+        if (source.digest(current) if current is not None else None) != (
+            source.digest(previous) if previous is not None else None
+        ):
+            effective.add(path)
+    return effective
+
+
 def verify(ref=None):
-    read = snapshot(ref)
+    read, successor = source.search.historical_view(snapshot(ref))
     _, result = source.historical_view(read)
     if result is None:
         return {
@@ -55,7 +82,14 @@ def verify(ref=None):
         args.append(ref)
     changed = set(
         subprocess.check_output(
-            [*args, "--", *SOURCE_ROOTS, *source.DOCUMENTATION_PATHS], cwd=ROOT
+            [
+                *args,
+                "--",
+                *SOURCE_ROOTS,
+                *source.DOCUMENTATION_PATHS,
+                *source.search.DOCUMENTATION_PATHS,
+            ],
+            cwd=ROOT,
         )
         .decode()
         .splitlines()
@@ -71,12 +105,15 @@ def verify(ref=None):
                     "--",
                     *SOURCE_ROOTS,
                     *source.DOCUMENTATION_PATHS,
+                    *source.search.DOCUMENTATION_PATHS,
                 ],
                 cwd=ROOT,
             )
             .decode()
             .splitlines()
         )
+    if successor:
+        changed = effective_parent_delta(read, changed)
     manifest = json.loads(read(source.MANIFEST))
     assert changed == set(manifest["changes"]), (
         "WORK_CLOUD_ROUTING_UNDECLARED_SOURCE_DELTA",

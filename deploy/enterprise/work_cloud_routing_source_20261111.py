@@ -9,9 +9,16 @@ from __future__ import annotations
 import ast
 import hashlib
 import io
+import importlib.util
 import json
 import subprocess
 from pathlib import Path, PurePosixPath
+
+_search_spec = importlib.util.spec_from_file_location(
+    "work_search_candidates_source_20261111", Path(__file__).with_name("work_search_candidates_source_20261111.py")
+)
+search = importlib.util.module_from_spec(_search_spec)
+_search_spec.loader.exec_module(search)
 
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = "release/work-cloud-routing-20261111/"
@@ -112,6 +119,7 @@ def historical_view(read):
         assert id(read) not in seen, "WORK_CLOUD_ROUTING_READER_CYCLE"
         seen.add(id(read))
         read = read.original_read
+    read, search_candidate = search.historical_view(read)
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):
@@ -196,4 +204,5 @@ def historical_view(read):
         ),
         "production_acceptance_claimed": False,
         "schema_migration_requested": False,
+        "work_search_candidates": search_candidate,
     }
