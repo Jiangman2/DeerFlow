@@ -62,6 +62,7 @@ class RouteReason(StrEnum):
     REPLY_SOURCE_UNKNOWN = "REPLY_SOURCE_UNKNOWN"
     CROSS_CHAT_REFERENCE = "CROSS_CHAT_REFERENCE"
     OWNER_MISMATCH = "OWNER_MISMATCH"
+    THREAD_OWNERSHIP_MISMATCH = "THREAD_OWNERSHIP_MISMATCH"
 
 
 # User-visible failure text. Deliberately explicit about *not* answering in the
@@ -73,6 +74,7 @@ _FAILURE_MESSAGES: dict[str, str] = {
     RouteReason.REPLY_SOURCE_UNKNOWN.value: ("无法处理这次引用：无法确认被引用的消息属于本机器人。请直接 @我 重新提问，不要引用其它机器人的消息。"),
     RouteReason.CROSS_CHAT_REFERENCE.value: ("无法恢复原会话：被引用的消息来自其他会话。请在我所在的这个会话里 @我 重新提问。"),
     RouteReason.OWNER_MISMATCH.value: "无法恢复原会话：这条引用不属于当前账号。请直接 @我 重新提问。",
+    RouteReason.THREAD_OWNERSHIP_MISMATCH.value: ("无法恢复原会话：原会话不属于当前账号。请直接 @我 重新提问，或发送 /new 开始新会话。"),
     "ROUTE_DISABLED": "会话路由暂不可用，请稍后重试。",
 }
 
@@ -128,6 +130,7 @@ def resolve_route(
     reply: ReplyRef | None,
     link: MessageLink | None,
     quoted_text: str | None = None,
+    registry_owner_ok: bool | None = None,
 ) -> RouteDecision:
     """Decide how an inbound message should be routed.
 
@@ -138,7 +141,21 @@ def resolve_route(
         link: Persisted link for ``reply.message_id``, if one exists.
         quoted_text: Public text of the quoted message, when the adapter could
             read it. Only used for quote-only decisions.
+        registry_owner_ok: Whether the archive registry confirms that the
+            sender owns ``link.thread_id``. ``None`` means "not checked" (S08
+            disabled or no registry row); ``False`` turns a would-be restore
+            into an explicit failure so a thread can never be restored by a
+            different account.
     """
+
+    def _restore(decision: RouteDecision) -> RouteDecision:
+        if registry_owner_ok is False:
+            return RouteDecision(
+                action=RouteAction.FAIL_CLOSED,
+                reason=RouteReason.THREAD_OWNERSHIP_MISMATCH,
+                error_code=RouteReason.THREAD_OWNERSHIP_MISMATCH.value,
+            )
+        return decision
     if reply is None:
         return RouteDecision(action=RouteAction.CURRENT, reason=RouteReason.NORMAL)
 
@@ -147,10 +164,12 @@ def resolve_route(
         # A member's own earlier message: restore only when we have an
         # inbound link that provably belongs to the sender.
         if link is not None and link.chat_id == chat_id and link.owner_user_id == (owner_user_id or ""):
-            return RouteDecision(
-                action=RouteAction.RESTORE,
-                reason=RouteReason.OWN_QUESTION_RESTORE,
-                thread_id=link.thread_id,
+            return _restore(
+                RouteDecision(
+                    action=RouteAction.RESTORE,
+                    reason=RouteReason.OWN_QUESTION_RESTORE,
+                    thread_id=link.thread_id,
+                )
             )
         if link is not None and link.chat_id != chat_id:
             return RouteDecision(
@@ -214,10 +233,12 @@ def resolve_route(
             quote_text=quoted_text,
         )
 
-    return RouteDecision(
-        action=RouteAction.RESTORE,
-        reason=RouteReason.SELF_REPLY_RESTORE,
-        thread_id=link.thread_id,
+    return _restore(
+        RouteDecision(
+            action=RouteAction.RESTORE,
+            reason=RouteReason.SELF_REPLY_RESTORE,
+            thread_id=link.thread_id,
+        )
     )
 
 

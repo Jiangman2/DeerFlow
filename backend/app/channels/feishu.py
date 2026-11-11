@@ -137,6 +137,10 @@ class FeishuChannel(Channel):
         # every inbound message and on each user binding. Filled from config
         # here and refreshed in ``start()`` from the effective credentials.
         self._app_id: str = str(config.get("app_id", "") or "").strip()
+        # S08: cached group name/status; written by /api/im reads and by the
+        # chat membership events below. Only ever a cache: the sidebar decides
+        # which groups to show from the thread registry, never from here.
+        self._catalog_repo = config.get("catalog_repo")
 
     @staticmethod
     def _non_empty_str(value: Any) -> str | None:
@@ -392,6 +396,9 @@ class FeishuChannel(Channel):
             .register_p2_im_message_reaction_created_v1(self._on_ignored_message_event)
             .register_p2_im_message_reaction_deleted_v1(self._on_ignored_message_event)
             .register_p2_im_message_recalled_v1(self._on_ignored_message_event)
+            .register_p2_im_chat_updated_v1(self._on_chat_updated_event)
+            .register_p2_im_chat_disbanded_v1(self._on_chat_disbanded_event)
+            .register_p2_im_member_bot_deleted_v1(self._on_bot_removed_event)
             .build()
         )
 
@@ -566,6 +573,89 @@ class FeishuChannel(Channel):
 
     def _on_ignored_message_event(self, event) -> None:
         logger.debug("[Feishu] ignoring non-content message event: %s", type(event).__name__)
+
+    # ---- S08 group catalog events -------------------------------------
+    @staticmethod
+    def _event_chat_id(event) -> str:
+        payload = getattr(event, "event", None)
+        chat_id = getattr(payload, "chat_id", None)
+        if not chat_id:
+            chat_id = getattr(getattr(payload, "chat", None), "chat_id", None)
+        return str(chat_id or "").strip()
+
+    def _schedule_chat_event(self, event, *, kind: str) -> None:
+        """Bridge a lark-thread event into the main loop (fire and forget)."""
+        chat_id = self._event_chat_id(event)
+        if not chat_id or self._catalog_repo is None:
+            return
+        if not (self._main_loop and self._main_loop.is_running()):
+            logger.warning("[Feishu] main loop not running, cannot apply chat event kind=%s", kind)
+            return
+        fut = asyncio.run_coroutine_threadsafe(self._apply_chat_event(chat_id, kind), self._main_loop)
+        fut.add_done_callback(lambda f, cid=chat_id: self._log_future_error(f, f"chat_event:{kind}", cid))
+
+    def _on_chat_updated_event(self, event) -> None:
+        self._schedule_chat_event(event, kind="updated")
+
+    def _on_chat_disbanded_event(self, event) -> None:
+        self._schedule_chat_event(event, kind="disbanded")
+
+    def _on_bot_removed_event(self, event) -> None:
+        self._schedule_chat_event(event, kind="bot_removed")
+
+    async def _apply_chat_event(self, chat_id: str, kind: str) -> None:
+        """Update the cached group status after a membership/rename event."""
+        if self._catalog_repo is None:
+            return
+        try:
+            if kind == "disbanded":
+                await self._catalog_repo.mark_status(chat_id, "DISSOLVED", bot_app_id=self._app_id)
+                return
+            if kind == "bot_removed":
+                await self._catalog_repo.mark_status(chat_id, "LEFT", bot_app_id=self._app_id)
+                return
+            meta = await self.fetch_chat_meta(chat_id)
+            if meta is None:
+                # The chat may not be in the catalog yet; a rename event alone
+                # is not a reason to invent a sidebar entry.
+                return
+            name = str(meta.get("name") or "").strip()
+            await self._catalog_repo.update_meta(
+                chat_id=chat_id,
+                display_name=name or None,
+                name_source="CHAT_INFO" if name else "UNKNOWN",
+                chat_status=str(meta.get("chat_status") or "").strip() or None,
+                member_count=meta.get("member_count"),
+                bot_app_id=self._app_id,
+            )
+        except Exception:
+            logger.warning("[Feishu] failed to apply chat event kind=%s chat=%s", kind, chat_id, exc_info=True)
+
+    async def fetch_chat_meta(self, chat_id: str) -> dict[str, Any] | None:
+        """Read chat name/status/member count through ``im.v1.chat.get``."""
+        if self._api_client is None or not chat_id:
+            return None
+        try:
+            from lark_oapi.api.im.v1 import GetChatRequest
+
+            request = GetChatRequest.builder().chat_id(chat_id).build()
+            response = await asyncio.to_thread(self._api_client.im.v1.chat.get, request)
+            code = getattr(response, "code", None)
+            if isinstance(code, int) and code != 0:
+                logger.info("[Feishu] chat meta for %s is unreadable (code=%s)", chat_id, code)
+                return None
+            data = getattr(response, "data", None)
+            if data is None:
+                return None
+            return {
+                "name": getattr(data, "name", "") or "",
+                "chat_status": getattr(data, "chat_status", "") or "",
+                "chat_type": getattr(data, "chat_type", "") or "",
+                "member_count": getattr(data, "member_count", None),
+            }
+        except Exception:
+            logger.warning("[Feishu] failed to fetch chat meta for %s", chat_id, exc_info=True)
+            return None
 
     async def stop(self) -> None:
         self._running = False

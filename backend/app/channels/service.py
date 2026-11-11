@@ -140,6 +140,48 @@ def _s08_enabled_from_env() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
+def _group_catalog_ttl_from_env() -> int:
+    """Group name-cache TTL in seconds (``IM_GROUP_SYNC_TTL_SECONDS``)."""
+    raw = os.getenv("IM_GROUP_SYNC_TTL_SECONDS", "3600").strip()
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        logger.warning("Invalid IM_GROUP_SYNC_TTL_SECONDS=%r; using 3600", raw)
+        return 3600
+
+
+def _make_registry_repo():
+    """Build the S08 thread registry repository (ownership/classification)."""
+    try:
+        from deerflow.persistence.engine import get_session_factory
+        from deerflow.persistence.im_routing import ImThreadRegistryRepository
+    except Exception:
+        logger.exception("Failed to import IM thread registry repository")
+        return None
+
+    session_factory = get_session_factory()
+    if session_factory is None:
+        logger.info("IM thread registry disabled: database persistence is not available")
+        return None
+    return ImThreadRegistryRepository(session_factory)
+
+
+def _make_catalog_repo():
+    """Build the S08 group catalog repository (cached group name/status)."""
+    try:
+        from deerflow.persistence.engine import get_session_factory
+        from deerflow.persistence.im_routing import ImGroupCatalogRepository
+    except Exception:
+        logger.exception("Failed to import IM group catalog repository")
+        return None
+
+    session_factory = get_session_factory()
+    if session_factory is None:
+        logger.info("IM group catalog disabled: database persistence is not available")
+        return None
+    return ImGroupCatalogRepository(session_factory)
+
+
 class ChannelService:
     """Manages the lifecycle of all configured IM channels.
 
@@ -157,6 +199,9 @@ class ChannelService:
         require_bound_identity: bool = False,
         binding_repo: Any | None = None,
         s08_enabled: bool = False,
+        registry_repo: Any | None = None,
+        catalog_repo: Any | None = None,
+        group_catalog_ttl_seconds: int = 3600,
     ) -> None:
         self.bus = MessageBus()
         self.store = ChannelStore()
@@ -165,6 +210,9 @@ class ChannelService:
         self._route_v2_enabled = route_v2_enabled
         self._binding_repo = binding_repo
         self._s08_enabled = s08_enabled
+        self._registry_repo = registry_repo
+        self._catalog_repo = catalog_repo
+        self._group_catalog_ttl_seconds = group_catalog_ttl_seconds
         config = dict(channels_config or {})
         langgraph_url = _resolve_service_url(config, "langgraph_url", _CHANNELS_LANGGRAPH_URL_ENV, DEFAULT_LANGGRAPH_URL)
         gateway_url = _resolve_service_url(config, "gateway_url", _CHANNELS_GATEWAY_URL_ENV, DEFAULT_GATEWAY_URL)
@@ -183,6 +231,9 @@ class ChannelService:
             require_bound_identity=require_bound_identity,
             binding_repo=binding_repo,
             s08_enabled=s08_enabled,
+            registry_repo=registry_repo,
+            catalog_repo=catalog_repo,
+            group_catalog_ttl_seconds=group_catalog_ttl_seconds,
         )
         self._channels: dict[str, Any] = {}  # name -> Channel instance
         self._config = config
@@ -217,6 +268,9 @@ class ChannelService:
             require_bound_identity=require_bound_identity,
             binding_repo=_make_binding_repo() if s08_enabled else None,
             s08_enabled=s08_enabled,
+            registry_repo=_make_registry_repo() if s08_enabled else None,
+            catalog_repo=_make_catalog_repo() if s08_enabled else None,
+            group_catalog_ttl_seconds=_group_catalog_ttl_from_env(),
         )
 
     async def start(self) -> None:
@@ -513,6 +567,8 @@ class ChannelService:
                 config["routing_repo"] = self._routing_repo
             if self._binding_repo is not None:
                 config["binding_repo"] = self._binding_repo
+            if self._catalog_repo is not None:
+                config["catalog_repo"] = self._catalog_repo
             channel = channel_cls(bus=self.bus, config=config)
             self._channels[name] = channel
             await channel.start()
