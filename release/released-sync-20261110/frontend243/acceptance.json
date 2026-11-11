@@ -1,0 +1,13 @@
+{
+  "composer_browser_acceptance": "operator replied \u53ef\u4ee5\u4e86 to six-line autosize check",
+  "evidence": "operator-stdout.txt",
+  "frontend_generation": 243,
+  "manifest_digest": "sha256:e11221108f3b224ccd00ac188d625e389ae72f20f7ab7f71900fb66a2d00cafa",
+  "operator_stdout_sha256": "8dff2fd490171174333830910d9c7173bb745cd0b9513ccb81fbc84dccffffba",
+  "pr39_real_task_business_acceptance_claimed": false,
+  "production_commands_executed": false,
+  "schema": "frontend243-operator-acceptance.v1",
+  "server_report_available_locally": false,
+  "server_report_bytes_claim": 38796,
+  "server_report_sha256_claim": "e94fe60a49857b7fb3a30cc4ff998501ae87f06ae23349ec3e1cac0501544825"
+}

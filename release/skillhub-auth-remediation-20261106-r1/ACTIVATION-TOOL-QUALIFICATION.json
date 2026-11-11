@@ -1,0 +1,72 @@
+{
+  "actual_arm64_image_capabilities": {
+    "app_started": false,
+    "baseline_sha256sum_available": true,
+    "candidate_image": "sha256:4f3118867605fea38508bbc38014c731155b43296771c2cd61fb53d82f43bb68",
+    "candidate_sha256sum_available": true,
+    "capabilities": "drop_ALL",
+    "curl_path": "/usr/bin/curl",
+    "curl_version": "8.5.0 aarch64-unknown-linux-gnu",
+    "database_access": false,
+    "gid": 101,
+    "hash_probe_exitcode": 0,
+    "jar_sha256": "342d0e02914d790a1c01a845cce4047af8b634fd34ecef0b01a66d5425fe7e3f",
+    "network": "none",
+    "no_new_privileges": true,
+    "read_only_rootfs": true,
+    "uid": 100
+  },
+  "edge_activation_included": false,
+  "expected_brief_skillhub_outage": true,
+  "files": {
+    "activate-portal-skillhub-registry-auth-20261106-r1.py": {
+      "bytes": 31500,
+      "sha256": "a130269d6aa88f4e9249fb332efd7d58d2667943517ca661c98202d394bd853b"
+    },
+    "test_skillhub_registry_auth_activation_20261106.py": {
+      "bytes": 21575,
+      "sha256": "d520d72097ac243473fd98245518ba3ce62e163eed3e8a5cde25cc235cc3528b"
+    }
+  },
+  "preload_binding": {
+    "bytes": 62575,
+    "operation": "796641e830e84b05bf098d1ba309300d",
+    "sha256": "1d1e580d2c5846d5e9b16f6a449c782fcc93409ddd024d21d7a9fb7c1f2f144d"
+  },
+  "preserved_strategy": "Recreate",
+  "production_activation_executed": false,
+  "production_native_acceptance_pending": true,
+  "review": {
+    "independent_agent": "/root/pr40_ci_followup",
+    "independent_review": "PASS_NO_BLOCKER",
+    "independent_windows_tests": {
+      "failed": 0,
+      "passed": 28,
+      "skipped": 3
+    },
+    "reviewed_tool_sha256": "a130269d6aa88f4e9249fb332efd7d58d2667943517ca661c98202d394bd853b",
+    "root_review": "PASS"
+  },
+  "schema": "portal-skillhub-auth-activation-tool-qualification.v1",
+  "scope": "one_fixed_skillhub_server_image_only_cas",
+  "status": "OFFLINE_CHECKS_AND_INDEPENDENT_REVIEW_ACCEPTED_PRODUCTION_PENDING",
+  "tests": {
+    "linux": {
+      "failed": 0,
+      "passed": 31,
+      "skipped": 0
+    },
+    "python37_wrong_host": {
+      "commands": 0,
+      "error_code": "ROOT_ON_DATAX01_REQUIRED",
+      "once_claimed": false,
+      "patch_request_count": 0,
+      "status": "REFUSED_BEFORE_COMMANDS_AND_MUTATIONS"
+    },
+    "windows": {
+      "failed": 0,
+      "passed": 28,
+      "skipped": 3
+    }
+  }
+}

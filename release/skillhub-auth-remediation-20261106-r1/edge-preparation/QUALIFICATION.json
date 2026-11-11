@@ -1,0 +1,134 @@
+{
+  "controller_budget_review": {
+    "basis": "independent source-derived estimate, not full mocked subprocess execution",
+    "limit": 160,
+    "ordinary_commands": 89,
+    "with_bounded_worker_polling_maximum_estimate": 119
+  },
+  "fixed_nginx_synthetic_http": {
+    "adaptations": [
+      "synthetic upstreams changed to loopback8080",
+      "PID/log/temp paths",
+      "synthetic health response"
+    ],
+    "busybox_sync_f_and_mv_T_compatible": true,
+    "checks_passed": 24,
+    "coverage": [
+      "anonymous page302/login",
+      "anonymous API/SSE401",
+      "fabricated bearer API/SSE401",
+      "mock valid native bearer API/SSE200",
+      "mock valid Gateway+native sessions API/SSE200",
+      "native session alone cannot bypass page Gateway check",
+      "bearer alone cannot bypass page or bootstrap session",
+      "Gateway session alone cannot bypass native API check",
+      "anonymous HEAD API401",
+      "internal auth route404",
+      "PPT new execution409",
+      "legacy PPT GET200",
+      "forwarded host/port and identity header defenses",
+      "framework headers hidden"
+    ],
+    "fixture": "tests/test_skillhub_nginx_auth_transform_20261106.py:fixture then insertion-only transformer",
+    "host_ports_published": false,
+    "image": "m.daocloud.io/docker.io/library/nginx@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+    "native_rbac_proven": false,
+    "network": "none namespace shared with synthetic loopback upstream",
+    "observed_architecture": "amd64",
+    "observed_busybox_version": "1.37.0",
+    "observed_nginx_version": "1.31.3",
+    "production_requests": 0,
+    "real_credentials_used": false,
+    "status": "SYNTHETIC_NGINX_HTTP_ACCEPTED"
+  },
+  "generated_unbound_tool": {
+    "bytes": 61485,
+    "path": "release/skillhub-auth-remediation-20261106-r1/edge-preparation/activate-portal-skillhub-edge-auth-20261106-r1.py",
+    "sha256": "d3755576bc9ec090e5d841153f8b365e010e04e40156205a8d33f35818e77e78"
+  },
+  "limitations": [
+    "Synthetic upstream models authentication, not native SkillHub RBAC or production SSO",
+    "No claim of ARM64 Nginx execution from this local amd64 image check",
+    "No actual production reload, ConfigMap update, token use or database query occurred",
+    "Existing Nginx worker connections may continue until closed after graceful reload",
+    "Application HTTP probes do not establish absence of backend internal database access"
+  ],
+  "linux_offline_tests": {
+    "controller_cases": 21,
+    "failed": 0,
+    "passed": 39,
+    "skipped": 0,
+    "transform_cases": 18
+  },
+  "native_receipt_bound": false,
+  "native_receipt_path": "/var/lib/portal-skillhub-registry-auth-activation-20261106-r2/REPORT.json",
+  "path_only_followup": {
+    "native_receipt_bound": false,
+    "python37_generated_unbound_guard_rechecked": true,
+    "reason": "native server activation r1 stopped before mutation on historical Failed Pods; future native acceptance is r2",
+    "windows_controller_recheck_passed": 21
+  },
+  "production_commands_executed": false,
+  "python37_unbound_entry": {
+    "commands": 0,
+    "configmap_patch_requests": 0,
+    "error_code": "NATIVE_RECEIPT_NOT_BOUND_NO_CHANGE",
+    "exitcode": 1,
+    "expected_refusal": true,
+    "once_claimed": false
+  },
+  "ready_for_production_execution": false,
+  "remaining_prerequisites": [
+    "Native SkillHub activation operator success receipt with exact bytes/hash/operation",
+    "Bind reviewed native receipt and regenerate one-file tool; unbound draft refuses before I/O",
+    "Recheck actual native server, protected identities, current ConfigMap/live hashes,7sed replay and nginx-t on execution",
+    "Production edge HTTP acceptance, then authenticated browser and valid native bearer business checks"
+  ],
+  "reporting_clarity_revision": {
+    "application_auth_health_reads_may_access_existing_database": true,
+    "behavior_changed": false,
+    "database_configuration_modified": false,
+    "explicit_database_queries": 0,
+    "linux_controller_recheck_passed": 21,
+    "python37_unbound_guard_rechecked": true,
+    "windows_controller_recheck_passed": 21
+  },
+  "schema": "skillhub-edge-preparation-qualification.v1",
+  "source_files": {
+    "deploy/enterprise/package-skillhub-edge-activation-20261106.py": {
+      "bytes": 2160,
+      "sha256": "53eb58d948587664627dbfd47733c1982ec216499c6443a4ff3caa0c1570c39e"
+    },
+    "deploy/enterprise/skillhub_edge_activation_20261106.py": {
+      "bytes": 37033,
+      "sha256": "a1bedaa3ab9aabc6663adb0bd9921b1487dfaf3c6d86b7baf09d8a4e9cf87ff1"
+    },
+    "deploy/enterprise/skillhub_nginx_auth_transform_20261106.py": {
+      "bytes": 23324,
+      "sha256": "69130d1456d7b3066c6a4df65c0ea0cb3012e9b2112120713f64beed1a37cfa3"
+    },
+    "k8s/local-pvc/nginx.conf": {
+      "bytes": 75815,
+      "sha256": "38381a521615145147b40a71595db657e3e1b25ed5e4bd1617dee72f12d7c8a0"
+    },
+    "tests/test_skillhub_edge_activation_20261106.py": {
+      "bytes": 16662,
+      "sha256": "0b2849125d7823fadb43e440ebecffa6a948c8c804d08dda6ae3704ae555235f"
+    },
+    "tests/test_skillhub_nginx_auth_transform_20261106.py": {
+      "bytes": 15789,
+      "sha256": "d03481963a63c01d0e54bb1141ec23474c1307f256415b339e24c7a4500af008"
+    }
+  },
+  "status": "UNBOUND_EDGE_PREPARATION_QUALIFIED_NOT_DELIVERED",
+  "synthetic_http_helper": {
+    "bytes": 7512,
+    "path": "tests/skillhub_edge_synthetic_http_20261106.py",
+    "sha256": "10939da97cc4a415fe1b833fbe6060466b3a62f36ef2c353a2d78ca23f479323"
+  },
+  "temporary_synthetic_containers_removed": true,
+  "windows_controller_tests": {
+    "failed": 0,
+    "passed": 21
+  }
+}

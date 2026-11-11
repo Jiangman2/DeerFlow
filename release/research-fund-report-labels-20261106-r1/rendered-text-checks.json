@@ -1,0 +1,28 @@
+[
+  {
+    "profile": "group-company",
+    "pages": 16,
+    "cover_label_pages": [
+      1
+    ],
+    "surplus_pages": [
+      6
+    ]
+  },
+  {
+    "profile": "national-science",
+    "pages": 9,
+    "cover_label_pages": [
+      1
+    ],
+    "surplus_pages": []
+  },
+  {
+    "profile": "miit",
+    "pages": 8,
+    "cover_label_pages": [
+      1
+    ],
+    "surplus_pages": []
+  }
+]

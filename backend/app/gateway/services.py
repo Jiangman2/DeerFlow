@@ -30,6 +30,7 @@ from app.gateway.internal_auth import (
     get_internal_user,
     get_trusted_internal_owner_user_id,
 )
+from app.gateway.message_source import stamp_message_source
 from app.gateway.utils import sanitize_log_param
 from app.gateway.weknora_identity import ensure_weknora_session_for_deerflow_user
 from deerflow.agents.human_input import read_human_input_response
@@ -368,6 +369,15 @@ def merge_run_context_overrides(config: dict[str, Any], context: Mapping[str, An
     short-lived token in the checkpoint store.
     """
     _validate_datalake_context(config, context)
+    # Browser preference is authoritative for this run, never a saved checkpoint.
+    if context is not None and "web_search_enabled" in context:
+        value = context["web_search_enabled"]
+        if type(value) is not bool:
+            raise HTTPException(status_code=400, detail={"code": "invalid_web_search_context", "message": "web_search_enabled must be a boolean", "retryable": False})
+        config.setdefault("context", {})["web_search_enabled"] = value
+    configurable_web = config.get("configurable")
+    if isinstance(configurable_web, dict):
+        configurable_web.pop("web_search_enabled", None)
     if not context:
         return
     configurable = config.setdefault("configurable", {})
@@ -435,6 +445,7 @@ def inject_authenticated_user_context(
             for key in ("is_internal", "authz_attributes", "channel_user_id"):
                 values.pop(key, None)
     runtime_context["is_internal"] = is_internal
+    stamp_message_source(config, internal=is_internal, request_context=request_context)
 
     # Only an authenticated internal IM request's top-level context is the
     # platform-sender source. In particular, setdefault would let body.config
@@ -821,6 +832,10 @@ async def start_run(
     bridge = get_stream_bridge(request)
     run_mgr = get_run_manager(request)
     run_ctx = get_run_context(request)
+    metadata = body.metadata
+    if metadata and not getattr(request.state, "trusted_scheduled_metadata", False):
+        # The completion hook uses these identifiers to deliver notifications.
+        metadata = {key: value for key, value in metadata.items() if key not in {"scheduled_task_id", "scheduled_task_run_id"}}
 
     disconnect = DisconnectMode.cancel if body.on_disconnect == "cancel" else DisconnectMode.continue_
 
@@ -873,7 +888,7 @@ async def start_run(
                     thread_id,
                     body.assistant_id,
                     on_disconnect=disconnect,
-                    metadata=body.metadata or {},
+                    metadata=metadata or {},
                     # Persist a secret-redacted copy of the config: the run record is
                     # written to runs.kwargs_json and echoed by the run API, so a
                     # request-scoped secret (#3861) must not ride along. The live
@@ -903,7 +918,7 @@ async def start_run(
                 await run_ctx.thread_store.create(
                     thread_id,
                     assistant_id=body.assistant_id,
-                    metadata=body.metadata,
+                    metadata=metadata,
                 )
             else:
                 await run_ctx.thread_store.update_status(thread_id, "running")
@@ -917,7 +932,7 @@ async def start_run(
             graph_input = Command(resume=command["resume"])
         else:
             graph_input = normalize_input(body.input, trusted_internal=is_internal_caller)
-        config = build_run_config(thread_id, body.config, body.metadata, assistant_id=body.assistant_id)
+        config = build_run_config(thread_id, body.config, metadata, assistant_id=body.assistant_id)
         await apply_checkpoint_to_run_config(config, body=body, thread_id=thread_id, request=request)
 
         # Merge DeerFlow-specific context overrides into both ``configurable`` and ``context``.
@@ -990,6 +1005,7 @@ async def launch_scheduled_thread_run(
             state=SimpleNamespace(
                 user=get_internal_user(),
                 auth_source=AUTH_SOURCE_INTERNAL,
+                trusted_scheduled_metadata=True,
             ),
             cookies={},
         )

@@ -1,0 +1,67 @@
+{
+  "schema": "pr26-ci-qualification.v1",
+  "base_commit": "5ec9fa2059f846d6b13646f64aa457d8eec10230",
+  "production_workload_modified": false,
+  "changes": {
+    "frontend/src/app/workspace/admin/dashboard/page.tsx": {
+      "kind": "prettier_only",
+      "baseline_path": "release/pr26-ci-qualification-20261103/baseline/frontend/src/app/workspace/admin/dashboard/page.tsx",
+      "base_sha256": "37962f326c501881bae565e14623d3882435b94f2157595bfb8d0a663da035c2",
+      "current_sha256": "4661dcfd7169dc523a389a336d5cf8f54f37b256435c7dedb226cabb0bc91061"
+    },
+    "frontend/src/styles/cnooc-concept.css": {
+      "kind": "prettier_only",
+      "baseline_path": "release/pr26-ci-qualification-20261103/baseline/frontend/src/styles/cnooc-concept.css",
+      "base_sha256": "31f98e3425062cc2719cd9c915f1e2eb32a067579d7df3869c4fa87201614799",
+      "current_sha256": "5c741bab151d4dc82c60c8fdb47f10615b732dbdea15dd9079efd37dfa1ec869"
+    },
+    "frontend/tests/e2e/agent-composer-materials.spec.ts": {
+      "kind": "test_correction",
+      "baseline_path": "release/pr26-ci-qualification-20261103/baseline/frontend/tests/e2e/agent-composer-materials.spec.ts",
+      "base_sha256": "0ff193a28694702c1c56e09e70ead229f8dc056e4fabf5a5e98cbe0837f60b59",
+      "current_sha256": "3fa85488fc0f455d4a341d7fe66854fe5616b93d9c57c2efe832d6b26a60c007"
+    },
+    "frontend/tests/e2e/chat.spec.ts": {
+      "kind": "test_correction",
+      "baseline_path": "release/pr26-ci-qualification-20261103/baseline/frontend/tests/e2e/chat.spec.ts",
+      "base_sha256": "060f36819e04446a099a513797e01e58d264a725b28587d55d8f8c4df381b8b6",
+      "current_sha256": "b6edaf7d2988132477f5fa9160de73e513c243ec57adc232ff6bfd12675d8e5e"
+    },
+    "frontend/tests/e2e/cnooc-concept-layout.spec.ts": {
+      "kind": "test_correction",
+      "baseline_path": "release/pr26-ci-qualification-20261103/baseline/frontend/tests/e2e/cnooc-concept-layout.spec.ts",
+      "base_sha256": "f93cd5a751c2c6be43d7b43af7b032d678b2a8d7ed6721ecdef8670666feaed0",
+      "current_sha256": "a2b9a2cc9b8793323039766c7b9d95920a641f1a7ade1f11d48dd5ba0ba6df1c"
+    },
+    "frontend/tests/e2e/composer-controls.spec.ts": {
+      "kind": "test_correction",
+      "baseline_path": "release/pr26-ci-qualification-20261103/baseline/frontend/tests/e2e/composer-controls.spec.ts",
+      "base_sha256": "3ca8cc9ac72eca785b62800e59e54106c868d2f9d030603c761618636d95cc43",
+      "current_sha256": "e0063d8793e657af007a0793f10a5f2370cade78631b578631d4992e0f5c59c6"
+    },
+    "frontend/tests/e2e/composer-multiline-draft.spec.ts": {
+      "kind": "test_correction",
+      "baseline_path": "release/pr26-ci-qualification-20261103/baseline/frontend/tests/e2e/composer-multiline-draft.spec.ts",
+      "base_sha256": "9400a00d2e8ba2a770228b668ce97fbca30fcf91debe18ff00ffbe927178a5d8",
+      "current_sha256": "467813361357fd76f512c03b44d675ddaefc816a4542eaf63291bb75084e4fc1"
+    },
+    "frontend/tests/e2e/mobile-webview.spec.ts": {
+      "kind": "test_correction",
+      "baseline_path": "release/pr26-ci-qualification-20261103/baseline/frontend/tests/e2e/mobile-webview.spec.ts",
+      "base_sha256": "eb4bc23530c34ed253c30920e5f97db86eda934d6367813e44b7b1a5167b7d5b",
+      "current_sha256": "7f7c8ad9b1d9ee40ecf0de811064cf54fbeb18990c7fdb1877d771d82afc1b3d"
+    },
+    "frontend/tests/e2e/model-square-account.spec.ts": {
+      "kind": "test_correction",
+      "baseline_path": "release/pr26-ci-qualification-20261103/baseline/frontend/tests/e2e/model-square-account.spec.ts",
+      "base_sha256": "9c81de254a21a8403fe6502a7e1fc0dc052384cabbf200084ae62d48451afcfd",
+      "current_sha256": "7987ccb31603c5d870f6f832c57cecd619bd817a82085e72349e3f8354cf2ef4"
+    },
+    "frontend/tests/unit/components/workspace/settings/settings-dialog-layout.test.ts": {
+      "kind": "test_correction",
+      "baseline_path": "release/pr26-ci-qualification-20261103/baseline/frontend/tests/unit/components/workspace/settings/settings-dialog-layout.test.ts",
+      "base_sha256": "0072b3f26fef4082be9079668ef77a2cfdc92ef96292901b1fea7acdba1beeaf",
+      "current_sha256": "955cc9629f32b24fb60e2a423a98d1ed90f15242c4771bc6cfd1d3acb76e6ae3"
+    }
+  }
+}

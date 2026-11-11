@@ -27,6 +27,13 @@ from app.gateway.weknora_identity import (
     weknora_endpoint,
     weknora_timeout,
 )
+from app.gateway.weknora_relay_budget import (
+    LIMITERS,
+    EmbeddingBudgetRoute,
+    bounded_post,
+    bounded_request_json,
+    embedding_limiter,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +43,10 @@ _DEFAULT_EMBEDDING_MODEL_ID = "deerflow-dashscope-embedding"
 _DEFAULT_SUMMARY_MODEL_ID = "deerflow-qwen-plus"
 _COUNT_ENRICH_CONCURRENCY = 8
 _COUNT_PAGE_SIZE = 100
+_COUNT_MAX_DOCUMENTS = 500
+_COUNT_ENRICH_MAX_SECONDS = 5.0
+_COUNT_FIELDS = ("knowledge_count", "chunk_count", "processing_count", "is_processing")
+_KNOWLEDGE_COUNT_LIMITERS: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 _PRESENTATION_FILE_TYPES = ("ppt", "pptx")
 _VISUAL_DOCUMENT_FILE_TYPES = ("pdf", "doc", "docx", "ppt", "pptx")
 _SUPPORTED_PRESENTATION_PARSERS = {"markitdown", "mineru"}
@@ -50,7 +61,6 @@ _DEFAULT_CNOOC_EMBEDDING_UPSTREAM_URL = "http://model.ai.cnooc/member1/qwen3-emb
 _DEFAULT_CNOOC_RERANK_MODEL = "Qwen3-Reranker-8B"
 _DEFAULT_CNOOC_RERANK_UPSTREAM_URL = "http://model.ai.cnooc/member1/qwen3-reranker-8b/v1/rerank"
 _DEFAULT_CNOOC_RETRIEVAL_MAX_BYTES = 8 * 1024 * 1024
-_DEFAULT_CNOOC_EMBEDDING_CONCURRENCY = 200
 _DEFAULT_CNOOC_EMBEDDING_BUSY_RETRIES = 3
 _DEFAULT_CNOOC_EMBEDDING_BUSY_RETRY_SECONDS = 0.75
 _RUNTIME_QUEUE_NAMES = frozenset(
@@ -74,10 +84,7 @@ _ALLOWED_SSO_ORIGINS = {
     "http://localhost:8090",
 }
 _WEKNORA_RESOURCE_URI_RE = re.compile(r"^resource://[A-Za-z0-9_-]{1,256}$")
-_INTERNAL_EMBEDDING_LIMITERS: weakref.WeakKeyDictionary[
-    asyncio.AbstractEventLoop,
-    tuple[int, asyncio.Semaphore],
-] = weakref.WeakKeyDictionary()
+_INTERNAL_EMBEDDING_LIMITERS = LIMITERS
 
 
 def _truthy_env(name: str, default: bool = False) -> bool:
@@ -211,46 +218,11 @@ def _internal_retrieval_upstream_key() -> str:
 
 
 def _internal_embedding_limiter() -> asyncio.Semaphore:
-    """Return an event-loop-local limiter for the internal embedding service."""
-
-    concurrency = min(
-        _DEFAULT_CNOOC_EMBEDDING_CONCURRENCY,
-        max(
-            1,
-            _int_env(
-                "WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY",
-                _DEFAULT_CNOOC_EMBEDDING_CONCURRENCY,
-            ),
-        ),
-    )
-    loop = asyncio.get_running_loop()
-    configured = _INTERNAL_EMBEDDING_LIMITERS.get(loop)
-    if configured is None or configured[0] != concurrency:
-        configured = (concurrency, asyncio.Semaphore(concurrency))
-        _INTERNAL_EMBEDDING_LIMITERS[loop] = configured
-    return configured[1]
+    return embedding_limiter()
 
 
 async def _read_json_request(request: Request, *, label: str, max_bytes: int) -> dict[str, Any]:
-    content_length = request.headers.get("content-length", "").strip()
-    if content_length:
-        try:
-            if int(content_length) > max_bytes:
-                raise HTTPException(status_code=413, detail=f"{label} request exceeds the {max_bytes}-byte limit.")
-        except ValueError:
-            pass
-    body = await request.body()
-    if not body:
-        raise HTTPException(status_code=400, detail=f"{label} request body is empty.")
-    if len(body) > max_bytes:
-        raise HTTPException(status_code=413, detail=f"{label} request exceeds the {max_bytes}-byte limit.")
-    try:
-        payload = json.loads(body)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise HTTPException(status_code=400, detail=f"{label} request body must be valid JSON.") from exc
-    if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail=f"{label} request body must be a JSON object.")
-    return payload
+    return await bounded_request_json(request, label=label, max_bytes=max_bytes)
 
 
 async def _post_internal_retrieval_model(
@@ -262,23 +234,27 @@ async def _post_internal_retrieval_model(
     retry_business_codes: frozenset[str] = frozenset(),
     business_retries: int = 0,
     business_retry_seconds: float = 0.0,
+    bounded_response: bool = False,
 ) -> dict[str, Any]:
     timeout = max(1.0, _float_env("WEKNORA_INTERNAL_MODEL_TIMEOUT_SECONDS", 180.0))
     attempts = max(1, business_retries + 1)
+    request_arguments = {
+        "headers": {
+            "Authorization": f"Bearer {upstream_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Accept-Encoding": "identity",
+            "Connection": "close",
+        },
+        "json": payload,
+    }
     for attempt in range(1, attempts + 1):
         try:
             async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
-                response = await client.post(
-                    upstream_url,
-                    headers={
-                        "Authorization": f"Bearer {upstream_key}",
-                        "Content-Type": "application/json",
-                        "Accept": "application/json",
-                        "Accept-Encoding": "identity",
-                        "Connection": "close",
-                    },
-                    json=payload,
-                )
+                if bounded_response:
+                    response = await bounded_post(client, upstream_url, **request_arguments)
+                else:
+                    response = await client.post(upstream_url, **request_arguments)
         except httpx.RequestError as exc:
             logger.warning("%s upstream request failed.", label, exc_info=True)
             raise HTTPException(status_code=502, detail=f"{label} is unavailable.") from exc
@@ -518,67 +494,59 @@ def _is_processing_knowledge(item: dict[str, Any]) -> bool:
     return status in {"pending", "processing", "parsing", "unprocessed"}
 
 
+def _knowledge_count_limiter() -> asyncio.Semaphore:
+    """Share optional statistics admission across requests in this event loop."""
+    loop = asyncio.get_running_loop()
+    limiter = _KNOWLEDGE_COUNT_LIMITERS.get(loop)
+    if limiter is None:
+        limiter = asyncio.Semaphore(_COUNT_ENRICH_CONCURRENCY)
+        _KNOWLEDGE_COUNT_LIMITERS[loop] = limiter
+    return limiter
+
+
 async def _knowledge_base_counts(
     kb_id: str,
     access_token: str,
     tenant_id: str | int | None = None,
 ) -> dict[str, Any]:
-    response = await _knowledge_base_knowledge_page(
-        kb_id,
-        access_token,
-        page=1,
-        tenant_id=tenant_id,
-    )
-    items = [item for item in response["items"] if isinstance(item, dict)]
-    knowledge_count = _int_value(response.get("total"), len(items))
-    if knowledge_count > len(items):
-        remaining_pages = range(2, (knowledge_count + _COUNT_PAGE_SIZE - 1) // _COUNT_PAGE_SIZE + 1)
-        extra_pages = await asyncio.gather(
-            *[
-                _knowledge_base_knowledge_page(
-                    kb_id,
-                    access_token,
-                    page=page,
-                    tenant_id=tenant_id,
-                )
-                for page in remaining_pages
-            ],
-            return_exceptions=True,
-        )
-        for page_data in extra_pages:
-            if isinstance(page_data, Exception):
-                logger.debug("Failed to fetch all WeKnora knowledge rows for %s: %s", kb_id, page_data)
-                continue
-            items.extend(item for item in page_data["items"] if isinstance(item, dict))
-    processing_count = sum(1 for item in items if _is_processing_knowledge(item))
-
-    async def _chunk_count_for_knowledge(knowledge_id: str) -> int:
-        chunk_data = await _request(
-            "GET",
-            f"/chunks/{knowledge_id}",
-            access_token,
-            tenant_id=tenant_id,
-            params={"page": 1, "page_size": 1},
-        )
-        return _int_value(chunk_data.get("total"), 0)
-
-    chunk_counts = await asyncio.gather(
-        *[_chunk_count_for_knowledge(str(item.get("id"))) for item in items if item.get("id")],
-        return_exceptions=True,
-    )
-    chunk_count = 0
-    for count in chunk_counts:
-        if isinstance(count, Exception):
-            logger.debug("Failed to count WeKnora chunks for knowledge base %s: %s", kb_id, count)
-            continue
-        chunk_count += count
-
-    return {
-        "knowledge_count": knowledge_count,
-        "chunk_count": chunk_count,
-        "processing_count": processing_count,
-        "is_processing": processing_count > 0,
-    }
+    """Count one bounded page at a time; never fan out per document."""
+    total = None
+    seen: set[str] = set()
+    processing_count = chunk_count = 0
+    page = 1
+    while True:
+        response = await _knowledge_base_knowledge_page(kb_id, access_token, page=page, tenant_id=tenant_id)
+        items = response["items"]
+        current_total = response.get("total")
+        # Refuse unknown, changing or oversized totals rather than publishing
+        # a partial count as if it covered the whole knowledge base.
+        if type(current_total) is not int or not 0 <= current_total <= _COUNT_MAX_DOCUMENTS:
+            raise HTTPException(status_code=503, detail="Knowledge statistics budget exceeded or total unavailable.")
+        if total is None:
+            total = current_total
+        if current_total != total or len(items) > _COUNT_PAGE_SIZE:
+            raise HTTPException(status_code=503, detail="Knowledge statistics changed during collection.")
+        if not items and len(seen) != total:
+            raise HTTPException(status_code=503, detail="Knowledge statistics page is incomplete.")
+        for item in items:
+            if not isinstance(item, dict) or not item.get("id"):
+                raise HTTPException(status_code=503, detail="Knowledge statistics page is invalid.")
+            identifier = str(item["id"])
+            if identifier in seen or len(seen) >= total:
+                raise HTTPException(status_code=503, detail="Knowledge statistics page is inconsistent.")
+            seen.add(identifier)
+            data = await _request("GET", f"/chunks/{identifier}", access_token, tenant_id=tenant_id, params={"page": 1, "page_size": 1})
+            count = data.get("total")
+            if type(count) is not int or count < 0:
+                raise HTTPException(status_code=503, detail="Knowledge chunk total is unavailable.")
+            chunk_count += count
+            processing_count += int(_is_processing_knowledge(item))
+        if len(seen) == total:
+            break
+        if len(items) != _COUNT_PAGE_SIZE:
+            raise HTTPException(status_code=503, detail="Knowledge statistics page is incomplete.")
+        page += 1
+    return dict(knowledge_count=total, chunk_count=chunk_count, processing_count=processing_count, is_processing=processing_count > 0)
 
 
 async def _knowledge_base_knowledge_page(
@@ -588,33 +556,49 @@ async def _knowledge_base_knowledge_page(
     page: int,
     tenant_id: str | int | None = None,
 ) -> dict[str, Any]:
-    data = await _request(
-        "GET",
-        f"/knowledge-bases/{kb_id}/knowledge",
-        access_token,
-        tenant_id=tenant_id,
-        params={"page": page, "page_size": _COUNT_PAGE_SIZE},
-    )
+    data = await _request("GET", f"/knowledge-bases/{kb_id}/knowledge", access_token, tenant_id=tenant_id, params={"page": page, "page_size": _COUNT_PAGE_SIZE})
+    metadata = data.get("data") if isinstance(data.get("data"), dict) else data
+    if "total" not in metadata and "total" not in data:
+        raise HTTPException(status_code=503, detail="Knowledge statistics total is unavailable.")
     return _unwrap_list_response(data)
 
 
 async def _enrich_knowledge_base_counts(items: list[dict[str, Any]], access_token: str) -> None:
-    semaphore = asyncio.Semaphore(_COUNT_ENRICH_CONCURRENCY)
+    """Legacy private helper; not invoked by knowledge-list requests."""
+    limiter = _knowledge_count_limiter()
+    pending = iter(items)
 
-    async def _enrich(item: dict[str, Any]) -> None:
-        kb_id = str(item.get("id") or "")
-        if not kb_id:
-            return
-        if all(key in item for key in ("knowledge_count", "chunk_count", "processing_count", "is_processing")):
-            return
-        try:
-            async with semaphore:
+    async def worker() -> None:
+        for item in pending:
+            kb_id = str(item.get("id") or "")
+            if not kb_id or all(key in item for key in _COUNT_FIELDS):
+                continue
+            # No await between locked() and acquire(): an available permit is
+            # acquired immediately on this event loop. Busy optional work skips.
+            if limiter.locked():
+                return
+            await limiter.acquire()
+            try:
                 tenant_id = item.get("access_tenant_id") or item.get("owner_tenant_id") or item.get("source_tenant_id") or item.get("tenant_id")
-                item.update(await _knowledge_base_counts(kb_id, access_token, tenant_id=tenant_id))
-        except HTTPException:
-            logger.debug("Failed to enrich WeKnora knowledge-base counts for %s", kb_id, exc_info=True)
+                counts = await _knowledge_base_counts(kb_id, access_token, tenant_id=tenant_id)
+                item.update(counts)
+            except HTTPException:
+                logger.debug("Skipping incomplete WeKnora statistics.")
+            finally:
+                limiter.release()
 
-    await asyncio.gather(*[_enrich(item) for item in items])
+    # An inner hard ceiling also applies if the legacy outer timeout is disabled.
+    tasks = [asyncio.create_task(worker()) for _ in range(min(len(items), _COUNT_ENRICH_CONCURRENCY))]
+    try:
+        async with asyncio.timeout(_COUNT_ENRICH_MAX_SECONDS):
+            await asyncio.gather(*tasks)
+    except TimeoutError:
+        logger.debug("Skipping WeKnora statistics after the bounded deadline.")
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 def _session_identity_fallback(session: Any) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -747,6 +731,43 @@ def _classify_tenant_knowledge_base(
     return kb
 
 
+def _knowledge_count_coverage(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Count absent fields only, matching enrichment eligibility; perform no I/O."""
+    missing = {field: 0 for field in _COUNT_FIELDS}
+    incomplete = 0
+    for item in items:
+        absent = [field for field in _COUNT_FIELDS if field not in item]
+        incomplete += bool(absent)
+        for field in absent:
+            missing[field] += 1
+    return {"returned_libraries": len(items), "missing_libraries": incomplete, "missing_fields": missing}
+
+
+def _knowledge_count_summary(before: dict[str, Any], items: list[dict[str, Any]], listing_failures: int) -> dict[str, Any]:
+    after = _knowledge_count_coverage(items)
+    summary = {
+        "scope": "current_user_returned_libraries",
+        "definition": "absent_fields_not_value_validation",
+        "auto_enrichment_enabled": False,
+        "returned_libraries": before["returned_libraries"],
+        "missing_before": before["missing_libraries"],
+        "enriched": before["missing_libraries"] - after["missing_libraries"],
+        "missing_after": after["missing_libraries"],
+        "missing_fields_before": before["missing_fields"],
+        "missing_fields_after": after["missing_fields"],
+        "listing_failures": listing_failures,
+    }
+    logger.info(
+        "WeKnora count coverage scope=current_user_returned_libraries returned=%d missing_before=%d enriched=%d missing_after=%d listing_failures=%d",
+        summary["returned_libraries"],
+        summary["missing_before"],
+        summary["enriched"],
+        summary["missing_after"],
+        listing_failures,
+    )
+    return summary
+
+
 @router.get("/knowledge-bases")
 async def list_knowledge_bases(user: Any = Depends(get_current_user_from_request)) -> dict[str, Any]:
     session = await ensure_weknora_session_for_deerflow_user(user)
@@ -767,9 +788,11 @@ async def list_knowledge_bases(user: Any = Depends(get_current_user_from_request
 
     tenant_results = await asyncio.gather(*[_list_tenant_resources(item) for item in memberships])
     items_by_id: dict[str, dict[str, Any]] = {}
+    listing_failures = 0
 
     for membership, knowledge_data, shared_data in tenant_results:
         if isinstance(knowledge_data, Exception):
+            listing_failures += 1
             logger.warning(
                 "Failed to list WeKnora knowledge bases for tenant %s: %s",
                 membership.get("tenant_id"),
@@ -789,6 +812,7 @@ async def list_knowledge_bases(user: Any = Depends(get_current_user_from_request
                     items_by_id[kb_id] = kb
 
         if isinstance(shared_data, Exception):
+            listing_failures += 1
             logger.warning(
                 "Failed to list shared WeKnora knowledge bases for tenant %s: %s",
                 membership.get("tenant_id"),
@@ -830,17 +854,10 @@ async def list_knowledge_bases(user: Any = Depends(get_current_user_from_request
             )
 
     items = list(items_by_id.values())
-    try:
-        count_timeout = _float_env("WEKNORA_KB_COUNT_TIMEOUT_SECONDS", 5.0)
-        if count_timeout > 0:
-            await asyncio.wait_for(_enrich_knowledge_base_counts(items, session.token), timeout=count_timeout)
-        else:
-            await _enrich_knowledge_base_counts(items, session.token)
-    except TimeoutError:
-        logger.warning("Skipping WeKnora knowledge-base count enrichment after %.1fs.", count_timeout)
-    except Exception:
-        logger.warning("Skipping WeKnora knowledge-base count enrichment due to an unexpected error.", exc_info=True)
+    count_coverage_before = _knowledge_count_coverage(items)
+    # List reads never scan documents or chunks to fill absent upstream statistics.
     return {
+        "count_summary": _knowledge_count_summary(count_coverage_before, items, listing_failures),
         "items": items,
         "total": len(items),
         "owned_total": sum(1 for item in items if item.get("is_owner") is True),
@@ -1160,7 +1177,6 @@ async def upload_knowledge_file(
     )
 
 
-@router.post("/bailian/v1/embeddings")
 async def bailian_embeddings(request: Request) -> JSONResponse:
     """Relay WeKnora embedding requests through Gateway's managed TLS path.
 
@@ -1179,30 +1195,7 @@ async def bailian_embeddings(request: Request) -> JSONResponse:
             _DEFAULT_BAILIAN_EMBEDDING_MAX_BYTES,
         ),
     )
-    content_length = request.headers.get("content-length", "").strip()
-    if content_length:
-        try:
-            if int(content_length) > max_bytes:
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"Embedding request exceeds the {max_bytes}-byte limit.",
-                )
-        except ValueError:
-            pass
-    body = await request.body()
-    if not body:
-        raise HTTPException(status_code=400, detail="Embedding request body is empty.")
-    if len(body) > max_bytes:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Embedding request exceeds the {max_bytes}-byte limit.",
-        )
-    try:
-        payload = json.loads(body)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise HTTPException(status_code=400, detail="Embedding request body must be valid JSON.") from exc
-    if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail="Embedding request body must be a JSON object.")
+    payload = await bounded_request_json(request, label="Embedding", max_bytes=max_bytes)
 
     configured_model = os.getenv(
         "EMBEDDING_MODEL_NAME",
@@ -1227,7 +1220,8 @@ async def bailian_embeddings(request: Request) -> JSONResponse:
             timeout=timeout,
             verify=_bailian_tls_verify(),
         ) as client:
-            response = await client.post(
+            response = await bounded_post(
+                client,
                 upstream_url,
                 headers={
                     "Authorization": f"Bearer {api_key}",
@@ -1255,7 +1249,6 @@ async def bailian_embeddings(request: Request) -> JSONResponse:
     return JSONResponse(content=data)
 
 
-@router.post("/internal-models/v1/embeddings")
 async def cnooc_embeddings(request: Request) -> JSONResponse:
     """Relay WeKnora embedding batches to the approved internal model service."""
 
@@ -1297,31 +1290,31 @@ async def cnooc_embeddings(request: Request) -> JSONResponse:
         "encoding_format": str(payload.get("encoding_format") or "float"),
         "dimensions": expected_dimension,
     }
-    async with _internal_embedding_limiter():
-        data = await _post_internal_retrieval_model(
-            upstream_url=os.getenv(
-                "CNOOC_EMBEDDING_UPSTREAM_URL",
-                _DEFAULT_CNOOC_EMBEDDING_UPSTREAM_URL,
-            ).strip(),
-            upstream_key=upstream_key,
-            payload=upstream_payload,
-            label="Internal embedding",
-            retry_business_codes=frozenset({"10020"}),
-            business_retries=max(
-                0,
-                _int_env(
-                    "WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRIES",
-                    _DEFAULT_CNOOC_EMBEDDING_BUSY_RETRIES,
-                ),
+    data = await _post_internal_retrieval_model(
+        upstream_url=os.getenv(
+            "CNOOC_EMBEDDING_UPSTREAM_URL",
+            _DEFAULT_CNOOC_EMBEDDING_UPSTREAM_URL,
+        ).strip(),
+        upstream_key=upstream_key,
+        payload=upstream_payload,
+        label="Internal embedding",
+        bounded_response=True,
+        retry_business_codes=frozenset({"10020"}),
+        business_retries=max(
+            0,
+            _int_env(
+                "WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRIES",
+                _DEFAULT_CNOOC_EMBEDDING_BUSY_RETRIES,
             ),
-            business_retry_seconds=max(
-                0.0,
-                _float_env(
-                    "WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRY_SECONDS",
-                    _DEFAULT_CNOOC_EMBEDDING_BUSY_RETRY_SECONDS,
-                ),
+        ),
+        business_retry_seconds=max(
+            0.0,
+            _float_env(
+                "WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRY_SECONDS",
+                _DEFAULT_CNOOC_EMBEDDING_BUSY_RETRY_SECONDS,
             ),
-        )
+        ),
+    )
     rows = data.get("data")
     if not isinstance(rows, list) or len(rows) != expected_rows:
         raise HTTPException(status_code=502, detail="Internal embedding returned an unexpected row count.")
@@ -1522,3 +1515,7 @@ async def sso_session(request: Request, user: Any = Depends(get_current_user_fro
         session.as_login_response(ui_policy=build_weknora_ui_policy(user)),
         headers=_sso_cors_headers(request),
     )
+
+
+router.add_api_route("/bailian/v1/embeddings", bailian_embeddings, methods=["POST"], route_class_override=EmbeddingBudgetRoute)
+router.add_api_route("/internal-models/v1/embeddings", cnooc_embeddings, methods=["POST"], route_class_override=EmbeddingBudgetRoute)

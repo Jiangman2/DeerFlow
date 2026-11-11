@@ -43,6 +43,19 @@ export function resetThreadChatAfterDelete(detail: ThreadChatResetDetail) {
   );
 }
 
+export function resetNewChatIfAlreadyOpen() {
+  if (
+    typeof window !== "undefined" &&
+    window.location.pathname === "/workspace/chats/new"
+  ) {
+    resetThreadChatAfterDelete({
+      deletedThreadId: "new",
+      nextPath: "/workspace/chats/new",
+      force: true,
+    });
+  }
+}
+
 export function useThreadChat() {
   const { thread_id: threadIdFromPath } = useParams<{ thread_id: string }>();
   const pathname = usePathname();

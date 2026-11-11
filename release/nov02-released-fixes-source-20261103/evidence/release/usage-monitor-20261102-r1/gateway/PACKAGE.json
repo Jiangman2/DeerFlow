@@ -1,0 +1,113 @@
+{
+  "patch_bytes": 92814,
+  "patch_sha256": "2f2c61573736083f4f40f2cd68efd2f9dcfd01b93754c14c06ceea5b6f1d84eb",
+  "production_writes": 0,
+  "qualification": {
+    "base_generation": 401,
+    "base_manifest": "sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+    "base_spec_sha256": "843aa3df896935f07e3da274619a648ad2426fd5c4ca17bcd5b3ee5dfad4d6a1",
+    "database_version_preserved": "0022_work_integration_state",
+    "incident_root_cause_confirmed": false,
+    "installed_image_acceptance_pending": true,
+    "metrics_feature_included": true,
+    "new_business_database_queries_for_oa": 0,
+    "oa_interface_and_job_observations_included": true,
+    "preflight_summary_sha256": "300630c59e4e4e399789087152273bdfd37288e338a231bb802646178317b838",
+    "preload_only": true,
+    "production_config_change_required": [
+      "DEER_FLOW_MODEL_METRICS_ENABLED=true",
+      "DEER_FLOW_MODEL_METRICS_NAMESPACE=cnoocclaw-model-monitor-v1"
+    ],
+    "production_schema_migration_required": false,
+    "ready_for_rollout": false,
+    "required_migration": null,
+    "runner_update_required": false,
+    "source_base_ref": "78d86d4932a2ec7f764dca997cbf43d82adb7398",
+    "source_base_ref_scope": "operator_observed_files_only_not_entire_checkout",
+    "source_base_sha256": {
+      "app/gateway/account_activity.py": null,
+      "app/gateway/app.py": "4280b820b55625b9b08ebfe2c6a3297c87b1bf7e6279d4558f0194f8be9056c0",
+      "app/gateway/codex_responses_adapter.py": "5f6396dbc3f1bfeab0b2e95ac2077ce74fba38f9d5eba99861c51851b4dea192",
+      "app/gateway/model_monitor.py": null,
+      "app/gateway/oa_policy_flow_metrics.py": null,
+      "app/gateway/oa_policy_flow_service.py": "f2d7835127d84333cd592156c6bfe7588e70a150087ca87ba048cb3eef557312",
+      "app/gateway/routers/console.py": "70e3b64fa7f3e60b574b25cb8f5f59077a18fbad94dffa42212ed465e3b0ea53",
+      "app/gateway/routers/model_monitor.py": null,
+      "app/gateway/routers/oa_policy_flow.py": "a494e1657b6cf2aa986bd8b5bc0fd5ea8495b85dbe686a4039c232cfeeab53f2",
+      "packages/harness/deerflow/community/aio_sandbox/aio_sandbox.py": "e7d1922c025ffa7a72c2c82b277745de7dccbfb047c9bd1771723380991e1db9",
+      "packages/harness/deerflow/community/media_generation/tools.py": "c128ed50201e112a7c94f27e8d5e84dd1e5777255f0d4912fd90cb2704c8a0b7",
+      "packages/harness/deerflow/models/factory.py": "8009fc0ea267d9520aec2eef9c8a6e1daa1d454ddab028c6d70eb68da8070510",
+      "packages/harness/deerflow/observability/model_metrics.py": null,
+      "packages/harness/deerflow/sandbox/text_read_policy.py": null,
+      "packages/harness/deerflow/sandbox/tools.py": "24a62f34e0aaf22b26f8e9bb35ab533cca4c1253a1073a7390538b0020b4d9e1"
+    },
+    "source_files": {
+      "app/backend/app/gateway/account_activity.py": {
+        "bytes": 5902,
+        "sha256": "f3a2b60f885d0d9577a12c99c2eb3dfd7d43ee7576d9ca0b31bca7ceddd3108e"
+      },
+      "app/backend/app/gateway/app.py": {
+        "bytes": 30497,
+        "sha256": "2188bfc885035df5a78b38dafa1061f8908a8d050a88959d60114c8c45c508c2"
+      },
+      "app/backend/app/gateway/codex_responses_adapter.py": {
+        "bytes": 49503,
+        "sha256": "ba3c91a89f6efd213fed57a36556546676791a9cedbe42d0d162a811396b13fd"
+      },
+      "app/backend/app/gateway/model_monitor.py": {
+        "bytes": 10743,
+        "sha256": "b61efcb08da541def289b422c35fc48b8ff1e86bd958ce97839fc11e93f6a4f3"
+      },
+      "app/backend/app/gateway/oa_policy_flow_metrics.py": {
+        "bytes": 4735,
+        "sha256": "e8df3b5025a75688150360f28220523c981d57c9c8fc63f2bb89719c9f5e1b58"
+      },
+      "app/backend/app/gateway/oa_policy_flow_service.py": {
+        "bytes": 33467,
+        "sha256": "4b455b4c551061e18f8b0feb33413ff8047b561021f4e3e2cc4d1e919380392a"
+      },
+      "app/backend/app/gateway/routers/console.py": {
+        "bytes": 23041,
+        "sha256": "6b5faa489c49048541d192eb614daa598d1d40ff028e02ef49c951188545b813"
+      },
+      "app/backend/app/gateway/routers/model_monitor.py": {
+        "bytes": 938,
+        "sha256": "a05dc59cf1a65162bd99058c216ea3b4fe58f6ab0c861f7845d9e7d9364df15b"
+      },
+      "app/backend/app/gateway/routers/oa_policy_flow.py": {
+        "bytes": 13059,
+        "sha256": "9a39a945a1d7f11a092c5b6c7d8362d5ee858158c7ef88130952fc1a5de19122"
+      },
+      "app/backend/packages/harness/deerflow/community/aio_sandbox/aio_sandbox.py": {
+        "bytes": 27835,
+        "sha256": "f134f32cb02fbb8a97941f7cc2055699120d9051cf6644631ee4a9828a68050b"
+      },
+      "app/backend/packages/harness/deerflow/community/media_generation/tools.py": {
+        "bytes": 40606,
+        "sha256": "389d3825882825aaa7f2510721f68c52199539b2a37c0667e39a094bf1564ddb"
+      },
+      "app/backend/packages/harness/deerflow/models/factory.py": {
+        "bytes": 18423,
+        "sha256": "bca1631ae23ff8837c19b621f271ae98b23bb7dc65b7544e59674de8fbcd7c8b"
+      },
+      "app/backend/packages/harness/deerflow/observability/model_metrics.py": {
+        "bytes": 5664,
+        "sha256": "b720ecf551df4764e8d5f0415f793c5e75215abdabf8a6f67e18a3e64f74f39d"
+      },
+      "app/backend/packages/harness/deerflow/sandbox/text_read_policy.py": {
+        "bytes": 1175,
+        "sha256": "b976118b762c73ccaf083a38504991de81963b881367d12e7d9faa7ed56f56f7"
+      },
+      "app/backend/packages/harness/deerflow/sandbox/tools.py": {
+        "bytes": 99410,
+        "sha256": "a8e8b4f3ff94f79e2e0458414f4c2d55310bdd170a8859c00b99dd1d65ad929c"
+      }
+    },
+    "telemetry_is_durable_audit_ledger": false,
+    "visual_model_capability_changed": false,
+    "work_datalake_deferred": true
+  },
+  "schema": "portal-usage-monitor-gateway-package.v1",
+  "script_bytes": 284317,
+  "script_sha256": "8e568e50f2f4c0ec7eaf08a23f51b746451bad4ca9909e298e90617dd5a7ed48"
+}

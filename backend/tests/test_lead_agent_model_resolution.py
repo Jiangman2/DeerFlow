@@ -85,6 +85,39 @@ def test_make_lead_agent_signature_matches_langgraph_server_factory_abi():
     assert list(inspect.signature(lead_agent_module.make_lead_agent).parameters) == ["config"]
 
 
+@pytest.mark.parametrize("bootstrap", [False, True])
+@pytest.mark.parametrize("enabled", [False, True])
+def test_web_toggle_filters_before_deferred_catalog(monkeypatch, bootstrap, enabled):
+    from langchain_core.tools import StructuredTool
+
+    import deerflow.tools as tools_module
+    import deerflow.tools.builtins.tool_search as search_module
+
+    app_config = _make_app_config([_make_model("safe-model", supports_thinking=False)])
+    tools = [StructuredTool.from_function(lambda query: "synthetic", name=n, description="synthetic") for n in ("web_search", "web_fetch", "read_file")]
+    monkeypatch.setattr(tools_module, "get_available_tools", lambda **kwargs: tools)
+    monkeypatch.setattr(lead_agent_module, "build_middlewares", lambda *a, **kw: [])
+    monkeypatch.setattr(lead_agent_module, "create_chat_model", lambda **kwargs: object())
+    monkeypatch.setattr(lead_agent_module, "create_agent", lambda **kwargs: kwargs)
+    original = search_module.assemble_deferred_tools
+    catalogs = []
+
+    def capture(items, **kwargs):
+        catalogs.append({t.name for t in items})
+        return original(items, **kwargs)
+
+    monkeypatch.setattr(search_module, "assemble_deferred_tools", capture)
+    result = lead_agent_module._make_lead_agent(
+        {"configurable": {"model_name": "safe-model", "is_bootstrap": bootstrap}, "context": {"web_search_enabled": enabled}},
+        app_config=app_config,
+    )
+    assert catalogs
+    assert "read_file" in catalogs[0]
+    for name in ("web_search", "web_fetch"):
+        assert (name in catalogs[0]) is enabled
+        assert (name in {t.name for t in result["tools"]}) is enabled
+
+
 def test_make_lead_agent_attaches_tracing_callbacks_at_graph_root(monkeypatch):
     """Regression guard: tracing handlers must be appended to
     ``config["callbacks"]`` (graph invocation root), and every in-graph

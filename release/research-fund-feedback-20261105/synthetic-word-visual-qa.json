@@ -1,0 +1,401 @@
+{
+  "schema": "finance-final-visual-qa.v1",
+  "synthetic_data_only": true,
+  "production_access": false,
+  "sample": {
+    "bytes": 68549,
+    "sha256": "2dc4d7c8feff1caafd4e1257496ae804c40c23eea340b271b627c0c4da305137"
+  },
+  "source_template": {
+    "path": "C:\\Users\\15285\\AppData\\Local\\Temp\\finance-feedback-20261105-r1\\skill\\assets\\reference-examples\\group-company-example.docx",
+    "bytes": 83081,
+    "sha256": "85dc59c86546a68da6d2173de7662ced2769593e5db88d621a0fd7779b846a51"
+  },
+  "budget_execution_scope": "direct_only",
+  "totals": {
+    "source_approved": 100,
+    "source_received": 0,
+    "transferred": 0,
+    "expense_budget": 100,
+    "reported": 90,
+    "actual": 90,
+    "audited": null,
+    "recognized": 90,
+    "audit_reduction": null,
+    "target_budget": 100,
+    "balance": 10,
+    "execution_rate": 90
+  },
+  "cost_totals": {
+    "direct": {
+      "budget": 100,
+      "adjusted_budget": 100,
+      "reported": 90,
+      "actual": 90,
+      "recognized": 90,
+      "audited": null,
+      "balance": 10
+    },
+    "indirect": {
+      "budget": 350,
+      "adjusted_budget": 350,
+      "reported": 300,
+      "actual": 300,
+      "recognized": 300,
+      "audited": null,
+      "balance": 50
+    },
+    "all": {
+      "budget": 450,
+      "adjusted_budget": 450,
+      "reported": 390,
+      "actual": 390,
+      "recognized": 390,
+      "audited": null,
+      "balance": 60
+    }
+  },
+  "outsourcing_numeric": {
+    "basis": "recognized_expenditure",
+    "direct_expenditure": 90,
+    "total": 30,
+    "external_amount": 10,
+    "commissioned_to_direct_percent": 33.33,
+    "external_to_direct_percent": 11.11,
+    "external_to_commissioned_percent": 33.33
+  },
+  "issue_codes": [
+    {
+      "severity": "INFO",
+      "code": "MISSING_SECTION_FACT"
+    }
+  ],
+  "inspection_status": "PASS",
+  "template_fidelity": {
+    "status": "PASS",
+    "template": "group-company-example.docx",
+    "template_sha256": "85dc59c86546a68da6d2173de7662ced2769593e5db88d621a0fd7779b846a51",
+    "preserved_parts": "all except body text, case-selected zero-budget narrative paragraphs, cloned annual rows, explicit black font colors and settings updateFields",
+    "findings": []
+  },
+  "package_diff": {
+    "changed_parts": [
+      "word/comments.xml",
+      "word/document.xml",
+      "word/footer1.xml",
+      "word/numbering.xml",
+      "word/settings.xml",
+      "word/styles.xml"
+    ],
+    "added_parts": [],
+    "removed_parts": []
+  },
+  "render_status": "PASS_WORD_FALLBACK",
+  "visual_review_status": "SCOPED_FIELDS_PASS_WITH_PREEXISTING_TEMPLATE_PAGINATION_LIMITATIONS",
+  "renderer": {
+    "isolated_hidden_application": true,
+    "external_links_disabled": true,
+    "sources_opened_readonly": true,
+    "version": "16.0",
+    "documents": [
+      {
+        "input": "template-reference",
+        "fields_update_result": 0,
+        "pdf": "C:\\Users\\15285\\AppData\\Local\\Temp\\finance-feedback-20261105-r1\\visual-qa\\template-reference.pdf",
+        "input_preserved": true,
+        "pages": 16
+      },
+      {
+        "input": "synthetic-final-report",
+        "fields_update_result": 0,
+        "pdf": "C:\\Users\\15285\\AppData\\Local\\Temp\\finance-feedback-20261105-r1\\visual-qa\\synthetic-final-report.pdf",
+        "input_preserved": true,
+        "pages": 15
+      }
+    ],
+    "renderer": "Microsoft Word",
+    "macros_disabled": true
+  },
+  "packaged_renderer": {
+    "attempted": true,
+    "available": false,
+    "error_class": "FileNotFoundError",
+    "missing_binary": "soffice.exe",
+    "log": {
+      "bytes": 1189,
+      "sha256": "ccca3b1e25ec46b9ab6f674fd3251ac92feccc03de7bf77e10537a9681f33452"
+    }
+  },
+  "linux_libreoffice_render_proven": false,
+  "rasterizer": {
+    "name": "bundled Poppler pdftoppm",
+    "final_dpi": 110,
+    "reference_dpi": 85
+  },
+  "pdf": {
+    "page_count": 15,
+    "blank_pages": [
+      12,
+      14
+    ],
+    "bytes": 769086,
+    "sha256": "7f5808968c63e4d0ffbed241028a861826acaa1b74dc3d898b5dc04701ed2b89"
+  },
+  "reference_pdf": {
+    "page_count": 16,
+    "blank_pages": [
+      15
+    ],
+    "bytes": 795466,
+    "sha256": "995ea62f97af41f12dfdba6ab5576dd6f080e056ef8deabc4f8fa8dc86b98e75"
+  },
+  "final_page_images": [
+    {
+      "page": 1,
+      "file": "final-render/page-01.png",
+      "visually_opened": true,
+      "bytes": 112779,
+      "sha256": "bd66323b9ec084d8aea3b6bdb7c02c0b3a450d7e9b00e89eccc82a7d332fd4e7"
+    },
+    {
+      "page": 2,
+      "file": "final-render/page-02.png",
+      "visually_opened": true,
+      "bytes": 423058,
+      "sha256": "9cdd749817f37fd8e43b54e3eb2d20476e9ad891c919da66413497b25deb7ca1"
+    },
+    {
+      "page": 3,
+      "file": "final-render/page-03.png",
+      "visually_opened": true,
+      "bytes": 64144,
+      "sha256": "3a073c0c1261bb20ac0decbb6cdf176184c7373ff288b1fe1f346653013d73d1"
+    },
+    {
+      "page": 4,
+      "file": "final-render/page-04.png",
+      "visually_opened": true,
+      "bytes": 115295,
+      "sha256": "7812172d52d0e28f78a0b325a6354afebbeaf6ab51e410ce8e4b80451205e6e1"
+    },
+    {
+      "page": 5,
+      "file": "final-render/page-05.png",
+      "visually_opened": true,
+      "bytes": 195858,
+      "sha256": "745d8ffaec450c48556c65d2fd5a363d443499e9bd700eba2a76cb094732bda5"
+    },
+    {
+      "page": 6,
+      "file": "final-render/page-06.png",
+      "visually_opened": true,
+      "bytes": 225227,
+      "sha256": "da87a9c197d1a856ad23f0032694c39c05a593c24f206aa32c028975aa14a8c0"
+    },
+    {
+      "page": 7,
+      "file": "final-render/page-07.png",
+      "visually_opened": true,
+      "bytes": 201963,
+      "sha256": "680a5f1fc2a5881123d3c5b270a1a46df9e3dfe327b2d5138ef2962b509a8c1d"
+    },
+    {
+      "page": 8,
+      "file": "final-render/page-08.png",
+      "visually_opened": true,
+      "bytes": 154427,
+      "sha256": "8951986343e9e6c8cdc163e0080373903f86f216c47348826e24834a34c1582c"
+    },
+    {
+      "page": 9,
+      "file": "final-render/page-09.png",
+      "visually_opened": true,
+      "bytes": 45701,
+      "sha256": "05ba713e220c2fc0d150c5460370500de642b9a9d4e9d9ebd09441b8739cb4ab"
+    },
+    {
+      "page": 10,
+      "file": "final-render/page-10.png",
+      "visually_opened": true,
+      "bytes": 155630,
+      "sha256": "095adfeb5708f977eb0cfbd0fbaf19b683a5ccaf161b5d3b67bd7df2fba502e4"
+    },
+    {
+      "page": 11,
+      "file": "final-render/page-11.png",
+      "visually_opened": true,
+      "bytes": 136515,
+      "sha256": "30761ce35c1d9d6b22917e47584529a8c575951a20e15e6ed6c31a1d9541c530"
+    },
+    {
+      "page": 12,
+      "file": "final-render/page-12.png",
+      "visually_opened": true,
+      "bytes": 5286,
+      "sha256": "1a3c21152a3a6256fde12e6a74ad36322af8a6a91b4eb0e5a849e0467a73662d"
+    },
+    {
+      "page": 13,
+      "file": "final-render/page-13.png",
+      "visually_opened": true,
+      "bytes": 118937,
+      "sha256": "775f74553371869dc4123284cc6efcd790e99b8e891d7313ea77b79e4a565123"
+    },
+    {
+      "page": 14,
+      "file": "final-render/page-14.png",
+      "visually_opened": true,
+      "bytes": 5286,
+      "sha256": "1a3c21152a3a6256fde12e6a74ad36322af8a6a91b4eb0e5a849e0467a73662d"
+    },
+    {
+      "page": 15,
+      "file": "final-render/page-15.png",
+      "visually_opened": true,
+      "bytes": 92158,
+      "sha256": "05be5b57a99c503fd26b38444d5dab3d9ef6ff1994e2623c1583e4563579a1b1"
+    }
+  ],
+  "reference_pages_visually_opened": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  "content_checks": {
+    "cover_prepared_date": true,
+    "fixed_cutoff_wording": true,
+    "direct_execution_amount": true,
+    "direct_execution_rate": true,
+    "indirect_excluded_from_execution": true,
+    "direct_balance": true,
+    "missing_budget_change_not_fabricated": true,
+    "commissioned_direct_denominator": true,
+    "external_direct_denominator": true,
+    "synthetic_external_organization_present": true
+  },
+  "inspected_key_pages": {
+    "cover_date": 1,
+    "missing_budget_change_info": 4,
+    "direct_and_indirect_narrative_and_outsourcing_ratios": 5,
+    "direct_and_indirect_summary_tables": 7,
+    "commissioned_expense_table": 13
+  },
+  "no_new_clipping_or_overlap_observed": true,
+  "legacy_comparison": {
+    "synthetic_only": true,
+    "source_version": "2026-11-04",
+    "meaningful_scope": "all_funds",
+    "budget": 450,
+    "recognized": 390,
+    "validation_issue_count": 0,
+    "pdf": {
+      "page_count": 15,
+      "blank_pages": [
+        12,
+        14
+      ],
+      "bytes": 768902,
+      "sha256": "7c28c499754d07a5cc1febc4beb1dc511589621005b72a9b456559bd062f6cb7"
+    },
+    "visually_opened_pages": [
+      1,
+      12,
+      14
+    ],
+    "page_pixel_comparison": {
+      "1": {
+        "identical": true,
+        "baseline": {
+          "bytes": 112779,
+          "sha256": "bd66323b9ec084d8aea3b6bdb7c02c0b3a450d7e9b00e89eccc82a7d332fd4e7"
+        },
+        "candidate": {
+          "bytes": 112779,
+          "sha256": "bd66323b9ec084d8aea3b6bdb7c02c0b3a450d7e9b00e89eccc82a7d332fd4e7"
+        }
+      },
+      "12": {
+        "identical": true,
+        "baseline": {
+          "bytes": 5286,
+          "sha256": "1a3c21152a3a6256fde12e6a74ad36322af8a6a91b4eb0e5a849e0467a73662d"
+        },
+        "candidate": {
+          "bytes": 5286,
+          "sha256": "1a3c21152a3a6256fde12e6a74ad36322af8a6a91b4eb0e5a849e0467a73662d"
+        }
+      },
+      "14": {
+        "identical": true,
+        "baseline": {
+          "bytes": 5286,
+          "sha256": "1a3c21152a3a6256fde12e6a74ad36322af8a6a91b4eb0e5a849e0467a73662d"
+        },
+        "candidate": {
+          "bytes": 5286,
+          "sha256": "1a3c21152a3a6256fde12e6a74ad36322af8a6a91b4eb0e5a849e0467a73662d"
+        }
+      }
+    },
+    "case_adaptation_evidence": {
+      "bytes": 1288,
+      "sha256": "413f33f82e981de4b3f00ab16991c16cf481f119b1a347770e526d5a9fca8c00"
+    }
+  },
+  "limitations": [
+    {
+      "code": "PREEXISTING_BLANK_TEMPLATE_PAGES",
+      "final_pages": [
+        12,
+        14
+      ],
+      "reproduced_with_nov04_generator": true,
+      "action": "retained without modifying template pagination"
+    },
+    {
+      "code": "PREEXISTING_COVER_INSTRUCTIONS_HEADING_SPLIT",
+      "final_pages": [
+        1,
+        2
+      ],
+      "reproduced_with_nov04_generator": true,
+      "action": "retained existing layout"
+    },
+    {
+      "code": "EMPTY_BUDGET_CHANGE_PARAGRAPH_SPACE",
+      "final_pages": [
+        4
+      ],
+      "cause": "template paragraph structures retained when absent facts cleared",
+      "action": "no layout redesign in this batch"
+    },
+    {
+      "code": "WORD_RENDERER_ONLY",
+      "cause": "LibreOffice executable absent on local host",
+      "production_renderer_acceptance_claimed": false
+    }
+  ],
+  "skill_source_sha256": {
+    "scripts/report_model.py": "06b310edcb0ffc6bc6c9155bb1d86c456e677da2937af7aad7346bc51c4dff87",
+    "scripts/group_template.py": "365618e9b2a400dc8801482b04107afa650677eb6d5651a3564752d8c21f2a3f",
+    "scripts/standard_input.py": "e0817346643684adebd174ebae57869f812796909e0e8298fda61aa05feece0f",
+    "scripts/template_builder.py": "7e1c9d3f49bdbb3b78ae3cd061192972ed24c37857d907d5c5e41c9bb44f578e",
+    "schemas/case.schema.json": "1ebfaef99c0a771fb16b468ca93ce462227f9827d0a535919c8b1175a068bd28",
+    "assets/reference-examples/group-company-standard-input.xlsx": "4fcfb5281dbfe68250b4b948025d825376f73a05f4a4a8e3739ddd2337513baa"
+  },
+  "source_template_preserved": true,
+  "skill_files_modified_by_visual_qa": false
+}

@@ -1,0 +1,31 @@
+{
+  "after_tree_sha256": "28944ec28d4644acb09cd10eb8e73dc546a4250d0c21172d325b23cb713d7d43",
+  "attachment_sha256": "421963b6ba4312ccbaa3d6a45e40c48e75864534ab12edbee115c253363a91ad",
+  "backup_verified": true,
+  "before_tree_sha256": "0d935a5e5c45e8bf916b6b52ee310826d68acb22fffb0cbc70ab5d3304840a4c",
+  "behavior_checks": 278,
+  "candidate_matches_packaged_manifest": true,
+  "cli_checks": 9,
+  "database_access": false,
+  "gateway_rollout_requested": false,
+  "maintenance_pod_absent": true,
+  "nodes_verified": [
+    "ecs-zdz-pro-0018",
+    "ecs-zdz-pro-0019",
+    "ecs-zdz-pro-0020",
+    "ecs-zdz-pro-0021",
+    "ecs-zdz-pro-0022"
+  ],
+  "operator_capture_sha256": "536d5192455f89e2eac87a0ed289a427d8f7c8fc676d7d198513eb29373eb2fb",
+  "real_financial_report_acceptance_pending": true,
+  "reported_server_receipt": {
+    "report_bytes": 7284,
+    "report_path": "/var/lib/portal-research-fund-skill-update-project-type-20261105-r1/REPORT.json",
+    "report_sha256": "c153ad6df9d7d14d2bf65478d0b998dba3aa9825ec055e54612b71053788dc58"
+  },
+  "same_sampled_gateway_pod_uids_before_after": true,
+  "schema": "research-fund-project-type-runtime-acceptance.v1",
+  "server_report_bytes_independently_retrieved": false,
+  "source": "operator_supplied_terminal_capture",
+  "status": "OPERATOR_REPORTED_RUNTIME_ACCEPTED_BUSINESS_PENDING"
+}

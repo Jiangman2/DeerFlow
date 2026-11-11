@@ -1,0 +1,34 @@
+{
+  "schema": "portal-oa-timeout-operator-observation.v1",
+  "source": "operator-pasted command output in this conversation",
+  "observation_date": "2026-11-03",
+  "timezone": "Asia/Shanghai",
+  "status": "PARTIAL_TIMEOUT_ROLLOUT_PAUSED_BY_OPERATOR",
+  "configuration_patch_submitted": true,
+  "target_variable": "OA_POLICY_FLOW_RUN_TIMEOUT_SECONDS",
+  "target_value_seconds": 3600,
+  "all_runtime_values_verified": false,
+  "local_script_interrupted": true,
+  "interruption_phase": "rollout_wait_sleep",
+  "pause_command_confirmed": true,
+  "deployment": {
+    "name": "gateway",
+    "namespace": "deer-flow",
+    "generation": 405,
+    "paused": true,
+    "desired_replicas": 70,
+    "updated_replicas": 3,
+    "ready_replicas": 70,
+    "available_replicas": 70
+  },
+  "replicasets": [
+    {"name": "gateway-7d6dd5589b", "desired": 68, "current": 68, "ready": 68},
+    {"name": "gateway-7887d6c656", "desired": 3, "current": 3, "ready": 2}
+  ],
+  "image_unchanged": "deerflow.local/deer-flow-gateway@sha256:ebcde83d011eb0bb5f2babae7ccb3a5e782839801da5b156f2c0a5c971f029f7",
+  "service_business_acceptance_proven": false,
+  "old_and_new_timeout_configuration_coexist": true,
+  "operator_constraint": "Do not resume, roll back, restart or replace Gateway Pods while users are active. A later maintenance-window rollout requires a new explicit operator instruction.",
+  "original_mutation_script_must_not_be_replayed": true,
+  "original_generation_404_verifier_no_longer_matches_paused_generation_405": true
+}

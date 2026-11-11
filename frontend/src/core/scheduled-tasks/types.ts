@@ -1,3 +1,17 @@
+export type WorkNotification = { connection_id: string };
+
+export type WorkNotificationTargets = {
+  enabled: boolean;
+  targets: Array<WorkNotification & { label: string }>;
+};
+
+export type WorkNotificationStatus =
+  | "pending"
+  | "sent"
+  | "failed"
+  | "uncertain"
+  | "skipped";
+
 export type ScheduledTask = {
   id: string;
   thread_id: string | null;
@@ -6,6 +20,7 @@ export type ScheduledTask = {
   title: string;
   prompt: string;
   run_context?: Record<string, unknown>;
+  work_notification?: WorkNotification | null;
   schedule_type: "once" | "cron" | "interval";
   schedule_spec: Record<string, unknown>;
   timezone: string;
@@ -42,6 +57,7 @@ export type ScheduledTaskRun = {
     | "skipped"
     | "interrupted";
   error: string | null;
+  work_notification_status?: WorkNotificationStatus | null;
   attempt_count: number;
   started_at: string | null;
   finished_at: string | null;

@@ -271,6 +271,18 @@ def _run_cost(
 # ---------------------------------------------------------------------------
 
 
+@router.get("/activity")
+@require_permission("runs", "read")
+async def account_activity(request: Request, response: Response):
+    from app.gateway.account_activity import get_account_activity
+
+    user_id = await get_current_user(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authenticated user required")
+    response.headers["Cache-Control"] = "no-store"
+    return await get_account_activity(user_id, _session_factory_or_503())
+
+
 @router.get("/token-summary", response_model=AccountTokenSummary)
 @require_permission("runs", "read")
 async def account_token_summary(request: Request, response: Response) -> AccountTokenSummary:

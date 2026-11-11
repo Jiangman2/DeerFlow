@@ -1,0 +1,15 @@
+{
+  "bytes": 68166,
+  "filename": "activate-portal-skillhub-edge-auth-20261106-r2.py",
+  "native_receipt_binding": {
+    "bytes": 7130,
+    "operation": "25f363cb9f254e00b9f9dd196b2ade97",
+    "sha256": "29e159302c129098c28786ab4dd8267724d31ebe28e37f02293186b31d033c38"
+  },
+  "path": "C:\\Users\\15285\\Downloads\\activate-portal-skillhub-edge-auth-20261106-r2.py",
+  "production_actions": 0,
+  "qualification_sha256": "528cb3926b3dabdbd1a4e74e64a02e03aed3237a8161e1d2d6cea3e9461a2ea6",
+  "schema": "portal-skillhub-edge-r2-delivery.v1",
+  "sha256": "7dc6f26bf02f7ecae181d9d48b73417599345ef14634166ce3e376bfb38a536f",
+  "status": "DELIVERED_NOT_EXECUTED"
+}

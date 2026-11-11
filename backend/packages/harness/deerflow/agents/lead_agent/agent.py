@@ -26,6 +26,7 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.runnables import RunnableConfig
 
+from deerflow.agents.lead_agent.channel_guidance import with_channel_guidance
 from deerflow.agents.lead_agent.prompt import apply_prompt_template
 from deerflow.agents.middlewares.artifact_delivery_middleware import ArtifactDeliveryMiddleware
 from deerflow.agents.middlewares.clarification_middleware import ClarificationMiddleware
@@ -48,6 +49,7 @@ from deerflow.config.app_config import AppConfig, get_app_config
 from deerflow.config.memory_config import should_use_memory_tools
 from deerflow.config.subagents_config import DEFAULT_MAX_TOTAL_SUBAGENTS_PER_RUN
 from deerflow.models import create_chat_model
+from deerflow.runtime.web_search_policy import filter_web_tools
 from deerflow.skills.tool_policy import ALWAYS_AVAILABLE_BUILTIN_TOOL_NAMES, filter_tools_by_skill_allowed_tools
 from deerflow.skills.types import Skill
 from deerflow.tools.tools import filter_tools_by_datalake_scope
@@ -661,6 +663,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
             scope_context=cfg,
         )
         filtered = filter_tools_by_datalake_scope(filtered, enabled=datalake_enabled)
+        filtered = filter_web_tools(filtered, runtime_context)
         if non_interactive:
             filtered = [tool for tool in filtered if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
         final_tools, setup = assemble_deferred_tools(filtered, enabled=resolved_app_config.tool_search.enabled)
@@ -685,18 +688,21 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
                 mcp_routing_middleware=mcp_routing_middleware,
                 user_id=resolved_user_id,
             ),
-            system_prompt=_with_non_interactive_guidance(
-                apply_prompt_template(
-                    subagent_enabled=subagent_enabled,
-                    max_concurrent_subagents=max_concurrent_subagents,
-                    max_total_subagents=max_total_subagents,
-                    available_skills=set(_BOOTSTRAP_SKILL_NAMES),
-                    app_config=resolved_app_config,
-                    deferred_names=setup.deferred_names,
-                    user_id=resolved_user_id,
-                    skill_names=skill_setup.skill_names or None,
+            system_prompt=with_channel_guidance(
+                _with_non_interactive_guidance(
+                    apply_prompt_template(
+                        subagent_enabled=subagent_enabled,
+                        max_concurrent_subagents=max_concurrent_subagents,
+                        max_total_subagents=max_total_subagents,
+                        available_skills=set(_BOOTSTRAP_SKILL_NAMES),
+                        app_config=resolved_app_config,
+                        deferred_names=setup.deferred_names,
+                        user_id=resolved_user_id,
+                        skill_names=skill_setup.skill_names or None,
+                    ),
+                    enabled=non_interactive,
                 ),
-                enabled=non_interactive,
+                runtime_context,
             ),
             state_schema=ThreadState,
         )
@@ -739,6 +745,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
         scope_context=cfg,
     )
     filtered = filter_tools_by_datalake_scope(filtered, enabled=datalake_enabled)
+    filtered = filter_web_tools(filtered, runtime_context)
     if non_interactive:
         filtered = [tool for tool in filtered if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
     final_tools, setup = assemble_deferred_tools(filtered, enabled=resolved_app_config.tool_search.enabled)
@@ -765,21 +772,24 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
             mcp_routing_middleware=mcp_routing_middleware,
             user_id=resolved_user_id,
         ),
-        system_prompt=_with_non_interactive_guidance(
-            apply_prompt_template(
-                subagent_enabled=subagent_enabled,
-                max_concurrent_subagents=max_concurrent_subagents,
-                max_total_subagents=max_total_subagents,
-                agent_name=agent_name,
-                self_update_enabled=can_update_agent,
-                available_skills=available_skills,
-                app_config=resolved_app_config,
-                deferred_names=setup.deferred_names,
-                mcp_routing_hints_section=mcp_routing_hints_section,
-                user_id=resolved_user_id,
-                skill_names=skill_setup.skill_names or None,
+        system_prompt=with_channel_guidance(
+            _with_non_interactive_guidance(
+                apply_prompt_template(
+                    subagent_enabled=subagent_enabled,
+                    max_concurrent_subagents=max_concurrent_subagents,
+                    max_total_subagents=max_total_subagents,
+                    agent_name=agent_name,
+                    self_update_enabled=can_update_agent,
+                    available_skills=available_skills,
+                    app_config=resolved_app_config,
+                    deferred_names=setup.deferred_names,
+                    mcp_routing_hints_section=mcp_routing_hints_section,
+                    user_id=resolved_user_id,
+                    skill_names=skill_setup.skill_names or None,
+                ),
+                enabled=non_interactive,
             ),
-            enabled=non_interactive,
+            runtime_context,
         ),
         state_schema=ThreadState,
     )

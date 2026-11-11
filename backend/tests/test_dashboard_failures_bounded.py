@@ -11,6 +11,32 @@ from deerflow.persistence.thread_meta.model import ThreadMetaRow
 pytestmark = pytest.mark.asyncio
 
 
+async def test_latest_thousand_bounds_api_count_search_and_last_page(monkeypatch):
+    sf, engine = await _session_factory()
+    now = datetime(2026, 11, 3, tzinfo=UTC)
+    try:
+        async with sf() as session:
+            session.add_all([UserRow(id=ADMIN_ID, email="admin@example.com", system_role="admin"), UserRow(id=USER_ID, email="old-only@example.com")])
+            for index in range(1005):
+                run = _run(f"window-{index:04}", "deleted-thread", "error", now - timedelta(minutes=index))
+                run.user_id = ADMIN_ID if index < 1000 else USER_ID
+                run.error = "synthetic"
+                session.add(run)
+            await session.commit()
+        with _client(sf, monkeypatch) as client:
+            response = client.get("/api/admin/dashboard/failures", params={"limit": 5, "offset": 995})
+            assert response.status_code == 200
+            assert response.json()["total"] == 1000
+            assert [row["run_id"] for row in response.json()["items"]] == [f"window-{i:04}" for i in range(995, 1000)]
+            assert client.get("/api/admin/dashboard/failures", params={"offset": 1000}).json()["items"] == []
+            response = client.get("/api/admin/dashboard/failures", params={"q": "old-only@"})
+            assert response.status_code == 200
+            assert response.json()["total"] == 0
+            assert response.json()["items"] == []
+    finally:
+        await engine.dispose()
+
+
 async def test_page_40_never_loads_full_run_user_or_disposition_payloads(monkeypatch):
     sf, engine = await _session_factory()
     now = datetime(2026, 11, 1, tzinfo=UTC)
@@ -111,6 +137,6 @@ async def test_filtered_count_preserves_owner_precedence_without_history_joins(m
             assert client.get("/api/admin/dashboard/failures").json()["total"] == 3
         counts = [s.lower() for s in statements if "select count(" in s.lower()]
         assert counts and all(" join " not in s for s in counts)
-        assert any("threads_meta.thread_id = runs.thread_id" in s for s in counts)
+        assert any("threads_meta.thread_id = recent_failed_runs.thread_id" in s for s in counts)
     finally:
         await engine.dispose()

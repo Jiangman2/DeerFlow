@@ -1,0 +1,45 @@
+{
+  "schema": "history-composer-autosize-source.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "47a4fb82b2fae402c7fc95e6e9e3e93ad6187d50",
+  "production_acceptance_claimed": false,
+  "runtime_modified_by_registration": false,
+  "changes": {
+    "frontend/src/components/workspace/input-box.tsx": {
+      "kind": "runtime-source",
+      "base_sha256": "2f5a0f737d9957ab1b476513141faa7f45cd960cc4a82827dfbec0e0a6b4dbcc",
+      "baseline_path": "release/history-composer-autosize-source-20261106/baseline/frontend/src/components/workspace/input-box.tsx",
+      "current_sha256": "cb1279f65d4bd6d99a7d5c15e1c3bae78dabe61006289179634b6abfb2ff08d1"
+    },
+    "frontend/src/styles/cnooc-concept.css": {
+      "kind": "runtime-source",
+      "base_sha256": "5c741bab151d4dc82c60c8fdb47f10615b732dbdea15dd9079efd37dfa1ec869",
+      "baseline_path": "release/history-composer-autosize-source-20261106/baseline/frontend/src/styles/cnooc-concept.css",
+      "current_sha256": "a9c9cbfa9c8b0d2b87d4936e19c8e68dc91cbdea7739a4f6f646dd328ceeb635"
+    },
+    "frontend/tests/e2e/composer-submit-layout.spec.ts": {
+      "kind": "regression-test",
+      "base_sha256": "55c9d0a99781d455211f598503d7d81bd26a951bf1bfddf714cf28cd297e06ab",
+      "baseline_path": "release/history-composer-autosize-source-20261106/baseline/frontend/tests/e2e/composer-submit-layout.spec.ts",
+      "current_sha256": "65d656a5440f80b33d045c78c886d9354d965e4fe7281383580b6d7efee82dc7"
+    },
+    "frontend/src/hooks/use-textarea-autosize.ts": {
+      "kind": "runtime-source",
+      "base_sha256": null,
+      "baseline_path": null,
+      "current_sha256": "33549350b8f7f6575b9f1c3ba800ebf106a8421af36477e569c456825d19d73d"
+    },
+    "frontend/tests/e2e/history-composer-autosize.spec.ts": {
+      "kind": "regression-test",
+      "base_sha256": null,
+      "baseline_path": null,
+      "current_sha256": "2f45776dc6edb0eaf6a1db663c2ccb8bc85b48964f8cdd4123ff71fa6c3ff50e"
+    },
+    "frontend/tests/e2e/sidecar-chat.spec.ts": {
+      "kind": "regression-test",
+      "base_sha256": "fb9459e6f68319a8afec2429930da44f34f8fd1c99c1dc61af31516e62dab066",
+      "baseline_path": "release/history-composer-autosize-source-20261106/baseline/frontend/tests/e2e/sidecar-chat.spec.ts",
+      "current_sha256": "9efe6a3a8b872664150d0ff1349af8182669f882247f7582606235d07ba11826"
+    }
+  }
+}

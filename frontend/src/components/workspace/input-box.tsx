@@ -6,6 +6,7 @@ import type { ChatStatus } from "ai";
 import {
   CheckIcon,
   ChevronDownIcon,
+  GlobeIcon,
   Loader2Icon,
   MicIcon,
   PaperclipIcon,
@@ -89,7 +90,6 @@ import {
   useUploadLimits,
   validateIncomingUploadFiles,
   validateUploadLimits,
-  type UploadLimits,
   type UploadLimitViolation,
 } from "@/core/uploads";
 import {
@@ -98,6 +98,7 @@ import {
   type VoiceGatewaySupportReason,
 } from "@/core/voice-input/gateway-transcription";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTextareaAutosize } from "@/hooks/use-textarea-autosize";
 import { isIMEComposing } from "@/lib/ime";
 import { cn } from "@/lib/utils";
 
@@ -443,23 +444,11 @@ export function InputBox({
   const wasStreamingRef = useRef(false);
   const messagesRef = useRef(thread.messages);
 
-  // Older enterprise browsers do not support CSS field-sizing. Keep the
-  // compact mobile editor growing with its real content in those browsers too.
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    if (!isMobile || isWelcomeMode) {
-      textarea.style.removeProperty("height");
-      return;
-    }
-    const resize = () => {
-      textarea.style.height = "0px";
-      textarea.style.height = `${Math.min(144, Math.max(24, textarea.scrollHeight))}px`;
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, [isMobile, isWelcomeMode, selectedSlashSkill, textInput.value]);
+  useTextareaAutosize(
+    textareaRef,
+    textInput.value,
+    !isWelcomeMode && !selectedSlashSkill,
+  );
 
   const abortVoiceInput = useCallback(() => {
     voiceSessionRef.current?.abort();
@@ -634,6 +623,13 @@ export function InputBox({
     () => selectedModel?.supports_reasoning_effort ?? false,
     [selectedModel],
   );
+  const effectiveMode = resolveAgentMode(
+    context.mode,
+    supportThinking,
+    selectedModel?.thinking_always_on,
+  );
+  const effectiveReasoningEffort =
+    context.reasoning_effort ?? reasoningEffortForMode(effectiveMode);
 
   const promptHistory = useMemo(() => {
     const history: string[] = [];
@@ -1868,6 +1864,7 @@ export function InputBox({
       data-has-attachments={attachmentParts.length > 0}
       data-has-knowledge-scope={knowledgeScopeCount > 0}
       data-has-materials={composerMaterialCount > 0}
+      data-auto-grow={!isWelcomeMode}
       data-focused={textareaFocused}
       data-testid={isWelcomeMode ? "welcome-composer" : "chat-composer"}
     >
@@ -2024,7 +2021,7 @@ export function InputBox({
         <div className="cnooc-composer-input min-h-14 min-w-0 px-3 py-2.5 sm:min-h-16 sm:py-3">
           {selectedSlashSkill ? (
             <div
-              className="max-h-48 min-h-6 w-full min-w-0 cursor-text overflow-y-auto text-base leading-6 break-all whitespace-pre-wrap md:text-sm"
+              className="cnooc-composer-skill-input max-h-48 min-h-6 w-full min-w-0 cursor-text overflow-y-auto text-base leading-6 break-all whitespace-pre-wrap md:text-sm"
               onClick={(event) => {
                 if (event.target === event.currentTarget) {
                   focusContentEditableEnd(inlineSkillTextRef.current);
@@ -2106,7 +2103,6 @@ export function InputBox({
               className="cnooc-tool-attachments px-2!"
               disabled={composerLocked}
               showLabel
-              uploadLimits={uploadLimits}
             />
             <ShopCartAttachmentButton
               className="cnooc-tool-datalake"
@@ -2121,8 +2117,59 @@ export function InputBox({
               disabled={composerLocked}
               onContextChange={onContextChange}
             />
-            {!isWelcomeMode && voiceInputControl}
-            {!isWelcomeMode && polishInputControl}
+            <Tooltip
+              content={
+                locale === "zh-CN"
+                  ? context.web_search_enabled === true
+                    ? "联网搜索已开启，点击关闭"
+                    : "联网搜索已关闭，点击开启"
+                  : context.web_search_enabled === true
+                    ? "Web search on; click to disable"
+                    : "Web search off; click to enable"
+              }
+            >
+              <PromptInputButton
+                type="button"
+                className="cnooc-tool-web-search"
+                data-testid="web-search-toggle"
+                aria-label={locale === "zh-CN" ? "联网搜索" : "Web search"}
+                aria-pressed={context.web_search_enabled === true}
+                disabled={composerLocked || !onContextChange}
+                onClick={() => {
+                  const enabled = context.web_search_enabled !== true;
+                  onContextChange?.({
+                    ...context,
+                    web_search_enabled: enabled,
+                  });
+                  toast.info(
+                    locale === "zh-CN"
+                      ? enabled
+                        ? "已开启联网搜索"
+                        : "已关闭联网搜索"
+                      : enabled
+                        ? "Web search enabled"
+                        : "Web search disabled",
+                    {
+                      id: "composer-web-search-toggle",
+                      description:
+                        locale === "zh-CN"
+                          ? enabled
+                            ? "后续提问可使用网页搜索和读取。"
+                            : "后续提问将停用网页搜索和读取。"
+                          : enabled
+                            ? "Future questions can search and read web pages."
+                            : "Future questions will not use web search or web fetch.",
+                      duration: 2500,
+                    },
+                  );
+                }}
+              >
+                <GlobeIcon className="size-4" />
+                <span>{locale === "zh-CN" ? "联网搜索" : "Web search"}</span>
+              </PromptInputButton>
+            </Tooltip>
+            {(!isWelcomeMode || isMobile) && voiceInputControl}
+            {(!isWelcomeMode || isMobile) && polishInputControl}
             {!isMobile && (
               <ModeSelector
                 className="cnooc-tool-mode"
@@ -2133,23 +2180,23 @@ export function InputBox({
                 onSelect={handleModeSelect}
               />
             )}
-            {supportReasoningEffort && context.mode !== "flash" && (
+            {supportReasoningEffort && effectiveMode !== "flash" && (
               <PromptInputActionMenu>
                 <PromptInputActionMenuTrigger
-                  className="hidden gap-1! px-2! sm:inline-flex"
+                  className="cnooc-tool-reasoning hidden gap-1! px-2! md:inline-flex"
                   disabled={composerLocked}
                 >
-                  <div className="text-xs font-normal">
+                  <span className="cnooc-composer-option-label text-xs font-normal">
                     {t.inputBox.reasoningEffort}:
-                    {context.reasoning_effort === "minimal" &&
+                    {effectiveReasoningEffort === "minimal" &&
                       " " + t.inputBox.reasoningEffortMinimal}
-                    {context.reasoning_effort === "low" &&
+                    {effectiveReasoningEffort === "low" &&
                       " " + t.inputBox.reasoningEffortLow}
-                    {context.reasoning_effort === "medium" &&
+                    {effectiveReasoningEffort === "medium" &&
                       " " + t.inputBox.reasoningEffortMedium}
-                    {context.reasoning_effort === "high" &&
+                    {effectiveReasoningEffort === "high" &&
                       " " + t.inputBox.reasoningEffortHigh}
-                  </div>
+                  </span>
                 </PromptInputActionMenuTrigger>
                 <PromptInputActionMenuContent className="w-70">
                   <DropdownMenuGroup>
@@ -2159,7 +2206,7 @@ export function InputBox({
                     <PromptInputActionMenu>
                       <PromptInputActionMenuItem
                         className={cn(
-                          context.reasoning_effort === "minimal"
+                          effectiveReasoningEffort === "minimal"
                             ? "text-accent-foreground"
                             : "text-muted-foreground/65",
                         )}
@@ -2173,7 +2220,7 @@ export function InputBox({
                             {t.inputBox.reasoningEffortMinimalDescription}
                           </div>
                         </div>
-                        {context.reasoning_effort === "minimal" ? (
+                        {effectiveReasoningEffort === "minimal" ? (
                           <CheckIcon className="ml-auto size-4" />
                         ) : (
                           <div className="ml-auto size-4" />
@@ -2181,7 +2228,7 @@ export function InputBox({
                       </PromptInputActionMenuItem>
                       <PromptInputActionMenuItem
                         className={cn(
-                          context.reasoning_effort === "low"
+                          effectiveReasoningEffort === "low"
                             ? "text-accent-foreground"
                             : "text-muted-foreground/65",
                         )}
@@ -2195,7 +2242,7 @@ export function InputBox({
                             {t.inputBox.reasoningEffortLowDescription}
                           </div>
                         </div>
-                        {context.reasoning_effort === "low" ? (
+                        {effectiveReasoningEffort === "low" ? (
                           <CheckIcon className="ml-auto size-4" />
                         ) : (
                           <div className="ml-auto size-4" />
@@ -2203,8 +2250,7 @@ export function InputBox({
                       </PromptInputActionMenuItem>
                       <PromptInputActionMenuItem
                         className={cn(
-                          context.reasoning_effort === "medium" ||
-                            !context.reasoning_effort
+                          effectiveReasoningEffort === "medium"
                             ? "text-accent-foreground"
                             : "text-muted-foreground/65",
                         )}
@@ -2218,8 +2264,7 @@ export function InputBox({
                             {t.inputBox.reasoningEffortMediumDescription}
                           </div>
                         </div>
-                        {context.reasoning_effort === "medium" ||
-                        !context.reasoning_effort ? (
+                        {effectiveReasoningEffort === "medium" ? (
                           <CheckIcon className="ml-auto size-4" />
                         ) : (
                           <div className="ml-auto size-4" />
@@ -2227,7 +2272,7 @@ export function InputBox({
                       </PromptInputActionMenuItem>
                       <PromptInputActionMenuItem
                         className={cn(
-                          context.reasoning_effort === "high"
+                          effectiveReasoningEffort === "high"
                             ? "text-accent-foreground"
                             : "text-muted-foreground/65",
                         )}
@@ -2241,7 +2286,7 @@ export function InputBox({
                             {t.inputBox.reasoningEffortHighDescription}
                           </div>
                         </div>
-                        {context.reasoning_effort === "high" ? (
+                        {effectiveReasoningEffort === "high" ? (
                           <CheckIcon className="ml-auto size-4" />
                         ) : (
                           <div className="ml-auto size-4" />
@@ -2267,8 +2312,8 @@ export function InputBox({
                 onSelect={handleModeSelect}
               />
             )}
-            {isWelcomeMode && voiceInputControl}
-            {isWelcomeMode && polishInputControl}
+            {isWelcomeMode && !isMobile && voiceInputControl}
+            {isWelcomeMode && !isMobile && polishInputControl}
             <ChatModelPicker
               models={models}
               selectedName={selectedModel?.name}
@@ -2534,24 +2579,15 @@ function AddAttachmentsButton({
   className,
   disabled,
   showLabel = false,
-  uploadLimits,
 }: {
   className?: string;
   disabled?: boolean;
   showLabel?: boolean;
-  uploadLimits?: UploadLimits;
 }) {
   const { t } = useI18n();
   const attachments = usePromptInputAttachments();
-  const tooltipContent = uploadLimits
-    ? t.uploads.limitsHint(
-        uploadLimits.max_files,
-        formatUploadSize(uploadLimits.max_file_size),
-        formatUploadSize(uploadLimits.max_total_size),
-      )
-    : t.inputBox.addAttachments;
   return (
-    <Tooltip content={<span className="block max-w-80">{tooltipContent}</span>}>
+    <Tooltip content={t.inputBox.addAttachments}>
       <PromptInputButton
         aria-label={t.inputBox.addAttachments}
         className={cn("px-2!", className)}

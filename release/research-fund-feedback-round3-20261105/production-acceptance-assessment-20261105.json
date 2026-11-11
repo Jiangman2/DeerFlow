@@ -1,0 +1,122 @@
+{
+  "assessed_at_utc": "2026-11-05T08:14:18.869238+00:00",
+  "assessment_method": {
+    "git_commit_or_push_performed": false,
+    "historical_evidence_modified": false,
+    "mode": "independent_readonly_local_evidence_reconciliation",
+    "new_assessment_file_only": true,
+    "production_commands_executed_by_reviewer": 0,
+    "production_requery_performed": false
+  },
+  "binding_checks": {
+    "after": {
+      "bytes": 793973,
+      "file_count": 30,
+      "tree_sha256": "0d935a5e5c45e8bf916b6b52ee310826d68acb22fffb0cbc70ab5d3304840a4c"
+    },
+    "before": {
+      "bytes": 788816,
+      "file_count": 30,
+      "tree_sha256": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951"
+    },
+    "candidate_manifest_matches_sealed_after_manifest": true,
+    "fresh_preflight_hash_matches_sealed_bundle": true,
+    "operation_consistent_in_host_stage_and_publication": true
+  },
+  "business_acceptance": {
+    "browser_business_acceptance_pending": true,
+    "business_report_content_accepted_by_user": false,
+    "limit": "Runtime source consistency and synthetic checks establish this Skill update only. They do not establish real new-conversation results, rendered Office preview behavior, or operator acceptance of actual financial output.",
+    "new_conversation_with_real_user_workbook_verified": false,
+    "production_office_preview_verified": false,
+    "status": "PENDING"
+  },
+  "conclusion": "Accept the reported one-Skill production update and sampled-node runtime verification for the exact approved candidate. Keep browser and real-workbook business acceptance pending; do not describe the production switch as atomic or uninterrupted.",
+  "evidence": {
+    "candidate_manifest": {
+      "bytes": 5213,
+      "path": "candidate-manifest.json",
+      "sha256": "84ef354c827fb82cea79548c3d21c865e0ea00d2c5dd9e2c52834f1262b54577"
+    },
+    "operator_chat_receipt": {
+      "bytes": 7978,
+      "path": "operator-update-20261105.json",
+      "provenance": "Complete operator-supplied JSON line archived from chat as UTF-8 plus final LF; preserves Markdown image strings. Not the server REPORT.json bytes.",
+      "sha256": "fdaee894f69469209b85764c76764f0819d2a65f7fa916c16c657d7a1b78e89c"
+    },
+    "qualification_receipt": {
+      "bytes": 13931,
+      "path": "qualification-receipt.json",
+      "sha256": "b84a6cf0eba23d84f40116fc7c4ee6ed84e24128a70deaa242098abfdaf968a4"
+    },
+    "reviewed_updater": {
+      "bytes": 868790,
+      "path": "update-portal-research-fund-skill-round3-20261105-r1.py",
+      "sha256": "7754c68871de109ab28a3a75f3439961b4b256704a290ee83edfa154bccfaf33"
+    },
+    "server_report_operator_reported_only": {
+      "bytes": 7258,
+      "local_chat_receipt_hash_is_not_server_report_hash": true,
+      "path": "/var/lib/portal-research-fund-skill-update-round3-20261105-r1/REPORT.json",
+      "raw_server_file_obtained": false,
+      "sha256": "2804e8c39c133145f676b2cc502c651d392937443c207cb6307ac6d034a83fab"
+    },
+    "skill_review": {
+      "bytes": 7946,
+      "path": "skill-review-qualification-round3-20261105.json",
+      "sha256": "1d5933e2f6ec4f25906dcbf53df43bfe7ef4295c7e78f95f5f863ec6c2e43d1d"
+    }
+  },
+  "operation": "ad6bc5cd6b3a4f0e9573d631dc14defc",
+  "runtime_acceptance": {
+    "all_gateway_replicas_individually_verified": false,
+    "all_sampled_nodes_passed": true,
+    "backup_path": "/mnt/skills/.research-fund-release-round3-20261105-r1-ad6bc5cd6b3a4f0e9573d631dc14defc/backup",
+    "backup_verified": true,
+    "checked_deployments_unchanged": [
+      "gateway",
+      "ppt-master-runner",
+      "provisioner"
+    ],
+    "elapsed_seconds": 72.7,
+    "exitcode": 0,
+    "gateway_pods_sampled_per_node": 1,
+    "gateway_pods_sampled_total": 5,
+    "maintenance_delete_request_count": 1,
+    "maintenance_pod_absent": true,
+    "node_count": 5,
+    "nodes": [
+      "ecs-zdz-pro-0018",
+      "ecs-zdz-pro-0019",
+      "ecs-zdz-pro-0020",
+      "ecs-zdz-pro-0021",
+      "ecs-zdz-pro-0022"
+    ],
+    "operator_status": "RESEARCH_FUND_SKILL_UPDATED_RUNTIME_ACCEPTED",
+    "publication_repeats_staging_check_receipt_not_an_additional_272_checks": true,
+    "real_synthetic_cli_checks_passed": 9,
+    "reported_production_database_access": false,
+    "reported_production_workload_mutation": false,
+    "reported_provider_requests": 0,
+    "reported_workload_patch_requests": 0,
+    "sampled_pod_names_and_uids_unchanged": true,
+    "skill_live_manifest_verified": true,
+    "synthetic_test_instances_passed": 263,
+    "total_prepublication_checks_passed": 272
+  },
+  "schema": "research-fund-round3-independent-production-acceptance.v1",
+  "status": "RUNTIME_ACCEPTED_BUSINESS_ACCEPTANCE_PENDING",
+  "switch_and_recovery": {
+    "actual_production_switch_strategy": "TWO_RENAMES_WITH_SHORT_NAME_GAP",
+    "atomic_switch_claim": false,
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "directory_name_gap_duration_measured": false,
+    "exchange_supported": false,
+    "explanation": "Production used two renames with a short directory-name gap. Offline RENAME_EXCHANGE success is not evidence of an atomic production switch or zero interruption.",
+    "once_marker_claimed": true,
+    "recovery_boundary": "Preserve the once marker, journal and verified backup. The reviewed fallback restores the old name only after a failed second rename when the live path is absent; this success receipt does not establish a general automatic rollback.",
+    "rollback_exercised_in_production": false,
+    "zero_interruption_claim": false
+  }
+}

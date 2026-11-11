@@ -316,10 +316,25 @@ def create_chat_model(
 
     model_instance = model_class(**kwargs, **model_settings_from_config)
 
+    from langchain_core.callbacks.base import BaseCallbackManager
+
+    from deerflow.observability.model_metrics import ModelMetricsCallback
+
+    additions = [ModelMetricsCallback(name)]
+
     if attach_tracing:
         callbacks = build_tracing_callbacks()
         if callbacks:
-            existing_callbacks = model_instance.callbacks or []
-            model_instance.callbacks = [*existing_callbacks, *callbacks]
+            additions.extend(callbacks)
             logger.debug(f"Tracing attached to model '{name}' with providers={len(callbacks)}")
+    existing_callbacks = model_instance.callbacks
+    if isinstance(existing_callbacks, BaseCallbackManager):
+        # Preserve manager tags/metadata/inheritance without mutating the
+        # caller's manager or assuming it is an iterable handler list.
+        manager = existing_callbacks.copy()
+        for callback in additions:
+            manager.add_handler(callback, inherit=True)
+        model_instance.callbacks = manager
+    else:
+        model_instance.callbacks = [*(existing_callbacks or []), *additions]
     return model_instance

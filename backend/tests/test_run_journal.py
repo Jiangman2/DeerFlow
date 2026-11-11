@@ -353,6 +353,19 @@ class TestFinalToolMessageReconciliation:
 
 class TestFinalAiMessageReconciliation:
     @pytest.mark.anyio
+    async def test_directory_listing_replacement_survives_history_reload(self, journal_setup):
+        j, store = journal_setup
+        original = AIMessage(id="listed-files", content="目录和文件名")
+        j.on_llm_end(SimpleNamespace(generations=[[SimpleNamespace(message=original)]]), run_id=uuid4(), parent_run_id=None, tags=["lead_agent"])
+        linked = original.model_copy(update={"content": "[报告](/mnt/user-data/outputs/report.md)", "additional_kwargs": {"deerflow_linked_publication": True}})
+        j.on_chain_end({"messages": [linked]}, run_id=uuid4())
+        await j.flush()
+        messages = await store.list_messages("t1")
+        assert messages[-1]["content"]["id"] == original.id
+        assert messages[-1]["content"]["content"] == linked.content
+        assert j.get_completion_data()["last_ai_message"] == linked.content
+
+    @pytest.mark.anyio
     async def test_root_chain_end_persists_artifact_error_replacement(self, journal_setup):
         from langchain_core.messages import AIMessage
 

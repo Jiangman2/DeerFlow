@@ -113,7 +113,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       onOpenChange={(open) => props.onOpenChange?.(open)}
     >
       <DialogContent
-        className="mobile-fullscreen-surface app-safe-area flex w-screen max-w-none min-w-0 flex-col gap-0 overflow-hidden rounded-none border-x-0 p-0 sm:h-[calc(100vh-2rem)] sm:max-h-[56rem] sm:w-[calc(100vw-2rem)] sm:max-w-5xl sm:rounded-lg sm:border md:max-w-6xl"
+        className="mobile-fullscreen-surface app-safe-area flex w-screen max-w-none min-w-0 flex-col gap-0 overflow-hidden rounded-none border-x-0 p-0 sm:h-[calc(100dvh-2rem)] sm:max-h-[64rem] sm:w-[calc(100vw-2rem)] sm:max-w-[90rem] sm:rounded-lg sm:border"
         aria-describedby={undefined}
         data-testid="settings-dialog"
       >
@@ -150,7 +150,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
                 })}
               </ul>
             </nav>
-            <ScrollArea className="app-scroll-region h-full min-h-0 min-w-0 rounded-lg border">
+            <ScrollArea className="app-scroll-region h-full min-h-0 min-w-0 rounded-lg border [&_[data-radix-scroll-area-viewport]>div]:!block">
               <div className="min-w-0 space-y-8 p-4 sm:p-6">
                 {activeSection === "account" && <AccountSettingsPage />}
                 {activeSection === "announcements" && isAdmin && (

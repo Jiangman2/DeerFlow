@@ -1,0 +1,50 @@
+{
+  "schema": "portal-skillhub-preload-operator-observation.v1",
+  "source": "operator_supplied_terminal_output",
+  "observed_date": "2026-11-06",
+  "freshness_recheck_required_before_mutation": true,
+  "deployments": {
+    "skillhub-server": {
+      "uid": "009babb5-b084-4397-a5ee-56a4b4b91032",
+      "generation": 14,
+      "observed_generation": 14,
+      "desired": 1,
+      "updated": 1,
+      "ready": 1,
+      "available": 1,
+      "strategy": "Recreate",
+      "image": "deerflow.local/skillhub-server:20260908-enterprise-arm64-rc15-skillhubsession2"
+    },
+    "skillhub-web": {
+      "uid": "4f7cfbed-d87e-4af0-ac44-eb3682452ab3",
+      "generation": 3,
+      "observed_generation": 3,
+      "desired": 1,
+      "updated": 1,
+      "ready": 1,
+      "available": 1,
+      "strategy": "RollingUpdate",
+      "image": "deerflow.local/skillhub-web:20260907-enterprise-arm64-rc15-skillhubux-dashboard1-r2"
+    }
+  },
+  "node": {
+    "name": "datax-01",
+    "uid": "ec5698b0-8d82-4eed-bae0-3711c7b7f36c",
+    "ready": true
+  },
+  "storage": {
+    "paths": [
+      "/var/lib/containerd",
+      "/var/lib",
+      "/home/cnooc"
+    ],
+    "same_filesystem": true,
+    "capacity_bytes": 316482899968,
+    "used_bytes": 244951740416,
+    "available_bytes": 71531159552,
+    "mount": "/"
+  },
+  "workload_modified": false,
+  "production_access_by_local_agent": false,
+  "ready_for_rollout": false
+}

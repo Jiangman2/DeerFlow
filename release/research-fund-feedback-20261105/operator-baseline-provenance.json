@@ -1,0 +1,9 @@
+{
+  "schema": "operator-baseline-extraction.v1",
+  "source_name": "log(43).txt",
+  "source_bytes": 48257,
+  "source_sha256": "613469e8ff91197d0eac43975090a3228dd677c53b8c9b5f4a0edd4b83054378",
+  "extraction": "single JSON line, unchanged values; terminal transcript omitted; LF appended",
+  "receipt_bytes": 48056,
+  "receipt_sha256": "394edcb14371c313669701836c0d57158712102f9e5eb2b059df8e12bc5dff67"
+}

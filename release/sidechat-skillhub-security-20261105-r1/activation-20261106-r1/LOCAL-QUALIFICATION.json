@@ -1,0 +1,41 @@
+{
+  "actual_arm64_image_check": {
+    "exact_final_probe_body_matches_tested_body": true,
+    "files_verified": 12,
+    "filesystem": "readonly",
+    "network": "none",
+    "provider_requests": 0,
+    "status": "PASS"
+  },
+  "browser_production_acceptance_pending": true,
+  "frontend_before": 241,
+  "frontend_expected_after": 242,
+  "gateway_protected": 408,
+  "independent_review": "no_blocking_findings",
+  "linux_tests": {
+    "failed": 0,
+    "passed": 24,
+    "skip_reason": "Node fixture check passed on Windows",
+    "skipped": 1
+  },
+  "provisioner_protected": 86,
+  "python37_actual_entry": {
+    "exitcode": 1,
+    "expected_error": "isolated_root_datax01_required",
+    "once_claimed": false,
+    "patch_requests": 0
+  },
+  "schema": "portal-sidechat-activation-local-qualification.v1",
+  "skillhub_native_remediation_included": false,
+  "status": "FINAL_TOOL_LOCALLY_ACCEPTED_NOT_EXECUTED_IN_PRODUCTION",
+  "tool": {
+    "bytes": 99359,
+    "file": "activate-portal-frontend-sidechat-security-20261106-r1.py",
+    "sha256": "43fb713f6be9d35cdc382627a8b778753e2fece0a191fbd64f633059b3207e73"
+  },
+  "windows_tests": {
+    "failed": 0,
+    "passed": 25,
+    "skipped": 0
+  }
+}

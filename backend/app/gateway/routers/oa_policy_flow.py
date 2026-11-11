@@ -223,6 +223,9 @@ async def submit_policy_flow_job(
             await run_file_io(_cleanup_submission, thread_id, config.owner_user_id)
         raise HTTPException(status_code=500, detail="Failed to persist OA policy-flow job") from exc
 
+    from app.gateway.oa_policy_flow_metrics import job_created
+
+    job_created(job)
     service.notify()
     return _job_response(job)
 

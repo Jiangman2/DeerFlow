@@ -42,6 +42,45 @@ def constant(source, name):
     raise ValueError("Missing packaged constant: " + name)
 
 
+def verify_adapter(provider, prepared):
+    """Bind the old receipt to its baseline and current bytes to declared deltas."""
+    path = "backend/packages/harness/deerflow/models/cnooc_deepseek_v41.py"
+    lock_path = "deploy/enterprise/production-source-lock-20261029.json"
+    read = lambda name: (ROOT / name).read_bytes()
+    normalized_digest = lambda raw: digest(raw.replace(b"\r\n", b"\n"))
+    lock_raw = read(lock_path)
+    lock = json.loads(lock_raw)
+    historical = lock["source_sets"]["gateway"][path]
+    require(provider["installed_adapter_sha256"] == prepared["adapter_sha256"]
+            == historical, "Historical adapter receipt changed")
+
+    # Reuse the same parent/hash/scope checks as the full baseline verifier.
+    # The October 29 receipt must not be rewritten to describe later code.
+    spec = importlib.util.spec_from_file_location(
+        "v41_source_chain", Path(__file__).with_name("verify-release-source-20261023.py")
+    )
+    source_chain = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(source_chain)
+    expected = historical
+    candidate_path = ROOT / source_chain.CANDIDATE
+    candidate_raw = candidate_path.read_bytes() if candidate_path.is_file() else None
+    prior = {}
+    if candidate_raw is not None:
+        prior = source_chain.candidate_overrides(
+            lock, json.loads(candidate_raw), normalized_digest(lock_raw)
+        )
+        expected = prior.get(path, expected)
+    incident_path = ROOT / source_chain.INCIDENT_DELTA
+    if incident_path.is_file():
+        require(candidate_raw is not None, "Incident adapter parent missing")
+        incident = source_chain.incident_overrides(
+            lock, prior, json.loads(incident_path.read_bytes()),
+            normalized_digest(lock_raw), normalized_digest(candidate_raw),
+        )
+        expected = incident["gateway"].get(path, expected)
+    require(normalized_digest(read(path)) == expected, "Installed adapter changed")
+
+
 def verify():
     inventory = record("ARCHIVE.json")
     require(len(inventory["files"]) == 24, "Historical payload count changed")
@@ -87,9 +126,7 @@ def verify():
     require(provider["provider_requests"] == 7 and len(set(provider["checks"])) == 7
             and provider["all_cases_http_status"] == 200 and provider["all_cases_status"] == "PASS",
             "Incomplete provider checks")
-    adapter = ROOT / "backend/packages/harness/deerflow/models/cnooc_deepseek_v41.py"
-    require(digest(adapter.read_bytes()) == provider["installed_adapter_sha256"]
-            == prepared["adapter_sha256"], "Installed adapter changed")
+    verify_adapter(provider, prepared)
     require(prepared["status"] == "V41_CONFIG_PREPARED_NOT_ACTIVATED"
             and prepared["preparation_accepted"] is True
             and prepared["patch_request_count"] == 0, "Invalid preparation state")

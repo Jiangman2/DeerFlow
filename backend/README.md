@@ -214,6 +214,9 @@ streaming, and PDF snapshot/security checks. Preview tests use explicit fake
 configuration rather than loading runtime secrets. See
 [the artifact reconciliation record](docs/ARTIFACT_MERGE_20261001.md).
 
+When a final answer lists a single output directory and its published filenames,
+Gateway can add a clickable link for each verified file in the current run.
+
 The next full-suite batch validates assistant search pagination (`limit` 1–1000,
 non-negative `offset`) while preserving defaults and filtering. Unimplemented
 extended Guardrail identity propagation and BoxLite status-marker expectations
@@ -993,3 +996,39 @@ human turn starts a new model choice without linguistic follow-up heuristics.
 Do not revive legacy keyword scopes or treat missing tools as proof of missing
 permission. Keep strict execution-time authorization and retired tools hidden.
 See docs/datalake-natural-query-routing.md for the precise boundary and tests.
+
+
+## Optional WeKnora list statistics budgets
+
+Knowledge-list requests use upstream statistics only. Preserve absent fields as absent; never automatically call the legacy private count-enrichment helper or enumerate documents/chunks for display totals. The legacy WEKNORA_KB_COUNT_TIMEOUT_SECONDS setting cannot re-enable list enrichment. Existing private helper bounds are retained for compatibility/tests but are not a list-route fallback. Runtime/image validation remains required before release.
+
+
+### Bounded knowledge statistics, failure history and embedding relay
+
+Knowledge-list count fallback is disabled. Preserve upstream counts without
+filling absent values or publishing partial/zero totals.
+The failed-run list and identity search operate within the latest 1000 failures
+(updated_at, created_at, run_id descending); total is scoped to that window.
+Its count never counts all historical failure rows. Deploy the companion partial
+ordering index after DBA review to avoid a full historical sort; LIMIT alone does
+not guarantee bounded database work. The frontend labels the window explicitly.
+Both embedding endpoints share an event-loop-local ceiling of eight ASGI
+requests. Admission precedes body consumption and remains held through response
+send/cancellation. Full capacity returns 429 with Retry-After: 2 without reading
+the body; verify the WeKnora worker retries this status before production rollout.
+Request JSON is read incrementally with an 8 MiB hard maximum and a 30-second
+read deadline. Upstream embedding JSON is read incrementally with a 16 MiB hard
+maximum; unexpected content encoding is rejected rather than decompressed without
+a bound. Existing credentials, TLS/proxy policy and vector validation are retained.
+These are per-event-loop limits, not a global cluster budget or an RSS guarantee.
+The historical OOM root cause is not established by these protective changes.
+
+
+Knowledge-list responses expose count_summary using the four-field presence gate.
+Count deduplicated returned libraries only; scope is current_user_returned_libraries,
+never the platform total. auto_enrichment_enabled is false, enriched is zero and
+missing_before equals missing_after. Report per-field missing counts and known
+listing request failures. A zero failure count does not certify complete upstream
+pagination. Existing null/stale fields are not validated by this diagnostic.
+Log aggregate counts only, without new user/library identifiers or credentials,
+and perform no additional I/O. Missing counts do not authorize enrichment.

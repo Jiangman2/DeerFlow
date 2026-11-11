@@ -1,0 +1,39 @@
+{
+  "schema": "portal-sidechat-preload-operator-summary.v1",
+  "receipt_scope": "selected_fields_from_operator_supplied_terminal_output",
+  "received_date_local": "2026-11-06",
+  "full_private_server_reports_copied": false,
+  "manifest": "sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3",
+  "preloads": [
+    {
+      "hostname": "ecs-zdz-pro-0015",
+      "status": "COMPLETE_FRONTEND_UI_CACHE_PRELOAD_REVIEW_REQUIRED",
+      "operation": "f7ea0c04a2ce4d03a1de272c7578518f",
+      "phase_a": "PASS",
+      "phase_b": "PASS",
+      "content_and_unpack": "PASS",
+      "cri_visibility": "PASS",
+      "old_references_preserved": true,
+      "report_path": "/mnt/data/portal-frontend-sidechat-security-preload-20261105-r1/REPORT.json",
+      "report_bytes": 118975,
+      "report_sha256": "4442dbd901bbb96e19dd22c8011aac8407ab318dcf9fc4f1168af765fb5eb51e"
+    },
+    {
+      "hostname": "datax-02",
+      "status": "INCOMPLETE",
+      "operation": "281ac71347fa44a59ef78d56c690c8f3",
+      "phase_a": "PASS",
+      "phase_b": "PASS",
+      "error_code": "command_limit",
+      "image_import_may_be_partial": true,
+      "content_and_unpack": null,
+      "cri_visibility": null,
+      "old_references_preserved": null,
+      "report_path": "/var/lib/portal-frontend-sidechat-security-preload-20261105-r1/REPORT.json",
+      "report_bytes": 115986,
+      "report_sha256": "b23b2d1f07eb5b2d5c00d72b8393e5b9503c1a51b90107e1d7179c1097139120"
+    }
+  ],
+  "production_workload_mutation": false,
+  "ready_for_rollout": false
+}

@@ -95,6 +95,16 @@ def verify(ref=None):
         expected.update(incident_delta['frontend_runtime_paths'])
     if result.get('released_delta'):
         expected.update(result['released_delta']['frontend_runtime_paths'])
+    if result.get('released_delta_nov02'):
+        expected.update(result['released_delta_nov02']['frontend_runtime_paths'])
+    if result.get('dashboard_navigation_candidate'):
+        expected.update(result['dashboard_navigation_candidate']['frontend_runtime_paths'])
+    if result.get('terminal_stream_candidate'):
+        expected.update(result['terminal_stream_candidate']['frontend_runtime_paths'])
+    if result.get('history_composer_candidate'):
+        expected.update(result['history_composer_candidate']['frontend_runtime_paths'])
+    if result.get('work_integration_followup'):
+        expected.update(result['work_integration_followup']['added_frontend_runtime'])
     if ref:
         names = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, 'frontend/src', 'frontend/public'], cwd=ROOT).decode().splitlines()
         actual = set(names)
@@ -113,6 +123,30 @@ def verify(ref=None):
         result.update(status='RELEASED_DELTA_ON_HISTORICAL_BASELINE_VERIFIED',
                       work_update_included=False, work_datalake_deferred=True,
                       scope='Scoped November 1 source delta; historical inventories remain immutable')
+    if result.get('released_delta_nov02'):
+        result.update(status='NOV02_RELEASED_DELTA_ON_HISTORICAL_BASELINE_VERIFIED',
+                      work_update_included=False, work_datalake_deferred=True,
+                      scope='Scoped November 2 source delta on PR25; historical inventories remain immutable')
+    if result.get('enterprise_source_followup'):
+        result.update(status='ENTERPRISE_SOURCE_FOLLOWUP_ON_HISTORICAL_BASELINE_VERIFIED',
+                      runtime_accepted=False, candidate_deployed=False,
+                      scope='Committed November 3 source successor; historical evidence preserved; no new deployment acceptance')
+    if result.get('dashboard_navigation_candidate'):
+        result.update(status='DASHBOARD_NAVIGATION_CANDIDATE_ON_HISTORICAL_BASELINE_VERIFIED',
+                      runtime_accepted=False, candidate_deployed=False,
+                      scope='Scoped frontend candidate; no new production acceptance')
+    if result.get('terminal_stream_candidate'):
+        result.update(status='TERMINAL_STREAM_CANDIDATE_ON_HISTORICAL_BASELINE_VERIFIED',
+                      runtime_accepted=False, candidate_deployed=False,
+                      scope='Scoped stream reconciliation candidate; no new production acceptance')
+    if result.get('history_composer_candidate'):
+        result.update(status='HISTORY_COMPOSER_CANDIDATE_ON_HISTORICAL_BASELINE_VERIFIED',
+                      runtime_accepted=False, candidate_deployed=False,
+                      scope='Scoped history composer candidate; no new production acceptance')
+    if result.get('work_integration_followup'):
+        result.update(status='WORK_INTEGRATION_FOLLOWUP_ON_HISTORICAL_BASELINE_VERIFIED',
+                      runtime_accepted=False, candidate_deployed=False,
+                      scope='Scoped Work candidate; historical sources and production acceptance preserved')
     return result
 
 

@@ -1,0 +1,36 @@
+{
+  "diagnostic_output_limit": "stdout checked on completion; stderr discarded; subprocess deadline20s",
+  "independent_review": "no_blocking_findings",
+  "linux_python312": {
+    "failed": 0,
+    "network": "none",
+    "passed": 20,
+    "source_mount": "readonly"
+  },
+  "linux_python37": {
+    "commands": 0,
+    "exitcode": 1,
+    "expected_refusal": "DATAX02_ISOLATED_ROOT_REQUIRED",
+    "report_created": false
+  },
+  "production_executed": false,
+  "read_only_verifier_maximum_calls": 90,
+  "read_only_verifier_planned_calls": 80,
+  "ready_for_rollout": false,
+  "schema": "portal-sidechat-cache-recheck-qualification.v1",
+  "scope": "local_offline_tests_and_host_guard_only",
+  "script": {
+    "bytes": 23814,
+    "path": "deploy/enterprise/recheck-portal-frontend-sidechat-cache-datax02-20261106-r1.py",
+    "sha256": "c084c4bb16b3801a5b2d5bb7b6d0b0fe8cdc61d8ef65faeb170fe4c672c6c808"
+  },
+  "tests": {
+    "bytes": 15689,
+    "path": "tests/test_sidechat_cache_recheck_20261106.py",
+    "sha256": "23f17cb236501b09f97a1666624f4a7750c1a73389c58c790a737377f74f111a"
+  },
+  "windows": {
+    "failed": 0,
+    "passed": 20
+  }
+}

@@ -1,0 +1,124 @@
+{
+  "after_tree_sha256": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951",
+  "argument_lengths": {
+    "linux_observed_single_argument_limit": 131072,
+    "qualifier_source_bytes_with_terminator": 51704,
+    "remote_source_bytes_with_terminator": 71848
+  },
+  "baseline_receipt_sha256": "394edcb14371c313669701836c0d57158712102f9e5eb2b059df8e12bc5dff67",
+  "before_manifest_matches_immutable_nov04_inventory": true,
+  "before_tree_sha256": "b65fc087957f540c0ea7b04037c3f6955fbcdca18faf356d93aa996b0224b4b8",
+  "checked_at": "2026-11-05T01:55:40.368254+00:00",
+  "cleanup_failure_case": {
+    "delete_requests": 0,
+    "linux": "PASS",
+    "name": "test_cleanup_uid_failure_preserves_skill_success",
+    "skill_updated_preserved": true,
+    "windows": "PASS"
+  },
+  "downloads_written": false,
+  "final_docstring_only_after_qualification": {
+    "ast_excluding_module_docstring_identical": true,
+    "final_sha256": "cb38f4492ea016fbe8da9736ec0ceab13b8b8a854c6f040337a345b71529b9f6",
+    "old_qualified_sha256": "fd3dc8eb5fba0a71cdf11308f9470431dec2e8a8acfca1ac43da8541fc506c20",
+    "python37_ast_accepted": true
+  },
+  "frontmatter_preserved": true,
+  "linux_real_stage_publish": {
+    "backup_preserved": true,
+    "database_access": false,
+    "feedback_regressions": 125,
+    "provider_requests": 0,
+    "qualification_checks": 134,
+    "real_cli_checks": 9,
+    "status": "PASS",
+    "switch_strategy": "RENAME_EXCHANGE",
+    "temporary_files_cleaned": true,
+    "user_files_read": false
+  },
+  "linux_template_checks": {
+    "failed": 0,
+    "network": "none",
+    "passed": 18,
+    "root_filesystem": "read_only",
+    "temporary_write_scope": "tmpfs /tmp"
+  },
+  "production_actions": 0,
+  "python37_entry_protection": {
+    "actual_container": "python:3.7.17-alpine",
+    "commands": 0,
+    "error_code": "WRONG_HOST",
+    "once_claimed": false,
+    "syntax": "PASS"
+  },
+  "qualifier_adaptations": [
+    "Nov4 immutable script copied into qualifier; two synthetic fixture dimension accesses create optional OOXML dimension if absent; assertions unchanged",
+    "Nov5 simple lxml XPath reads translated to equivalent stdlib ElementTree findall/text reads",
+    "Explicit synthetic raises/approx helpers replace pytest runtime dependency; exact cases and assertions retained"
+  ],
+  "rename_gap_recovery_case": {
+    "linux": "PASS",
+    "name": "test_two_rename_failure_restores_original_name_and_keeps_backup",
+    "old_and_candidate_preserved": true,
+    "windows": "PASS"
+  },
+  "schema": "research-fund-nov05-release-qualification.v1",
+  "sources": [
+    {
+      "bytes": 23698,
+      "path": "nov05_updater_template.py",
+      "sha256": "d99624585107556494ac3333e07b44523880ef9c876ae6aced9f7a6ec57ef20c"
+    },
+    {
+      "bytes": 15080,
+      "path": "nov05_remote_template.py",
+      "sha256": "169b9de97ec4882698ec605aeaea58851bfc19cc1f21d15d71199a08caae529e"
+    },
+    {
+      "bytes": 10067,
+      "path": "nov05_release_builder.py",
+      "sha256": "23e4566230a83f4d92c4d94779b1e363c71df1058dfa071ab7bba9171fb0bc3b"
+    },
+    {
+      "bytes": 7578,
+      "path": "nov05_qualifier_builder.py",
+      "sha256": "515e895cb7df29f48f28370c60ea72052d77f09f76ef8ba9080af573e0595a25"
+    },
+    {
+      "bytes": 51703,
+      "path": "nov05_qualifier_template.py",
+      "sha256": "a7aea525f5fb574b2273701c1fc4ae54214c518657a84cb247a2a140d23c9a18"
+    },
+    {
+      "bytes": 11713,
+      "path": "nov05_release_template_test.py",
+      "sha256": "982d754d6c74cd01bc165ff1ec08b35db85dcda890cbfa8d1217040d81f6083c"
+    },
+    {
+      "bytes": 2757,
+      "path": "nov05_linux_integration.py",
+      "sha256": "527d093299c20b10961f5af47cc83f9f1d048b133ed31fae2247570490faa055"
+    },
+    {
+      "bytes": 859382,
+      "path": "nov05_update_candidate.py",
+      "sha256": "cb38f4492ea016fbe8da9736ec0ceab13b8b8a854c6f040337a345b71529b9f6"
+    },
+    {
+      "bytes": 71847,
+      "path": "nov05_remote_candidate.py",
+      "sha256": "2a7e14ff982fe37853e7bcc1ba35a9926097c9a6ee2a5fa78ed37dd8599952e4"
+    }
+  ],
+  "status": "LOCAL_AND_OFFLINE_LINUX_ACCEPTED_MAIN_REVIEW_PENDING",
+  "windows_standalone_qualifier": {
+    "failed": 0,
+    "lxml_required": false,
+    "passed": 125,
+    "pytest_required": false
+  },
+  "windows_template_checks": {
+    "failed": 0,
+    "passed": 18
+  }
+}

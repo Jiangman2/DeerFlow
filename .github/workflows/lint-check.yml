@@ -4,7 +4,7 @@ on:
   push:
     branches: [ 'main', '2.0.x-dev' ]
   pull_request:
-    branches: [ '*', 'codex/enterprise-consolidation-20260716' ]
+    branches: [ '*', 'codex/enterprise-consolidation-20260716', 'codex/nov01-released-fixes' ]
 
 permissions:
   contents: read
@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -66,6 +68,8 @@ jobs:
         run: |
           cd frontend
           pnpm format
+          node --test scripts/test-source-followup.mjs
+          node scripts/verify-pr26-formatting.mjs
 
       - name: Run frontend linting
         if: ${{ !cancelled() && steps.frontend-deps.outcome == 'success' }}

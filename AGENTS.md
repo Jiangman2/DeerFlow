@@ -1,5 +1,108 @@
 # AGENTS.md
 
+## November 10 deployed-source synchronization
+
+See `docs/released-source-sync-20261110.md` and the sealed source manifests in
+`release/released-sync-20261110/` and `release/research-fund-current-source-20261110/`.
+Run `verify-released-sync-20261110.py --ref HEAD` and
+`verify-research-fund-production-source.py --ref HEAD` from `deploy/enterprise/`
+with Python 3.12+. Preserve all original archives and operator receipts.
+The energy upstream package is byte-identical (158 files plus original ZIP);
+credentials are not repository content. Collector generation 3 transport passed
+via the operator-approved proxy, but full fresh report acceptance is pending
+(`WAIT_DATA`); no daily Work schedule was created. Financial and authenticated
+SkillHub business acceptance remain pending. Frontend 243 acceptance covers the
+six-line composer, not all PR #39 business behavior. This synchronization never
+authorizes rerunning historical production installers or removing PPT Runner.
+
+## November 6 released side-chat frontend
+
+Frontend 242's one-file composer/background successor is registered in
+`release/sidechat-frontend-source-20261106/SOURCE.json`; see
+`docs/sidechat-frontend-release-20261106.md`. Run its source verifier/rejection
+suite and the existing November 1/2 and October 29 source checks. Preserve
+historical inventories, the original failed preload and its successful read-only
+recheck. The append-only browser clarification limits operator acceptance to
+the desktop side-chat UI; the restored mobile Sheet was tested synthetically,
+not separately accepted in production. This archive does not deploy SkillHub
+remediation or authorize rerunning any completed production activation tool.
+
+## November 5 default-model source registration
+
+`release/new-chat-model-source-20261105/SOURCE.json` pins the nine paths from
+enterprise commit `459b44eae` before projecting its exact parent for historical
+audits. It preserves the colleague's default-model behavior and all earlier
+inventories. Run `test_new_chat_model_source_20261105.py` plus the November 1/2
+and October 29 source verifiers. This registration performs no deployment and
+does not establish a fresh production or business-call acceptance.
+
+## November 5 later financial Skill releases
+
+`release/research-fund-late-source-20261105/SOURCE.json` records the accepted
+Round3 and project-type successors. The latest shared Skill tree is
+`28944ec28d4644acb09cd10eb8e73dc546a4250d0c21172d325b23cb713d7d43`.
+Run `python deploy/enterprise/verify-research-fund-production-source.py --ref HEAD`
+and both financial source rejection suites. Earlier inventories and operator
+receipts remain immutable; the verifier qualifies current sources before projecting
+the prior sealed source view. These are operator-reported runtime checks, not real
+financial-report business acceptance. Do not rerun archived production tools.
+
+## November 4-5 research-fund Skill release
+
+`release/research-fund-source-20261105/SOURCE.json` registers the scoped shared
+`research-fund-settlement` successor. Run
+`python deploy/enterprise/verify-research-fund-production-source.py --ref HEAD`
+and its successor rejection tests with Python 3.12+. Preserve the October 27
+lock, November 4 failed-cleanup receipt and its separate cleanup success,
+and all November 5 qualification/deployment evidence byte-for-byte.
+The operator receipts establish shared-Skill replacement, five-node file
+verification and maintenance cleanup; real financial-report user acceptance
+remains pending. Existing case contract versions retain their prior meaning;
+new direct-only budget execution requires reimport. This archive does not
+request another production update, Gateway rollout or database operation.
+
+## Historical November 3 Gateway 406 / Frontend 239 observation
+
+The November 3 scoped operator observation is archived in
+`release/production-observation-20261103-gw406/SOURCE.json`; see
+`docs/production-observation-406-20261103.md`. All 70 Gateway and 2 frontend Pod
+image metadata records were checked, with Python source/startup-environment
+sampling on five Gateway nodes. The 635 expected Python files per sample match
+enterprise commit `443cbd8ab` exactly or through pinned format-only proofs. OA
+startup timeout was 3600 seconds in those samples; callbacks were disabled.
+At that observation, Frontend 239 lacked the three "latest 1000" dashboard copy
+changes; their later Frontend 240 release is recorded separately in
+`docs/dashboard-navigation-20261103.md`. This historical snapshot is not the
+current production baseline or full-image/dependency, all-process, database,
+Runner or business acceptance.
+Keep original evidence immutable and run the offline observation verifier/tests
+with Python 3.12+. Do not rerun the archived production inspector or activation
+commands merely to review this record.
+
+## November 3 enterprise successor provenance
+
+`release/enterprise-source-followup-20261103/SOURCE.json` qualifies the 7 runtime
+files and 11 tests changed after PR #26 at enterprise commit `1fbc07fcf`. Verify
+the current hashes before projecting its immutable parent snapshots for older
+release checks. This is committed-source provenance, not deployment acceptance.
+See `docs/enterprise-source-followup-20261103.md`; keep all earlier inventories
+and operator receipts immutable. Run the successor rejection tests as well as
+the existing November 1/2 and October 29 source verifiers with Python 3.12+.
+
+## Accepted November 2 release (operator acceptance November 3)
+
+Gateway 403 / Frontend 239 supersede the earlier component versions below.
+This PR archives the scoped released delta after PR #25; see
+`docs/nov02-released-fixes-20261103.md` and
+`release/nov02-released-fixes-source-20261103/SOURCE.json`.
+Run `python deploy/enterprise/verify-nov02-released-source-20261103.py --ref HEAD`
+and the historical baseline verifier with Python 3.12+. Keep all historical
+source inventories and operator receipts immutable. The operator confirmed
+the heatmaps and monitoring UI work; do not extend that to provider billing or
+new model/OA business-call acceptance. Work DataLake authorization remains
+deferred, database head remains 0022, and this batch does not update PPT Runner.
+Do not rerun archived production activation commands when reviewing this PR.
+
 ## Current production baseline (2026-10-29)
 
 Gateway 389 and Frontend 231 supersede the historical 387/229 baseline described

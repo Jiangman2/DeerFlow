@@ -1578,7 +1578,7 @@ def test_start_run_session_caller_anti_forgery(_stub_app_config):
         body = SimpleNamespace(
             assistant_id="lead_agent",
             input={"messages": [{"role": "human", "content": "hi"}]},
-            metadata={},
+            metadata={"scheduled_task_id": "forged-task", "scheduled_task_run_id": "forged-occurrence", "ordinary_label": "kept"},
             config={
                 "context": {
                     "is_internal": True,
@@ -1609,6 +1609,7 @@ def test_start_run_session_caller_anti_forgery(_stub_app_config):
         ):
             record = await start_run(body, "thread-session-authz", request)
             await record.task
+            assert record.metadata == {"ordinary_label": "kept"}
 
         return captured_context
 

@@ -30,6 +30,7 @@ from deerflow.sandbox.sandbox import Sandbox
 from deerflow.sandbox.sandbox_provider import get_sandbox_provider
 from deerflow.sandbox.search import GrepMatch
 from deerflow.sandbox.security import LOCAL_HOST_BASH_DISABLED_MESSAGE, is_host_bash_allowed
+from deerflow.sandbox.text_read_policy import IMAGE_READ_GUIDANCE, image_text_read_error
 from deerflow.tools.types import Runtime
 
 logger = logging.getLogger(__name__)
@@ -2097,6 +2098,13 @@ def read_current_file_content(runtime: Runtime | None, path: str) -> str:
     return sandbox.read_file(path)
 
 
+def _read_file_preflight(runtime: Runtime, path: str) -> str | None:
+    if _is_disabled_skill_path(path, user_id=resolve_runtime_user_id(runtime)):
+        skill_name = _extract_skill_name_from_skills_path(path) or "unknown"
+        return f"Error: Skill '{skill_name}' is disabled. Access to its files is blocked. Enable the skill in settings before using it."
+    return image_text_read_error(path)
+
+
 @tool("read_file", parse_docstring=True)
 def read_file_tool(
     runtime: Runtime,
@@ -2105,7 +2113,11 @@ def read_file_tool(
     start_line: int | None = None,
     end_line: int | None = None,
 ) -> str:
-    """Read the contents of a text file. Use this to examine source code, configuration files, logs, or any text-based file.
+    """Read UTF-8 text such as source code, configuration, logs, Markdown or SVG source.
+
+    Never use read_file for PNG/JPEG or other raster images. Use view_image only
+    if that tool is available; otherwise use an existing text/OCR companion or
+    explain the visual limitation.
 
     Args:
         path: The **absolute** path to the file to read.
@@ -2114,14 +2126,17 @@ def read_file_tool(
         end_line: Optional ending line number (1-indexed, inclusive). Use with start_line to read a specific range.
     """
     try:
-        # Block access to disabled skill files
-        if _is_disabled_skill_path(path, user_id=resolve_runtime_user_id(runtime)):
-            skill_name = _extract_skill_name_from_skills_path(path) or "unknown"
-            return f"Error: Skill '{skill_name}' is disabled. Access to its files is blocked. Enable the skill in settings before using it."
+        rejection = _read_file_preflight(runtime, path)
+        if rejection:
+            return rejection
         requested_path = path
         content = read_current_file_content(runtime, path)
         if not content:
             return "(empty)"
+        if content.startswith(("Error: READ_FILE_TIMEOUT.", "Error: READ_FILE_TRANSPORT.", "Error: READ_FILE_IMAGE_UNSUPPORTED.")):
+            # A failed remote read has no file lines to slice. Preserve its
+            # bounded diagnostic even when the caller requested later lines.
+            return _truncate_read_file_output(content, 2000)
         if start_line is not None or end_line is not None:
             lines = content.splitlines()
             s = max(start_line, 1) if start_line is not None else 1
@@ -2153,7 +2168,7 @@ def read_file_tool(
         return (
             f"Error: cannot read '{requested_path}' as text — it appears to be a binary file "
             "(e.g. .xlsx, .pdf, or an image). read_file only supports UTF-8 text. Use bash with a "
-            "suitable library instead (pandas/openpyxl for spreadsheets), or view_image for images."
+            "suitable library instead (pandas/openpyxl for spreadsheets). " + IMAGE_READ_GUIDANCE
         )
     except Exception as e:
         return f"Error: Unexpected error reading file: {_sanitize_error(e, runtime)}"
@@ -2166,6 +2181,14 @@ async def _read_file_tool_async(
     start_line: int | None = None,
     end_line: int | None = None,
 ) -> str:
+    # Reject format mistakes before provisioner startup/readiness waits. This
+    # must run here as well as in the sync entry point and remote file adapter.
+    try:
+        rejection = await asyncio.to_thread(_read_file_preflight, runtime, path)
+        if rejection:
+            return rejection
+    except Exception as e:
+        return f"Error: Unexpected error reading file: {_sanitize_error(e, runtime)}"
     return await _run_sync_tool_after_async_sandbox_init(
         read_file_tool.func,
         runtime,

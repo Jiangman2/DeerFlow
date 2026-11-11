@@ -31,8 +31,14 @@ def _payload(command) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_generate_image_uses_bounded_platform_contract(tmp_path, monkeypatch) -> None:
-    image = b"\xff\xd8\xffgenerated\xff\xd9"
+@pytest.mark.parametrize(
+    "format_args,expected_format,image",
+    [
+        ({}, "png", b"\x89PNG\r\n\x1a\ngenerated"),
+        ({"output_format": "jpg"}, "jpg", b"\xff\xd8\xffgenerated\xff\xd9"),
+    ],
+)
+async def test_generate_image_uses_bounded_platform_contract(tmp_path, monkeypatch, format_args, expected_format, image) -> None:
     observed: dict[str, object] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -56,8 +62,8 @@ async def test_generate_image_uses_bounded_platform_contract(tmp_path, monkeypat
         prompt="A clean offshore wind platform at sunrise",
         filename="wind-platform",
         size="1024x1024",
-        output_format="jpg",
         seed=42,
+        **format_args,
     )
 
     assert observed["url"] == "http://10.57.2.43:30008/v1/images/generations"
@@ -65,14 +71,14 @@ async def test_generate_image_uses_bounded_platform_contract(tmp_path, monkeypat
         "prompt": "A clean offshore wind platform at sunrise",
         "response_format": "b64_json",
         "size": "1024x1024",
-        "output_format": "jpg",
+        "output_format": expected_format,
         "seed": 42,
         "n": 1,
     }
     payload = _payload(result)
     assert payload["status"] == "completed"
-    assert payload["artifact"] == "/mnt/user-data/outputs/wind-platform.jpg"
-    assert (tmp_path / "outputs" / "wind-platform.jpg").read_bytes() == image
+    assert payload["artifact"] == f"/mnt/user-data/outputs/wind-platform.{expected_format}"
+    assert (tmp_path / "outputs" / f"wind-platform.{expected_format}").read_bytes() == image
     assert result.update["artifacts"] == [payload["artifact"]]
 
 
@@ -195,6 +201,7 @@ async def test_generate_video_reports_remote_job_loss_without_resubmitting(tmp_p
         runtime=runtime,
         tool_call_id="video-call",
         prompt="A stable offshore platform shot",
+        filename="remote-job-loss",
         wait_seconds=0,
     )
     assert _payload(first)["code"] == "video_job_lost"
@@ -205,6 +212,7 @@ async def test_generate_video_reports_remote_job_loss_without_resubmitting(tmp_p
         runtime=runtime,
         tool_call_id="video-call-repeat",
         prompt="A stable offshore platform shot",
+        filename="remote-job-loss",
         wait_seconds=0,
     )
     assert _payload(second)["code"] == "video_job_lost"

@@ -1223,7 +1223,9 @@ export function MessageList({
               />
             </div>
           ))}
-          {unrenderedArtifactPaths.length > 0 && (
+          {/* Thread-wide fallback files have no turn attribution. During a run,
+              only render inline file cards from their presentation messages. */}
+          {!thread.isLoading && unrenderedArtifactPaths.length > 0 && (
             <div
               className="w-full pb-4"
               data-testid="conversation-artifact-fallback"

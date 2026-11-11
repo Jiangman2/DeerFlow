@@ -1812,3 +1812,50 @@ def test_subagent_usage_cache_is_cleared_when_polling_raises(monkeypatch):
         )
 
     assert task_tool_module.pop_cached_subagent_usage("tc-error") is None
+
+
+@pytest.mark.parametrize("enabled", [False, None, "true", 1, True])
+def test_task_tool_propagates_web_search_choice_to_subagent(monkeypatch, enabled):
+    runtime = _make_runtime()
+    if enabled is not None:
+        runtime.context["web_search_enabled"] = enabled
+    captured = {}
+
+    class DummyExecutor:
+        def __init__(self, **kwargs):
+            captured["executor_kwargs"] = kwargs
+
+        def execute_async(self, prompt, task_id=None):
+            return task_id or "generated-task-id"
+
+    monkeypatch.setattr(task_tool_module, "SubagentStatus", FakeSubagentStatus)
+    monkeypatch.setattr(task_tool_module, "_token_usage_cache_enabled", lambda _: False)
+    monkeypatch.setattr(task_tool_module, "SubagentExecutor", DummyExecutor)
+    monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: _make_subagent_config())
+    monkeypatch.setattr(
+        task_tool_module,
+        "get_background_task_result",
+        lambda _: _make_result(FakeSubagentStatus.COMPLETED, result="done"),
+    )
+    monkeypatch.setattr(task_tool_module, "get_stream_writer", lambda: lambda _event: None)
+    monkeypatch.setattr(task_tool_module.asyncio, "sleep", _no_sleep)
+    monkeypatch.setattr(
+        "deerflow.tools.get_available_tools",
+        lambda **kwargs: [
+            SimpleNamespace(name="read_file"),
+            SimpleNamespace(name="web_search"),
+        ],
+    )
+
+    output = _run_task_tool(
+        runtime=runtime,
+        description="research",
+        prompt="collect diagnostics",
+        subagent_type="general-purpose",
+        tool_call_id="tc-disabled-data-lake",
+    )
+
+    assert _task_tool_message(output).content == "Task Succeeded. Result: done"
+    allowed = enabled is True or enabled is None
+    assert captured["executor_kwargs"]["web_search_enabled"] is allowed
+    assert [tool.name for tool in captured["executor_kwargs"]["tools"]] == (["read_file", "web_search"] if allowed else ["read_file"])

@@ -1,0 +1,53 @@
+{
+  "schema": "skillhub-local-image-capabilities.v1",
+  "scope": "read_only_shell_executable_inventory_no_http_or_application_startup",
+  "observed_date": "2026-11-06",
+  "platform": "linux/arm64",
+  "execution": {
+    "image_pull_requested": false,
+    "network": "none",
+    "root_filesystem": "read_only",
+    "capabilities": "all_dropped",
+    "no_new_privileges": true,
+    "memory_limit": "64m",
+    "cpu_limit": 0.25,
+    "pids_limit": 16,
+    "entrypoint": "/bin/sh"
+  },
+  "baseline_java_inventory": {
+    "image": "deerflow.local/skillhub-server:20260908-enterprise-arm64-rc15-skillhubsession2",
+    "java_home": "/opt/java/openjdk",
+    "implementor": "Eclipse Adoptium",
+    "java_version": "21.0.12",
+    "os_arch": "aarch64",
+    "java_executable": true,
+    "javac_executable": false,
+    "javap_executable": false,
+    "jshell_executable": false,
+    "jar_executable": false,
+    "jmods_directory": false,
+    "finding": "JRE_WITHOUT_JDK_TOOLS",
+    "probe": "shell_test_and_filtered_JAVA_HOME_release_file",
+    "jvm_started_by_inventory_probe": false
+  },
+  "candidate_http_client_inventory": {
+    "image": "deerflow.local/skillhub-server:20261106-registry-auth-r1",
+    "curl": {
+      "path": "/usr/bin/curl",
+      "version": "8.5.0",
+      "platform": "aarch64-unknown-linux-gnu",
+      "distribution_patch": "8.5.0-2ubuntu10.12",
+      "tls_library": "OpenSSL/3.0.13"
+    },
+    "wget": {
+      "path": "/usr/bin/wget",
+      "version": "GNU Wget 1.21.4"
+    },
+    "probe": "command_v_and_version_only",
+    "http_requests": 0
+  },
+  "application_started": false,
+  "database_access": false,
+  "production_access": false,
+  "new_dependency_installations": 0
+}

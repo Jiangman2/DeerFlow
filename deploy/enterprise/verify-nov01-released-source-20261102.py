@@ -2,19 +2,71 @@
 import argparse
 import ast
 import hashlib
+import io
 import json
 from pathlib import Path
 import subprocess
+import tarfile
+
+from released_source_20261102 import ARCHIVE as NOV02_ARCHIVE, DELTA as NOV02_DELTA, PARENT_DELTA, historical_read
+from released_source_20261102 import CI_ARCHIVE, CI_MANIFEST, followup
+
+from released_source_20261102 import composer
+from work_integration_source_20261106 import MANIFEST as WORK_MANIFEST, historical_view as work_historical_view
 
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = "release/nov01-released-fixes-source-20261102/"
 
 
 def verify(ref=None):
+    has_nov02 = bool(subprocess.check_output(["git", "ls-tree", "--name-only", ref, NOV02_DELTA], cwd=ROOT).strip()) if ref else (ROOT / NOV02_DELTA).is_file()
+    archived = {}
+    if ref:
+        roots = ["backend/app", "backend/packages/harness", "backend/tests", "frontend/src", "frontend/tests", "skills/public/data-analysis", ARCHIVE]
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.ARTIFACT_PARENT], cwd=ROOT).strip():
+            roots.append(followup.ARTIFACT_PARENT)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.ARTIFACT_LISTING_BASE.rstrip("/")], cwd=ROOT).strip():
+            roots.append(followup.ARTIFACT_LISTING_BASE)
+        if has_nov02:
+            roots.extend((NOV02_ARCHIVE, NOV02_DELTA, PARENT_DELTA))
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, CI_MANIFEST], cwd=ROOT).strip():
+            roots.append(CI_ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.MANIFEST], cwd=ROOT).strip():
+            roots.append(followup.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.IMAGE_PNG_ARCHIVE.rstrip("/")], cwd=ROOT).strip():
+            roots.append(followup.IMAGE_PNG_ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.sidechat.MANIFEST], cwd=ROOT).strip():
+            roots.extend((followup.sidechat.ARCHIVE, *followup.sidechat.EVIDENCE_PATHS))
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.new_chat.MANIFEST], cwd=ROOT).strip():
+            roots.extend((followup.new_chat.ARCHIVE, followup.new_chat.GUIDE))
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.navigation.MANIFEST], cwd=ROOT).strip():
+            roots.append(followup.navigation.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.navigation.model_default_test.MANIFEST], cwd=ROOT).strip():
+            roots.append(followup.navigation.model_default_test.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.alignment.WORK_RELEASE_ALIGNMENT], cwd=ROOT).strip():
+            roots.extend((followup.alignment.WORK_RELEASE_ALIGNMENT, *followup.alignment.WORK_PARENT_MANIFESTS))
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.alignment.WORK_RELEASE_ALIGNMENT_ARCHIVE], cwd=ROOT).strip():
+            roots.append(followup.alignment.WORK_RELEASE_ALIGNMENT_ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, composer.MANIFEST], cwd=ROOT).strip():
+            roots.append(composer.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, WORK_MANIFEST], cwd=ROOT).strip():
+            roots.append(WORK_MANIFEST)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.delivery.MANIFEST], cwd=ROOT).strip():
+            roots.append(followup.delivery.ARCHIVE)
+        raw = subprocess.check_output(["git", "archive", ref, *roots], cwd=ROOT)
+        with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
+            archived = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}
+
     def read(path):
         if ref:
-            return subprocess.check_output(["git", "show", ref + ":" + path], cwd=ROOT)
+            return archived[path]
         return (ROOT / path).read_bytes()
+
+    current_read = read
+    read, work_followup = work_historical_view(current_read)
+    read = followup.artifact_directory_historical_read(read)
+    if has_nov02:
+        read = historical_read(read)
 
     digest = lambda raw: hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
     manifest = json.loads(read(ARCHIVE + "SOURCE.json"))
@@ -49,10 +101,11 @@ def verify(ref=None):
         else:
             assert not (ROOT / path).exists(), path
     for path in ("backend/app/gateway/services.py", "frontend/src/core/data-lake/auth.ts", "frontend/src/core/settings/store.ts"):
-        assert b"work-grant" not in read(path) and b"inject_work_data_lake_context" not in read(path), path
+        assert b"work-grant" not in current_read(path) and b"inject_work_data_lake_context" not in current_read(path), path
     return {"status": "SCOPED_RELEASED_SOURCE_VERIFIED", "sources": 20,
             "evidence": len(manifest["evidence"]), "work_datalake_deferred": True,
-            "production_commands_executed": False, "browser_business_acceptance_pending": True}
+            "production_commands_executed": False, "browser_business_acceptance_pending": True,
+            "work_integration_followup": work_followup}
 
 
 if __name__ == "__main__":

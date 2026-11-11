@@ -421,7 +421,7 @@ export const zhCN: Translations = {
   // Sidebar
   sidebar: {
     newChat: "新对话",
-    chats: "对话",
+    chats: "历史对话",
     channels: "渠道",
     recentChats: "最近的对话",
     demoChats: "演示对话",
@@ -436,6 +436,25 @@ export const zhCN: Translations = {
 
   // 定时任务
   scheduledTasks: {
+    workNotification: {
+      label: "海能 Work 通知",
+      off: "关闭",
+      hint: "任务运行成功后，将结果发送到选定的机器人私聊。",
+      noTargets:
+        "请在「设置 → 渠道」连接海能 Work，再到机器人私聊发送一条消息，然后刷新列表。",
+      loading: "正在读取可用私聊…",
+      loadFailed: "暂时无法读取可用私聊。请刷新列表后重试。",
+      configured: "已设置通知",
+      unavailableTarget: "当前选定的私聊不可用",
+      refresh: "刷新私聊列表",
+      status: {
+        pending: "等待发送",
+        sent: "已发送",
+        failed: "发送失败",
+        uncertain: "发送结果待核查",
+        skipped: "已跳过",
+      },
+    },
     scheduleType: {
       cron: "重复",
       once: "单次",
@@ -774,7 +793,7 @@ export const zhCN: Translations = {
   // Breadcrumb
   breadcrumb: {
     workspace: "工作区",
-    chats: "对话",
+    chats: "历史对话",
     agents: "数字员工",
     knowledge: "知识库",
     skillCenter: "技能中心",
@@ -891,7 +910,7 @@ export const zhCN: Translations = {
   // Page titles (document title)
   pages: {
     appName: "海能通用智能体",
-    chats: "对话",
+    chats: "历史对话",
     newChat: "新对话",
     untitled: "未命名",
   },

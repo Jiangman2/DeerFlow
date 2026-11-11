@@ -1,0 +1,31 @@
+油气日报入口修正：生产执行记录
+
+证据：操作员粘贴输出，原始字节保存在 operator-paste.txt。
+源码封存时的 SOURCE.json 保持原样，本文件追加记录后续生产结果。
+
+2026-11-10 10:25:22（Asia/Shanghai）入口更新成功。
+操作 ID：2a66716997924d74bca59efe547b86f7
+服务端回执路径：/var/lib/portal-energy-market-chat-workflow-20261110-r1/REPORT.json
+操作员回传的回执 SHA256：283966f195e4b0c30480c588a053046c7415fa8d0c4e9256f5edf9f1f34f5e65
+本机并未直接读取该服务端文件；不得把此声明哈希称为本机重新校验结果。
+
+确认的范围：
+- 只替换外层 SKILL.md、scripts/entry.py，原 158 文件核验通过且未修改。
+- 保留目录 inode；五个 Gateway 节点各一个 Pod，以及 Collector 的目录 subPath 挂载，均读到新版本。
+- Gateway 411、Frontend 243、Provisioner 86、Collector 2 的 Deployment 身份和 spec 前后不变。
+- 临时维护 Pod energy-chatfix-maint-2a6671699792 已确认不存在。
+- ARM64 现有运行环境完成 11 月 7 日刊/11 月 6 日数据的固定输入复现；HTML/JSON 经 CRLF 归一与原版一致；生成 780×5250 PNG。
+- 此次 ARM64 图像视觉验收仍未完成，复现明确不是最新行情验收。
+- 本次发布未读取凭据、未请求供应商、未创建定时任务、未发送 Work 消息。
+
+2026-11-10 10:26:46（Asia/Shanghai）生产 HTTP 连接核查：
+192.168.111.2:62505 → 116.204.43.227:6688
+本机路由：enp3s0，经 192.168.111.1。
+固定域名 ip91.jkx.com.cn 的解析未变化。
+唯一一次 GET /jkx_eecc.aspx 无查询参数、无凭据、无代理、无重定向跟随。
+TCP 建立成功；请求在收到响应头前出现 ConnectionResetError errno 104。
+抓包未得到符合筛选和解析的包头摘要，不能据此确定重置发起方。
+本机私网源地址不是公网 NAT 出口地址。
+
+尚未完成：生产获取新行情、金融/新闻证据及完整本期日报业务验收、Work 定时私聊发送。
+供应商报价未齐属于原工程允许的 WAIT_DATA；不应据此宣称 Skill 代码故障。

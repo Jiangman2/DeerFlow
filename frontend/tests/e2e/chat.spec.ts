@@ -693,10 +693,17 @@ test.describe("Chat workspace", () => {
     });
   });
 
-  test("shows gateway upload limits on the attachment entry point", async ({
+  test("loads gateway upload limits with a concise attachment tooltip", async ({
     page,
   }) => {
+    const limitsResponse = page.waitForResponse(
+      "**/api/threads/*/uploads/limits",
+    );
     await page.goto("/workspace/chats/new");
+    expect(await (await limitsResponse).json()).toMatchObject({
+      max_file_size: 50 * 1024 * 1024,
+      max_total_size: 100 * 1024 * 1024,
+    });
 
     const addAttachments = page.getByRole("button", {
       name: "Add attachments",
@@ -704,8 +711,7 @@ test.describe("Chat workspace", () => {
     await expect(addAttachments).toBeVisible({ timeout: 15_000 });
     await addAttachments.hover();
 
-    await expect(page.getByRole("tooltip")).toContainText("50 MiB");
-    await expect(page.getByRole("tooltip")).toContainText("100 MiB");
+    await expect(page.getByRole("tooltip")).toHaveText("Add attachments");
   });
 
   test("rejects an oversized attachment before upload", async ({ page }) => {
@@ -728,10 +734,14 @@ test.describe("Chat workspace", () => {
       }),
     );
 
+    const limitsResponse = page.waitForResponse(
+      "**/api/threads/*/uploads/limits",
+    );
     await page.goto("/workspace/chats/new");
-    const addAttachments = page.getByTestId("add-attachments-button");
-    await addAttachments.hover();
-    await expect(page.getByRole("tooltip")).toContainText("5 B");
+    expect(await (await limitsResponse).json()).toMatchObject({
+      max_file_size: 5,
+    });
+    await expect(page.getByTestId("add-attachments-button")).toBeVisible();
 
     await page.getByLabel("Upload files").setInputFiles({
       name: "too-large.txt",
@@ -768,12 +778,14 @@ test.describe("Chat workspace", () => {
       }),
     );
 
+    const limitsResponse = page.waitForResponse(
+      "**/api/threads/*/uploads/limits",
+    );
     await page.goto("/workspace/chats/new");
-    const addAttachments = page.getByRole("button", {
-      name: "Add attachments",
+    expect(await (await limitsResponse).json()).toMatchObject({
+      max_total_size: 5,
     });
-    await addAttachments.hover();
-    await expect(page.getByRole("tooltip")).toContainText("5 B");
+    await expect(page.getByTestId("add-attachments-button")).toBeVisible();
 
     await page.getByLabel("Upload files").setInputFiles([
       {

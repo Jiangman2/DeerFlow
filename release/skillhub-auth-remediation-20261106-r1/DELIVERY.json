@@ -1,0 +1,20 @@
+{
+  "schema": "skillhub-auth-preload-delivery.v1",
+  "files": [
+    {
+      "filename": "skillhub.registry-auth-r1.full.oci.tar",
+      "bytes": 848886784,
+      "sha256": "d2e8fbebeddc1a4667dfae26eefb5a9f83e79ce4fcb1724361e09d1d4c561728"
+    },
+    {
+      "filename": "preload-portal-skillhub-registry-auth-datax01-20261106-r1.py",
+      "bytes": 93366,
+      "sha256": "0011cf466f5a4724a267d1c147ba10735ea66614a64e2265e0126c00dca5e188"
+    }
+  ],
+  "native_java21_exact_jar_assertions": 56,
+  "arm64_application_runtime_accepted": false,
+  "preloader_independent_review": "PASS_CACHE_PRELOAD_ONLY",
+  "production_deployed": false,
+  "ready_for_rollout": false
+}

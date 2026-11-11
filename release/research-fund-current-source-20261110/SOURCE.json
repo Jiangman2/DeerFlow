@@ -1,0 +1,402 @@
+{
+  "business_acceptance_pending": true,
+  "evidence_files": {
+    "release/research-fund-expense-purposes-20261110-r1/SHA256SUMS.txt": {
+      "bytes": 126,
+      "sha256": "7f9fc66681eaf437de439463f801c55b49bef40d6666e8e3c9105d817eb39a93"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/bind_verified_release.py": {
+      "bytes": 3830,
+      "sha256": "02852b2db403aee2e956fcef13103903b9ff3fb1879a243093aa0c3dbf338f6f"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/bound-package/installed_remote.py": {
+      "bytes": 101766,
+      "sha256": "25431001f57523d2437ff56f94bbb58daca18b6647406cbd8dbc541fdad8c975"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/bound-package/qualification-receipt.json": {
+      "bytes": 14973,
+      "sha256": "bc7c6a06eaf7320ac3981498c7186c227d1fbfa182989665fbc19f05b4b2fdbc"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/bound-package/sealed-bundle.json": {
+      "bytes": 871410,
+      "sha256": "e926988550dd528ff7640cea5e67fa2064308817ef668780fb3d0ecdaea881ee"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/bound-package/update-portal-research-fund-expense-purposes-20261110-r1.py": {
+      "bytes": 899500,
+      "sha256": "a4725100490de32c20e324955d8bd516122ebdc175d48f3afe56310920b426f9"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/candidate-manifest.json": {
+      "bytes": 4295,
+      "sha256": "4cba0d30934e4bbdfdb7516ba0feaf014dbcfdb9ee9f77ada786026b61d12921"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/candidate-qualification-summary.json": {
+      "bytes": 1539,
+      "sha256": "899fe3611488740b3058053fc96594c3bac360991269944a8b6b70668a80b7bf"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/evidence/baseline-manifest.json": {
+      "bytes": 4295,
+      "sha256": "acd44ee356ac22e8ddc1b3c30999dc23a87e18e0cb269c67761628758b4c5ace"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/evidence/baseline-preflight-20261106-r1.py": {
+      "bytes": 39315,
+      "sha256": "41b034831182b24c3a152bb9a180b0026d9da46c86eb530465824741cee42d8a"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/evidence/baseline-server-report.json": {
+      "bytes": 7326,
+      "sha256": "903cd6eb15fde2a10bc9e5123a231db6b1ee8f21108b791aca73a8cfe5b8a777"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/evidence/linux-qualification-run.json": {
+      "bytes": 15264,
+      "sha256": "97edc7c067707c380eb72375d5d3d19c63ff5ca76dda096e9de932b348d823ae"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/evidence/older-nov4-manifest.json": {
+      "bytes": 4170,
+      "sha256": "4cee63a25031a71bf6072c006d9f9fcbbcd027f3bba52b82443cfcaac5bf43f3"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/evidence/synthetic-validation.json": {
+      "bytes": 7096,
+      "sha256": "c2b89bd5cb77e32ac4549bdeb37768e00b42ee3475c9ad1b399afe1627e3bc11"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/evidence/word-render.json": {
+      "bytes": 519,
+      "sha256": "7b7da78843b2192e931d3b6c10069c74cddc60804f4450adf1480db29fe775c1"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/expense_purposes_collect_pytest.py": {
+      "bytes": 1435,
+      "sha256": "bc069e9e27e32625f6065786392697b5bfc64ebce720bc798511584f138c9575"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/expense_purposes_qualification_plan.py": {
+      "bytes": 4793,
+      "sha256": "8e61ceeb4758b6aabbacaf0c108eee974f9fef7b6754667cfe91a5935adc7f90"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/expense_purposes_qualifier.py": {
+      "bytes": 85685,
+      "sha256": "33ac85f37b285f2520be24e637b1f4dc7abe7617cb070e76dddddb3dec45973d"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/expense_purposes_qualifier_builder.py": {
+      "bytes": 2108,
+      "sha256": "10f85f17096aa8e3548d48a859b5485592fa07041d1ceb2d08745232438b33d7"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/expense_purposes_qualifier_template.py": {
+      "bytes": 9553,
+      "sha256": "8d3cdd89d01353171b855e4ec0eb46ed79b1b56dad3057d9b003349c7a249cab"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/expense_purposes_release_builder.py": {
+      "bytes": 15760,
+      "sha256": "0be65b16527f9f81b960fd9bfb762dfd5cb426f48de76db8d04778a6308c669c"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/expense_purposes_remote.py": {
+      "bytes": 15282,
+      "sha256": "03c4487f571f73fe93081e3667662307d8c947d0eb65d9d3816aa7ee81b55586"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/expense_purposes_updater_template.py": {
+      "bytes": 25189,
+      "sha256": "348ef4b712e1b0017f908b12eb3a24568953c8214ebe60346c3afe3d2d858c08"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/operator-preflight-20261110.json": {
+      "bytes": 47573,
+      "sha256": "9dbfd039001fccd340dc97ecde8cb8065a03b41caabc507d412633ca372a5132"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/operator-preflight-20261110.txt": {
+      "bytes": 50859,
+      "sha256": "63ee7bb4c4caf7efcb36c03d65cf09101d5178e35a9b8e6895785f0268eed2f4"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/operator-update-20261110.json": {
+      "bytes": 7545,
+      "sha256": "8e0040d232f74b863571122a01185fdb4ecbfd88e81583dff78cca79b3a1e543"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/operator-update-20261110.txt": {
+      "bytes": 8700,
+      "sha256": "d526c1de1d284310acc507bcc3d00ebcdf47c72c6b95ad580a41b64aafd87cbc"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/production-server-report-20261110.json": {
+      "bytes": 7342,
+      "sha256": "964c0b00763789f6366673b73561e1a14d5ce32c5476f8a3c147cec9ed2fdb10"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/qualification-plan.json": {
+      "bytes": 2655,
+      "sha256": "778a7ec2260da5a0e749e794227cee7a36bd0a62c952fd4e4f263ee6bfa2c8d6"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/release-readiness.json": {
+      "bytes": 1576,
+      "sha256": "308101ba9a01e093a1467b2dc629c997c83eb2d39ad909f2193e4bcad827eee4"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/runtime-acceptance-20261110.json": {
+      "bytes": 846,
+      "sha256": "ede0da7100559a073d47fa93644a88287d1d7c15a500588791abc34af6cf8847"
+    },
+    "release/research-fund-expense-purposes-20261110-r1/skill-source.patch": {
+      "bytes": 9061,
+      "sha256": "fba9c89f3c0401cfdadf797715d8910c9bd0ef39194f2e9a2ec85013f7a3ecf8"
+    },
+    "release/research-fund-report-labels-20261106-r1/README.md": {
+      "bytes": 4897,
+      "sha256": "3f1ca4bc2f1bb0fe62504112d66461c24d47a1932f1f2c354dd87052058b45d3"
+    },
+    "release/research-fund-report-labels-20261106-r1/baseline-word-render-receipts.json": {
+      "bytes": 2828,
+      "sha256": "35762f62a06bea5dd26121796d02cf5020c836b496475066c5fafbfca402f57c"
+    },
+    "release/research-fund-report-labels-20261106-r1/bound-package/BINDING-QUALIFICATION.json": {
+      "bytes": 1925,
+      "sha256": "5118a1aed5a928326a24471d584da59c055050d5143bd19068374b782254769f"
+    },
+    "release/research-fund-report-labels-20261106-r1/bound-package/PACKAGE.json": {
+      "bytes": 1295,
+      "sha256": "fb4e9fed31dd17f644abdcca316022bb4300e1de2c4d45f9aaf95f3bbd2d494e"
+    },
+    "release/research-fund-report-labels-20261106-r1/bound-package/qualification-receipt.json": {
+      "bytes": 14081,
+      "sha256": "e8c3bb99323271b4f88ba5685b33f23d34864161085797fb36eb9f15b6a4b882"
+    },
+    "release/research-fund-report-labels-20261106-r1/bound-package/report_labels_qualifier.py": {
+      "bytes": 79914,
+      "sha256": "31663134a44af28c61d2cb23ae994fb8967cf8cfec74b8c3be82ae1f3443cbc1"
+    },
+    "release/research-fund-report-labels-20261106-r1/bound-package/update-portal-research-fund-report-labels-20261106-r1.py": {
+      "bytes": 891376,
+      "sha256": "800c3329574fc8625f721478d8423f1ee9a9f59f7889e8af14f98071bff99b11"
+    },
+    "release/research-fund-report-labels-20261106-r1/candidate-manifest.json": {
+      "bytes": 4295,
+      "sha256": "acd44ee356ac22e8ddc1b3c30999dc23a87e18e0cb269c67761628758b4c5ace"
+    },
+    "release/research-fund-report-labels-20261106-r1/independent-bound-release-review.json": {
+      "bytes": 5378,
+      "sha256": "8616eddd0117ef304fcea349ac210564dc4f18ec2c4b3c3968d353a3696eecf3"
+    },
+    "release/research-fund-report-labels-20261106-r1/independent-review.json": {
+      "bytes": 7698,
+      "sha256": "b7758d5655b3302e1c4f3f71e8078d68125730db859ab104fe9af1b073e11583"
+    },
+    "release/research-fund-report-labels-20261106-r1/local-install-harness.py": {
+      "bytes": 2392,
+      "sha256": "f38f55628f970d6d16cc80783436f1ccd3093be0e6535cd131b6bf65c6bfdb3e"
+    },
+    "release/research-fund-report-labels-20261106-r1/local-install-qualification.json": {
+      "bytes": 3138,
+      "sha256": "23364abc512d4ea3574b8d458dd80e21524fed658870bd5cc96be9fd7d4c9430"
+    },
+    "release/research-fund-report-labels-20261106-r1/local-regression-receipt.json": {
+      "bytes": 13974,
+      "sha256": "20755f4882c9bd2a7e48f37fbde8e62f95228070b6cdc740134683b34e1c230f"
+    },
+    "release/research-fund-report-labels-20261106-r1/offline-update-qualification.json": {
+      "bytes": 3528,
+      "sha256": "d0c3e741c2bbddb75f13f4d2764e1f28f1a6a308a0188009e114b7aa1b330bad"
+    },
+    "release/research-fund-report-labels-20261106-r1/operator-preflight-converged-20261106.json": {
+      "bytes": 50639,
+      "sha256": "887b5297b1d3708bb350a2584b2f18e8530e84477a81cc3e7c76b7ea5e2e1816"
+    },
+    "release/research-fund-report-labels-20261106-r1/operator-preflight-converged-provenance-20261106.json": {
+      "bytes": 565,
+      "sha256": "a7eae221648702c62ebcbc89dff67c9e5b0a67e728a36b20073bf69f0324d3ba"
+    },
+    "release/research-fund-report-labels-20261106-r1/operator-preflight-rolling-20261106.json": {
+      "bytes": 51096,
+      "sha256": "f773b01309a47606fad68bdb10ce7b6854090c67449298dac31c3d5d94c65808"
+    },
+    "release/research-fund-report-labels-20261106-r1/operator-tool-delivery.json": {
+      "bytes": 539,
+      "sha256": "6ee19f8dddd6621d59a28d9b12ee78c8de724d0510b1c1fd6fc1ff367ae7f0cf"
+    },
+    "release/research-fund-report-labels-20261106-r1/operator-update-output-20261106.txt": {
+      "bytes": 8394,
+      "sha256": "77fe991657e003dcf8141ca75c580523a4def2d6814cdb26f255b527c34f8c9f"
+    },
+    "release/research-fund-report-labels-20261106-r1/operator-update-report-reconstructed-20261106.json": {
+      "bytes": 7326,
+      "sha256": "903cd6eb15fde2a10bc9e5123a231db6b1ee8f21108b791aca73a8cfe5b8a777"
+    },
+    "release/research-fund-report-labels-20261106-r1/operator-update-stdout-20261106.json": {
+      "bytes": 7622,
+      "sha256": "bdd3408c8f9ce67a331fa6a43039ef2abd0aff91ef5a4071afdc2dd2759be5f6"
+    },
+    "release/research-fund-report-labels-20261106-r1/preflight-tool-qualification.json": {
+      "bytes": 956,
+      "sha256": "fa89ad6b6a47b059ca8573920a4174d341563cc8f9bcb7dc8de57634b94d988a"
+    },
+    "release/research-fund-report-labels-20261106-r1/pytest-collection.json": {
+      "bytes": 69263,
+      "sha256": "36597d4df806ca93671c57ccda99082809a13969f8a96bdc596162a3f79d491b"
+    },
+    "release/research-fund-report-labels-20261106-r1/qualification-plan.json": {
+      "bytes": 2500,
+      "sha256": "87af5f9a671aae051813544ad7274fae979f5939ef3d3bdd69ca496672048739"
+    },
+    "release/research-fund-report-labels-20261106-r1/qualification-receipt.json": {
+      "bytes": 14081,
+      "sha256": "e8c3bb99323271b4f88ba5685b33f23d34864161085797fb36eb9f15b6a4b882"
+    },
+    "release/research-fund-report-labels-20261106-r1/qualification-run.json": {
+      "bytes": 13999,
+      "sha256": "dd388861a6a56fa8e2c1ae21f04797845e0da98ec030691b2d8f5e697ec18986"
+    },
+    "release/research-fund-report-labels-20261106-r1/render-comparison.json": {
+      "bytes": 1115,
+      "sha256": "6224b89c6362aeb785c266d410f5180dee9506cdf3e9da98fc6ca35cfa8eb369"
+    },
+    "release/research-fund-report-labels-20261106-r1/rendered-text-checks.json": {
+      "bytes": 406,
+      "sha256": "5228ab194c36b6fc5fc261c391c7100f7b3eb30fea400a4ada02fec5ca0381ea"
+    },
+    "release/research-fund-report-labels-20261106-r1/report_labels_bind.py": {
+      "bytes": 3608,
+      "sha256": "5dd4019435d8adff00604421b33e43269c5a588cf67a84ab8f6b1705a8685e34"
+    },
+    "release/research-fund-report-labels-20261106-r1/report_labels_collect_pytest.py": {
+      "bytes": 1429,
+      "sha256": "c03e553d0e6435555c7f35fd00aba93cade470fef0a7ca6e2afbe077c6e6074e"
+    },
+    "release/research-fund-report-labels-20261106-r1/report_labels_qualification_plan.py": {
+      "bytes": 4795,
+      "sha256": "b3879a2ba77676a81e6aea86557f5ea435d1b5e3fcfba7acb3bfaa6949725613"
+    },
+    "release/research-fund-report-labels-20261106-r1/report_labels_qualifier.py": {
+      "bytes": 79914,
+      "sha256": "31663134a44af28c61d2cb23ae994fb8967cf8cfec74b8c3be82ae1f3443cbc1"
+    },
+    "release/research-fund-report-labels-20261106-r1/report_labels_qualifier_builder.py": {
+      "bytes": 2099,
+      "sha256": "11798650b798fe5707875cfc89c28d6f64cfb3a6f86d027fe912af3a58d6d51a"
+    },
+    "release/research-fund-report-labels-20261106-r1/report_labels_qualifier_template.py": {
+      "bytes": 9547,
+      "sha256": "3212d08bf16bea0136736b39f1eed673b84233c808d32661e927f66330e13a46"
+    },
+    "release/research-fund-report-labels-20261106-r1/report_labels_release_builder.py": {
+      "bytes": 15839,
+      "sha256": "d0602ace0e6c8ec59bbdd63055ead87edcd27c302b93134b77452a320a2b394e"
+    },
+    "release/research-fund-report-labels-20261106-r1/report_labels_remote.py": {
+      "bytes": 15276,
+      "sha256": "c520e9344ee857fa9752a5a652c9be67922b0fde9762642674fa33956b82a2ce"
+    },
+    "release/research-fund-report-labels-20261106-r1/report_labels_updater_template.py": {
+      "bytes": 25165,
+      "sha256": "ef0ff324c2107f1926bd6500b18448b627f4bf7c92f98e85b370e801f6d83940"
+    },
+    "release/research-fund-report-labels-20261106-r1/runtime-acceptance-20261106.json": {
+      "bytes": 1869,
+      "sha256": "586973a51e1b123f717f37ed53de21f54c6bce93f286c0a7c83c10f0e702b6e4"
+    },
+    "release/research-fund-report-labels-20261106-r1/visual-qa.json": {
+      "bytes": 2135,
+      "sha256": "5a765bb3a710b6bacfde1c06cb8be6097f02e73bef8cf10f8036e75be67f94ac"
+    },
+    "release/research-fund-report-labels-20261106-r1/word-render-receipts.json": {
+      "bytes": 2768,
+      "sha256": "a8cd70ce86b986b3df93a0d6000241eee0462d374f1553866d2f6f9cded0057b"
+    }
+  },
+  "parent_support": {
+    "tests/skills/test_research_fund_nov05_model.py": {
+      "bytes": 16588,
+      "sha256": "e174d43c560cbe79614bf29075f5246a713edbe9685eb5ffc4faaff861a70af4",
+      "snapshot": "release/research-fund-current-source-20261110/parent/tests/skills/test_research_fund_nov05_model.py"
+    },
+    "tests/skills/test_research_fund_round3_render.py": {
+      "bytes": 1635,
+      "sha256": "3e2eb30fd93a4670f9fe23ef02fd6bb26c616b78b62be08625a25045dbfd31db",
+      "snapshot": "release/research-fund-current-source-20261110/parent/tests/skills/test_research_fund_round3_render.py"
+    },
+    "tests/skills/test_research_fund_settlement.py": {
+      "bytes": 6971,
+      "sha256": "d9fdf00c87bbf4621037eb8c26526d62b5f57541883a84087fcaa1637b42bb3e",
+      "snapshot": "release/research-fund-current-source-20261110/parent/tests/skills/test_research_fund_settlement.py"
+    }
+  },
+  "production_commands_executed": false,
+  "production_receipts": [
+    "release/research-fund-report-labels-20261106-r1/operator-update-report-reconstructed-20261106.json",
+    "release/research-fund-expense-purposes-20261110-r1/production-server-report-20261110.json"
+  ],
+  "schema": "research-fund-current-source.v1",
+  "support_files": {
+    "deploy/enterprise/inspect-portal-research-fund-expense-purposes-20261110-r1.py": {
+      "bytes": 39469,
+      "sha256": "de292b0e175254d5510b4183afe1eabf634fb11b130773173dcbb1b026a20078"
+    },
+    "tests/skills/test_research_fund_annual_budget.py": {
+      "bytes": 5826,
+      "sha256": "75683b58f01815fa6eb4c490119d10ecdfb6b1aaf27be68df4e8f0c442a752ea"
+    },
+    "tests/skills/test_research_fund_black_text.py": {
+      "bytes": 5708,
+      "sha256": "34be6c3853159b6af3e7a817ce19c9bcbf853901826fcc2ec53b9df3cebfaecf"
+    },
+    "tests/skills/test_research_fund_expense_purposes.py": {
+      "bytes": 7213,
+      "sha256": "9233948375baf44b80cddef3c97767f3edd6ee0a8f4857437b4d105812e47164"
+    },
+    "tests/skills/test_research_fund_feedback.py": {
+      "bytes": 9640,
+      "sha256": "1b00fcfbb5ab2cde7a28e795bb10a585b5b6e8b0487b9ed74129f0eafd5873ff"
+    },
+    "tests/skills/test_research_fund_formula_review.py": {
+      "bytes": 6758,
+      "sha256": "a0b0e7d79e9bdb8d6060e03b9e7397873aaa00e654bf97013d23df4205aa3916"
+    },
+    "tests/skills/test_research_fund_nov05_import.py": {
+      "bytes": 10355,
+      "sha256": "4d0aa0a4a92fc52773fca73982af148dc946030e453a8ada2cff26882361ed1b"
+    },
+    "tests/skills/test_research_fund_nov05_model.py": {
+      "bytes": 16576,
+      "sha256": "6b3c4425cefb0e6473cec8f369b01877e489fa4e43c5d9bdc6f84833913b13f9"
+    },
+    "tests/skills/test_research_fund_nov05_roundtrip.py": {
+      "bytes": 5207,
+      "sha256": "05cd0cceaf47fbed11dc546f9f26adf503f6172cea45e18ae28f11c271b74328"
+    },
+    "tests/skills/test_research_fund_project_type_text.py": {
+      "bytes": 4580,
+      "sha256": "c9cc11225816063be91c2fe4bfd6284029297f796204ab76a6d5d3fad26cb8e7"
+    },
+    "tests/skills/test_research_fund_report_labels.py": {
+      "bytes": 11496,
+      "sha256": "5ce4b743149e654903cbd880809aedd717f0679c9dd86d553bdc310212a5fd25"
+    },
+    "tests/skills/test_research_fund_round3_acceptance.py": {
+      "bytes": 6195,
+      "sha256": "fbc7feed3417d6789faa7f42cdb89a7ec98c656f592496266f083b1fc19c15b4"
+    },
+    "tests/skills/test_research_fund_round3_computed.py": {
+      "bytes": 6950,
+      "sha256": "485f91d9f6a00389727f677a839f40d586714a3aeb2319179c174312b8214a64"
+    },
+    "tests/skills/test_research_fund_round3_integration.py": {
+      "bytes": 7255,
+      "sha256": "a83b44875332811989d7867b7b2a654ff59f4ede9b46e98d78638aed6dc28398"
+    },
+    "tests/skills/test_research_fund_round3_reasons.py": {
+      "bytes": 4692,
+      "sha256": "131e989ed5e60d97e28c54f1dbe2280e1fca5dd9f8be2b7846b41453f36624b4"
+    },
+    "tests/skills/test_research_fund_round3_render.py": {
+      "bytes": 1649,
+      "sha256": "2148dbdb5b9a8a638e0c3452bedbfe2d1a4ccece369836fed7c21af5e5b72124"
+    },
+    "tests/skills/test_research_fund_settlement.py": {
+      "bytes": 7281,
+      "sha256": "a88fe162288a37781c13fa9ebecf582df57f947daf8258ef10deb4ce68991aca"
+    },
+    "tests/skills/test_research_fund_template_review.py": {
+      "bytes": 3665,
+      "sha256": "1bf2903ec9e22ab2d0dce6b3e9d3f65b2524b507c970f7fc9d9c929281d4e321"
+    },
+    "tests/skills/test_research_fund_zero_budget.py": {
+      "bytes": 6717,
+      "sha256": "fc2eed6f866e03bc508ec08112e0ea9d903e90a7d92eabdce2f23e1087341745"
+    },
+    "tests/test_research_fund_expense_purposes_preflight_20261110.py": {
+      "bytes": 23291,
+      "sha256": "8538649ad47c71f5bae4664c94444fceba8012956bef2b953f817f1a61d610e7"
+    },
+    "tests/test_research_fund_expense_purposes_release_20261110.py": {
+      "bytes": 13200,
+      "sha256": "4e345262db7e47ebfeb4d960191e9062092302f237a3287983d8082c569e7980"
+    }
+  }
+}

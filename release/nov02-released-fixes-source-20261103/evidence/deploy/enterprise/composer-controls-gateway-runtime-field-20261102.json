@@ -1,0 +1,1586 @@
+{
+  "source_file_sha256": "b78f049f6ccab899cad3275587af137e9e6f0dbb9e2b5f60b06c20daf8ad0564",
+  "operator_result": {
+    "accepted_receipts": {
+      "composer_controls_installed": {
+        "bytes": 4130,
+        "path": "/var/lib/portal-composer-controls-installed-check-20261102-r1/REPORT.json",
+        "sha256": "63c10e020c815284e7a5448ca07164417d5626d21496046c88273de10c970d63"
+      }
+    },
+    "active_task_check_is_not_admission_lock": true,
+    "active_task_gate_overridden": true,
+    "active_task_interruption_authorized": true,
+    "active_task_override_checks": [
+      "tasks_before",
+      "tasks_immediately_before_patch"
+    ],
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "business_acceptance_pending": true,
+    "business_text_exported": false,
+    "cache_checks": [
+      {
+        "create_requested": true,
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "job": "gateway-web-cache-8887acd88769",
+        "job_uid": "bda39a64-677b-4a35-8227-a6b9e00bb31c",
+        "node": "ecs-zdz-pro-0018",
+        "observation": {
+          "application_started": false,
+          "database_access": false,
+          "migration_files": 22,
+          "provider_requests": 0,
+          "source_files": 46,
+          "status": "PASS",
+          "work_datalake_sources_absent": true
+        },
+        "pod_uid": "fb2a26ac-9c57-4c53-9f7c-5c98c6dd7134",
+        "status": "PASS"
+      },
+      {
+        "create_requested": true,
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "job": "gateway-web-cache-1c25d4c07472",
+        "job_uid": "ac8cfa2b-b7ab-4cb9-94ce-150fa43db895",
+        "node": "ecs-zdz-pro-0019",
+        "observation": {
+          "application_started": false,
+          "database_access": false,
+          "migration_files": 22,
+          "provider_requests": 0,
+          "source_files": 46,
+          "status": "PASS",
+          "work_datalake_sources_absent": true
+        },
+        "pod_uid": "1b394719-f013-4e15-8a21-08dc5bf6c0ee",
+        "status": "PASS"
+      },
+      {
+        "create_requested": true,
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "job": "gateway-web-cache-53b8fa9562d8",
+        "job_uid": "5f4e7ed5-c75c-4c07-8663-4062e2384c7a",
+        "node": "ecs-zdz-pro-0020",
+        "observation": {
+          "application_started": false,
+          "database_access": false,
+          "migration_files": 22,
+          "provider_requests": 0,
+          "source_files": 46,
+          "status": "PASS",
+          "work_datalake_sources_absent": true
+        },
+        "pod_uid": "c73fc9e7-f784-4426-bee7-7606f74fb25a",
+        "status": "PASS"
+      },
+      {
+        "create_requested": true,
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "job": "gateway-web-cache-522eb1ecf71e",
+        "job_uid": "ca6f06b3-8d75-4bf8-90ff-66d2340168ea",
+        "node": "ecs-zdz-pro-0021",
+        "observation": {
+          "application_started": false,
+          "database_access": false,
+          "migration_files": 22,
+          "provider_requests": 0,
+          "source_files": 46,
+          "status": "PASS",
+          "work_datalake_sources_absent": true
+        },
+        "pod_uid": "100c6854-f346-438e-8da1-5430d8397a37",
+        "status": "PASS"
+      },
+      {
+        "create_requested": true,
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "job": "gateway-web-cache-9bdf9014d9d0",
+        "job_uid": "3713a7b9-bcd8-49ab-9010-c922f27a7c53",
+        "node": "ecs-zdz-pro-0022",
+        "observation": {
+          "application_started": false,
+          "database_access": false,
+          "migration_files": 22,
+          "provider_requests": 0,
+          "source_files": 46,
+          "status": "PASS",
+          "work_datalake_sources_absent": true
+        },
+        "pod_uid": "2a990634-75d4-435f-a5b2-0385d4cdc2fc",
+        "status": "PASS"
+      }
+    ],
+    "configuration_modified": false,
+    "credentials_exported": false,
+    "database_modified_by_tool": false,
+    "database_readonly_checks_requested": 3,
+    "deployments_before": {
+      "frontend": {
+        "generation": 236,
+        "spec_sha256": "b6632dd94dbae06ec79f1952e0fa5ccc299a0410d9e4d533ebcf6589648945d5",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 400,
+        "spec_sha256": "2e323c03bedc5468bae34b7b23c8b48f03e261165522c33e8bc508d215c532d3",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx-security-heai-20261012-r1": {
+        "generation": 2,
+        "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+        "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d"
+      },
+      "ppt-master-runner": {
+        "generation": 58,
+        "spec_sha256": "8602f3a5cf40ff97c3f9ee36d792e0c76ae37be53469b8146be41d3409719934",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      }
+    },
+    "expected_gateway_after": {
+      "generation": 401,
+      "spec_sha256": "843aa3df896935f07e3da274619a648ad2426fd5c4ca17bcd5b3ee5dfad4d6a1",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "frontend_modified": false,
+    "gateway_generation": 401,
+    "gateway_patch_may_have_applied": true,
+    "last_step": "get:configmap:deer-flow-budget-10000-bf39d16f673d2259",
+    "max_recursion_limit_preserved": 10000,
+    "node_coverage": {
+      "additional_nodes": [
+        "datax-01",
+        "datax-02",
+        "datax-03",
+        "ecs-zdz-pro-0000",
+        "ecs-zdz-pro-0005",
+        "ecs-zdz-pro-0008",
+        "ecs-zdz-pro-0011",
+        "ecs-zdz-pro-0012",
+        "ecs-zdz-pro-0013",
+        "ecs-zdz-pro-0014",
+        "ecs-zdz-pro-0015",
+        "ecs-zdz-pro-0016",
+        "ecs-zdz-pro-0017"
+      ],
+      "missing_pinned_nodes": [],
+      "observed_node_count": 18,
+      "preloaded_node_count": 5,
+      "role_matrix": {
+        "gateway": {
+          "excluded_nodes": {
+            "datax-01": [
+              "required_node_affinity"
+            ],
+            "datax-02": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "datax-03": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0000": [
+              "node_selector",
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0005": [
+              "node_selector",
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0008": [
+              "node_selector",
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0011": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0012": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0013": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0014": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0015": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0016": [
+              "node_selector",
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0017": [
+              "node_selector",
+              "required_node_affinity"
+            ]
+          },
+          "potential_nodes": [
+            "ecs-zdz-pro-0018",
+            "ecs-zdz-pro-0019",
+            "ecs-zdz-pro-0020",
+            "ecs-zdz-pro-0021",
+            "ecs-zdz-pro-0022"
+          ],
+          "uncovered_nodes": []
+        }
+      },
+      "status": "ROLE_NODE_COVERAGE_ACCEPTED",
+      "uid_mismatches": [],
+      "unhealthy_pinned_nodes": []
+    },
+    "once_claimed": true,
+    "operation": "7d245ea35f15485384665af6c7a7b925",
+    "patch_acknowledged": true,
+    "patch_request_count": 1,
+    "preflight_retry_available": false,
+    "protected_deployments_preserved": true,
+    "provider_requests_by_tool": 0,
+    "raw_errors_exported": false,
+    "replicas": {
+      "availableReplicas": 70,
+      "readyReplicas": 70,
+      "replicas": 70,
+      "updatedReplicas": 70
+    },
+    "report_bytes": 48104,
+    "report_path": "/var/lib/portal-gateway-composer-controls-activation-20261102-r1/REPORT.json",
+    "report_sha256": "fadbb50c977fea2a884a5a74c10de55a5c96b5329a9c7fdd3b8ab939ffbf0b03",
+    "runner_modified": false,
+    "runtime_pods": [
+      {
+        "container_id": "containerd://2e99ceb5f6610c199403d5f944037eac1293142c1e7fbf277d86380e8f085053",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-2c2sb",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "561fd290-1d28-4b5a-8397-f11923d54f5f"
+      },
+      {
+        "container_id": "containerd://3f4302087b83459a2fb460e4ffd3de3443de76fdf20ca89916fbe3c10be59302",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-2qvtj",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "5f0f22b4-5609-4d66-978b-1bb67f77ef9f"
+      },
+      {
+        "container_id": "containerd://fbc4a33ceeb642112e686447e8681e822fbb8d5bc101a51da188df5893ed8b87",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-446xc",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "2e30bbdb-5b8f-46da-ac34-4848763b6adb"
+      },
+      {
+        "container_id": "containerd://ac3d0f22cfbf37ca103636d1139d74e3be33159e92d54fe9de928c1ae01c1759",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-4bp9w",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "ea76eece-f30e-4a21-89c2-355480ff06aa"
+      },
+      {
+        "container_id": "containerd://9459e8a7bd34e81eada6708554a6f5d2157d0e98e0a132c0a62d6443eba2852b",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-4kf7d",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "753e30e3-e49a-4723-a321-75b57b04d7fe"
+      },
+      {
+        "container_id": "containerd://c805d8e0c2b728f48989a5a68937563509e80ba4baaa75449c3daf6b334fcc02",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-4qqjf",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "94ed8681-1aae-4a26-a3eb-c8d85aed8e86"
+      },
+      {
+        "container_id": "containerd://5211f2aa123e9f1f6e0000343878383992ad6a37cfe65d2b18c9f69f74cd5e84",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-5dgv4",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "2bb17646-fe7a-49e9-a36b-35c3431ea679"
+      },
+      {
+        "container_id": "containerd://62004728a5adaaee87c84501c3660605f12b5317f8a747e8601d809f3e10d1d6",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-5ltcn",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "f90170e9-6475-4263-8784-e28e26a9c06f"
+      },
+      {
+        "container_id": "containerd://141924605caef1420958634d6b5305fa077f842dbd141c086b2add85863288bf",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-5z8z6",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "5faffd98-2fb6-4f0e-a216-01df5baf008c"
+      },
+      {
+        "container_id": "containerd://69bf0a4c12e00189bfa795023722346677268bee84b7a1aed838c9dd20cefb96",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-6872j",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "949398ff-34da-4d36-882b-09c3807669a0"
+      },
+      {
+        "container_id": "containerd://a9336e4f4d7a1f16bf101e7255ae626a88effd8103064f975028987273e3f9e3",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-6gcfx",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "6d6ceb46-5fde-4f78-ac3c-80f241a1fd30"
+      },
+      {
+        "container_id": "containerd://556356b77966a0690d8ab2bd2a58a04cd570f7ca78b791e131519287b95a60af",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-6hk26",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "4ace61ce-db93-4e6f-a1cf-60b85c4e889f"
+      },
+      {
+        "container_id": "containerd://d4d7dfa7de5e014f698bc416aa8eaa24f4bd632b217ec16c2287d320431eddba",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-6lttm",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "da6cfa04-209c-4ffd-be0d-666d12156d4d"
+      },
+      {
+        "container_id": "containerd://4bc34a402398c0e8164d4e8cafabd462f5d32a9bb94c8e30c862821eafd5beef",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-7nlft",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "50d58ded-629d-4c0e-9d3a-1619a49e1b1c"
+      },
+      {
+        "container_id": "containerd://05341ceb2c7b3e39e283b4c083d5c6b94608109a6b2c17b8212dbe9550b95023",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-89rlh",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "0830f941-0a30-4ca8-9ac8-b6740cfc1a04"
+      },
+      {
+        "container_id": "containerd://7d4fc00eeef7f9b79bc542bcf8596608ad150a4b72a17dacf29385cc5ac2f120",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-8dp5j",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "5e9de06d-deff-47b0-b631-ed0314d9e47b"
+      },
+      {
+        "container_id": "containerd://5a599e18b5aace42d632036a8e19c44f5aac33dd1dfdb176ae3e26d9639436ef",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-8krlk",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "62d5a303-3689-4665-b3cd-cafab4093640"
+      },
+      {
+        "container_id": "containerd://5af3e641c3a5345be55b6910286e726913760e355b384788df7517277b42262a",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-9nwkm",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "aa336a78-57f8-4755-97f2-ab9bf76bd082"
+      },
+      {
+        "container_id": "containerd://432573a35b8e537400aeb206417fb036d909d392d07c170c1cbefcebed4d2b24",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-blhmb",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "53242c8e-782c-4965-a02d-99c4fe87bb1b"
+      },
+      {
+        "container_id": "containerd://df3f78186b9b732f6eb766f034c355141d9fa023b3520146fe13955ace5a4a82",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-bml6v",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "365c792b-ab2b-4e07-b707-18e17effe60b"
+      },
+      {
+        "container_id": "containerd://fbdaeb4a860fa7ee71d36c43d7b7132ba5f5ff0bd702bfa7c472d11380ca0eea",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-bzrwf",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "27fa78fe-a1c9-4333-97ee-f044d881044d"
+      },
+      {
+        "container_id": "containerd://d664317e53dde0590c6d271fbae49ade91533caa906e335573d3dbc2d0b1b26d",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-c2q5c",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "469f1bc8-5e9b-4397-8045-3b9148a303e0"
+      },
+      {
+        "container_id": "containerd://87a8e4262de175e7b0e701b0c47ca24374f0c1354a52097be1975c581bec57d9",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-c6dgz",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "79470ca3-0171-48a9-8127-af4e7819caf1"
+      },
+      {
+        "container_id": "containerd://09f18b15a5c08a4e6b7bbfbe6b2a385548b3ed6521cffbb1babf3bdfcf32d970",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-c84ql",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "9a434a1a-6221-46fa-8f1d-b695461626a9"
+      },
+      {
+        "container_id": "containerd://2abbcf07419b3d2e75cc215b738ca0f4799d383e2d6cad8be2b81160d5e5b177",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-crm5n",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "d3ff3353-ec50-4614-9ef0-74bad99f4d70"
+      },
+      {
+        "container_id": "containerd://69fdc33c5fc1a80b67e28cb4ddfce5fb99938bab07c8ed40425d877ed0ac14fa",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-dpmt9",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "fee05e77-d8ea-43ff-97a1-46fd4c32ffac"
+      },
+      {
+        "container_id": "containerd://12acbc6fba569833f92db3c5b0994cf90c6ca4d550d41c7498a391f281fa4a54",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-f7kbv",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "fd1e7fbd-54ce-40d8-a316-70f4e79052e0"
+      },
+      {
+        "container_id": "containerd://16e3170acce70efbfeedb8c60823b25821f719f828c5900141c724dab2121868",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-fjrzz",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "c993f6ee-ddb2-4877-8646-745a2e3fd2bf"
+      },
+      {
+        "container_id": "containerd://1e30a2c2cf2e0b568c37464c048a650dfc7cca88f2f452584532b91d960b6493",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-fl7zc",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "51ec4e5f-4871-4637-b4e9-93399ee24ea3"
+      },
+      {
+        "container_id": "containerd://a5b3b6ddf446c0f44f69103402f4484289349330f6fbde6007197694973f2138",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-g8gjk",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "9eb4d21b-74e5-4a9c-b7ac-3fa3fa53aaf8"
+      },
+      {
+        "container_id": "containerd://c24fe10bce20b0d55f13a7432b12fe0058e656ede52ec2a92532226e00b389d4",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-gj28f",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "0878ccdd-9fa2-4f7d-81c9-5c5f63dc3493"
+      },
+      {
+        "container_id": "containerd://e887737b6a272a2b72123375ec0a178a0515f16e75d6894c694cad0066d7b273",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-gnhhx",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "6542ec1c-fd0a-40f5-8827-6c14552fb922"
+      },
+      {
+        "container_id": "containerd://00b3b68c25176fac7d57b8d7971ef93e58c657b0b4109e6758a1be39fb0868ea",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-hclm8",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "0ff55744-5de0-46ff-ab6e-1f45bc7fa221"
+      },
+      {
+        "container_id": "containerd://daa7f5451984049114eaedbafbb9973ad6ce11884036e027ab29b755a34c4145",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-k6xnq",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "6bfc100e-0367-4db9-9136-4330c6c952db"
+      },
+      {
+        "container_id": "containerd://c5dd8761af5fdab2f4828a9d3a3b88170275a94eff6643e8e2c7226fa14740d1",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-kjzxj",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "de34fdc0-5329-4464-b2ed-1f98d0034154"
+      },
+      {
+        "container_id": "containerd://8e1aa9834be513fb06b322fefdb9e120cf8a7cdfa85c9d2b22dd20859599a7fa",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-l6hz8",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "0e997882-a6b4-4b46-b0c2-0067209d48e4"
+      },
+      {
+        "container_id": "containerd://a87939f4029a7521a6f2a6519f7e7beab4400c54a85d87c4791aed6ab717f2a0",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-lhkz5",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "dc85879a-8c08-4044-a760-9c328d926564"
+      },
+      {
+        "container_id": "containerd://8cde168d26473608c85058bf5299cf5909227ea0c573272f6c73b4462b3ff2e0",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-mbk7k",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "4b68296b-6a43-4090-9d1e-7460677710d4"
+      },
+      {
+        "container_id": "containerd://44e46069b10cab697997f84852fa3e603f5d678e631f7cf07d88e372df6c636c",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-mc55l",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "3b9cabb0-98af-494e-8a7b-fa5e53368e63"
+      },
+      {
+        "container_id": "containerd://6771da8f7aa4dc0cdc1df063fd8e63254d96c7396f9bd3411ae3f17657f61886",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-mrwk2",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "e1969048-7087-4f4b-913f-5712ee3e5701"
+      },
+      {
+        "container_id": "containerd://8300c57898af03d648be82f2b137905bf80397ebe3348715fcfbb86c79157aab",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-mvhdd",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "a5de9671-2dc3-4760-9b04-c55762fe9290"
+      },
+      {
+        "container_id": "containerd://ba5d857a3da7ea561cdde2eb9d20c3205ffd9fde2e6000563201e193893db1fd",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-mxsh4",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "16786c19-8187-494a-b82c-5fcec656dcdd"
+      },
+      {
+        "container_id": "containerd://ad444a4038c35f6bcbae9484fd1f78fb86caa9c39ba0fa29e168f1423ee38756",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-n5vwd",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "6d13e5ec-062f-41c1-a2f9-b64e99e2ff41"
+      },
+      {
+        "container_id": "containerd://e0afe8d8ef26cbf66f20af750ee860afac75688bebf7f332a0c3dc107278b1a0",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-nlhtv",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "fc7fe0aa-c812-414c-9bb7-5e2edb2f8a22"
+      },
+      {
+        "container_id": "containerd://6079d2a16dfe507e0695414f8fd78f776d0cf25faa6ccb326b8159a8ae0f227e",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-nnf7f",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "42ee7393-54c9-44f1-9731-49652ce0b542"
+      },
+      {
+        "container_id": "containerd://51a34ee9ac2e8d75cf80e32b79c03f4c9b66a7aab6fb36c0be9ca532ada066ae",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-nrrs8",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "29fed63b-cbee-4fc0-b806-b82810c52c0f"
+      },
+      {
+        "container_id": "containerd://02d3bf4abbfd792cf574736e588ddbed969aa0a01aaad0fc5dd882debec118d9",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-nscs8",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "bbcc88ef-8487-46fa-89fb-48ceb6fa171c"
+      },
+      {
+        "container_id": "containerd://4a5327923258041f4e5a8606ad58e506afc7600e9a81c116e18126893bc384f9",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-p95v2",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "2796e0a8-9a77-4faf-8543-00238bceb2ea"
+      },
+      {
+        "container_id": "containerd://a3d69fe28239d4c531894667bb2f2f523a6eac97b03fccfae2502fa83086e0c1",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-pbgm5",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "65764b96-2e53-447a-ae16-089c40f25b17"
+      },
+      {
+        "container_id": "containerd://0a81b93403fb07e5173f7261c089ff86e82776bebaab26ba602e39fc31445147",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-przxz",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "63fbbd94-c168-4820-b615-8296257a0e63"
+      },
+      {
+        "container_id": "containerd://46637478146ab7484316fa9592e4f0abbff2f48fb9ba2d11e5bed646e1f66dcc",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-qnq8w",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "1975a304-b4a4-49f9-85f5-5562c020c52d"
+      },
+      {
+        "container_id": "containerd://abb3294e0ac9d951ed181cbf9ce530b0cad77e11dd8ad433cc04fb10fa3a459e",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-qw57w",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "92329174-72ca-469d-b9b1-dd0b6697879b"
+      },
+      {
+        "container_id": "containerd://831952d37963a99c732c61b60066fe3d19be8d455dd885eab8b10548ab5d6207",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-rhsm6",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "feface3e-3310-42f8-8b8d-3e8add240daf"
+      },
+      {
+        "container_id": "containerd://3c33b87226b827ba4cb822d6c4e744e69e012027f8e4bdf41e61a06b5b0a089d",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-ssjzx",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "3e3fca39-b5fa-42d5-93a2-980822c12059"
+      },
+      {
+        "container_id": "containerd://748ecdb25d587404d3d369019d9052605f56f63d9a110cbe857c824bef08e559",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-swpts",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "c66e4c82-9f97-42cb-9100-94427314f1d7"
+      },
+      {
+        "container_id": "containerd://31298cd2a7dc177bbbd6e13c66e66074b32070f636322f7f24ef9b3d469f743e",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-szqt2",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "775be49e-09fc-4f47-8021-cf23874bd0a4"
+      },
+      {
+        "container_id": "containerd://9f83f4cb625341957c9a45e127b3a10ec5f12b4191139f0a08aa585103f4209e",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-t6cqq",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "ec432db2-6c9f-43a3-994c-1402ab2ab3ea"
+      },
+      {
+        "container_id": "containerd://e8706ff914226492ccb00f7e0084f7d7e57073ababbf1d7927222034d835f10a",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-td84v",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "fe2adb84-c952-40d7-b37d-d3eadda18e0d"
+      },
+      {
+        "container_id": "containerd://7612b251feb579d686171a97a3772545f71f3c7e9dfdda7e54eceef081f96162",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-vgqj2",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "f07cb0c1-0073-4c91-9d38-c7c42ee02226"
+      },
+      {
+        "container_id": "containerd://6fa38f40e495c200d0798b7099e8244caf8ff388ad485d998ef00039156dca24",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-vk74x",
+        "node": "ecs-zdz-pro-0021",
+        "status": "PASS",
+        "uid": "2d03ef00-ee67-45c4-b2c0-66f6e6b68d38"
+      },
+      {
+        "container_id": "containerd://f0672bf4b13266535b4113ad6a6726239f675c6acea461cccbac95ef3a6bff2f",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-vp49k",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "e81b3dd3-2a30-4ec8-b4c8-8ce2fff0a962"
+      },
+      {
+        "container_id": "containerd://75bfd6d88269da5a6ca7621e0abaf39d841ef6b221bad61998a6b5c302030268",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-vr7zl",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "edf7b6c0-d3b9-4531-ae73-c468888b8290"
+      },
+      {
+        "container_id": "containerd://b6d4fcf4078ee42e469fb9537a536b4741d53de6c80ee6e3f9dfb07adf316170",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-vvtw9",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "febbbe92-87bd-421a-9d0e-88209818ae8a"
+      },
+      {
+        "container_id": "containerd://078465294599528b9aaf2708aa5c0aa0551ea1b162a423f1377f646141565000",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-wflrl",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "30789579-5559-4c84-8004-e665f5793090"
+      },
+      {
+        "container_id": "containerd://663ca6c66516a291adb3f8e6fbc0bf24002cb850a3f46e0a3fcd2a204a2967fe",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-wtb4c",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "8f38349f-5255-44df-a48c-0c4517025ecf"
+      },
+      {
+        "container_id": "containerd://82172b9a581801835e23a63f4e661c53dd1ee04fc44f6e390a52ebbc881c897c",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-x46t2",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "47331ab6-3c92-43b9-b099-f41df6a980c8"
+      },
+      {
+        "container_id": "containerd://90b71548b340ec18c9f29b2432c03bcb48a4c990dadf5bbde1d78c841e354f49",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-x54mw",
+        "node": "ecs-zdz-pro-0018",
+        "status": "PASS",
+        "uid": "93a24edb-7640-47d4-b140-53d4298ec543"
+      },
+      {
+        "container_id": "containerd://7145a7ca73cc2acd5ab3fe4cec850fac050fa9dd94aa3196e88ffee8799a9b69",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-xg5bg",
+        "node": "ecs-zdz-pro-0022",
+        "status": "PASS",
+        "uid": "bac65d3c-e2ac-4325-8ffd-52634abb67e5"
+      },
+      {
+        "container_id": "containerd://4a1b643c100b67cfaf61798ec369937d61c423378a95262302609d9d9e958dd8",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-xlv77",
+        "node": "ecs-zdz-pro-0019",
+        "status": "PASS",
+        "uid": "dfe92859-920e-422c-9eb4-23a86323e5ba"
+      },
+      {
+        "container_id": "containerd://7ee595675af14f5f2880c114535fd999889577dd063794b322028b5d410abbad",
+        "image_id": "deerflow.local/deer-flow-gateway@sha256:7d9e31caa9bb0854f71a0c190936714716427ac08ed4351833ec032c0dc7a025",
+        "mount_verification": {
+          "actual_mount_count": 8,
+          "actual_volume_count": 8,
+          "declared_mounts_verified": true,
+          "declared_volumes_verified": true,
+          "expected_mount_count": 7,
+          "expected_volume_count": 7,
+          "serviceaccount_projection_accepted": true,
+          "status": "PASS"
+        },
+        "name": "gateway-c9656fd6-zdlfq",
+        "node": "ecs-zdz-pro-0020",
+        "status": "PASS",
+        "uid": "6d9b3552-4928-4d6c-9e6d-ce456164578c"
+      }
+    ],
+    "schema": "portal-gateway-composer-controls-activation.v1",
+    "schema_migration_requested": false,
+    "service_endpoint_pods_verified": 70,
+    "status": "GATEWAY_COMPOSER_CONTROLS_DEPLOYED_RUNTIME_VERIFIED",
+    "task_probe_mount_verification": {
+      "actual_mount_count": 8,
+      "actual_volume_count": 8,
+      "declared_mounts_verified": true,
+      "declared_volumes_verified": true,
+      "expected_mount_count": 7,
+      "expected_volume_count": 7,
+      "serviceaccount_projection_accepted": true,
+      "status": "PASS"
+    },
+    "tasks_after": {
+      "active_callback_leases": 0,
+      "active_oa_jobs": 0,
+      "active_runs": 52,
+      "application_started": false,
+      "business_text_exported": false,
+      "credentials_exported": false,
+      "database_readonly": true,
+      "provider_requests": 0,
+      "revisions": [
+        "0022_work_integration_state"
+      ],
+      "schema_migrated": false,
+      "status": "PASS",
+      "zero_is_point_in_time_not_admission_lock": true
+    },
+    "tasks_before": {
+      "active_callback_leases": 0,
+      "active_oa_jobs": 0,
+      "active_runs": 7,
+      "application_started": false,
+      "business_text_exported": false,
+      "credentials_exported": false,
+      "database_readonly": true,
+      "provider_requests": 0,
+      "revisions": [
+        "0022_work_integration_state"
+      ],
+      "schema_migrated": false,
+      "status": "PASS",
+      "zero_is_point_in_time_not_admission_lock": true
+    },
+    "tasks_immediately_before_patch": {
+      "active_callback_leases": 0,
+      "active_oa_jobs": 0,
+      "active_runs": 7,
+      "application_started": false,
+      "business_text_exported": false,
+      "credentials_exported": false,
+      "database_readonly": true,
+      "provider_requests": 0,
+      "revisions": [
+        "0022_work_integration_state"
+      ],
+      "schema_migrated": false,
+      "status": "PASS",
+      "zero_is_point_in_time_not_admission_lock": true
+    },
+    "tool_revision": "r1",
+    "work_datalake_activated": false
+  }
+}

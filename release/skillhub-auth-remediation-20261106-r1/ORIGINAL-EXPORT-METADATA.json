@@ -1,0 +1,76 @@
+{
+  "archive": {
+    "bytes": 755077632,
+    "filename": "skillhub.auth-baseline-20261105-r2.oci.tar",
+    "sha256": "ce4a23bdf6c56276e77d3f64e3f3fc495e6f45e13e05b2976987b65eee6d598e"
+  },
+  "image": {
+    "complete_blob_hashes_verified": true,
+    "config": "sha256:85ccab985d39d521b640b3d364dee3350c246eb022ccc0ba29bb7c32564f512f",
+    "index_depth": 1,
+    "layers": 14,
+    "manifest": "sha256:b4a18e1955e51ba8fb7ec65df91ee081378ba4f84a63177a850f25e82fd9971a",
+    "platform": "linux/arm64",
+    "raw_image_configuration_exported_to_stdout": false,
+    "root_manifest": "sha256:71a60be927744fca0c78c922f2aa4083283347cc4b17df60dde50263f20076e2"
+  },
+  "observed_at": "2026-11-06T00:55:41.978182+00:00",
+  "production": {
+    "credentials_exported": false,
+    "deployment": {
+      "generation": 14,
+      "name": "skillhub-server",
+      "spec_sha256": "dc58fef71aaf1f8dc3b1dcc5b12ab6d376ed25208cf58fd3c511dcd7f4685b6f",
+      "uid": "009babb5-b084-4397-a5ee-56a4b4b91032"
+    },
+    "environment_values_exported": false,
+    "image_pull_policy": "Never",
+    "mounted_volumes_in_export": false,
+    "native_auth_flag": "true",
+    "pod": {
+      "generation": 1,
+      "name": "skillhub-server-86c7d457bb-7vvbw",
+      "spec_sha256": "8df22ba5040caa66f528ab0dd020b8e2d51f415bd03e3feb59381d941696cb80",
+      "uid": "04e4804a-f04e-49e2-b181-bbdfb276245f"
+    },
+    "program_jar": {
+      "bytes": 103450647,
+      "sha256": "6fc23f8056b763a1590a9953a83e6bee873e7bb2e935b2dddf93589585500363"
+    },
+    "resources": {
+      "limits": {
+        "cpu": "1",
+        "memory": "1Gi"
+      },
+      "requests": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      }
+    },
+    "runtime": {
+      "container_id_sha256": "36e8d4bd5f8e4d53b56374c2bc4e4162e23ecd94bcdb37237d1bb9abf4feeec6",
+      "image_id": "docker.io/library/import-2026-10-09@sha256:71a60be927744fca0c78c922f2aa4083283347cc4b17df60dde50263f20076e2",
+      "node": "datax-01",
+      "restart_count": 0
+    },
+    "scheduling": {
+      "affinity": null,
+      "nodeName": null,
+      "nodeSelector": {
+        "kubernetes.io/hostname": "datax-01"
+      },
+      "priorityClassName": null,
+      "schedulerName": "default-scheduler",
+      "tolerations": null,
+      "topologySpreadConstraints": null
+    },
+    "strategy": {
+      "type": "Recreate"
+    },
+    "termination_grace_seconds": 30
+  },
+  "schema": "portal-skillhub-auth-build-metadata.v1",
+  "source": "fixed_operator_observed_runtime",
+  "source_jar_hash_requires_reconciliation_after_local_unpack": "6fc23f8056b763a1590a9953a83e6bee873e7bb2e935b2dddf93589585500363",
+  "stable_readback": true
+}

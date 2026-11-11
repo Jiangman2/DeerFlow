@@ -11,7 +11,9 @@ import pytest
 from app.channels.message_bus import InboundMessage
 from app.channels.work_documents import UAT_APP_ID, WorkDocumentService, WorkError, document_links
 from app.integrations.work.auth import Grant
+from app.integrations.work.calendar import CalendarIntent
 from app.integrations.work.capabilities import Action
+from app.integrations.work.routing import WorkTurnDecision
 
 DOC_URL = "https://haiyoutest.w.cnooc.com.cn/docx/doxTest123"
 CALENDAR_SCOPES = (
@@ -40,7 +42,15 @@ def inbound(**overrides):
     return InboundMessage(**values)
 
 
-def service():
+def work_decision(intent, *, route="new_work"):
+    return WorkTurnDecision(route=route, domain="calendar" if isinstance(intent, CalendarIntent) else "document", intent=intent)
+
+
+def calendar_decision(*, route="new_work"):
+    return work_decision(CalendarIntent(operation="calendar_create", changes={"title": "技术交流", "start": "2026-10-22T10:00:00+08:00", "end": "2026-10-22T10:30:00+08:00"}), route=route)
+
+
+def service(*, turn_planner=None):
     repo = SimpleNamespace(find_connection_by_external_identity=AsyncMock(return_value={"id": "connection-test", "owner_user_id": "owner-test", "status": "connected"}))
     api = AsyncMock(
         side_effect=[
@@ -52,9 +62,20 @@ def service():
     )
     send = AsyncMock()
     summarize = AsyncMock(return_value="会议决定：周五上线。")
-    planner = AsyncMock(return_value=Action(operation="document_read", document_id="doxTest123"))
-    instance = WorkDocumentService(app_id=UAT_APP_ID, app_secret="synthetic-app-secret", allowed_owners={"owner-test"}, repo=repo, send=send, api=api, summarize=summarize, planner=planner)
+    planner = AsyncMock(side_effect=AssertionError("Intent must not be reinterpreted after authorization"))
+    turn_planner = turn_planner or AsyncMock(return_value=work_decision(Action(operation="document_read", document_id="doxTest123")))
+    instance = WorkDocumentService(app_id=UAT_APP_ID, app_secret="synthetic-app-secret", allowed_owners={"owner-test"}, repo=repo, send=send, api=api, summarize=summarize, planner=planner, turn_planner=turn_planner)
     return instance, repo, api, send, summarize
+
+
+async def seed_task(instance, *, msg=None, domain="calendar", context=None):
+    principal = instance._identity(msg or inbound())
+    owner = instance.vault.principal_key(principal)
+    reserved = await instance._turn_state.reserve_turn(owner, "seed-task")
+    ref = await instance._turn_state.finish_turn(owner, reserved.turn_id, task={"domain": domain, "stage": "awaiting_input"})
+    await instance._turn_state.save_task_context(owner, ref, context or {})
+    instance._hydrate_context(principal, context or {})
+    return principal, ref
 
 
 async def begin(instance, msg=None):
@@ -109,6 +130,8 @@ async def test_authorization_read_and_summary_return_to_original_message_without
             assert "synthetic-app-secret" not in item.args[0].text
         assert repo.find_connection_by_external_identity.await_count >= 3
         assert "synthetic-user-token" not in repr(instance.jobs)
+        instance._turn_planner.assert_awaited_once()
+        instance._planner.assert_not_awaited()
         with pytest.raises(WorkError):
             await instance.callback(state=state, code="synthetic-code", browser_session=nonce)
     finally:
@@ -287,6 +310,7 @@ async def test_followups_reuse_personal_grant_and_never_ask_to_rebind():
             return {"data": {"content": "会议内容"}}
 
         api.side_effect = doc_api
+        instance._turn_planner.return_value = work_decision(Action(operation="document_read", document_id="doxTest123"), route="continue_work")
         for i in range(5):
             assert await instance.handle(inbound(text="刚才的文档再总结一下", thread_ts=f"followup-{i}"))
             await instance.drain()
@@ -300,11 +324,10 @@ async def test_followups_reuse_personal_grant_and_never_ask_to_rebind():
 async def test_model_cannot_switch_to_another_document_or_execute_write_before_confirmation():
     instance, _, api, send, _ = service()
     try:
-        instance._planner.return_value = Action(operation="document_rename", document_id="doxOther123", title="wrong-target")
-        _, state, nonce = await begin(instance)
-        await instance.callback(state=state, code="synthetic-code", browser_session=nonce)
-        await instance.drain()
-        assert api.await_count == 2  # Token/identity only; no document access.
+        instance._turn_planner.return_value = work_decision(Action(operation="document_rename", document_id="doxOther123", title="wrong-target"))
+        assert await instance.handle(inbound())
+        api.assert_not_awaited()  # Invalid targets are rejected even before OAuth.
+        assert not instance.jobs
         assert not instance.tools.plans
         assert "model_changed_document_target" in send.call_args.args[0].text
     finally:
@@ -315,7 +338,7 @@ async def test_model_cannot_switch_to_another_document_or_execute_write_before_c
 async def test_authorization_only_prepares_write_then_original_sender_confirms():
     instance, _, api, send, _ = service()
     try:
-        instance._planner.return_value = Action(operation="document_rename", document_id="doxTest123", title="新名字")
+        instance._turn_planner.return_value = work_decision(Action(operation="document_rename", document_id="doxTest123", title="新名字"))
         info = {"data": {"document": {"title": "旧名字", "revision_id": 3}}}
         api.side_effect = [{"access_token": "synthetic-user-token", "expires_in": 7200, "scope": "docx:document"}, {"data": {"open_id": "ou-sender"}}, info]
         _, state, nonce = await begin(instance)
@@ -346,7 +369,7 @@ async def test_local_revoke_invalidates_unused_oauth_links_and_cannot_be_replaye
 
 @pytest.mark.asyncio
 async def test_calendar_authorization_requests_one_complete_explicit_capability_bundle():
-    instance, _, api, send, _ = service()
+    instance, _, api, send, _ = service(turn_planner=AsyncMock(return_value=calendar_decision()))
     try:
         await instance.handle(calendar_message())
         ticket = next(iter(instance.jobs))
@@ -358,7 +381,7 @@ async def test_calendar_authorization_requests_one_complete_explicit_capability_
         assert query["client_id"] == [UAT_APP_ID]
         for description in ("读取日历", "查询日程", "创建日程", "编辑日程"):
             assert description in send.call_args.args[0].text
-        assert "单独确认" in send.call_args.args[0].text
+        assert "预览" in send.call_args.args[0].text and "本人确认" in send.call_args.args[0].text
         api.assert_not_awaited()
     finally:
         await instance.close()
@@ -367,7 +390,7 @@ async def test_calendar_authorization_requests_one_complete_explicit_capability_
 @pytest.mark.asyncio
 @pytest.mark.parametrize("missing", CALENDAR_SCOPES)
 async def test_partial_calendar_consent_is_rejected_before_access_and_preserves_existing_document_grant(missing):
-    instance, _, api, send, _ = service()
+    instance, _, api, send, _ = service(turn_planner=AsyncMock(return_value=calendar_decision()))
     try:
         principal = instance._identity(calendar_message())
         previous = Grant("synthetic-existing-document-token", time.monotonic() + 3600, frozenset({"docx:document"}))
@@ -381,6 +404,7 @@ async def test_partial_calendar_consent_is_rejected_before_access_and_preserves_
             await instance.callback(state=state, code="synthetic-code", browser_session=nonce)
         assert error.value.stage == "scope_not_granted"
         assert api.await_count == 2
+        instance._turn_planner.assert_awaited_once()
         instance._planner.assert_not_awaited()
         assert not instance.tools.plans
         assert instance.grants[principal] is previous
@@ -392,7 +416,7 @@ async def test_partial_calendar_consent_is_rejected_before_access_and_preserves_
 
 @pytest.mark.asyncio
 async def test_calendar_write_only_token_requires_new_consent_before_calendar_access():
-    instance, _, api, send, _ = service()
+    instance, _, api, send, _ = service(turn_planner=AsyncMock(return_value=calendar_decision()))
     try:
         instance.vault.put(instance._identity(calendar_message()), Grant("synthetic-legacy-token", time.monotonic() + 3600, frozenset({"calendar:calendar"})))
         await instance.handle(calendar_message())
@@ -400,6 +424,7 @@ async def test_calendar_write_only_token_requires_new_consent_before_calendar_ac
         assert next(iter(instance.jobs.values())).stage == "awaiting_authorization"
         assert "授权并继续" in send.call_args.args[0].text
         api.assert_not_awaited()
+        instance._turn_planner.assert_awaited_once()
         instance._planner.assert_not_awaited()
     finally:
         await instance.close()
@@ -407,7 +432,7 @@ async def test_calendar_write_only_token_requires_new_consent_before_calendar_ac
 
 @pytest.mark.asyncio
 async def test_previous_fine_grained_grant_requires_new_compatible_authorization():
-    instance, _, api, send, _ = service()
+    instance, _, api, send, _ = service(turn_planner=AsyncMock(return_value=calendar_decision()))
     try:
         scopes = frozenset({"calendar:calendar:read", "calendar:calendar.event:read", "calendar:calendar.event:create", "calendar:calendar.event:update"})
         instance.vault.put(instance._identity(calendar_message()), Grant("synthetic-previous-token", time.monotonic() + 3600, scopes))
@@ -416,6 +441,7 @@ async def test_previous_fine_grained_grant_requires_new_compatible_authorization
         assert next(iter(instance.jobs.values())).stage == "awaiting_authorization"
         assert "授权并继续" in send.call_args.args[0].text
         api.assert_not_awaited()
+        instance._turn_planner.assert_awaited_once()
         instance._planner.assert_not_awaited()
     finally:
         await instance.close()
@@ -425,8 +451,9 @@ async def test_previous_fine_grained_grant_requires_new_compatible_authorization
 async def test_complete_calendar_grant_prepares_then_confirms_and_reuses_without_new_oauth():
     instance, _, api, send, _ = service()
     try:
-        action = Action(operation="event_create", title="技术交流", start="2026-10-22T10:00:00+08:00", end="2026-10-22T10:30:00+08:00")
-        instance._planner.return_value = action
+        decision = calendar_decision()
+        action = decision.intent.changes
+        instance._turn_planner.return_value = decision
         primary = {"data": {"calendars": [{"calendar": {"calendar_id": "sender@calendar", "type": "primary", "role": "owner"}}]}}
         api.side_effect = [
             {"access_token": "synthetic-calendar-token", "expires_in": 7200, "scope": " ".join(CALENDAR_SCOPES)},
@@ -459,7 +486,7 @@ async def test_complete_calendar_grant_prepares_then_confirms_and_reuses_without
         assert plan.stage == "completed"
         assert sum(c.args[0] == "event_create" for c in api.call_args_list) == 1
 
-        instance._planner.return_value = Action(operation="events_list", start=action.start, end=action.end)
+        instance._turn_planner.return_value = work_decision(CalendarIntent(operation="calendar_query", selector={"start": action.start, "end": action.end}))
         api.side_effect = [primary, {"data": {"items": []}}]
         await instance.handle(inbound(text="查询我的日历在该时间段的日程", thread_ts="calendar-followup"))
         await instance.drain()
@@ -467,13 +494,14 @@ async def test_complete_calendar_grant_prepares_then_confirms_and_reuses_without
         assert sum(c.args[0] == "token" for c in api.call_args_list) == 1
         assert all(c.kwargs.get("token") == "synthetic-calendar-token" for c in api.call_args_list[1:])
         assert "synthetic-calendar-token" not in repr(send.call_args_list)
+        instance._planner.assert_not_awaited()
     finally:
         await instance.close()
 
 
 @pytest.mark.asyncio
 async def test_calendar_consent_from_different_work_account_never_installs_token_or_reads_calendar():
-    instance, _, api, _, _ = service()
+    instance, _, api, _, _ = service(turn_planner=AsyncMock(return_value=calendar_decision()))
     try:
         api.side_effect = [
             {"access_token": "synthetic-other-user-token", "expires_in": 7200, "scope": " ".join(CALENDAR_SCOPES)},
@@ -484,6 +512,7 @@ async def test_calendar_consent_from_different_work_account_never_installs_token
             await instance.callback(state=state, code="synthetic-code", browser_session=nonce)
         assert error.value.stage == "authorization_user_mismatch"
         assert not instance.grants and api.await_count == 2
+        instance._turn_planner.assert_awaited_once()
         instance._planner.assert_not_awaited()
     finally:
         await instance.close()
@@ -493,7 +522,7 @@ async def test_calendar_consent_from_different_work_account_never_installs_token
 async def test_work_calendar_permission_rejection_requests_reauthorization_without_rebinding():
     instance, _, api, send, _ = service()
     try:
-        instance._planner.return_value = Action(operation="event_create", title="测试", start="2026-10-22T10:00:00+08:00", end="2026-10-22T10:30:00+08:00")
+        instance._turn_planner.return_value = calendar_decision()
         api.side_effect = [
             {"access_token": "synthetic-calendar-token", "expires_in": 7200, "scope": " ".join(CALENDAR_SCOPES)},
             {"data": {"open_id": "ou-sender"}},

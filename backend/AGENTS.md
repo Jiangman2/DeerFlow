@@ -14,6 +14,20 @@ matching, token/user binding, HttpOnly cookies and the existing bound-cookie
 fast path. This source candidate is not a deployment; historical source locks
 and build inventories remain immutable.
 
+## Released monitoring and tool controls (November 2)
+
+Gateway 403 includes browser-default-off web_search/web_fetch request controls
+propagated to subagents; legacy callers omitting the option retain their prior
+behavior. It also includes bounded image/binary text-read rejection, personal usage aggregates,
+and model/OA telemetry. Preserve authentication and admin checks on monitoring;
+HTTP query values are strings limited to 15/60 before conversion to integers.
+Operational monitoring must not add business-database reads or block/retry a
+provider/OA operation. Keep memory/Redis cardinality, TTL, byte and time bounds;
+unknown data must not become a healthy zero. Personal aggregates retain owner
+indexes, read-only deadlines and caching. Concurrency is sampled, not exact peak
+or provider-side concurrency. Work grant hooks and migration 0023 are excluded.
+See `docs/nov02-released-fixes-20261103.md` for source and acceptance scope.
+
 ## Bounded diagnostics and transient image context (2026-10-31 candidate)
 
 Dashboard large-window ID lookups are batched at 1,000 parameters; retain all
@@ -898,7 +912,7 @@ Before changing a later authorization phase, read the [authorization RFC](../doc
 29. **LoopDetectionMiddleware** - _(optional, if `loop_detection.enabled`)_ Detects repeated tool-call loops; hard-stop clears both structured `tool_calls` and raw provider tool-call metadata before forcing a final text answer; stamps `loop_capped` via `consume_stop_reason` (#3875 Phase 2), symmetric to `TokenBudgetMiddleware`. Repetition accounting is run-scoped even though one middleware instance serves many turns in the same thread. A successful `write_file`/`str_replace` that demonstrably changes durable content resets the exact-call and per-tool repetition windows, so the required `read_file -> edit -> read_file -> edit` version-gated workflow is not mistaken for a loop; an unchanged full-file write does not reset them. `read_file` repetition keys use the exact normalized line window—an omitted `end_line` is open-ended—so adjacent continuation pages are progress while the same page still trips the 3/5 identical-call guard. Keep bounded 120/240 frequency overrides for both `bash` and `read_file`: long artifact workflows legitimately cross the global 30/50 frequency threshold, while the independent identical-call hash guard still catches an actual no-progress same-call loop at 3/5.
 30. **TokenBudgetMiddleware** - _(optional, if `token_budget.enabled`)_ Enforces per-run token limits
 31. **Custom middlewares** - _(optional)_ Any `custom_middlewares` passed to `build_middlewares` are injected here, before the artifact-delivery/terminal-response/safety/clarification tail
-32. **ArtifactDeliveryMiddleware** - Rejects final responses that reference `/mnt/user-data/outputs/...` or the corresponding `/api/threads/.../artifacts/mnt/user-data/outputs/...` URL unless every referenced file exists in the current thread outputs directory and is present in `ThreadState.artifacts` after a successful `present_files` call. It removes the invalid answer and retries once with hidden instructions requiring real shell execution, file validation, and publication; a repeated invalid claim becomes a visible error fallback with no fabricated link. The run worker applies the same validator when an in-flight provider response is interrupted before normal middleware/checkpoint finalization, then journals a same-ID fallback so paginated history cannot resurrect the uncommitted link.
+32. **ArtifactDeliveryMiddleware** - Rejects final responses that reference `/mnt/user-data/outputs/...` or the corresponding `/api/threads/.../artifacts/mnt/user-data/outputs/...` URL unless every referenced file exists in the current thread outputs directory and is present in `ThreadState.artifacts` after a successful `present_files` call. It removes the invalid answer and retries once with hidden instructions requiring real shell execution, file validation, and publication; a repeated invalid claim becomes a visible error fallback with no fabricated link. The run worker applies the same validator when an in-flight provider response is interrupted before normal middleware/checkpoint finalization, then journals a same-ID fallback so paginated history cannot resurrect the uncommitted link. For final answers, a trailing-slash output directory in prose or inline code may accompany a verified file. A directory alone or an explicit directory download link cannot satisfy delivery; link to individual published files or a ZIP. A directory description followed by complete filenames can be expanded to links only for direct children with a successful run-stamped present_files receipt and an existing published file. Persist the expanded answer under the original message ID for history reloads.
 33. **TerminalResponseMiddleware** - When a provider returns an empty terminal `AIMessage` after tool execution, injects a hidden recovery prompt and retries the model once; a second empty response is replaced in checkpoint state by a visible error fallback marked for the run worker, so the run finishes as an error instead of a silent success. Tool receipts are scoped to the worker-supplied pre-run message-ID boundary, so compacted historical tools cannot make a plan-only current response eligible for automatic retry. The scoped `ppt-master` exception recognizes a successful `recommendations.stage1/2/3.json` write while its Confirm UI is active as a durable user-wait boundary and returns a resumable page handoff instead of applying the generic unfinished-plan failure.
 34. **WeKnoraCitationMiddleware** - Canonicalizes WeKnora 0.7 native `<kb>` tags and repairs model-truncated bare citation labels only from unique, same-origin references in the current user turn. The subagent runtime installs the same middleware before returning delegated knowledge results; the lead may recover only already-canonical `/platform/knowledge-bases/...` links from the current `task` result. Ambiguous same-named documents, historical references, arbitrary links, and code examples are never rewritten.
 35. **SafetyFinishReasonMiddleware** - _(optional, if `safety_finish_reason.enabled`)_ Suppresses tool execution when the provider safety-terminated the response (e.g. `finish_reason=content_filter`); registered after terminal-response/custom middlewares so LangChain's reverse-order `after_model` dispatch runs it first
@@ -2049,10 +2063,10 @@ in-cluster hop. The relay bypasses environment proxies with `trust_env=false`.
 Qwen3 embeddings are fixed to 1024 Matryoshka dimensions; when the approved
 endpoint returns 4096 values, the relay takes the 1024-value prefix and
 L2-normalizes it. Do not change that dimension without rebuilding every
-affected knowledge-base index. The approved retrieval credential admits 200
-concurrent upstream requests. Keep `WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY=200`
-as both the default and hard Gateway ceiling while retaining WeKnora's 2+1
-document worker limits. Gateway retries transient business code `10020` with bounded backoff
+affected knowledge-base index. The upstream credential capacity is independent of Gateway memory admission.
+Both embedding routes share a default and hard ceiling of eight requests per
+event loop (`WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY` may lower it), while
+retaining WeKnora's 2+1 document worker limits. Gateway retries transient business code `10020` with bounded backoff
 to absorb brief shared-capacity races while rerank requests retain their
 independent path.
 The workspace knowledge-base adapter refreshes `/auth/me` memberships before
@@ -2271,7 +2285,89 @@ old schema/data preservation, one migration head, and Runner fresh/upgrade paths
 
 ### Work routing boundary
 
-`app/integrations/work/routing.py` owns conservative channel admission. A `None` route returns the original message and attachments to the normal channel pipeline without checking the Work rollout allowlist. Work is not inferred from generic document/calendar nouns or an outstanding clarification alone. Persistent topic exit removes the versioned principal context so another worker cannot restore a stale task. Keep routing separate from OAuth authority and confirmed write execution. Regress with `tests/test_work_routing_boundary.py`, `test_work_documents.py`, `test_work_calendar.py`, and `test_work_capabilities.py`.
+The November 4 candidate is reconciled onto enterprise ef4ce7a1 in a separate
+worktree; preserve the R4 source tree, images and all historical receipts. Read
+docs/WORK_RELEASE_PREFLIGHT_20261104.md before an upgrade. WorkAPI ignores proxy
+environment while the SDK HTTP transport uses its defaults; check both paths
+inside actual production Pods without exposing credentials. DEER_FLOW_WORK_ENABLED=false
+is not a maintenance gate for an already configured Feishu channel: it disables
+the SQL receiver guard but may leave ordinary channel sockets enabled. The owner
+allowlist runs after semantic planning and cannot isolate model traffic. Keep
+all old protocol writers stopped during cutover; this increment adds no DDL.
+The standalone deploy/enterprise/work-runtime-preflight-20261104.py defaults to
+redacted read-only inspection. Optional database checks must remain SELECT-only;
+network probes must be explicit, fixed-origin app-token/bot-info operations, never
+user calendar/document access, a second WebSocket or a test robot message.
+
+On 2026-11-03 another developer was confirmed to have connected the same UAT
+application; the earlier screenshots cannot all be attributed to r2. After
+isolating receivers, local r2 was reactivated and the user reproduced cross-day
+choice loops and planning timeouts. Preserve the r1/r2 images, source manifests
+and all original evidence; model-only and offline passes are not end-to-end bot
+acceptance. The follow-up repair remains a production-undeployed candidate.
+
+Cross-day acknowledgement binds actual normalized timing/cardinality rather than
+patch-key presence. Repeating the same interval must not clear acknowledgement;
+real changes must require a fresh business choice. Structured span choices are
+accepted only after the current server-owned question and with current input
+evidence; they never replace signed write confirmation. Every complete proposal
+passes local validation without an extra model finish round. Keep six bounded
+domain steps and at most two format repairs. Separate queue timeout (10 seconds)
+from the planner's overall deadline (90 seconds, configurable 5–180); the service
+has only a one-second watchdog, not a retry budget. Log message hashes, fixed
+stages, elapsed times and allowlisted field/category diagnostics, never raw model
+outputs, unknown field names or credentials. See docs/WORK_CALENDAR_TASK_AGENT.md.
+
+The subsequent model-only R4 repair prioritizes canonical server missing/limit
+questions before discretionary model questions, so the next turn's scoped tool
+gate cannot depend on a paraphrase. Normalize only redundant keep_duration=true
+on relative shifts without absolute time/duration; shared Changes remains strict.
+An incidental confirmation_quote must match current input and never grants span,
+reset, OAuth or write authority. Preserve all six source layers and the original
+15/20 then 20/20 model-round records. The new two-round allowance is exhausted;
+actual Work business acceptance is still separate from synthetic planning.
+
+The subsequent 2026-11-02 calendar task candidate uses explicit patch drafts and
+a bounded routing/domain-tool loop. Keep slot omission distinct from explicit
+clearing, preserve finite occurrence counts, and expand dates server-side.
+Creation/repair must receive validation feedback before finishing a proposal.
+Write dates also pass the server-owned grounding boundary: unanchored clock-only
+input cannot invent a start day. Reuse only same-task verified absolute days;
+historical relative expressions without receipt timestamps cannot be reinterpreted.
+Keep this parameter validation separate from semantic intent routing. The existing
+encrypted task JSON stores the evidence; explicit new tasks clear it.
+Continuous spans over 24 hours require the server-owned clarification flow;
+the model patch cannot set its confirmation flag. Deletion remains disabled by
+the user's current scope. Protocol-2 immutable previews and per-item SQL claims
+handle finite batches without schema changes; topic exit stops unstarted items
+but retains receipts. Historical successful receipts are locators only: read
+the target and all edit guards again. See docs/WORK_CALENDAR_TASK_AGENT.md.
+Keep the server-owned task execution index in the same SQL transaction as the
+parent claim. New tasks initialize it; continuations preserve it. Recheck after
+turn rotation so a confirmation racing the model cannot recreate an old draft.
+Legacy missing indexes stay conservative, never imply no previous execution.
+
+The 2026-11-02 semantic candidate supersedes the historical operation-word
+allowlist. Only trusted, bound Work private messages call `agent.plan_turn`;
+normal web chats, other channels, OA and scheduled work keep their old pipeline.
+`routing.py` contains the typed non-executable decision, not per-sentence lexical
+admission. Reuse the verified proposal after OAuth; missing requirements are
+asked before consent. Common date windows are server-calculated from the model's
+semantic enum. Never infer resource permission from source or a model answer.
+
+Gateway stamps runtime-only message_source and the fixed Work capability note
+from authenticated current input. Strip caller/config/checkpoint provenance;
+a web continuation of an IM-origin thread remains web. Keep existing other-channel
+policies and OAuth's original-task continuation boundary intact.
+
+Task lifecycle uses random TaskRef generations plus turn reservations and short
+transactions in the existing Work state table; no table/model/migration changes.
+Conversation exit invalidates pending jobs/states/previews, retaining grants and
+executing/uncertain receipts. Fence context saves, callbacks and confirmation
+claims across processes. Do not hold DB locks over model/provider calls or allow
+old callbacks to create a new conversation. Deploy all compatible readers before
+accepting new protocol traffic. See docs/WORK_ROUTING.md and the semantic,
+message-source, task-state, production and capability regression suites.
 
 
 ### Scoped search TLS compatibility
@@ -2331,3 +2427,79 @@ human turn starts a new model choice without linguistic follow-up heuristics.
 Do not revive legacy keyword scopes or treat missing tools as proof of missing
 permission. Keep strict execution-time authorization and retired tools hidden.
 See docs/datalake-natural-query-routing.md for the precise boundary and tests.
+
+
+## Optional WeKnora list statistics budgets
+
+Knowledge-list requests use upstream statistics only. Preserve absent fields as absent; never automatically call the legacy private count-enrichment helper or enumerate documents/chunks for display totals. The legacy WEKNORA_KB_COUNT_TIMEOUT_SECONDS setting cannot re-enable list enrichment. Existing private helper bounds are retained for compatibility/tests but are not a list-route fallback. Runtime/image validation remains required before release.
+
+
+### Bounded knowledge statistics, failure history and embedding relay
+
+Knowledge-list count fallback is disabled. Preserve upstream counts without
+filling absent values or publishing partial/zero totals.
+The failed-run list and identity search operate within the latest 1000 failures
+(updated_at, created_at, run_id descending); total is scoped to that window.
+Its count never counts all historical failure rows. Deploy the companion partial
+ordering index after DBA review to avoid a full historical sort; LIMIT alone does
+not guarantee bounded database work. The frontend labels the window explicitly.
+Both embedding endpoints share an event-loop-local ceiling of eight ASGI
+requests. Admission precedes body consumption and remains held through response
+send/cancellation. Full capacity returns 429 with Retry-After: 2 without reading
+the body; verify the WeKnora worker retries this status before production rollout.
+Request JSON is read incrementally with an 8 MiB hard maximum and a 30-second
+read deadline. Upstream embedding JSON is read incrementally with a 16 MiB hard
+maximum; unexpected content encoding is rejected rather than decompressed without
+a bound. Existing credentials, TLS/proxy policy and vector validation are retained.
+These are per-event-loop limits, not a global cluster budget or an RSS guarantee.
+The historical OOM root cause is not established by these protective changes.
+
+
+Knowledge-list responses expose count_summary using the four-field presence gate.
+Count deduplicated returned libraries only; scope is current_user_returned_libraries,
+never the platform total. auto_enrichment_enabled is false, enriched is zero and
+missing_before equals missing_after. Report per-field missing counts and known
+listing request failures. A zero failure count does not certify complete upstream
+pagination. Existing null/stale fields are not validated by this diagnostic.
+Log aggregate counts only, without new user/library identifiers or credentials,
+and perform no additional I/O. Missing counts do not authorize enrichment.
+
+
+### Temporary model-performance load-test diagnostics
+
+`DEERFLOW_LLM_PERFORMANCE_LOGS=true` enables two content-free JSON LLM_PERF
+records per RobustChatOpenAI invocation (including CNOOC V4.1), independently
+of legacy timing and admission-limit flags. Keep admission, cancellation and
+generator-close cleanup balanced. No prompt/output bodies, per-token logs,
+database writes or unbounded history caches. First effective/reasoning/content/
+tool times exclude empty and usage-only chunks; non-stream TTFT is unknown.
+Concurrency is process-local and model-scoped, not a provider-wide gauge.
+See docs/llm-performance-loadtest.md and scripts/llm_performance_report.py
+at repository root. Tests include test_llm_performance and
+test_llm_performance_adapter; MockTransport is mandatory in adapter tests.
+
+
+### Temporary browser navigation freeze (November 3)
+
+`get_available_tools` excludes browser_navigate and MCP server-prefixed names
+ending in _browser_navigate by default, before the agent/deferred catalog is
+built. Filter configured names before importing and actual tool names at final
+assembly, so aliases cannot accidentally register the navigation tool. Other
+browser and web tools retain their existing policies. An operator may restore
+registration with DEERFLOW_BROWSER_NAVIGATE_ENABLED=true after connectivity
+acceptance. Already-built agents and direct external MCP calls are not revoked.
+The coordinated Gateway release also preserves the OA environment override
+OA_POLICY_FLOW_RUN_TIMEOUT_SECONDS=3600. Do not replay the archived OA mutation
+script or silently resume a paused Deployment while preparing source.
+
+### Artifact delivery recovery (November 9 candidate)
+
+Directory-only final prose may reference multiple directories, but each needs
+direct-child `present_files` success receipts with the current `publication_run_id`.
+Validate artifact state, owner-root containment and actual file existence before
+appending at most 40 links. Never scan directories to infer publication or reuse
+prior-run receipts. Preserve Office preview enforcement in `present_files`.
+Recovery prompts identify exact unverified paths and distinguish verified files;
+remaining failures retain only verified current-run downloads and the existing
+error-fallback marker. Loop hard stops stay terminal. Regression tests live in
+`tests/test_artifact_delivery_recovery.py` and `tests/test_directory_listing_delivery.py`.

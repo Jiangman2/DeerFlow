@@ -19,7 +19,7 @@ import {
   ZapIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,11 +31,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Tabs } from "@/components/ui/tabs";
 import { CompetitionDisplaySettings } from "@/components/workspace/dashboard/competition-display-settings";
 import {
   EmployeeClicksPanel,
   FeedbackActorsPanel,
 } from "@/components/workspace/dashboard/employee-activity-panels";
+import {
+  DashboardNavigation,
+  DashboardSectionContent,
+  useDashboardSection,
+} from "@/components/workspace/dashboard/section-navigation";
+import { ModelMonitorPanel } from "@/components/workspace/model-monitor-panel";
 import {
   useDashboardFailures,
   useDashboardDateBounds,
@@ -62,6 +69,8 @@ import {
   type UserActivityPoint,
   type UserUsageItem,
 } from "@/core/dashboard";
+import { dashboardNavigationCopy } from "@/core/i18n/dashboard-navigation";
+import { useI18n } from "@/core/i18n/hooks";
 import { useRunDiagnostics } from "@/core/observability";
 import { cn } from "@/lib/utils";
 
@@ -246,17 +255,23 @@ function ActivityTrend({
   );
 }
 
-function RegisteredUserSessions() {
+function RegisteredUserSessions({ enabled }: { enabled: boolean }) {
   const pageSize = 5;
   const [page, setPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
-  const usersQuery = useDashboardUsers(pageSize, page * pageSize, searchQuery);
+  const usersQuery = useDashboardUsers(
+    pageSize,
+    page * pageSize,
+    searchQuery,
+    enabled,
+  );
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [sessionPage, setSessionPage] = useState(0);
   const sessionsQuery = useDashboardUserSessions(
     expandedUserId,
     pageSize,
     sessionPage * pageSize,
+    enabled,
   );
   const pageUsers = usersQuery.data?.items ?? [];
   const totalPages = Math.max(
@@ -475,7 +490,7 @@ function RegisteredUserSessions() {
 }
 
 function UserRanking({ items }: { items: UserUsageItem[] }) {
-  const pageSize = 5;
+  const pageSize = 10;
   const [page, setPage] = useState(0);
   if (items.length === 0) return <EmptyState label="暂无用户使用数据" />;
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
@@ -485,8 +500,11 @@ function UserRanking({ items }: { items: UserUsageItem[] }) {
     (currentPage + 1) * pageSize,
   );
   return (
-    <div className="space-y-3">
-      <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div
+        data-testid="user-run-ranking-list"
+        className="max-h-72 space-y-2 overflow-y-auto pr-1 xl:max-h-none xl:flex-1 xl:basis-0"
+      >
         {pageItems.map((item, index) => (
           <div
             key={item.user_id}
@@ -1215,7 +1233,7 @@ function FailedRuns({
         <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
           <span className="flex items-center gap-2">
             <AlertTriangleIcon className="size-4" />
-            全部失败运行（
+            最近失败运行（
             {isError
               ? "暂不可用"
               : total === undefined
@@ -1224,7 +1242,7 @@ function FailedRuns({
             ）
           </span>
           <span className="text-xs font-normal text-slate-500">
-            全历史 · 点击可查看只读错误诊断
+            最新 1000 条范围内筛选 · 点击可查看只读错误诊断
           </span>
         </CardTitle>
         <div className="flex items-center gap-2">
@@ -1275,7 +1293,7 @@ function FailedRuns({
           <EmptyState
             label={
               searchQuery
-                ? "没有匹配该账号或姓名的失败运行"
+                ? "最新 1000 条中没有匹配该账号或姓名的失败运行"
                 : "目前没有失败运行"
             }
           />
@@ -1678,14 +1696,26 @@ function FeedbackPanel({ summary }: { summary?: FeedbackSummary }) {
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
+  const { locale } = useI18n();
+  const { section, select, ready } = useDashboardSection();
+  const scrollRegion = useRef<HTMLElement>(null);
+  useEffect(() => {
+    scrollRegion.current?.scrollTo({ top: 0 });
+  }, [section]);
+  const navigation = dashboardNavigationCopy(locale);
+  const usesGlobalRange = section !== "models" && section !== "oa";
+  const needsSummary =
+    ready &&
+    (section === "overview" || section === "runs" || section === "users");
   const [hours, setHours] = useState(24);
   const [rangeMode, setRangeMode] = useState<"preset" | "custom">("preset");
+  const [customRangeOpen, setCustomRangeOpen] = useState(false);
   const [customStart, setCustomStart] = useState(() =>
     toDateTimeLocal(new Date(Date.now() - 24 * 3_600_000)),
   );
   const [customEnd, setCustomEnd] = useState(() => toDateTimeLocal(new Date()));
   const [customStartEdited, setCustomStartEdited] = useState(false);
-  const dateBoundsQuery = useDashboardDateBounds();
+  const dateBoundsQuery = useDashboardDateBounds(ready && usesGlobalRange);
   const minimumDate = dateBoundsQuery.data?.selectable_start_at
     ? toDateTimeLocal(new Date(dateBoundsQuery.data.selectable_start_at))
     : undefined;
@@ -1730,28 +1760,32 @@ export default function DashboardPage() {
     }),
     [activeHours, rangeEnd, rangeStart],
   );
-  const summaryQuery = useDashboardSummary(filters);
+  const summaryQuery = useDashboardSummary(filters, needsSummary);
   const draftMatchesAppliedRange =
     rangeMode === "custom" &&
     draftStart === rangeStart &&
     draftEnd === rangeEnd;
-  const knowledgeQuery = useDashboardKnowledge(filters);
+  const knowledgeQuery = useDashboardKnowledge(
+    filters,
+    ready && section === "knowledge",
+  );
   const failuresQuery = useDashboardFailures(
     5,
     failurePage * 5,
     deferredFailureSearchQuery,
+    ready && section === "runs",
   );
   const summary = summaryQuery.data;
   const rankingsQuery = useDashboardRunRankings(
     filters,
-    Boolean(summary) && !summaryQuery.isFetching,
+    ready && section === "runs" && Boolean(summary) && !summaryQuery.isFetching,
   );
   const headlineCounts = dashboardHeadlineCounts(summary?.overview);
   const activityReportsReady =
+    ready &&
+    section === "users" &&
     summaryQuery.isFetched &&
-    !summaryQuery.isFetching &&
-    (summaryQuery.isError ||
-      (rankingsQuery.isFetched && !rankingsQuery.isFetching));
+    !summaryQuery.isFetching;
 
   const handleRefresh = async () => {
     setIsManualRefreshing(true);
@@ -1770,13 +1804,25 @@ export default function DashboardPage() {
     return `${shortTime(summary.window.start_at)} - ${shortTime(summary.window.end_at)}`;
   }, [rangeEnd, rangeStart, summary]);
   return (
-    <main className="cnooc-admin-dashboard app-scroll-region min-h-full w-full max-w-full overflow-x-hidden overflow-y-auto bg-slate-50 px-3 py-4 text-slate-950 sm:px-6 sm:py-6">
-      <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-6">
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-          <div className="flex w-full min-w-0 items-center justify-between gap-3">
-            <h1 className="text-2xl font-semibold tracking-normal">业务看板</h1>
-            <CompetitionDisplaySettings />
-          </div>
+    <main
+      ref={scrollRegion}
+      className="cnooc-admin-dashboard app-scroll-region min-h-full w-full max-w-full overflow-x-hidden overflow-y-auto bg-slate-50 px-3 py-4 text-slate-950 sm:px-6 sm:py-6"
+    >
+      <Tabs
+        value={section}
+        onValueChange={select}
+        activationMode="manual"
+        className="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-5"
+      >
+        <div className="flex w-full min-w-0 items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-normal">业务看板</h1>
+          <CompetitionDisplaySettings />
+        </div>
+        <DashboardNavigation locale={locale} />
+        <p className="text-muted-foreground text-sm" aria-live="polite">
+          {navigation.descriptions[section]}
+        </p>
+        <div hidden={!usesGlobalRange}>
           <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto lg:shrink-0">
             {[1, 24, 168].map((value) => (
               <Button
@@ -1795,7 +1841,24 @@ export default function DashboardPage() {
                 {value === 1 ? "1小时" : value === 168 ? "7天" : "24小时"}
               </Button>
             ))}
-            <div className="grid w-full min-w-0 grid-cols-1 items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] lg:w-auto lg:min-w-fit lg:py-1">
+            <Button
+              size="sm"
+              variant={rangeMode === "custom" ? "default" : "outline"}
+              aria-expanded={customRangeOpen}
+              aria-controls="dashboard-custom-range"
+              onClick={() => setCustomRangeOpen((open) => !open)}
+            >
+              {customRangeOpen
+                ? navigation.collapseRange
+                : navigation.customRange}
+            </Button>
+            <div
+              id="dashboard-custom-range"
+              className={cn(
+                "grid w-full min-w-0 grid-cols-1 items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] lg:w-auto lg:min-w-fit lg:py-1",
+                !customRangeOpen && "hidden",
+              )}
+            >
               <Input
                 aria-label="开始时间"
                 className="h-8 w-full min-w-0 sm:w-auto lg:w-[220px] lg:min-w-[220px] lg:shrink-0"
@@ -1899,7 +1962,10 @@ export default function DashboardPage() {
 
         <div
           id="dashboard-date-bounds"
-          className="-mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500"
+          className={cn(
+            "flex flex-wrap items-center gap-2 text-xs text-slate-500",
+            !usesGlobalRange && "hidden",
+          )}
           aria-live="polite"
         >
           {dateBoundsQuery.isError ? (
@@ -1925,7 +1991,7 @@ export default function DashboardPage() {
             "暂无可统计数据，暂不能选择自定义区间。"
           )}
         </div>
-        {summaryQuery.isFetching ? (
+        {needsSummary && summaryQuery.isFetching ? (
           <div
             role="status"
             aria-live="polite"
@@ -1952,7 +2018,7 @@ export default function DashboardPage() {
             />
           </div>
         ) : null}
-        {summaryQuery.isError && !summaryQuery.isFetching ? (
+        {needsSummary && summaryQuery.isError && !summaryQuery.isFetching ? (
           <Card className="rounded-lg border-red-200 bg-red-50 py-5 text-red-700 shadow-none">
             <CardContent
               className="flex flex-wrap items-center justify-between gap-3"
@@ -1978,14 +2044,14 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         ) : null}
-        {rankingsQuery.isError ? (
+        {section === "runs" && rankingsQuery.isError ? (
           <Card className="rounded-lg border-amber-200 bg-amber-50 py-5 text-amber-800 shadow-none">
             <CardContent>
               运行排行加载失败：{rankingsQuery.error.message}
             </CardContent>
           </Card>
         ) : null}
-        {knowledgeQuery.isError ? (
+        {section === "knowledge" && knowledgeQuery.isError ? (
           <Card className="rounded-lg border-amber-200 bg-amber-50 py-5 text-amber-800 shadow-none">
             <CardContent>
               知识库统计加载失败：{knowledgeQuery.error.message}
@@ -1993,132 +2059,86 @@ export default function DashboardPage() {
           </Card>
         ) : null}
 
-        <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="活跃用户"
-            value={compactNumber(summary?.overview.active_users ?? 0)}
-            detail={`总用户 ${compactNumber(summary?.overview.total_users ?? 0)}，新增 ${compactNumber(summary?.overview.new_users ?? 0)}`}
-            icon={UsersIcon}
-            tone="green"
-          />
-          <MetricCard
-            label="区间新增会话"
-            value={compactNumber(headlineCounts.threadsCreatedInWindow)}
-            detail={`历史累计创建 ${compactNumber(headlineCounts.threadsCreatedAllTime)} · 当前保留（全历史） ${compactNumber(headlineCounts.threadsRetainedAllTime)} · 历史已删除 ${compactNumber(headlineCounts.threadsDeletedAllTime)}`}
-            icon={ActivityIcon}
-          />
-          <MetricCard
-            label="区间启动运行"
-            value={compactNumber(headlineCounts.runsStartedInWindow)}
-            detail={`已结束运行 ${compactNumber(headlineCounts.runsEnded)}（成功 ${compactNumber(headlineCounts.runsSuccessful)} · 失败/超时/中断 ${compactNumber(headlineCounts.runsUnsuccessful)}）· 仍在运行 ${compactNumber(headlineCounts.runsActive)}`}
-            icon={ZapIcon}
-            tone={headlineCounts.runsUnsuccessful > 0 ? "amber" : "green"}
-          />
-          <MetricCard
-            label="Token 与模型调用"
-            value={compactNumber(summary?.overview.total_tokens ?? 0)}
-            detail={`${compactNumber(summary?.overview.llm_calls ?? 0)} 次 LLM 调用，平均耗时 ${duration(summary?.overview.avg_run_duration_ms ?? 0)}`}
-            icon={BarChart3Icon}
-          />
-        </div>
+        <DashboardSectionContent value="overview">
+          <div className="grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4">
+            <MetricCard
+              label="活跃用户"
+              value={compactNumber(summary?.overview.active_users ?? 0)}
+              detail={`总用户 ${compactNumber(summary?.overview.total_users ?? 0)}，新增 ${compactNumber(summary?.overview.new_users ?? 0)}`}
+              icon={UsersIcon}
+              tone="green"
+            />
+            <MetricCard
+              label="区间新增会话"
+              value={compactNumber(headlineCounts.threadsCreatedInWindow)}
+              detail={`历史累计创建 ${compactNumber(headlineCounts.threadsCreatedAllTime)} · 当前保留（全历史） ${compactNumber(headlineCounts.threadsRetainedAllTime)} · 历史已删除 ${compactNumber(headlineCounts.threadsDeletedAllTime)}`}
+              icon={ActivityIcon}
+            />
+            <MetricCard
+              label="区间启动运行"
+              value={compactNumber(headlineCounts.runsStartedInWindow)}
+              detail={`已结束运行 ${compactNumber(headlineCounts.runsEnded)}（成功 ${compactNumber(headlineCounts.runsSuccessful)} · 失败/超时/中断 ${compactNumber(headlineCounts.runsUnsuccessful)}）· 仍在运行 ${compactNumber(headlineCounts.runsActive)}`}
+              icon={ZapIcon}
+              tone={headlineCounts.runsUnsuccessful > 0 ? "amber" : "green"}
+            />
+            <MetricCard
+              label="Token 与模型调用"
+              value={compactNumber(summary?.overview.total_tokens ?? 0)}
+              detail={`${compactNumber(summary?.overview.llm_calls ?? 0)} 次 LLM 调用，平均耗时 ${duration(summary?.overview.avg_run_duration_ms ?? 0)}`}
+              icon={BarChart3Icon}
+            />
+          </div>
 
-        <div className="min-w-0">
-          <Card className="min-w-0 rounded-lg shadow-none">
-            <CardHeader>
-              <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
-                <span className="flex items-center gap-2">
-                  <BarChart3Icon className="size-4" />
-                  用户活跃趋势
-                </span>
-                <span className="text-xs font-normal text-slate-500">
-                  区间新增{" "}
-                  {compactNumber(
-                    summary?.user_activity.reduce(
-                      (total, item) => total + item.threads,
-                      0,
-                    ) ?? 0,
-                  )}{" "}
-                  个会话 ·
-                  {summary?.activity_bucket === "week"
-                    ? " 按周聚合"
-                    : summary?.activity_bucket === "month"
-                      ? " 按约30天聚合"
-                      : summary?.activity_bucket === "year"
-                        ? " 按约1年聚合"
-                        : " 按日统计"}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ActivityTrend
-                items={summary?.user_activity ?? []}
-                bucket={summary?.activity_bucket ?? "day"}
-              />
-              <div className="mt-3 flex gap-4 text-xs text-slate-500">
-                <span className="inline-flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-slate-800" />
-                  区间新增会话数
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-emerald-500" />
-                  活跃用户
-                </span>
-              </div>
-              <p className="mt-2 text-xs text-slate-400">
-                按所选时间范围展示会话创建与活跃用户趋势，两组柱使用同一刻度。
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <FeedbackPanel summary={summary?.feedback} />
-        <FeedbackActorsPanel
-          key={`actors:${filters.hours}:${filters.start_at}:${filters.end_at}`}
-          filters={filters}
-          enabled={activityReportsReady}
-        />
-
-        {knowledgeQuery.isError ? null : (
-          <KnowledgeUsagePanel summary={knowledgeQuery.data} />
-        )}
-
-        <ScheduledTaskUsagePanel summary={summary?.scheduled_task_usage} />
-
-        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-          <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">
-            <CardHeader>
-              <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
-                <span className="flex items-center gap-2">
-                  <UsersIcon className="size-4 text-cyan-700" />
-                  用户运行排行
-                </span>
-                <span className="text-xs font-normal text-slate-500">
-                  所选区间历史运行
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <UserRanking items={summary?.user_usage ?? []} />
-            </CardContent>
-          </Card>
-          <EmployeeClicksPanel
-            key={`clicks:${filters.hours}:${filters.start_at}:${filters.end_at}`}
-            filters={filters}
-            enabled={activityReportsReady}
-          />
-        </div>
-
-        <RegisteredUserSessions />
-
-        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-          <RunRanking
-            title="慢运行排行（已结束）"
-            rows={rankingsQuery.data?.slow_runs ?? []}
-          />
-          <RunRanking
-            title="高 Token 运行排行（已结束）"
-            rows={rankingsQuery.data?.high_token_runs ?? []}
-          />
+          <div className="min-w-0">
+            <Card className="min-w-0 rounded-lg shadow-none">
+              <CardHeader>
+                <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+                  <span className="flex items-center gap-2">
+                    <BarChart3Icon className="size-4" />
+                    用户活跃趋势
+                  </span>
+                  <span className="text-xs font-normal text-slate-500">
+                    区间新增{" "}
+                    {compactNumber(
+                      summary?.user_activity.reduce(
+                        (total, item) => total + item.threads,
+                        0,
+                      ) ?? 0,
+                    )}{" "}
+                    个会话 ·
+                    {summary?.activity_bucket === "week"
+                      ? " 按周聚合"
+                      : summary?.activity_bucket === "month"
+                        ? " 按约30天聚合"
+                        : summary?.activity_bucket === "year"
+                          ? " 按约1年聚合"
+                          : " 按日统计"}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ActivityTrend
+                  items={summary?.user_activity ?? []}
+                  bucket={summary?.activity_bucket ?? "day"}
+                />
+                <div className="mt-3 flex gap-4 text-xs text-slate-500">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="size-2 rounded-full bg-slate-800" />
+                    区间新增会话数
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="size-2 rounded-full bg-emerald-500" />
+                    活跃用户
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-slate-400">
+                  按所选时间范围展示会话创建与活跃用户趋势，两组柱使用同一刻度。
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </DashboardSectionContent>
+        <DashboardSectionContent value="runs">
           <FailedRuns
             rows={failuresQuery.data?.items ?? []}
             total={failuresQuery.data?.total}
@@ -2141,8 +2161,66 @@ export default function DashboardPage() {
             }}
             onPageChange={setFailurePage}
           />
-        </div>
-      </div>
+          <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+            <RunRanking
+              title="慢运行排行（已结束）"
+              rows={rankingsQuery.data?.slow_runs ?? []}
+            />
+            <RunRanking
+              title="高 Token 运行排行（已结束）"
+              rows={rankingsQuery.data?.high_token_runs ?? []}
+            />
+          </div>
+          <ScheduledTaskUsagePanel summary={summary?.scheduled_task_usage} />
+        </DashboardSectionContent>
+        <DashboardSectionContent value="users">
+          <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+            <Card
+              data-testid="user-run-ranking"
+              className="min-h-0 min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur"
+            >
+              <CardHeader>
+                <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+                  <span className="flex items-center gap-2">
+                    <UsersIcon className="size-4 text-cyan-700" />
+                    用户运行排行
+                  </span>
+                  <span className="text-xs font-normal text-slate-500">
+                    所选区间历史运行
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex min-h-0 flex-1 flex-col">
+                <UserRanking items={summary?.user_usage ?? []} />
+              </CardContent>
+            </Card>
+            <EmployeeClicksPanel
+              key={`clicks:${filters.hours}:${filters.start_at}:${filters.end_at}`}
+              filters={filters}
+              enabled={activityReportsReady}
+            />
+          </div>
+
+          <RegisteredUserSessions enabled={ready && section === "users"} />
+          <FeedbackPanel summary={summary?.feedback} />
+          <FeedbackActorsPanel
+            key={`actors:${filters.hours}:${filters.start_at}:${filters.end_at}`}
+            filters={filters}
+            enabled={activityReportsReady}
+          />
+        </DashboardSectionContent>
+        <DashboardSectionContent value="knowledge">
+          {knowledgeQuery.isError ? null : (
+            <KnowledgeUsagePanel summary={knowledgeQuery.data} />
+          )}
+        </DashboardSectionContent>
+        <DashboardSectionContent value="models">
+          <ModelMonitorPanel enabled={ready && section === "models"} />
+        </DashboardSectionContent>
+        <DashboardSectionContent value="oa">
+          <ModelMonitorPanel scope="oa" enabled={ready && section === "oa"} />
+        </DashboardSectionContent>
+      </Tabs>
     </main>
   );
 }

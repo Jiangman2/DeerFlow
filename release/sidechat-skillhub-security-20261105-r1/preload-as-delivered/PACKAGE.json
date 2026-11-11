@@ -1,0 +1,43 @@
+{
+  "schema": "portal-sidechat-security-frontend-package.v1",
+  "manifest": "sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3",
+  "config": "sha256:0e24234e305f54a1e0aa160281ee7a463925b526ae358fbb66053fefd71ed821",
+  "qualified_image_id": "sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3",
+  "tag": "deerflow.local/deer-flow-frontend:20261105-sidechat-security-r1",
+  "archive": "frontend.sidechat-security-r1.full.oci.tar",
+  "transport": {
+    "bytes": 127456768,
+    "sha256": "402aa5df479bc57be3923555a32240dedf614a239c58ca999c5ec2998590b61c"
+  },
+  "scripts": {
+    "0015": {
+      "bytes": 89463,
+      "sha256": "185d36f62ba6f617a6185245215b8a57d6c60727bdceb613e2f59e733472b6c8",
+      "file": "preload-portal-frontend-sidechat-security-0015-20261105-r1.py",
+      "hostname": "ecs-zdz-pro-0015",
+      "expected_node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+      "prior_importer_sha256": "a68dcf1f762f6a871bde3a0319604de118eb938bd0c9e49af68544b9392268f6"
+    },
+    "datax02": {
+      "bytes": 91048,
+      "sha256": "bc94910416d06d6a6bfc4e409f3b36d6f54e3e36d49ebea71e1bda68feaff682",
+      "file": "preload-portal-frontend-sidechat-security-datax02-20261105-r1.py",
+      "hostname": "datax-02",
+      "expected_node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+      "prior_importer_sha256": "d885b1a68e9427adbebe1ba1e911bbb4d3bc5ff85e965d2bc3dc1608eaf77804"
+    }
+  },
+  "qualification_pin": {
+    "bytes": 2200,
+    "sha256": "344494a8a1b9513a5816266a070dfea536523c5ed42688b8c16cdc9324849aa8"
+  },
+  "source_inventory_pin": {
+    "bytes": 171511,
+    "sha256": "6af8cd3cb41f08dda3719d73076f160f6c9715d66a72c83c778a88272aea1b3a"
+  },
+  "capacity_checked_before_once_claim": true,
+  "old_references_preserved": true,
+  "fresh_node_uid_check_required_at_activation": true,
+  "production_workload_mutation": false,
+  "ready_for_rollout": false
+}

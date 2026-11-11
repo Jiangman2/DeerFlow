@@ -1,0 +1,54 @@
+{
+  "schema": "portal-dashboard-navigation-local-qualification.v1",
+  "status": "LOCAL_IMAGE_ACCEPTED_NOT_DEPLOYED",
+  "git_commit": "f4c33aab28f160581b10164b49305d208be1e6ef",
+  "image": "sha256:74c2e66ecc1c2e9b483faac428fc9211ff43bc0e0ed59ee141de379c678fdfb5",
+  "config": "sha256:36e1d830a55672dab51361c11e490fd8432da262fe1347ed369ec91d2d71ca40",
+  "runtime_source_files": 10,
+  "unchanged_build_inputs": 972,
+  "browser": [
+    {
+      "file": "dashboard-navigation-production-browser-r2.json",
+      "sha256": "d78effa9b28b577976b576bf7eafe4df631e74a06c58ab834b97373b69dfd6fc",
+      "passed": 22,
+      "failed": 0,
+      "base_url": "http://127.0.0.1:3188"
+    },
+    {
+      "file": "dashboard-navigation-production-related-r2.json",
+      "sha256": "ba84a5b5c3cbef85c27a05f694a144ebd755d1d85ca336f3956119a92a08fddf",
+      "passed": 4,
+      "failed": 0,
+      "base_url": "http://127.0.0.1:3188"
+    }
+  ],
+  "package_tests_windows": 6,
+  "package_tests_linux": 6,
+  "python37_guards": [
+    {
+      "role": "0015",
+      "python": "3.7.17",
+      "exitcode": 1,
+      "error_code": "fixed_frontend_node_required",
+      "import_requested": false,
+      "marker_claimed": false
+    },
+    {
+      "role": "datax02",
+      "python": "3.7.17",
+      "exitcode": 1,
+      "error_code": "fixed_frontend_node_required",
+      "import_requested": false,
+      "marker_claimed": false
+    }
+  ],
+  "source_verifiers": [
+    "dashboard-navigation",
+    "nov02",
+    "nov01",
+    "production-baseline-20261029"
+  ],
+  "production_writes": 0,
+  "gateway_modified": false,
+  "browser_production_acceptance_pending": true
+}

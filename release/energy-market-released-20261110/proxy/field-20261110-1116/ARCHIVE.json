@@ -1,0 +1,54 @@
+{
+  "collector_current": {
+    "generation": 3,
+    "spec_sha256": "20fec3d7b62d3a38925ab373fbb49680053049fee7c59b1853532074c6a04a33",
+    "uid": "e5f99800-6c58-4898-b22f-a8af9078b529"
+  },
+  "current_report_business_acceptance": "PENDING_REQUIRED_QUOTE_COMPLETENESS_AND_FULL_WORKFLOW",
+  "files": {
+    "operator-paste.txt": {
+      "bytes": 6342,
+      "sha256": "5c7a8a65564a265744884aea308ae0822073134f0278feeebd014d111d686473"
+    },
+    "proxy-activation.normalized.json": {
+      "bytes": 6586,
+      "sha256": "479da8d2663111422552ce38531089ce9e28012e3a92407e0fc8c5206046fe0d"
+    }
+  },
+  "history_inventories_and_offline_validation_preserved": true,
+  "market_state": "WAIT_DATA",
+  "normalization": "Markdown links normalized in derived JSON only; original paste retained byte-for-byte.",
+  "observed_at_beijing": "2026-11-10T11:16:56.944651+08:00",
+  "original_source": "C:\\Users\\15285\\.codex\\attachments\\c5ede002-f1ce-4527-b766-29cce9c5f335\\已粘贴的文本.txt",
+  "qualification": {
+    "active_original_processes": 0,
+    "activity_observation_is_not_a_lock": true,
+    "collector_sha256": "dee15a51dfaf497c9033a870146143b42ca2ae38f97ed5c3fc58176209c3fd00",
+    "credentials_read": false,
+    "entry_sha256": "91e6fcd4f9f6bba3307ae166b9e0188b6f6c816008db3aba8382cd23bff93f8f",
+    "files_modified": false,
+    "original_files": 158,
+    "provider_requests": 0,
+    "skill_sha256": "8bbeb3993343c9955f40416e9b952894d45cff94968ad3bc1fe340998eece95d",
+    "status": "ORIGINAL_AND_COLLECTOR_VERIFIED"
+  },
+  "quote_counts": {
+    "available": 5,
+    "missing": 9,
+    "non_trading": 0
+  },
+  "schema": "operator-proxy-activation-archive.v1",
+  "server_receipt_sha256_is_not_derived_json_sha256": true,
+  "transport_and_fresh_target_response": "ACCEPTED_FROM_OPERATOR_EVIDENCE",
+  "unavailable_codes": [
+    "LPG1177",
+    "LPG1179",
+    "LPG1224",
+    "LPG1225",
+    "LPG1226",
+    "LPG1227",
+    "LPGD59",
+    "LPGD60",
+    "XA0942"
+  ]
+}

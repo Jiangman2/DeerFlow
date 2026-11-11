@@ -1,0 +1,27 @@
+{
+  "schema": "portal-monitor-http-heatmap-browser-acceptance.v1",
+  "source": "operator response in this conversation",
+  "date": "2026-11-03",
+  "question_item_id": "[\"request_user_input_async\",\"call_b2a382e31d5045c98b3f564563732f58\",0]",
+  "gateway": 403,
+  "frontend": 239,
+  "reply": "热力图和监控均正常",
+  "requested_checks": [
+    "desktop refresh and mobile refresh",
+    "daily, weekly and cumulative Token heatmaps",
+    "consistent hover or tap tooltips with values",
+    "15 and 60 minute model monitoring and independent OA module display",
+    "whether the earlier HTTP 422 still appears in the browser console"
+  ],
+  "acceptance_scope": "The operator accepted the bundled browser check with the quoted response. This is user-reported UI acceptance, not a separately captured HTTP trace or a new production business-call test.",
+  "heatmap_ui_accepted": true,
+  "monitoring_ui_accepted": true,
+  "browser_acceptance_pending": false,
+  "individual_http_status_independently_captured": false,
+  "provider_request_tests_claimed": false,
+  "oa_business_request_tests_claimed": false,
+  "production_counter_accuracy_claimed": false,
+  "runtime_evidence": "deploy/enterprise/usage-heatmap-frontend-runtime-accepted-field-20261102-r2.json",
+  "original_runtime_evidence_preserved": true,
+  "status": "MONITOR_HTTP_HEATMAP_OPERATOR_BROWSER_ACCEPTED"
+}

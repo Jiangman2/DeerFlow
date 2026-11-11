@@ -1,0 +1,24 @@
+{
+  "schema": "skillhub-native-image-auth-qualification.v1",
+  "operation": "4e7a5a63ddb74a63a13dcff56c128d3e",
+  "production_mutations": 0,
+  "production_credentials_used": false,
+  "production_database_access": false,
+  "provider_requests": 0,
+  "only_synthetic_local_data": true,
+  "tests": [],
+  "status": "INCOMPLETE",
+  "baseline_image": "sha256:71a60be927744fca0c78c922f2aa4083283347cc4b17df60dde50263f20076e2",
+  "candidate_image": "sha256:4f3118867605fea38508bbc38014c731155b43296771c2cd61fb53d82f43bb68",
+  "runtime_identities": {
+    "baseline": {
+      "image_id": "sha256:71a60be927744fca0c78c922f2aa4083283347cc4b17df60dde50263f20076e2",
+      "jar_sha256": "6fc23f8056b763a1590a9953a83e6bee873e7bb2e935b2dddf93589585500363"
+    }
+  },
+  "error_class": "Refused",
+  "error_code": "APPLICATION_START_TIMEOUT_baseline",
+  "temporary_resources_cleaned": true,
+  "passed": 0,
+  "failed": 0
+}

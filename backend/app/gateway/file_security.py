@@ -8,6 +8,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock
 
 
 class UploadSecurityError(ValueError):
@@ -82,6 +83,8 @@ BLOCKED_UPLOAD_EXTENSIONS = frozenset(
 )
 
 MAX_PDF_SECURITY_SCAN_BYTES = 128 * 1024 * 1024
+# PDFium is process-global. Serialize native Work, upload and preview calls.
+PDFIUM_LOCK = Lock()
 _PDF_MAGIC = b"%PDF-"
 _PDF_NAME_ESCAPE_RE = re.compile(rb"#([0-9A-Fa-f]{2})")
 _PDF_OPEN_ACTION_RE = re.compile(rb"/OpenAction(?![A-Za-z0-9#])", re.IGNORECASE)
@@ -236,7 +239,8 @@ def _sanitize_pdf_to_inert_bytes(payload: bytes) -> bytes:
 
 
 def _replace_with_sanitized_pdf(path: Path, payload: bytes) -> None:
-    sanitized = _sanitize_pdf_to_inert_bytes(payload)
+    with PDFIUM_LOCK:
+        sanitized = _sanitize_pdf_to_inert_bytes(payload)
     if not sanitized[:1024].lstrip().startswith(_PDF_MAGIC):
         raise ValueError("sanitizer did not produce a PDF")
     temp_fd, temp_path_str = tempfile.mkstemp(

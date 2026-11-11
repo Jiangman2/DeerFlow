@@ -1,0 +1,14 @@
+{
+  "base_tree": "6c31ffdcabdf8f2852304e6b3528835880f9be0e",
+  "status": "NOT_DEPLOYED",
+  "changes": {
+    "backend/packages/harness/deerflow/agents/middlewares/artifact_delivery_middleware.py": {
+      "base_sha256": "abc9fba6b4ef895460eed366b06c7ffa4472bcf4f77a1e2714e8aef14232877f",
+      "current_sha256": "47b80e6bb928f8e8da40537517399bcdc37d85e3835d2f448c20fbc1a59a4078"
+    },
+    "backend/tests/test_directory_listing_delivery.py": {
+      "base_sha256": "beecc7d6b07a2e2efa3d116b6fdd8d4e41d8ac71aed40b002d00d1e7b30d12a3",
+      "current_sha256": "a12c778066bb45a1de3a4a3a028a9da2cefc7b2ebf8ae22625f65b9d10bd705a"
+    }
+  }
+}

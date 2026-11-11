@@ -144,16 +144,53 @@ def zero_budget_narrative_paragraph_indices(case: dict[str, Any]) -> tuple[int, 
     return tuple(sorted(omitted))
 
 
-def _expense_sentence(item: dict[str, Any]) -> str:
-    adjusted = _effective_approved_budget(item)
-    sentence = (
-        f"{item.get('name', '')}：批复概预算{_money(adjusted, True)}，"
-        f"实际支出{_money(item.get('recognized'), True)}，"
-        f"结余（负数为超支）{_money(item.get('balance'), True)}。"
-    )
+def _reason_text(item: dict[str, Any], label: str) -> str:
     reason = str(item.get("variance_reason") or "").strip()
-    if reason:
-        sentence += f"结余原因：{reason}。"
+    if reason.startswith("结余主要原因："):
+        return reason
+    return f"{label}{reason}"
+
+
+def _expense_sentence(item: dict[str, Any], template_text: str) -> str:
+    """Fill amounts without discarding the template's expense-purpose prose.
+
+    ``description`` is the existing evidence-backed project-detail field. Missing
+    contract details are not a zero-contract declaration. Variance reasons belong
+    in the separate balance section, except the template's equipment savings note.
+    """
+    sentence = template_text
+    for placeholder, value in (
+        ("批复概预算XXX万元", _effective_approved_budget(item)),
+        ("实际支出XXX万元", item.get("recognized")),
+        ("结余XXX万元", item.get("balance")),
+    ):
+        if sentence.count(placeholder) != 1:
+            raise ValueError("支出用途模板金额槽位与已审核合同不一致")
+        label = placeholder.split("XXX", 1)[0]
+        sentence = sentence.replace(placeholder, label + _money(value, True), 1)
+
+    if item.get("code") == "equipment_software":
+        note = "（如有节约：说明原因，如方案优化、国产化替代、招标降价、取消冗余设备采购等）"
+        reason = str(item.get("variance_reason") or "").strip()
+        balance = item.get("balance")
+        savings = (
+            _reason_text(item, "节约原因：").rstrip("。") + "。"
+            if reason and balance is not None and Decimal(str(balance)) > 0 else ""
+        )
+        sentence = sentence.replace(note, savings)
+    elif item.get("code") == "external_testing":
+        sentence = sentence.replace(
+            "（本项目签订外协合同共计XXX项，合同名称分别为XXX内容，用于支撑项目研究XXX内容）。",
+            "",
+        )
+    elif item.get("code") == "commissioned_research":
+        # Appendix 4 names only outside-group contractors, not all contractors.
+        # Their verified names remain in the following external-ratio paragraph.
+        sentence = sentence.replace("委托XXX等单位", "委托相关单位")
+
+    description = str(item.get("description") or "").strip()
+    if description:
+        sentence += description.rstrip("。") + "。"
     return sentence
 
 
@@ -233,12 +270,17 @@ def _fill_cover_and_narrative(
     _set_paragraph(paragraphs, 4, owning_company)
     _set_paragraph(paragraphs, 5, f"科技项目(课题)验收财务{pre_marker}决算报告")
     _set_paragraph(paragraphs, 17, f"项目(课题)名称：{project.get('name', '')}")
-    _set_paragraph(paragraphs, 18, f"项 目 类 型：{entity_label}科技项目")
+    # Older case files do not contain the original cell text; keep their prior
+    # cover behavior until the source workbook is explicitly reimported.
+    type_text = project.get("type_text")
+    if type_text is None:
+        type_text = f"{entity_label}科技项目"
+    _set_paragraph(paragraphs, 18, f"项 目 类 型：{type_text}")
     _set_paragraph(paragraphs, 19, f"承 担 单 位：{lead_name}")
     _set_paragraph(
         paragraphs,
         20,
-        f"起 止 时 间：{_date_cn(project.get('start_date'))} 至 {_date_cn(project.get('end_date'))}",
+        "起 止 时 间：" + (project.get("period_text") or f"{_date_cn(project.get('start_date'))} 至 {_date_cn(project.get('end_date'))}"),
     )
     _set_paragraph(paragraphs, 22, f"报告编制人（签字）：{report.get('prepared_by', '')}")
     _set_paragraph(
@@ -270,7 +312,7 @@ def _fill_cover_and_narrative(
 
     adjustments = get_path(case, "funding.adjustments", {}) or {}
     items = adjustments.get("items") or []
-    if adjustments.get("none_declared"):
+    if adjustments.get("none_declared") is True:
         _set_paragraph(paragraphs, 76, "经核实，项目执行期间未发生概预算变更或调剂。")
         for index in range(77, 85):
             _set_paragraph(paragraphs, index, "")
@@ -280,7 +322,25 @@ def _fill_cover_and_narrative(
             for item in items
             if str(item.get("level") or "").lower() in {"major", "重大变更"}
         ]
-        general = [item for item in items if item not in major]
+        general = [
+            item for item in items
+            if str(item.get("level") or "").lower() in {"general", "一般变更", "预算调剂"}
+        ]
+        unclassified = [item for item in items if item not in major and item not in general]
+        # Missing classification or approval is a disclosure, never an invented fact.
+        _set_paragraph(
+            paragraphs, 76,
+            "；".join(
+                "概预算变更事项（" + (
+                    f"原填报分类：{item['level']}" if item.get("level") else "分类未提供"
+                ) + "）：" + "，".join(
+                    f"{label}：{item[field]}" for field, label in
+                    (("content", "调整内容"), ("reason", "调整理由"), ("approval", "调整批复情况"))
+                    if item.get(field)
+                )
+                for item in unclassified
+            ),
+        )
 
         def combine(group: list[dict[str, Any]], field: str) -> str:
             return "；".join(str(item.get(field) or "") for item in group if item.get(field))
@@ -310,9 +370,15 @@ def _fill_cover_and_narrative(
                     _set_paragraph(paragraphs, index, "")
                 continue
             for index, label, field in rows:
-                _set_paragraph(paragraphs, index, f"{label}：{combine(group, field)}。")
+                value = combine(group, field)
+                _set_paragraph(paragraphs, index, f"{label}：{value}。" if value else "")
     else:
-        for index in range(76, 85):
+        _set_paragraph(
+            paragraphs, 76,
+            "已填报发生概预算变更，变更明细未提供。"
+            if adjustments.get("none_declared") is False else "未提供概预算变更说明。",
+        )
+        for index in range(77, 85):
             _set_paragraph(paragraphs, index, "")
 
     annual_text = "、".join(
@@ -340,13 +406,21 @@ def _fill_cover_and_narrative(
         if item.get("scope") == "indirect"
     )
     budget_execution_summary = (
-        f"截至{_date_cn(report.get('cutoff_date'))}，本项目任务合同书批复概预算总额"
+        "截至决算报告编制日，本项目任务合同书批复概预算总额"
         f"{_money(get_path(case, 'funding.approved_total'), True)}，经费实际支出"
         f"{_money(totals.get('recognized'), True)}，预算执行率"
         f"{_percent(totals.get('execution_rate'))}。其中：直接经费支出"
         f"{_money(direct_spent, True)}，间接经费支出"
         f"{_money(indirect_spent, True)}。"
     )
+    direct_only = get_path(case, "_derived.budget_execution_scope") == "direct_only"
+    if direct_only:
+        budget_execution_summary = (
+            "截至决算报告编制日，本项目任务合同书批复概预算总额"
+            f"{_money(get_path(case, 'funding.approved_total'), True)}，预算执行支出"
+            f"（直接经费）{_money(totals.get('recognized'), True)}，预算执行率"
+            f"{_percent(totals.get('execution_rate'))}。"
+        )
     _set_paragraph(
         paragraphs,
         97,
@@ -361,29 +435,37 @@ def _fill_cover_and_narrative(
         else "",
     )
     for index, code in EXPENSE_NARRATIVE_PARAGRAPHS.items():
-        _set_paragraph(paragraphs, index, _expense_sentence(_expense(case, code)))
-    commissioned = _expense(case, "commissioned_research")
-    ratio = (
-        Decimal(str(commissioned.get("recognized") or 0)) / direct_spent * 100
-        if direct_spent
-        else Decimal("0")
+        template_text = "".join(paragraphs[index].xpath(".//w:t/text()", namespaces=NS))
+        _set_paragraph(paragraphs, index, _expense_sentence(_expense(case, code), template_text))
+    outsourcing = get_path(case, "_derived.outsourcing", {})
+    ratio = outsourcing.get("commissioned_to_direct_percent")
+    ratio_text = (
+        f"外委比例情况：外委研究费占直接经费总支出比例{_percent(ratio)}。"
+        if ratio is not None else "外委比例情况：直接经费总支出为零，外委研究费占比不适用。"
     )
+    external_ratio = outsourcing.get("external_to_direct_percent")
+    if external_ratio is not None:
+        ratio_text = ratio_text.rstrip("。") + f"，其中委托系统外单位的外委研究费占直接经费总支出比例{_percent(external_ratio)}。"
+        organizations = outsourcing.get("external_organizations") or []
+        if organizations:
+            ratio_text += "受托单位分别为：" + "、".join(organizations) + "。"
     _set_paragraph(
         paragraphs,
         COMMISSIONED_RATIO_PARAGRAPH,
-        f"外委研究费占直接经费总支出的比例为{_percent(ratio)}。",
+        ratio_text,
     )
     _set_paragraph(
         paragraphs,
         113,
-        f"截至决算报告编制日，本项目概预算结余共计{_money(totals.get('balance'), True)}，各项预算结余情况说明如下：",
+        f"截至决算报告编制日，本项目{'直接经费预算' if direct_only else '概预算'}结余共计{_money(totals.get('balance'), True)}，各项预算结余情况说明如下：",
     )
     for index, code in BALANCE_NARRATIVE_PARAGRAPHS.items():
         item = _expense(case, code)
         _set_paragraph(
             paragraphs,
             index,
-            f"{item.get('name', '')}：结余（负数为超支）{_money(item.get('balance'), True)}，结余比例{_percent(item.get('variance_rate'))}。结余主要原因：{item.get('variance_reason') or ''}",
+            f"{item.get('name', '')}：结余（负数为超支）{_money(item.get('balance'), True)}，结余比例{_percent(item.get('variance_rate'))}。"
+            + _reason_text(item, "结余主要原因："),
         )
     _set_paragraph(
         paragraphs,

@@ -1,0 +1,375 @@
+{
+  "receipt": {
+    "accepted_pods": [
+      {
+        "node": "ecs-zdz-pro-0015",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 9,
+          "status": "PASS"
+        },
+        "pod": "frontend-68759494-lggwz",
+        "uid": "a16bcace-69ac-42fb-850a-d1be68905895"
+      },
+      {
+        "node": "datax-02",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 9,
+          "status": "PASS"
+        },
+        "pod": "frontend-68759494-tfgg7",
+        "uid": "e453d485-09bc-4542-8ae4-06a10dd844fd"
+      }
+    ],
+    "after": {
+      "frontend": {
+        "generation": 242,
+        "spec_sha256": "466f939da97dcc51db698b5e0d2eee2d5d701064d7e3773bd704af0f6deee5cf",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 408,
+        "spec_sha256": "05691890fb9a36e8075fe947d5214501f3ac10f86b35188bbb3a8d48d4ef630e",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx": {
+        "generation": 116,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+      },
+      "nginx-security-heai-20261012-r1": {
+        "generation": 2,
+        "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+        "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d"
+      },
+      "ppt-master-runner": {
+        "generation": 58,
+        "spec_sha256": "8602f3a5cf40ff97c3f9ee36d792e0c76ae37be53469b8146be41d3409719934",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      },
+      "provisioner": {
+        "generation": 86,
+        "spec_sha256": "009352242b1f12bb361b0874aff9ecc6d72b9d4003b4c1e54988f786c6fe7dd2",
+        "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+      }
+    },
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "before": {
+      "frontend": {
+        "generation": 241,
+        "spec_sha256": "f48dcd7f2a54bc8867fcfa77f84682c22d3e6993fd0091779d1e639f8fee313a",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 408,
+        "spec_sha256": "05691890fb9a36e8075fe947d5214501f3ac10f86b35188bbb3a8d48d4ef630e",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "nginx": {
+        "generation": 116,
+        "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+        "uid": "10fb043a-eaee-433e-bce0-80688e798611"
+      },
+      "nginx-security-heai-20261012-r1": {
+        "generation": 2,
+        "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+        "uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d"
+      },
+      "ppt-master-runner": {
+        "generation": 58,
+        "spec_sha256": "8602f3a5cf40ff97c3f9ee36d792e0c76ae37be53469b8146be41d3409719934",
+        "uid": "4115f178-0599-445e-89c3-9d9452ddc26a"
+      },
+      "provisioner": {
+        "generation": 86,
+        "spec_sha256": "009352242b1f12bb361b0874aff9ecc6d72b9d4003b4c1e54988f786c6fe7dd2",
+        "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+      }
+    },
+    "browser_acceptance_pending": true,
+    "cache_checks": [
+      {
+        "job": "portal-sidechat-security-cache-b6eb864391124ae7-0",
+        "job_uid": "782cb455-1006-4bea-949a-18d2e11ac47f",
+        "node": "datax-02",
+        "node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+        "observation": {
+          "files_verified": 12,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "status": "LOCAL_PRELOADED_IMAGE_EXECUTED"
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "[deerflow.local/deer-flow-frontend@sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3](http://deerflow.local/deer-flow-frontend@sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3)",
+                "restart_count": 0,
+                "waiting_reason": null
+              }
+            ],
+            "node": "datax-02",
+            "phase": "Succeeded",
+            "pod": "portal-sidechat-security-cache-b6eb864391124ae7-0-k4ld4",
+            "uid": "5d854259-159d-4c5c-a8db-f401f37d739e"
+          }
+        ],
+        "status": "PASS"
+      },
+      {
+        "job": "portal-sidechat-security-cache-b6eb864391124ae7-1",
+        "job_uid": "dac4f6fe-5f00-49a6-9ed4-9f8e431ac31f",
+        "node": "ecs-zdz-pro-0015",
+        "node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+        "observation": {
+          "files_verified": 12,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "status": "LOCAL_PRELOADED_IMAGE_EXECUTED"
+        },
+        "pods": [
+          {
+            "containers": [
+              {
+                "exit_code": 0,
+                "imageID": "[deerflow.local/deer-flow-frontend@sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3](http://deerflow.local/deer-flow-frontend@sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3)",
+                "restart_count": 0,
+                "waiting_reason": null
+              }
+            ],
+            "node": "ecs-zdz-pro-0015",
+            "phase": "Succeeded",
+            "pod": "portal-sidechat-security-cache-b6eb864391124ae7-1-tkk7r",
+            "uid": "e2324a33-70b1-4041-b734-d0b3689ceb40"
+          }
+        ],
+        "status": "PASS"
+      }
+    ],
+    "cache_config": "sha256:0e24234e305f54a1e0aa160281ee7a463925b526ae358fbb66053fefd71ed821",
+    "cache_manifest": "sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3",
+    "check_job_ttl_seconds": 3600,
+    "database_access": false,
+    "directory": "/var/lib/portal-frontend-sidechat-security-activation-20261106-r1-b6eb864391124ae79231049ecc74c517",
+    "elapsed_seconds": 55.563,
+    "exitcode": 0,
+    "fresh_nodes_after": [
+      {
+        "candidate_in_node_status": false,
+        "name": "datax-02",
+        "reported_images": 50,
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "candidate_in_node_status": true,
+        "name": "ecs-zdz-pro-0015",
+        "reported_images": 50,
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      }
+    ],
+    "fresh_nodes_before": [
+      {
+        "candidate_in_node_status": false,
+        "name": "datax-02",
+        "reported_images": 50,
+        "uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec"
+      },
+      {
+        "candidate_in_node_status": true,
+        "name": "ecs-zdz-pro-0015",
+        "reported_images": 50,
+        "uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085"
+      }
+    ],
+    "frontend_node_coverage": {
+      "additional_nodes": [
+        "datax-01",
+        "datax-03",
+        "ecs-zdz-pro-0000",
+        "ecs-zdz-pro-0005",
+        "ecs-zdz-pro-0008",
+        "ecs-zdz-pro-0011",
+        "ecs-zdz-pro-0012",
+        "ecs-zdz-pro-0013",
+        "ecs-zdz-pro-0014",
+        "ecs-zdz-pro-0016",
+        "ecs-zdz-pro-0017",
+        "ecs-zdz-pro-0018",
+        "ecs-zdz-pro-0019",
+        "ecs-zdz-pro-0020",
+        "ecs-zdz-pro-0021",
+        "ecs-zdz-pro-0022"
+      ],
+      "missing_pinned_nodes": [],
+      "observed_node_count": 18,
+      "preloaded_node_count": 2,
+      "role_matrix": {
+        "frontend": {
+          "excluded_nodes": {
+            "datax-01": [
+              "required_node_affinity"
+            ],
+            "datax-03": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0000": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0005": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0008": [
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0011": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0012": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0013": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0014": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0016": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0017": [
+              "required_node_affinity"
+            ],
+            "ecs-zdz-pro-0018": [
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0019": [
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0020": [
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0021": [
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ],
+            "ecs-zdz-pro-0022": [
+              "required_node_affinity",
+              "untolerated_hard_taint"
+            ]
+          },
+          "potential_nodes": [
+            "datax-02",
+            "ecs-zdz-pro-0015"
+          ],
+          "uncovered_nodes": []
+        }
+      },
+      "status": "ROLE_NODE_COVERAGE_ACCEPTED",
+      "uid_mismatches": [],
+      "unhealthy_pinned_nodes": []
+    },
+    "gateway_business_acceptance_claimed": false,
+    "gateway_deployment_rechecked": true,
+    "gateway_observed_binding": {
+      "generation": 408,
+      "spec_sha256": "05691890fb9a36e8075fe947d5214501f3ac10f86b35188bbb3a8d48d4ef630e",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "image_pull_policy": "Never",
+    "nginx_configuration_semantics_verified": false,
+    "once_claimed": true,
+    "operation": "b6eb864391124ae79231049ecc74c517",
+    "other_workload_mutation": false,
+    "patch_acknowledged_by_readback": true,
+    "patch_dispatched": true,
+    "patch_may_have_applied": true,
+    "patch_request_count": 1,
+    "patch_requested": true,
+    "ppt_guard_configuration_semantics_verified": false,
+    "preflight_retry_available": false,
+    "preload_evidence_scope": "operator_summaries_and_fresh_dual_node_image_execution",
+    "prior_frontend_receipt": {
+      "frontend": {
+        "generation": 241,
+        "spec_sha256": "f48dcd7f2a54bc8867fcfa77f84682c22d3e6993fd0091779d1e639f8fee313a",
+        "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+      },
+      "gateway": {
+        "generation": 408,
+        "spec_sha256": "05691890fb9a36e8075fe947d5214501f3ac10f86b35188bbb3a8d48d4ef630e",
+        "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+      },
+      "scope": "operator_observed_deployment_identity"
+    },
+    "provider_requests": 0,
+    "report_bytes": 35820,
+    "report_path": "/var/lib/portal-frontend-sidechat-security-activation-20261106-r1-b6eb864391124ae79231049ecc74c517/REPORT.json",
+    "report_sha256": "520583281155c8d5b37a3c7419eee70c81621a72de0519b5a9b3ec7b6635e3e3",
+    "runtime": [
+      {
+        "node": "ecs-zdz-pro-0015",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 9,
+          "status": "PASS"
+        },
+        "pod": "frontend-68759494-lggwz",
+        "uid": "a16bcace-69ac-42fb-850a-d1be68905895"
+      },
+      {
+        "node": "datax-02",
+        "observation": {
+          "bytes": 7520,
+          "http_status": 307,
+          "provider_requests": 0,
+          "sources_verified": true,
+          "static_assets_verified": 9,
+          "status": "PASS"
+        },
+        "pod": "frontend-68759494-tfgg7",
+        "uid": "e453d485-09bc-4542-8ae4-06a10dd844fd"
+      }
+    ],
+    "schema": "portal-frontend-sidechat-security-activation.v1",
+    "schema_migration_requested": false,
+    "services_preserved": true,
+    "skillhub_native_auth_remediation_included": false,
+    "stage_passed": true,
+    "status": "FRONTEND_SIDECHAT_SECURITY_RUNTIME_ACCEPTED_BROWSER_PENDING",
+    "temporary_jobs_created": [
+      {
+        "creation_requested": true,
+        "name": "portal-sidechat-security-cache-b6eb864391124ae7-0"
+      },
+      {
+        "creation_requested": true,
+        "name": "portal-sidechat-security-cache-b6eb864391124ae7-1"
+      }
+    ],
+    "tool_revision": "r1",
+    "unrelated_specs_preserved": true,
+    "work_datalake_activated": false
+  },
+  "receipt_scope": "operator_pasted_terminal_summary_not_full_private_report",
+  "schema": "portal-sidechat-activation-operator-field.v1",
+  "source_attachment": {
+    "bytes": 9987,
+    "sha256": "33f23966b53eb6cae33a202832ee15262fba6ece640af4184b58cb0d2fa36954"
+  }
+}

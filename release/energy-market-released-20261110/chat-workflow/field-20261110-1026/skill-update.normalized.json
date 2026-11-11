@@ -1,0 +1,310 @@
+{
+  "after": {
+    "energy-market-collector": {
+      "generation": 2,
+      "spec_sha256": "72274a8615d2326ec18568d1c1df5ad4cb95a1329c900ab9cb1543bfb2d0f846",
+      "uid": "e5f99800-6c58-4898-b22f-a8af9078b529"
+    },
+    "frontend": {
+      "generation": 243,
+      "spec_sha256": "8b9c78dac10bfdd4cb656e813918dd0998c7351956d03cf1203efb0214e40aaf",
+      "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+    },
+    "gateway": {
+      "generation": 411,
+      "spec_sha256": "ec5e8fb70bb35369eee0501d64f76d6b51fbbaa63d02cf3e96fc790b24b9d4e8",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "provisioner": {
+      "generation": 86,
+      "spec_sha256": "009352242b1f12bb361b0874aff9ecc6d72b9d4003b4c1e54988f786c6fe7dd2",
+      "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+    }
+  },
+  "automatic_retry": false,
+  "automatic_rollback": false,
+  "before": {
+    "energy-market-collector": {
+      "generation": 2,
+      "spec_sha256": "72274a8615d2326ec18568d1c1df5ad4cb95a1329c900ab9cb1543bfb2d0f846",
+      "uid": "e5f99800-6c58-4898-b22f-a8af9078b529"
+    },
+    "frontend": {
+      "generation": 243,
+      "spec_sha256": "8b9c78dac10bfdd4cb656e813918dd0998c7351956d03cf1203efb0214e40aaf",
+      "uid": "bb0b3f6e-31f7-4073-8b76-7650ea5b96ee"
+    },
+    "gateway": {
+      "generation": 411,
+      "spec_sha256": "ec5e8fb70bb35369eee0501d64f76d6b51fbbaa63d02cf3e96fc790b24b9d4e8",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "provisioner": {
+      "generation": 86,
+      "spec_sha256": "009352242b1f12bb361b0874aff9ecc6d72b9d4003b4c1e54988f786c6fe7dd2",
+      "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+    }
+  },
+  "business_acceptance_pending": true,
+  "candidate_sha256": {
+    "SKILL.md": "8bbeb3993343c9955f40416e9b952894d45cff94968ad3bc1fe340998eece95d",
+    "scripts/entry.py": "91e6fcd4f9f6bba3307ae166b9e0188b6f6c816008db3aba8382cd23bff93f8f"
+  },
+  "commands": 61,
+  "consumers": [
+    {
+      "attempts": 1,
+      "container": "gateway",
+      "node": "ecs-zdz-pro-0018",
+      "observation": {
+        "credentials_read": false,
+        "files": {
+          "SKILL.md": "8bbeb3993343c9955f40416e9b952894d45cff94968ad3bc1fe340998eece95d",
+          "UPSTREAM.json": "e44fbbdd3a6423fabe1bfac58e5a0684a3cf9dd88188eb34e2659201102ff0d9",
+          "assets/energy-daily-v1.0.original.zip": "eb66843bbe6170d86d33b65efa593be263e778275c6f7d491e1fd0c3c6d98f99",
+          "scripts/entry.py": "91e6fcd4f9f6bba3307ae166b9e0188b6f6c816008db3aba8382cd23bff93f8f",
+          "upstream/MANIFEST.sha256.json": "1ef727edbfd85ef265194b9f638dff74f9c3522f6ed2195d8f241c525dc27318"
+        },
+        "files_modified": false,
+        "provider_requests": 0,
+        "status": "FIXED_SKILL_FILES_OBSERVED"
+      },
+      "pod": "gateway-55948d6587-425w7",
+      "uid": "d048f6a8-f589-479c-af85-5ddb12a4286a"
+    },
+    {
+      "attempts": 1,
+      "container": "gateway",
+      "node": "ecs-zdz-pro-0019",
+      "observation": {
+        "credentials_read": false,
+        "files": {
+          "SKILL.md": "8bbeb3993343c9955f40416e9b952894d45cff94968ad3bc1fe340998eece95d",
+          "UPSTREAM.json": "e44fbbdd3a6423fabe1bfac58e5a0684a3cf9dd88188eb34e2659201102ff0d9",
+          "assets/energy-daily-v1.0.original.zip": "eb66843bbe6170d86d33b65efa593be263e778275c6f7d491e1fd0c3c6d98f99",
+          "scripts/entry.py": "91e6fcd4f9f6bba3307ae166b9e0188b6f6c816008db3aba8382cd23bff93f8f",
+          "upstream/MANIFEST.sha256.json": "1ef727edbfd85ef265194b9f638dff74f9c3522f6ed2195d8f241c525dc27318"
+        },
+        "files_modified": false,
+        "provider_requests": 0,
+        "status": "FIXED_SKILL_FILES_OBSERVED"
+      },
+      "pod": "gateway-55948d6587-28xx9",
+      "uid": "2aeb99d6-0f93-4678-9297-7561fdc2ba2a"
+    },
+    {
+      "attempts": 1,
+      "container": "gateway",
+      "node": "ecs-zdz-pro-0020",
+      "observation": {
+        "credentials_read": false,
+        "files": {
+          "SKILL.md": "8bbeb3993343c9955f40416e9b952894d45cff94968ad3bc1fe340998eece95d",
+          "UPSTREAM.json": "e44fbbdd3a6423fabe1bfac58e5a0684a3cf9dd88188eb34e2659201102ff0d9",
+          "assets/energy-daily-v1.0.original.zip": "eb66843bbe6170d86d33b65efa593be263e778275c6f7d491e1fd0c3c6d98f99",
+          "scripts/entry.py": "91e6fcd4f9f6bba3307ae166b9e0188b6f6c816008db3aba8382cd23bff93f8f",
+          "upstream/MANIFEST.sha256.json": "1ef727edbfd85ef265194b9f638dff74f9c3522f6ed2195d8f241c525dc27318"
+        },
+        "files_modified": false,
+        "provider_requests": 0,
+        "status": "FIXED_SKILL_FILES_OBSERVED"
+      },
+      "pod": "gateway-55948d6587-2n2hw",
+      "uid": "52cc92c7-64ed-45bf-9670-5b873fe13980"
+    },
+    {
+      "attempts": 1,
+      "container": "gateway",
+      "node": "ecs-zdz-pro-0021",
+      "observation": {
+        "credentials_read": false,
+        "files": {
+          "SKILL.md": "8bbeb3993343c9955f40416e9b952894d45cff94968ad3bc1fe340998eece95d",
+          "UPSTREAM.json": "e44fbbdd3a6423fabe1bfac58e5a0684a3cf9dd88188eb34e2659201102ff0d9",
+          "assets/energy-daily-v1.0.original.zip": "eb66843bbe6170d86d33b65efa593be263e778275c6f7d491e1fd0c3c6d98f99",
+          "scripts/entry.py": "91e6fcd4f9f6bba3307ae166b9e0188b6f6c816008db3aba8382cd23bff93f8f",
+          "upstream/MANIFEST.sha256.json": "1ef727edbfd85ef265194b9f638dff74f9c3522f6ed2195d8f241c525dc27318"
+        },
+        "files_modified": false,
+        "provider_requests": 0,
+        "status": "FIXED_SKILL_FILES_OBSERVED"
+      },
+      "pod": "gateway-55948d6587-24bz6",
+      "uid": "21b86e1f-711b-4c29-8af9-dbd4284077a9"
+    },
+    {
+      "attempts": 1,
+      "container": "gateway",
+      "node": "ecs-zdz-pro-0022",
+      "observation": {
+        "credentials_read": false,
+        "files": {
+          "SKILL.md": "8bbeb3993343c9955f40416e9b952894d45cff94968ad3bc1fe340998eece95d",
+          "UPSTREAM.json": "e44fbbdd3a6423fabe1bfac58e5a0684a3cf9dd88188eb34e2659201102ff0d9",
+          "assets/energy-daily-v1.0.original.zip": "eb66843bbe6170d86d33b65efa593be263e778275c6f7d491e1fd0c3c6d98f99",
+          "scripts/entry.py": "91e6fcd4f9f6bba3307ae166b9e0188b6f6c816008db3aba8382cd23bff93f8f",
+          "upstream/MANIFEST.sha256.json": "1ef727edbfd85ef265194b9f638dff74f9c3522f6ed2195d8f241c525dc27318"
+        },
+        "files_modified": false,
+        "provider_requests": 0,
+        "status": "FIXED_SKILL_FILES_OBSERVED"
+      },
+      "pod": "gateway-55948d6587-64sl9",
+      "uid": "e1f8e090-a83d-49cc-9017-fc7f98277c90"
+    },
+    {
+      "attempts": 1,
+      "container": "collector",
+      "node": "ecs-zdz-pro-0015",
+      "observation": {
+        "credentials_read": false,
+        "files": {
+          "SKILL.md": "8bbeb3993343c9955f40416e9b952894d45cff94968ad3bc1fe340998eece95d",
+          "UPSTREAM.json": "e44fbbdd3a6423fabe1bfac58e5a0684a3cf9dd88188eb34e2659201102ff0d9",
+          "assets/energy-daily-v1.0.original.zip": "eb66843bbe6170d86d33b65efa593be263e778275c6f7d491e1fd0c3c6d98f99",
+          "scripts/entry.py": "91e6fcd4f9f6bba3307ae166b9e0188b6f6c816008db3aba8382cd23bff93f8f",
+          "upstream/MANIFEST.sha256.json": "1ef727edbfd85ef265194b9f638dff74f9c3522f6ed2195d8f241c525dc27318"
+        },
+        "files_modified": false,
+        "provider_requests": 0,
+        "status": "FIXED_SKILL_FILES_OBSERVED"
+      },
+      "pod": "energy-market-collector-79c76d5f7-m2qvr",
+      "uid": "54d402cd-b29c-4690-a349-0293c0481e46"
+    }
+  ],
+  "credentials_exported": false,
+  "credentials_read": false,
+  "elapsed_seconds": 35.962,
+  "existing_deployment_mutations": 0,
+  "infrastructure": {
+    "node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+    "pvc": {
+      "generation": null,
+      "spec_sha256": "118e6b4242677ff3ec750054f965f1bd76039f22a4ec650514cd64a4f0e8c909",
+      "uid": "5bd3d4ed-54df-45c7-8954-d32ff8e53ec9"
+    }
+  },
+  "last_step": "complete",
+  "maintenance_create_requested": true,
+  "maintenance_delete_acknowledged": true,
+  "maintenance_delete_requested": true,
+  "maintenance_pod": "energy-chatfix-maint-2a6671699792",
+  "maintenance_pod_absent": true,
+  "maintenance_pod_uid": "d812c8f7-e718-46e9-a216-15a586016069",
+  "maintenance_runtime": {
+    "container_id_sha256": "e0c43ba054028af0fef2abe7e40158482ca06b0fc7a1090d3ac4f63711bfc9be",
+    "generation": 1,
+    "image_id": "sha256:fb36911f899cc43f1228ee4d0701130761b43b3e9792320bf4e0f16f41f0bec8",
+    "node": "ecs-zdz-pro-0015",
+    "restart_count": 0,
+    "running_since": "2026-11-10T02:24:50Z",
+    "spec_sha256": "705e8e38327cbb2b50599e2a5e7bd14c6e271f34f06a574ce6782322ae6cdced",
+    "uid": "d812c8f7-e718-46e9-a216-15a586016069"
+  },
+  "observed_at": "2026-11-10T02:25:22.165811+00:00",
+  "once_claimed": true,
+  "operation": "2a66716997924d74bca59efe547b86f7",
+  "provider_requests": 0,
+  "publication": {
+    "applied": [
+      "scripts/entry.py",
+      "SKILL.md"
+    ],
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "backup_path": "/mnt/skills/.energy-market-chatfix-2a66716997924d74bca59efe547b86f7/backup",
+    "candidate_sha256": {
+      "SKILL.md": "8bbeb3993343c9955f40416e9b952894d45cff94968ad3bc1fe340998eece95d",
+      "scripts/entry.py": "91e6fcd4f9f6bba3307ae166b9e0188b6f6c816008db3aba8382cd23bff93f8f"
+    },
+    "credentials_exported": false,
+    "credentials_read": false,
+    "database_access": false,
+    "deployment_modified": false,
+    "directory_inode_preserved": true,
+    "original_files": 158,
+    "original_files_modified": false,
+    "provider_requests": 0,
+    "schema": "energy-chatfix-update-child.v1",
+    "stage_manifest_sha256": "ae1452a80ef0db34fee7019982b86aaeffb27781deb0f44553437f5260499110",
+    "status": "TWO_FILE_UPDATE_ACCEPTED",
+    "work_messages_sent": 0
+  },
+  "publication_verification": {
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "candidate_sha256": {
+      "SKILL.md": "8bbeb3993343c9955f40416e9b952894d45cff94968ad3bc1fe340998eece95d",
+      "scripts/entry.py": "91e6fcd4f9f6bba3307ae166b9e0188b6f6c816008db3aba8382cd23bff93f8f"
+    },
+    "credentials_exported": false,
+    "credentials_read": false,
+    "database_access": false,
+    "deployment_modified": false,
+    "directory_inode_preserved": true,
+    "live_files_modified": false,
+    "original_files": 158,
+    "original_files_modified": false,
+    "provider_requests": 0,
+    "schema": "energy-chatfix-update-child.v1",
+    "stage_manifest_sha256": "ae1452a80ef0db34fee7019982b86aaeffb27781deb0f44553437f5260499110",
+    "status": "CHATFIX_LIVE_FILES_VERIFIED",
+    "work_messages_sent": 0
+  },
+  "raw_errors_exported": false,
+  "report_bytes": 10258,
+  "report_path": "/var/lib/portal-energy-market-chat-workflow-20261110-r1/REPORT.json",
+  "report_sha256": "283966f195e4b0c30480c588a053046c7415fa8d0c4e9256f5edf9f1f34f5e65",
+  "schedule_created": false,
+  "schema": "energy-market-chat-workflow-update.v1",
+  "secret_api_reads": 0,
+  "skill_publish_requested": true,
+  "skill_switch_may_have_applied": true,
+  "skill_updated": true,
+  "staging": {
+    "automatic_retry": false,
+    "automatic_rollback": false,
+    "candidate_sha256": {
+      "SKILL.md": "8bbeb3993343c9955f40416e9b952894d45cff94968ad3bc1fe340998eece95d",
+      "scripts/entry.py": "91e6fcd4f9f6bba3307ae166b9e0188b6f6c816008db3aba8382cd23bff93f8f"
+    },
+    "checks": {
+      "data_date": "2026-11-06",
+      "formal_report_ready": false,
+      "html_json_equal_after_crlf_normalization": true,
+      "mode": "reproduce",
+      "png_dimensions": [
+        780,
+        5250
+      ],
+      "png_sha256": "bedd5af036641c695510cca936b1e530ed7600238a8892fe88b5d7d5953bdd9b",
+      "provider_requests": 0,
+      "publication_date": "2026-11-07",
+      "test_count": 5,
+      "tests": [
+        "default_beijing_date_and_generate",
+        "three_input_status_readonly",
+        "generate_identical_sample_blocked",
+        "structured_collector_failure_without_request",
+        "original_fixed_reproduction_html_json_equal_and_png_rendered"
+      ],
+      "visual_acceptance_pending": true,
+      "work_messages_sent": 0
+    },
+    "credentials_exported": false,
+    "credentials_read": false,
+    "database_access": false,
+    "deployment_modified": false,
+    "live_files_modified": false,
+    "original_files": 158,
+    "original_files_modified": false,
+    "provider_requests": 0,
+    "schema": "energy-chatfix-update-child.v1",
+    "stage_manifest_sha256": "ae1452a80ef0db34fee7019982b86aaeffb27781deb0f44553437f5260499110",
+    "status": "STAGED_CHATFIX_ACCEPTED",
+    "work_messages_sent": 0
+  },
+  "status": "ENERGY_CHAT_WORKFLOW_UPDATED_RUNTIME_ACCEPTED",
+  "work_messages_sent": 0
+}

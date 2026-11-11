@@ -1,0 +1,100 @@
+{
+  "schema": "portal-usage-heatmap-frontend-preload-field.v2",
+  "evidence_scope": "Normalized operator-supplied successful resume summaries; Markdown link wrappers removed from image references. Raw reports remain on their nodes.",
+  "preloads": {
+    "ecs-zdz-pro-0015": {
+      "automatic_retry": false,
+      "canonical_names_created": [
+        "deerflow.local/deer-flow-frontend:20261102-usage-heatmap-r2",
+        "deerflow.local/deer-flow-frontend@sha256:97a84226f1c9f77871c05cebaae1fa42b7525644edc844bccf75e29518ba44c1"
+      ],
+      "config_digest": "sha256:4fc66c46ee6ee3e7afaea4127a915c79f90cf4a9376b39461a5b3943727d6930",
+      "content_and_unpack": "PASS",
+      "cri_visibility": "PASS",
+      "elapsed_seconds": 14.586,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "de6ee5e8-dbfb-4272-9ebf-ae82182db085",
+      "hostname": "ecs-zdz-pro-0015",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "manifest_digest": "sha256:97a84226f1c9f77871c05cebaae1fa42b7525644edc844bccf75e29518ba44c1",
+      "mutation_once_claimed": true,
+      "old_references_preserved": true,
+      "operation": "4b9c1f065c054ac7ac99aefa367364ec",
+      "optional_candidate_references": {
+        "deerflow.local/deer-flow-frontend:20261102-usage-heatmap-r1": null,
+        "deerflow.local/deer-flow-frontend@sha256:15a5059f10399d493f789e1d6f7d389d24da675d06d460645950ca5ce1260e98": null
+      },
+      "phase_a": "PASS",
+      "phase_b": "PASS",
+      "preclaim_passed": true,
+      "preflight_retry_available": false,
+      "prior_marker_preserved": true,
+      "prior_receipt": {
+        "bytes": 25882,
+        "no_prior_import_confirmed": true,
+        "operation": "264c5e1a1fdc4a99bd608333758fd0d8",
+        "path": "/mnt/data/portal-frontend-usage-heatmap-preload-20261102-r2/REPORT.json",
+        "sha256": "aa644a0b6fe8485cfbf74e2faf31c2ff7f8e56be2098e7873046d2b7b461b90f"
+      },
+      "production_workload_mutation": false,
+      "ready_for_rollout": false,
+      "report_bytes": 108664,
+      "report_path": "/mnt/data/portal-frontend-usage-heatmap-resume-20261102-r1/REPORT.json",
+      "report_sha256": "4053bb099bf68ec48285ede1c89a5897878ce57f13f5357ad97147b72faf888b",
+      "schema": "portal-frontend-ui-cache-preload.v1",
+      "status": "COMPLETE_FRONTEND_UI_CACHE_PRELOAD_REVIEW_REQUIRED"
+    },
+    "datax-02": {
+      "automatic_retry": false,
+      "canonical_names_created": [
+        "deerflow.local/deer-flow-frontend:20261102-usage-heatmap-r2",
+        "deerflow.local/deer-flow-frontend@sha256:97a84226f1c9f77871c05cebaae1fa42b7525644edc844bccf75e29518ba44c1"
+      ],
+      "config_digest": "sha256:4fc66c46ee6ee3e7afaea4127a915c79f90cf4a9376b39461a5b3943727d6930",
+      "content_and_unpack": "PASS",
+      "cri_visibility": "PASS",
+      "elapsed_seconds": 24.876,
+      "error_class": null,
+      "error_code": null,
+      "exitcode": 0,
+      "expected_node_uid": "3148d4c1-6a97-42ed-a78c-950dcea5cbec",
+      "failure_phase": null,
+      "hostname": "datax-02",
+      "image_import_may_be_partial": false,
+      "image_import_requested": true,
+      "kubernetes_node_uid_freshly_checked": false,
+      "manifest_digest": "sha256:97a84226f1c9f77871c05cebaae1fa42b7525644edc844bccf75e29518ba44c1",
+      "mutation_once_claimed": true,
+      "observed_layout": "DATAX02_ROOT_IMAGEFS",
+      "old_references_preserved": true,
+      "operation": "e79a83594be24c2e8b7a04e8e6a67520",
+      "optional_candidate_references": {
+        "deerflow.local/deer-flow-frontend:20261102-usage-heatmap-r1": null,
+        "deerflow.local/deer-flow-frontend@sha256:15a5059f10399d493f789e1d6f7d389d24da675d06d460645950ca5ce1260e98": null
+      },
+      "os_errno": null,
+      "phase_a": "PASS",
+      "phase_b": "PASS",
+      "preclaim_passed": true,
+      "preflight_retry_available": false,
+      "prior_marker_preserved": true,
+      "prior_receipt": {
+        "bytes": 27102,
+        "no_prior_import_confirmed": true,
+        "operation": "1ae1a471e9c44851a1ceb4abb8d2d1d5",
+        "path": "/var/lib/portal-frontend-usage-heatmap-preload-20261102-r2/REPORT.json",
+        "sha256": "7426e1f5521680fe71d241fa3ae7732b15e90f18161c70e46d8a7fac16bc4de9"
+      },
+      "production_workload_mutation": false,
+      "ready_for_rollout": false,
+      "report_bytes": 114269,
+      "report_path": "/var/lib/portal-frontend-usage-heatmap-resume-20261102-r1/REPORT.json",
+      "report_sha256": "564f10ff83c102e52dd4945bef9288604e33bda77d6c0b539c12752dd52c1b9a",
+      "schema": "portal-frontend-ui-cache-preload.v1",
+      "status": "COMPLETE_FRONTEND_UI_CACHE_PRELOAD_REVIEW_REQUIRED"
+    }
+  }
+}

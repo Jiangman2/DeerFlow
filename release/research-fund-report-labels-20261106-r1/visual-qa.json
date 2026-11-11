@@ -1,0 +1,52 @@
+{
+  "schema": "research-fund-report-labels-visual-qa.v1",
+  "synthetic_only": true,
+  "production_updated": false,
+  "production_business_acceptance": false,
+  "renderer": "Microsoft Word 16.0 isolated invisible read-only export; bundled Poppler rasterization",
+  "renderer_reason": "Configured Windows bundled runtime contains no LibreOffice; no desktop LibreOffice used.",
+  "source_docx_saved": false,
+  "new_sample_pages": {
+    "group_company": 16,
+    "national_science": 9,
+    "miit": 8
+  },
+  "page_counts_unchanged": true,
+  "reviewed_at_full_page_resolution": [
+    "group-company:1",
+    "group-company:6",
+    "national-science:1",
+    "miit:1"
+  ],
+  "all_33_pages_reviewed_as_contact_sheets": true,
+  "findings": [
+    "Group-company balance explanation outer items render as 1. through 8.; rendered changes on that page are confined to number glyphs.",
+    "All three covers show the small black AI label at bottom right, with no overlap or clipping.",
+    "PDF text confirms the label appears on page 1 only in every profile.",
+    "All non-cover pages except the targeted group-company list page are pixel-identical to HEAD baseline at the same render resolution.",
+    "MIIT original page number is retained; its cover footer moves slightly upward to accommodate the separate label line.",
+    "Pre-existing group-company blank pages and template instructions were not introduced or changed by this update."
+  ],
+  "selected_page_images": [
+    {
+      "file": "group-company-01.png",
+      "sha256": "fca9c5857a96adf58717023e7b5616cc354e692863f4fd13a6a325899935313f",
+      "bytes": 104820
+    },
+    {
+      "file": "group-company-06.png",
+      "sha256": "dbb6e77b1a733191d7818f441ad1aafa8d380dfffa98af1c68c34dd680df034c",
+      "bytes": 288385
+    },
+    {
+      "file": "national-science-1.png",
+      "sha256": "fb4caaadf64e8508382ede3426d93a31529ad48168ee067d1382a9823a50d465",
+      "bytes": 82426
+    },
+    {
+      "file": "miit-1.png",
+      "sha256": "44221d84c1fde76c84bccd9d409e04895a4e17d5a9139aa696b5bccc085974e7",
+      "bytes": 59183
+    }
+  ]
+}

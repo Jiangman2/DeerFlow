@@ -116,7 +116,7 @@ SECTION_FACT_REQUIREMENTS: dict[str, list[list[str]]] = {
         ["funding.adjustments.none_declared", "funding.adjustments.items"]
     ],
     "group.annual_approvals": [["funding.annual_appropriations"]],
-    "group.overall_settlement": [["report.cutoff_date"], ["expenses"]],
+    "group.overall_settlement": [["report.prepared_date"], ["expenses"]],
     "group.expense_breakdown": [["expenses"]],
     "group.balance_reasons": [["expenses"]],
     "group.management_basis": [["organizations.lead.name"]],
@@ -467,18 +467,26 @@ def derive(case: dict[str, Any]) -> dict[str, Any]:
     included_expenses = [
         row for row in expense_rows if row.get("include_in_total", True)
     ]
-    adjusted_total = sum_present(
-        row.get("adjusted_budget") for row in included_expenses
+    execution_scope = (
+        _group_budget_execution_scope(normalized)
+        if normalized["profile"] == "group_company" else "all_funds"
     )
-    reported_total = sum_present(row.get("reported") for row in included_expenses)
-    actual_total = sum_present(row.get("actual") for row in included_expenses)
-    audited_values = [row.get("audited") for row in included_expenses]
+    execution_expenses = (
+        [row for row in included_expenses if row.get("scope") != "indirect"]
+        if execution_scope == "direct_only" else included_expenses
+    )
+    adjusted_total = sum_present(
+        row.get("adjusted_budget") for row in execution_expenses
+    )
+    reported_total = sum_present(row.get("reported") for row in execution_expenses)
+    actual_total = sum_present(row.get("actual") for row in execution_expenses)
+    audited_values = [row.get("audited") for row in execution_expenses]
     audited_total = (
         sum_present(audited_values)
         if any(value is not None for value in audited_values)
         else None
     )
-    recognized_total = sum_present(row.get("recognized") for row in included_expenses)
+    recognized_total = sum_present(row.get("recognized") for row in execution_expenses)
     audit_reduction = (
         reported_total - audited_total if audited_total is not None else None
     )
@@ -524,7 +532,76 @@ def derive(case: dict[str, Any]) -> dict[str, Any]:
             "execution_rate": json_number(overall_execution_rate),
         },
     }
+    if normalized["profile"] == "group_company":
+        normalized["_derived"]["budget_execution_scope"] = execution_scope
+        normalized["_derived"]["cost_totals"] = {
+            "direct": _cost_totals([row for row in included_expenses if row.get("scope") != "indirect"]),
+            "indirect": _cost_totals([row for row in included_expenses if row.get("scope") == "indirect"]),
+            "all": _cost_totals(included_expenses),
+        }
+        normalized["_derived"]["outsourcing"] = _derive_outsourcing(normalized)
     return normalized
+
+
+def _group_budget_execution_scope(case: dict[str, Any]) -> str:
+    contract = case.get("input_contract") or {}
+    scope = contract.get("budget_execution_scope")
+    if contract.get("version") == "2026-11-05" and scope != "direct_only":
+        raise ValueError("2026-11-05标准输入必须明确 budget_execution_scope=direct_only，请从原表重新导入")
+    if scope not in (None, "direct_only"):
+        raise ValueError("不支持的集团公司预算执行口径")
+    # Preserve the interpretation of archived reports until their source is reimported.
+    return scope or "all_funds"
+
+
+def _cost_totals(rows: list[dict[str, Any]]) -> dict[str, int | float | None]:
+    amounts = {field: sum_present(row.get(field) for row in rows)
+               for field in ("budget", "adjusted_budget", "reported", "actual", "recognized")}
+    audited = [row.get("audited") for row in rows]
+    amounts["audited"] = sum_present(audited) if any(value is not None for value in audited) else None
+    amounts["balance"] = amounts["adjusted_budget"] - amounts["recognized"]
+    return {field: json_number(value) for field, value in amounts.items()}
+
+
+def _outsourcing_number(value: Any) -> Decimal | None:
+    number = decimal_or_none(value)
+    if number is not None and not number.is_finite():
+        raise ValueError("外委比例的金额和比例必须为有限数值")
+    return number
+
+
+def _derive_outsourcing(case: dict[str, Any]) -> dict[str, Any]:
+    """Use the same recognized expenditure basis as the report, not entered ratios."""
+    rows = get_path(case, "_derived.expenses", [])
+    commissioned = next((row for row in rows if row.get("code") == "commissioned_research"), {})
+    total = _outsourcing_number(commissioned.get("recognized"))
+    direct = sum_present(row.get("recognized") for row in rows
+                         if row.get("include_in_total", True) and row.get("scope") != "indirect")
+    supplied = case.get("funding", {}).get("outsourcing")
+    if supplied is not None and not isinstance(supplied, dict):
+        raise ValueError("funding.outsourcing 必须是对象")
+    supplied = supplied or {}
+    # Parse all supplied numbers before validation so non-finite values fail closed.
+    _outsourcing_number(supplied.get("total"))
+    _outsourcing_number(supplied.get("external_share"))
+    external = _outsourcing_number(supplied.get("external_amount"))
+
+    def percent(numerator: Decimal | None, denominator: Decimal | None) -> int | float | None:
+        if numerator is None or denominator is None or denominator <= 0:
+            return None
+        return json_number(numerator / denominator * Decimal("100"))
+
+    return {
+        "basis": "recognized_expenditure",
+        "direct_expenditure": json_number(direct),
+        "total": json_number(total),
+        "external_amount": json_number(external),
+        "commissioned_to_direct_percent": percent(total, direct),
+        "external_to_direct_percent": percent(external, direct),
+        "external_to_commissioned_percent": percent(external, total),
+        "external_organizations": copy.deepcopy(supplied.get("external_organizations", [])),
+        "evidence_refs": copy.deepcopy(supplied.get("evidence_refs", [])),
+    }
 
 
 def _issue(
@@ -537,6 +614,57 @@ def _issue(
 
 def _severity(mode: str) -> str:
     return "ERROR" if mode == "final" else "WARNING"
+
+
+def _validate_outsourcing(case: dict[str, Any], known_evidence: set[str], mode: str) -> list[dict[str, Any]]:
+    """Appendix 4 supplements expense facts; it cannot override their amounts."""
+    supplied = get_path(case, "funding.outsourcing") or {}
+    derived = get_path(case, "_derived.outsourcing", {})
+    path = "funding.outsourcing"
+    issues = []
+    total = _outsourcing_number(supplied.get("total"))
+    external = _outsourcing_number(supplied.get("external_amount"))
+    share = _outsourcing_number(supplied.get("external_share"))
+    recognized = _outsourcing_number(derived.get("total"))
+    direct = _outsourcing_number(derived.get("direct_expenditure"))
+    for field, amount in (("total", total), ("external_amount", external)):
+        if amount is None:
+            issues.append(_issue(_severity(mode), "OUTSOURCING_AMOUNT_REQUIRED", f"{path}.{field}", "附录4缺少金额，不可默认为零"))
+        elif amount < 0:
+            issues.append(_issue("ERROR", "OUTSOURCING_NEGATIVE_AMOUNT", f"{path}.{field}", "附录4金额不得为负数"))
+    if recognized is None:
+        issues.append(_issue(_severity(mode), "OUTSOURCING_EXPENSE_REQUIRED", path, "缺少可核对的外委研究费支出"))
+    elif total is not None and abs(total - recognized) > TOLERANCE:
+        issues.append(_issue("ERROR", "OUTSOURCING_TOTAL_MISMATCH", f"{path}.total", "附录4支出总额与报告外委研究费支出口径不一致", expected=json_number(recognized), actual=json_number(total)))
+    if external is not None and total is not None and external > total:
+        issues.append(_issue("ERROR", "OUTSOURCING_EXTERNAL_EXCEEDS_TOTAL", f"{path}.external_amount", "支付系统外单位金额不得超过外委研究费支出总额"))
+    if direct is not None and (direct < 0 or (recognized is not None and recognized > direct)):
+        issues.append(_issue("ERROR", "OUTSOURCING_DIRECT_TOTAL_INVALID", path, "直接经费支出不得为负数或小于外委研究费支出"))
+    if share is not None:
+        if share < 0 or share > 1:
+            issues.append(_issue("ERROR", "OUTSOURCING_SHARE_RANGE", f"{path}.external_share", "系统外单位占比应为0至1的小数"))
+        elif total is not None and external is not None:
+            expected = external / total if total > 0 else Decimal("0")
+            # Half of one displayed 0.01 percentage point permits normal rounding.
+            if abs(share - expected) > Decimal("0.00005"):
+                issues.append(_issue("ERROR", "OUTSOURCING_SHARE_MISMATCH", f"{path}.external_share", "系统外单位占比与系统外金额/外委总额不一致"))
+    organizations = supplied.get("external_organizations", [])
+    if not isinstance(organizations, list) or len(organizations) > 3 or any(
+        not isinstance(name, str) or not name.strip() for name in organizations
+    ):
+        issues.append(_issue("ERROR", "OUTSOURCING_ORGANIZATIONS_INVALID", f"{path}.external_organizations", "系统外单位名称应为最多3个非空文本"))
+    elif external is not None and external > 0 and not organizations:
+        issues.append(_issue(_severity(mode), "OUTSOURCING_ORGANIZATIONS_REQUIRED", f"{path}.external_organizations", "支付系统外单位金额大于零，必须提供真实单位名称"))
+    refs = supplied.get("evidence_refs", [])
+    if not isinstance(refs, list) or any(not isinstance(ref, str) for ref in refs):
+        issues.append(_issue("ERROR", "OUTSOURCING_EVIDENCE_INVALID", f"{path}.evidence_refs", "外委比例证据定位必须是文本列表"))
+    elif not refs:
+        issues.append(_issue(_severity(mode), "MISSING_EVIDENCE", f"{path}.evidence_refs", "外委比例信息缺少证据定位"))
+    else:
+        for ref in refs:
+            if ref not in known_evidence:
+                issues.append(_issue("ERROR", "UNKNOWN_EVIDENCE", f"{path}.evidence_refs", f"证据 ID 不存在：{ref}"))
+    return issues
 
 
 def _strings(value: Any, path: str = "") -> Iterable[tuple[str, str]]:
@@ -581,7 +709,6 @@ def validate(
         )
 
     common_required = [
-        "report.cutoff_date",
         "report.prepared_date",
         "project.name",
         "organizations.lead.name",
@@ -589,6 +716,13 @@ def validate(
         "funding.sources",
         "expenses",
     ]
+    if profile != "group_company":
+        common_required.insert(0, "report.cutoff_date")
+    elif has_value(get_path(normalized, "report.cutoff_date")):
+        try:
+            date.fromisoformat(str(get_path(normalized, "report.cutoff_date")))
+        except ValueError:
+            issues.append(_issue("ERROR", "INVALID_DATE", "report.cutoff_date", "截止日期必须使用 YYYY-MM-DD"))
     for dotted in common_required:
         if not has_value(get_path(normalized, dotted)):
             issues.append(
@@ -605,7 +739,7 @@ def validate(
             if not any(has_value(get_path(normalized, path)) for path in alternatives):
                 issues.append(
                     _issue(
-                        _severity(mode),
+                        "INFO" if section["id"] == "group.budget_changes" else _severity(mode),
                         "MISSING_SECTION_FACT",
                         section["id"],
                         f"栏目“{section['heading']}”缺少事实：{' 或 '.join(alternatives)}",
@@ -631,7 +765,7 @@ def validate(
         input_contract = normalized.get("input_contract") or {}
         if (
             input_contract.get("kind") != "group_company_standard_workbook"
-            or input_contract.get("version") != "2026-09"
+            or input_contract.get("version") not in {"2026-09", "2026-11", "2026-11-05"}
             or input_contract.get("sheet") != "Sheet2"
             or input_contract.get("status") != "PASS"
             or not has_value(input_contract.get("source_file"))
@@ -671,56 +805,24 @@ def validate(
                     actual=funding.get("tax_basis"),
                 )
             )
-        acceptance_date = get_path(normalized, "project.acceptance_date")
         prepared_date = get_path(normalized, "report.prepared_date")
-        if not has_value(acceptance_date):
-            issues.append(
-                _issue(
-                    _severity(mode),
-                    "ACCEPTANCE_DATE_REQUIRED",
-                    "project.acceptance_date",
-                    "集团公司/有限公司正式决算报告必须填写项目正式验收日期",
-                )
-            )
-        elif has_value(prepared_date):
+        if has_value(prepared_date):
             try:
-                accepted_on = date.fromisoformat(str(acceptance_date))
+                date.fromisoformat(str(prepared_date))
             except ValueError:
                 issues.append(
                     _issue(
                         "ERROR",
                         "INVALID_DATE",
-                        "project.acceptance_date",
-                        "正式验收日期必须使用 YYYY-MM-DD",
+                        "report.prepared_date",
+                        "报告编制日期必须使用 YYYY-MM-DD",
                     )
                 )
-            else:
-                try:
-                    prepared_on = date.fromisoformat(str(prepared_date))
-                except ValueError:
-                    issues.append(
-                        _issue(
-                            "ERROR",
-                            "INVALID_DATE",
-                            "report.prepared_date",
-                            "报告编制日期必须使用 YYYY-MM-DD",
-                        )
-                    )
-                else:
-                    if prepared_on <= accepted_on:
-                        issues.append(
-                            _issue(
-                                "ERROR",
-                                "REPORT_DATE_NOT_AFTER_ACCEPTANCE",
-                                "report.prepared_date",
-                                "决算报告编制日期必须晚于项目正式验收日期",
-                                acceptance_date=acceptance_date,
-                                prepared_date=prepared_date,
-                            )
-                        )
         adjustments = funding.get("adjustments") or {}
         none_declared = adjustments.get("none_declared")
         adjustment_items = adjustments.get("items") or []
+        if none_declared is not None and not isinstance(none_declared, bool):
+            issues.append(_issue("ERROR", "ADJUSTMENT_DECLARATION_INVALID", "funding.adjustments.none_declared", "无概预算变更声明必须为 true、false 或 null"))
         if none_declared is True and adjustment_items:
             issues.append(
                 _issue(
@@ -733,7 +835,7 @@ def validate(
         if none_declared is False and not adjustment_items:
             issues.append(
                 _issue(
-                    _severity(mode),
+                    "INFO",
                     "ADJUSTMENT_DETAILS_REQUIRED",
                     "funding.adjustments.items",
                     "已声明发生概预算变更，必须填写变更内容、理由和批复情况",
@@ -749,7 +851,7 @@ def validate(
             }:
                 issues.append(
                     _issue(
-                        _severity(mode),
+                        "INFO",
                         "ADJUSTMENT_LEVEL_REQUIRED",
                         f"funding.adjustments.items[{index}].level",
                         "概预算变更必须标明重大变更或一般变更/预算调剂",
@@ -763,7 +865,7 @@ def validate(
                 if not has_value(item.get(field)):
                     issues.append(
                         _issue(
-                            _severity(mode),
+                            "INFO",
                             "ADJUSTMENT_FIELD_REQUIRED",
                             f"funding.adjustments.items[{index}].{field}",
                             f"概预算变更缺少{label}",
@@ -872,6 +974,8 @@ def validate(
             )
         )
     known_evidence = {item for item in evidence_ids if item}
+    if profile == "group_company" and "outsourcing" in funding:
+        issues.extend(_validate_outsourcing(normalized, known_evidence, mode))
 
     for index, source in enumerate(funding.get("sources") or []):
         refs = source.get("evidence_refs") or []
@@ -993,7 +1097,23 @@ def validate(
                 )
 
     if mode == "final":
+        # The original parent cell is provenance, not report text: its displayed
+        # reason is derived from the two children and checked independently.
+        source_only_reason_paths = {
+            f"expenses[{index}].input_variance_reason"
+            for index, item in enumerate(normalized.get("expenses", []))
+            if profile == "group_company" and item.get("code") == "external_testing"
+        }
         for path, text in _strings(normalized):
+            if path in source_only_reason_paths:
+                continue
+            # Group reports do not use acceptance dates. Keep supplied input
+            # unchanged without turning it into a completion requirement.
+            if profile == "group_company" and (
+                path == "project.acceptance_date"
+                or path.startswith(("project.acceptance_date.", "project.acceptance_date["))
+            ):
+                continue
             if PLACEHOLDER_RE.search(text):
                 issues.append(
                     _issue(
@@ -1019,12 +1139,13 @@ def validation_report(case: dict[str, Any], mode: str = "draft") -> dict[str, An
     normalized, issues = validate(case, mode=mode)
     errors = sum(1 for item in issues if item["severity"] == "ERROR")
     warnings = sum(1 for item in issues if item["severity"] == "WARNING")
+    information = sum(1 for item in issues if item["severity"] == "INFO")
     return {
         "report_version": "1.0",
         "profile": normalized.get("profile"),
         "mode": mode,
         "status": "PASS" if errors == 0 else "FAIL",
-        "summary": {"errors": errors, "warnings": warnings},
+        "summary": {"errors": errors, "warnings": warnings, "information": information},
         "derived": normalized.get("_derived", {}),
         "issues": issues,
     }

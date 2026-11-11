@@ -1,0 +1,10 @@
+{
+  "bytes": 103450647,
+  "sha256": "6fc23f8056b763a1590a9953a83e6bee873e7bb2e935b2dddf93589585500363",
+  "uid": 100,
+  "gid": 101,
+  "mode": "0o666",
+  "source_layer": "sha256:0cbff6932119b26cf65249047492634a7ac3aadfecc41cd47aff4baea74e4023",
+  "member": "app/app.jar",
+  "status": "ORIGINAL_PRODUCTION_JAR_MATCHED"
+}

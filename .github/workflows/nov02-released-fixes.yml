@@ -1,0 +1,65 @@
+name: November 2 released fixes
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'release/nov02-released-fixes-source-20261103/**'
+      - 'release/pr26-ci-qualification-20261103/**'
+      - 'release/enterprise-source-followup-20261103/**'
+      - 'release/artifact-directory-20261104/**'
+      - 'release/dashboard-navigation-20261103/**'
+      - 'release/dashboard-navigation-20261103-r2/**'
+      - 'deploy/enterprise/*dashboard*navigation*'
+      - 'deploy/enterprise/*model_default_test_followup*'
+      - 'release/model-default-test-followup-20261106/**'
+      - 'deploy/enterprise/*enterprise_source_followup*'
+      - 'deploy/enterprise/*sidechat*'
+      - 'tests/test_sidechat*.py'
+      - 'release/sidechat-frontend-source-20261106/**'
+      - 'release/sidechat-skillhub-security-20261105-r1/**'
+      - 'deploy/enterprise/*history*composer*source*'
+      - 'release/history-composer-autosize-source-20261106/**'
+      - 'deploy/enterprise/*new_chat_model_source*'
+      - 'release/new-chat-model-source-20261105/**'
+      - 'deploy/enterprise/*nov02*'
+      - 'deploy/enterprise/*work_integration_source_20261106.py'
+      - 'release/work-integration-followup-20261106/**'
+      - 'deploy/enterprise/released_source_20261102.py'
+      - 'deploy/enterprise/released-source-delta-20261102.json'
+      - 'deploy/enterprise/verify-release-source-20261023.py'
+      - 'deploy/enterprise/verify-production-baseline-20261029.py'
+      - '.github/workflows/nov02-released-fixes.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -B deploy/enterprise/test_history_composer_source_20261106.py
+      - run: python -B deploy/enterprise/verify-history-composer-source-20261106.py --ref HEAD
+      - run: python -B deploy/enterprise/test_model_default_test_followup_20261106.py
+      - run: python -B deploy/enterprise/test_sidechat_frontend_source_20261106.py
+      - run: python -B deploy/enterprise/test_sidechat_security_frontend_package_20261105.py
+      - run: python -B -m unittest discover -s tests -p 'test_sidechat*.py'
+      - run: python -B deploy/enterprise/verify-sidechat-frontend-source-20261106.py --ref HEAD
+      - run: python -B deploy/enterprise/test_new_chat_model_source_20261105.py
+      - run: python -B deploy/enterprise/test_work_integration_source_20261106.py
+      - run: python deploy/enterprise/test_nov02_source_delta.py
+      - run: python deploy/enterprise/test_dashboard_navigation_source_20261103.py
+      - run: python deploy/enterprise/test_dashboard_navigation_frontend_package_20261103.py
+      - run: python deploy/enterprise/test_dashboard_navigation_frontend_activation_20261104.py
+      - run: python deploy/enterprise/verify-dashboard-navigation-source-20261103.py --ref HEAD
+      - run: python deploy/enterprise/test_enterprise_source_followup_20261103.py
+      - run: python deploy/enterprise/test_nov01_source_delta.py
+      - run: python deploy/enterprise/verify-nov02-released-source-20261103.py --ref HEAD
+      - run: python deploy/enterprise/verify-nov01-released-source-20261102.py --ref HEAD
+      - run: python deploy/enterprise/verify-production-baseline-20261029.py --ref HEAD

@@ -602,6 +602,22 @@ See the [MCP Server Guide](backend/docs/MCP_SERVER.md) for detailed instructions
 
 #### IM Channels
 
+Haineng Work document/calendar requests use a Work-only semantic entry and
+sender-bound OAuth. Ordinary web chats keep their original behavior; changing
+topic in Work invalidates unexecuted task links and previews while preserving
+valid personal consent. See [Work routing and rollout](backend/docs/WORK_ROUTING.md).
+For the latest 0716 candidate, use the [production preflight](backend/docs/WORK_RELEASE_PREFLIGHT_20261104.md)
+to check both HTTP paths and plan the 70-Pod maintenance window; this increment adds no database migration.
+This increment reuses the existing encrypted state table without schema changes.
+After isolating a second developer's receiver for the same UAT application,
+the calendar task-agent returned to local testing on November 3. A follow-up
+candidate preserves cross-day choices, validates complete drafts locally and
+separates bounded queue/model budgets. Drafts and finite batches remain under
+business acceptance, with deletion disabled and production unchanged.
+See [Calendar task validation](backend/docs/WORK_CALENDAR_TASK_VALIDATION_20261102.md).
+The [November 3 repair record](backend/docs/WORK_CALENDAR_TASK_FIX_20261103.md)
+keeps the latest evidence separate from the original results.
+
 DeerFlow supports receiving tasks from messaging apps. Channels auto-start when configured — no public IP required for any of them.
 
 DeerFlow can also expose user-owned IM channel connections in the workspace UI. When `channel_connections` is enabled, logged-in users can bind Telegram, Slack, Discord, Feishu/Lark, DingTalk, WeChat, or WeCom from the sidebar / Settings > Channels. It reuses the existing outbound `channels.*` transports, so no public IP or provider callback URL is required. Incoming IM messages then run under the connected DeerFlow user account. See [IM Channel Connections](backend/docs/IM_CHANNEL_CONNECTIONS.md) for setup and security notes.
@@ -2032,3 +2048,11 @@ No database upgrade, downgrade, table deletion, push or deployment is performed
 by source candidate preparation. This candidate supersedes catalogue-only tree
 345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
 Previous broader-tree test results are historical, not acceptance of this tree.
+
+### Artifact delivery recovery (November 9 candidate)
+
+Final directory descriptions are expanded into download links only from successful
+publication receipts in the current run and existing owner-scoped files. Mixed
+deliveries identify unverified files for a bounded repair; an incomplete delivery
+retains verified downloads with an explicit error instead of hiding every file.
+See `docs/artifact-delivery-recovery-20261109.md`.

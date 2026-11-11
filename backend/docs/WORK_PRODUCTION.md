@@ -1,5 +1,12 @@
 # 海能 Work 生产接入与本地 UAT 开发
 
+2026-11-04 基于最新0716的增量升级应使用 [上线前核验](WORK_RELEASE_PREFLIGHT_20261104.md)。
+该文区分首次接入和已有70 Pod升级，包含只读出口/代理检查及维护窗口限制；本次增量无新DDL。
+
+2026-11-02 的语义分流、每轮来源和任务退出候选见 [WORK_ROUTING.md](WORK_ROUTING.md)。
+该增量复用本文件的既有状态表，**不新增表、字段或数据库迁移**；下文0022建表说明属于首次Work接入。
+同日后续的日历草稿、有限批量和纠错候选见 [WORK_CALENDAR_TASK_AGENT.md](WORK_CALENDAR_TASK_AGENT.md)，删除仍保持关闭。
+
 ## 本次边界
 
 新增生产配置、Gateway 浏览器回调、共享加密状态和迁移 `0022_work_integration_state`。
@@ -67,7 +74,7 @@ Secret/App ID/profile 改变时，旧集成实例关闭并重建；状态命名�
 | `DEER_FLOW_WORK_PRODUCTION_API_URL` | 默认 `https://open.w.cnooc.com.cn`，仅受控服务端配置 |
 | `DEER_FLOW_WORK_PRODUCTION_AUTHORIZE_URL` | 默认 `https://accounts.w.cnooc.com.cn/open-apis/authen/v1/authorize` |
 | `DEER_FLOW_WORK_STATE_KEY` | 必填：32 随机字节的 URL-safe Base64 编码；所有实例一致 |
-| `DEER_FLOW_WORK_ALLOWED_OWNER_IDS` | 可选的文档/日历能力灰度名单，不限制渠道连接或普通聊天；全量开放时设为空，仍须有效绑定和本人授权 |
+| `DEER_FLOW_WORK_ALLOWED_OWNER_IDS` | 可选的文档/日历业务能力名单，不限制渠道连接；普通消息在名单校验前仍可能调用规划模型，不构成流量灰度；全量开放时设为空，仍须有效绑定和本人授权 |
 | `DEER_FLOW_WORK_MAX_JOBS` / `...PER_USER_JOBS` / `...CONCURRENCY` | 活跃任务总量32、每人4、每进程执行并发2；部署总模型并发另行评估 |
 | `DEER_FLOW_WORK_DOCS_MODEL` | 可选显式绑定现有批准模型名；不设置沿用平台默认 DeepSeek V4 |
 
@@ -100,6 +107,11 @@ token 不进入模型、Skill、Sandbox、浏览器、普通日志或配置文�
 OAuth job/state、确认预览、去重标记、少量定位上下文共享保存；绑定每次通过现有绑定仓库核验。
 容量在 SQL 事务内串行判定，已完成任务不占活跃配额，单个用户不能占满整个队列。
 执行并发2是每进程值，不应解释为全平台最多2个模型请求。
+
+Work理解请求的排队与模型执行分开限时：`DEER_FLOW_WORK_TURN_QUEUE_TIMEOUT` 默认10秒、范围1～30；
+`DEER_FLOW_WORK_TURN_TIMEOUT` 默认90秒、范围5～180，显式旧值30继续有效。
+模型总预算覆盖分类及日历领域步骤，队列满时返回明确繁忙提示；服务额外1秒watchdog不提供重试额度。
+该参数不是Work API写入重试配置。日志中的消息哈希、阶段和耗时用于关联定位，不记录用户正文或模型原始输出。
 
 预览5分钟、授权链接10分钟；SQL CAS 一次性认领授权/写入，同一用户的写入有共享租约。
 执行前复查 token、绑定及最新目标，写入后回读；Calendar 上游没有通用原子 CAS，用户在
@@ -139,12 +151,41 @@ UAT 默认文档主机 `haiyoutest.w.cnooc.com.cn`，旧 `DEER_FLOW_WORK_DOCS_UA
 引导。UAT 默认使用内存，重启需重新授权；可显式 `DEER_FLOW_WORK_STORE=sql` 测试持久化，
 此时也必须设置独立 `DEER_FLOW_WORK_STATE_KEY`。不要将本地中转密钥部署到生产。
 
+## 日程确认卡片与文件读取
+
+在海能 Work 应用的「回调配置」中订阅并发布 `card.action.trigger`。卡片的接收方式应与应用后台一致。常规消息仍走「事件配置」的长连接，浏览器授权仍走原 OAuth 回调。
+
+| 功能 | 启用条件 |
+| --- | --- |
+| 日程确认卡片（长连接） | Work 使用共享 SQL 存储。设置 `DEER_FLOW_WORK_{UAT\|PRODUCTION}_CARD_ENABLED=true` 和 `DEER_FLOW_WORK_{UAT\|PRODUCTION}_CARD_TRANSPORT=websocket`，在应用后台选择「使用长连接接收回调」。卡片沿用当前 Work 渠道 App ID 和接收租约。 |
+| 日程确认卡片（HTTPS） | 在应用后台选择「将回调发送至开发者服务器」，登记 Work 服务器能访问的 `POST /api/integrations/work/card/callback`。设置对应环境的 `CARD_ENABLED=true`、`CARD_TRANSPORT=http`、`CARD_APP_ID`、`CARD_TENANT_KEY`、`CARD_VERIFICATION_TOKEN` 和 `CARD_ENCRYPT_KEY`。验证令牌和加密密钥从部署 Secret 注入。旧配置省略 `CARD_TRANSPORT` 时按 HTTPS 处理。 |
+| 在线表格、多维表格、云盘文件 | 设置 `DEER_FLOW_WORK_FILE_READ_ENABLED=true`。为对应 profile 配置 `DEER_FLOW_WORK_{UAT\|PRODUCTION}_SHEETS_READ_SCOPE`、`DEER_FLOW_WORK_{UAT\|PRODUCTION}_BITABLE_READ_SCOPE` 和 `DEER_FLOW_WORK_{UAT\|PRODUCTION}_DRIVE_READ_SCOPE`。分别使用 ITC 确认已启用的用户身份只读权限。 |
+| 按文件名读取 | 此功能默认关闭。ITC 在对应环境的 Work 应用发布用户身份 `drive:drive:readonly`，并先在 UAT 验证 `POST /open-apis/suite/docs-api/search/object`。开启时设置 `DEER_FLOW_WORK_FILE_SEARCH_ENABLED=true`，并按环境配置 `DEER_FLOW_WORK_UAT_FILE_SEARCH_SCOPE=drive:drive:readonly` 或 `DEER_FLOW_WORK_PRODUCTION_FILE_SEARCH_SCOPE=drive:drive:readonly`。已确认支持新版搜索的环境可继续显式配置 `search:docs:read`，调用 `POST /open-apis/search/v2/doc_wiki/search`。内容读取权限按实际文件类型单独配置。 |
+
+长连接回调通过当前持有效接收租约的连接接收，HTTPS 回调单独验签。两种方式都核对应用、租户、点击者、会话和原卡片，沿用原确认记录、执行权认领和回读核对。卡片功能关闭或投递失败时展示文字确认。验收应覆盖普通聊天、手机点击、取消、重复点击、过期预览和跨实例执行。
+
+标题搜索和内容读取都走用户本人授权。标题搜索、按名打开的原生云文档、在线表格、多维表格和云盘下载分别存储授权，继续复用现有 `0022_work_integration_state` 表。原生云文档按名读取仍申请 `docx:document`，独立保存以保留日历授权。按标题搜索使用任务协议 4，文件读取使用协议 3。所有 Gateway 升级后再启用相应开关，确保授权回调可以落到任一实例。
+
+在 UAT 私聊可用「读取我云文档空间下的 AA标准测试.docx」。完整结果中只有一个同名文件时直接进入内容读取，否则通过候选选择定位。候选和待处理授权链接跟随当前任务，换题或过期后需重新发起请求。搜索最多读取三页标题匹配结果，按名读取多维表格默认预览最多三张数据表。
+
+旧版接口的 `docs_types` 请求筛选值 `doc` 涵盖新旧原生云文档。内容读取按 `docs_entities[].docs_type` 实际返回类型识别原生新版云文档 `docx`、在线表格 `sheet`、多维表格 `bitable` 和云盘文件 `file`。上传的 DOCX、XLSX 和 PDF 属于 `file`。仅返回 `doc` 的结果无法确认是新版云文档，文件夹也不在该搜索接口支持的类型内。遇到这两类情况，可请用户提供受支持文件的直接链接。[海能 Work 搜索云文档](https://open.w.cnooc.com.cn/document/ukTMukTMukTM/ugDM4UjL4ADO14COwgTN)
+
+验收应分别确认搜索权限和内容权限，覆盖重名选择、无结果、跨账号权限、原生新版云文档的返回类型、工作表范围、多维表格、上传的 DOCX 与 XLSX、文本 PDF、扫描 PDF 和无下载权限。扫描 PDF 依赖现有企业解析服务。
+
+## 定时任务推送到个人 Work 私聊
+
+在使用共享 PostgreSQL 的 Gateway 上设置 `DEER_FLOW_WORK_SCHEDULED_NOTIFICATIONS_ENABLED=true`。全部 Gateway 升级后再开启该开关。通知采用当前 Work 应用身份调用发送消息 API，请核对机器人的发送权限及可用范围。页面可选目标只来自任务所有者当前已验证的 Work 私聊。历史连接可在原私聊里发一条消息补充验证。
+
+通知按任务启用，成功的计划触发和手动运行都可投递。既有群机器人 Webhook 仍按任务提示词执行。投递结果独立显示在运行历史，原任务结果可以从平台打开。生产结果链接默认使用正式平台域名，UAT 可通过 `DEER_FLOW_WORK_SCHEDULED_NOTIFICATION_WEB_URL` 提供可访问的平台入口。
+
+待投递记录复用 `0022_work_integration_state` 已建立的 `work_integration_records` 表。多个 Gateway 共用认领和去重记录，解绑、切换目标或撤销设置后跳过旧通知。结果不明的发送保留待核查状态。验收应覆盖成功运行、重复完成、跨实例接管、解绑和失败状态。
+
 ## 发布验收清单
 
 1. 确认正式云文档主机、App ID、用户身份权限和已发布状态。
 2. ITC 配置完整回调及服务器固定出口IP；两者是不同要求。
 3. 备份并演练迁移；所有实例共享数据库、runtime-config 和稳定密钥，代理各层屏蔽 query。
-4. 先关闭功能部署源码/镜像/路由，再用白名单小范围启用。
+4. 已有Work接入升级按[维护窗口说明](WORK_RELEASE_PREFLIGHT_20261104.md)停旧进程后更新；不能以`WORK_ENABLED=false`代替暂停，否则已启用渠道可能失去租约保护而多开连接。首次尚未配置渠道时也应先核对实际启动条件。
 5. A/B账号分别授权；B不能读取A的私有文档、确认A的操作或使用A的浏览器授权结果。
 6. 测试回调落不同实例、重启后确认、重复确认、解绑/撤权、Secret更新、断网和滚动更新。
 7. 实测文档读/总结、受限编辑、整日查询、日程新建/编辑；修改必须有本人独立确认和回执。

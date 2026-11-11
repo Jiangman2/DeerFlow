@@ -1,0 +1,241 @@
+{
+  "schema": "portal-usage-heatmap-browser-acceptance.v2",
+  "status": "LOCAL_BROWSER_SYNTHETIC_PASS",
+  "image": "sha256:97a84226f1c9f77871c05cebaae1fa42b7525644edc844bccf75e29518ba44c1",
+  "tests_passed": 7,
+  "tests_failed": 0,
+  "viewports": [
+    "1440x1000",
+    "320x568",
+    "375x812",
+    "390x844",
+    "412x915",
+    "740x360"
+  ],
+  "css_injection": false,
+  "production_access": false,
+  "api_responses": "synthetic_fixtures",
+  "provider_requests": 0,
+  "checks": [
+    "daily_weekly_cumulative_same_tooltip_computed_style",
+    "weekly_and_cumulative_seven_tile_columns",
+    "twelve_month_axis_no_date_picker",
+    "full_precision_and_compact_values",
+    "lifetime_offset_in_cumulative_mode",
+    "mobile_tap_values_and_no_page_overflow",
+    "model_oa_cards_retained_with_independent_failure_states"
+  ],
+  "browser_fallback": "BrowserAct CLI reported No browsers found; local Playwright used",
+  "screenshots": [
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--0f528-odel-monitoring-fit-740x360-chromium\\account-activity.png",
+      "bytes": 19789,
+      "sha256": "adfedc55dcdd44fba8e5401a7067b6dd441c1ae27c315982c8d3bfffa0e8626a"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--0f528-odel-monitoring-fit-740x360-chromium\\account-cumulative-heatmap.png",
+      "bytes": 19083,
+      "sha256": "4221071606b77ad5f4eb19488f342ba428e3c056650bd612c029634d485bd150"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--0f528-odel-monitoring-fit-740x360-chromium\\account-cumulative-tooltip.png",
+      "bytes": 24112,
+      "sha256": "c110487ac4d95fe108bd3605daec70562b9528d501f9167ba2cda8561122c9b5"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--0f528-odel-monitoring-fit-740x360-chromium\\account-daily-tooltip.png",
+      "bytes": 23665,
+      "sha256": "8b0a7c33ee53248c95530ff9ab1043bf07b6ba1e2177db485ee64e481cad52bc"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--0f528-odel-monitoring-fit-740x360-chromium\\account-weekly-heatmap.png",
+      "bytes": 23924,
+      "sha256": "1aa5ac535634ec107d014ade496b791c91493272a6e32bcd76b02bd3b494e0de"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--0f528-odel-monitoring-fit-740x360-chromium\\model-monitor.png",
+      "bytes": 17634,
+      "sha256": "e3cdb58083c037249b2df53805b17f0eaf74e70ec88a712ad9113ea63897c906"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--0f528-odel-monitoring-fit-740x360-chromium\\oa-monitor.png",
+      "bytes": 14902,
+      "sha256": "de23ac4a898bb5fc6450461891d4280734c649c74472757aea6d180afe772db0"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--a7d65-odel-monitoring-fit-320x568-chromium\\account-activity.png",
+      "bytes": 22509,
+      "sha256": "ca9315e4ea41a53e4e1d95c0cd4fe344ce1f21a196ed5587ac90c40bb7d3a9fb"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--a7d65-odel-monitoring-fit-320x568-chromium\\account-cumulative-heatmap.png",
+      "bytes": 24314,
+      "sha256": "b47e3f689ffe4658c6a0f15430900f53be40ed68781a6b9b949f862221bc3d31"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--a7d65-odel-monitoring-fit-320x568-chromium\\account-cumulative-tooltip.png",
+      "bytes": 25436,
+      "sha256": "e3afbdec4a79b7f6f66780af21416f8ca15bb03a804c491042f695b702935c45"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--a7d65-odel-monitoring-fit-320x568-chromium\\account-daily-tooltip.png",
+      "bytes": 26481,
+      "sha256": "ca1187ca0d0210edc3784915d4f127950ac2f3cfbbf153f22374736e94aad7ed"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--a7d65-odel-monitoring-fit-320x568-chromium\\account-weekly-heatmap.png",
+      "bytes": 25216,
+      "sha256": "12dd7013e914144e118b34998960f45109d0210902d785e0432784e1aa667be2"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--a7d65-odel-monitoring-fit-320x568-chromium\\model-monitor.png",
+      "bytes": 26803,
+      "sha256": "643c0718953351a8d1716e0ecfd4014359526b7d930e1ac7795c5bdae60731ed"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--a7d65-odel-monitoring-fit-320x568-chromium\\oa-monitor.png",
+      "bytes": 26686,
+      "sha256": "84513e57000f8f71458e7130d92c64533b9d02c3fd93c1912f708021e37e0e29"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--b6e4f-odel-monitoring-fit-390x844-chromium\\account-activity.png",
+      "bytes": 41203,
+      "sha256": "2f45312868861ee39f75938e0f32e2d9bbb0d4db7938cd9b31d37fba6f02ee80"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--b6e4f-odel-monitoring-fit-390x844-chromium\\account-cumulative-heatmap.png",
+      "bytes": 42563,
+      "sha256": "6fccdeab93d7da27a5d0c0088b4c46745b154c02f6eab424f6d129d30fd3fc50"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--b6e4f-odel-monitoring-fit-390x844-chromium\\account-cumulative-tooltip.png",
+      "bytes": 44224,
+      "sha256": "63436d12371a9632dea6ba754ba6c037f52f347096680fb94c1a3f153d1ca8e0"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--b6e4f-odel-monitoring-fit-390x844-chromium\\account-daily-tooltip.png",
+      "bytes": 44903,
+      "sha256": "bddf13521daadf8f65dc4a70c0fc28d0e05788a0f4001d75804b627c5c43f2f1"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--b6e4f-odel-monitoring-fit-390x844-chromium\\account-weekly-heatmap.png",
+      "bytes": 44357,
+      "sha256": "abd23fd8b876e1efcf1243e4560b4fd0552fe52ae02061fe05981aa0663cc34a"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--b6e4f-odel-monitoring-fit-390x844-chromium\\model-monitor.png",
+      "bytes": 41682,
+      "sha256": "c6a0f65304a058bd90cad0231780546ad4f30d27ead80135b7298f4e4566b8cf"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--b6e4f-odel-monitoring-fit-390x844-chromium\\oa-monitor.png",
+      "bytes": 43020,
+      "sha256": "426988da2cce1ee1052abb1a1ca43b4e0e9a2e6079418d755bb03298d610eea0"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--ec523-odel-monitoring-fit-412x915-chromium\\account-activity.png",
+      "bytes": 48177,
+      "sha256": "f9525bd3917e23f338d37865113af5af652d14adf40a9abe2df9e8c29ae52678"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--ec523-odel-monitoring-fit-412x915-chromium\\account-cumulative-heatmap.png",
+      "bytes": 46395,
+      "sha256": "cfa35572c161eb072f2ad24793eaf45ed29dd03e3511adf5bcf946554eaef9aa"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--ec523-odel-monitoring-fit-412x915-chromium\\account-cumulative-tooltip.png",
+      "bytes": 50008,
+      "sha256": "e5d99bea7ee2d7f3b396894d3fb0efb4c0b976ff122f5114ecc4ee61323aad79"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--ec523-odel-monitoring-fit-412x915-chromium\\account-daily-tooltip.png",
+      "bytes": 50263,
+      "sha256": "bc35584466c9134efc530cfc499ebd91f7fba9a7950c5b80e20f2563b8c5c5ce"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--ec523-odel-monitoring-fit-412x915-chromium\\account-weekly-heatmap.png",
+      "bytes": 50226,
+      "sha256": "2c72973aab5d0f5bf15d8645baf27573c01bad93d7ae8bd0d41574aa306a3957"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--ec523-odel-monitoring-fit-412x915-chromium\\model-monitor.png",
+      "bytes": 46776,
+      "sha256": "a574488221944b25f756f9a1dc1411cfc90b039e05cf52324a1806b0ca2a4ac0"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--ec523-odel-monitoring-fit-412x915-chromium\\oa-monitor.png",
+      "bytes": 45524,
+      "sha256": "4b7c7c071d513fc4a1fa59882a737375edb370ce52adf76bcb1dd8968bcaf34b"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f0550-el-monitoring-fit-1440x1000-chromium\\account-activity.png",
+      "bytes": 123559,
+      "sha256": "47e1ca3fc3b4e84ecb28c8cd56b702d0a84c649ead8bbd5f335c81be995d6590"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f0550-el-monitoring-fit-1440x1000-chromium\\account-cumulative-heatmap.png",
+      "bytes": 121772,
+      "sha256": "cdc79a705e03406c30365c53bb96f4d28009900fa38df386d8387943bdc1b7dd"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f0550-el-monitoring-fit-1440x1000-chromium\\account-cumulative-tooltip.png",
+      "bytes": 125294,
+      "sha256": "51a3a2937d3fd24231e2535f6a5db283c23cfad8b7a5228f6bc804a9ea672d64"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f0550-el-monitoring-fit-1440x1000-chromium\\account-daily-tooltip.png",
+      "bytes": 122601,
+      "sha256": "45b0a0e9b67e941b915302d3f43c237fe2d612cc06ff78436e0c4993d760f11f"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f0550-el-monitoring-fit-1440x1000-chromium\\account-weekly-heatmap.png",
+      "bytes": 124801,
+      "sha256": "e78e56e7ce5f72fab4605a28d6d4ac8e05e2081ad4c201d2744d993896f6cd8f"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f0550-el-monitoring-fit-1440x1000-chromium\\model-monitor.png",
+      "bytes": 117363,
+      "sha256": "f052eabcedb97785f5310b9a7c8d47b7c4c7ee86debec8546e78868ca8f340f3"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f0550-el-monitoring-fit-1440x1000-chromium\\oa-monitor.png",
+      "bytes": 106973,
+      "sha256": "749188bebf5aa92dc4d8a7db6afcd57fcf17093c502bbac5d5fa31e362745940"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f06ef-odel-monitoring-fit-375x812-chromium\\account-activity.png",
+      "bytes": 42269,
+      "sha256": "b0ad817e90189ebe809ca88e9cec66d00741947d681dc3c741d3c374bc8470b5"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f06ef-odel-monitoring-fit-375x812-chromium\\account-cumulative-heatmap.png",
+      "bytes": 34847,
+      "sha256": "f6b2d4bc5f28164982cb55b7f49717a06aea7a5585ce6359d7707fbcf7f5f3dc"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f06ef-odel-monitoring-fit-375x812-chromium\\account-cumulative-tooltip.png",
+      "bytes": 36692,
+      "sha256": "a0c376ae2cc832370bf7e8e9f3e302604183925f1da7772897a61f82c35316bb"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f06ef-odel-monitoring-fit-375x812-chromium\\account-daily-tooltip.png",
+      "bytes": 45494,
+      "sha256": "0219ec17211a6833dfa27501ae31b91b44ad08ee4582fef052317b4541658111"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f06ef-odel-monitoring-fit-375x812-chromium\\account-weekly-heatmap.png",
+      "bytes": 45425,
+      "sha256": "3b35dc834bea5f2dab5546c9bf0b8f7a49c614279acb96adafd25aa7d311af83"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f06ef-odel-monitoring-fit-375x812-chromium\\model-monitor.png",
+      "bytes": 38753,
+      "sha256": "94b143ff447ee812bb537c6fff534ae7a87b06034b9a608c3763fff32c5c9f43"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\tmp\\usage-heatmap-preview-20261102-r2\\usage-monitoring-personal--f06ef-odel-monitoring-fit-375x812-chromium\\oa-monitor.png",
+      "bytes": 42118,
+      "sha256": "eede1e93a927a7fe07a7e41ce2fa9b162c48db2caacadafcf076847ee14dbef6"
+    }
+  ]
+}

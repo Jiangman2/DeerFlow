@@ -1,0 +1,56 @@
+{
+  "artifact": {
+    "bytes": 61569,
+    "delivered_bytes_equal_qualified_bound_archive": true,
+    "downloads_path": "C:\\Users\\15285\\Downloads\\activate-portal-skillhub-edge-auth-20261106-r1.py",
+    "filename": "activate-portal-skillhub-edge-auth-20261106-r1.py",
+    "sha256": "484e6f96148e67e87032f1ebef45c538d3b3141aac6198af07e87e09ffdd3bda"
+  },
+  "authenticated_browser_and_valid_native_bearer_acceptance_pending": true,
+  "git_modified_by_this_record": false,
+  "native_server": {
+    "native_acceptance_complete": true,
+    "receipt_binding": {
+      "bytes": 7130,
+      "operation": "25f363cb9f254e00b9f9dd196b2ade97",
+      "sha256": "29e159302c129098c28786ab4dd8267724d31ebe28e37f02293186b31d033c38"
+    },
+    "receipt_path": "/var/lib/portal-skillhub-registry-auth-activation-20261106-r2/REPORT.json",
+    "server_fixed_path_rechecked_by_tool_before_mutation": true,
+    "status": "SKILLHUB_REGISTRY_AUTH_RUNTIME_ACCEPTED_EDGE_PENDING"
+  },
+  "observed_at": "2026-11-06T03:09:58.582584+00:00",
+  "operator_execution_request_sent": true,
+  "operator_execution_result_received": false,
+  "production_edge_acceptance_pending": true,
+  "qualification": {
+    "bytes": 2917,
+    "modified": false,
+    "path": "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r1/QUALIFICATION.json",
+    "sha256": "c2c0d7ab3127736fcfa12c9e06d4187525f9477b8e1f88ae173cf2fe3b85a2c6"
+  },
+  "reviews": {
+    "independent": {
+      "checks": [
+        "bound artifact exact bytes and hash",
+        "native r2 receipt seal matches",
+        "only receipt-binding constant differs from qualified unbound",
+        "existing 39 offline and 24 synthetic Nginx HTTP checks applicable",
+        "actual Python 3.7 wrong-host zero-action guard",
+        "single ConfigMap CAS, PPT retirement protection and uncertainty stops preserved"
+      ],
+      "reviewer": "/root/pr40_ci_followup",
+      "source": "independent final review",
+      "status": "ACCEPTED_NO_BLOCKERS"
+    },
+    "root": {
+      "source": "root delivery confirmation",
+      "status": "ACCEPTED_FOR_DELIVERY"
+    }
+  },
+  "schema": "portal-skillhub-edge-auth-delivery.v1",
+  "source_controller_and_previous_preparation_preserved": true,
+  "status": "DELIVERED_TO_OPERATOR_PRODUCTION_EDGE_PENDING",
+  "this_record_executed_production_commands": false,
+  "this_record_modified_downloads": false
+}

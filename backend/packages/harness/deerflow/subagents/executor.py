@@ -433,6 +433,7 @@ class SubagentExecutor:
         deerflow_trace_id: str | None = None,
         datalake_enabled: bool = False,
         datalake_query_only: bool = False,
+        web_search_enabled: bool = True,
     ):
         """Initialize the executor.
 
@@ -488,6 +489,7 @@ class SubagentExecutor:
         self.channel_user_id = channel_user_id
         self.deerflow_trace_id = deerflow_trace_id
         self.datalake_enabled = datalake_enabled is True
+        self.web_search_enabled = web_search_enabled is True
         self.datalake_query_only = datalake_query_only is True
 
         self._base_tools = _filter_tools(
@@ -505,6 +507,9 @@ class SubagentExecutor:
             from deerflow.runtime.datalake_policy import ALLOWED_TOOLS
 
             self._base_tools = [tool for tool in self._base_tools if tool.name in ALLOWED_TOOLS]
+        from deerflow.runtime.web_search_policy import filter_web_tools
+
+        self._base_tools = filter_web_tools(self._base_tools, {"web_search_enabled": self.web_search_enabled})
         self.tools = self._base_tools
         # Guard middlewares that expose ``consume_stop_reason`` (currently
         # ``TokenBudgetMiddleware`` and ``LoopDetectionMiddleware``), captured in
@@ -826,6 +831,7 @@ class SubagentExecutor:
             if self.deerflow_trace_id:
                 context[DEERFLOW_TRACE_METADATA_KEY] = self.deerflow_trace_id
             context["datalake_enabled"] = self.datalake_enabled
+            context["web_search_enabled"] = self.web_search_enabled
             context["datalake_query_only"] = self.datalake_query_only
             context["is_subagent"] = True
 

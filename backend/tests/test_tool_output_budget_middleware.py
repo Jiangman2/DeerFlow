@@ -1199,15 +1199,17 @@ class TestMiddlewareChainIntegration:
         middlewares = build_subagent_runtime_middlewares(app_config=app_config, lazy_init=False)
 
         # InputSanitizationMiddleware is the outermost wrap_model_call wrapper;
-        # Source authorization rejects forbidden calls before output budgeting.
+        # Source and web-search authorization reject forbidden calls before output budgeting.
         from deerflow.agents.middlewares.datalake_source_middleware import DataLakeSourceMiddleware
         from deerflow.agents.middlewares.input_sanitization_middleware import InputSanitizationMiddleware
         from deerflow.agents.middlewares.platform_confidentiality_middleware import PlatformConfidentialityMiddleware
+        from deerflow.agents.middlewares.web_search_middleware import WebSearchMiddleware
 
         assert isinstance(middlewares[0], InputSanitizationMiddleware)
         assert isinstance(middlewares[1], PlatformConfidentialityMiddleware)
         assert isinstance(middlewares[2], DataLakeSourceMiddleware)
-        assert isinstance(middlewares[3], ToolOutputBudgetMiddleware)
+        assert isinstance(middlewares[3], WebSearchMiddleware)
+        assert isinstance(middlewares[4], ToolOutputBudgetMiddleware)
 
     def test_budget_middleware_in_lead_chain(self):
         from deerflow.agents.middlewares.tool_error_handling_middleware import build_lead_runtime_middlewares
@@ -1218,11 +1220,13 @@ class TestMiddlewareChainIntegration:
         from deerflow.agents.middlewares.datalake_source_middleware import DataLakeSourceMiddleware
         from deerflow.agents.middlewares.input_sanitization_middleware import InputSanitizationMiddleware
         from deerflow.agents.middlewares.platform_confidentiality_middleware import PlatformConfidentialityMiddleware
+        from deerflow.agents.middlewares.web_search_middleware import WebSearchMiddleware
 
         assert isinstance(middlewares[0], InputSanitizationMiddleware)
         assert isinstance(middlewares[1], PlatformConfidentialityMiddleware)
         assert isinstance(middlewares[2], DataLakeSourceMiddleware)
-        assert isinstance(middlewares[3], ToolOutputBudgetMiddleware)
+        assert isinstance(middlewares[3], WebSearchMiddleware)
+        assert isinstance(middlewares[4], ToolOutputBudgetMiddleware)
 
 
 # ===========================================================================

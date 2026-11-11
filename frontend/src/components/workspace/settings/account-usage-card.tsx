@@ -11,10 +11,18 @@ export function AccountUsageCard({ compact = false }: { compact?: boolean }) {
   const { t, locale } = useI18n();
   const labels = t.settings.account;
   const number = (value: number) => value.toLocaleString(locale);
+  const compactNumber = (value: number) =>
+    value < 10_000
+      ? number(value)
+      : new Intl.NumberFormat(locale, {
+          notation: "compact",
+          compactDisplay: "short",
+          maximumFractionDigits: 2,
+        }).format(value);
   const total = usage.isError
     ? "—"
     : usage.data
-      ? number(usage.data.total_tokens)
+      ? compactNumber(usage.data.total_tokens)
       : "…";
 
   return (
@@ -31,6 +39,11 @@ export function AccountUsageCard({ compact = false }: { compact?: boolean }) {
           {labels.totalTokens}
         </span>
         <span
+          title={
+            usage.data && !usage.isError
+              ? `${labels.totalTokens}: ${number(usage.data.total_tokens)}`
+              : undefined
+          }
           className={
             compact
               ? "text-sm font-semibold tabular-nums"

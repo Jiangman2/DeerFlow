@@ -1,0 +1,118 @@
+{
+  "behavior_acceptance_claimed": false,
+  "feature_markers": {
+    "account_activity": [
+      "/app/frontend/.next/static/chunks/2htuf_ac355ij.js"
+    ],
+    "custom_range": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "date_bounds": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "failure_preview_bound": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "failure_range": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "history_english": [
+      "/app/frontend/.next/static/chunks/43xxd4nu1phu0.js"
+    ],
+    "history_label": [
+      "/app/frontend/.next/static/chunks/43xxd4nu1phu0.js"
+    ],
+    "model_api": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "multiline_draft": [
+      "/app/frontend/.next/static/chunks/3non8_6sa2786.css"
+    ],
+    "oa_monitor": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "personal_heatmap": [
+      "/app/frontend/.next/static/chunks/2htuf_ac355ij.js"
+    ],
+    "responsive_navigation": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js",
+      "/app/frontend/.next/static/chunks/44s_-_kix5hr_.js"
+    ],
+    "section_knowledge": [
+      "/app/frontend/.next/static/chunks/0_d5_gp7ib4x4.js",
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js",
+      "/app/frontend/.next/static/chunks/2htuf_ac355ij.js",
+      "/app/frontend/.next/static/chunks/3pw5sf112gbc-.js",
+      "/app/frontend/.next/static/chunks/43xxd4nu1phu0.js"
+    ],
+    "section_models": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "section_oa": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "section_runs": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "section_users": [
+      "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js"
+    ],
+    "single_material_row": [
+      "/app/frontend/.next/static/chunks/3non8_6sa2786.css"
+    ],
+    "web_opt_in": [
+      "/app/frontend/.next/static/chunks/0_d5_gp7ib4x4.js"
+    ],
+    "weekly_heatmap": [
+      "/app/frontend/.next/static/chunks/2htuf_ac355ij.js"
+    ]
+  },
+  "image": "sha256:74c2e66ecc1c2e9b483faac428fc9211ff43bc0e0ed59ee141de379c678fdfb5",
+  "probe_sha256": "40c9a9b285fd3daa5cdf5b7d409e8ca7854a274018e7992c63174ccf46f0476d",
+  "production_access": false,
+  "qualification_sha256": "db93c7cd615fc2262b43c28fea639252dd692a63285f0ee86abc89db0a0d0fac",
+  "schema": "portal-dashboard-navigation-frontend-assets.v1",
+  "source_pins": {
+    "/app/frontend/.next/BUILD_ID": {
+      "bytes": 21,
+      "sha256": "07b7d6f06d2bbc9cf418d4e6b19b9cacc4e030c98ea0d5a4c7b9445a2759b726"
+    },
+    "/app/frontend/.next/routes-manifest.json": {
+      "bytes": 10341,
+      "sha256": "e5ccb72b0e897ab8bba223d4cd7855411b3997f060c9878298c0ab0ad930a970"
+    },
+    "/app/frontend/.next/static/chunks/0_d5_gp7ib4x4.js": {
+      "bytes": 352346,
+      "sha256": "ebcd9a51c6c610f6bfc1a19a2681f09a5ffb9dc7d4455f3e72f0921b1e2345ad"
+    },
+    "/app/frontend/.next/static/chunks/19t6w5y4h_fyb.js": {
+      "bytes": 92784,
+      "sha256": "e0b6526cb0634eefd8bb384d87e6c26b1103ebd1b517be3884ee90219293ffbb"
+    },
+    "/app/frontend/.next/static/chunks/2htuf_ac355ij.js": {
+      "bytes": 123041,
+      "sha256": "4bb85fdbb3525ae33cb7f5d1f689c5374160283e5d6624c4269c18da3f1adf10"
+    },
+    "/app/frontend/.next/static/chunks/3non8_6sa2786.css": {
+      "bytes": 135068,
+      "sha256": "69038567b6ffb8fc9f0ba9f15317136f999c73ec2e8372c5113ae599cc584225"
+    },
+    "/app/frontend/.next/static/chunks/3pw5sf112gbc-.js": {
+      "bytes": 43882,
+      "sha256": "cbbd6d906244cca3250b5710bdba1618898cd9d42964c08a49c1bac7c746f292"
+    },
+    "/app/frontend/.next/static/chunks/43xxd4nu1phu0.js": {
+      "bytes": 85867,
+      "sha256": "d72a907e916ebbdc28a5ef5dd50e967ce232c37bc37899e2e6f5f3084ef92027"
+    },
+    "/app/frontend/.next/static/chunks/44s_-_kix5hr_.js": {
+      "bytes": 35548,
+      "sha256": "abb4a5fe8cace36127a9f7557e89c43b693d7e64030f1ad864483fb91afbab8e"
+    },
+    "/app/frontend/public/images/cnooc-workspace-concept-bg.png": {
+      "bytes": 1254279,
+      "sha256": "5b00ca5a43fe16fa47dbcd15649f2ada852f383155ebe801caacbba1c64b518d"
+    }
+  },
+  "status": "COMPILED_MARKERS_PINNED"
+}

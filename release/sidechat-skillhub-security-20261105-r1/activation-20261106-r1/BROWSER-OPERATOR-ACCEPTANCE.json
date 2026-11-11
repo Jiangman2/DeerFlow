@@ -1,0 +1,20 @@
+{
+  "activation_operation": "b6eb864391124ae79231049ecc74c517",
+  "activation_report_sha256": "520583281155c8d5b37a3c7419eee70c81621a72de0519b5a9b3ec7b6635e3e3",
+  "checks": [
+    "sidechat_text_origin_and_multiline_scroll",
+    "attachment_and_mode_hints_and_mobile_interaction",
+    "solid_background_and_attachment_inset"
+  ],
+  "frontend_generation": 242,
+  "manifest": "sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3",
+  "model_business_call_acceptance_claimed": false,
+  "operator_statement": "桌面和手机均正常",
+  "received_date_local": "2026-11-06",
+  "schema": "portal-sidechat-browser-operator-acceptance.v1",
+  "scope": "operator_observed_browser_UI",
+  "server_receipt_preserved": true,
+  "skillhub_native_auth_remediation_accepted": false,
+  "status": "OPERATOR_DESKTOP_AND_MOBILE_ACCEPTED",
+  "timezone": "Asia/Shanghai"
+}

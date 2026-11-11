@@ -48,6 +48,7 @@ export interface AgentThreadContext extends Record<string, unknown> {
   reasoning_effort?: "minimal" | "low" | "medium" | "high";
   agent_name?: string;
   datalake_enabled?: boolean;
+  web_search_enabled?: boolean;
   weknora_knowledge_base_ids?: string[];
   weknora_knowledge_bases?: { id: string; name: string }[];
   weknora_knowledge_ids?: string[];

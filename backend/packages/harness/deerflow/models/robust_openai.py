@@ -58,6 +58,8 @@ from deerflow.models.assistant_payload_replay import (
     restore_assistant_payloads,
     restore_reasoning_content,
 )
+from deerflow.models.llm_performance import PerformanceSpan
+from deerflow.models.llm_performance import enabled as performance_enabled
 from deerflow.models.output_safety import ModelOutputGuard, visible_text
 from deerflow.models.stream_admission import admit_model_stream
 
@@ -181,6 +183,12 @@ class _ModelStreamTiming:
     chunk_count: int = 0
     token_usage: dict[str, int | float] = field(default_factory=dict)
     finished: bool = False
+    performance: PerformanceSpan | None = None
+
+    def __post_init__(self):
+        if performance_enabled():
+            self.performance = PerformanceSpan(model=self.model, mode=self.mode, call_id=self.llm_call_id, thread_id=self.deerflow_thread_id, run_id=self.deerflow_run_id)
+
     upstream_next_count: int = 0
     upstream_next_total_s: float = 0.0
     upstream_next_max_s: float = 0.0
@@ -215,6 +223,9 @@ class _ModelStreamTiming:
         )
 
     def start(self) -> None:
+        self.started_at = time.monotonic()  # Legacy timing excludes admission waiting.
+        if self.performance is not None:
+            self.performance.admit()
         if self.enabled:
             logger.info(
                 "LLM_TIMING start llm_call_id=%s mode=%s model=%s endpoint=%s langchain_run_id=%s deerflow_thread_id=%s deerflow_run_id=%s",
@@ -228,6 +239,8 @@ class _ModelStreamTiming:
             )
 
     def observe_chunk(self, generation_chunk: ChatGenerationChunk) -> None:
+        if self.performance is not None:
+            self.performance.observe(generation_chunk.message)
         self.chunk_count += 1
         self._mark_first_chunk()
 
@@ -248,6 +261,9 @@ class _ModelStreamTiming:
 
         self.chunk_count += 1
         self._mark_first_chunk()
+        if self.performance is not None:
+            for generation in result.generations:
+                self.performance.observe(generation.message, streaming=False)
         for generation in reversed(result.generations):
             usage = getattr(getattr(generation, "message", None), "usage_metadata", None)
             if not isinstance(usage, Mapping):
@@ -309,6 +325,8 @@ class _ModelStreamTiming:
         if self.finished:
             return
         self.finished = True
+        if self.performance is not None:
+            self.performance.finish(outcome, error)
         if not self.enabled:
             return
 
@@ -899,18 +917,31 @@ class RobustChatOpenAI(ChatOpenAI):
     ) -> AsyncIterator[ChatGenerationChunk]:
         """Queue only configured models before opening an outbound stream."""
 
-        async with admit_model_stream(self.model_name):
-            async with aclosing(
-                self._astream_admitted(
-                    messages,
-                    stop=stop,
-                    run_manager=run_manager,
-                    stream_usage=stream_usage,
-                    **kwargs,
-                )
-            ) as stream:
-                async for chunk in stream:
-                    yield chunk
+        timing = _ModelStreamTiming.for_invocation(self, run_manager, mode="async")
+        try:
+            async with admit_model_stream(self.model_name):
+                async with aclosing(
+                    self._astream_admitted(
+                        messages,
+                        stop=stop,
+                        run_manager=run_manager,
+                        stream_usage=stream_usage,
+                        _invocation_timing=timing,
+                        **kwargs,
+                    )
+                ) as stream:
+                    async for chunk in stream:
+                        yield chunk
+        except (asyncio.CancelledError, GeneratorExit) as exc:
+            timing.finish(outcome="cancelled", error=exc)
+            raise
+        except BaseException as exc:
+            timing.finish(outcome="error", error=exc)
+            raise
+        finally:
+            # Handles admission cancellation and payload-preparation exceptions.
+            # Inner stream owns normal completion; finish is idempotent.
+            timing.finish(outcome="closed")
 
     async def _astream_admitted(
         self,
@@ -919,6 +950,7 @@ class RobustChatOpenAI(ChatOpenAI):
         run_manager: AsyncCallbackManagerForLLMRun | None = None,
         *,
         stream_usage: bool | None = None,
+        _invocation_timing: _ModelStreamTiming | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
         """Async stream while normalizing non-standard scalar SSE chunks."""
@@ -934,7 +966,7 @@ class RobustChatOpenAI(ChatOpenAI):
         completion_id: str | None = None
         frame_guard = _StreamFrameGuard(self._normalize_stream_chunk)
         output_guard = ModelOutputGuard(repetition_enabled=self.repetition_guard_enabled, max_reasoning_chars=self.max_reasoning_chars)
-        timing = _ModelStreamTiming.for_invocation(self, run_manager, mode="async")
+        timing = _invocation_timing or _ModelStreamTiming.for_invocation(self, run_manager, mode="async")
         timing.start()
 
         try:

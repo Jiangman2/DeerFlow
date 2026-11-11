@@ -1,0 +1,374 @@
+{
+  "cached_test_image": {
+    "architecture": "amd64",
+    "created_at": "2026-11-04T08:25:05.203363672Z",
+    "executed_reference": "portal-finance-feedback-test:20261104-r1",
+    "identity_observation": "read-only image inspect after completed test runs; commands used cached tag, not a pre-run digest pin",
+    "observed_id": "sha256:a721a1d378e99172e6ae569c93c52e00fb2a17d6a0151c1aaae362d73277f5bf",
+    "observed_repo_digests": [
+      "portal-finance-feedback-test@sha256:a721a1d378e99172e6ae569c93c52e00fb2a17d6a0151c1aaae362d73277f5bf"
+    ],
+    "os": "linux"
+  },
+  "checks": [
+    {
+      "argv": [
+        "C:/Users/15285/AppData/Local/Programs/DockerDesktop/resources/bin/docker.exe",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=C:/Users/15285/.codex/worktrees/research-fund-report-labels-20261106/deer-flow,dst=/work,readonly",
+        "-w",
+        "/work",
+        "-e",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "portal-finance-feedback-test:20261104-r1",
+        "python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/skills/test_research_fund_report_labels.py",
+        "tests/skills/test_research_fund_settlement.py",
+        "tests/skills/test_research_fund_black_text.py",
+        "tests/skills/test_research_fund_project_type_text.py",
+        "tests/skills/test_research_fund_round3_render.py"
+      ],
+      "exitcode": 0,
+      "name": "focused_financial_and_display_regressions",
+      "passed": 67,
+      "reported_seconds": 55.59,
+      "stdout_summary": "67 passed in 55.59s",
+      "working_directory": "C:/Users/15285/.codex/worktrees/research-fund-report-labels-20261106/deer-flow"
+    },
+    {
+      "argv": [
+        "C:/Users/15285/AppData/Local/Programs/DockerDesktop/resources/bin/docker.exe",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=C:/Users/15285/.codex/worktrees/research-fund-report-labels-20261106/deer-flow,dst=/work,readonly",
+        "-w",
+        "/work",
+        "-e",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "portal-finance-feedback-test:20261104-r1",
+        "sh",
+        "-c",
+        "python -B -m pytest -q -p no:cacheprovider tests/skills/test_research_fund_*.py"
+      ],
+      "exitcode": 0,
+      "name": "all_financial_regressions",
+      "passed": 353,
+      "reported_seconds": 98.58,
+      "stdout_summary": "353 passed in 98.58s (0:01:38)",
+      "working_directory": "C:/Users/15285/.codex/worktrees/research-fund-report-labels-20261106/deer-flow"
+    },
+    {
+      "argv": [
+        "C:/Users/15285/AppData/Local/Programs/DockerDesktop/resources/bin/docker.exe",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=C:/Users/15285/.codex/worktrees/research-fund-report-labels-20261106/deer-flow,dst=/work,readonly",
+        "--mount",
+        "type=bind,src=C:/Users/15285/.codex/skills/.system/skill-creator/scripts/quick_validate.py,dst=/tmp/quick_validate.py,readonly",
+        "-w",
+        "/work",
+        "-e",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "portal-finance-feedback-test:20261104-r1",
+        "python",
+        "-B",
+        "/tmp/quick_validate.py",
+        "skills/public/research-fund-settlement"
+      ],
+      "exitcode": 0,
+      "name": "skill_creator_quick_validate",
+      "stdout_summary": "Skill is valid!",
+      "validator_bytes": 4376,
+      "validator_sha256": "6068513d924ed3559e186dfcdead7439129828dcf402167fd925c06dffbf2806",
+      "working_directory": "C:/Users/15285/.codex/worktrees/research-fund-report-labels-20261106/deer-flow"
+    }
+  ],
+  "containers_auto_removed": true,
+  "database_access": false,
+  "dependencies_installed": false,
+  "evidence_kind": "actual_tool_exit_codes_and_aggregate_stdout_summaries",
+  "individual_test_results_recorded": false,
+  "limits": [
+    "Aggregate counts are the actual pytest output, not a fabricated per-test event log.",
+    "Local tests do not establish production installation or user financial-report business acceptance.",
+    "Word rendering and visual checks are archived separately by the root agent."
+  ],
+  "network_mode": "none",
+  "production_commands_executed": 0,
+  "production_published": false,
+  "production_workload_modified": false,
+  "recorded_at": "2026-11-06T05:27:58.579413+00:00",
+  "repository_mount_read_only": true,
+  "schema": "research-fund-report-labels-local-regression.v1",
+  "source_snapshot": {
+    "bytes": 805924,
+    "file_count": 31,
+    "files": [
+      {
+        "bytes": 12896,
+        "path": "SKILL.md",
+        "sha256": "5ef508957851404ec156bb70f1ff20c4eff8b1e401bf2997f20585d63e153713"
+      },
+      {
+        "bytes": 281899,
+        "path": "assets/reference-examples/field-rules-demo.xlsx",
+        "sha256": "4c67f86102bfe0baf3cc27d4476aaabe7d8c6842bad5c92f4d872e94eab173f8"
+      },
+      {
+        "bytes": 83081,
+        "path": "assets/reference-examples/group-company-example.docx",
+        "sha256": "85dc59c86546a68da6d2173de7662ced2769593e5db88d621a0fd7779b846a51"
+      },
+      {
+        "bytes": 8224,
+        "path": "assets/reference-examples/group-company-standard-input.xlsx",
+        "sha256": "89d04dd9cd7840e70abbc70a4438b1ad4c499df9deb16f954c353a92d4c8a821"
+      },
+      {
+        "bytes": 34124,
+        "path": "assets/reference-examples/miit-example.docx",
+        "sha256": "34bc5dd3f8f951e6d6647f35f23f384ce95bb00b7a3a02a640a6a93a313a1b62"
+      },
+      {
+        "bytes": 34107,
+        "path": "assets/reference-examples/national-science-example.docx",
+        "sha256": "57539ce2de776ba81aa9358230e061cb9f97fb2ca441827f6dd6dae98584c883"
+      },
+      {
+        "bytes": 2117,
+        "path": "evals/evals.json",
+        "sha256": "bdedcd4761631be2094f3f5b085cee89a26bdca42fa15e4eed1a75ac7ad29565"
+      },
+      {
+        "bytes": 8254,
+        "path": "examples/cases/group-company-complete.json",
+        "sha256": "1c190cc407eff31aae85c6ef192eac440a5fdc610d512af2166af5e9d8ea4b05"
+      },
+      {
+        "bytes": 11466,
+        "path": "examples/cases/miit-complete.json",
+        "sha256": "cdf7b763c3f6afdda3345a77fc0af7c68fe495d5b3628bbd67b3eaecdfddeaeb"
+      },
+      {
+        "bytes": 7824,
+        "path": "examples/cases/national-science-complete.json",
+        "sha256": "9e98be5a2fb90ff0527ed46fd1b9cf9390a3ea5298d9bb7b531a8d8662422344"
+      },
+      {
+        "bytes": 8301,
+        "path": "references/data-contract.md",
+        "sha256": "dc7c65a79769517125fcb183c63caecd6662d141ea9f883e687bceb60202ec31"
+      },
+      {
+        "bytes": 8493,
+        "path": "references/group-company-standard-input.md",
+        "sha256": "b23fb015d8a05cb233a6dd38fc813af24c2ffcd09b02dbc58e1e48fd1e86e7de"
+      },
+      {
+        "bytes": 3815,
+        "path": "references/group-company-template-annotations.md",
+        "sha256": "f823183012259b3c3f8561da9a9571057c4e247760c9012d1329a10d21056f84"
+      },
+      {
+        "bytes": 4388,
+        "path": "references/group-company.md",
+        "sha256": "f13248821ffb5ec7fee99c64713726ba9d4e96045da8d619a45640b1c6c77e9f"
+      },
+      {
+        "bytes": 6491,
+        "path": "references/layout-contract.md",
+        "sha256": "b75c160d7359f30768f560c04b1f13c7fec4d94520a6876689a4b5b0dba88458"
+      },
+      {
+        "bytes": 2300,
+        "path": "references/miit.md",
+        "sha256": "2e5357c3bf3d15e6ae1ee50e3896caca5704f01571b45a26da73cbbbe34ff276"
+      },
+      {
+        "bytes": 1921,
+        "path": "references/national-science.md",
+        "sha256": "2833f1913cfaddf7b0a69219bb6d2d8d8be16fcd9760db3a534658637f927709"
+      },
+      {
+        "bytes": 4384,
+        "path": "references/profile-rules.json",
+        "sha256": "8615311c6948b6fb3e7f3a659a7e6e1e51df979bde758c46c9549582c18b0030"
+      },
+      {
+        "bytes": 31336,
+        "path": "references/source-field-catalog.json",
+        "sha256": "75509114e1b7d3004c0216e2148227ea4e8ffa9338a8ff3b3ea50aefe4f5216e"
+      },
+      {
+        "bytes": 5559,
+        "path": "schemas/case.schema.json",
+        "sha256": "1ebfaef99c0a771fb16b468ca93ce462227f9827d0a535919c8b1175a068bd28"
+      },
+      {
+        "bytes": 46732,
+        "path": "scripts/docx_builder.py",
+        "sha256": "a955447325a5411f440e814182bf3147bb7b82d46c95b276bc8c9e616e6bde13"
+      },
+      {
+        "bytes": 1987,
+        "path": "scripts/extract_reference_catalog.py",
+        "sha256": "e83dfe3793908394e10ce77b69e5f053bb6272caea1ac53619b30a8e6250602f"
+      },
+      {
+        "bytes": 6814,
+        "path": "scripts/group_build.py",
+        "sha256": "e148fca7858788ae9cd364b6d22217275707f44d6a79208154c97df28111cdc1"
+      },
+      {
+        "bytes": 22443,
+        "path": "scripts/group_template.py",
+        "sha256": "b7cc8f583165f5039c2870ce60b38cc6fced3aea3a6e6be6172f7fd1f39b1da3"
+      },
+      {
+        "bytes": 7330,
+        "path": "scripts/report_cli.py",
+        "sha256": "836f8a2da4ca2c987e5fedcd5863b48fd35e4edb8c0b4ebc96140b94df66d3b9"
+      },
+      {
+        "bytes": 7044,
+        "path": "scripts/report_display.py",
+        "sha256": "3846aabdcf515e73be3e3d8951923f85e84a2b3269c98bc18c8bd937fa85c3b8"
+      },
+      {
+        "bytes": 46564,
+        "path": "scripts/report_model.py",
+        "sha256": "aa9f5c2800b58132a25d45fc67975161c57d3a288670959fcc45a902340e5d71"
+      },
+      {
+        "bytes": 50559,
+        "path": "scripts/standard_input.py",
+        "sha256": "a4ab51d0f2075f04804fa2653fa56228a4754f3454f14ffb752e2fd13eb5465a"
+      },
+      {
+        "bytes": 43649,
+        "path": "scripts/template_builder.py",
+        "sha256": "1bec0061aba4474bba2ef1ad34fc2b2d0905f159d9c65d9bbe3b82f15dac7639"
+      },
+      {
+        "bytes": 3782,
+        "path": "scripts/text_color.py",
+        "sha256": "61966d28f44dd1aed9dc0489fb23c432ef3d0890e518edef71faf09b98e039e1"
+      },
+      {
+        "bytes": 8040,
+        "path": "scripts/workbook_formulas.py",
+        "sha256": "9cd6be8b9f5a73d67d87bc8ea7a1a9434119bbb9385f673ad77aa7ed1e4b78e7"
+      }
+    ],
+    "financial_test_sources": [
+      {
+        "bytes": 5826,
+        "path": "tests/skills/test_research_fund_annual_budget.py",
+        "sha256": "75683b58f01815fa6eb4c490119d10ecdfb6b1aaf27be68df4e8f0c442a752ea"
+      },
+      {
+        "bytes": 5708,
+        "path": "tests/skills/test_research_fund_black_text.py",
+        "sha256": "34be6c3853159b6af3e7a817ce19c9bcbf853901826fcc2ec53b9df3cebfaecf"
+      },
+      {
+        "bytes": 9640,
+        "path": "tests/skills/test_research_fund_feedback.py",
+        "sha256": "1b00fcfbb5ab2cde7a28e795bb10a585b5b6e8b0487b9ed74129f0eafd5873ff"
+      },
+      {
+        "bytes": 6758,
+        "path": "tests/skills/test_research_fund_formula_review.py",
+        "sha256": "a0b0e7d79e9bdb8d6060e03b9e7397873aaa00e654bf97013d23df4205aa3916"
+      },
+      {
+        "bytes": 10355,
+        "path": "tests/skills/test_research_fund_nov05_import.py",
+        "sha256": "4d0aa0a4a92fc52773fca73982af148dc946030e453a8ada2cff26882361ed1b"
+      },
+      {
+        "bytes": 16588,
+        "path": "tests/skills/test_research_fund_nov05_model.py",
+        "sha256": "e174d43c560cbe79614bf29075f5246a713edbe9685eb5ffc4faaff861a70af4"
+      },
+      {
+        "bytes": 5207,
+        "path": "tests/skills/test_research_fund_nov05_roundtrip.py",
+        "sha256": "05cd0cceaf47fbed11dc546f9f26adf503f6172cea45e18ae28f11c271b74328"
+      },
+      {
+        "bytes": 4580,
+        "path": "tests/skills/test_research_fund_project_type_text.py",
+        "sha256": "c9cc11225816063be91c2fe4bfd6284029297f796204ab76a6d5d3fad26cb8e7"
+      },
+      {
+        "bytes": 11496,
+        "path": "tests/skills/test_research_fund_report_labels.py",
+        "sha256": "5ce4b743149e654903cbd880809aedd717f0679c9dd86d553bdc310212a5fd25"
+      },
+      {
+        "bytes": 6195,
+        "path": "tests/skills/test_research_fund_round3_acceptance.py",
+        "sha256": "fbc7feed3417d6789faa7f42cdb89a7ec98c656f592496266f083b1fc19c15b4"
+      },
+      {
+        "bytes": 6950,
+        "path": "tests/skills/test_research_fund_round3_computed.py",
+        "sha256": "485f91d9f6a00389727f677a839f40d586714a3aeb2319179c174312b8214a64"
+      },
+      {
+        "bytes": 7255,
+        "path": "tests/skills/test_research_fund_round3_integration.py",
+        "sha256": "a83b44875332811989d7867b7b2a654ff59f4ede9b46e98d78638aed6dc28398"
+      },
+      {
+        "bytes": 4692,
+        "path": "tests/skills/test_research_fund_round3_reasons.py",
+        "sha256": "131e989ed5e60d97e28c54f1dbe2280e1fca5dd9f8be2b7846b41453f36624b4"
+      },
+      {
+        "bytes": 1635,
+        "path": "tests/skills/test_research_fund_round3_render.py",
+        "sha256": "3e2eb30fd93a4670f9fe23ef02fd6bb26c616b78b62be08625a25045dbfd31db"
+      },
+      {
+        "bytes": 7281,
+        "path": "tests/skills/test_research_fund_settlement.py",
+        "sha256": "a88fe162288a37781c13fa9ebecf582df57f947daf8258ef10deb4ce68991aca"
+      },
+      {
+        "bytes": 3665,
+        "path": "tests/skills/test_research_fund_template_review.py",
+        "sha256": "1bf2903ec9e22ab2d0dce6b3e9d3f65b2524b507c970f7fc9d9c929281d4e321"
+      },
+      {
+        "bytes": 6717,
+        "path": "tests/skills/test_research_fund_zero_budget.py",
+        "sha256": "fc2eed6f866e03bc508ec08112e0ea9d903e90a7d92eabdce2f23e1087341745"
+      }
+    ],
+    "observation": "post-test receipt snapshot; display code frozen before these completed runs",
+    "schema": "research-fund-skill-source.v1",
+    "skill_path": "skills/public/research-fund-settlement",
+    "tree_hash_basis": "sha256 of ASCII canonical JSON file records sorted by relative POSIX path; excludes __pycache__, .pyc, .pyo",
+    "tree_sha256": "883b98f54f2756c218e98bb535d4d6265fb7bd1fffc2049a54bbac7746ea39dc"
+  },
+  "status": "LOCAL_REGRESSIONS_PASSED_NOT_PRODUCTION_ACCEPTANCE",
+  "tests_rerun_for_receipt": false
+}

@@ -1,0 +1,53 @@
+{
+  "schema": "work-task-agent-source-candidate.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "0dc61aa7435ce57546e93eae81fb3d124a4ef6a7",
+  "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
+  "parent_candidate_sha256": "925f1366291da2f5480d258313a93508599781a8e3b4b2758da77a7ddcd59f37",
+  "scope": "Work canonical calendar drafts and confirmed finite batches; no schema change or production deployment.",
+  "changes": {
+    "gateway": {
+      "backend/app/integrations/work/agent.py": {
+        "base_sha256": "0eebf19bafc8d674c9125c0f7aebe1666e0dd09ca2fff7af50516a3ff92d83fa",
+        "candidate_sha256": "c20db05e1bd6df50a74363abca161a1781d7937341ff5192e2fde113b4127062"
+      },
+      "backend/app/integrations/work/batch.py": {
+        "base_sha256": null,
+        "candidate_sha256": "1f760d8389d8935aef3745ce084e99ad9d917cbf06a6368d7853ad0c827cdbdf"
+      },
+      "backend/app/integrations/work/calendar_workflow.py": {
+        "base_sha256": null,
+        "candidate_sha256": "3beab77786d9c47210d77acf2a19032ec6372c49dac80ca79efb24d982f96400"
+      },
+      "backend/app/integrations/work/capabilities.py": {
+        "base_sha256": "92cd34ae1d8ab14814ab477ccf49969d7c867be65c3fcf72b972f61ef10e6bbe",
+        "candidate_sha256": "e70e52b4cfbc1577ca5de5b22530102a22c45d8ffe4e795024fb4cc175480581"
+      },
+      "backend/app/integrations/work/date_grounding.py": {
+        "base_sha256": null,
+        "candidate_sha256": "1055cd1bf2954ae40ff44951bbe40958e93323b3a7ca7a6eeb5aa0464911f3d3"
+      },
+      "backend/app/integrations/work/drafts.py": {
+        "base_sha256": null,
+        "candidate_sha256": "9c61cce694615882ae9772473582b572504f3e336c242384ce0a7ddb0ef25a5e"
+      },
+      "backend/app/integrations/work/persistent.py": {
+        "base_sha256": "b5e473db9d98dd23a4eefb1533078598211453c7883be3b607d76c1f95a7559f",
+        "candidate_sha256": "6c54cfff982e5a0d9acdb72933997da47919936c4e4d267dd0069a2456f2d4cf"
+      },
+      "backend/app/integrations/work/routing.py": {
+        "base_sha256": "5755f8454fbe78527c6d6f643210e8110511d57df9b8145cf76e17b846c5665d",
+        "candidate_sha256": "8aa18c5c9e64f0bdb3ebdf35b1207d8745d02cdf029bdd9a021a774e5efb31d5"
+      },
+      "backend/app/integrations/work/service.py": {
+        "base_sha256": "6d04054e01238ae1911b44de70d64448c61fa03143e5df07ff547410bc158de3",
+        "candidate_sha256": "2d01f129f4d5ce378c1215b0b3cac8525da2b90ac0981ed00209693641a5084f"
+      },
+      "backend/app/integrations/work/store.py": {
+        "base_sha256": "59fe9634d2557960d10869940d6ea7079a7c447b16b1ad81c8a099ee9d0f5c0e",
+        "candidate_sha256": "dcd62fc316280782c67c47b2be415f622232485e0ece399f9795ac494db79217"
+      }
+    },
+    "frontend": {}
+  }
+}

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import math
+from contextlib import asynccontextmanager
 
 import httpx
 import pytest
@@ -35,8 +36,22 @@ class _Response:
     def json(self) -> dict:
         return self._payload
 
+    headers = {}
 
-class _Client:
+    async def aiter_raw(self, chunk_size=16384):
+        raw = json.dumps(self._payload).encode()
+        for i in range(0, len(raw), chunk_size):
+            yield raw[i : i + chunk_size]
+
+
+class _StreamingClient:
+    @asynccontextmanager
+    async def stream(self, method, url, **kwargs):
+        assert method == "POST"
+        yield await self.post(url, **kwargs)
+
+
+class _Client(_StreamingClient):
     def __init__(self, response: _Response, calls: list):
         self.response = response
         self.calls = calls
@@ -71,7 +86,7 @@ async def test_internal_embedding_relay_defaults_to_approved_concurrency(monkeyp
 
     limiter = weknora._internal_embedding_limiter()
 
-    assert limiter._value == 200
+    assert limiter._value == 8
 
 
 @pytest.mark.asyncio
@@ -80,7 +95,7 @@ async def test_internal_embedding_relay_clamps_concurrency_to_approved_limit(mon
 
     limiter = weknora._internal_embedding_limiter()
 
-    assert limiter._value == 200
+    assert limiter._value == 8
 
 
 @pytest.mark.asyncio
@@ -158,7 +173,7 @@ async def test_internal_embedding_relay_serializes_upstream_calls(monkeypatch, i
     active = 0
     max_active = 0
 
-    class _TrackingClient:
+    class _TrackingClient(_StreamingClient):
         async def __aenter__(self):
             return self
 
@@ -185,21 +200,18 @@ async def test_internal_embedding_relay_serializes_upstream_calls(monkeypatch, i
     monkeypatch.setenv("WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRIES", "0")
     monkeypatch.setattr(weknora.httpx, "AsyncClient", lambda **kwargs: _TrackingClient())
 
-    requests = [
-        _request(
-            "/api/weknora/internal-models/v1/embeddings",
-            {
-                "model": "Qwen3-Embedding-8B",
-                "input": [f"request-{index}"],
-                "dimensions": 1024,
-            },
-            "relay-secret",
-        )
-        for index in range(2)
-    ]
-    responses = await asyncio.gather(*(weknora.cnooc_embeddings(request) for request in requests))
+    from fastapi import FastAPI
 
-    assert len(responses) == 2
+    # httpx is shared with weknora; recover the actual client class after its patch.
+    from httpx._client import AsyncClient as RealClient
+
+    app = FastAPI()
+    app.include_router(weknora.router)
+    async with RealClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        responses = await asyncio.gather(
+            *[client.post("/api/weknora/internal-models/v1/embeddings", headers={"Authorization": "Bearer relay-secret"}, json={"model": "Qwen3-Embedding-8B", "input": ["test"], "dimensions": 1024}) for _ in range(2)]
+        )
+    assert sorted(r.status_code for r in responses) == [200, 429]
     assert max_active == 1
 
 
@@ -217,7 +229,7 @@ async def test_internal_embedding_relay_retries_transient_10020(monkeypatch, int
     ]
     calls = []
 
-    class _SequenceClient:
+    class _SequenceClient(_StreamingClient):
         async def __aenter__(self):
             return self
 
@@ -332,7 +344,7 @@ async def test_internal_relays_validate_contract_and_business_failure(monkeypatc
 
 @pytest.mark.asyncio
 async def test_internal_relay_maps_network_failure(monkeypatch, internal_keys):
-    class _FailingClient:
+    class _FailingClient(_StreamingClient):
         async def __aenter__(self):
             return self
 
