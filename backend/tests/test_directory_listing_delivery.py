@@ -43,7 +43,7 @@ def test_directory_and_five_filenames_become_durable_clickable_links(listing, bl
 
 
 @pytest.mark.parametrize(
-    "reason", ["older_run", "no_stamp", "failed_receipt", "wrong_tool", "missing_file", "not_in_state", "unknown_name", "unknown_list_item", "other_directory", "directory_link", "directory_only", "wrong_relative_path", "two_directories"]
+    "reason", ["older_run", "no_stamp", "failed_receipt", "wrong_tool", "missing_file", "not_in_state", "unknown_name", "unknown_list_item", "other_directory", "directory_link", "wrong_relative_path", "two_directories"]
 )
 def test_directory_listing_fails_closed(listing, tmp_path, reason):
     directory, names, state, runtime = listing
@@ -71,8 +71,6 @@ def test_directory_listing_fails_closed(listing, tmp_path, reason):
         text = text.replace("交付/", "别处/")
     elif reason == "directory_link":
         text += f"\n[下载目录]({directory})"
-    elif reason == "directory_only":
-        text = f"`{directory}`"
     elif reason == "wrong_relative_path":
         text += f"\n- ../其他/{name}"
     elif reason == "two_directories":

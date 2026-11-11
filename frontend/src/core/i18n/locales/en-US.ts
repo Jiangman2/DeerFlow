@@ -483,6 +483,26 @@ export const enUS: Translations = {
 
   // Scheduled tasks
   scheduledTasks: {
+    workNotification: {
+      label: "Haineng Work notification",
+      off: "Off",
+      hint: "Send the result to the selected bot chat after a successful run.",
+      noTargets:
+        "Connect Haineng Work in Settings → Channels, send a message in a private bot chat, and then refresh the list.",
+      loading: "Loading private chats…",
+      loadFailed:
+        "Private chats could not be loaded. Refresh the list to retry.",
+      configured: "Notification configured",
+      unavailableTarget: "The selected private chat is unavailable",
+      refresh: "Refresh private chats",
+      status: {
+        pending: "Waiting to send",
+        sent: "Sent",
+        failed: "Failed to send",
+        uncertain: "Delivery needs verification",
+        skipped: "Skipped",
+      },
+    },
     scheduleType: {
       cron: "Recurring",
       once: "One-time",

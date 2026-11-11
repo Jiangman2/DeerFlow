@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+app/output/
+app/state/
+reproduced/
+*.private.json
+.env

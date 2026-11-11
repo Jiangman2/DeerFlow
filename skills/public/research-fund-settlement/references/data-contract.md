@@ -66,6 +66,8 @@
 
 `scope` 为 `direct` 或 `indirect`。`include_in_total = false` 只用于父科目的拆分明细，避免父子项目重复汇总；`parent_code` 指向父科目。`input_row` 和 `input_balance` 可保存标准表行号及原表结余，用于审计追踪。
 
+集团公司正文中的 `description` 是费用用途的项目补充说明，例如有证据的外协合同数量、名称和支撑研究内容，接在原模板通用用途后；`variance_reason` 单独供结余原因章节使用（设备费的有结余说明除外）。两者不能互相代填。没有项目明细时不推断合同数量或单位名称，也不输出 `XXX`。
+
 脚本统一计算：
 
 - `approved_total = Σ funding.sources[].approved`；

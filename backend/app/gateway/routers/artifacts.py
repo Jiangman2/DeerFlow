@@ -9,7 +9,6 @@ import logging
 import mimetypes
 import os
 import re
-import threading
 import zipfile
 from pathlib import Path
 from urllib.parse import quote, urlsplit
@@ -19,6 +18,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 
 from app.gateway.authz import require_permission
+from app.gateway.file_security import PDFIUM_LOCK as _PDF_PREVIEW_LOCK
 from app.gateway.file_security import pdf_file_requires_attachment, pdf_payload_findings, pdf_payload_has_active_content
 from app.gateway.internal_auth import get_trusted_internal_owner_user_id
 from app.gateway.path_utils import resolve_thread_virtual_path
@@ -80,7 +80,6 @@ _SKILL_ARCHIVE_READ_CHUNK_SIZE = 64 * 1024
 MAX_PDF_PREVIEW_BYTES = 64 * 1024 * 1024
 MAX_PDF_PREVIEW_PAGES = 100
 _PDF_PREVIEW_RENDER_SCALE = 1.5
-_PDF_PREVIEW_LOCK = threading.Lock()
 
 
 def _is_active_content_mime_type(mime_type: str | None) -> bool:

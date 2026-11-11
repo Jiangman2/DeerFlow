@@ -1,0 +1,23 @@
+{
+  "candidate": {
+    "bytes": 103442872,
+    "sha256": "342d0e02914d790a1c01a845cce4047af8b634fd34ecef0b01a66d5425fe7e3f"
+  },
+  "candidate_runtime_tests_pending": true,
+  "changed_entries": [
+    "BOOT-INF/classes/com/iflytek/skillhub/compat/ClawHubRegistrySecurityConfig.class",
+    "BOOT-INF/classes/com/iflytek/skillhub/integration/deerflow/DeerFlowRouteSecurityPolicyRegistry.class"
+  ],
+  "dependency_jars_preserved": 201,
+  "migration_entries_preserved": 46,
+  "original": {
+    "bytes": 103450647,
+    "sha256": "6fc23f8056b763a1590a9953a83e6bee873e7bb2e935b2dddf93589585500363"
+  },
+  "original_preserved": true,
+  "preserved_entries": 788,
+  "preserved_inventory_sha256": "68412c5fac3ccadc43fcd9bc3de00183686c281f9af79c40bd48427ee9d03a69",
+  "production_mutations": 0,
+  "ready_for_rollout": false,
+  "schema": "portal-skillhub-two-class-patch.v1"
+}

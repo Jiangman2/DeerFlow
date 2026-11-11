@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -230,13 +232,37 @@ def test_nested_zip_without_executable_member_stays_warning(tmp_path: Path) -> N
     assert result["blocked"] is False
 
 
-def test_bundled_public_skills_have_no_critical_findings() -> None:
-    public_skills_root = Path(__file__).parents[2] / "skills" / "public"
-    skill_dirs = sorted({skill_md.parent for skill_md in public_skills_root.rglob("SKILL.md")})
+def test_bundled_public_skills_have_no_unreviewed_critical_findings() -> None:
+    root = Path(__file__).parents[2]
+    public_skills_root = root / "skills" / "public"
+    candidates = {skill_md.parent for skill_md in public_skills_root.rglob("SKILL.md")}
+    # Match discovery: a nested upstream instruction belongs to its outer package.
+    skill_dirs = sorted(path for path in candidates if not any(parent in candidates for parent in path.parents))
     assert skill_dirs, f"no bundled public skills found under {public_skills_root}"
 
     for skill_dir in skill_dirs:
         criticals = [finding for finding in scan_skill_dir(skill_dir)["findings"] if finding["severity"] == "CRITICAL"]
+        if skill_dir == public_skills_root / "energy-market-daily":
+            # Only this byte-sealed original package has a reviewed CI disposition.
+            # Runtime scanning still blocks these findings. Any extra finding,
+            # changed file, ZIP member, or release receipt must fail this check.
+            expected = {
+                ("package-nested-skill-md", "CRITICAL", "upstream/agent/SKILL.md", None),
+                ("package-nested-skill-md", "CRITICAL", "upstream/provenance/original-skill/SKILL.md", None),
+            }
+            observed = {(f["rule_id"], f["severity"], f["file"], f["line"]) for f in criticals}
+            assert observed == expected and len(criticals) == len(expected)
+            review = subprocess.run(
+                [sys.executable, "-B", str(root / "scripts" / "review_energy_market_original.py")],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=120,
+                check=False,
+            )
+            assert review.returncode == 0, review.stdout + review.stderr
+            continue
         assert not criticals, f"bundled skill {skill_dir.name} has CRITICAL findings: {criticals}"
 
 

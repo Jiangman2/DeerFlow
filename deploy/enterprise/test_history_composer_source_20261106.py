@@ -7,13 +7,14 @@ import unittest
 from unittest.mock import patch
 
 from released_source_20261102 import composer as source, followup, load, successor_read
+from work_integration_source_20261106 import historical_view
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class HistoryComposerSourceTests(unittest.TestCase):
-    def read(self, path):
-        return (ROOT / path).read_bytes()
+    def setUp(self):
+        self.read, _ = historical_view(lambda path: (ROOT / path).read_bytes())
 
     def replace(self, target, value):
         def read(path):

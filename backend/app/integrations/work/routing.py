@@ -17,16 +17,73 @@ from .drafts import CalendarDraft
 
 DOCUMENT_OPERATIONS = ("document_read", "document_create", "document_rename", "document_append", "document_replace")
 CALENDAR_OPERATIONS = ("calendar_query", "calendar_create", "calendar_update")
+_WORK_LOCATION = re.compile(r"海能\s*work|(?<![a-z0-9_])work\s*(?:里|中|内|上|的|云文档|云盘)|我(?:的)?\s*(?:云文档|云盘)|(?:云文档(?:空间)?|云盘)\s*[里中内下上]", re.I)
+_FILENAME_MENTION = re.compile(r"[^\s《》“”\"']\.(?:docx|xlsx|pdf)(?![a-z0-9_-]|\.[a-z0-9])", re.I)
+_NON_WORK_FILE_SOURCE = re.compile(r"[/\\]|本地(?:文件|电脑|目录|路径|磁盘|的)|本机[里中上]|电脑[里中上]|桌面[里中上]|附件(?:[里中的]|\s*[:：])")
+_READABLE_SUFFIXES = frozenset({"docx", "xlsx", "pdf"})
+_UNSAFE_FILE_TITLE = re.compile(r"[/\\<>:*?|\"\x00-\x1f\x7f]|%(?:2f|5c)|[\u202a-\u202e\u2066-\u2069]", re.I)
+_PROVIDER_ID = re.compile(r"(?:ou_|oc_|om_|cli_|tenant_)[a-z0-9_-]{8,}|(?:dox|fld|sht|box)[a-z0-9]{16,}", re.I)
+_QUOTED_TITLE = re.compile(r'《[^》\n]+》|“[^”\n]+”|「[^」\n]+」|『[^』\n]+』|"[^"\n]+"')
+
+
+class FileLookupIntent(BaseModel):
+    """A current user-supplied title, with no provider ID or action authority."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+    operation: Literal["file_lookup"]
+    title: str = Field(min_length=1, max_length=160)
+    read: bool
+
+    @field_validator("title")
+    @classmethod
+    def plain_title(cls, value):
+        if value != value.strip() or value in {".", ".."} or _UNSAFE_FILE_TITLE.search(value) or _PROVIDER_ID.fullmatch(value):
+            raise ValueError("invalid_file_lookup_title")
+        return value
+
+
+def file_lookup_in_scope(request: str) -> bool:
+    """Limit name resolution to cloud references or supported file names in Work."""
+    if _NON_WORK_FILE_SOURCE.search(request):
+        return False
+    return bool(_WORK_LOCATION.search(request) or ("上传的" not in request and _FILENAME_MENTION.search(request)))
+
+
+def validate_file_lookup(intent: FileLookupIntent, request: str) -> FileLookupIntent:
+    if not isinstance(intent, FileLookupIntent) or not file_lookup_in_scope(request):
+        raise ValueError("file_lookup_title_not_in_current_request")
+    # A substring that drops a suffix or copies the scope words themselves
+    # is not evidence of an explicit filename.
+    title = re.compile(r"(?<![A-Za-z0-9_.-])" + re.escape(intent.title) + r"(?![A-Za-z0-9_-]|[.．][A-Za-z0-9])")
+    quoted = tuple(_QUOTED_TITLE.finditer(request))
+
+    def disjoint(left, right):
+        return left.end() <= right.start() or right.end() <= left.start()
+
+    matches = tuple(match for match in title.finditer(request) if all(disjoint(match, quote) or quote[0][1:-1].strip() == intent.title for quote in quoted))
+    locations = tuple(location for location in _WORK_LOCATION.finditer(request) if all(disjoint(location, quote) for quote in quoted))
+    if locations:
+        grounded = any(all(disjoint(match, location) for location in locations) for match in matches)
+    else:
+        stem, _, suffix = intent.title.rpartition(".")
+        grounded = bool(matches and stem and suffix.lower() in _READABLE_SUFFIXES)
+    if not grounded:
+        raise ValueError("file_lookup_title_not_in_current_request")
+    if request.strip().strip("《》“”「」『』()（）[]\"'。！？!?,.，").strip() == intent.title:
+        raise ValueError("file_lookup_requires_read_or_find_request")
+    return intent
 
 
 def validate_intent(value):
     """Accept proposals only, never model-selected execution/transport metadata."""
     if value is None:
         return None
-    raw = value.model_dump(mode="json") if isinstance(value, (Action, CalendarIntent)) else value
+    raw = value.model_dump(mode="json") if isinstance(value, (Action, CalendarIntent, FileLookupIntent)) else value
     if not isinstance(raw, dict):
         raise ValueError("intent_object_required")
     operation = raw.get("operation")
+    if operation == "file_lookup":
+        return FileLookupIntent.model_validate(raw)
     if operation in CALENDAR_OPERATIONS:
         return CalendarIntent.model_validate(raw)
     if operation not in DOCUMENT_OPERATIONS:
@@ -54,8 +111,8 @@ class WorkTurnDecision(BaseModel):
         return self._calendar_task_reset
 
     route: Literal["general", "new_work", "continue_work", "clarify", "cancel_current", "unsupported"]
-    domain: Literal["calendar", "document"] | None = None
-    intent: CalendarIntent | Action | None = None
+    domain: Literal["calendar", "document", "file_lookup"] | None = None
+    intent: CalendarIntent | Action | FileLookupIntent | None = None
     draft: CalendarDraft | None = None
     question: str = Field(default="", max_length=1000)
     time_window: Literal["today", "tomorrow", "day_after_tomorrow", "this_week", "next_week", "next_7_days"] | None = Field(
@@ -94,9 +151,11 @@ class WorkTurnDecision(BaseModel):
                 raise ValueError("ordinary_and_cancel_routes_cannot_carry_work")
             return self
         if self.intent is not None:
-            expected = "calendar" if isinstance(self.intent, CalendarIntent) else "document"
+            expected = "calendar" if isinstance(self.intent, CalendarIntent) else "file_lookup" if isinstance(self.intent, FileLookupIntent) else "document"
             if self.domain != expected:
                 raise ValueError("intent_domain_mismatch")
+            if expected == "file_lookup" and self.route != "new_work":
+                raise ValueError("file_lookup_requires_new_current_request")
         if self.draft is not None:
             if self.intent is not None or self.domain != "calendar":
                 raise ValueError("calendar_draft_requires_exclusive_calendar_domain")

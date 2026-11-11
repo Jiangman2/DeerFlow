@@ -12,6 +12,7 @@ from released_source_20261102 import ARCHIVE as NOV02_ARCHIVE, DELTA as NOV02_DE
 from released_source_20261102 import CI_ARCHIVE, CI_MANIFEST, followup
 
 from released_source_20261102 import composer
+from work_integration_source_20261106 import MANIFEST as WORK_MANIFEST, historical_view as work_historical_view
 
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = "release/nov01-released-fixes-source-20261102/"
@@ -48,6 +49,10 @@ def verify(ref=None):
             roots.append(followup.alignment.WORK_RELEASE_ALIGNMENT_ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, composer.MANIFEST], cwd=ROOT).strip():
             roots.append(composer.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, WORK_MANIFEST], cwd=ROOT).strip():
+            roots.append(WORK_MANIFEST)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, followup.delivery.MANIFEST], cwd=ROOT).strip():
+            roots.append(followup.delivery.ARCHIVE)
         raw = subprocess.check_output(["git", "archive", ref, *roots], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             archived = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}
@@ -57,6 +62,8 @@ def verify(ref=None):
             return archived[path]
         return (ROOT / path).read_bytes()
 
+    current_read = read
+    read, work_followup = work_historical_view(current_read)
     read = followup.artifact_directory_historical_read(read)
     if has_nov02:
         read = historical_read(read)
@@ -94,10 +101,11 @@ def verify(ref=None):
         else:
             assert not (ROOT / path).exists(), path
     for path in ("backend/app/gateway/services.py", "frontend/src/core/data-lake/auth.ts", "frontend/src/core/settings/store.ts"):
-        assert b"work-grant" not in read(path) and b"inject_work_data_lake_context" not in read(path), path
+        assert b"work-grant" not in current_read(path) and b"inject_work_data_lake_context" not in current_read(path), path
     return {"status": "SCOPED_RELEASED_SOURCE_VERIFIED", "sources": 20,
             "evidence": len(manifest["evidence"]), "work_datalake_deferred": True,
-            "production_commands_executed": False, "browser_business_acceptance_pending": True}
+            "production_commands_executed": False, "browser_business_acceptance_pending": True,
+            "work_integration_followup": work_followup}
 
 
 if __name__ == "__main__":

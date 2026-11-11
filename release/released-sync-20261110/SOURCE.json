@@ -1,0 +1,1063 @@
+{
+  "credentials_included": false,
+  "energy_full_report_accepted": false,
+  "files": {
+    "deploy/enterprise/activate-portal-skillhub-registry-auth-20261106-r1.py": {
+      "bytes": 31500,
+      "sha256": "a130269d6aa88f4e9249fb332efd7d58d2667943517ca661c98202d394bd853b"
+    },
+    "deploy/enterprise/activate-portal-skillhub-registry-auth-20261106-r2.py": {
+      "bytes": 35493,
+      "sha256": "e1bcba067a40b2f87db9203871c81e9a3b217071e6d4494194576d8b5ba9adc1"
+    },
+    "deploy/enterprise/energy_chatfix_update_child.py": {
+      "bytes": 21137,
+      "sha256": "29b8d222941926890f43c5eeb0873556bffdd55397cc0bea9eb734df7a37d090"
+    },
+    "deploy/enterprise/energy_market_collector.py": {
+      "bytes": 16517,
+      "sha256": "dee15a51dfaf497c9033a870146143b42ca2ae38f97ed5c3fc58176209c3fd00"
+    },
+    "deploy/enterprise/export-portal-skillhub-auth-build-input-20261105-r1.py": {
+      "bytes": 12812,
+      "sha256": "8a712c54ec27e81e3172996c1e3dd85992695c840f6ffa6662aedf955bdc6410"
+    },
+    "deploy/enterprise/export-portal-skillhub-auth-build-input-20261105-r2.py": {
+      "bytes": 15143,
+      "sha256": "c5688e34d0f4f4d6e1142a329c5937ea41f2ad0c981fb6908b2901c1c3ad2078"
+    },
+    "deploy/enterprise/inspect-portal-skillhub-anonymous-20261105-r1.py": {
+      "bytes": 3989,
+      "sha256": "d4fbdaec33ff9fe2c58157fa725dc3e48ccb4ee320f13940290b7a06aea66219"
+    },
+    "deploy/enterprise/inspect-portal-skillhub-auth-baseline-20261105-r1.py": {
+      "bytes": 20100,
+      "sha256": "f2422585a7edf9652303ef3c0133b50b800e6b4142ffdd5bd7cf76e8b16a1187"
+    },
+    "deploy/enterprise/package-skillhub-edge-activation-20261106-r2.py": {
+      "bytes": 2172,
+      "sha256": "4151c5174cce9c9fc99de212d3625245abdc60895640c9fb902728d4143b2b7f"
+    },
+    "deploy/enterprise/package-skillhub-edge-activation-20261106.py": {
+      "bytes": 2160,
+      "sha256": "53eb58d948587664627dbfd47733c1982ec216499c6443a4ff3caa0c1570c39e"
+    },
+    "deploy/enterprise/package-skillhub-registry-auth-preload-20261106.py": {
+      "bytes": 14495,
+      "sha256": "3b1f408282c06c53c0776efad99660b3a485bbc5f4a51e948a733078ec0d3a5f"
+    },
+    "deploy/enterprise/patch-skillhub-auth-jar-20261105.py": {
+      "bytes": 5743,
+      "sha256": "dceb5f1021cc639cf81f76a6fac08740a835504c9bd0f977997399e6fb684c57"
+    },
+    "deploy/enterprise/preload-portal-skillhub-registry-auth-datax01-20261106-r1.py": {
+      "bytes": 93366,
+      "sha256": "0011cf466f5a4724a267d1c147ba10735ea66614a64e2265e0126c00dca5e188"
+    },
+    "deploy/enterprise/resume-energy-market-daily-20261109-r1.py": {
+      "bytes": 74588,
+      "sha256": "0f2645f3cc375da12730144763aeac46025b941dfe9c634914596a782427b1d8"
+    },
+    "deploy/enterprise/skillhub_edge_activation_20261106.py": {
+      "bytes": 37033,
+      "sha256": "a1bedaa3ab9aabc6663adb0bd9921b1487dfaf3c6d86b7baf09d8a4e9cf87ff1"
+    },
+    "deploy/enterprise/skillhub_edge_activation_20261106_r2.py": {
+      "bytes": 38286,
+      "sha256": "bcfc02cdbb10083d9c0915ed402da73fbe3f1f720d8e4855fa218a51f30d6dba"
+    },
+    "deploy/enterprise/skillhub_nginx_auth_transform_20261106.py": {
+      "bytes": 23324,
+      "sha256": "69130d1456d7b3066c6a4df65c0ea0cb3012e9b2112120713f64beed1a37cfa3"
+    },
+    "deploy/enterprise/skillhub_nginx_auth_transform_20261106_r2.py": {
+      "bytes": 28386,
+      "sha256": "cdb21eb0c088071455f731ea96408e569e5decc082d9e63a688034ab469eb006"
+    },
+    "deploy/enterprise/test_skillhub_registry_auth_activation_20261106.py": {
+      "bytes": 21575,
+      "sha256": "d520d72097ac243473fd98245518ba3ce62e163eed3e8a5cde25cc235cc3528b"
+    },
+    "deploy/enterprise/test_skillhub_registry_auth_activation_20261106_r2.py": {
+      "bytes": 31871,
+      "sha256": "523f2645fcf527f693eba28dc1686c55bfdd64e662153c2be59507baac5f022b"
+    },
+    "deploy/enterprise/update-energy-market-chat-workflow-20261110-r1.py": {
+      "bytes": 116429,
+      "sha256": "b95bd9895450c7b018ba75a110af48f3ea717f05191b543513631df832512804"
+    },
+    "release/energy-market-released-20261110/baseline/energy_market_collector.py": {
+      "bytes": 13361,
+      "sha256": "ce06ffcf09ffce8629734fe84e537c164644e2e01b51bae4d98845c418840a07"
+    },
+    "release/energy-market-released-20261110/baseline/skill/SKILL.md": {
+      "bytes": 6080,
+      "sha256": "757bec043e2b0400e5160ff7d8903437b5029f9cc4ce624c4018e53826efd1a7"
+    },
+    "release/energy-market-released-20261110/baseline/skill/scripts/entry.py": {
+      "bytes": 20829,
+      "sha256": "b250a6931dc0547b0d478894db628abb35db5cf282ef9d8021c2e6b1d19f9844"
+    },
+    "release/energy-market-released-20261110/chat-workflow/SOURCE.json": {
+      "bytes": 21139,
+      "sha256": "58aa1409760a5c2b341e3929e1bfa9916bb469627c0789c9b516c1b730f40e5c"
+    },
+    "release/energy-market-released-20261110/chat-workflow/chat-feedback-20261110.md": {
+      "bytes": 3716,
+      "sha256": "c5288af57a4293cb1edb7e007a577a26de8cb7319189ca647d0a56e05a85e556"
+    },
+    "release/energy-market-released-20261110/chat-workflow/field-20261110-1026/ACCEPTANCE.txt": {
+      "bytes": 2134,
+      "sha256": "959275f79a2f263ebeeb09ecc909d8e1a338d649bdab8ae8d9727a943939804b"
+    },
+    "release/energy-market-released-20261110/chat-workflow/field-20261110-1026/ARCHIVE.json": {
+      "bytes": 797,
+      "sha256": "1d094cba99efc3fb7e3d7d79be58e77f13f3fca657c81aeed273930a3db70714"
+    },
+    "release/energy-market-released-20261110/chat-workflow/field-20261110-1026/operator-paste.txt": {
+      "bytes": 14120,
+      "sha256": "69c9f10273f39403d630e56d795c2f596a7fbcace3cfa3d46bcbf4915e4050d7"
+    },
+    "release/energy-market-released-20261110/chat-workflow/field-20261110-1026/provider-route.normalized.json": {
+      "bytes": 2461,
+      "sha256": "f75bf7fec306252de53535b9980bd885b8752df987b825c006bd6af7dec917a9"
+    },
+    "release/energy-market-released-20261110/chat-workflow/field-20261110-1026/skill-update.normalized.json": {
+      "bytes": 12590,
+      "sha256": "52529abb1f7b43287d76108dd7595f5f9e61ff9a5f895590b2316a622eb15f58"
+    },
+    "release/energy-market-released-20261110/proxy/field-20261110-1053/ARCHIVE.json": {
+      "bytes": 997,
+      "sha256": "3d38f951c5a5bff4bd33154977905d7b555ed7f7605b6685f0cfd9bf87f846d9"
+    },
+    "release/energy-market-released-20261110/proxy/field-20261110-1053/operator-paste.txt": {
+      "bytes": 7401,
+      "sha256": "bea38e9640edcb90af85e4a70b57a82bdecf3af1ba32f28ae0d77c8a9d7d8502"
+    },
+    "release/energy-market-released-20261110/proxy/field-20261110-1053/proxy-inspection.normalized.json": {
+      "bytes": 8421,
+      "sha256": "4a96e518ab1360ecbf16fe1360306a0ffb2069c48e2085e77dde1aa9109ebd96"
+    },
+    "release/energy-market-released-20261110/proxy/field-20261110-1116/ACCEPTANCE.txt": {
+      "bytes": 647,
+      "sha256": "90fbf4799f3d70a107ede6aa8ec540a0be58fbbe5c2980fb6fdf0401e61b136b"
+    },
+    "release/energy-market-released-20261110/proxy/field-20261110-1116/ARCHIVE.json": {
+      "bytes": 2014,
+      "sha256": "626d422e68b6e54b6264549d62aff111ca3ea5f46d92e3627dfcdbfb7377f457"
+    },
+    "release/energy-market-released-20261110/proxy/field-20261110-1116/operator-paste.txt": {
+      "bytes": 6342,
+      "sha256": "5c7a8a65564a265744884aea308ae0822073134f0278feeebd014d111d686473"
+    },
+    "release/energy-market-released-20261110/proxy/field-20261110-1116/proxy-activation.normalized.json": {
+      "bytes": 6586,
+      "sha256": "479da8d2663111422552ce38531089ce9e28012e3a92407e0fc8c5206046fe0d"
+    },
+    "release/energy-market-released-20261110/proxy/repair/RELEASE.txt": {
+      "bytes": 3786,
+      "sha256": "1c196f137cc5a5885ebdb6cb26412d7954102e66dd748261f04235cb4e8f2c37"
+    },
+    "release/energy-market-released-20261110/proxy/repair/REVIEW.txt": {
+      "bytes": 899,
+      "sha256": "89de8522ecdeda78c26ee208776cd67a4c8798b1a98c4e3595e81f78397bca68"
+    },
+    "release/energy-market-released-20261110/proxy/repair/VALIDATION.json": {
+      "bytes": 2219,
+      "sha256": "3d61d8739becf491edadec7a0c97a8a8e5729d9943b59a7cd4c93dae6d75ae0a"
+    },
+    "release/energy-market-released-20261110/proxy/repair/energy-market-proxy-20261110-r1-SHA256SUMS.txt": {
+      "bytes": 109,
+      "sha256": "258acade93c042bcb51ca1200eb417f29384d4f4bb1229133c322c83f72187be"
+    },
+    "release/energy-market-released-20261110/proxy/repair/energy_market_collector.py": {
+      "bytes": 16517,
+      "sha256": "dee15a51dfaf497c9033a870146143b42ca2ae38f97ed5c3fc58176209c3fd00"
+    },
+    "release/energy-market-released-20261110/proxy/repair/fresh_target_probe.py": {
+      "bytes": 8918,
+      "sha256": "a8af74dc2a895599e14887500b8f8db56b5d68bb9a7136b8009441374b87a91f"
+    },
+    "release/energy-market-released-20261110/proxy/repair/record_validation.py": {
+      "bytes": 2004,
+      "sha256": "2edaddaefc6e75a4b2f27f3493ed52f6cb182382ae8774b963fc3ee6593db4e3"
+    },
+    "release/energy-market-released-20261110/proxy/repair/repair-energy-market-proxy-20261110-r1.py": {
+      "bytes": 67086,
+      "sha256": "cb67cb4724bcd112a0704d04428a2d18b95dbc0397d5981a20c62dadb502f672"
+    },
+    "release/energy-market-released-20261110/proxy/repair/seal_release.py": {
+      "bytes": 1142,
+      "sha256": "ad481d0b83b1b76a0b74c4ffc385094d8c27e04b7dcef4badf8c5d7de232c64a"
+    },
+    "release/energy-market-released-20261110/proxy/repair/test_energy_market_collector.py": {
+      "bytes": 18550,
+      "sha256": "0858c61cea9df9215a9748004f841b94389ad319183cfafc8a09b8f4c3219af9"
+    },
+    "release/energy-market-released-20261110/proxy/repair/test_fresh_target_linux.py": {
+      "bytes": 7240,
+      "sha256": "6db16e164c0c967353a0f41d9f15c519e32f04551fcc56e6556869f8f0cfc2b3"
+    },
+    "release/energy-market-released-20261110/proxy/repair/test_fresh_target_probe.py": {
+      "bytes": 6791,
+      "sha256": "e55c6fabb650263c1dc7e4a4d903d8e7bddf2b853ff68a991d7c5e789fca4cfd"
+    },
+    "release/energy-market-released-20261110/proxy/repair/test_repair_energy_market_proxy.py": {
+      "bytes": 16213,
+      "sha256": "a269c32d0962d5a62857c3079a1a9f20f15b4e01aec72724ff4ba3ef710c4379"
+    },
+    "release/released-sync-20261110/frontend243/acceptance.json": {
+      "bytes": 689,
+      "sha256": "03ee2fb1440c151f9dc36bdb8f796c89e279455a480f0b7d30c89c69ec080ce0"
+    },
+    "release/released-sync-20261110/frontend243/operator-stdout.txt": {
+      "bytes": 10826,
+      "sha256": "8dff2fd490171174333830910d9c7173bb745cd0b9513ccb81fbc84dccffffba"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/ACTIVATION-DELIVERY.json": {
+      "bytes": 1805,
+      "sha256": "2ca5366ed84b9740a9ae757f97c63b82f6ea11ff13c8104acf435ece2b91dd82"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/ACTIVATION-HISTORICAL-PODS-OPERATOR-SNAPSHOT.json": {
+      "bytes": 2310,
+      "sha256": "6b9f6bc84ef9e10908e0d54ff7a3245170f92fb3fc1290408005c82a8a2d9483"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/ACTIVATION-R1-FAILURE-PARTIAL-OPERATOR-SUMMARY.json": {
+      "bytes": 898,
+      "sha256": "562a69f67495c6d1e541c97bd06a85b9dee33a1415446786cf6f360eddfa9e2e"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/ACTIVATION-R2-DELIVERY.json": {
+      "bytes": 1935,
+      "sha256": "e4c3493ca61351cb508ec97cc83d8ab78a5389c4617f33bc94cb633fec6d26ca"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/ACTIVATION-R2-OPERATOR-SUMMARY.json": {
+      "bytes": 11094,
+      "sha256": "fa92ed544d7ba4f954366996d223c962977848bb15ae8808306467e5d7f0d8ec"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/ACTIVATION-R2-REPORT-RECONSTRUCTED.json": {
+      "bytes": 7130,
+      "sha256": "29e159302c129098c28786ab4dd8267724d31ebe28e37f02293186b31d033c38"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/ACTIVATION-R2-TOOL-QUALIFICATION.json": {
+      "bytes": 2113,
+      "sha256": "730a9b322afbdb2ada339a8d28fde5c0761d68399ca382c40d08f551b5a20ffb"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/ACTIVATION-TOOL-QUALIFICATION.json": {
+      "bytes": 2405,
+      "sha256": "95d598f535e07bf5da010101374be76c71172d4db1f5ed2bd27edf7b60b35b82"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/CLASS-LINK-QUALIFICATION.json": {
+      "bytes": 3761,
+      "sha256": "d65dff53b0b51589be8c468a727c2401eef1d054f88cf291f13c27a4a2590469"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/COMPILED-SOURCE-BINDING.json": {
+      "bytes": 1140,
+      "sha256": "9393b8b5e686e6e370aaf267ff3dd1c8eaf2a8b62d1841dfd9091b6a95f74a15"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/DELIVERY.json": {
+      "bytes": 665,
+      "sha256": "94862923c843f87c79f20004d386319570323c652e168729ef53f32d1ab7a6ea"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/Dockerfile": {
+      "bytes": 141,
+      "sha256": "8da3f0805d3777d77a7c13587920d6176033efb7f7168c3fe079b0fff08e21c8"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/IMAGE-QUALIFICATION.json": {
+      "bytes": 1141,
+      "sha256": "39e4ac76672a8c576489f923a240821de6bc8be31fa58fc8c0eba61d702ed27d"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/JAR-EXTRACTION.json": {
+      "bytes": 329,
+      "sha256": "c2e12159caf63342f53a75e835d077859303451c6ad3979bd8483dcf03ebe492"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/JAR-PATCH.json": {
+      "bytes": 885,
+      "sha256": "aff2c673cff136402c5050da9034398f17d699d9702b248dbb53c5cf4815a2a5"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/LOCAL-INPUT-QUALIFICATION.json": {
+      "bytes": 444,
+      "sha256": "17776617f558e859801f53df2fcf6699bfff923b3f02c8e835c8a4aeae568145"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/LOCAL-RUNTIME-CAPABILITIES.json": {
+      "bytes": 1685,
+      "sha256": "fed903a04810db7ceb9fe8bb331c91029340c686da04011acdd8c235b9ed4f65"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/OPERATOR-PRELOAD-BASELINE.json": {
+      "bytes": 1400,
+      "sha256": "3d73c237d28ca70bf1f5bccb9f5869c3f2f19da60ceecc81a74b7073caede4f0"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/ORIGINAL-EXPORT-METADATA.json": {
+      "bytes": 2627,
+      "sha256": "54326f57fd67286a5f017f7e62d4bab3a2650a80711ec621677889aaaf1d131a"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/PRELOAD-OPERATOR-SUMMARY.json": {
+      "bytes": 1868,
+      "sha256": "9b4f2c3d6086ac346bcff0e242def8ba29710b39263638018514a85bd879a70d"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/PRELOAD-TOOL-QUALIFICATION.json": {
+      "bytes": 5053,
+      "sha256": "2ae94308fabed81eb326a19ecb851e8c019fe07f7139d5cef42a15ccac017b2d"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/PUBLIC-ANONYMOUS-BACKEND-ACCEPTANCE.json": {
+      "bytes": 2758,
+      "sha256": "ce04040da86a4c4a6ea82157bf4113ba7062b5a212ab1a6d1dbb892a60b22673"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/README.md": {
+      "bytes": 7154,
+      "sha256": "d4c4899b7c2fd68a96c6881cf5068b9a7ace4b554a327b57b61a502235d08632"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/SkillhubClassLinkProbe.java": {
+      "bytes": 5319,
+      "sha256": "9858fe14d186c6c9b57e1421acf474eace58b4c7300e82a08b039f0a43f84913"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r1/DELIVERY.json": {
+      "bytes": 2370,
+      "sha256": "3872f5d2674372c15fbce7edf22be66107f624bf4b740c43aae34a60beaa8cf4"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r1/NATIVE-RECEIPT-BINDING.json": {
+      "bytes": 156,
+      "sha256": "058e2bd2fd7ecba1429163edda529661727d8caa1d95a01da4b2718a81b4865e"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r1/NATIVE-SERVER-OPERATOR-FIELD.json": {
+      "bytes": 9591,
+      "sha256": "4c15399ee0503906eb8b65776b09c8b4fef9053f954f216a4e62e304414f2629"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r1/OPERATOR-ATTEMPT-NO-CHANGE.json": {
+      "bytes": 1593,
+      "sha256": "477ff7d33018029bbc195c9393b8781ee8f4021544931fbd9885582be195db55"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r1/QUALIFICATION.json": {
+      "bytes": 2917,
+      "sha256": "c2c0d7ab3127736fcfa12c9e06d4187525f9477b8e1f88ae173cf2fe3b85a2c6"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r1/activate-portal-skillhub-edge-auth-20261106-r1.py": {
+      "bytes": 61569,
+      "sha256": "484e6f96148e67e87032f1ebef45c538d3b3141aac6198af07e87e09ffdd3bda"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r2/ACCEPTANCE.md": {
+      "bytes": 1774,
+      "sha256": "a80e217238b3ec6b06521760a6c30f71e9fe2d144f13d619c2edad90f180d98f"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r2/DELIVERY.json": {
+      "bytes": 658,
+      "sha256": "8813a0696e8bba98d15fac2ab5b0a084cb48e417c4bea911f8a63c5747642e09"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r2/OPERATOR-ACCEPTANCE.json": {
+      "bytes": 8571,
+      "sha256": "11147d3babdd467c696928d61b982cc323b4a354ce5ae2029093df08bdecd3ab"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r2/PUBLIC-EDGE-ACCEPTANCE.json": {
+      "bytes": 3779,
+      "sha256": "cdcdf81b1266a06938be33461abeac7053b8b17c153711ce54c96c309b56f7f7"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r2/QUALIFICATION.json": {
+      "bytes": 4542,
+      "sha256": "528cb3926b3dabdbd1a4e74e64a02e03aed3237a8161e1d2d6cea3e9461a2ea6"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r2/README.md": {
+      "bytes": 1379,
+      "sha256": "bd1963f3f0e1148af5500b32405edaa7165dfc5b609393804068b2368d910fac"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r2/REPORT-RECONSTRUCTED.json": {
+      "bytes": 5051,
+      "sha256": "eb7f14080c002910835e6bfcc87352bf0825927d3bdcca46147971dba35a57e4"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-bound-20261106-r2/activate-portal-skillhub-edge-auth-20261106-r2.py": {
+      "bytes": 68166,
+      "sha256": "7dc6f26bf02f7ecae181d9d48b73417599345ef14634166ce3e376bfb38a536f"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-preparation/QUALIFICATION.json": {
+      "bytes": 5760,
+      "sha256": "53ff1395d6cd894fa3cb66ea3c57595a292867b7a31aa7600f765487f2f2e7ba"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/edge-preparation/activate-portal-skillhub-edge-auth-20261106-r1.py": {
+      "bytes": 61485,
+      "sha256": "d3755576bc9ec090e5d841153f8b365e010e04e40156205a8d33f35818e77e78"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/runtime/ARM64-r3-INTERRUPTION.json": {
+      "bytes": 278,
+      "sha256": "d32c252e89f4064bf7ed3ae5857466cdc216dfa8f4c72636c150cabbf89057ca"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/runtime/REPORT-arm64-r3.json": {
+      "bytes": 996,
+      "sha256": "f9c08601a8c3f618f86a4eb6a3558f1c47fe0fa91f023934e656c04b174da9ce"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/runtime/REPORT-native-r1.json": {
+      "bytes": 1011,
+      "sha256": "eaa79781bca7519bba2f1ee5439d072ab07d8ce80b64c24803096db13c98e86c"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/runtime/REPORT-native-r2.json": {
+      "bytes": 1004,
+      "sha256": "5233622cc94f621b031b783a17a58789efab21f039977e55895f8f671ac3cf3b"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/runtime/REPORT-native-r3.json": {
+      "bytes": 10616,
+      "sha256": "e13a7fc458a8aacf24322a42402ce55b16e403848a553dba80b72836a4f31d41"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/runtime/REPORT-r1.json": {
+      "bytes": 918,
+      "sha256": "c69acb3e6d1f023cc03d4cebf06aa9b1311d1ca6bc4ef1a3a4fbef621f5a26ff"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/runtime/REPORT-r2.json": {
+      "bytes": 926,
+      "sha256": "0c036f7b33c328aaba6fabcadfae6d0437302d6f3a61755a011525ebf235cbad"
+    },
+    "release/skillhub-auth-remediation-20261106-r1/runtime/run_native_auth.py": {
+      "bytes": 19453,
+      "sha256": "6571cb84bb55f2ffab328eeed2356ade849542899e11651c6f715d450dcea059"
+    },
+    "skills/public/energy-market-daily/SKILL.md": {
+      "bytes": 7163,
+      "sha256": "8bbeb3993343c9955f40416e9b952894d45cff94968ad3bc1fe340998eece95d"
+    },
+    "skills/public/energy-market-daily/UPSTREAM.json": {
+      "bytes": 25192,
+      "sha256": "e44fbbdd3a6423fabe1bfac58e5a0684a3cf9dd88188eb34e2659201102ff0d9"
+    },
+    "skills/public/energy-market-daily/assets/energy-daily-v1.0.original.zip": {
+      "bytes": 2643453,
+      "sha256": "eb66843bbe6170d86d33b65efa593be263e778275c6f7d491e1fd0c3c6d98f99"
+    },
+    "skills/public/energy-market-daily/scripts/entry.py": {
+      "bytes": 26255,
+      "sha256": "91e6fcd4f9f6bba3307ae166b9e0188b6f6c816008db3aba8382cd23bff93f8f"
+    },
+    "skills/public/energy-market-daily/upstream/.gitignore": {
+      "bytes": 81,
+      "sha256": "6c659ca4bd317ecb4edeb2b3f058a804b822742dc391d0da28b976e95d507585"
+    },
+    "skills/public/energy-market-daily/upstream/MANIFEST.sha256.json": {
+      "bytes": 16842,
+      "sha256": "1ef727edbfd85ef265194b9f638dff74f9c3522f6ed2195d8f241c525dc27318"
+    },
+    "skills/public/energy-market-daily/upstream/README.md": {
+      "bytes": 4308,
+      "sha256": "1aba95744651c060211ab0e2ce8efdadbe12e2c1943a255530a12c2f903dfe9a"
+    },
+    "skills/public/energy-market-daily/upstream/acceptance/RESULTS.md": {
+      "bytes": 1106,
+      "sha256": "219ac5de836d1f66ba7502cc253a539a8a9bf45e924e81dcff7538a0c702b0ed"
+    },
+    "skills/public/energy-market-daily/upstream/acceptance/environment-check.json": {
+      "bytes": 1413,
+      "sha256": "6df7801f5ee3755db1af63c53afd502ead35087da3837879238df92d3ca1aa36"
+    },
+    "skills/public/energy-market-daily/upstream/acceptance/pixel-comparison.json": {
+      "bytes": 232,
+      "sha256": "1f6eadd2e06fccba7d2fdb806e4556c94aed319c5edcb53ab7f0f3ddda1f874f"
+    },
+    "skills/public/energy-market-daily/upstream/agent/AGENT_PROMPT.md": {
+      "bytes": 3616,
+      "sha256": "c5a8a2deacc5b60c8eedcb9c91d04e90b2cf524615c1df667d5e80af95e53365"
+    },
+    "skills/public/energy-market-daily/upstream/agent/SKILL.md": {
+      "bytes": 2321,
+      "sha256": "4a1f692c9f019f84241e2b97f58d76cbe8a5c0320de99139b6e6c27796671d3e"
+    },
+    "skills/public/energy-market-daily/upstream/app/data/energy_2026-11-06.json": {
+      "bytes": 341708,
+      "sha256": "27f1453a10a038705ccfb3a3231188a30717266f10289f1e0bfdbf8e94a61942"
+    },
+    "skills/public/energy-market-daily/upstream/app/data/financial_2026-11-06.json": {
+      "bytes": 4452,
+      "sha256": "1e0e12c0d5a027a6c55a4a7abdaaba6ad02558b9e691d5cdc12c3ed9bd23216b"
+    },
+    "skills/public/energy-market-daily/upstream/app/data/news_2026-11-07.json": {
+      "bytes": 5667,
+      "sha256": "7f5522b43b22c55c80792919c479ea86809d6a7d71a7c4651b79a7dff52dab8a"
+    },
+    "skills/public/energy-market-daily/upstream/app/fetch_energy_data.py": {
+      "bytes": 684,
+      "sha256": "741636b0c4778748c7605b0b4f6d84c87e291c945b444a51190077bc885ccf9b"
+    },
+    "skills/public/energy-market-daily/upstream/app/fetch_market_history.py": {
+      "bytes": 6591,
+      "sha256": "3ce565cf11ac261a351c78e69dc4647a521c600b5165d09938f6a52ee6ec7b8a"
+    },
+    "skills/public/energy-market-daily/upstream/app/generate_report.py": {
+      "bytes": 2631,
+      "sha256": "5bab6c533e4d8f1f0367fad62a9a5699ab34fa45be908c57edee59981ccd37d9"
+    },
+    "skills/public/energy-market-daily/upstream/app/report_data.py": {
+      "bytes": 10022,
+      "sha256": "0237dd72bb8cdec0566c3f69a0dd071fcbf5ddd7be999ecd16f4b8c9ddd7ca5f"
+    },
+    "skills/public/energy-market-daily/upstream/app/report_renderer.py": {
+      "bytes": 14856,
+      "sha256": "f361492a588d481d6b50ed7740fbf839b3c2775a389bb2f43ceaeebb984f15eb"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/1107-market-0.txt": {
+      "bytes": 2239,
+      "sha256": "22aea6fb352601ee4128d02aeed7816b72d2a4f4d3ce962a354c327890064354"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/1107-market-2.txt": {
+      "bytes": 9443,
+      "sha256": "582a98298773509c0a03c286d93db0bbe725e3e9f523e3d1b52cb5b30bdd3b21"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/1107-news-0.txt": {
+      "bytes": 7774,
+      "sha256": "356a6e11a06c128b2b0b5635e578591888c7efa1dfb7e0f37b45b02a503b77f7"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/1107-news-1.txt": {
+      "bytes": 2867,
+      "sha256": "77a7b4bbad2d370d46d8449033843d0cedd1689abcf893940292d253b2b6f347"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/1107-news-2.txt": {
+      "bytes": 2971,
+      "sha256": "cfc53ebbce4f6db44722f3375f72e3f57e803e5e9b1bf58f6b5b9f366396fd87"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/1107-news-3.txt": {
+      "bytes": 4224,
+      "sha256": "ae28ba50f522d18b6fd7157557a5f58d2e4c0c08afaae5cb1160ba4510d73c8e"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/1107-news-4.txt": {
+      "bytes": 5123,
+      "sha256": "bbcfb901bdaf322347f01ab2e7c7d9037f364bdacf0197a9d8cf7f7a617772e6"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/1107-news-5.txt": {
+      "bytes": 13804,
+      "sha256": "3e1c146d7797ffe5c5620eb7159bf746a3dce81a61eebd026c90fdb550729051"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/DINIW-20261106.txt": {
+      "bytes": 476561,
+      "sha256": "efccb90d7d550aa27298de6d9fea8a1ebfbda7555d68a609b32a73f81c7f8aff"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/browser-hk00883-1109.txt": {
+      "bytes": 5756,
+      "sha256": "2aeae85d30ec4ee828e1b2f8b6cc0ffd38e64f21f514a71b0c1465d542065c1c"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/browser-sh000002-1109.txt": {
+      "bytes": 6110,
+      "sha256": "ee03b61d46f47a326a1a5b0396d7693d3985eedf05b892e561d81776c9eaf176"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/browser-sh600028-1109.txt": {
+      "bytes": 8895,
+      "sha256": "a2b4232e4bc38f43f236288c930f83da5f39189816a9f7a5b784f179051fba57"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/browser-sh600938-1109.txt": {
+      "bytes": 8517,
+      "sha256": "1b3701ad4af7a136e24d9bd9d18c45b44fd005c544b58c3e45ce45a3927961d4"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/browser-sh601857-1109.txt": {
+      "bytes": 8966,
+      "sha256": "4e6c5f5ecc781d563840d588781492ad46cc7f8008a670f0150cdc5c5234218e"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/fx_susdcny-20261106.txt": {
+      "bytes": 322103,
+      "sha256": "68d3e43b268470f9395268d265b86f823e3cd24cb96d28239c91d9a2587621fa"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/fxpage-DINIW-1109.txt": {
+      "bytes": 8125,
+      "sha256": "81b6638b4e68501f14d20c67435fddb51566ca58b6102bf632fdf10e57012760"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/fxpage-USDCNY-1109.txt": {
+      "bytes": 8301,
+      "sha256": "e7e9578fa647cedb66ea8aab96a056916b30e4b1ba30a835860a5123898a1ad0"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/hk00883-20261106.json": {
+      "bytes": 1539,
+      "sha256": "300bfc15eef084d62d6dafc08b5cb63c130f3f3692457fbda94d624ae7aca0aa"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-06.json": {
+      "bytes": 2512,
+      "sha256": "62a1315a5d2ea492ab82f4c55e090108cfa0de02e19767cb561a06999099ccea"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-07.json": {
+      "bytes": 2514,
+      "sha256": "fce29b1eb02d174471532d8edef7cb4523f88db7ec8773300148e8e26b810762"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-08.json": {
+      "bytes": 2506,
+      "sha256": "512d4464d044d807d12297fd6afc81809edc8c97db78f3aa5c8777b80e2fff3b"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-09.json": {
+      "bytes": 2506,
+      "sha256": "5004af883fe884be0865f2f22148ab2f42ded6a2d94624013f53ca6c3a36f30b"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-10.json": {
+      "bytes": 2514,
+      "sha256": "d4433960be70ed58edf5d9e83794e068aa43c28a185c68cd548ee543ff0d39df"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-11.json": {
+      "bytes": 2512,
+      "sha256": "1fc999cb9a8cb1ca59dcdaeba6feeda81dc2a52f6ab3e05928f6ed67d49de96f"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-12.json": {
+      "bytes": 2510,
+      "sha256": "d744ce42b00a9ee8b68d6fc4164391d57bce6f2b62fddb9e37edbf121f10edc9"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-13.json": {
+      "bytes": 2513,
+      "sha256": "e85f20d543b2a387b148bc6c6480627079029dc9e48007f70ab936e228b3f4cc"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-14.json": {
+      "bytes": 2512,
+      "sha256": "088e22d891749658ea599b429c9532d366d855db5866d52b824825e7ed98968a"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-15.json": {
+      "bytes": 2507,
+      "sha256": "0f56c97c3bcfa68a473518dc84329618c47b2db0056690826b14d8952115c0b9"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-16.json": {
+      "bytes": 2507,
+      "sha256": "0674db6c7e37a1b8bfd0e4a59912044b72e907f0ede13da826a20e135c9ce709"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-17.json": {
+      "bytes": 2509,
+      "sha256": "340902b50080dde1c5a55361131a923f1a3e8fc384d0fa8c30cf0bfbd0e3e1c6"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-18.json": {
+      "bytes": 2513,
+      "sha256": "a667b675589419f3d04c3850d9329f3cb04eb0bec9a6a5c2b4997ce03a0ef0e6"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-19.json": {
+      "bytes": 2513,
+      "sha256": "f9347cb7472f3b668d489a4c74a3ee8dd5d718cf11ee2ce2e4e8f99af912f0ee"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-20.json": {
+      "bytes": 2515,
+      "sha256": "c520a8b97f656dc201118ee6aced94b7be657b20889bc62ee574d91c659cbea8"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-21.json": {
+      "bytes": 2514,
+      "sha256": "50367ad4e847888cdea4fd23018358284e41eb4f06a9dc92918c8bf7df06e9cf"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-22.json": {
+      "bytes": 2507,
+      "sha256": "9b734ab44fe03829440a40ce3b811e754c146b6a91e1701b85b831cdb4857c3a"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-23.json": {
+      "bytes": 2507,
+      "sha256": "367485236cb8bdcefa0b969383f2013d87c4c2e1d320b809ac126a748856034b"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-24.json": {
+      "bytes": 2514,
+      "sha256": "bcacacfe20b93dac588f820e5e7785f99a2d17508d0c6442f3a8580593787a7c"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-25.json": {
+      "bytes": 2512,
+      "sha256": "05b196eaad0f69f6e4696f6d8de86dfff7d19436c20cb9543456909599135b87"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-26.json": {
+      "bytes": 2514,
+      "sha256": "1d52467246c5cd9b88c9e886e7960c39195fc6c71174a1c20af93b0ca12d5a81"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-27.json": {
+      "bytes": 2512,
+      "sha256": "c7f035c6dcf03fc51e71987663511b79d7cc1b88f79a7504e32619705a283de6"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-28.json": {
+      "bytes": 2512,
+      "sha256": "ad1e626297a69f2c104bb191a654fc5a21e0b166f511214bd392061ac873c27e"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-29.json": {
+      "bytes": 2507,
+      "sha256": "328da868c6c9be0f704216736b9d62e94b361447ec8b70d959f261cbcfca3c56"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-30.json": {
+      "bytes": 2507,
+      "sha256": "3c5697589976d473dc806de4a8b1e8d3c36ad29096a8aaa36bf749d06e9e3275"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-31.json": {
+      "bytes": 2532,
+      "sha256": "ce0c37a4416d04b4f7fa629310eb0c365da3542c56cf42fb7753b12d3b540e94"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-01.json": {
+      "bytes": 2513,
+      "sha256": "35101f6fbd2f2007ccf8fae048e1de9d715fbc49e781134da79a1722fe819b93"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-02.json": {
+      "bytes": 2514,
+      "sha256": "f90bf217b0278cb7e7717cfc819bc78005b87c41fee236dabca81f75682b2d78"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-03.json": {
+      "bytes": 2513,
+      "sha256": "20bcca9f232a554065afbdcddb40905aba6c6333c5706228d388c3028c255db4"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-04.json": {
+      "bytes": 2516,
+      "sha256": "039f56754fbbe7e258ba7e77d57cfbba576b1cf037ca5449b6170e141b330989"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-05.json": {
+      "bytes": 2505,
+      "sha256": "77a20c94f2222e53b75b50b05725665f1ec8304b96d6ca33599192d39e3ebf37"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-06.json": {
+      "bytes": 2505,
+      "sha256": "2dbefc23017aaa922f6d6d800b756785cdbc355e483381a96148845576d95a9e"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-07.json": {
+      "bytes": 2517,
+      "sha256": "1213d2fe5469ed130c25e6de818b583164ed05403391a7515e17cd5024abfa8d"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-08.json": {
+      "bytes": 2515,
+      "sha256": "fc60f68fcf650f0b364c6ab9bdf2455ec1a37ad60b1412bfda4f5860c14b8fcc"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-09.json": {
+      "bytes": 2517,
+      "sha256": "0f57d26bc63f330701bf55023a2e1d64167ab61a6be700e31ce6c60a53a5b773"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-10.json": {
+      "bytes": 2515,
+      "sha256": "787572a42aa98793593bc240b57a0251a9dff071c4f7c3cb3ae3f6d44f92b357"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-11.json": {
+      "bytes": 2519,
+      "sha256": "c5c6016cdfa771065b31b3ab83b1639517ec41e1c47d4d7a49c77f3c17635528"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-12.json": {
+      "bytes": 2507,
+      "sha256": "6cad141cf70f0e234a20290d158ec60b65679b9ddc877a13b5b419a2e22d5618"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-13.json": {
+      "bytes": 2507,
+      "sha256": "73e9f9a73950a92aa10bb49df585c84ea373176277508e32ad0ee6e6a7783358"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-14.json": {
+      "bytes": 2520,
+      "sha256": "544fe0eb110b8f013197831b4ac6d5da9be98aaab46013b2e333758629dc395b"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-15.json": {
+      "bytes": 2519,
+      "sha256": "d2e197ff7831727865a692a3472461b9a5ed27ed622040855d1262e0c4facdb2"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-16.json": {
+      "bytes": 2520,
+      "sha256": "e7600af3ece2461e4f367d2077caa78c07d87cc76adcbfa8485649cb4e492347"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-17.json": {
+      "bytes": 2519,
+      "sha256": "1f8f631258b8cbe3591a907ae6efd016b0146f381ad1042d8095dfc236a8915d"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-18.json": {
+      "bytes": 2519,
+      "sha256": "7c9ae851f62cbf13414cf3973989c7f25f025b08231a96b3d5185d82403a131c"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-19.json": {
+      "bytes": 2507,
+      "sha256": "1a3baf0cd74b74f698d573937e95efc94f14b35059adeac87db384e68cbaf270"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-20.json": {
+      "bytes": 2507,
+      "sha256": "c9677aea1d82580755a50456352fc2fbaa005288feea88ce0987a0678212fa40"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-21.json": {
+      "bytes": 2518,
+      "sha256": "b32b673586bef4657cd45ef774232b3dc3efda53a0e217de0c681bb7f7add591"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-22.json": {
+      "bytes": 2516,
+      "sha256": "757de36a6abd00c2296f60168cd112503ae41da59b0cad5cdae172f5c7a16dc5"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-23.json": {
+      "bytes": 2517,
+      "sha256": "9dfc5a6f359ea85653dc06bd6c4f3f4d9edf7a4bcc28f8a7715517d359590279"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-24.json": {
+      "bytes": 2518,
+      "sha256": "87513e5b564da9594652452bac87d554ab0fec4f37dfcd8b1dd04e84d770b45f"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-25.json": {
+      "bytes": 2518,
+      "sha256": "90e99a51b95da1b755cfa9b699465900e1febbbb83405612f5fe100b1a3ce371"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-26.json": {
+      "bytes": 2507,
+      "sha256": "3686caa8952f50a12926b64df38b39170e6d115b8073d93e5427b52f6d0e1339"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-27.json": {
+      "bytes": 2507,
+      "sha256": "034869ea371540061bf471d069f001432247d76b96ea64cd8be0885ae2905267"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-28.json": {
+      "bytes": 2516,
+      "sha256": "0e32f9836aba793b6a7ac3e9a6abca24f8ed66b8920e5bdd5dade63c4ab56c22"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-29.json": {
+      "bytes": 2515,
+      "sha256": "4293ba837a5ea7cf12982f16f54f8a742cb554ad2949c8ebfae492eefc5f3ee4"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-30.json": {
+      "bytes": 2517,
+      "sha256": "fff525adbea0a993bef33bd4da55af8fc4147d5ff6f8f75711fe2e8059fa72ee"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-01.json": {
+      "bytes": 2517,
+      "sha256": "85c072ce4293fa0e9bda312de84135a1a05871631bda52acebbb01381a02fd2f"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-02.json": {
+      "bytes": 2518,
+      "sha256": "ba66f2687359279f4031ab7c4ed5630fb9825b8699dea6022a8c8a93404f4ebb"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-03.json": {
+      "bytes": 2507,
+      "sha256": "e7e34fdb92b1fbdaddb1459874cc9f3e0dfe178f0a1c4c4faa52d335b01d0a91"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-04.json": {
+      "bytes": 2507,
+      "sha256": "b763414227bf8a4f68e43cad02e7e22584b839b658643e4f379ed61b1ec81a7a"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-05.json": {
+      "bytes": 2518,
+      "sha256": "781deacab3f7d163d60529c6fe85eb424db8c2e615e3f1f2026dff8d03eb2b4d"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-06.json": {
+      "bytes": 2519,
+      "sha256": "ab89c60fb3ef7067ec243aba023949c16593ea1128d4063ff14e6357b493c6f2"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-07.json": {
+      "bytes": 2516,
+      "sha256": "9ee4363095501bcb5130f46a2f0a3a48d8410aa7801fe5882b48e7c0a8b4b7d1"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-08.json": {
+      "bytes": 2518,
+      "sha256": "b153e2fe69f5913c1eda7058c0f76e3b099c5c84fab920f1770247903974cac9"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-09.json": {
+      "bytes": 2518,
+      "sha256": "2bd1ca9282064880e3e7b148ddc19d0a066af12be059df7e9a8517a9cc738e78"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-10.json": {
+      "bytes": 2509,
+      "sha256": "d6bc1c0201e96a53d9ba017ee9a8fca5767663d26d079e3e7538a77eaf2565ce"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-11.json": {
+      "bytes": 2509,
+      "sha256": "db6850df751295d29e7769aa7b31f5c358a122c5fa12b9be2d5bbbfa14cd9e6b"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-12.json": {
+      "bytes": 2518,
+      "sha256": "7c9816a3e5905170396256a79cf40683404546cee8abf9c772465e7b7399dc85"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-13.json": {
+      "bytes": 2518,
+      "sha256": "c62d2fa346073c20ef6226fad6435dd41b5ca9fdc5d7c346b301427abee5a740"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-14.json": {
+      "bytes": 2516,
+      "sha256": "1c3fa63d6caac4466fcde757fab67523a3ae421dc63a8ed6348e508660b9f8ae"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-15.json": {
+      "bytes": 2518,
+      "sha256": "f1db312bb38e073833c9509297ce4e9890a672b40faff9a426af32b47767e255"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-16.json": {
+      "bytes": 2519,
+      "sha256": "9908b22ea324f6e4aa39a69ad6240bbaf6f346f5839ed43d49881a2a6c3d20df"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-17.json": {
+      "bytes": 2509,
+      "sha256": "4dd68f560fe2a6a7f984a4c783575929daa48f38e055a7de6d94281c045b37f8"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-18.json": {
+      "bytes": 2509,
+      "sha256": "d281e26d599e6bc2f08070f009c8126ab7a227bea1d9a9d6755c5a859444226b"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-19.json": {
+      "bytes": 2518,
+      "sha256": "b468c2d4a6e17bfbf4e7b903732a980b71e79a7621efb4969086f9bbb0a44bdc"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-20.json": {
+      "bytes": 2520,
+      "sha256": "93739324cd2aa2b056d3cf20ddfb8e987c1bf5d4509cf55db32001a247f1fbb0"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-21.json": {
+      "bytes": 2517,
+      "sha256": "0140bb8d4c8c17d49a749b08f394fddea8746acf5ae382c7b0eecd5797f030d6"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-22.json": {
+      "bytes": 2519,
+      "sha256": "cc705297d809b91bb610b0753228253d3ca715211fcd04e6e631435bc6255df9"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-23.json": {
+      "bytes": 2516,
+      "sha256": "f86ab3d646a3e02d0c862cb93f021d033496d512c7754c36feba0f7eaa1d9010"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-24.json": {
+      "bytes": 2509,
+      "sha256": "ec90563465836a0c543babb4a4977749b78364dea443bb50c2b2828f9ba424f9"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-25.json": {
+      "bytes": 2509,
+      "sha256": "e95c74c455bcc84cd4bd3e219e3a839e03285ebd0879be319b95fd0a3f599487"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-26.json": {
+      "bytes": 2517,
+      "sha256": "cc0d271ab0a4eb74e834ba4ad8973d9646cc656411a1da8e68c252122bffe14c"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-27.json": {
+      "bytes": 2516,
+      "sha256": "7f5877f7e6be9f75deb23dd4fc32bca429d771daceaa9312c5ab77cbd995d4c8"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-28.json": {
+      "bytes": 2518,
+      "sha256": "e610d679e87eb592e52e73cffc2896827199d79a28b3480d34606591b47be497"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-29.json": {
+      "bytes": 2519,
+      "sha256": "e8a6ed9d8fd729afa6a8699be75fb10da905bd92155e215f038340f6de6cebb5"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-30.json": {
+      "bytes": 2518,
+      "sha256": "151277472872666298c773cd8aea90e836f552c41b303120672705ad83f82cf8"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-31.json": {
+      "bytes": 2509,
+      "sha256": "d16606d6b621e2d521767d8d9063c40b250a1627dbdcce459e9d37b3a356bbbc"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-01.json": {
+      "bytes": 2507,
+      "sha256": "e2ac1ef6d52b4b92589d05e76de3ee5373df70c6277d43f1c9672418b4ae692a"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-02.json": {
+      "bytes": 2519,
+      "sha256": "f4ceceea35c79ad796f035120e7dddd53606e17eb469a81fad24a040afe4b534"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-03.json": {
+      "bytes": 2518,
+      "sha256": "c685ef3d9ed8b7ddc0951349b4739d8c1d38fae652756126d9f85832b965dcac"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-04.json": {
+      "bytes": 2515,
+      "sha256": "051fe6b2ee7da3100c6fc198ff6c21237877819e01a757b233f062bef1bf35aa"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-05.json": {
+      "bytes": 2516,
+      "sha256": "660b8cac21968766171ea55bf8ebdd699f4fc9997b5d344fe4a5ee98056bda8e"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-06.before-unit-correction.json": {
+      "bytes": 2520,
+      "sha256": "ec733994e4272f7d41a31bca2d8beb82df0a433426087784cddd139eb097ec82"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-06.json": {
+      "bytes": 2522,
+      "sha256": "bbeb52b48fdae15b8205bbf10af7c2f90c94819baa2b305e644cd1f09f710d2a"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_refresh_2026-11-06.json": {
+      "bytes": 2522,
+      "sha256": "640cb8fd338a4a5bdfc2f22811d002428cbd86e3a07b5e59c31e6b95a7499ae5"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/sh000002-20261106.json": {
+      "bytes": 1655,
+      "sha256": "5491f0866c74ba6f172230c3d5ba0ec1ee6101d0cdd5d2cc0108662e19187bbf"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/sh600028-20261106.json": {
+      "bytes": 1677,
+      "sha256": "3f976d8b2fc36e20a987ea8ce6c38be07410e7d5055935332abaccbbc1249159"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/sh600938-20261106.json": {
+      "bytes": 1693,
+      "sha256": "9424e7382c659bc0528d58ca2d0fa43dbcab08e366ee26fe4a2e1f041ef03277"
+    },
+    "skills/public/energy-market-daily/upstream/app/sources/sh601857-20261106.json": {
+      "bytes": 1713,
+      "sha256": "05ff9000a142cfca0e84a2b9e9653fb4ce1445bdfed2cdcce2bf90b70d3d3f32"
+    },
+    "skills/public/energy-market-daily/upstream/app/test_market_history.py": {
+      "bytes": 3372,
+      "sha256": "9605a3e19a37b9e1de907fd771c08dd3fb040ee9c8924cd817a76b3afc9b9438"
+    },
+    "skills/public/energy-market-daily/upstream/app/test_workflow_gate.py": {
+      "bytes": 1848,
+      "sha256": "26f719cfcf6a123782385514f6ecc83d099dc93324f176d5de05ec0c4622005c"
+    },
+    "skills/public/energy-market-daily/upstream/app/validate_inputs.py": {
+      "bytes": 4721,
+      "sha256": "5fc4e96e4ee4cd5eda12a02f80e20df08d6377c6fa74ddda7d28b80dc20dff1f"
+    },
+    "skills/public/energy-market-daily/upstream/app/workflow_gate.py": {
+      "bytes": 4807,
+      "sha256": "bdda92b8e86807f52f3ca80d32fc8fae449f3a07803bbce2c763e00bd2ddd140"
+    },
+    "skills/public/energy-market-daily/upstream/config/font-manifest.json": {
+      "bytes": 590,
+      "sha256": "b2599ba11ed82ae2139d2d4cb1dfbef55e89e7420279ef8c4ab6b485a8381495"
+    },
+    "skills/public/energy-market-daily/upstream/config/reference-environment.json": {
+      "bytes": 506,
+      "sha256": "5b2cd9970190df51da9c4c3f442b203ba87d553c510022ea9887d7144c8fdd79"
+    },
+    "skills/public/energy-market-daily/upstream/config/runtime.env.example": {
+      "bytes": 201,
+      "sha256": "f3e66b59caea6ff11eba0af0cb91da4864494a154b144874789df80840ae2bf9"
+    },
+    "skills/public/energy-market-daily/upstream/config/schedule.json": {
+      "bytes": 299,
+      "sha256": "b0fb67deedd51d67a7003e6657388ca088334b401496819269649966a71ba340"
+    },
+    "skills/public/energy-market-daily/upstream/docs/01-STYLE.md": {
+      "bytes": 3835,
+      "sha256": "b053ca62cedecdc2fe9615ef03b6bb7ca77c5d6b58dbe25b01cd4f8071c401c2"
+    },
+    "skills/public/energy-market-daily/upstream/docs/02-API.md": {
+      "bytes": 3680,
+      "sha256": "97baec6d406513fbc9a4135e68b7e1a9fe421de028e4d2a544bef68ea6380b38"
+    },
+    "skills/public/energy-market-daily/upstream/docs/03-ACQUISITION.md": {
+      "bytes": 4991,
+      "sha256": "5f81a64b6638e871ab9e17e79779f485da92f13e981fe72f4bbf13b67cadd635"
+    },
+    "skills/public/energy-market-daily/upstream/docs/04-EXECUTION.md": {
+      "bytes": 4521,
+      "sha256": "92fdd5c33d5a50e6f4b7f546db176f40731d9276b858b19b6080e61915fc8536"
+    },
+    "skills/public/energy-market-daily/upstream/docs/05-DATA-CONTRACT.md": {
+      "bytes": 3660,
+      "sha256": "979cfb2941e6fe734a241969f9d888f7f75ccb75a144cd6495273fd776ac8a4a"
+    },
+    "skills/public/energy-market-daily/upstream/docs/06-DEPLOYMENT.md": {
+      "bytes": 4954,
+      "sha256": "408c585b621e659401451201b9f621481bf72c30b60b82b4615f565ea9929943"
+    },
+    "skills/public/energy-market-daily/upstream/provenance/original-skill/SKILL.md": {
+      "bytes": 7369,
+      "sha256": "d5d3753ed2e940b0d07d4f88e95c8ab6b8c4d641818b712db4fb9a7ba3a3cf01"
+    },
+    "skills/public/energy-market-daily/upstream/provenance/original-skill/references/acquisition.md": {
+      "bytes": 7203,
+      "sha256": "494e1392f74ee242f0b22b6d783ece4c402e351cb978f8adda98c0a90e9d066f"
+    },
+    "skills/public/energy-market-daily/upstream/provenance/original-usage.md": {
+      "bytes": 12296,
+      "sha256": "21fe87adca86d029a3ad45ff11b4be7d7f26d750167dbf3f7ffd1d51ea7b50f0"
+    },
+    "skills/public/energy-market-daily/upstream/reference/approved-2026-11-07.html": {
+      "bytes": 29111,
+      "sha256": "43db487d4d8ca4785d2bb9f872ba254486b9ebd5b7e337c1b7fc147cb6843fc7"
+    },
+    "skills/public/energy-market-daily/upstream/reference/approved-2026-11-07.json": {
+      "bytes": 62335,
+      "sha256": "3edab45e9afa77e78332bc41a8474dcb61d233b0fc047333fed44d496d9c47df"
+    },
+    "skills/public/energy-market-daily/upstream/reference/approved-2026-11-07.png": {
+      "bytes": 687408,
+      "sha256": "abf631c6d018935f3c512f2cefa3d545e91a58c8733cf4e2afba56c7216f0ae9"
+    },
+    "skills/public/energy-market-daily/upstream/reference/original-style-reference.png": {
+      "bytes": 1660198,
+      "sha256": "d5a16399dae1865f7e500960d50026c924af96326056472763d6cea8e635b4eb"
+    },
+    "skills/public/energy-market-daily/upstream/requirements-reference.txt": {
+      "bytes": 113,
+      "sha256": "13e42ef5e3a3b8bc1bf40d2fe5199ed0fd2833fed63ad9ea23e744caeeb899ac"
+    },
+    "skills/public/energy-market-daily/upstream/tools/check_environment.py": {
+      "bytes": 1979,
+      "sha256": "c6152c8034c11d54ca999874899374a622f03baccca29e0e4493ad8c5651f803"
+    },
+    "skills/public/energy-market-daily/upstream/tools/reproduce.py": {
+      "bytes": 1449,
+      "sha256": "0c136ac569f406f44b36c9a760152f7ae7a1c268268c5778c4ccedab871059fb"
+    },
+    "skills/public/energy-market-daily/upstream/tools/verify_manifest.py": {
+      "bytes": 506,
+      "sha256": "3e2c26500a8f085573311f4eadc82a04c5c7b39f705292872f82ebd6c2c873eb"
+    }
+  },
+  "financial_source_seal": "release/research-fund-current-source-20261110/SOURCE.json",
+  "notes": "Source synchronization only; acceptance boundaries in docs/released-source-sync-20261110.md. Historical files are immutable.",
+  "production_commands_executed": false,
+  "schema": "released-source-reconciliation.v1",
+  "work_schedule_created": false
+}

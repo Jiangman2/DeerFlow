@@ -1,0 +1,81 @@
+{
+  "schema": "skillhub-arm64-class-link-qualification.v1",
+  "scope": "java_class_link_not_application_startup",
+  "status": "PARTIAL_CANDIDATE_LINK_ACCEPTED_BASELINE_COMPARISON_TIMED_OUT",
+  "candidate_class_link_accepted": true,
+  "baseline_comparison_accepted": false,
+  "application_started": false,
+  "spring_context_started": false,
+  "database_access": false,
+  "production_mutations": 0,
+  "network_requests": 0,
+  "source": {
+    "path": "release/skillhub-auth-remediation-20261106-r1/SkillhubClassLinkProbe.java",
+    "bytes": 5319,
+    "sha256": "9858fe14d186c6c9b57e1421acf474eace58b4c7300e82a08b039f0a43f84913"
+  },
+  "runs": [
+    {
+      "mode": "candidate",
+      "image": "deerflow.local/skillhub-server:20261106-registry-auth-r1",
+      "platform": "linux/arm64",
+      "exitcode": 0,
+      "stderr_bytes": 0,
+      "image_pulled": false,
+      "network": "none",
+      "root_filesystem": "read_only",
+      "helper_mount": "read_only",
+      "observation": {
+        "schema": "skillhub-java-class-link.v1",
+        "status": "PASS",
+        "mode": "candidate",
+        "java_version": "21.0.12",
+        "os_arch": "aarch64",
+        "classes_linked": 5,
+        "class_initialization_requested": false,
+        "patched_registry_override": true,
+        "public_chain_conditional_false_marker": true,
+        "public_chain_orders": [
+          0,
+          1
+        ],
+        "enterprise_registry_conditional_true_marker": true,
+        "application_started": false,
+        "spring_context_started": false,
+        "database_access": false,
+        "network_requests": 0
+      }
+    }
+  ],
+  "execution_budget_seconds": 120,
+  "budget_scope": "compilation_and_candidate_and_optional_baseline_execution_excluding_final_container_cleanup",
+  "baseline_timeout_remaining_seconds": 21,
+  "retry_requested": false,
+  "baseline_container_cleanup_requested": true,
+  "runtime_entry": {
+    "main": "org.springframework.boot.loader.launch.PropertiesLauncher",
+    "classpath": "/app/app.jar",
+    "loader.main": "SkillhubClassLinkProbe",
+    "loader.path": "/probe/classes",
+    "jvm_max_heap": "64m",
+    "container_memory_limit": "192m",
+    "verification": "-Xverify:all",
+    "target_class_initialization": false
+  },
+  "compile": {
+    "exitcode": 0,
+    "image": "maven:3.9.13-eclipse-temurin-21",
+    "release": 21,
+    "stdout_bytes": 0,
+    "stderr_bytes": 0
+  },
+  "helper_class": {
+    "path": "release/skillhub-auth-remediation-20261106-r1/class-link/SkillhubClassLinkProbe.class",
+    "bytes": 7338,
+    "sha256": "d7f9da999115bf0258965166cfc9cf6e7699a5067a6df4ea504eab816068176b"
+  },
+  "error_class": "TimeoutExpired",
+  "error": "Command '['C:/Users/15285/AppData/Local/Programs/DockerDesktop/resources/bin/docker.exe', '--context', 'desktop-linux', 'run', '--rm', '--name', 'skillhub-link-baseline-70fc1cb228', '--pull', 'never', '--platform', 'linux/arm64', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--memory', '192m', '--cpus', '1', '--pids-limit', '64', '--mount', 'type=bind,source=C:\\\\Users\\\\15285\\\\AppData\\\\Local\\\\Temp\\\\skillhub-class-link-20261106-q7eh7byx\\\\classes,target=/probe/classes,readonly', '--entrypoint', 'java', 'deerflow.local/skillhub-server:20260908-enterprise-arm64-rc15-skillhubsession2', '-Xmx64m', '-XX:-UsePerfData', '-XX:ActiveProcessorCount=1', '-Xverify:all', '-Dloader.main=SkillhubClassLinkProbe', '-Dloader.path=/probe/classes', '-cp', '/app/app.jar', 'org.springframework.boot.loader.launch.PropertiesLauncher', 'baseline']' timed out after 21.0 seconds",
+  "elapsed_seconds": 130.859,
+  "full_application_runtime_or_http_acceptance": false
+}

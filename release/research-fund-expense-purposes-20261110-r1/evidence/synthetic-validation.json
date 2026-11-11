@@ -1,0 +1,263 @@
+{
+  "report_version": "1.0",
+  "profile": "group_company",
+  "mode": "final",
+  "status": "PASS",
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "information": 0
+  },
+  "derived": {
+    "expenses": [
+      {
+        "code": "equipment_software",
+        "name": "设备与软件费",
+        "budget": 180,
+        "adjusted_budget": 180,
+        "reported": 170,
+        "actual": 170,
+        "audited": null,
+        "recognized": 170,
+        "balance": 10,
+        "variance_rate": 5.56,
+        "execution_rate": 94.44,
+        "description": "用于监测终端和平台软件购置。",
+        "variance_reason": "设备采购形成结余。",
+        "evidence_refs": [
+          "E1",
+          "E2"
+        ],
+        "scope": "direct",
+        "parent_code": null,
+        "include_in_total": true,
+        "input_row": null,
+        "input_balance": null
+      },
+      {
+        "code": "materials_energy",
+        "name": "材料/燃料动力费",
+        "budget": 140,
+        "adjusted_budget": 140,
+        "reported": 135,
+        "actual": 135,
+        "audited": null,
+        "recognized": 135,
+        "balance": 5,
+        "variance_rate": 3.57,
+        "execution_rate": 96.43,
+        "description": "用于传感器辅材和现场试验能源消耗。",
+        "variance_reason": "材料询价形成结余。",
+        "evidence_refs": [
+          "E1",
+          "E2"
+        ],
+        "scope": "direct",
+        "parent_code": null,
+        "include_in_total": true,
+        "input_row": null,
+        "input_balance": null
+      },
+      {
+        "code": "external_testing",
+        "name": "外协实验/试验费",
+        "budget": 120,
+        "adjusted_budget": 120,
+        "reported": 110,
+        "actual": 110,
+        "audited": null,
+        "recognized": 110,
+        "balance": 10,
+        "variance_rate": 8.33,
+        "execution_rate": 91.67,
+        "description": "用于第三方可靠性测试。",
+        "variance_reason": "测试方案优化形成结余。",
+        "evidence_refs": [
+          "E1",
+          "E2"
+        ],
+        "scope": "direct",
+        "parent_code": null,
+        "include_in_total": true,
+        "input_row": null,
+        "input_balance": null
+      },
+      {
+        "code": "commissioned_research",
+        "name": "外委研究费",
+        "budget": 100,
+        "adjusted_budget": 100,
+        "reported": 96,
+        "actual": 96,
+        "audited": null,
+        "recognized": 96,
+        "balance": 4,
+        "variance_rate": 4,
+        "execution_rate": 96,
+        "description": "委托专业单位开展故障诊断模型研究。",
+        "variance_reason": "委托工作量优化形成结余。",
+        "evidence_refs": [
+          "E1",
+          "E2"
+        ],
+        "scope": "direct",
+        "parent_code": null,
+        "include_in_total": true,
+        "input_row": null,
+        "input_balance": null
+      },
+      {
+        "code": "publication_ip",
+        "name": "出版/文献/信息传播/知识产权事务费",
+        "budget": 70,
+        "adjusted_budget": 70,
+        "reported": 66,
+        "actual": 66,
+        "audited": null,
+        "recognized": 66,
+        "balance": 4,
+        "variance_rate": 5.71,
+        "execution_rate": 94.29,
+        "description": "用于论文、专利和资料印制。",
+        "variance_reason": "出版与知识产权支出形成结余。",
+        "evidence_refs": [
+          "E1",
+          "E2"
+        ],
+        "scope": "direct",
+        "parent_code": null,
+        "include_in_total": true,
+        "input_row": null,
+        "input_balance": null
+      },
+      {
+        "code": "travel_meeting_cooperation",
+        "name": "会议/差旅/国际合作交流费",
+        "budget": 70,
+        "adjusted_budget": 70,
+        "reported": 65,
+        "actual": 65,
+        "audited": null,
+        "recognized": 65,
+        "balance": 5,
+        "variance_rate": 7.14,
+        "execution_rate": 92.86,
+        "description": "用于现场调研、试验和项目研讨。",
+        "variance_reason": "会议差旅统筹形成结余。",
+        "evidence_refs": [
+          "E1",
+          "E2"
+        ],
+        "scope": "direct",
+        "parent_code": null,
+        "include_in_total": true,
+        "input_row": null,
+        "input_balance": null
+      },
+      {
+        "code": "consulting_labor",
+        "name": "专家咨询评审/劳务费",
+        "budget": 60,
+        "adjusted_budget": 60,
+        "reported": 58,
+        "actual": 58,
+        "audited": null,
+        "recognized": 58,
+        "balance": 2,
+        "variance_rate": 3.33,
+        "execution_rate": 96.67,
+        "description": "用于专家评审和临时辅助人员劳务。",
+        "variance_reason": "咨询劳务支出形成结余。",
+        "evidence_refs": [
+          "E1",
+          "E2"
+        ],
+        "scope": "direct",
+        "parent_code": null,
+        "include_in_total": true,
+        "input_row": null,
+        "input_balance": null
+      },
+      {
+        "code": "other",
+        "name": "其他费用",
+        "budget": 60,
+        "adjusted_budget": 60,
+        "reported": 55,
+        "actual": 55,
+        "audited": null,
+        "recognized": 55,
+        "balance": 5,
+        "variance_rate": 8.33,
+        "execution_rate": 91.67,
+        "description": "用于运输、租赁、维修和其他合规支出。",
+        "variance_reason": "其他费用形成结余。",
+        "evidence_refs": [
+          "E1",
+          "E2"
+        ],
+        "scope": "direct",
+        "parent_code": null,
+        "include_in_total": true,
+        "input_row": null,
+        "input_balance": null
+      }
+    ],
+    "totals": {
+      "source_approved": 800,
+      "source_received": 800,
+      "transferred": 0,
+      "expense_budget": 800,
+      "reported": 755,
+      "actual": 755,
+      "audited": null,
+      "recognized": 755,
+      "audit_reduction": null,
+      "target_budget": 800,
+      "balance": 45,
+      "execution_rate": 94.38
+    },
+    "budget_execution_scope": "all_funds",
+    "cost_totals": {
+      "direct": {
+        "budget": 800,
+        "adjusted_budget": 800,
+        "reported": 755,
+        "actual": 755,
+        "recognized": 755,
+        "audited": null,
+        "balance": 45
+      },
+      "indirect": {
+        "budget": 0,
+        "adjusted_budget": 0,
+        "reported": 0,
+        "actual": 0,
+        "recognized": 0,
+        "audited": null,
+        "balance": 0
+      },
+      "all": {
+        "budget": 800,
+        "adjusted_budget": 800,
+        "reported": 755,
+        "actual": 755,
+        "recognized": 755,
+        "audited": null,
+        "balance": 45
+      }
+    },
+    "outsourcing": {
+      "basis": "recognized_expenditure",
+      "direct_expenditure": 755,
+      "total": 96,
+      "external_amount": null,
+      "commissioned_to_direct_percent": 12.72,
+      "external_to_direct_percent": null,
+      "external_to_commissioned_percent": null,
+      "external_organizations": [],
+      "evidence_refs": []
+    }
+  },
+  "issues": []
+}

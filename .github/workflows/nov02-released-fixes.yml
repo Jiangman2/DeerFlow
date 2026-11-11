@@ -23,6 +23,8 @@ on:
       - 'deploy/enterprise/*new_chat_model_source*'
       - 'release/new-chat-model-source-20261105/**'
       - 'deploy/enterprise/*nov02*'
+      - 'deploy/enterprise/*work_integration_source_20261106.py'
+      - 'release/work-integration-followup-20261106/**'
       - 'deploy/enterprise/released_source_20261102.py'
       - 'deploy/enterprise/released-source-delta-20261102.json'
       - 'deploy/enterprise/verify-release-source-20261023.py'
@@ -50,6 +52,7 @@ jobs:
       - run: python -B -m unittest discover -s tests -p 'test_sidechat*.py'
       - run: python -B deploy/enterprise/verify-sidechat-frontend-source-20261106.py --ref HEAD
       - run: python -B deploy/enterprise/test_new_chat_model_source_20261105.py
+      - run: python -B deploy/enterprise/test_work_integration_source_20261106.py
       - run: python deploy/enterprise/test_nov02_source_delta.py
       - run: python deploy/enterprise/test_dashboard_navigation_source_20261103.py
       - run: python deploy/enterprise/test_dashboard_navigation_frontend_package_20261103.py

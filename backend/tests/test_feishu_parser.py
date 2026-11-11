@@ -305,6 +305,24 @@ def _make_text_event(
     return event
 
 
+@pytest.mark.parametrize(("app_id", "expected"), [("test", "tenant_test"), ("other", None), (None, None)])
+def test_feishu_work_card_tenant_comes_only_from_matching_sdk_header(app_id, expected):
+    from app.integrations.work.cards import WORK_TENANT_METADATA_KEY
+
+    channel = FeishuChannel(MessageBus(), {"app_id": "test"})
+    channel._work_ws_cards = True
+    channel._schedule_prepare_inbound = MagicMock()
+    event = _make_text_event("tenant_key: untrusted")
+    event.header.app_id = app_id
+    event.header.tenant_key = "tenant_test"
+
+    channel._on_message(event)
+
+    channel._schedule_prepare_inbound.assert_called_once()
+    inbound = channel._schedule_prepare_inbound.call_args.args[1]
+    assert inbound.metadata.get(WORK_TENANT_METADATA_KEY) == expected
+
+
 def _make_file_event(
     file_key: str,
     *,

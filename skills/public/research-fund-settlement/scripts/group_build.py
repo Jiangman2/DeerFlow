@@ -12,6 +12,7 @@ from lxml import etree
 
 from group_template import NS, W, fill_group_template, zero_budget_narrative_paragraph_indices
 from text_color import black_text_findings, black_text_part, strip_font_color_for_structure
+from report_display import apply_report_display
 from template_builder import (
     EDITABLE_PARTS,
     TEMPLATES,
@@ -49,7 +50,9 @@ def build_group_docx(
         fill_group_template(case, paragraphs, tables, mode)
         if mode == "final":
             _scrub_template_placeholders(document)
+        display_parts = apply_report_display(archive, document, profile)
         replacement = {
+            **display_parts,
             "word/document.xml": _serialize_document(document),
             "word/settings.xml": _enable_field_updates(archive.read("word/settings.xml")),
         }
@@ -67,6 +70,8 @@ def build_group_docx(
                             replacement.get(info.filename, archive.read(info.filename)),
                         ),
                     )
+                for name in sorted(set(display_parts) - set(archive.namelist())):
+                    target.writestr(name, black_text_part(name, display_parts[name]))
             temp_path.replace(output)
         finally:
             if temp_path.exists():
@@ -105,9 +110,11 @@ def inspect_group_fidelity(docx_path: str | Path, case: dict[str, Any] | None = 
     try:
         _verify_template(profile, source)
         with zipfile.ZipFile(source) as reference, zipfile.ZipFile(output) as actual:
-            reference_names = set(reference.namelist())
+            expected_document = etree.fromstring(reference.read("word/document.xml"))
+            display_parts = apply_report_display(reference, expected_document, profile)
+            reference_names = set(reference.namelist()) | set(display_parts)
             actual_names = set(actual.namelist())
-            if reference_names != actual_names:
+            if reference_names != actual_names or len(actual.namelist()) != len(actual_names):
                 findings.append(
                     {
                         "code": "PACKAGE_PART_SET_CHANGED",
@@ -115,7 +122,8 @@ def inspect_group_fidelity(docx_path: str | Path, case: dict[str, Any] | None = 
                     }
                 )
             for name in sorted(reference_names & actual_names - EDITABLE_PARTS):
-                if black_text_part(name, reference.read(name)) != actual.read(name):
+                expected_part = display_parts[name] if name in display_parts else reference.read(name)
+                if black_text_part(name, expected_part) != actual.read(name):
                     findings.append(
                         {
                             "code": "PRESERVED_PART_CHANGED",
@@ -124,7 +132,7 @@ def inspect_group_fidelity(docx_path: str | Path, case: dict[str, Any] | None = 
                     )
             findings.extend(black_text_findings(actual))
             if _normalized_structure_signature(
-                reference.read("word/document.xml"),
+                _serialize_document(expected_document),
                 zero_budget_narrative_paragraph_indices(case or {}),
             ) != _normalized_structure_signature(actual.read("word/document.xml")):
                 findings.append(
@@ -147,7 +155,7 @@ def inspect_group_fidelity(docx_path: str | Path, case: dict[str, Any] | None = 
         "template_sha256": TEMPLATES[profile]["sha256"],
         "preserved_parts": (
             "all except body text, case-selected zero-budget narrative paragraphs, "
-            "cloned annual rows, explicit black font colors and settings updateFields"
+            "cloned annual rows, exact first-page AI footer, balance list labels, explicit black font colors and settings updateFields"
         ),
         "findings": findings,
     }

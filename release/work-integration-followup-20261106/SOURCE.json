@@ -1,0 +1,180 @@
+{
+  "schema": "work-integration-followup.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "3f7a59c06db925359f2d48c89057ffc73b88803b",
+  "production_acceptance_claimed": false,
+  "changes": {
+    "backend/app/channels/feishu.py": {
+      "base_sha256": "ae71cfac2f5fb0994403c7638285855af675f9ecc9b56ae3da64fb5df27b17e1",
+      "current_sha256": "ad75143f8f07d69f763d94b33402792631d02a449be3dfa2f9a5b89d05d85a5f"
+    },
+    "backend/app/channels/feishu_transport.py": {
+      "base_sha256": "337d590bd754d8cfcefd69e5145c0aa4898b3d9add608f9ed922665ebfaf32ae",
+      "current_sha256": "2fab0218f0daa68ee3f8cbbaa2efcc04a46b0484c5805dbce2456ea72f776942"
+    },
+    "backend/app/gateway/app.py": {
+      "base_sha256": "2188bfc885035df5a78b38dafa1061f8908a8d050a88959d60114c8c45c508c2",
+      "current_sha256": "f130bad760b6fb895795a0b4622503ad013a13716e2eb4c3c1dcf78aa85d98f0"
+    },
+    "backend/app/gateway/auth_middleware.py": {
+      "base_sha256": "4752404771d967b580e5b63bf07e60f0a2d6bd4556e0042a626c910fc33465d5",
+      "current_sha256": "10b055e04bb0ab4b53889ef2b1ff8535339c14f3cd495878854a443af5c2061f"
+    },
+    "backend/app/gateway/csrf_middleware.py": {
+      "base_sha256": "d6f4b9c0d8606271e8c4385c7e0df13bdf7e642fb375016fe12a4e6b87ce4648",
+      "current_sha256": "5dafb9d85c9b95e4b0fdca9f9fb8c3bd354fe139ef41ca5d52c644cfd1adef8c"
+    },
+    "backend/app/gateway/file_security.py": {
+      "base_sha256": "e8283f3317266c1dac8df28d8232c2f47f777d01ac3eef5b173c58b064ba09af",
+      "current_sha256": "5e71aa9c77b9d5cb1c5df35b77ec2476569c84263195050417d778abab86da66"
+    },
+    "backend/app/gateway/routers/artifacts.py": {
+      "base_sha256": "144c374956c4dd03c1f7c1eac2d59e7573b7534be8b46158b9f33dcad8eabe81",
+      "current_sha256": "69040c391f234d9e15711eee887ffc99095b2b5ed6e985b11d13ffa069264f37"
+    },
+    "backend/app/gateway/routers/scheduled_tasks.py": {
+      "base_sha256": "d327f2767927c5d02a96ffc34d523c2f493bd93828a3824d0b79578d093e292b",
+      "current_sha256": "b3edef937bf5d933a1b14731f6906e6ecd980100729387f6cadbf2a999fee2c2"
+    },
+    "backend/app/gateway/routers/work_cards.py": {
+      "base_sha256": null,
+      "current_sha256": "91fdf372a81f768bdaef1fc978a97047470e10f3a32969cbfde9a34cf8621398"
+    },
+    "backend/app/gateway/services.py": {
+      "base_sha256": "efa7048f5060da3b062b6fd9da407f732ddf6fb5031d68e0de14f6b857882374",
+      "current_sha256": "6e46773b1d9ae19f7d15bd01b7ac51dd85f56d4da1df6c6773df8f78d490d377"
+    },
+    "backend/app/integrations/work/agent.py": {
+      "base_sha256": "aae0d42893657794f53408b1631a088df876a9c41b81299b7eb2f6bd3e499abc",
+      "current_sha256": "924c04e341777a1cd8df270eb52c7a4615156b72c06c15dfd94b90f54e37260e"
+    },
+    "backend/app/integrations/work/auth.py": {
+      "base_sha256": "28430af776276a8ba15914209330c5caaaf8591d2281c233c7c74972f662bf01",
+      "current_sha256": "908b50832796aa8054a6d75fdf7b9b0b2fbbbc3e34a3d8420a8a89eaf5a96b0f"
+    },
+    "backend/app/integrations/work/batch.py": {
+      "base_sha256": "1f760d8389d8935aef3745ce084e99ad9d917cbf06a6368d7853ad0c827cdbdf",
+      "current_sha256": "4f9d07c372e7380cd372af49f9a7ca6fe15de50e268e641c74d18f0286e84696"
+    },
+    "backend/app/integrations/work/bitable_read.py": {
+      "base_sha256": null,
+      "current_sha256": "ffd13ce5cb231924c000c066db6e35eaeb69c776ca90cdbffa6a1989fbdee728"
+    },
+    "backend/app/integrations/work/capabilities.py": {
+      "base_sha256": "e70e52b4cfbc1577ca5de5b22530102a22c45d8ffe4e795024fb4cc175480581",
+      "current_sha256": "789a74dbc0f4d75e0d8ef3f1e4635d543debbbb9a52265b9260a5472bdf6867a"
+    },
+    "backend/app/integrations/work/cards.py": {
+      "base_sha256": null,
+      "current_sha256": "d7d4b29ca3cead1a09511e60f6137e81f25061924ce3edc00277ce6db7fe1383"
+    },
+    "backend/app/integrations/work/client.py": {
+      "base_sha256": "503ad0545c699f42ae3f309e07b5fcb797c3041a241309bce09027f4ccf531f5",
+      "current_sha256": "40c33880fdab4aa386fecc1c543a5a2fa6916f95991804d098dead5af3d20a91"
+    },
+    "backend/app/integrations/work/drafts.py": {
+      "base_sha256": "f1e5c418d28af93a51cef2e063482d9c617b98cc3785d16ae06c204b551aef64",
+      "current_sha256": "4c01638284a4bb3fd460078e861b26fc28f57c70ee90720eda45da41ed98b9ab"
+    },
+    "backend/app/integrations/work/file_content.py": {
+      "base_sha256": null,
+      "current_sha256": "9a1695366011d1b93bdeb08ebf2671d91769f7374e6b170227e6046c7162271d"
+    },
+    "backend/app/integrations/work/file_read.py": {
+      "base_sha256": null,
+      "current_sha256": "c5b4161c99f639420c7ccd2d8c02714a4e45707562209485561164b0155c38bc"
+    },
+    "backend/app/integrations/work/file_search.py": {
+      "base_sha256": null,
+      "current_sha256": "82e67803daaa7123df87658321a3948f1d5862937dd79a93223914572b4d6aac"
+    },
+    "backend/app/integrations/work/notifications.py": {
+      "base_sha256": null,
+      "current_sha256": "06a09ea242667b6769b273231827918883ac1128755086ad934951689a55079b"
+    },
+    "backend/app/integrations/work/persistent.py": {
+      "base_sha256": "6c54cfff982e5a0d9acdb72933997da47919936c4e4d267dd0069a2456f2d4cf",
+      "current_sha256": "c608a79829d74371b1da79ee3982484fd4d00011e8043a4f4e7f3876f997c711"
+    },
+    "backend/app/integrations/work/routing.py": {
+      "base_sha256": "8aa18c5c9e64f0bdb3ebdf35b1207d8745d02cdf029bdd9a021a774e5efb31d5",
+      "current_sha256": "c99a74e1c3a09fb9b7379989ae8df9b6e4d9d8f76552675b9c98d5c79deb3110"
+    },
+    "backend/app/integrations/work/scopes.py": {
+      "base_sha256": "5432151ba3f90c56e2dea300efb8079b62c3fbda0fabf2df801f0912c9b9db5c",
+      "current_sha256": "9e637027e876ee7f7a746796d0ace3115c67cea7c0385c07b24e727014d23561"
+    },
+    "backend/app/integrations/work/service.py": {
+      "base_sha256": "17ff5f51f68965146fcb50ac17381caa7e3efcf5f56cece8c01e44ed4074c9a0",
+      "current_sha256": "409988778a66bce701f6b7bc71f8d53a893dab74a1e3d79743bf32cc84312d0a"
+    },
+    "backend/app/integrations/work/store.py": {
+      "base_sha256": "dcd62fc316280782c67c47b2be415f622232485e0ece399f9795ac494db79217",
+      "current_sha256": "aa4b44fabc45495006f8823d5db4aaff4383178eb89c49abdecd4212483bf0af"
+    },
+    "backend/app/scheduler/service.py": {
+      "base_sha256": "8bdd672e89f05e4649433c730cce2ef735b5ca27a7ebff255b70c8910f96b90b",
+      "current_sha256": "ab48b5861cec9eff14cb9dea062c8a16dfa62df94e8801dcb9b53f584e8ba263"
+    },
+    "backend/app/scheduler/work_notification_delivery.py": {
+      "base_sha256": null,
+      "current_sha256": "1202321726b304b1c1b03e343f440f116b9734e416804cab894ea825e97bb79f"
+    },
+    "backend/app/scheduler/work_notifications.py": {
+      "base_sha256": null,
+      "current_sha256": "83649f4a9ab99372beb81aa363e5da55bad89cbd59a50f397e4d5af1148eac32"
+    },
+    "backend/packages/harness/deerflow/persistence/channel_connections/sql.py": {
+      "base_sha256": "b5fe8c1cc623790a514b54de4b38bca3ee7ff7f27e1cf1e32faf8bd94c90dd6c",
+      "current_sha256": "5325c45f972d4211c5ffe998d9419bbd407baf3a267aaea06d1c4de7fb20eb59"
+    },
+    "backend/packages/harness/deerflow/persistence/scheduled_task_runs/projection.py": {
+      "base_sha256": "16575dbb0d376d7b9418f723fb4f68aa23f809e711a67c36b7363f0cf8be4ed8",
+      "current_sha256": "009749625a83627de4efeeb85cc03ca4ab3da7833afa99afa3d53f00955c6e12"
+    },
+    "backend/packages/harness/deerflow/persistence/scheduled_task_runs/sql.py": {
+      "base_sha256": "99ee5ffef08835363b14d69f617befd2cf4ff391dd8fecdc4af954c47d282b9b",
+      "current_sha256": "7c056874bcbdcede1743fbe55b498f2df5a7d9d12cdea3a38af03703d9462281"
+    },
+    "backend/packages/harness/deerflow/persistence/scheduled_tasks/sql.py": {
+      "base_sha256": "b4d5a36884f46ef8a11dc3dfda9da73e24d30e2ffeb7dfb99b8b7f3a6a6d49a8",
+      "current_sha256": "4e6e0e57759fcf57425de480434b8d370c41a54bd0f8e0ec43cc4ed91c417260"
+    },
+    "frontend/src/app/workspace/scheduled-tasks/page.tsx": {
+      "base_sha256": "93dae3f91ee0b971cae0412303d0ec73b2e1d22faa919b7779761f8a072beb67",
+      "current_sha256": "01782deaf5a973423138067792dc1877d746c15c8a1c31ec5bdb96395410272c"
+    },
+    "frontend/src/components/workspace/scheduled-task-work-notification.tsx": {
+      "base_sha256": null,
+      "current_sha256": "d98f52f10489e1ecfef0e6e1305fde84d03ef48f447f406db2d9362a69672c62"
+    },
+    "frontend/src/core/i18n/locales/en-US.ts": {
+      "base_sha256": "dc3333c69252af6d308e17297ec57126a5334db0c768d91699ed93c775554d93",
+      "current_sha256": "dd26506614b6a8887a9e3c2505abc59156fa7034a0096b40fabeadd8aad733cf"
+    },
+    "frontend/src/core/i18n/locales/types.ts": {
+      "base_sha256": "48ab94efec8d5b92d04c46ed76e2611cda331a7ad15122e02018c747ddc04672",
+      "current_sha256": "7f5953e52f01230c44c6a944f9f1e20671402453d94021d60882402ac2ea2e85"
+    },
+    "frontend/src/core/i18n/locales/zh-CN.ts": {
+      "base_sha256": "f223b525b07e874388d52e40c8fb8b122c748e50cd0d2002658f81ae0f63d8f5",
+      "current_sha256": "84fa780ae8e31c0d726b23f87e9b6afe7b0c6adf7db206967a80efa045fa3d40"
+    },
+    "frontend/src/core/scheduled-tasks/api.ts": {
+      "base_sha256": "dc0279a1b69d19ac1ff318a8a2badb4d82221f9278cd2cda7c53c3811a64e91e",
+      "current_sha256": "1bfa5419906c12a2ab9fa444a7cb18a63cd3b87e6559606078636d05c530cfe2"
+    },
+    "frontend/src/core/scheduled-tasks/hooks.ts": {
+      "base_sha256": "be2aa72b75180d38eca55dbeb90e78856946a8753d3bc8506ae9361084a09a6a",
+      "current_sha256": "72b4dccf2c8c340cd6fa55409942f8a07c48c72637731acd13b0c8716a5d9291"
+    },
+    "frontend/src/core/scheduled-tasks/types.ts": {
+      "base_sha256": "cdf8a8b64846bcc9368ebee43158f0400901b7839566396a04baed08ba209365",
+      "current_sha256": "7fed3263195f05b4a398810b8cc34a5dcd0e244f65b69498671f70ed7f14d511"
+    },
+    "frontend/tests/unit/core/scheduled-tasks/hooks.test.ts": {
+      "base_sha256": "af5142a758e47fb9a24ce5b9f52d17893714d6672fed082910eeb4ae28e7f926",
+      "current_sha256": "720315a02d87ab5f76d71c7ca1eeeb71b2c671090f72ffa529483c7ab7a4a4a0"
+    }
+  }
+}

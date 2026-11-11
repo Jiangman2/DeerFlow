@@ -8,8 +8,9 @@ from dataclasses import asdict
 
 from app.channels.message_bus import InboundMessage
 
+from .cards import CARD_REPLY_TARGET_KEY, WORK_TENANT_METADATA_KEY, CardReplyTarget
 from .client import WorkError
-from .service import DocumentJob, WorkDocumentService
+from .service import DocumentJob, WorkDocumentService, _job_protocol
 from .tasks import TaskRef
 
 
@@ -22,7 +23,10 @@ class PersistentWorkService(WorkDocumentService):
     def _data(job):
         message = asdict(job.message)
         message["files"] = []
-        message["metadata"] = {key: value for key, value in message["metadata"].items() if key in {"chat_type", "message_id"}}
+        message["metadata"] = {key: value for key, value in message["metadata"].items() if key in {"chat_type", "message_id", WORK_TENANT_METADATA_KEY}}
+        target = job.message.metadata.get(CARD_REPLY_TARGET_KEY)
+        if isinstance(target, CardReplyTarget):
+            message["metadata"][CARD_REPLY_TARGET_KEY] = target.message_id
         return {
             "message": message,
             "document_id": job.document_id,
@@ -43,9 +47,11 @@ class PersistentWorkService(WorkDocumentService):
         if not record or record.status not in {"waiting", "authorizing", "authorized", "processing"}:
             raise WorkError("invalid_or_expired_ticket")
         data = dict(record.value)
-        if data.get("protocol") != 2:
+        if data.get("protocol") != _job_protocol(data.get("intent")):
             # Unfinished pre-draft jobs must be requested again. Their old
             # single-event proposal may have lost a finite repetition request.
+            # File/search jobs cannot run in old workers that install every
+            # grant into the document/calendar slot.
             raise WorkError("job_protocol_upgrade_required")
         ref = TaskRef.parse(data.get("task_ref"))
         if not ref or not data.get("intent"):
@@ -53,7 +59,12 @@ class PersistentWorkService(WorkDocumentService):
             # protocol merely because an old browser link is still open.
             raise WorkError("task_reference_required")
         await self.store.assert_task(pointer.value["owner"], ref)
-        data["message"] = InboundMessage(**data["message"])
+        message = InboundMessage(**data["message"])
+        message.metadata = dict(message.metadata)
+        target = message.metadata.pop(CARD_REPLY_TARGET_KEY, None)
+        if isinstance(target, str):
+            message.metadata[CARD_REPLY_TARGET_KEY] = CardReplyTarget(target)
+        data["message"] = message
         stage = "awaiting_authorization" if record.status == "waiting" else record.status
         job = DocumentJob(**data, expires_at=time.monotonic() + record.expires_at - time.time(), stage=stage)
         self.jobs[ticket], self._job_records[ticket] = job, record
@@ -130,16 +141,23 @@ class PersistentWorkService(WorkDocumentService):
 
     async def _install_grant(self, job, grant):
         p, ticket = self._identity(job.message), self._ticket(job)
-        if not await self.vault.bound(p):
+        vault = self._grant_vault(job)
+        if not await vault.bound(p):
             raise WorkError("binding_changed")
-        owner = self.vault.principal_key(p)
+        owner = vault.principal_key(p)
         record, job_record = await self.store.install_authorized(
-            ticket, self._job_records[ticket], owner=owner, task_ref=TaskRef.parse(job.task_ref), value={"token": grant.token, "scopes": sorted(grant.scopes)}, ttl=max(1, grant.expires_at - time.monotonic())
+            ticket,
+            self._job_records[ticket],
+            owner=owner,
+            task_ref=TaskRef.parse(job.task_ref),
+            value={"token": grant.token, "scopes": sorted(grant.scopes)},
+            ttl=max(1, grant.expires_at - time.monotonic()),
+            grant_kind=vault.grant_kind,
         )
         self._job_records[ticket] = job_record
         grant.revision = record.revision
-        self.vault._records[p] = record
-        self.vault.put(p, grant)
+        vault._records[p] = record
+        vault.put(p, grant)
 
     async def _control(self, msg, p, verb, plan_id):
         await super()._control(msg, p, verb, plan_id)
@@ -165,8 +183,9 @@ class PersistentWorkService(WorkDocumentService):
             acquired = bool(await self.store.acquire(lease_name, holder, ttl=300))
             if not acquired:
                 return
-            await super()._run(job)
-            await self.store.audit(p, "request", job.document_id or "calendar", job.stage)
+            handoff = await super()._run(job)
+            await self.store.audit(p, "request", job.document_id or ("file_search" if (job.intent or {}).get("operation") == "file_lookup" else "calendar"), job.stage)
+            return handoff
         except WorkError as exc:
             if exc.stage != "task_superseded":
                 raise

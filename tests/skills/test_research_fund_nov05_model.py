@@ -60,8 +60,8 @@ def test_three_ratios_use_distinct_correct_denominators_and_render(tmp_path):
     assert ratios["external_to_direct_percent"] != 50
     doc = build_docx(normalized, tmp_path / "synthetic.docx", "final")
     text = document_text(doc)
-    assert f"外委研究费占直接经费总支出的比例为{ratios['commissioned_to_direct_percent']}%" in text
-    assert f"外委给系统外单位的外委研究费占直接经费总支出的比例为{ratios['external_to_direct_percent']}%" in text
+    assert f"外委研究费占直接经费总支出比例{ratios['commissioned_to_direct_percent']}%" in text
+    assert f"其中委托系统外单位的外委研究费占直接经费总支出比例{ratios['external_to_direct_percent']}%" in text
     assert "合成单位甲、合成单位乙" in text
     assert inspect_docx(doc, normalized)["status"] == "PASS"
 
@@ -73,8 +73,8 @@ def test_legacy_without_appendix_does_not_invent_zero_external_amount(tmp_path):
     assert normalized["_derived"]["outsourcing"]["external_to_direct_percent"] is None
     doc = build_docx(normalized, tmp_path / "legacy.docx", "final")
     text = document_text(doc)
-    assert "外委研究费占直接经费总支出的比例为" in text
-    assert "外委给系统外单位的外委研究费占直接经费总支出" not in text
+    assert "外委研究费占直接经费总支出比例" in text
+    assert "其中委托系统外单位的外委研究费占直接经费总支出" not in text
     assert inspect_docx(doc, normalized)["status"] == "PASS"
 
 

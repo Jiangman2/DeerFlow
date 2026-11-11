@@ -20,6 +20,9 @@ class LateSourceTests(unittest.TestCase):
     def setUpClass(cls):
         cls.paths = [p.relative_to(ROOT).as_posix() for p in (ROOT / source.SKILL).rglob('*')
                      if p.is_file() and '__pycache__' not in p.parts]
+        _, cls.parent_projection = verifier.current.qualify(lambda path: (ROOT/path).read_bytes(), cls.paths)
+        if cls.parent_projection:
+            cls.paths = [p for p in cls.parent_projection if p.startswith(source.SKILL)]
         cls.manifest = json.loads((ROOT / source.MANIFEST).read_bytes())
 
     def reader(self, overrides):
@@ -28,6 +31,10 @@ class LateSourceTests(unittest.TestCase):
                 if overrides[path] is None:
                     raise KeyError(path)
                 return overrides[path]
+            if path == verifier.current.MANIFEST:
+                raise KeyError(path)
+            if self.parent_projection and path in self.parent_projection:
+                return self.parent_projection[path]
             return (ROOT / path).read_bytes()
         return read
 

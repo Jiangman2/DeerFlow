@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from _router_auth_helpers import call_unwrapped
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.gateway.routers import scheduled_tasks
@@ -117,6 +118,43 @@ class _RunStore:
 class _Config:
     def __init__(self, min_once_delay_seconds: int = 60) -> None:
         self.scheduler = SimpleNamespace(min_once_delay_seconds=min_once_delay_seconds)
+
+
+@pytest.mark.asyncio
+async def test_work_notification_uses_server_verified_binding_and_hides_provider_metadata(monkeypatch):
+    repo = _Repo()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(work_notification_dispatcher=object())))
+    target = SimpleNamespace(connection_id="conn-owner", binding_key="private-proof", label="海能 Work 私聊", chat_id="oc_private")
+    resolver = AsyncMock(return_value=target)
+    monkeypatch.setattr(scheduled_tasks, "work_notifications_enabled", lambda: True)
+    monkeypatch.setattr(scheduled_tasks, "resolve_work_notification_connection", resolver)
+    monkeypatch.setattr(scheduled_tasks, "list_work_notification_connections", AsyncMock(return_value=[target]))
+    monkeypatch.setattr(scheduled_tasks, "get_scheduled_task_repo", lambda _: repo)
+    monkeypatch.setattr(scheduled_tasks, "get_thread_store", lambda _: SimpleNamespace())
+    monkeypatch.setattr(scheduled_tasks, "get_optional_user_from_request", AsyncMock(return_value=SimpleNamespace(id="user-1")))
+    monkeypatch.setattr(scheduled_tasks, "get_config", _Config)
+    monkeypatch.setattr(scheduled_tasks, "_record_scheduled_task_creation", AsyncMock())
+    targets = await call_unwrapped(scheduled_tasks.list_scheduled_work_notification_targets, request=request)
+    assert targets == {"enabled": True, "targets": [{"connection_id": "conn-owner", "label": "海能 Work 私聊"}]}
+    body = scheduled_tasks.ScheduledTaskCreateRequest(
+        title="Daily summary",
+        prompt="Summarize the latest data",
+        schedule_type="cron",
+        schedule_spec={"cron": "0 9 * * *"},
+        timezone="UTC",
+        run_context={"model_name": "deepseek", "work_notification": {"connection_id": "conn-other"}},
+        work_notification={"connection_id": "conn-owner"},
+    )
+    created = await call_unwrapped(scheduled_tasks.create_scheduled_task, request=request, body=body)
+    resolver.assert_awaited_once_with("user-1", "conn-owner")
+    assert repo.created[0]["run_context"]["work_notification"] == {"connection_id": "conn-owner", "binding_key": "private-proof"}
+    assert created["run_context"] == {"model_name": "deepseek"}
+    assert created["work_notification"] == {"connection_id": "conn-owner"}
+
+    resolver.return_value = None
+    with pytest.raises(HTTPException) as exc:
+        await call_unwrapped(scheduled_tasks.create_scheduled_task, request=request, body=body)
+    assert exc.value.status_code == 422 and len(repo.created) == 1
 
 
 @pytest.mark.asyncio

@@ -9,7 +9,7 @@ import pytest
 
 from app.integrations.work import agent
 from app.integrations.work.client import WorkError
-from app.integrations.work.drafts import CROSS_DAY_QUESTION, TASK_RELATION_QUESTION, CalendarDraft, expand_create, missing_question
+from app.integrations.work.drafts import CROSS_DAY_QUESTION, TASK_RELATION_QUESTION, TITLE_ONLY_QUESTION, CalendarDraft, expand_create, missing_question
 
 NEW = {"route": "new_work", "domain": "calendar"}
 CONTINUE = {"route": "continue_work", "domain": "calendar"}
@@ -20,6 +20,32 @@ def install(monkeypatch, *responses):
     model = AsyncMock(side_effect=[json.dumps(row, ensure_ascii=False) for row in responses])
     monkeypatch.setattr(agent, "model_text", model)
     return model
+
+
+def title_only_context():
+    partial = CalendarDraft(operation="create", changes={"start": "2026-11-08T09:00:00+08:00", "duration_minutes": 120})
+    return {"domain": "calendar", "stage": "awaiting_input", "question": TITLE_ONLY_QUESTION, "draft": partial.model_dump(), "calendar_execution": {"state": "none"}}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reply", ["取消会议", "解释一下这场会议", "未来三天安排会议", "下午三点开项目会议", "项目F会议，改到下午", "标题为项目F会议 下午三点开始", "请查看 https://example.test"])
+async def test_pending_title_leaves_new_requests_to_normal_routing(monkeypatch, reply):
+    model = install(monkeypatch, {"route": "general"})
+    result = await agent.plan_turn(reply, task_context=title_only_context())
+    assert result.route == "general"
+    model.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_title_only_answer_does_not_skip_cross_day_confirmation(monkeypatch):
+    model = install(monkeypatch)
+    context = title_only_context()
+    context["draft"]["changes"]["duration_minutes"] = None
+    context["draft"]["changes"]["end"] = "2026-11-10T09:00:00+08:00"
+    result = await agent.plan_turn("标题为 年度计划", task_context=context)
+    assert result.draft.changes.title == "年度计划"
+    assert result.route == "clarify" and result.question == CROSS_DAY_QUESTION
+    model.assert_not_awaited()
 
 
 @pytest.mark.asyncio

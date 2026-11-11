@@ -7,6 +7,10 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import research_fund_current_source_20261110 as current
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,10 +29,15 @@ _late_spec.loader.exec_module(later)
 
 def verify(read, actual):
     """Validate current successor files, then the unchanged October 27 evidence."""
+    current_result, current_projection = current.qualify(read, actual)
+    if current_projection is not None:
+        current_read = read
+        read = lambda path: current_projection[path] if path in current_projection else current_read(path)
+        actual = [p for p in current_projection if p.startswith(current.SKILL)]
     latest, projection = later.qualify(read, actual)
     if projection is not None:
-        current_read = read
-        read = lambda path: projection[path] if path in projection else current_read(path)
+        late_read = read
+        read = lambda path: projection[path] if path in projection else late_read(path)
     lock = json.loads(read(LOCK))
     manifest = json.loads(read(lock["candidate_manifest"]))
     root = lock["skill_root"]
@@ -70,6 +79,8 @@ def verify(read, actual):
                       historical_tree_sha256=tree)
     if latest:
         result.update(latest)
+    if current_result:
+        result.update(current_result)
     return result
 
 
@@ -83,6 +94,10 @@ def snapshot(ref):
     roots = [LOCK, successor.SKILL, successor.ARCHIVE, successor.NOV04, successor.NOV05,
              "release/production-source-20261027/research-fund-settlement", *successor.SUPPORT_PATHS,
              later.ARCHIVE, later.ROUND3, later.PROJECT_TYPE, later.INSPECTOR, *later.SUPPORT_PATHS]
+    roots.extend((current.ARCHIVE, current.OLD, current.NEW, 'tests/skills',
+                  'tests/test_research_fund_expense_purposes_release_20261110.py',
+                  'tests/test_research_fund_expense_purposes_preflight_20261110.py',
+                  'deploy/enterprise/inspect-portal-research-fund-expense-purposes-20261110-r1.py'))
     names = subprocess.check_output(
         ["git", "ls-tree", "-r", "--name-only", revision, "--", *roots], cwd=ROOT
     ).decode().splitlines()

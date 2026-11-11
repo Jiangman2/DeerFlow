@@ -1,0 +1,11 @@
+{
+  "renderer": "Microsoft Word",
+  "fallback_reason": "Packaged render_docx.py requires LibreOffice, unavailable on this Windows host",
+  "pages": 16,
+  "version": "16.0",
+  "source_unchanged": true,
+  "synthetic_only": true,
+  "source_sha256": "1c3bf282c6f1d216f3e18b8df740072c1ae20a6a1865994181f9cf6c7ed691d3",
+  "pdf": "C:\\Users\\15285\\.codex\\worktrees\\nov02-usage-monitor-pr\\deer-flow\\.codex-research-fund-expense-template-20261110\\evidence\\synthetic-expense-template.pdf",
+  "status": "PASS"
+}

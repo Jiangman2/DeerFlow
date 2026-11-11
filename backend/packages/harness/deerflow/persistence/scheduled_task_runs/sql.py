@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import Any
 
 from sqlalchemy import and_, exists, func, or_, select, text, update
@@ -11,7 +12,7 @@ from sqlalchemy.orm import aliased
 from deerflow.persistence.run import RunRepository
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
-from deerflow.persistence.scheduled_task_runs.projection import account_launch, can_project
+from deerflow.persistence.scheduled_task_runs.projection import ScheduledWorkNotificationHook, account_launch, can_project, enqueue_work_notification_in_completion
 from deerflow.persistence.scheduled_tasks.model import ACTIVE_RUN_STATUSES, TERMINAL_RUN_STATUSES, ScheduledTaskRow
 from deerflow.scheduler.schedules import next_run_at as compute_next_run_at
 from deerflow.utils.time import coerce_iso
@@ -555,7 +556,7 @@ class ScheduledTaskRunRepository:
             await session.commit()
             return True
 
-    async def recover_expired_launch_claims(self, *, error: str, now: datetime) -> int:
+    async def recover_expired_launch_claims(self, *, error: str, now: datetime, on_success: ScheduledWorkNotificationHook | None = None) -> int:
         """Recover single-instance claims that outlived their short lease."""
         stmt = (
             select(
@@ -597,6 +598,7 @@ class ScheduledTaskRunRepository:
                         row.status = "success"
                         row.error = None
                         row.finished_at = now
+                        await self._enqueue_recovered_work_notification(session, task, row, candidate, on_success)
                     elif candidate.status in {"error", "timeout"}:
                         row.status = "failed"
                         row.error = candidate.error
@@ -672,7 +674,7 @@ class ScheduledTaskRunRepository:
             result = await session.execute(stmt)
             return result.scalars().first() is not None
 
-    async def mark_stale_active_runs(self, *, error: str) -> int:
+    async def mark_stale_active_runs(self, *, error: str, on_success: ScheduledWorkNotificationHook | None = None) -> int:
         """Recover single-instance launch claims and fail orphaned live runs.
 
         Waiting rows are durable queue entries and survive restart. A
@@ -718,6 +720,8 @@ class ScheduledTaskRunRepository:
                         row.status = "interrupted"
                         row.error = error
                     row.finished_at = now
+                    if row.status == "success" and candidate is not None:
+                        await self._enqueue_recovered_work_notification(session, task, row, candidate, on_success)
                 recovered += 1
             await session.commit()
             return recovered
@@ -728,6 +732,7 @@ class ScheduledTaskRunRepository:
         error: str,
         now: datetime,
         lease_grace_seconds: int = 10,
+        on_success: ScheduledWorkNotificationHook | None = None,
     ) -> int:
         """Reconcile only rows whose underlying owner is no longer live.
 
@@ -827,8 +832,26 @@ class ScheduledTaskRunRepository:
                 stale += 1
             for task, row, candidate in associations:
                 self._associate_task_with_run(task, row, candidate)
+                if row.status == "success":
+                    await self._enqueue_recovered_work_notification(session, task, row, candidate, on_success)
             await session.commit()
             return stale
+
+    @staticmethod
+    async def _enqueue_recovered_work_notification(
+        session: AsyncSession,
+        task: ScheduledTaskRow | None,
+        row: ScheduledTaskRunRow,
+        candidate: RunRow,
+        on_success: ScheduledWorkNotificationHook | None,
+    ) -> None:
+        if on_success is None or task is None:
+            return
+        metadata = candidate.metadata_json or {}
+        if candidate.status != "success" or candidate.user_id != task.user_id or candidate.thread_id != row.thread_id or metadata.get("scheduled_task_id") != task.id or metadata.get("scheduled_task_run_id") != row.id:
+            return
+        enqueue = partial(on_success, result_text=candidate.last_ai_message, thread_id=candidate.thread_id, recovered=True)
+        await enqueue_work_notification_in_completion(session, task, row, enqueue)
 
     @staticmethod
     async def _find_underlying_run(session: AsyncSession, row: ScheduledTaskRunRow, task: ScheduledTaskRow | None) -> RunRow | None:

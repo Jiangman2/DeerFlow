@@ -1,0 +1,59 @@
+Energy daily collector: production proxy transport repair, 2026-11-10
+
+Observed problem
+The dedicated collector had no proxy configuration and its isolated fetch process
+forced the supplier host into NO_PROXY. Production direct requests were reset
+before HTTP response headers. On 2026-11-10 the same collector Pod obtained HTTP
+200 in 86 ms through the Gateway's configured http://10.68.211.1:8080 proxy.
+That inspection did not supply credentials and is not market-data acceptance.
+Its exact operator paste and separately normalized JSON are under
+../docs/field-20261110-1053/; the original server receipt remains immutable.
+
+Change
+Create one new immutable collector code ConfigMap and update only the existing
+energy-market-collector Deployment from generation 2 to 3. Its dedicated process
+uses ENERGY_MARKET_HTTP_PROXY=http://10.68.211.1:8080, with an explicit Requests
+proxy and socket admission limited to that IP and port. There is no direct
+fallback, proxy auto-discovery or credential-bearing redirect. The fixed supplier
+URL, parameters, original 30-second fetch timeout and original two attempts stay
+unchanged. Decoded HTTP responses are bounded to 262144 bytes. The original
+158-file engineering package, ZIP, public Skill entry, credential Secret and
+Gateway/Frontend/Provisioner configurations are preserved.
+
+A read-only GET /status/YYYY-MM-DD permits one POST /prepare followed by status
+polling without accidentally starting a second collection after cooldown.
+The target-day cache gate now considers exactly the original 14 required series;
+an extra optional supplier row cannot make READY inconsistent with cache delivery.
+
+Reviewable operator action
+Use only the newly sealed repair-energy-market-proxy-20261110-r1.py. It binds the
+successful proxy inspection receipt, validates the old Collector, cached runtime,
+Skill and original file hashes, records private backups, then performs one guarded
+JSON patch. It observes active original-fetch processes before updating; that
+short observation is not a distributed admission lock. Collector restarts are
+confined to the dedicated collector; ordinary chat/Sandbox/Gateway workloads do
+not restart. Preserve the one-time marker, old ConfigMap and all earlier receipts.
+Failure leaves an explicit partial-state report; there is no automatic rollback,
+repeated patch, Secret API read, database operation, Work send or schedule change.
+
+Acceptance boundaries
+1. The dedicated fresh-target probe copies the original project into a private
+   temporary directory and removes only that copy's target-date cache. It uses
+   the deployed proxy runner, original fetch and original normalizer, with at most
+   two original HTTP attempts. No shared cache is removed or overwritten. It
+   records the target date, response hash and availability counts, not credentials,
+   quotation amounts or raw supplier responses.
+2. A fresh normalized response proves the credentialed supplier path works.
+   Missing or non-trading required quotes are genuine WAIT_DATA, not a transport
+   failure and not permission to substitute the historical sample.
+3. One ordinary Collector preparation must independently return READY or WAIT_DATA
+   with a validated target response. Its older target_response_validated field is
+   not itself a freshness receipt; only the private probe establishes freshness.
+4. This rollout does not claim financial quote research, news verification, a
+   complete rendered current report, browser acceptance or 07:00 Work delivery.
+
+Implementation reference
+Requests official documentation, explicit per-request proxy configuration and
+streamed-response close behavior:
+https://requests.readthedocs.io/en/latest/user/advanced/#proxies
+https://requests.readthedocs.io/en/latest/user/advanced/#body-content-workflow

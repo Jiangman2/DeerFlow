@@ -18,7 +18,7 @@ from app.channels.audit import (
 from app.channels.base import Channel
 from app.channels.commands import is_known_channel_command, strip_leading_mentions
 from app.channels.connection_identity import attach_connection_identity
-from app.channels.feishu_transport import observed_client
+from app.channels.feishu_transport import MAX_WORK_CARD_FRAME_BYTES, observed_client
 from app.channels.message_bus import (
     PENDING_CLARIFICATION_METADATA_KEY,
     RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY,
@@ -28,6 +28,9 @@ from app.channels.message_bus import (
     OutboundMessage,
     ResolvedAttachment,
 )
+from app.integrations.work.cards import CARD_PREVIEW_KEY, CARD_REPLY_TARGET_KEY, WORK_TENANT_METADATA_KEY, CardPreview, CardReplyTarget, CardSettings, card_callback_response
+from app.integrations.work.config import WorkSettings
+from app.integrations.work.notifications import remember_work_notification_target, work_notifications_enabled
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
 from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 from deerflow.runtime.user_context import get_effective_user_id
@@ -54,6 +57,9 @@ REPLY_SENDER_TYPE_METADATA_KEY = "reply_sender_type"
 REPLY_SENDER_ID_METADATA_KEY = "reply_sender_id"
 REPLY_FROM_SELF_BOT_METADATA_KEY = "reply_from_self_bot"
 QUOTED_TEXT_METADATA_KEY = "quoted_text"
+# Cap on how long the WebSocket card-click admission may occupy the
+# Feishu push thread before the callback answers ``busy``.
+_WORK_CARD_ADMISSION_SECONDS = 2
 
 
 def _is_feishu_command(text: str) -> bool:
@@ -90,6 +96,7 @@ class FeishuChannel(Channel):
         self._thread: threading.Thread | None = None
         self._ws_loop: asyncio.AbstractEventLoop | None = None
         self._ws_client = None
+        self._work_ws_cards = False
         self._ws_connected = threading.Event()
         self._ws_stop_requested = threading.Event()
         self._ws_failure = None
@@ -402,6 +409,43 @@ class FeishuChannel(Channel):
             .build()
         )
 
+    def _work_ws_cards_enabled(self, app_id: str) -> bool:
+        if not callable(self.config.get("_work_receiver_guard")):
+            return False
+        try:
+            work = WorkSettings.from_env()
+            settings = CardSettings.from_env(work.profile, app_id=app_id) if work.enabled and work.persistent else None
+        except ValueError:
+            return False
+        return bool(settings and settings.transport == "websocket")
+
+    async def _on_work_card_frame(self, payload: bytes | dict) -> dict:
+        if isinstance(payload, bytes):
+            if len(payload) > MAX_WORK_CARD_FRAME_BYTES:
+                return card_callback_response("invalid")
+            try:
+                payload = json.loads(payload)
+            except (ValueError, RecursionError):
+                return card_callback_response("invalid")
+        loop = self._main_loop
+        if loop is None or not loop.is_running() or self._ws_stop_requested.is_set():
+            return card_callback_response("unavailable")
+        from app.integrations.work.cards import dispatch_websocket_card_click
+
+        work = dispatch_websocket_card_click(payload, channel=self)
+        try:
+            future = asyncio.run_coroutine_threadsafe(work, loop)
+        except RuntimeError:
+            work.close()
+            return card_callback_response("unavailable")
+        try:
+            return await asyncio.wait_for(asyncio.wrap_future(future), _WORK_CARD_ADMISSION_SECONDS)
+        except TimeoutError:
+            return card_callback_response("busy")
+        except Exception:
+            logger.warning("work_card stage=ws_admission_failed")
+            return card_callback_response("unavailable")
+
     async def start(self) -> None:
         if self._running:
             return
@@ -528,8 +572,9 @@ class FeishuChannel(Channel):
             # thread's uvloop.
             _ws_client_mod.loop = loop
 
+            self._work_ws_cards = self._work_ws_cards_enabled(app_id)
             event_handler = self._build_event_handler(lark)
-            client_type = observed_client(lark.ws.Client, self)
+            client_type = observed_client(lark.ws.Client, self, card_handler=self._on_work_card_frame if self._work_ws_cards else None)
             ws_client = client_type(
                 app_id=app_id,
                 app_secret=app_secret,
@@ -888,7 +933,7 @@ class FeishuChannel(Channel):
     # -- message formatting ------------------------------------------------
 
     @staticmethod
-    def _build_card_content(text: str) -> str:
+    def _build_card_content(text: str, preview: CardPreview | None = None) -> str:
         """Build a Feishu interactive card with markdown content.
 
         Feishu's interactive card format natively renders markdown, including
@@ -898,6 +943,8 @@ class FeishuChannel(Channel):
             "config": {"wide_screen_mode": True, "update_multi": True},
             "elements": [{"tag": "markdown", "content": text}],
         }
+        if preview is not None:
+            card["elements"].extend(preview.elements())
         return json.dumps(card)
 
     # -- reaction helpers --------------------------------------------------
@@ -913,12 +960,12 @@ class FeishuChannel(Channel):
         except Exception:
             logger.exception("[Feishu] failed to add reaction '%s' to message %s", emoji_type, message_id)
 
-    async def _reply_card(self, message_id: str, text: str) -> str | None:
+    async def _reply_card(self, message_id: str, text: str, *, preview: CardPreview | None = None) -> str | None:
         """Reply with an interactive card and return the created card message ID."""
         if not self._api_client:
             return None
 
-        content = self._build_card_content(text)
+        content = self._build_card_content(text, preview)
         request = self._ReplyMessageRequest.builder().message_id(message_id).request_body(self._ReplyMessageRequestBody.builder().msg_type("interactive").content(content).build()).build()
         response = await asyncio.to_thread(self._api_client.im.v1.message.reply, request)
         code = getattr(response, "code", None)
@@ -937,12 +984,12 @@ class FeishuChannel(Channel):
         response = await asyncio.to_thread(self._api_client.im.v1.message.create, request)
         return getattr(getattr(response, "data", None), "message_id", None)
 
-    async def _update_card(self, message_id: str, text: str) -> None:
+    async def _update_card(self, message_id: str, text: str, *, preview: CardPreview | None = None) -> None:
         """Patch an existing card message in place."""
         if not self._api_client or not self._PatchMessageRequest:
             return
 
-        content = self._build_card_content(text)
+        content = self._build_card_content(text, preview)
         request = self._PatchMessageRequest.builder().message_id(message_id).request_body(self._PatchMessageRequestBody.builder().content(content).build()).build()
         response = await asyncio.to_thread(self._api_client.im.v1.message.patch, request)
         # SDK returns business failures rather than raising; do not claim a card
@@ -950,6 +997,33 @@ class FeishuChannel(Channel):
         code = getattr(response, "code", None)
         if isinstance(code, int) and code != 0:
             raise RuntimeError("Work card update was rejected")
+
+    async def _deliver_work_preview(self, message_id, text, preview, *, patch=False):
+        send = self._update_card if patch else self._reply_card
+        if preview is None:
+            return await send(message_id, text)
+        try:
+            result = await send(message_id, preview.text, preview=preview)
+        except Exception:
+            logger.warning("work_card stage=preview_button_delivery_failed")
+            return await send(message_id, text)
+        target_id = message_id if patch else result
+        if target_id:
+            try:
+                if await preview.bind(target_id):
+                    return result
+            except Exception:
+                logger.warning("work_card stage=preview_binding_unavailable")
+        # Never leave a visible button as the only way forward if the send
+        # lacked a message ID or the callback binding could not be persisted.
+        if target_id and not patch:
+            try:
+                await self._update_card(target_id, text)
+                return target_id
+            except Exception:
+                logger.warning("work_card stage=text_fallback_patch_failed")
+        return await send(message_id, text)
+
 
     def _track_background_task(self, task: asyncio.Task, *, name: str, msg_id: str) -> None:
         """Keep a strong reference to fire-and-forget tasks and surface errors."""
@@ -1033,6 +1107,20 @@ class FeishuChannel(Channel):
     async def _send_card_message(self, msg: OutboundMessage) -> None:
         """Send or update the Feishu card tied to the current request."""
         source_message_id = msg.thread_ts
+        target = msg.metadata.get(CARD_REPLY_TARGET_KEY)
+        if isinstance(target, CardReplyTarget):
+            # The callback ACK already gives progress. Keep the controls on
+            # the original card until there is a final result to show.
+            if msg.is_final:
+                try:
+                    await self._update_card(target.message_id, msg.text)
+                except Exception:
+                    logger.warning("work_card stage=receipt_patch_failed")
+                    if source_message_id:
+                        await self._reply_card(source_message_id, msg.text)
+            return
+        preview = msg.metadata.get(CARD_PREVIEW_KEY) if msg.is_final else None
+        preview = preview if isinstance(preview, CardPreview) else None
         if source_message_id:
             running_card_id = self._running_card_ids.get(source_message_id)
             awaited_running_card_task = False
@@ -1046,7 +1134,7 @@ class FeishuChannel(Channel):
             if running_card_id:
                 card_text = self._compose_card_text(msg.text, msg.metadata)
                 try:
-                    await self._update_card(running_card_id, card_text)
+                    await self._deliver_work_preview(running_card_id, card_text, preview, patch=True)
                 except Exception:
                     if not msg.is_final:
                         raise
@@ -1054,7 +1142,7 @@ class FeishuChannel(Channel):
                         "[Feishu] failed to patch running card %s, falling back to final reply",
                         running_card_id,
                     )
-                    fallback_card_id = await self._reply_card(source_message_id, card_text)
+                    fallback_card_id = await self._deliver_work_preview(source_message_id, card_text, preview)
                     await self._remember_outbound_message(msg, source_message_id, fallback_card_id)
                     self._remember_pending_clarification(msg, fallback_card_id)
                 else:
@@ -1062,9 +1150,10 @@ class FeishuChannel(Channel):
                     self._remember_pending_clarification(msg, running_card_id)
                     logger.info("[Feishu] running card updated: source=%s card=%s", source_message_id, running_card_id)
             elif msg.is_final:
-                final_card_id = await self._reply_card(
+                final_card_id = await self._deliver_work_preview(
                     source_message_id,
                     self._compose_card_text(msg.text, msg.metadata),
+                    preview,
                 )
                 await self._remember_outbound_message(msg, source_message_id, final_card_id)
                 self._remember_pending_clarification(msg, final_card_id)
@@ -1434,6 +1523,15 @@ class FeishuChannel(Channel):
             self._prepared_inbound[key] = now
         try:
             inbound = await self._attach_connection_identity(inbound)
+            if inbound.metadata.get("chat_type") == "p2p" and (tenant := inbound.metadata.get(WORK_TENANT_METADATA_KEY)) and work_notifications_enabled():
+                await remember_work_notification_target(
+                    self,
+                    connection_id=inbound.connection_id,
+                    owner_user_id=inbound.owner_user_id,
+                    sender_id=inbound.user_id,
+                    chat_id=inbound.chat_id,
+                    tenant_key=tenant,
+                )
             await self._prepend_quoted_context(inbound)
             reaction_message_ids = source_message_ids or [msg_id]
             for reaction_message_id in reaction_message_ids:
@@ -1611,6 +1709,7 @@ class FeishuChannel(Channel):
         code: str,
         chat_type: str | None = None,
         tenant_key: str = "",
+        notification_tenant: str | None = None,
     ) -> bool:
         guard = self.config.get("_work_receiver_guard")
         if guard is not None and not await guard():
@@ -1627,7 +1726,7 @@ class FeishuChannel(Channel):
             await self._reply_card(message_id, "无法通过此消息完成海能 Work连接。")
             return True
 
-        await self._connection_repo.upsert_connection(
+        connection = await self._connection_repo.upsert_connection(
             owner_user_id=state["owner_user_id"],
             provider="feishu",
             external_account_id=user_id,
@@ -1659,6 +1758,15 @@ class FeishuChannel(Channel):
                 # rejected with an explicit "identity unbound" notice rather
                 # than silently creating an unowned thread.
                 logger.exception("[Feishu] failed to persist IM user binding")
+        if notification_tenant:
+            await remember_work_notification_target(
+                self,
+                connection_id=connection["id"],
+                owner_user_id=state["owner_user_id"],
+                sender_id=user_id,
+                chat_id=chat_id,
+                tenant_key=notification_tenant,
+            )
         await self._reply_card(message_id, f"海能 Work已连接至{ENTERPRISE_PRODUCT_NAME}。")
         return True
 
@@ -1679,6 +1787,12 @@ class FeishuChannel(Channel):
             feishu_thread_id = self._non_empty_str(getattr(message, "thread_id", None))
             # The tenant lives on the event envelope, not on the message body.
             tenant_key = str(getattr(getattr(event, "header", None), "tenant_key", "") or "").strip()
+            private_notifications = chat_type == "p2p" and work_notifications_enabled()
+            tenant = None
+            if self._work_ws_cards or private_notifications:
+                header = getattr(event, "header", None)
+                if getattr(header, "app_id", None) == self.config.get("app_id"):
+                    tenant = self._non_empty_str(getattr(header, "tenant_key", None))
 
             # Parse message content
             content = json.loads(message.content)
@@ -1778,6 +1892,7 @@ class FeishuChannel(Channel):
                             code=connect_code,
                             chat_type=chat_type,
                             tenant_key=tenant_key,
+                            notification_tenant=tenant if private_notifications else None,
                         ),
                         self._main_loop,
                     )
@@ -1917,6 +2032,8 @@ class FeishuChannel(Channel):
             }
             if source_preview:
                 metadata[SOURCE_PREVIEW_METADATA_KEY] = source_preview
+            if tenant:
+                metadata[WORK_TENANT_METADATA_KEY] = tenant
 
             inbound = self._make_inbound(
                 chat_id=chat_id,

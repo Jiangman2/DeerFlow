@@ -13,6 +13,10 @@ from pathlib import Path, PurePosixPath
 import subprocess
 import tarfile
 
+_pagination_spec = importlib.util.spec_from_file_location("weknora_pagination_source_20261109", Path(__file__).with_name("weknora_pagination_source_20261109.py"))
+pagination = importlib.util.module_from_spec(_pagination_spec)
+_pagination_spec.loader.exec_module(pagination)
+
 # This verifier is also loaded by file path from backend tests. Resolve its
 # sibling explicitly so those callers need no process-wide sys.path mutation.
 _spec = importlib.util.spec_from_file_location("released_source_20261102", Path(__file__).with_name("released_source_20261102.py"))
@@ -27,6 +31,10 @@ _live_spec.loader.exec_module(live_artifacts)
 _stream_spec = importlib.util.spec_from_file_location("terminal_stream_source_20261106", Path(__file__).with_name("terminal_stream_source_20261106.py"))
 terminal_stream = importlib.util.module_from_spec(_stream_spec)
 _stream_spec.loader.exec_module(terminal_stream)
+
+_work_followup_spec = importlib.util.spec_from_file_location("work_integration_source_20261106", Path(__file__).with_name("work_integration_source_20261106.py"))
+work_followup = importlib.util.module_from_spec(_work_followup_spec)
+_work_followup_spec.loader.exec_module(work_followup)
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = 'deploy/enterprise/production-source-lock-20261029.json'
@@ -434,11 +442,19 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(terminal_stream.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, _nov02.composer.MANIFEST], cwd=ROOT).strip():
             extra.append(_nov02.composer.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, work_followup.MANIFEST], cwd=ROOT).strip():
+            extra.append(work_followup.MANIFEST)
+        if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, pagination.MANIFEST], cwd=ROOT).strip():
+            extra.append(pagination.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
+            extra.append("release/artifact-delivery-recovery-20261109/")
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
     current_read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    current_read = pagination.historical_read(current_read)
+    current_read, work_followup_manifest = work_followup.historical_view(current_read)
     composer_manifest = _nov02.composer.qualify(current_read)
     current_read = _nov02.composer.historical_read(current_read)
     terminal_read = terminal_stream.historical_read(current_read)
@@ -542,6 +558,8 @@ def verify(ref=None, lock_path=LOCK):
                 actual -= {path for path, row in followup['changes'].items()
                            if row['base_sha256'] is None and row['kind'] == 'runtime-source'
                            and path.startswith(('backend/app/', 'backend/packages/harness/'))}
+            if component == 'gateway' and work_followup_manifest:
+                actual -= set(work_followup_manifest['added_gateway_runtime'])
             if actual != set(expected):
                 raise AssertionError((component, 'SOURCE_SET_MISMATCH', sorted(actual ^ set(expected))))
         for name, digest in expected.items():
@@ -591,6 +609,7 @@ def verify(ref=None, lock_path=LOCK):
             'history_composer_candidate': _nov02.composer.summary(composer_manifest),
             'terminal_stream_candidate': {'status': 'NOT_DEPLOYED', 'frontend_runtime_paths': [terminal_stream.CLIENT, terminal_stream.HELPER]} if terminal_stream_candidate else None,
             'enterprise_source_followup': _nov02.followup.summary(followup),
+            'work_integration_followup': work_followup_manifest,
             'sidechat_frontend_source': _nov02.followup.sidechat.summary(sidechat_manifest),
             'new_chat_model_source': _nov02.followup.new_chat.summary(new_chat_manifest),
             'dashboard_navigation_candidate': _nov02.followup.navigation.summary(navigation),

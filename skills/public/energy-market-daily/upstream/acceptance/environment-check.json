@@ -1,0 +1,42 @@
+{
+  "platform": "Windows-10-10.0.26200-SP0",
+  "python": "3.9.12 (main, Apr  4 2022, 05:22:27) [MSC v.1916 64 bit (AMD64)]",
+  "browser": "157.0.4341.42",
+  "browser_matches": true,
+  "fonts": [
+    {
+      "filename": "msyh.ttc",
+      "expected": "d79c55e68b1131eea0cc1c47be4f572d964f28c682e143db2ad09c1e4cb07a3f",
+      "actual": "d79c55e68b1131eea0cc1c47be4f572d964f28c682e143db2ad09c1e4cb07a3f",
+      "match": true
+    },
+    {
+      "filename": "msyhbd.ttc",
+      "expected": "4508821b3dffe01f0ef5e5326a3e60df705a44633858811f67b6982dce3f6ee6",
+      "actual": "4508821b3dffe01f0ef5e5326a3e60df705a44633858811f67b6982dce3f6ee6",
+      "match": true
+    },
+    {
+      "filename": "arial.ttf",
+      "expected": "b3658eadae55e682b5f69eb64c439c1ecc8f196c0bb8d4756d145d13bc86476a",
+      "actual": "b3658eadae55e682b5f69eb64c439c1ecc8f196c0bb8d4756d145d13bc86476a",
+      "match": true
+    },
+    {
+      "filename": "arialbd.ttf",
+      "expected": "e8f4e3baf6cc35fed6fcce3a540e8b39e8f6cda1d22a28f2ec8f526fef7a43f5",
+      "actual": "e8f4e3baf6cc35fed6fcce3a540e8b39e8f6cda1d22a28f2ec8f526fef7a43f5",
+      "match": true
+    }
+  ],
+  "packages": {
+    "requests": "2.27.1",
+    "openpyxl": "3.0.9",
+    "playwright": "1.60.0",
+    "Pillow": "9.0.1",
+    "beautifulsoup4": "4.11.1",
+    "fonttools": "4.25.0"
+  },
+  "packages_match": true,
+  "baseline_matches": true
+}

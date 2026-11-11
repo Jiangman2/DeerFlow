@@ -2,7 +2,12 @@ import { throwGatewayApiError } from "@/core/api/errors";
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 
-import type { ScheduledTask, ScheduledTaskRun } from "./types";
+import type {
+  ScheduledTask,
+  ScheduledTaskRun,
+  WorkNotification,
+  WorkNotificationTargets,
+} from "./types";
 
 function scheduledTasksUrl(path: string): string {
   return `${getBackendBaseURL()}/api/scheduled-tasks${path}`;
@@ -14,6 +19,26 @@ export async function fetchScheduledTasks(): Promise<ScheduledTask[]> {
     await throwGatewayApiError(
       response,
       `Failed to load scheduled tasks: ${response.statusText}`,
+    );
+  }
+  return response.json();
+}
+
+export async function fetchWorkNotificationTargets(
+  signal?: AbortSignal,
+): Promise<WorkNotificationTargets> {
+  const response = await fetch(
+    scheduledTasksUrl("/work-notification-targets"),
+    { signal },
+  );
+  // A frontend may briefly run against a Gateway without the feature route.
+  if (response.status === 404) {
+    return { enabled: false, targets: [] };
+  }
+  if (!response.ok) {
+    await throwGatewayApiError(
+      response,
+      "Failed to load Work notification targets",
     );
   }
   return response.json();
@@ -64,6 +89,7 @@ export type ScheduledTaskPayload = {
   title: string;
   prompt: string;
   run_context?: Record<string, unknown>;
+  work_notification?: WorkNotification | null;
   schedule_type: "once" | "cron" | "interval";
   schedule_spec: Record<string, unknown>;
   timezone: string;

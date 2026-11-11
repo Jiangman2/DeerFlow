@@ -73,3 +73,20 @@ release/research-fund-project-type-20261105/scoped-change.diff -whitespace
 
 # Preserve Frontend 242 delivered tools and original qualification/receipt byte hashes.
 release/sidechat-skillhub-security-20261105-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve deployed Skill bytes, original vendor archive, and append-only operator evidence.
+skills/public/energy-market-daily/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-report-labels-20261106-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-expense-purposes-20261110-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-current-source-20261110/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/energy-market-released-20261110/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/skillhub-auth-remediation-20261106-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/released-sync-20261110/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/*skillhub* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/*energy* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/inspect-portal-research-fund-expense-purposes-20261110-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# Immutable upstream captures and archived patches preserve original whitespace.
+skills/public/energy-market-daily/upstream/** -whitespace
+release/research-fund-expense-purposes-20261110-r1/skill-source.patch -whitespace
+release/research-fund-expense-purposes-20261110-r1/expense_purposes_release_builder.py -whitespace
+release/research-fund-report-labels-20261106-r1/report_labels_release_builder.py -whitespace
