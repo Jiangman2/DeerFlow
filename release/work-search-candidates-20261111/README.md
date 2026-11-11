@@ -32,10 +32,13 @@ python deploy/enterprise/verify-production-baseline-20261029.py
 python deploy/enterprise/verify-nov01-released-source-20261102.py
 python deploy/enterprise/verify-nov02-released-source-20261103.py
 python deploy/enterprise/verify-released-sync-20261110.py
+python deploy/enterprise/verify-dashboard-navigation-source-20261103.py
+python deploy/enterprise/verify-history-composer-source-20261106.py
+python deploy/enterprise/verify-sidechat-frontend-source-20261106.py
 python -m unittest discover -s deploy/enterprise -p test_work_search_candidates_source_20261111.py
 ```
 
-After committing, repeat the seven verifiers with `--ref HEAD` to qualify
+After committing, repeat the ten verifiers with `--ref HEAD` to qualify
 immutable Git bytes. Product hashes and validation counts are finalized only
 after freeze; source registration does not deploy the candidate.
 
@@ -61,3 +64,33 @@ separately and are not added to the 360 product-test total.
 After freeze, all seven working-tree source verifiers passed, along with **71
 source/rejection tests** (43.844 seconds). Immutable Git-ref verification is
 repeated after the local commit; this source validation does not deploy code.
+
+## Source CI archive reader correction
+
+The initial PR #47 source-provenance job failed at the dashboard standalone
+`--ref` reader with `agent.py / WORK_FOLLOWUP_CURRENT_CHANGED`. Its archive
+contained the older Work inputs but omitted the cloud/search successor seals,
+backend tests and document inputs. The original product bytes and sealed
+manifests remain unchanged.
+
+A shared read-only `archive_paths` inventory now supplies the dashboard, main
+release, November 1 and November 2 readers. It selects actual ref members and
+leaves every existing hash, schema and parent check in the qualifiers. Directory
+presence includes a successor README even when its manifest is missing.
+
+The added actual-ref test reproduced the CI failure before the fix and passed
+afterwards. Archive-payload regressions still reject runtime/test/document drift,
+a changed or missing child seal, and a changed or missing parent seal. Existing
+rejection assertions remain active.
+
+All **19 source-provenance job commands** were replayed locally, including
+history composer, sidechat, dashboard, enterprise and November 1/2/baseline
+checks: **187 tests passed, no skips**, plus their standalone source verifiers.
+Activation/package tests used synthetic transports and fixtures; no production
+command, Work request or model call was made. Remote CI is rerun after the tool
+fix is committed and pushed; local success is not a remote CI acceptance claim.
+
+Using the corrected working-tree tools, all ten standalone reference checks
+above passed against frozen commit `b9d3a6333f97785576b069d8aae4be349243191b`.
+Repeat them against the tool-fix commit after committing; this verifies the ref
+payload and does not claim that the older commit contained the corrected tool.

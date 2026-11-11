@@ -44,6 +44,31 @@ def _allowed_path(path):
     )
 
 
+def archive_paths(ref, *, root=None):
+    """Return the complete, read-only Work qualification inputs for a Git ref.
+
+    Presence only selects archive members; historical_view still independently
+    rejects missing seals, changed bytes and every invalid parent relationship.
+    Directory presence also includes a successor README when its seal is absent.
+    """
+    paths = {
+        MANIFEST, "backend/app", "backend/packages/harness", "backend/tests",
+        "frontend/src", "frontend/tests",
+    }
+    for layer in (cloud, cloud.search):
+        paths.add(layer.ARCHIVE)
+        paths.update(layer.PARENT_MANIFESTS)
+        paths.update(layer.DOCUMENTATION_PATHS)
+    selected = []
+    for path in sorted(paths):
+        if subprocess.check_output(
+            ["git", "ls-tree", "--name-only", ref, path.rstrip("/")],
+            cwd=ROOT if root is None else root, timeout=30,
+        ).strip():
+            selected.append(path)
+    return selected
+
+
 def _parent_sources(paths):
     queries = {path: f"{BASE_COMMIT}:{path}".encode() for path in paths}
     raw = subprocess.check_output(["git", "cat-file", "--batch"], input=b"\n".join(queries.values()) + b"\n", cwd=ROOT)
