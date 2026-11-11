@@ -1538,6 +1538,58 @@ the JSON store can never diverge from the per-owner pointer (ADR-03).
 Known limitation: `_resolve_available_skill_names()` still reads the JSON store, so
 under V2 it returns `None` (default skill set).
 
+**IM session archive (S08)** — adds the read-only Web session tree on top of V2 without
+changing routing semantics. Migration `0024_im_s08_archive` (additive, single head;
+`downgrade()` drops only its three tables plus the one pointer index) adds:
+
+- `im_user_bindings` — user-level Feishu identity (`tenant_key`, `bot_app_id`,
+  `feishu_id_type`, `feishu_user_id` → `owner_user_id`, `status`, `source`), written by
+  `/connect` in `feishu.py`. The partial unique index `uq_im_user_binding_active` covers
+  ACTIVE rows only, so revoked history is retained. This fixes the earlier gap where
+  `channel_connections.workspace_id` stored the chat id, making an owner resolvable only
+  in the chat where `/connect` happened.
+- `im_group_catalog` — cached group name/status (`ACTIVE` / `LEFT` / `DISSOLVED`), unique
+  on `(tenant_key, bot_app_id, chat_id)`. It never decides whether a directory is
+  rendered: group directories come from `im_thread_registry` rows only, so a group with
+  no thread produces no empty entry.
+- `im_thread_registry` — Thread ownership/classification source of truth (`provider`,
+  `owner_user_id`, `channel_type` `private|group`, `external_conversation_id`,
+  `status` `active|archived|deleted|orphaned`, `classification_source`, `title_snapshot`,
+  `last_active_at`). Titles still come from `threads_meta`; registry never replaces it.
+
+Identity resolution order is `im_user_bindings` (ACTIVE) → `channel_connections`
+scoped to the chat → `channel_connections` unscoped → unresolved. It lives in
+`app/channels/identity_resolver.py` and is used by `connection_identity.py` and by
+`ChannelManager._resolve_s08_identity_rejection()`; an unresolved sender is rejected with
+an explicit Chinese message and no thread is created. Registration has exactly one call
+site: `ChannelManager._create_thread()` → `_register_thread()`; `_touch_thread()` maintains
+`last_active_at` (60s throttle); the losing candidate thread of a pointer race and an
+exhausted `/new` CAS are marked `orphaned`; `deleted`/`orphaned` threads are never restored
+(`THREAD_OWNERSHIP_MISMATCH` / `THREAD_DELETED`). `/new` moves the pointer only, never the
+registry row. None of this runs unless the feature is on.
+
+Flags: `DEER_FLOW_S08_ENABLED` (default `0`) enables binding resolution, registry
+writes and `/api/im`; `IM_GROUP_SYNC_TTL_SECONDS` (default `3600`) bounds group metadata
+refresh. The Web UI reads `GET /api/im/capabilities`
+(`im_session_tree_enabled`) and hides the whole tree when it is false, so a flag-off
+deployment behaves exactly like V2.
+
+`app/gateway/im_conversations.py` + `routers/im_conversations.py` expose read-only
+`GET /api/im/{capabilities,session-tree,groups/{chat_id}/threads,threads,threads/search,
+threads/{thread_id}/origin}`. `/threads/search` is declared before `/{thread_id}/origin`
+on purpose. `is_current` is projected from `im_session_pointers` via
+`ImRoutingRepository.list_pointers_for_owner()`; the API never writes, so viewing history
+cannot move the Feishu pointer. The Web tree (`frontend/src/core/im/*`,
+`components/workspace/im-session-tree.tsx`) renders Private and Group sections, filters
+IM threads out of the Web recent-chat list while enabled, and returns null for an empty
+tree.
+
+`backend/scripts/backfill_im_thread_registry.py` rebuilds registry rows from
+`im_message_links` (`--dry-run` default, `--apply`, `--undo-batch`, `--repair-owner`,
+JSON+CSV report). Rows created this way carry `classification_source`
+`BACKFILL_POINTER` or `HEURISTIC`; a second run is a no-op because `register()` is
+`INSERT ... ON CONFLICT DO NOTHING`.
+
 **Message Flow**:
 
 1. External platform -> Channel impl -> `MessageBus.publish_inbound()`

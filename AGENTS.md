@@ -175,6 +175,15 @@ delegation, and extensible tools (built-in, MCP, community), all per-thread isol
 frontend is a Next.js chat UI. External IM platforms (Feishu, Slack, Telegram, Discord,
 DingTalk) bridge into the same agent through the Gateway.
 
+Feishu Threads are additionally archived for the workspace sidebar (S08). Migration
+`0024_im_s08_archive` adds `im_thread_registry` (Thread ownership and private/group
+classification), `im_group_catalog` (group name/status cache) and `im_user_bindings`
+(user-level Feishu identity written by `/connect`); the sidebar lists them through the
+read-only `/api/im` endpoints. Everything is gated by `DEER_FLOW_S08_ENABLED` (default
+`0`), and the Web UI hides the tree unless `/api/im/capabilities` reports it enabled, so
+default behavior is unchanged. See [backend/AGENTS.md](backend/AGENTS.md) for the identity
+resolution chain, registration/orphan rules and the backfill script.
+
 ## Service Topology
 
 The deployed Kubernetes stack runs the cooperating services below (the local
