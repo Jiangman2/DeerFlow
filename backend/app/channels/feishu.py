@@ -40,6 +40,20 @@ SOURCE_PREVIEW_METADATA_KEY = "feishu_source_preview"
 # A quoted message is injected as plain text so a cross-thread reply ("what does
 # this mean?") reaches a model that has never seen the message it points at.
 QUOTED_MESSAGE_TEXT_LIMIT = 400
+# Feishu reports both ``group`` and ``topic`` for multi-person chats; a topic
+# chat is a group whose messages are threaded, not a separate kind of chat.
+# Every group-level rule (@-mention gate, per-sender thread scoping) must apply
+# to both, otherwise a topic group silently answers every message and mixes
+# every participant into one conversation.
+FEISHU_GROUP_CHAT_TYPES = frozenset({"group", "topic"})
+# Metadata keys carrying reply provenance to the manager's V2 router. The
+# manager decides restore / quote-only / fail-closed from these; the adapter
+# only reports what Feishu told it.
+REPLY_MESSAGE_ID_METADATA_KEY = "reply_message_id"
+REPLY_SENDER_TYPE_METADATA_KEY = "reply_sender_type"
+REPLY_SENDER_ID_METADATA_KEY = "reply_sender_id"
+REPLY_FROM_SELF_BOT_METADATA_KEY = "reply_from_self_bot"
+QUOTED_TEXT_METADATA_KEY = "quoted_text"
 
 
 def _is_feishu_command(text: str) -> bool:
@@ -112,6 +126,13 @@ class FeishuChannel(Channel):
         self._bot_open_id_lock = threading.Lock()
         self._bot_open_id_next_retry_at: float = 0.0
         self._bot_credentials: tuple[str, str, str] | None = None
+        # V2 routing: when enabled, the manager owns thread selection through
+        # durable per-owner pointers, so this adapter only reports provenance
+        # (which message was replied to, who wrote it) and must NOT bake the
+        # quoted text into the prompt — the manager adds it as a ``[引用]``
+        # prefix only for the quote-only routes, and never for restores.
+        self._route_v2_enabled: bool = bool(config.get("route_v2_enabled", False))
+        self._routing_repo = config.get("routing_repo")
 
     @staticmethod
     def _non_empty_str(value: Any) -> str | None:
@@ -811,14 +832,15 @@ class FeishuChannel(Channel):
         response_data = getattr(response, "data", None)
         return getattr(response_data, "message_id", None)
 
-    async def _create_card(self, chat_id: str, text: str) -> None:
-        """Create a new card message in the target chat."""
+    async def _create_card(self, chat_id: str, text: str) -> str | None:
+        """Create a new card message in the target chat; return its message id."""
         if not self._api_client:
-            return
+            return None
 
         content = self._build_card_content(text)
         request = self._CreateMessageRequest.builder().receive_id_type("chat_id").request_body(self._CreateMessageRequestBody.builder().receive_id(chat_id).msg_type("interactive").content(content).build()).build()
-        await asyncio.to_thread(self._api_client.im.v1.message.create, request)
+        response = await asyncio.to_thread(self._api_client.im.v1.message.create, request)
+        return getattr(getattr(response, "data", None), "message_id", None)
 
     async def _update_card(self, message_id: str, text: str) -> None:
         """Patch an existing card message in place."""
@@ -938,10 +960,10 @@ class FeishuChannel(Channel):
                         running_card_id,
                     )
                     fallback_card_id = await self._reply_card(source_message_id, card_text)
-                    self._remember_thread_mapping(msg, source_message_id, fallback_card_id)
+                    await self._remember_outbound_message(msg, source_message_id, fallback_card_id)
                     self._remember_pending_clarification(msg, fallback_card_id)
                 else:
-                    self._remember_thread_mapping(msg, source_message_id, running_card_id)
+                    await self._remember_outbound_message(msg, source_message_id, running_card_id)
                     self._remember_pending_clarification(msg, running_card_id)
                     logger.info("[Feishu] running card updated: source=%s card=%s", source_message_id, running_card_id)
             elif msg.is_final:
@@ -949,7 +971,7 @@ class FeishuChannel(Channel):
                     source_message_id,
                     self._compose_card_text(msg.text, msg.metadata),
                 )
-                self._remember_thread_mapping(msg, source_message_id, final_card_id)
+                await self._remember_outbound_message(msg, source_message_id, final_card_id)
                 self._remember_pending_clarification(msg, final_card_id)
             elif awaited_running_card_task:
                 logger.warning(
@@ -969,13 +991,65 @@ class FeishuChannel(Channel):
                 await self._add_reaction(source_message_id, "DONE")
             return
 
-        await self._create_card(msg.chat_id, msg.text)
+        created_card_id = await self._create_card(msg.chat_id, msg.text)
+        await self._remember_outbound_message(msg, created_card_id)
 
     # -- internal ----------------------------------------------------------
+
+    async def _remember_outbound_message(self, msg: OutboundMessage, *message_ids: str | None) -> None:
+        """Persist the platform ids of a bot reply.
+
+        Under V2 the durable message-link table is what lets a later reply to
+        this bot message restore the thread that produced it, so the link must
+        be written for every card we send — including the streaming placeholder
+        that gets patched in place, whose id never changes afterwards.
+        """
+        if not self._route_v2_enabled:
+            self._remember_thread_mapping(msg, *message_ids)
+            return
+
+        repo = self._routing_repo
+        if repo is None or not msg.thread_id:
+            return
+        owner_user_id = self._non_empty_str(msg.owner_user_id)
+        if not owner_user_id:
+            logger.warning(
+                "[Feishu] cannot record outbound message link without owner: chat=%s thread=%s",
+                msg.chat_id,
+                msg.thread_id,
+            )
+            return
+        seen: set[str] = set()
+        for message_id in message_ids:
+            message_id = self._non_empty_str(message_id)
+            if not message_id or message_id in seen:
+                continue
+            seen.add(message_id)
+            try:
+                await repo.record_link(
+                    provider=self.name,
+                    message_id=message_id,
+                    chat_id=msg.chat_id,
+                    owner_user_id=owner_user_id,
+                    thread_id=msg.thread_id,
+                    direction="outbound",
+                    message_kind="card",
+                    connection_id=msg.connection_id or "",
+                    sender_external_id=self._bot_open_id or "",
+                    root_message_id=self._non_empty_str(msg.metadata.get("root_id")) or "",
+                    parent_message_id=self._non_empty_str(msg.metadata.get("parent_id")) or "",
+                )
+            except Exception:
+                logger.exception("[Feishu] failed to record outbound message link: %s", message_id)
 
     def _remember_thread_mapping(self, msg: OutboundMessage, *topic_ids: str | None) -> None:
         store = self.config.get("channel_store")
         if store is None or not msg.thread_id:
+            return
+        if self._route_v2_enabled:
+            # The JSON store is the legacy pointer model. Under V2 the durable
+            # pointer/link tables own routing, and writing both would let a
+            # stale JSON entry silently override the per-owner pointer.
             return
 
         metadata_topic_ids = [
@@ -1087,7 +1161,7 @@ class FeishuChannel(Channel):
         if not topic_id:
             return None
         user_id = self._non_empty_str(user_id)
-        if chat_type != "group" or not user_id:
+        if chat_type not in FEISHU_GROUP_CHAT_TYPES or not user_id:
             return topic_id
         prefix = f"{user_id}:"
         if topic_id.startswith(prefix):
@@ -1286,16 +1360,24 @@ class FeishuChannel(Channel):
         )
 
     async def _prepend_quoted_context(self, inbound: InboundMessage) -> None:
-        """Give a cross-thread reply the text of the message it quotes.
+        """Record what an inbound message quotes, and (legacy) inline its text.
 
         Group threads are namespaced per sender, so a colleague replying to
         somebody else's answer starts an empty DeerFlow thread. Without this
         the model would only see "what does this mean?" and have nothing to
         interpret. The quote is skipped whenever the reply already resolves
         into a thread that holds the context.
+
+        Under V2 routing the manager owns that decision (restore the quoted
+        thread, quote the text into the current thread, or fail closed), so the
+        adapter only reports the provenance and leaves the prompt untouched.
         """
+        if self._route_v2_enabled:
+            await self._attach_reply_provenance(inbound)
+            return
+
         metadata = inbound.metadata or {}
-        if metadata.get("chat_type") != "group":
+        if metadata.get("chat_type") not in FEISHU_GROUP_CHAT_TYPES:
             return
         if inbound.msg_type != InboundMessageType.CHAT or not inbound.text:
             return
@@ -1315,31 +1397,76 @@ class FeishuChannel(Channel):
         inbound.text = f"[引用] {author}：{quoted}\n\n{inbound.text}"
         metadata["quoted_message_id"] = quoted_message_id
 
+    async def _attach_reply_provenance(self, inbound: InboundMessage) -> None:
+        """Describe the quoted message so the manager can route the reply.
+
+        Only an explicit reply (``parent_id``) counts. ``root_id`` alone means
+        "this message lives in that Feishu topic" — every message in a topic
+        group carries it, so treating it as a reply would misroute normal
+        conversation into the topic root's owner thread.
+        """
+        metadata = inbound.metadata or {}
+        reply_message_id = self._non_empty_str(metadata.get(REPLY_MESSAGE_ID_METADATA_KEY))
+        if not reply_message_id:
+            return
+        text, sender_id, sender_type = await self._fetch_quoted_message_details(reply_message_id)
+        metadata[REPLY_MESSAGE_ID_METADATA_KEY] = reply_message_id
+        metadata[REPLY_SENDER_TYPE_METADATA_KEY] = sender_type or "unknown"
+        metadata[REPLY_SENDER_ID_METADATA_KEY] = sender_id or ""
+        from_self_bot: bool | None = None
+        if sender_type == "app":
+            if self._bot_open_id:
+                from_self_bot = sender_id == self._bot_open_id
+            else:
+                # Cannot tell our own messages from another app's without our
+                # open_id; leave the answer unknown (the router fails closed)
+                # and heal the identity in the background.
+                self._schedule_bot_open_id_refresh()
+            metadata[REPLY_FROM_SELF_BOT_METADATA_KEY] = from_self_bot
+        # The public text is kept even for this bot's own replies: a colleague
+        # quoting my answer cannot share my thread, so the router injects that
+        # text into *their* conversation instead (CROSS_OWNER_QUOTE).
+        if text:
+            metadata[QUOTED_TEXT_METADATA_KEY] = text
+
     async def _fetch_quoted_text(self, message_id: str) -> tuple[str | None, bool]:
-        """Return ``(text, from_bot)`` for a quoted message."""
+        """Legacy ``(text, from_bot)`` accessor used by the pre-V2 quote path."""
+        text, sender_id, sender_type = await self._fetch_quoted_message_details(message_id)
+        return text, sender_type == "app"
+
+    async def _fetch_quoted_message_details(self, message_id: str) -> tuple[str | None, str, str]:
+        """Return ``(text, sender_id, sender_type)`` for a quoted message.
+
+        ``sender_type`` is verbatim from Feishu (``app``/``user``) or ``""`` when
+        the message cannot be read; callers decide what an unknown source means
+        instead of the adapter guessing.
+        """
         if not self._api_client or not self._GetMessageRequest or not message_id:
-            return None, False
+            return None, "", ""
         try:
             request = self._GetMessageRequest.builder().message_id(message_id).build()
             response = await asyncio.to_thread(self._api_client.im.v1.message.get, request)
             code = getattr(response, "code", None)
             if isinstance(code, int) and code != 0:
                 logger.info("[Feishu] quoted message %s is unreadable (code=%s)", message_id, code)
-                return None, False
+                return None, "", ""
             items = getattr(getattr(response, "data", None), "items", None) or []
             if not items:
-                return None, False
+                return None, "", ""
             item = items[0]
             body = getattr(item, "body", None)
             raw = getattr(body, "content", None)
             text = self._quote_text_from_content(getattr(item, "msg_type", None), raw)
-            if not text:
-                return None, False
-            sender = getattr(getattr(item, "sender", None), "sender_type", None)
-            return text, sender == "app"
+            sender = getattr(item, "sender", None)
+            sender_type = getattr(sender, "sender_type", None) or ""
+            sender_id_obj = getattr(sender, "id", None)
+            sender_id = getattr(sender_id_obj, "open_id", None) or getattr(sender, "id", None) or ""
+            if not isinstance(sender_id, str):
+                sender_id = ""
+            return text, sender_id, sender_type if isinstance(sender_type, str) else ""
         except Exception:
             logger.warning("[Feishu] failed to read quoted message %s", message_id, exc_info=True)
-            return None, False
+            return None, "", ""
 
     def _quote_text_from_content(self, msg_type: str | None, raw: Any) -> str | None:
         if not isinstance(raw, str) or not raw:
@@ -1560,7 +1687,7 @@ class FeishuChannel(Channel):
             # explicit @ each turn. P2P still continues clarification answers
             # without @ because it skips this gate entirely.
             mentioned = self._message_mentions_bot(message) or self._content_mentions_bot(content)
-            if chat_type == "group" and self._mention_only_in_group and not mentioned:
+            if chat_type in FEISHU_GROUP_CHAT_TYPES and self._mention_only_in_group and not mentioned:
                 if self._bot_open_id:
                     skip_reason = "mention_only_in_group"
                     audit_error = "group message without @-mention"
@@ -1645,6 +1772,13 @@ class FeishuChannel(Channel):
             ):
                 source_preview = self._compact_source_preview(text)
 
+            # An explicit reply carries ``parent_id``; plain messages in a topic
+            # chat only carry ``root_id`` (topic membership), so only
+            # ``parent_id`` may be treated as "replying to that message".
+            reply_message_id = self._non_empty_str(parent_id)
+            if reply_message_id == msg_id:
+                reply_message_id = None
+
             metadata = {
                 "message_id": msg_id,
                 "root_id": root_id,
@@ -1653,6 +1787,7 @@ class FeishuChannel(Channel):
                 "topic_id": topic_id,
                 "user_id": sender_id,
                 "chat_type": chat_type,
+                REPLY_MESSAGE_ID_METADATA_KEY: reply_message_id,
                 RESOLVED_FROM_PENDING_CLARIFICATION_METADATA_KEY: resolved_from_pending,
                 "resolved_from_stored_mapping": resolved_from_stored_mapping,
             }

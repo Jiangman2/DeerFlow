@@ -8,7 +8,12 @@ import os
 from typing import TYPE_CHECKING, Any
 
 from app.channels.base import Channel
-from app.channels.manager import DEFAULT_GATEWAY_URL, DEFAULT_LANGGRAPH_URL, ChannelManager
+from app.channels.manager import (
+    DEFAULT_GATEWAY_URL,
+    DEFAULT_LANGGRAPH_URL,
+    ROUTING_V2_CHANNELS,
+    ChannelManager,
+)
 from app.channels.message_bus import MessageBus
 from app.channels.runtime_config_store import merge_runtime_channel_configs
 from app.channels.store import ChannelStore
@@ -87,6 +92,32 @@ def _make_connection_repo(connection_config: ChannelConnectionsConfig | None):
     return ChannelConnectionRepository(session_factory)
 
 
+def _make_routing_repo():
+    """Build the durable IM routing repository when SQL persistence exists.
+
+    The V2 router degrades to the legacy JSON channel store when this returns
+    ``None`` (no database, e.g. a SQLite-less single-node dev run), so the
+    service never depends on the new tables to start.
+    """
+    try:
+        from deerflow.persistence.engine import get_session_factory
+        from deerflow.persistence.im_routing import ImRoutingRepository
+    except Exception:
+        logger.exception("Failed to import IM routing repository")
+        return None
+
+    session_factory = get_session_factory()
+    if session_factory is None:
+        logger.info("IM routing V2 disabled: database persistence is not available")
+        return None
+    return ImRoutingRepository(session_factory)
+
+
+def _route_v2_enabled_from_env() -> bool:
+    raw = os.getenv("DEER_FLOW_ROUTE_V2_ENABLED", "1").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
+
+
 class ChannelService:
     """Manages the lifecycle of all configured IM channels.
 
@@ -99,11 +130,15 @@ class ChannelService:
         channels_config: dict[str, Any] | None = None,
         *,
         connection_repo: Any | None = None,
+        routing_repo: Any | None = None,
+        route_v2_enabled: bool = True,
         require_bound_identity: bool = False,
     ) -> None:
         self.bus = MessageBus()
         self.store = ChannelStore()
         self._connection_repo = connection_repo
+        self._routing_repo = routing_repo
+        self._route_v2_enabled = route_v2_enabled
         config = dict(channels_config or {})
         langgraph_url = _resolve_service_url(config, "langgraph_url", _CHANNELS_LANGGRAPH_URL_ENV, DEFAULT_LANGGRAPH_URL)
         gateway_url = _resolve_service_url(config, "gateway_url", _CHANNELS_GATEWAY_URL_ENV, DEFAULT_GATEWAY_URL)
@@ -117,6 +152,8 @@ class ChannelService:
             default_session=default_session if isinstance(default_session, dict) else None,
             channel_sessions=channel_sessions,
             connection_repo=connection_repo,
+            routing_repo=routing_repo,
+            route_v2_enabled=route_v2_enabled,
             require_bound_identity=require_bound_identity,
         )
         self._channels: dict[str, Any] = {}  # name -> Channel instance
@@ -146,6 +183,8 @@ class ChannelService:
         return cls(
             channels_config=channels_config,
             connection_repo=_make_connection_repo(connection_config),
+            routing_repo=_make_routing_repo(),
+            route_v2_enabled=_route_v2_enabled_from_env(),
             require_bound_identity=require_bound_identity,
         )
 
@@ -436,6 +475,11 @@ class ChannelService:
             config["channel_store"] = self.store
             if self._connection_repo is not None:
                 config["connection_repo"] = self._connection_repo
+            # Routing V2 is opt-in per adapter: only adapters that report
+            # structured reply provenance may own the durable pointer.
+            config["route_v2_enabled"] = self._route_v2_enabled and name in ROUTING_V2_CHANNELS
+            if self._routing_repo is not None:
+                config["routing_repo"] = self._routing_repo
             channel = channel_cls(bus=self.bus, config=config)
             self._channels[name] = channel
             await channel.start()

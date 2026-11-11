@@ -29,6 +29,7 @@ from deerflow.persistence.dashboard_rollup.model import (
 )
 from deerflow.persistence.data_lake_auth.model import DataLakeAuthChallengeRow
 from deerflow.persistence.feedback.model import FeedbackRow
+from deerflow.persistence.im_routing.model import ImEventInboxRow, ImMessageLinkRow, ImSessionPointerRow
 from deerflow.persistence.models.run_event import RunEventRow
 from deerflow.persistence.oa_policy_flow_jobs.model import OAPolicyFlowJobRow
 from deerflow.persistence.observability.model import AuditLogRow, OperationDispositionRow
@@ -55,6 +56,9 @@ __all__ = [
     "DashboardHourlyRollupRow",
     "DashboardRollupStateRow",
     "FeedbackRow",
+    "ImEventInboxRow",
+    "ImMessageLinkRow",
+    "ImSessionPointerRow",
     "AuditLogRow",
     "OperationDispositionRow",
     "OAPolicyFlowJobRow",

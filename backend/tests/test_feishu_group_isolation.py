@@ -205,6 +205,27 @@ def test_group_rich_text_mention_of_someone_else_is_dropped(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Topic groups (chat_type == "topic") follow the same rules
+# ---------------------------------------------------------------------------
+
+
+def test_topic_group_without_a_mention_is_dropped(tmp_path):
+    """A topic group is a group: no structured @ means no turn."""
+    channel, _ = _channel(tmp_path)
+    inbound = _deliver(channel, _event("standup notes", message_id="om_t0", chat_type="topic"))
+
+    assert inbound is None
+
+
+def test_topic_group_mention_of_the_bot_is_delivered(tmp_path):
+    channel, _ = _channel(tmp_path)
+    inbound = _deliver(channel, _at_bot(message_id="om_t1", chat_type="topic"))
+
+    assert inbound is not None
+    assert inbound.topic_id == f"{ALICE}:om_t1"
+
+
+# ---------------------------------------------------------------------------
 # One conversation per person inside a shared Feishu thread
 # ---------------------------------------------------------------------------
 

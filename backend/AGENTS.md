@@ -1474,7 +1474,7 @@ Bridges external messaging platforms (Feishu, Slack, Telegram, Discord, DingTalk
 **Components**:
 
 - `message_bus.py` - Async pub/sub hub (`InboundMessage` → queue → dispatcher; `OutboundMessage` → callbacks → channels)
-- `store.py` - JSON-file persistence mapping `channel_name:chat_id[:topic_id]` → `thread_id` (keys are `channel:chat` for root conversations and `channel:chat:topic` for threaded conversations)
+- `store.py` - JSON-file persistence mapping `channel_name:chat_id[:topic_id]` → `thread_id` (keys are `channel:chat` for root conversations and `channel:chat:topic` for threaded conversations). This is the **V1** pointer store; under IM routing V2 (see below) the Feishu adapter no longer writes it and never consults it
 - `manager.py` - Core dispatcher: creates threads via `client.threads.create()`, routes commands including `/goal` (setting a goal persists it through Gateway and then routes the objective as a chat turn), keeps Slack/Discord on `client.runs.wait()`, uses `client.runs.stream(["messages-tuple", "values"])` for Feishu/Telegram incremental outbound updates, serializes same-thread Feishu turns in-manager when the channel's `ChannelRunPolicy.serialize_thread_runs=True` so rapid follow-ups queue instead of tripping the runtime busy reply, and switches to `client.runs.create()` (fire-and-forget, returns once the run is `pending`) for channels whose `ChannelRunPolicy.fire_and_forget=True` so long autonomous runs do not hit the SDK default 300s `httpx.ReadTimeout`
 - `base.py` - Abstract `Channel` base class (start/stop/send lifecycle)
 - `service.py` - Manages lifecycle of all configured channels from `config.yaml`. A failed or cancelled startup drains `ChannelService.stop()` before propagating and clears the singleton only after successful rollback, so no half-started channel workers survive Gateway startup cancellation.
@@ -1482,6 +1482,61 @@ Bridges external messaging platforms (Feishu, Slack, Telegram, Discord, DingTalk
 - `github.py` - Webhook-driven GitHub channel. Inbound messages come from `POST /api/webhooks/github`; outbound is log-only because GitHub agents post explicitly with `gh` from their sandbox when they choose to comment or create a PR
 - `app/gateway/routers/channel_connections.py` - Browser-facing user connection and disconnect APIs
 - `deerflow.persistence.channel_connections` - SQL-backed user-owned connection, optional credential, connect state, and conversation store
+- `routing_v2.py` - Pure routing decision function (`resolve_route()`) for IM routing V2; see below
+- `deerflow.persistence.im_routing` - SQL repository (session pointers, message links, event inbox) for IM routing V2
+
+**IM routing V2** (`docs/im-routing-v2-architecture.md`, ADRs in `docs/im-routing-v2-adr.md`):
+
+V1 resolved a conversation to a thread through `store.py`'s `channel:chat[:topic]` →
+`thread_id` JSON map, which has no owner dimension, no generation/CAS for `/new`, only
+in-process deduplication, and cannot restore "reply to an old bot answer" (it merely
+prepends the quoted text). V2 replaces that for Feishu with three tables added by
+migration `0023_im_session_routing` (pure additive; `downgrade()` only drops these
+three tables — see `docs/im-routing-v2-migration-runbook.md`):
+
+- `im_session_pointers` - current thread per
+  `(provider, connection_id, owner_user_id, channel_type, external_conversation_id)`,
+  plus `generation`. `external_topic_id` is always `""`: **the pointer is scoped to the
+  chat, never to a Feishu topic** — a Feishu topic is a membership relationship, not a
+  separate conversation. Unique constraint `uq_im_session_pointer_scope`.
+- `im_message_links` - platform message id → thread id for both inbound messages and
+  outbound cards (`direction`, `message_kind`), unique on `(provider, message_id)`;
+  this is what makes "reply to an old card" resolvable.
+- `im_event_inbox` - `(provider, event_key)` idempotency with `PROCESSING → COMPLETED`;
+  the record is removed on failure so a Feishu redelivery can be retried.
+
+Writes never read-modify-write: a first message uses `insert_pointer_if_absent`
+(the loser of the race adopts the winner's thread), and `/new` uses
+`cas_switch_pointer(expected_generation)` retried at most 5 times. Process-local locks
+are only an optimization; the database is the authority.
+
+`ChannelManager._handle_routed_chat()` is entered only when `_routing_v2_active()` is
+true (`routing_repo` present **and** `route_v2_enabled` **and** the channel is in
+`ROUTING_V2_CHANNELS`). Anything else keeps the V1 JSON-store path, so a deployment
+without a database degrades instead of half-switching. `ChannelService` resolves the
+repo from `get_session_factory()` and the flag from `DEER_FLOW_ROUTE_V2_ENABLED`
+(default `1`).
+
+Decision table (`app/channels/routing_v2.py`): no reply → `CURRENT/NORMAL`; reply to a
+colleague → `QUOTE_ONLY`; reply to one's own earlier question or this bot's answer in
+the same chat/owner → `RESTORE` (runs on the old thread and **does not move the
+pointer**, ADR-01); same-chat reply to another owner's bot answer → `QUOTE_ONLY` with
+`[引用] 群里另一位同事的消息：…`; another chat → `REJECT/CROSS_CHAT_REFERENCE`;
+unverifiable sender or another app → `REJECT/REPLY_SOURCE_UNKNOWN`; this bot's message
+without a stored link → `FAIL_CLOSED/REPLY_MAPPING_MISSING`; thread gone →
+`THREAD_DELETED`. `REJECT`/`FAIL_CLOSED` create no run, keep the pointer, and answer
+with one explicit Chinese message (ADR-04) — never silently fall back to the current
+thread.
+
+The Feishu adapter's V2 contract is to *describe* a quote, not rewrite the prompt: it
+writes `reply_message_id` (from `parent_id` only, never `root_id`), `reply_sender_type`,
+`reply_sender_id`, `reply_from_self_bot` (`None` when `bot_open_id` is unknown → fail
+closed) and `quoted_text`. `chat_type in {"group", "topic"}` both require a structured
+mention and both isolate senders. Under V2 the adapter records every outbound card id
+via `_remember_outbound_message()` and `_remember_thread_mapping()` becomes a no-op, so
+the JSON store can never diverge from the per-owner pointer (ADR-03).
+Known limitation: `_resolve_available_skill_names()` still reads the JSON store, so
+under V2 it returns `None` (default skill set).
 
 **Message Flow**:
 
