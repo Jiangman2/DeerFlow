@@ -47,7 +47,9 @@ function isNewShopCartFile(value: unknown): value is NewShopCartFile {
   return (
     typeof record.id === "string" &&
     typeof record.userId === "string" &&
-    (record.isComplete === 0 || record.isComplete === 1) &&
+    (record.isComplete === -1 ||
+      record.isComplete === 0 ||
+      record.isComplete === 1) &&
     hasValidDownloadState &&
     typeof record.createDate === "string" &&
     typeof record.fileName === "string" &&

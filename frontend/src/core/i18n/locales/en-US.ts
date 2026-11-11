@@ -257,7 +257,9 @@ export const enUS: Translations = {
     newShopCartClearSelection: "Clear selection",
     newShopCartLoadFailed: "Failed to load Data Lake files. Please retry.",
     newShopCartComplete: "Ready",
-    newShopCartProcessing: "Processing",
+    newShopCartProcessing: "Downloading",
+    newShopCartFailed: "Download failed",
+    newShopCartFailureUnknown: "No failure reason provided",
     newShopCartSelectionSummary: (selected: number, total: number) =>
       `${selected} / ${total} files selected`,
     shopCartAddSelected: "Add selected files",

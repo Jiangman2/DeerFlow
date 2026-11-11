@@ -189,6 +189,14 @@ export function NewShopCartDialog({
                       <span className="text-muted-foreground mt-1 block text-xs">
                         {file.createDate}
                       </span>
+                      {file.isComplete === -1 && (
+                        <span className="text-destructive mt-1 block text-xs break-all">
+                          {typeof file.errorInfo === "string" &&
+                          file.errorInfo.trim()
+                            ? file.errorInfo
+                            : t.inputBox.newShopCartFailureUnknown}
+                        </span>
+                      )}
                     </span>
                     <Badge
                       variant="secondary"
@@ -196,7 +204,9 @@ export function NewShopCartDialog({
                     >
                       {file.isComplete === 1
                         ? t.inputBox.newShopCartComplete
-                        : t.inputBox.newShopCartProcessing}
+                        : file.isComplete === -1
+                          ? t.inputBox.newShopCartFailed
+                          : t.inputBox.newShopCartProcessing}
                     </Badge>
                   </button>
                 );

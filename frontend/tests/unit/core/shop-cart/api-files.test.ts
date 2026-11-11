@@ -5,6 +5,7 @@ import { test } from "@rstest/core";
 import {
   createNewShopCartFile,
   getFileTypeFromName,
+  isDownloadableNewShopCartFile,
   parseNewShopCartFile,
   parseNewShopCartListResponse,
 } from "@/core/shop-cart/api-files";
@@ -27,6 +28,52 @@ const exampleItem = {
   errorInfo: null,
   shopType: 0,
 };
+
+void test("failed records do not block ready files and cannot be downloaded", () => {
+  const failed = {
+    ...exampleItem,
+    id: "failed-file",
+    fileName: "files.zip",
+    isComplete: -1,
+    fileId: null,
+    num: null,
+    errorInfo: "文件下载异常",
+  };
+  const pending = {
+    ...failed,
+    id: "pending-file",
+    isComplete: 0,
+    errorInfo: null,
+  };
+  const result = parseNewShopCartListResponse({
+    code: 0,
+    data: [failed, exampleItem, pending],
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.files, [failed, exampleItem, pending]);
+  assert.deepEqual(result.files.filter(isDownloadableNewShopCartFile), [
+    exampleItem,
+  ]);
+  assert.equal(parseNewShopCartFile(failed).ok, false);
+  assert.equal(
+    parseNewShopCartFile({ ...failed, fileId: exampleItem.fileId, num: 1 }).ok,
+    false,
+  );
+  assert.equal(parseNewShopCartFile(exampleItem).ok, true);
+});
+
+void test("unknown states and completed files without download fields remain invalid", () => {
+  for (const item of [
+    { ...exampleItem, isComplete: -2 },
+    { ...exampleItem, isComplete: "-1" },
+    { ...exampleItem, fileId: null, num: null },
+  ]) {
+    assert.equal(
+      parseNewShopCartListResponse({ code: 0, data: [item] }).ok,
+      false,
+    );
+  }
+});
 
 void test("parses successful new shop cart list responses", () => {
   const result = parseNewShopCartListResponse({
