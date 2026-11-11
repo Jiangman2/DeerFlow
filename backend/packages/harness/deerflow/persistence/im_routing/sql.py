@@ -30,6 +30,20 @@ class SessionPointer:
 
 
 @dataclass(frozen=True)
+class OwnerPointer:
+    """A current-thread pointer together with its routing scope.
+
+    Read-only projection used by the ``/api/im`` tree so one query can resolve
+    ``is_current`` for every visible thread.
+    """
+
+    thread_id: str
+    channel_type: str
+    external_conversation_id: str
+    generation: int
+
+
+@dataclass(frozen=True)
 class MessageLink:
     """A resolved platform-message -> thread mapping."""
 
@@ -163,6 +177,37 @@ class ImRoutingRepository:
             )
             await session.commit()
             return bool(result.rowcount)
+
+    async def list_pointers_for_owner(
+        self,
+        *,
+        provider: str,
+        owner_user_id: str,
+    ) -> list[OwnerPointer]:
+        """Read every current pointer of one owner (read-only).
+
+        Used by ``/api/im`` to compute ``is_current`` in one query. This method
+        must never write: the Web UI is a read-only view over the Feishu state.
+        """
+        async with self.session_factory() as session:
+            rows = (
+                await session.execute(
+                    select(ImSessionPointerRow).where(
+                        ImSessionPointerRow.provider == provider,
+                        ImSessionPointerRow.owner_user_id == owner_user_id,
+                        ImSessionPointerRow.external_topic_id == "",
+                    ),
+                )
+            ).scalars()
+            return [
+                OwnerPointer(
+                    thread_id=row.thread_id,
+                    channel_type=row.channel_type,
+                    external_conversation_id=row.external_conversation_id,
+                    generation=row.generation,
+                )
+                for row in rows
+            ]
 
     # -- message links -----------------------------------------------------
 
