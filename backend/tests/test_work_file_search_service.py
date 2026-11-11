@@ -195,6 +195,68 @@ async def test_nonunique_or_list_only_result_never_requests_content_without_choi
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("requested", ["2023月度工作日历", "2023年 月度工作日历", "２０２３年月度工作日历"])
+async def test_legacy_approximate_sheet_retains_candidate_without_reading_even_with_consent(monkeypatch, requested):
+    _enable(monkeypatch, scope=LEGACY_SEARCH_SCOPE)
+    sheet_scope = "sheets:spreadsheet:readonly"
+    monkeypatch.setenv("DEER_FLOW_WORK_FILE_READ_ENABLED", "true")
+    monkeypatch.setenv("DEER_FLOW_WORK_UAT_SHEETS_READ_SCOPE", sheet_scope)
+    title, resource = "2023年月度工作日历", "shtSyntheticCalendar1"
+    request = f"读取云空间里的《{requested}》"
+    instance, _, api, send, summarize = service(turn_planner=_plan(title=requested))
+    msg = inbound(text=request)
+    api.side_effect = [{"data": {"docs_entities": [{"title": title, "docs_type": "sheet", "docs_token": resource}], "has_more": False}}]
+    try:
+        actor = instance._identity(msg)
+        instance._search_vault.put(actor, _grant("search-only-token", LEGACY_SEARCH_SCOPE))
+        instance._file_vaults["sheet"].put(actor, _grant("existing-sheet-token", sheet_scope))
+        assert await instance.handle(msg)
+        await instance.drain()
+        api.assert_awaited_once_with("file_search_legacy", token="search-only-token", search_query=requested, search_offset=0)
+        summarize.assert_not_awaited()
+        assert len(instance.jobs) == 1
+        text = send.await_args.args[0].text
+        assert title in text and "直接回复序号" in text and "尚未读取正文" in text
+        ref = TaskRef.parse(next(iter(instance.jobs.values())).task_ref)
+        context = (await instance._turn_state.read_task_context(instance.vault.principal_key(actor), ref)).value
+        assert context["file_search_selection"]["items"] == [{"kind": "sheet", "token": resource, "url": f"https://haiyoutest.w.cnooc.com.cn/sheets/{resource}"}]
+    finally:
+        await instance.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("duplicate", [False, True])
+async def test_legacy_sheet_auto_handoff_requires_one_exact_name(monkeypatch, duplicate):
+    _enable(monkeypatch, scope=LEGACY_SEARCH_SCOPE)
+    sheet_scope = "sheets:spreadsheet:readonly"
+    monkeypatch.setenv("DEER_FLOW_WORK_FILE_READ_ENABLED", "true")
+    monkeypatch.setenv("DEER_FLOW_WORK_UAT_SHEETS_READ_SCOPE", sheet_scope)
+    title = "2023年月度工作日历"
+    instance, _, api, send, summarize = service(turn_planner=_plan(title=title))
+    entries = [{"title": title, "docs_type": "sheet", "docs_token": "shtExactCalendar1"}]
+    if duplicate:
+        entries.append({"title": title, "docs_type": "sheet", "docs_token": "shtExactCalendar2"})
+    api.side_effect = [{"data": {"docs_entities": entries, "has_more": False}}]
+    msg = inbound(text=f"读取云空间里的《{title}》")
+    try:
+        instance._search_vault.put(instance._identity(msg), _grant("search-token", LEGACY_SEARCH_SCOPE))
+        assert await instance.handle(msg)
+        await instance.drain()
+        assert api.await_count == 1
+        summarize.assert_not_awaited()
+        if duplicate:
+            assert len(instance.jobs) == 1
+            assert "直接回复序号" in send.await_args.args[0].text
+        else:
+            read_jobs = [job for job in instance.jobs.values() if job.scope == sheet_scope]
+            assert len(read_jobs) == 1
+            assert read_jobs[0].intent["token"] == "shtExactCalendar1"
+            assert "唯一同名" in send.await_args.args[0].text
+    finally:
+        await instance.close()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("use_plain_number", [True, False])
 async def test_same_name_choice_survives_cross_pod_and_cannot_be_reused_or_cross_owner(stores, monkeypatch, use_plain_number):  # noqa: F811
     _enable(monkeypatch, "PRODUCTION")

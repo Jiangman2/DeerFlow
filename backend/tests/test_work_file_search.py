@@ -1,5 +1,5 @@
 import json
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -39,6 +39,100 @@ def _legacy_page(*entries, more=False):
 
 def _legacy_unit(title, kind, token):
     return {"title": title, "docs_type": kind, "docs_token": token}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query,candidate",
+    [
+        ("2023月度工作日历", "2023年月度工作日历"),
+        ("2023年 月度工作日历", "2023年月度工作日历"),
+        ("２０２３年月度工作日历", "2023年月度工作日历"),
+        ("2023年（月度工作日历）", "2023年【月度工作日历】"),
+        ("月度工日历", "月度工作日历"),
+        ("月度工作日记", "月度工作日历"),
+        ("2023年月度工作日记", "2023年月度工作日历"),
+        ("AA标准测试.docx", "AA标准测试"),
+        ("AA标准测试.pdf", "AA标准测试"),
+        ("AA标准测试.xlsx", "AA标准测试"),
+    ],
+)
+async def test_legacy_keeps_bounded_near_title_candidates_without_promoting_to_exact(query, candidate):
+    api = AsyncMock(return_value=_legacy_page(_legacy_unit(candidate, "docx", "DocToken1"), _legacy_unit("只有正文包含搜索词的另一份文件", "docx", "DocToken2")))
+    result = await search_documents(api, "owner-search-token", query, host=HOST, guard=AsyncMock(), scope=LEGACY_SEARCH_SCOPE)
+    assert result.complete and [item.title for item in result.items] == [candidate]
+    assert not is_exact_title(candidate, query)
+    api.assert_awaited_once_with("file_search_legacy", token="owner-search-token", search_query=query, search_offset=0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query,candidate",
+    [
+        ("月度工作日历", "某个无关通知"),
+        ("年度总结", "年度计划"),
+        ("日历", "日记"),
+        ("2023", "2024"),
+        ("2023年计划", "2023年规划"),
+        ("2023月度工作日历", "2024年月度工作日历"),
+        ("月度工作日历V1", "月度工作日历V2"),
+        ("月度工作日历V1.2", "月度工作日历V12"),
+        ("月度工作日历V1.2", "月度工作日历V1-2"),
+        ("月度工作日历第一版", "月度工作日历第二版"),
+        ("项目A工作日历", "项目B工作日历"),
+        ("工作日历编号0001", "工作日历编号0002"),
+        ("AA标准测试.docx", "AA标准测试.pdf"),
+        ("AA标准测试.exe", "AA标准测试"),
+        ("1月计划", "11月计划"),
+        ("2023年计划", "12023年计划"),
+        ("月度工作日历V1", "月度工作日历V12"),
+        ("月度工作日历V1", "月度工作日历V1a"),
+        ("月度工作日历V1", "月度工作日历V1.2"),
+    ],
+)
+async def test_new_fuzzy_matching_rejects_unrelated_short_numeric_and_different_reference_titles(query, candidate):
+    api = AsyncMock(return_value=_legacy_page(_legacy_unit(candidate, "file", "FileToken1")))
+    result = await search_documents(api, "owner-search-token", query, host=HOST, guard=AsyncMock(), scope=LEGACY_SEARCH_SCOPE)
+    assert result.complete and not result.items
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("query,candidate", [("2023计划", "2023计划备份2"), ("月度计划", "2024年月度计划"), ("月度工作日历V1", "月度工作日历V1备份2")])
+async def test_literal_match_preserves_additional_references_outside_the_matching_title(query, candidate):
+    result = await search_documents(AsyncMock(return_value=_legacy_page(_legacy_unit(candidate, "file", "FileToken1"))), "owner-search-token", query, host=HOST, guard=AsyncMock(), scope=LEGACY_SEARCH_SCOPE)
+    assert result.complete and [item.title for item in result.items] == [candidate]
+
+
+@pytest.mark.asyncio
+async def test_nfkc_expansion_cannot_exceed_edit_distance_work_budget(monkeypatch):
+    from app.integrations.work import file_search
+
+    # This presentation-form character expands to many letters under NFKC.
+    prefix = "\ufdfa" * 100
+    query, candidate = prefix + "工作日历", prefix + "工作日记"
+    distance = MagicMock(side_effect=AssertionError("Expanded strings must not enter the edit-distance loop"))
+    monkeypatch.setattr(file_search, "_bounded_distance", distance)
+    result = await search_documents(AsyncMock(return_value=_legacy_page(_legacy_unit(candidate, "docx", "DocToken1"))), "owner-search-token", query, host=HOST, guard=AsyncMock(), scope=LEGACY_SEARCH_SCOPE)
+    assert result.complete and not result.items
+    distance.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_exact_then_normalized_near_then_other_title_matches_keep_stable_resource_identity():
+    query = "2023月度工作日历"
+    titles = [query + "备份", "2023年月度工作日记", "2023年月度工作日历", query]
+    api = AsyncMock(return_value=_legacy_page(*(_legacy_unit(title, "docx", f"DocToken{index}") for index, title in enumerate(titles))))
+    result = await search_documents(api, "owner-search-token", query, host=HOST, guard=AsyncMock(), scope=LEGACY_SEARCH_SCOPE)
+    assert [item.title for item in result.items] == [query, "2023年月度工作日历", query + "备份", "2023年月度工作日记"]
+    assert [item.token for item in result.items] == ["DocToken3", "DocToken2", "DocToken0", "DocToken1"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scope", [SEARCH_SCOPE, LEGACY_SEARCH_SCOPE])
+@pytest.mark.parametrize("response", [None, [], {"data": None}, {"data": {}}, {"data": {"has_more": False}}])
+async def test_missing_rows_or_nonobject_response_is_invalid_instead_of_empty_search(scope, response):
+    with pytest.raises(WorkError, match="file_search_invalid"):
+        await search_documents(AsyncMock(return_value=response), "owner-search-token", "月度工作日历", host=HOST, guard=AsyncMock(), scope=scope)
 
 
 @pytest.mark.asyncio

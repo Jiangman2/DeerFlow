@@ -147,6 +147,14 @@ def verify(ref=None):
         result.update(status='WORK_INTEGRATION_FOLLOWUP_ON_HISTORICAL_BASELINE_VERIFIED',
                       runtime_accepted=False, candidate_deployed=False,
                       scope='Scoped Work candidate; historical sources and production acceptance preserved')
+    if result.get('work_cloud_routing_candidate'):
+        result.update(status='WORK_CLOUD_ROUTING_CANDIDATE_ON_HISTORICAL_BASELINE_VERIFIED',
+                      runtime_accepted=False, candidate_deployed=False,
+                      scope='Scoped Work cloud routing source candidate; no deployment or business acceptance claimed')
+    if result.get('work_search_candidates_candidate'):
+        result.update(status='WORK_SEARCH_CANDIDATES_ON_HISTORICAL_BASELINE_VERIFIED',
+                      runtime_accepted=False, candidate_deployed=False,
+                      scope='Scoped Work approximate-title candidate; no deployment or business acceptance claimed')
     return result
 
 

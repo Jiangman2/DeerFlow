@@ -9,7 +9,7 @@ import tarfile
 from released_source_20261102 import ARCHIVE, CI_ARCHIVE, CI_MANIFEST, DELTA, FORBIDDEN, PARENT_DELTA, followup, load
 
 from released_source_20261102 import composer
-from work_integration_source_20261106 import MANIFEST as WORK_MANIFEST, historical_view as work_historical_view
+from work_integration_source_20261106 import MANIFEST as WORK_MANIFEST, archive_paths as work_archive_paths, historical_view as work_historical_view
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -40,6 +40,7 @@ def verify(ref=None):
             extra.append(WORK_MANIFEST)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
             extra.append("release/artifact-delivery-recovery-20261109/")
+        extra.extend(work_archive_paths(ref, root=ROOT))
         raw = subprocess.check_output(["git", "archive", ref, "backend/app", "backend/packages/harness", "backend/tests", "frontend/src", "frontend/tests", ARCHIVE, DELTA, PARENT_DELTA, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             cache = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}

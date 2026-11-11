@@ -9,8 +9,46 @@ from test_work_file_search_service import _DOC1, _DOC2, _REQUEST, _TITLE, _autho
 from test_work_production import principal_message, production_service
 
 from app.integrations.work.cards import CARD_PREVIEW_KEY, CARD_REPLY_TARGET_KEY, CardClick, CardReplyTarget
-from app.integrations.work.file_search import SEARCH_SCOPE
+from app.integrations.work.file_search import LEGACY_SEARCH_SCOPE, SEARCH_SCOPE
 from app.integrations.work.scopes import DOCUMENT_SCOPE
+
+
+@pytest.mark.asyncio
+async def test_legacy_approximate_only_result_is_a_button_and_reads_only_after_actor_selects(card_env, stores, monkeypatch):  # noqa: F811
+    _enable(monkeypatch, "PRODUCTION", scope=LEGACY_SEARCH_SCOPE)
+    first_store, second_store, _ = stores
+    requested, title = "2023年 月度工作日历", "2023年月度工作日历"
+    resource = "doxApproxCalendar1"
+    search = {"data": {"docs_entities": [{"title": title, "docs_type": "docx", "docs_token": resource}], "has_more": False}}
+    first = production_service(first_store, AsyncMock(return_value=search), turn_planner=_plan(title=requested))
+    provider = AsyncMock(side_effect=[{"data": {"document": {"document_id": resource, "title": title}}}, {"data": {"content": "用户选择后的合成正文"}}])
+    second = production_service(second_store, provider)
+    try:
+        message = principal_message(text=f"读取云空间里的《{requested}》", source="om_approx_search")
+        actor = first._identity(message)
+        await first._search_vault.install(actor, _grant("search-grant", LEGACY_SEARCH_SCOPE))
+        await first._file_vaults["docx"].install(actor, _grant("docx-grant", DOCUMENT_SCOPE))
+        assert await first.handle(message)
+        await first.drain()
+        first._api.assert_awaited_once()
+        first._summarize.assert_not_awaited()
+        provider.assert_not_awaited()
+        preview = first.send.await_args.args[0].metadata[CARD_PREVIEW_KEY]
+        assert preview.choice_count == 1 and title in preview.text
+        assert await preview.bind("om_approx_choices")
+        wrong_actor = CardClick("approx-wrong-actor", "ou-B", "chat-A", "om_approx_choices", preview.reference, "select_1", SETTINGS.tenant_key)
+        assert await second.enqueue_card_click(wrong_actor, SETTINGS) == "invalid"
+        provider.assert_not_awaited()
+        selected = CardClick("approx-selected", "ou-A", "chat-A", "om_approx_choices", preview.reference, "select_1", SETTINGS.tenant_key)
+        assert await second.enqueue_card_click(selected, SETTINGS) == "accepted"
+        await second.drain()
+        assert [(call.args[0], call.kwargs["document_id"]) for call in provider.await_args_list] == [("document_info", resource), ("document_content", resource)]
+        second._summarize.assert_awaited_once_with(message.text, title, "用户选择后的合成正文")
+        assert await second.enqueue_card_click(selected, SETTINGS) == "invalid"
+        assert provider.await_count == 2
+    finally:
+        await first.close()
+        await second.close()
 
 
 @pytest.mark.asyncio

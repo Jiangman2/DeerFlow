@@ -18,8 +18,7 @@ def verify(ref=None):
         extra = []
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, navigation.model_default_test.MANIFEST], cwd=ROOT).strip():
             extra.append(navigation.model_default_test.ARCHIVE)
-        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, work_followup.MANIFEST], cwd=ROOT).strip():
-            extra.extend((work_followup.MANIFEST, "backend/app", "backend/packages/harness"))
+        extra.extend(work_followup.archive_paths(ref, root=ROOT))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
             extra.append("release/artifact-delivery-recovery-20261109/")
         raw = subprocess.check_output(["git", "archive", ref, "frontend/src", "frontend/tests", navigation.ARCHIVE, *extra], cwd=ROOT)

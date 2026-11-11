@@ -1,0 +1,43 @@
+{
+  "schema": "work-search-candidates.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "28b6269ad488bc7d34778187cf3bf8dc837ce13b",
+  "production_acceptance_claimed": false,
+  "schema_migration_requested": false,
+  "parent_manifests": {
+    "release/work-cloud-routing-20261111/SOURCE.json": "2c9b0bc5cc70340e7f5d52a65069c7305b4e7da81d3b2f98f9a19273a8f63f5c",
+    "release/work-integration-followup-20261106/SOURCE.json": "535503070c0c53a0a928fe6ab362bbc6bfc8de685a681fed7fd7832c6629dd76",
+    "release/artifact-delivery-recovery-20261109/SOURCE.json": "0420e05dc6de2a8da22ef6a3c0962aa762dbc81c2543e4b934d71c329ff4ab30",
+    "release/released-sync-20261110/SOURCE.json": "3f570a30ac92fb02511af9e306b2f8d5188b4b06cf4ad80fce87e7dbf99671b7"
+  },
+  "changes": {
+    "backend/AGENTS.md": {
+      "base_sha256": "2eca11cb448876fd592f1163ddecd0927ed92804cbc965af33e79aefe9dc87ac",
+      "current_sha256": "4fe3410a87b7ea150c9f7abf617ee3c84fb8088d5a51417feb8824ec56be2e7e"
+    },
+    "backend/README.md": {
+      "base_sha256": "39e5878f983edabf1810a4bc87ee0fc4372c6294aab115ccd62073886a7f2926",
+      "current_sha256": "750e197b302003b2275739f9ae25ff281b0742b2acbf887b08e39fea32bf50df"
+    },
+    "backend/app/integrations/work/file_search.py": {
+      "base_sha256": "82e67803daaa7123df87658321a3948f1d5862937dd79a93223914572b4d6aac",
+      "current_sha256": "9d1d1762df7d5b9578603170a35503d2380f853155935f983a8e6cce03e77305"
+    },
+    "backend/docs/WORK_SEARCH_CANDIDATES_20261111.md": {
+      "base_sha256": null,
+      "current_sha256": "b1fda0e202954a44124a860f5eb0cbc5d475518b80620426b630ebc318498575"
+    },
+    "backend/tests/test_work_file_search.py": {
+      "base_sha256": "f2a17b34b7af03d15724c22bdf4bb97298bd7205a8005068b462955a4c3dca79",
+      "current_sha256": "f45f11d8452e1ad5ebc79de093781d5f019233f39a679f927fa6d108779268a5"
+    },
+    "backend/tests/test_work_file_search_service.py": {
+      "base_sha256": "a512cb56ce5e9a5650e7dd0c4007b3f66facd08a0d88480915617d0ad055ece1",
+      "current_sha256": "0300333afbe64a46dd5c22d8869ed799464dd570b36ef9ffd98859cbaf7a34fa"
+    },
+    "backend/tests/test_work_search_cards.py": {
+      "base_sha256": "4a24fcf0bfbedabe1991b766951b2c74fd446f624f7b6e6f2ed48cd365363138",
+      "current_sha256": "9d0d5117630b6d2780d7d3731ef6194ae5b87a49b54c59cda380e1eddaca8067"
+    }
+  }
+}

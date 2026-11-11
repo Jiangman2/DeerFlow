@@ -411,6 +411,7 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(pagination.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
             extra.append("release/artifact-delivery-recovery-20261109/")
+        extra.extend(work_followup.archive_paths(ref, root=ROOT))
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
@@ -563,6 +564,8 @@ def verify(ref=None, lock_path=LOCK):
             'terminal_stream_candidate': {'status': 'NOT_DEPLOYED', 'frontend_runtime_paths': [terminal_stream.CLIENT, terminal_stream.HELPER]} if terminal_stream_candidate else None,
             'enterprise_source_followup': _nov02.followup.summary(followup),
             'work_integration_followup': work_followup_manifest,
+            'work_cloud_routing_candidate': work_followup_manifest.get('work_cloud_routing') if work_followup_manifest else None,
+            'work_search_candidates_candidate': (work_followup_manifest.get('work_cloud_routing') or {}).get('work_search_candidates') if work_followup_manifest else None,
             'sidechat_frontend_source': _nov02.followup.sidechat.summary(sidechat_manifest),
             'new_chat_model_source': _nov02.followup.new_chat.summary(new_chat_manifest),
             'dashboard_navigation_candidate': _nov02.followup.navigation.summary(navigation),

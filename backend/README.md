@@ -89,6 +89,17 @@ and read-back verification. Tokens never reach models, Skills or the browser.
 See [production setup and rollout](docs/WORK_PRODUCTION.md) and the
 [release checklist](docs/WORK_RELEASE_CHECKLIST.md). Local UAT remains available.
 
+In a connected Work private chat, cloud-title requests such as
+“读取云空间的团队日报汇总” and “读取云文档 团队日报汇总” use filename lookup.
+When the source, title or requested action needs clarification, the same task
+retains the supplied details for the next reply. See the
+[cloud-document routing cases](docs/WORK_CLOUD_ROUTING_20261111.md).
+
+Cloud-file searches retain relevant approximate title matches as selectable
+candidates, including spacing and minor title differences. Only a unique exact
+title in a complete result set may proceed automatically to the existing
+content authorization/read flow. See [filename candidate selection](docs/WORK_SEARCH_CANDIDATES_20261111.md).
+
 The Work receiver closes SDK sockets/tasks on removal or reconfiguration and
 serializes channel lifecycle changes. Availability reflects handshake health,
 not merely a live thread. Work quota error `1000040350` also requires checking
