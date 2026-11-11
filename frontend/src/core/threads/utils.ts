@@ -9,6 +9,8 @@ export type ChannelThreadSource = {
   type: "im_channel";
   provider: string;
   label: string;
+  chatId?: string;
+  topicId?: string;
 };
 
 type ThreadRouteTarget =
@@ -116,9 +118,17 @@ export function channelSourceOfThread(
   }
 
   const normalizedProvider = provider.trim().toLowerCase();
+  const chatId = Reflect.get(source, "chat_id");
+  const topicId = Reflect.get(source, "topic_id");
   return {
     type: "im_channel",
     provider: normalizedProvider,
     label: labelOfChannelProvider(normalizedProvider),
+    ...(typeof chatId === "string" && chatId.trim().length > 0
+      ? { chatId: chatId.trim() }
+      : {}),
+    ...(typeof topicId === "string" && topicId.trim().length > 0
+      ? { topicId: topicId.trim() }
+      : {}),
   };
 }

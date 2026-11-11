@@ -110,7 +110,41 @@ test("reads IM channel source metadata", () => {
     type: "im_channel",
     provider: "feishu",
     label: "Feishu",
+    chatId: "oc_123",
   });
+});
+
+test("carries IM topic ids without inventing absent ones", () => {
+  expect(
+    channelSourceOfThread({
+      metadata: {
+        channel_source: {
+          type: "im_channel",
+          provider: "feishu",
+          chat_id: "oc_123",
+          topic_id: "omt_456",
+        },
+      },
+    }),
+  ).toEqual({
+    type: "im_channel",
+    provider: "feishu",
+    label: "Feishu",
+    chatId: "oc_123",
+    topicId: "omt_456",
+  });
+  expect(
+    "topicId" in
+      (channelSourceOfThread({
+        metadata: {
+          channel_source: {
+            type: "im_channel",
+            provider: "feishu",
+            topic_id: "   ",
+          },
+        },
+      }) ?? {}),
+  ).toBe(false);
 });
 
 test("ignores threads without valid IM channel source metadata", () => {
