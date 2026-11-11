@@ -82,10 +82,16 @@ async def test_only_bound_private_message_from_current_app_verifies_a_legacy_tar
     monkeypatch.setattr(channel, "_schedule_prepare_inbound", prepare)
     monkeypatch.setattr(channel, "_ensure_running_card_started", MagicMock())
     monkeypatch.setattr(channel, "_add_reaction", AsyncMock())
+    # The group @-mention gate must still let an addressed message through:
+    # group traffic that does not mention the bot never reaches the inbound
+    # prepare step, so the private-notification rule would not be exercised.
+    bot_open_id = "ou_bot"
+    channel._bot_open_id = bot_open_id
+    mentions = [SimpleNamespace(id=SimpleNamespace(open_id=bot_open_id))] if chat_type in {"group", "topic"} else []
     event = SimpleNamespace(
         header=SimpleNamespace(app_id=app_id, tenant_key="tenant_test"),
         event=SimpleNamespace(
-            message=SimpleNamespace(chat_id="oc_private", message_id="om_original", chat_type=chat_type, content=json.dumps({"text": "合成测试"})),
+            message=SimpleNamespace(chat_id="oc_private", message_id="om_original", chat_type=chat_type, content=json.dumps({"text": "合成测试"}), mentions=mentions),
             sender=SimpleNamespace(sender_id=SimpleNamespace(open_id=sender)),
         ),
     )

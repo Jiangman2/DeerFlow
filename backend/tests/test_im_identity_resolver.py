@@ -413,6 +413,8 @@ async def test_unbound_rejection_releases_the_event_claim(tmp_path):
     await harness.manager._handle_message(_msg(message_id="om-x"))
 
     assert harness.client.created == ["thread-1"]
+
+
 # ---------------------------------------------------------------------------
 # adapter wiring: /connect writes the user-level binding
 # ---------------------------------------------------------------------------

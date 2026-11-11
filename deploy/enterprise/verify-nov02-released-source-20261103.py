@@ -10,6 +10,7 @@ from released_source_20261102 import ARCHIVE, CI_ARCHIVE, CI_MANIFEST, DELTA, FO
 
 from released_source_20261102 import composer
 from work_integration_source_20261106 import MANIFEST as WORK_MANIFEST, historical_view as work_historical_view
+import im_s08_source_20261111 as im_s08
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -38,9 +39,11 @@ def verify(ref=None):
             extra.append(composer.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, WORK_MANIFEST], cwd=ROOT).strip():
             extra.append(WORK_MANIFEST)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, im_s08.MANIFEST], cwd=ROOT).strip():
+            extra.extend((im_s08.ARCHIVE, "backend/scripts"))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
             extra.append("release/artifact-delivery-recovery-20261109/")
-        raw = subprocess.check_output(["git", "archive", ref, "backend/app", "backend/packages/harness", "backend/tests", "frontend/src", "frontend/tests", ARCHIVE, DELTA, PARENT_DELTA, *extra], cwd=ROOT)
+        raw = subprocess.check_output(["git", "archive", ref, "backend/app", "backend/packages/harness", "backend/tests", "frontend", ARCHIVE, DELTA, PARENT_DELTA, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             cache = {member.name: archive.extractfile(member).read() for member in archive if member.isfile()}
 

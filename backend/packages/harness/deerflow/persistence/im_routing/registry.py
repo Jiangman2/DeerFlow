@@ -179,9 +179,7 @@ class ImThreadRegistryRepository:
 
     async def get(self, thread_id: str) -> RegistryThread | None:
         async with self.session_factory() as session:
-            row = (
-                await session.execute(self._select_threads().where(ImThreadRegistryRow.thread_id == thread_id).limit(1))
-            ).first()
+            row = (await session.execute(self._select_threads().where(ImThreadRegistryRow.thread_id == thread_id).limit(1))).first()
             return self._to_thread(row) if row is not None else None
 
     async def list_private(

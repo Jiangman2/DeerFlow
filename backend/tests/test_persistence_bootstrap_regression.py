@@ -1,4 +1,4 @@
-﻿"""Regression test for GitHub issue #3682.
+"""Regression test for GitHub issue #3682.
 
 End-to-end shape:
 

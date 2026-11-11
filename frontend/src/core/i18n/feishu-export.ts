@@ -18,6 +18,11 @@ export function feishuExportCopy(locale: string) {
         toGroup: "发送到群聊",
         privateChat: "本人私聊",
         groupChat: "群聊",
+        sendFile: "发送海能 Work",
+        sendFileTooltip: "把这个文件发送到你的海能 Work 私聊",
+        sendFileSuccess: "已发送到海能 Work",
+        sending: "发送中…",
+        bindFirst: "请先在「设置 → 渠道」绑定海能 Work",
       }
     : {
         toFeishu: "Send to Haineng Work",
@@ -29,5 +34,10 @@ export function feishuExportCopy(locale: string) {
         toGroup: "Send to a group chat",
         privateChat: "your private chat",
         groupChat: "group chat",
+        sendFile: "Send to Haineng Work",
+        sendFileTooltip: "Send this file to your Haineng Work private chat",
+        sendFileSuccess: "Sent to Haineng Work",
+        sending: "Sending…",
+        bindFirst: "Connect Haineng Work in Settings → Channels first",
       };
 }

@@ -1414,9 +1414,7 @@ class ChannelManager:
                 return
             await self._sync_group_meta(msg, tenant_key=tenant_key, bot_app_id=bot_app_id)
         except Exception:
-            logger.warning(
-                "[Manager] failed to refresh group catalog: chat=%s", msg.chat_id, exc_info=True
-            )
+            logger.warning("[Manager] failed to refresh group catalog: chat=%s", msg.chat_id, exc_info=True)
 
     async def _sync_group_meta(self, msg: InboundMessage, *, tenant_key: str, bot_app_id: str) -> None:
         """Fetch chat metadata from the adapter and store it in the catalog."""
@@ -1547,9 +1545,7 @@ class ChannelManager:
                 try:
                     await self._registry_repo.mark_status(candidate, "orphaned")
                 except Exception:
-                    logger.warning(
-                        "[Manager] failed to mark orphaned thread: %s", candidate, exc_info=True
-                    )
+                    logger.warning("[Manager] failed to mark orphaned thread: %s", candidate, exc_info=True)
         return pointer.thread_id
 
     @staticmethod

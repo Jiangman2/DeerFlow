@@ -1228,6 +1228,26 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
     return route.fallback();
   });
 
+  // IM session tree capabilities — the workspace sidebar probes this on every
+  // render and keeps the Feishu tree hidden unless the archive is enabled.
+  // Default to disabled so the existing suites keep the plain Web-chats
+  // sidebar; IM-specific tests override this route after mockLangGraphAPI.
+  void page.route("**/api/im/capabilities", (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          im_session_tree_enabled: false,
+          provider: "feishu",
+          max_group_threads: 0,
+          search_enabled: false,
+        }),
+      });
+    }
+    return route.fallback();
+  });
+
   // Skills list — settings page and slash autocomplete
   void page.route("**/api/skills", (route) => {
     if (route.request().method() === "GET") {

@@ -336,23 +336,6 @@ export interface Translations {
     scheduledTasks: string;
     agentsDisabledTooltip: string;
     channels: string;
-    privateSection: string;
-    groupSection: string;
-    webChats: string;
-    imSearchPlaceholder: string;
-    imEmptyPrivate: string;
-    imEmptyGroup: string;
-    imCurrentThread: string;
-    imGroupLeft: string;
-    imGroupDissolved: string;
-    imLoadMore: (count: number) => string;
-    imShowAllGroups: (count: number) => string;
-    imSearchNoResult: string;
-    imMatchGroup: string;
-    imMatchThread: string;
-    imSearchTruncated: string;
-    imLoadFailed: string;
-    imRetry: string;
   };
 
   // Scheduled tasks

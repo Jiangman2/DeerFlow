@@ -185,7 +185,9 @@ test.describe("IM session tree", () => {
     await page.waitForURL(`**/workspace/chats/${GROUP_THREAD}`);
   });
 
-  test("searches IM history and opens the matching thread", async ({ page }) => {
+  test("searches IM history and opens the matching thread", async ({
+    page,
+  }) => {
     mockLangGraphAPI(page, { threads: [WEB_THREAD] });
     await mockImEndpoints(page, { enabled: true });
 
@@ -197,7 +199,12 @@ test.describe("IM session tree", () => {
 
     const result = page.getByText("昨天的方案");
     await expect(result).toBeVisible();
-    await expect(page.getByTestId("im-session-search-results").getByText("Chat", { exact: true }).first()).toBeVisible();
+    await expect(
+      page
+        .getByTestId("im-session-search-results")
+        .getByText("Chat", { exact: true })
+        .first(),
+    ).toBeVisible();
 
     await result.click();
     await page.waitForURL("**/workspace/chats/x1");

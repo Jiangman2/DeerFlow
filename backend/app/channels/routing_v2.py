@@ -156,6 +156,7 @@ def resolve_route(
                 error_code=RouteReason.THREAD_OWNERSHIP_MISMATCH.value,
             )
         return decision
+
     if reply is None:
         return RouteDecision(action=RouteAction.CURRENT, reason=RouteReason.NORMAL)
 

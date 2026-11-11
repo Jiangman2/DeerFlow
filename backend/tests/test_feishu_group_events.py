@@ -89,17 +89,13 @@ async def test_fetch_chat_meta_returns_name_and_status():
 
 async def test_fetch_chat_meta_returns_none_on_business_error():
     channel = _channel()
-    channel._api_client = SimpleNamespace(
-        im=SimpleNamespace(v1=SimpleNamespace(chat=FakeChatApi(response=SimpleNamespace(code=230002, data=None))))
-    )
+    channel._api_client = SimpleNamespace(im=SimpleNamespace(v1=SimpleNamespace(chat=FakeChatApi(response=SimpleNamespace(code=230002, data=None)))))
     assert await channel.fetch_chat_meta(CHAT) is None
 
 
 async def test_fetch_chat_meta_returns_none_on_exception_and_without_client():
     channel = _channel()
-    channel._api_client = SimpleNamespace(
-        im=SimpleNamespace(v1=SimpleNamespace(chat=FakeChatApi(exc=RuntimeError("boom"))))
-    )
+    channel._api_client = SimpleNamespace(im=SimpleNamespace(v1=SimpleNamespace(chat=FakeChatApi(exc=RuntimeError("boom")))))
     assert await channel.fetch_chat_meta(CHAT) is None
 
     channel._api_client = None
@@ -114,9 +110,7 @@ async def test_fetch_chat_meta_returns_none_on_exception_and_without_client():
 async def test_chat_updated_event_refreshes_the_cached_name():
     catalog = FakeCatalogRepo()
     channel = _channel(catalog=catalog)
-    channel._api_client = SimpleNamespace(
-        im=SimpleNamespace(v1=SimpleNamespace(chat=FakeChatApi(response=_ok_response(name="新群名"))))
-    )
+    channel._api_client = SimpleNamespace(im=SimpleNamespace(v1=SimpleNamespace(chat=FakeChatApi(response=_ok_response(name="新群名")))))
 
     await channel._apply_chat_event(CHAT, "updated")
 
@@ -209,8 +203,8 @@ async def test_event_handlers_are_registered_on_the_dispatcher():
             registered.append("im.chat.disbanded_v1")
             return self
 
-        def register_p2_im_member_bot_deleted_v1(self, _handler):
-            registered.append("im.member.bot.deleted_v1")
+        def register_p2_im_chat_member_bot_deleted_v1(self, _handler):
+            registered.append("im.chat.member.bot.deleted_v1")
             return self
 
         def build(self):
@@ -226,5 +220,30 @@ async def test_event_handlers_are_registered_on_the_dispatcher():
     assert {
         "im.chat.updated_v1",
         "im.chat.disbanded_v1",
-        "im.member.bot.deleted_v1",
+        "im.chat.member.bot.deleted_v1",
     } <= set(registered)
+
+
+async def test_missing_bot_removed_registration_does_not_break_the_handler():
+    """An older lark-oapi without the bot-removed event must still start.
+
+    The registration used to be a hard call into the generated builder, so a
+    renamed/removed SDK method raised ``AttributeError`` at startup and took the
+    whole Feishu WebSocket worker (every chat message) down with it.
+    """
+
+    class FakeBuilder:
+        def __getattr__(self, name):
+            if name.startswith("register_p2_"):
+                return lambda _handler: self
+            raise AttributeError(name)
+
+        def build(self):
+            return object()
+
+    class FakeDispatcher:
+        @staticmethod
+        def builder(_a, _b):
+            return FakeBuilder()
+
+    assert _channel()._build_event_handler(SimpleNamespace(EventDispatcherHandler=FakeDispatcher)) is not None

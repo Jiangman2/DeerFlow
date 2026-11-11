@@ -213,9 +213,7 @@ async def test_private_first_message_registers_a_private_owned_thread(env):
     await h.manager._handle_routed_chat(_msg(message_id="om-p1", chat_id=PRIVATE_A, chat_type="p2p"))
 
     rows = await _rows(env)
-    assert [(r.thread_id, r.owner_user_id, r.channel_type, r.external_conversation_id, r.status) for r in rows] == [
-        ("thread-1", OWNER_A, "private", PRIVATE_A, "active")
-    ]
+    assert [(r.thread_id, r.owner_user_id, r.channel_type, r.external_conversation_id, r.status) for r in rows] == [("thread-1", OWNER_A, "private", PRIVATE_A, "active")]
     pointer = await _pointer(env, chat_id=PRIVATE_A, owner=OWNER_A, channel_type="private")
     assert pointer.thread_id == "thread-1"
 
@@ -259,9 +257,7 @@ async def test_reply_to_an_old_answer_restores_it_without_moving_the_pointer(env
         direction="outbound",
     )
 
-    await h.manager._handle_routed_chat(
-        _msg(message_id="om-p3", chat_id=PRIVATE_A, chat_type="p2p", reply=_bot_reply("om-bot-old"))
-    )
+    await h.manager._handle_routed_chat(_msg(message_id="om-p3", chat_id=PRIVATE_A, chat_type="p2p", reply=_bot_reply("om-bot-old")))
 
     assert h.runs[-1]["thread_id"] == "thread-1"
     pointer = await _pointer(env, chat_id=PRIVATE_A, owner=OWNER_A, channel_type="private")
@@ -348,9 +344,7 @@ async def test_registry_owner_mismatch_fails_closed_without_running(env):
     )
 
     before = len(h.runs)
-    await h.manager._handle_routed_chat(
-        _msg(message_id="om-b", chat_id=GROUP_X, owner=OWNER_B, reply=_bot_reply("om-bot-b"))
-    )
+    await h.manager._handle_routed_chat(_msg(message_id="om-b", chat_id=GROUP_X, owner=OWNER_B, reply=_bot_reply("om-bot-b")))
 
     assert len(h.runs) == before
     assert h.outbound[-1].text == "无法恢复原会话：原会话不属于当前账号。请直接 @我 重新提问，或发送 /new 开始新会话。"
@@ -370,9 +364,7 @@ async def test_deleted_registry_thread_is_not_restored(env):
     )
 
     before = len(h.runs)
-    await h.manager._handle_routed_chat(
-        _msg(message_id="om-p2", chat_id=PRIVATE_A, chat_type="p2p", reply=_bot_reply("om-bot-old"))
-    )
+    await h.manager._handle_routed_chat(_msg(message_id="om-p2", chat_id=PRIVATE_A, chat_type="p2p", reply=_bot_reply("om-bot-old")))
     assert len(h.runs) == before
     assert "原会话已被删除" in h.outbound[-1].text
 
@@ -476,11 +468,7 @@ async def test_registration_is_bound_to_the_message_tenant_and_bot(env):
     await h.manager._handle_routed_chat(_msg(message_id="om-x1", chat_id=GROUP_X))
     row = await env.registry.get("thread-1")
     async with env.factory() as session:
-        stored = (
-            await session.execute(
-                select(ImThreadRegistryRow).where(ImThreadRegistryRow.thread_id == "thread-1")
-            )
-        ).scalar_one()
+        stored = (await session.execute(select(ImThreadRegistryRow).where(ImThreadRegistryRow.thread_id == "thread-1"))).scalar_one()
     assert (stored.tenant_key, stored.bot_app_id) == (TENANT, BOT)
     assert row is not None
 

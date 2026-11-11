@@ -36,6 +36,10 @@ _work_followup_spec = importlib.util.spec_from_file_location("work_integration_s
 work_followup = importlib.util.module_from_spec(_work_followup_spec)
 _work_followup_spec.loader.exec_module(work_followup)
 
+_im_s08_spec = importlib.util.spec_from_file_location("im_s08_source_20261111", Path(__file__).with_name("im_s08_source_20261111.py"))
+im_s08 = importlib.util.module_from_spec(_im_s08_spec)
+_im_s08_spec.loader.exec_module(im_s08)
+
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = 'deploy/enterprise/production-source-lock-20261029.json'
 RUNNER = 'release/production-source-20261022/ppt-master-runner/'
@@ -444,15 +448,21 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(_nov02.composer.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, work_followup.MANIFEST], cwd=ROOT).strip():
             extra.append(work_followup.MANIFEST)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, im_s08.ARCHIVE.rstrip("/")], cwd=ROOT).strip():
+            extra.append(im_s08.ARCHIVE)
         if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, pagination.MANIFEST], cwd=ROOT).strip():
             extra.append(pagination.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
             extra.append("release/artifact-delivery-recovery-20261109/")
-        raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
-            'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
+        roots = ['backend/app', 'backend/packages/harness']
+        if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, 'backend/scripts'], cwd=ROOT).strip():
+            roots.append('backend/scripts')
+        roots += ['frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra]
+        raw = subprocess.check_output(['git', 'archive', '--format=tar', ref, *roots], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
     current_read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    source_read = current_read
     current_read = pagination.historical_read(current_read)
     current_read, work_followup_manifest = work_followup.historical_view(current_read)
     composer_manifest = _nov02.composer.qualify(current_read)
@@ -471,6 +481,7 @@ def verify(ref=None, lock_path=LOCK):
     navigation = _nov02.followup.navigation.qualify(read)
     followup = _nov02.followup.qualify(read)
     read = _nov02.followup.historical_read(read)
+    im_s08_manifest = (work_followup_manifest or {}).get("im_s08_parent")
     lock_raw = read(lock_path)
     lock = json.loads(lock_raw)
     has_candidate = CANDIDATE in archived if archived is not None else (ROOT / CANDIDATE).is_file()
@@ -541,9 +552,15 @@ def verify(ref=None, lock_path=LOCK):
             hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest(), parent_digest)
     normalizations = lock.get('format_normalizations', {})
     assert set(lock.get('qualification_test_overrides', {})) <= set(lock['source_sets']['frontend']), 'UNKNOWN_QUALIFICATION_TEST'
+    im_s08_overrides = {'gateway': {}, 'frontend': {}}
+    if im_s08_manifest is not None:
+        im_s08_prior = {**production, **routing, **task_agent, **task_agent_fix, **model_fix, **aligned, **sanitizer, **feishu}
+        im_s08_overrides = im_s08.overrides(lock, im_s08_prior, im_s08.load(source_read),
+            hashlib.sha256(lock_raw.replace(b'\r\n', b'\n')).hexdigest(),
+            hashlib.sha256(source_read(FEISHU_EXPORT_SOURCE).replace(b'\r\n', b'\n')).hexdigest() if has_feishu_export else im_s08_manifest['parent_candidate_sha256'])
     results = []
     for component, expected in lock['source_sets'].items():
-        component_overrides = {**(overrides if component == 'gateway' else {}), **incident.get(component, {}), **released.get(component, {}), **nov02.get(component, {}), **(routing if component == 'gateway' else {}), **(task_agent if component == 'gateway' else {}), **(task_agent_fix if component == 'gateway' else {}), **(model_fix if component == 'gateway' else {}), **(aligned if component == 'gateway' else {}), **(sanitizer if component == 'gateway' else {}), **feishu.get(component, {})}
+        component_overrides = {**(overrides if component == 'gateway' else {}), **incident.get(component, {}), **released.get(component, {}), **nov02.get(component, {}), **(routing if component == 'gateway' else {}), **(task_agent if component == 'gateway' else {}), **(task_agent_fix if component == 'gateway' else {}), **(model_fix if component == 'gateway' else {}), **(aligned if component == 'gateway' else {}), **(sanitizer if component == 'gateway' else {}), **feishu.get(component, {}), **im_s08_overrides.get(component, {})}
         expected = {**expected, **component_overrides}
         prefix = RUNNER if component == 'ppt-master-runner' else ''
         if component != 'frontend':
@@ -564,7 +581,13 @@ def verify(ref=None, lock_path=LOCK):
                 raise AssertionError((component, 'SOURCE_SET_MISMATCH', sorted(actual ^ set(expected))))
         for name, digest in expected.items():
             if name in component_overrides:
-                raw = (current_read(name) if name in aligned or name in sanitizer or name in feishu['gateway'] or name in feishu['frontend'] else read(name)).replace(b'\r\n', b'\n')
+                if name in im_s08_overrides['gateway'] or name in im_s08_overrides['frontend']:
+                    raw = source_read(name)
+                elif name in aligned or name in sanitizer or name in feishu['gateway'] or name in feishu['frontend']:
+                    raw = current_read(name)
+                else:
+                    raw = read(name)
+                raw = raw.replace(b'\r\n', b'\n')
                 assert hashlib.sha256(raw).hexdigest() == digest, (name, 'CANDIDATE_HASH_MISMATCH')
                 if name.endswith('.py'):
                     ast.parse(raw, filename=name)
@@ -610,6 +633,7 @@ def verify(ref=None, lock_path=LOCK):
             'terminal_stream_candidate': {'status': 'NOT_DEPLOYED', 'frontend_runtime_paths': [terminal_stream.CLIENT, terminal_stream.HELPER]} if terminal_stream_candidate else None,
             'enterprise_source_followup': _nov02.followup.summary(followup),
             'work_integration_followup': work_followup_manifest,
+            'im_s08_source': im_s08_manifest,
             'sidechat_frontend_source': _nov02.followup.sidechat.summary(sidechat_manifest),
             'new_chat_model_source': _nov02.followup.new_chat.summary(new_chat_manifest),
             'dashboard_navigation_candidate': _nov02.followup.navigation.summary(navigation),

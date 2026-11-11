@@ -27,7 +27,10 @@ export default async function WorkspaceLayout({
     case "system_setup_required":
       redirect("/setup");
     case "unauthenticated":
-      redirect("/api/v1/auth/iam/login?next=%2Fworkspace%2Fchats%2Fnew");
+      // Local/password deployments have no IAM endpoint, so an anonymous user
+      // must land on the login page instead of a 404 JSON error. Enterprise
+      // SSO is still reachable from that page as a provider button.
+      redirect("/login?next=%2Fworkspace%2Fchats%2Fnew");
     case "gateway_unavailable":
       // Failed authentication probes must not expose the workspace or its children.
       return (

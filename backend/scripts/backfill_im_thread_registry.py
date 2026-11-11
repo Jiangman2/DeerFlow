@@ -140,9 +140,7 @@ async def _collect_sender_counts(session: AsyncSession) -> dict[tuple[str, str],
 async def _collect_thread_meta(session: AsyncSession, thread_ids: list[str]) -> dict[str, tuple[str | None, datetime | None]]:
     if not thread_ids:
         return {}
-    statement = select(ThreadMetaRow.thread_id, ThreadMetaRow.display_name, ThreadMetaRow.updated_at).where(
-        ThreadMetaRow.thread_id.in_(thread_ids)
-    )
+    statement = select(ThreadMetaRow.thread_id, ThreadMetaRow.display_name, ThreadMetaRow.updated_at).where(ThreadMetaRow.thread_id.in_(thread_ids))
     rows = (await session.execute(statement)).all()
     return {thread_id: (display_name, updated_at) for thread_id, display_name, updated_at in rows}
 
@@ -171,9 +169,7 @@ def _write_reports(report_dir: Path, payload: dict[str, Any]) -> tuple[Path, Pat
 
 async def _undo_batch(session: AsyncSession, batch_id: str) -> int:
     # ``like`` on a suffix: the batch id is a UUID, so no pattern escaping is needed.
-    result = await session.execute(
-        delete(ImThreadRegistryRow).where(ImThreadRegistryRow.classification_source.like(f"%#{batch_id}"))
-    )
+    result = await session.execute(delete(ImThreadRegistryRow).where(ImThreadRegistryRow.classification_source.like(f"%#{batch_id}")))
     await session.commit()
     return int(result.rowcount or 0)
 
@@ -409,10 +405,7 @@ async def _run(args: argparse.Namespace) -> int:
 
     totals = report["totals"]
     print(f"mode={report['mode']} batch_id={report['batch_id'] or '-'} limit={report['limit']}")
-    print(
-        "candidates={candidates} inserted={INSERTED} would_insert={WOULD_INSERT} conflict={CONFLICT} "
-        "skipped={SKIPPED} deleted={deleted}".format(**totals)
-    )
+    print("candidates={candidates} inserted={INSERTED} would_insert={WOULD_INSERT} conflict={CONFLICT} skipped={SKIPPED} deleted={deleted}".format(**totals))
     if report["heuristic"]:
         print(f"HEURISTIC rows needing review: {len(report['heuristic'])}")
         for row in report["heuristic"]:

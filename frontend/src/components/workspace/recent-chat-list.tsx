@@ -55,6 +55,7 @@ import {
 import { getAPIClient } from "@/core/api";
 import { writeTextToClipboard } from "@/core/clipboard";
 import { useI18n } from "@/core/i18n/hooks";
+import { imSessionCopy } from "@/core/i18n/im-session-tree";
 import {
   exportThreadAsJSON,
   exportThreadAsMarkdown,
@@ -84,7 +85,8 @@ export function RecentChatList({
 }: {
   hideImThreads?: boolean;
 } = {}) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
+  const copy = imSessionCopy(locale);
   const pathname = usePathname();
   const archiveAction = useThreadArchiveAction();
   const requestDelete = useThreadDeleteDialog();
@@ -222,7 +224,7 @@ export function RecentChatList({
   return (
     <>
       <SidebarGroup>
-        <SidebarGroupLabel>{t.sidebar.webChats}</SidebarGroupLabel>
+        <SidebarGroupLabel>{copy.webChats}</SidebarGroupLabel>
         <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
           <SidebarMenu>
             <div className="flex w-full flex-col gap-1">

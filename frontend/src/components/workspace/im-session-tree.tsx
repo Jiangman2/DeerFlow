@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/core/i18n/hooks";
+import { imSessionCopy } from "@/core/i18n/im-session-tree";
 import {
   useImCapabilities,
   useImGroupThreads,
@@ -80,7 +81,8 @@ function ImThreadRow({
 }
 
 function ImGroupRow({ node }: { node: ImGroupNode }) {
-  const { t } = useI18n();
+  const { locale } = useI18n();
+  const copy = imSessionCopy(locale);
   const [expanded, setExpanded] = useState(false);
   const [showAllThreads, setShowAllThreads] = useState(false);
   const hasMoreThreads = node.thread_count > node.threads.length;
@@ -96,11 +98,7 @@ function ImGroupRow({ node }: { node: ImGroupNode }) {
       : node.threads;
 
   return (
-    <Collapsible
-      open={expanded}
-      onOpenChange={setExpanded}
-      key={node.chat_id}
-    >
+    <Collapsible open={expanded} onOpenChange={setExpanded} key={node.chat_id}>
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton
@@ -119,7 +117,7 @@ function ImGroupRow({ node }: { node: ImGroupNode }) {
             </span>
             {notice && (
               <span className="bg-muted text-muted-foreground inline-flex h-4 shrink-0 items-center rounded px-1 text-[10px]">
-                {notice === "left" ? t.sidebar.imGroupLeft : t.sidebar.imGroupDissolved}
+                {notice === "left" ? copy.imGroupLeft : copy.imGroupDissolved}
               </span>
             )}
           </SidebarMenuButton>
@@ -131,7 +129,7 @@ function ImGroupRow({ node }: { node: ImGroupNode }) {
                 <ImThreadRow
                   key={thread.thread_id}
                   thread={thread}
-                  currentLabel={t.sidebar.imCurrentThread}
+                  currentLabel={copy.imCurrentThread}
                 />
               ))}
               {hasMoreThreads && !showAllThreads && (
@@ -142,7 +140,7 @@ function ImGroupRow({ node }: { node: ImGroupNode }) {
                     onClick={() => setShowAllThreads(true)}
                     data-testid="im-group-load-more"
                   >
-                    {t.sidebar.imLoadMore(node.thread_count)}
+                    {copy.imLoadMore(node.thread_count)}
                   </button>
                 </SidebarMenuItem>
               )}
@@ -155,7 +153,8 @@ function ImGroupRow({ node }: { node: ImGroupNode }) {
 }
 
 export function ImSessionTree() {
-  const { t } = useI18n();
+  const { locale } = useI18n();
+  const copy = imSessionCopy(locale);
   const { data: capabilities, isLoading: capabilitiesLoading } =
     useImCapabilities();
   const enabled = capabilities?.im_session_tree_enabled === true;
@@ -181,7 +180,7 @@ export function ImSessionTree() {
   if (isPending) {
     return (
       <SidebarGroup>
-        <SidebarGroupLabel>{t.sidebar.privateSection}</SidebarGroupLabel>
+        <SidebarGroupLabel>{copy.privateSection}</SidebarGroupLabel>
         <SidebarGroupContent className="group-data-[collapsible=icon]:hidden">
           <div className="flex flex-col gap-2 px-2 py-1">
             <Skeleton className="h-4 w-3/4" />
@@ -197,13 +196,13 @@ export function ImSessionTree() {
       <SidebarGroup>
         <SidebarGroupContent className="group-data-[collapsible=icon]:hidden">
           <div className="text-muted-foreground flex items-center gap-2 px-2 py-1 text-[11px]">
-            <span className="min-w-0 truncate">{t.sidebar.imLoadFailed}</span>
+            <span className="min-w-0 truncate">{copy.imLoadFailed}</span>
             <button
               type="button"
               className="text-primary shrink-0 underline"
               onClick={() => void refetch()}
             >
-              {t.sidebar.imRetry}
+              {copy.imRetry}
             </button>
           </div>
         </SidebarGroupContent>
@@ -224,7 +223,7 @@ export function ImSessionTree() {
       <ImSessionSearch />
       {privateThreads.length > 0 && (
         <SidebarGroup>
-          <SidebarGroupLabel>{t.sidebar.privateSection}</SidebarGroupLabel>
+          <SidebarGroupLabel>{copy.privateSection}</SidebarGroupLabel>
           <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
             <SidebarMenu>
               <div className="flex w-full flex-col gap-1">
@@ -232,7 +231,7 @@ export function ImSessionTree() {
                   <ImThreadRow
                     key={thread.thread_id}
                     thread={thread}
-                    currentLabel={t.sidebar.imCurrentThread}
+                    currentLabel={copy.imCurrentThread}
                   />
                 ))}
               </div>
@@ -242,7 +241,7 @@ export function ImSessionTree() {
       )}
       {groups.length > 0 && (
         <SidebarGroup>
-          <SidebarGroupLabel>{t.sidebar.groupSection}</SidebarGroupLabel>
+          <SidebarGroupLabel>{copy.groupSection}</SidebarGroupLabel>
           <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
             <SidebarMenu>
               <div className="flex w-full flex-col gap-1">
@@ -257,7 +256,7 @@ export function ImSessionTree() {
                       onClick={() => setShowAllGroups(true)}
                       data-testid="im-show-all-groups"
                     >
-                      {t.sidebar.imShowAllGroups(groupsTotal)}
+                      {copy.imShowAllGroups(groupsTotal)}
                     </button>
                   </SidebarMenuItem>
                 )}

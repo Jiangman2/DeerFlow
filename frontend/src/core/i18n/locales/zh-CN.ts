@@ -1,4 +1,4 @@
-﻿import {
+import {
   CompassIcon,
   ImageIcon,
   MicroscopeIcon,
@@ -429,23 +429,6 @@ export const zhCN: Translations = {
     openSkillCenter: "在新窗口打开技能中心",
     scheduledTasks: "定时任务",
     agentsDisabledTooltip: "功能未启用",
-    privateSection: "私聊",
-    groupSection: "群聊",
-    webChats: "Web 会话",
-    imSearchPlaceholder: "搜索飞书会话",
-    imEmptyPrivate: "暂无飞书私聊会话",
-    imEmptyGroup: "暂无飞书群聊会话",
-    imCurrentThread: "飞书当前会话",
-    imGroupLeft: "已退出",
-    imGroupDissolved: "已解散",
-    imLoadMore: (count: number) => `查看全部 ${count} 条`,
-    imShowAllGroups: (count: number) => `显示全部群聊（${count}）`,
-    imSearchNoResult: "没有匹配的飞书会话",
-    imMatchGroup: "群聊",
-    imMatchThread: "会话",
-    imSearchTruncated: "仅显示部分匹配结果，请缩小搜索范围。",
-    imLoadFailed: "飞书会话加载失败",
-    imRetry: "重试",
   },
 
   // 定时任务
@@ -1256,4 +1239,3 @@ export const zhCN: Translations = {
     },
   },
 };
-

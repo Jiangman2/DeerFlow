@@ -193,8 +193,7 @@ class ImUserBindingRepository:
                     ImUserBindingRow.owner_user_id == owner_user_id,
                     ImUserBindingRow.bot_app_id == bot_app_id,
                     ImUserBindingRow.status == _ACTIVE,
-                    (ImUserBindingRow.feishu_user_id != feishu_user_id)
-                    | (ImUserBindingRow.feishu_id_type != feishu_id_type),
+                    (ImUserBindingRow.feishu_user_id != feishu_user_id) | (ImUserBindingRow.feishu_id_type != feishu_id_type),
                 )
                 .values(status=_REVOKED, updated_at=now),
             )

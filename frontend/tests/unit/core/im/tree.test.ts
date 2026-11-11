@@ -9,11 +9,7 @@ import {
   threadDisplayTitle,
   treeIsEmpty,
 } from "@/core/im/tree";
-import type {
-  ImGroupNode,
-  ImSessionTree,
-  ImThreadItem,
-} from "@/core/im/types";
+import type { ImGroupNode, ImSessionTree, ImThreadItem } from "@/core/im/types";
 import type { AgentThread } from "@/core/threads/types";
 
 function makeThread(metadata: Record<string, unknown> = {}): AgentThread {
@@ -71,9 +67,9 @@ describe("IM thread detection", () => {
       ),
     ).toBe(true);
     expect(isImThread(makeThread({}))).toBe(false);
-    expect(
-      isImThread(makeThread({ channel_source: { type: "web" } })),
-    ).toBe(false);
+    expect(isImThread(makeThread({ channel_source: { type: "web" } }))).toBe(
+      false,
+    );
   });
 });
 
@@ -86,9 +82,7 @@ describe("IM session tree emptiness", () => {
 
   test("reports content when either section has threads", () => {
     expect(
-      treeIsEmpty(
-        makeTree({ private: { threads: [makeItem()], total: 1 } }),
-      ),
+      treeIsEmpty(makeTree({ private: { threads: [makeItem()], total: 1 } })),
     ).toBe(false);
     expect(treeIsEmpty(makeTree({ groups: [makeGroup()] }))).toBe(false);
     expect(
@@ -116,9 +110,9 @@ describe("IM display names", () => {
   test("prefers the thread title, then the chat name, then the id", () => {
     expect(threadDisplayTitle(makeItem({ title: "标题" }))).toBe("标题");
     expect(threadDisplayTitle(makeItem({ title: "  " }))).toBe("私聊");
-    expect(
-      threadDisplayTitle(makeItem({ title: null, chat_name: null })),
-    ).toBe("thread-1");
+    expect(threadDisplayTitle(makeItem({ title: null, chat_name: null }))).toBe(
+      "thread-1",
+    );
   });
 
   test("falls back to the chat id when a group has no cached name", () => {

@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import DateTime, Integer, String, UniqueConstraint, Index, select, update
+from sqlalchemy import DateTime, Index, Integer, String, UniqueConstraint, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
@@ -122,9 +122,7 @@ class ImGroupCatalogRepository:
     ) -> bool:
         """True when the cached row is missing or older than ``ttl_seconds``."""
         async with self.session_factory() as session:
-            last_synced = (
-                await session.execute(select(ImGroupCatalogRow.last_synced_at).where(*self._scope(chat_id, tenant_key, bot_app_id)))
-            ).scalar_one_or_none()
+            last_synced = (await session.execute(select(ImGroupCatalogRow.last_synced_at).where(*self._scope(chat_id, tenant_key, bot_app_id)))).scalar_one_or_none()
         if last_synced is None:
             return True
         synced_at = _aware(last_synced)
@@ -170,9 +168,7 @@ class ImGroupCatalogRepository:
             values["member_count"] = member_count
         async with self.session_factory() as session:
             await session.execute(
-                update(ImGroupCatalogRow)
-                .where(*self._scope(chat_id, tenant_key, bot_app_id))
-                .values(**values),
+                update(ImGroupCatalogRow).where(*self._scope(chat_id, tenant_key, bot_app_id)).values(**values),
             )
             await session.commit()
 
@@ -186,9 +182,7 @@ class ImGroupCatalogRepository:
     ) -> None:
         async with self.session_factory() as session:
             await session.execute(
-                update(ImGroupCatalogRow)
-                .where(*self._scope(chat_id, tenant_key, bot_app_id))
-                .values(chat_status=chat_status, updated_at=datetime.now(UTC)),
+                update(ImGroupCatalogRow).where(*self._scope(chat_id, tenant_key, bot_app_id)).values(chat_status=chat_status, updated_at=datetime.now(UTC)),
             )
             await session.commit()
 

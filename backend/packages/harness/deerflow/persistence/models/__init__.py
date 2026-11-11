@@ -29,10 +29,6 @@ from deerflow.persistence.dashboard_rollup.model import (
 )
 from deerflow.persistence.data_lake_auth.model import DataLakeAuthChallengeRow
 from deerflow.persistence.feedback.model import FeedbackRow
-from deerflow.persistence.im_routing.bindings import ImUserBindingRow
-from deerflow.persistence.im_routing.catalog import ImGroupCatalogRow
-from deerflow.persistence.im_routing.model import ImEventInboxRow, ImMessageLinkRow, ImSessionPointerRow
-from deerflow.persistence.im_routing.registry_model import ImThreadRegistryRow
 from deerflow.persistence.models.run_event import RunEventRow
 from deerflow.persistence.oa_policy_flow_jobs.model import OAPolicyFlowJobRow
 from deerflow.persistence.observability.model import AuditLogRow, OperationDispositionRow
@@ -43,6 +39,19 @@ from deerflow.persistence.scheduled_tasks.model import ScheduledTaskRow
 from deerflow.persistence.thread_meta.model import ThreadCreationRow, ThreadMetaRow
 from deerflow.persistence.user.model import UserRow
 from deerflow.persistence.work.model import WorkRecordRow
+
+# The dedicated PPT Runner overlay copies this registry into the 2026-10-22
+# Runner tree, which predates the IM routing package. Absence there is
+# expected: the Runner keeps the schema it owns and never creates IM tables.
+# Import last so a missing package cannot partially register the metadata
+# that ``bootstrap_schema`` renders with ``create_all``.
+try:
+    from deerflow.persistence.im_routing.bindings import ImUserBindingRow
+    from deerflow.persistence.im_routing.catalog import ImGroupCatalogRow
+    from deerflow.persistence.im_routing.model import ImEventInboxRow, ImMessageLinkRow, ImSessionPointerRow
+    from deerflow.persistence.im_routing.registry_model import ImThreadRegistryRow
+except ImportError:  # pragma: no cover - dedicated Runner overlay without IM routing
+    pass
 
 __all__ = [
     "WorkRecordRow",

@@ -9,6 +9,7 @@ import {
 
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { ImSessionSearch } from "@/components/workspace/im-session-search";
+import { imSessionCopy } from "@/core/i18n/im-session-tree";
 import { zhCN } from "@/core/i18n/locales/zh-CN";
 import { useImThreadSearch } from "@/core/im/hooks";
 import type { ImSearchResponse } from "@/core/im/types";
@@ -19,6 +20,8 @@ rs.mock("@/core/im/hooks", () => ({
 rs.mock("@/core/i18n/hooks", () => ({
   useI18n: () => ({ t: zhCN, locale: "zh-CN" }),
 }));
+
+const copy = imSessionCopy("zh-CN");
 
 const mockedSearch = rs.mocked(useImThreadSearch);
 
@@ -99,8 +102,8 @@ describe("IM session search", () => {
 
     expect(await screen.findByText("昨天的方案")).toBeTruthy();
     expect(screen.getByText("研发私聊")).toBeTruthy();
-    expect(screen.getByText(zhCN.sidebar.imMatchGroup)).toBeTruthy();
-    expect(screen.getByText(zhCN.sidebar.imMatchThread)).toBeTruthy();
+    expect(screen.getByText(copy.imMatchGroup)).toBeTruthy();
+    expect(screen.getByText(copy.imMatchThread)).toBeTruthy();
   });
 
   it("shows the empty state when nothing matches", async () => {
@@ -117,7 +120,7 @@ describe("IM session search", () => {
       target: { value: "不存在" },
     });
 
-    expect(await screen.findByText(zhCN.sidebar.imSearchNoResult)).toBeTruthy();
+    expect(await screen.findByText(copy.imSearchNoResult)).toBeTruthy();
   });
 
   it("states that results were truncated at the page limit", async () => {
@@ -134,6 +137,6 @@ describe("IM session search", () => {
       target: { value: "方案" },
     });
 
-    expect(await screen.findByText(zhCN.sidebar.imSearchTruncated)).toBeTruthy();
+    expect(await screen.findByText(copy.imSearchTruncated)).toBeTruthy();
   });
 });

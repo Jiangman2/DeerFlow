@@ -51,8 +51,7 @@ def _stamp(minutes: int) -> datetime:
     return NOW - timedelta(minutes=minutes)
 
 
-async def _seed_thread(session, thread_id: str, *, owner: str, channel_type: str, chat_id: str,
-                       display_name: str | None, minutes: int, status: str = "active") -> None:
+async def _seed_thread(session, thread_id: str, *, owner: str, channel_type: str, chat_id: str, display_name: str | None, minutes: int, status: str = "active") -> None:
     when = _stamp(minutes)
     session.add(
         ThreadMetaRow(
@@ -97,25 +96,16 @@ async def env(tmp_path, monkeypatch):
     async with factory() as session:
         # Owner A: two private threads, two X threads, one Y thread, one thread
         # whose threads_meta row is gone, and one archived thread.
-        await _seed_thread(session, "p1", owner=OWNER_A, channel_type="private", chat_id=PRIVATE_A,
-                           display_name="私聊旧话题", minutes=90)
-        await _seed_thread(session, "p2", owner=OWNER_A, channel_type="private", chat_id=PRIVATE_A,
-                           display_name="私聊新话题", minutes=5)
-        await _seed_thread(session, "x1", owner=OWNER_A, channel_type="group", chat_id=GROUP_X,
-                           display_name="研发评审", minutes=60)
-        await _seed_thread(session, "x2", owner=OWNER_A, channel_type="group", chat_id=GROUP_X,
-                           display_name="研发排期", minutes=10)
-        await _seed_thread(session, "y1", owner=OWNER_A, channel_type="group", chat_id=GROUP_Y,
-                           display_name="产品讨论一", minutes=20)
-        await _seed_thread(session, "l1", owner=OWNER_A, channel_type="group", chat_id=GROUP_LEFT,
-                           display_name="旧项目", minutes=120)
-        await _seed_thread(session, "th_archived", owner=OWNER_A, channel_type="group", chat_id=GROUP_LEFT,
-                           display_name="已归档", minutes=130, status="archived")
-        await _seed_thread(session, "th_deleted", owner=OWNER_A, channel_type="group", chat_id=GROUP_Y,
-                           display_name="已删除", minutes=140, status="deleted")
+        await _seed_thread(session, "p1", owner=OWNER_A, channel_type="private", chat_id=PRIVATE_A, display_name="私聊旧话题", minutes=90)
+        await _seed_thread(session, "p2", owner=OWNER_A, channel_type="private", chat_id=PRIVATE_A, display_name="私聊新话题", minutes=5)
+        await _seed_thread(session, "x1", owner=OWNER_A, channel_type="group", chat_id=GROUP_X, display_name="研发评审", minutes=60)
+        await _seed_thread(session, "x2", owner=OWNER_A, channel_type="group", chat_id=GROUP_X, display_name="研发排期", minutes=10)
+        await _seed_thread(session, "y1", owner=OWNER_A, channel_type="group", chat_id=GROUP_Y, display_name="产品讨论一", minutes=20)
+        await _seed_thread(session, "l1", owner=OWNER_A, channel_type="group", chat_id=GROUP_LEFT, display_name="旧项目", minutes=120)
+        await _seed_thread(session, "th_archived", owner=OWNER_A, channel_type="group", chat_id=GROUP_LEFT, display_name="已归档", minutes=130, status="archived")
+        await _seed_thread(session, "th_deleted", owner=OWNER_A, channel_type="group", chat_id=GROUP_Y, display_name="已删除", minutes=140, status="deleted")
         # Owner B keeps one thread in the same group X: cross-owner isolation.
-        await _seed_thread(session, "b_x1", owner=OWNER_B, channel_type="group", chat_id=GROUP_X,
-                           display_name="B 的私密结论", minutes=15)
+        await _seed_thread(session, "b_x1", owner=OWNER_B, channel_type="group", chat_id=GROUP_X, display_name="B 的私密结论", minutes=15)
         await session.commit()
 
     # th_gone: registry row without a threads_meta row (deleted behind our back).
@@ -145,25 +135,34 @@ async def env(tmp_path, monkeypatch):
 
     routing = ImRoutingRepository(factory)
     await routing.insert_pointer_if_absent(
-        provider="feishu", owner_user_id=OWNER_A, chat_id=PRIVATE_A, thread_id="p2", channel_type="private",
+        provider="feishu",
+        owner_user_id=OWNER_A,
+        chat_id=PRIVATE_A,
+        thread_id="p2",
+        channel_type="private",
     )
     await routing.insert_pointer_if_absent(
-        provider="feishu", owner_user_id=OWNER_A, chat_id=GROUP_X, thread_id="x2", channel_type="group",
+        provider="feishu",
+        owner_user_id=OWNER_A,
+        chat_id=GROUP_X,
+        thread_id="x2",
+        channel_type="group",
     )
     await routing.insert_pointer_if_absent(
-        provider="feishu", owner_user_id=OWNER_B, chat_id=GROUP_X, thread_id="b_x1", channel_type="group",
+        provider="feishu",
+        owner_user_id=OWNER_B,
+        chat_id=GROUP_X,
+        thread_id="b_x1",
+        channel_type="group",
     )
 
     catalog = ImGroupCatalogRepository(factory)
     await catalog.ensure(chat_id=GROUP_X, bot_app_id="cli_test", chat_type="group")
-    await catalog.update_meta(chat_id=GROUP_X, bot_app_id="cli_test", display_name="研发一群", name_source="CHAT_INFO",
-                              chat_status="ACTIVE")
+    await catalog.update_meta(chat_id=GROUP_X, bot_app_id="cli_test", display_name="研发一群", name_source="CHAT_INFO", chat_status="ACTIVE")
     await catalog.ensure(chat_id=GROUP_Y, bot_app_id="cli_test", chat_type="group")
-    await catalog.update_meta(chat_id=GROUP_Y, bot_app_id="cli_test", display_name="产品讨论", name_source="CHAT_INFO",
-                              chat_status="ACTIVE")
+    await catalog.update_meta(chat_id=GROUP_Y, bot_app_id="cli_test", display_name="产品讨论", name_source="CHAT_INFO", chat_status="ACTIVE")
     await catalog.ensure(chat_id=GROUP_LEFT, bot_app_id="cli_test", chat_type="group")
-    await catalog.update_meta(chat_id=GROUP_LEFT, bot_app_id="cli_test", display_name="旧项目群",
-                              name_source="CHAT_INFO", chat_status="LEFT")
+    await catalog.update_meta(chat_id=GROUP_LEFT, bot_app_id="cli_test", display_name="旧项目群", name_source="CHAT_INFO", chat_status="LEFT")
     # Catalog-only group: it must never become an empty directory (S08-15).
     await catalog.ensure(chat_id=GROUP_Z, bot_app_id="cli_test", chat_type="group")
     await catalog.update_meta(chat_id=GROUP_Z, bot_app_id="cli_test", display_name="空群", name_source="CHAT_INFO")
@@ -285,8 +284,7 @@ async def test_group_threads_paginate_with_cursor(env):
     assert [t["thread_id"] for t in first["threads"]] == ["x2", "x1"]
     assert first["next_cursor"]
 
-    status, second = await _get(_app(), f"/api/im/groups/{GROUP_X}/threads", limit=2,
-                                cursor=first["next_cursor"])
+    status, second = await _get(_app(), f"/api/im/groups/{GROUP_X}/threads", limit=2, cursor=first["next_cursor"])
     assert status == 200
     assert [t["thread_id"] for t in second["threads"]] == ["th_gone"]
     assert second["next_cursor"] is None

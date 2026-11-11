@@ -1,4 +1,4 @@
-﻿import {
+import {
   CompassIcon,
   ImageIcon,
   MicroscopeIcon,
@@ -462,23 +462,6 @@ export const enUS: Translations = {
     openSkillCenter: "Open Skill Center in a new window",
     scheduledTasks: "Scheduled tasks",
     agentsDisabledTooltip: "Feature not enabled",
-    privateSection: "Private",
-    groupSection: "Group",
-    webChats: "Web chats",
-    imSearchPlaceholder: "Search Feishu chats",
-    imEmptyPrivate: "No Feishu private chats yet",
-    imEmptyGroup: "No Feishu group chats yet",
-    imCurrentThread: "Current Feishu conversation",
-    imGroupLeft: "Left",
-    imGroupDissolved: "Dissolved",
-    imLoadMore: (count: number) => `Show all ${count}`,
-    imShowAllGroups: (count: number) => `Show all groups (${count})`,
-    imSearchNoResult: "No matching Feishu chats",
-    imMatchGroup: "Group",
-    imMatchThread: "Chat",
-    imSearchTruncated: "Showing partial matches. Narrow the search.",
-    imLoadFailed: "Failed to load Feishu chats",
-    imRetry: "Retry",
   },
 
   // Scheduled tasks
@@ -1324,4 +1307,3 @@ export const enUS: Translations = {
     },
   },
 };
-

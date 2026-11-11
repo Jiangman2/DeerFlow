@@ -27,8 +27,7 @@ export function WorkspaceSidebar({
   const { open: isSidebarOpen, isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const { data: imCapabilities } = useImCapabilities();
-  const imSessionTreeEnabled =
-    imCapabilities?.im_session_tree_enabled === true;
+  const imSessionTreeEnabled = imCapabilities?.im_session_tree_enabled === true;
   const previousPathnameRef = useRef(pathname);
   const hasObservedInitialPathnameRef = useRef(false);
 

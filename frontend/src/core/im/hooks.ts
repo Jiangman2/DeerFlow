@@ -42,7 +42,13 @@ export function useImGroupThreads(
   enabled = true,
 ) {
   return useQuery({
-    queryKey: [...IM_QUERY_KEY, "group", chatId, params.limit ?? null, params.cursor ?? null],
+    queryKey: [
+      ...IM_QUERY_KEY,
+      "group",
+      chatId,
+      params.limit ?? null,
+      params.cursor ?? null,
+    ],
     queryFn: () => fetchImGroupThreads(chatId ?? "", params),
     staleTime: 30_000,
     enabled: enabled && Boolean(chatId),

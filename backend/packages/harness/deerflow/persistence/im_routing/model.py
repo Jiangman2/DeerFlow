@@ -1,4 +1,4 @@
-﻿"""ORM models for IM session routing (pointers, message links, event inbox).
+"""ORM models for IM session routing (pointers, message links, event inbox).
 
 These tables back the V2 routing contract described in
 ``1-寮€鍙戞枃妗?椋炰功 脳 DeerFlow 浼佷笟绾у垎缇や細璇濊矾鐢辩郴缁?md``:

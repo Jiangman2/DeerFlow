@@ -1,4 +1,4 @@
-﻿"""Concurrency safety tests for ``bootstrap_schema``.
+"""Concurrency safety tests for ``bootstrap_schema``.
 
 The contract: N concurrent callers against the same DB always converge to
 ``alembic_version == head`` without exceptions and without duplicate schema

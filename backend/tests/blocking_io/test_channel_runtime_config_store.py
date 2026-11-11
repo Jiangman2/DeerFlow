@@ -107,6 +107,10 @@ async def test_disconnect_runtime_channel_does_not_block_event_loop(tmp_path) ->
     }
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="POSIX file-mode semantics; Windows ACLs do not expose 0o600 via st_mode",
+)
 async def test_runtime_config_store_file_is_owner_only(tmp_path) -> None:
     path = tmp_path / "channels" / "runtime-config.json"
     store = await asyncio.to_thread(ChannelRuntimeConfigStore, path)
@@ -121,6 +125,10 @@ async def test_runtime_config_store_file_is_owner_only(tmp_path) -> None:
     assert mode == 0o600
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="POSIX file-mode semantics; Windows ACLs do not expose 0o600 via st_mode",
+)
 async def test_runtime_config_store_overwrites_loose_existing_file(tmp_path) -> None:
     """A pre-existing world-readable file is tightened to 0o600 after a save.
 
@@ -144,6 +152,10 @@ async def test_runtime_config_store_overwrites_loose_existing_file(tmp_path) -> 
     assert mode == 0o600
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="POSIX file-mode semantics; Windows ACLs do not expose 0o600 via st_mode",
+)
 async def test_runtime_config_store_chmod_failure_aborts_before_publication(tmp_path) -> None:
     """A real temporary-file permission failure must not publish new secrets."""
     path = tmp_path / "channels" / "runtime-config.json"

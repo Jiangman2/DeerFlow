@@ -1,4 +1,4 @@
-﻿"""ORM model for the S08 IM thread registry.
+"""ORM model for the S08 IM thread registry.
 
 ``im_thread_registry`` is the single source of truth for *which user owns which
 IM thread* and *whether that thread belongs to a private chat or a group*.

@@ -396,7 +396,7 @@ class FeishuChannel(Channel):
         return bool(self.config.get("_work_receiver_ready")) if self.config.get("_work_send_only") else self._ws_connected.is_set()
 
     def _build_event_handler(self, lark):
-        return (
+        builder = (
             lark.EventDispatcherHandler.builder("", "")
             .register_p2_im_message_receive_v1(self._on_message)
             .register_p2_im_message_message_read_v1(self._on_ignored_message_event)
@@ -405,9 +405,18 @@ class FeishuChannel(Channel):
             .register_p2_im_message_recalled_v1(self._on_ignored_message_event)
             .register_p2_im_chat_updated_v1(self._on_chat_updated_event)
             .register_p2_im_chat_disbanded_v1(self._on_chat_disbanded_event)
-            .register_p2_im_member_bot_deleted_v1(self._on_bot_removed_event)
-            .build()
         )
+        # The bot-removed event is named ``im.chat.member.bot.deleted_v1`` and the
+        # generated SDK method differs between lark-oapi releases
+        # (``register_p2_im_chat_member_bot_deleted_v1`` vs an older spelling).
+        # Probe instead of hard-coding: a missing method must not kill the whole
+        # WebSocket worker, which would take every Feishu message down with it.
+        register_bot_removed = getattr(builder, "register_p2_im_chat_member_bot_deleted_v1", None)
+        if register_bot_removed is not None:
+            builder = register_bot_removed(self._on_bot_removed_event)
+        else:
+            logger.warning("lark-oapi has no bot-removed event registration; group LEFT detection is disabled")
+        return builder.build()
 
     def _work_ws_cards_enabled(self, app_id: str) -> bool:
         if not callable(self.config.get("_work_receiver_guard")):
@@ -590,7 +599,7 @@ class FeishuChannel(Channel):
             pass
         except Exception:
             if self._running:
-                logger.error("Feishu WebSocket worker stopped; handshake=%s", self._ws_failure)
+                logger.exception("Feishu WebSocket worker stopped; handshake=%s", self._ws_failure)
         finally:
             loop.set_task_factory(None)  # Cleanup coroutines must still run.
             self._ws_connected.clear()
@@ -1023,7 +1032,6 @@ class FeishuChannel(Channel):
             except Exception:
                 logger.warning("work_card stage=text_fallback_patch_failed")
         return await send(message_id, text)
-
 
     def _track_background_task(self, task: asyncio.Task, *, name: str, msg_id: str) -> None:
         """Keep a strong reference to fire-and-forget tasks and surface errors."""

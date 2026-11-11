@@ -254,11 +254,7 @@ class ImConversationService:
         results = []
         for thread in threads:
             meta = catalog.get(thread.external_conversation_id)
-            current_thread_id = (
-                pointers.get(("group", thread.external_conversation_id))
-                if thread.channel_type == "group"
-                else pointers.get(("private", thread.external_conversation_id))
-            )
+            current_thread_id = pointers.get(("group", thread.external_conversation_id)) if thread.channel_type == "group" else pointers.get(("private", thread.external_conversation_id))
             results.append(
                 self._thread_item(
                     thread,
@@ -274,9 +270,7 @@ class ImConversationService:
             return None
         meta = None
         if thread.channel_type == "group":
-            meta = (await self._catalog_repo.get_many([thread.external_conversation_id])).get(
-                thread.external_conversation_id
-            )
+            meta = (await self._catalog_repo.get_many([thread.external_conversation_id])).get(thread.external_conversation_id)
         pointers = await self._current_threads(thread.owner_user_id)
         current_thread_id = pointers.get((thread.channel_type, thread.external_conversation_id))
         return {

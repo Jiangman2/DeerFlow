@@ -1,0 +1,361 @@
+{
+  "schema": "im-s08-source.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "ced7db0cf083aeff02fd142a7d8fb7dcc266213d",
+  "base_lock_sha256": "5ba9be463fcbca2a48ed7f879d208642ea1a29e2dd6993747be3fc04a835b981",
+  "parent_candidate_sha256": "4cf42545941e8126bb374dbdcf9d5d1b7420bf13fa8b28d7b4ec6193f269f7ca",
+  "parent_candidate": "deploy/enterprise/feishu-export-source-candidate-20261106.json",
+  "production_acceptance_claimed": false,
+  "schema_migration_requested": true,
+  "scope": "Scoped IM S08 source candidate on the enterprise 0716 lineage: Feishu thread archive, read-only IM tree and artifact delivery. No deployment, migration application or business acceptance.",
+  "changes": {
+    "gateway": {
+      "backend/app/channels/audit.py": {
+        "base_sha256": null,
+        "candidate_sha256": "85de804bb4511ae57ccc7efdc316b214da7b940670397c447d12032f053670c3"
+      },
+      "backend/app/channels/base.py": {
+        "base_sha256": "c2bf3d85dd6d614a57eb7b0ef0f4b3d89ab117fb1fe797c0b98fb6fd3b9f4325",
+        "candidate_sha256": "b786ad896ec686c92f24fa7dfd3e01fc2703e30dd23a7d864faee48acf3a62e6"
+      },
+      "backend/app/channels/connection_identity.py": {
+        "base_sha256": "35e0aa8228f7ce262d7f8fa9587f184be91c6253a649cbe651c22230c96ab646",
+        "candidate_sha256": "1a1934475041990aa3fa24c6c4f0f451835802964b0d5ab57fef07b8a66381c6"
+      },
+      "backend/app/channels/feishu.py": {
+        "base_sha256": "ad75143f8f07d69f763d94b33402792631d02a449be3dfa2f9a5b89d05d85a5f",
+        "candidate_sha256": "1d572f898981e61f5acc038b3c2ab094e6d3d12b91bf99db47b3703d068f3362"
+      },
+      "backend/app/channels/identity_resolver.py": {
+        "base_sha256": null,
+        "candidate_sha256": "69901490bda9e69fadb8c1c3434aac0d223ee53e67478d913dbe9098e3af41ac"
+      },
+      "backend/app/channels/manager.py": {
+        "base_sha256": "ec362f03f17ee491ad3a1d37e1dfa652195d168e4f1188ad3269f5db60fbd0f4",
+        "candidate_sha256": "25ad2087c9773b09d665a6dfd7c9ddd1af6d8faa8f41f26dff7e2f4ede1a0b70"
+      },
+      "backend/app/channels/routing_v2.py": {
+        "base_sha256": null,
+        "candidate_sha256": "4332f2c7b50487444c744343b10bb2ce870ab689139c08b3e2467f7636f619c3"
+      },
+      "backend/app/channels/runtime_config_store.py": {
+        "base_sha256": "c471038878b40cc0970aab5c9c1b9c79509654e6bb98a380e71dbb70c0348f97",
+        "candidate_sha256": "cc54fb48c7277b097911e3a7a5b6f13a6bbc071263b10575f19d9c100f1d3c07"
+      },
+      "backend/app/channels/service.py": {
+        "base_sha256": "d648d4942f4d9ce7a2bd33027f2129235954cdac4c6bfd5601f285ddfc66112d",
+        "candidate_sha256": "6a9f6ab9233c4f74d23cc12e068d212c7756b8d4ae4dd2bc4bb7a70146530d1c"
+      },
+      "backend/app/gateway/app.py": {
+        "base_sha256": "f130bad760b6fb895795a0b4622503ad013a13716e2eb4c3c1dcf78aa85d98f0",
+        "candidate_sha256": "a875f06170798e4ffc2fba2f2fb83283bedb759a12b786397f17b7414c938fc9"
+      },
+      "backend/app/gateway/im_conversations.py": {
+        "base_sha256": null,
+        "candidate_sha256": "bd92b973b73dc9604e2f11275a79b1e9458a251753cdad77cdcce48f6197ec86"
+      },
+      "backend/app/gateway/routers/channel_connections.py": {
+        "base_sha256": "15ca8ca2ce737ad8b459a976664cf7668a962ee65cdc62c4b72bec56c083936b",
+        "candidate_sha256": "a291417c6a6284ba602ec2e41889f3736825e358f3f9eeb20f60be6c4e32f158"
+      },
+      "backend/app/gateway/routers/im_conversations.py": {
+        "base_sha256": null,
+        "candidate_sha256": "a2ca8e233727117d46877f6f8dbeab1ce0e5c0a0dd664b76ba30a3d05445f174"
+      },
+      "backend/packages/harness/deerflow/persistence/im_routing/__init__.py": {
+        "base_sha256": null,
+        "candidate_sha256": "80c2a0543bc4c4b346dd541085cae3355c851decf01db8f90a8cf40e144114c2"
+      },
+      "backend/packages/harness/deerflow/persistence/im_routing/bindings.py": {
+        "base_sha256": null,
+        "candidate_sha256": "54a12cd1ff33b458456934ef15e01d45e7d682da9db82989cd6f56f583f4c0e0"
+      },
+      "backend/packages/harness/deerflow/persistence/im_routing/catalog.py": {
+        "base_sha256": null,
+        "candidate_sha256": "e4ea4b66780b0df869f077dae328231ef5ce7bcaad0c701d5208e56ae045c495"
+      },
+      "backend/packages/harness/deerflow/persistence/im_routing/model.py": {
+        "base_sha256": null,
+        "candidate_sha256": "6e9237adde7b78e455efb6a779fe4523e65548f4e2416ca1e7db70df92151884"
+      },
+      "backend/packages/harness/deerflow/persistence/im_routing/registry.py": {
+        "base_sha256": null,
+        "candidate_sha256": "66ab9a1e444e19e614ce1399af6575da53804295b1c38993bf49e3d36a5c6e2e"
+      },
+      "backend/packages/harness/deerflow/persistence/im_routing/registry_model.py": {
+        "base_sha256": null,
+        "candidate_sha256": "b2cb2e231a22880d05a2743550c3b6f4dd4e57371b7f3e7e4837a1fb7664b4f8"
+      },
+      "backend/packages/harness/deerflow/persistence/im_routing/sql.py": {
+        "base_sha256": null,
+        "candidate_sha256": "28491671ef4f624a774f25a0f47fb26bfd63f6e3e257d3518eb54c9f8635df7b"
+      },
+      "backend/packages/harness/deerflow/persistence/migrations/versions/0023_im_session_routing.py": {
+        "base_sha256": null,
+        "candidate_sha256": "13d81a7fa34283cf107a8514f0d3951de343ebf83eb52ac628ee80638b30d4ed"
+      },
+      "backend/packages/harness/deerflow/persistence/migrations/versions/0024_im_s08_archive.py": {
+        "base_sha256": null,
+        "candidate_sha256": "6408ab664e8e48fd085c957f34cf937418564cd8ef6471a6673e496f0f7ba528"
+      },
+      "backend/packages/harness/deerflow/persistence/models/__init__.py": {
+        "base_sha256": "0d1ea7e1ba39cd26c91b164c6bbbe246047597e3bfc977f2b5cd2c2ac805e534",
+        "candidate_sha256": "09835c7031d4284738c549a6eb938e8c1222038da8d6a5fe6e6fe7f83758356c"
+      }
+    },
+    "frontend": {
+      "frontend/next.config.js": {
+        "base_sha256": "ad776ba0f04732983f2a23821689c08cb4367a144de656da49a89d83972b3813",
+        "candidate_sha256": "4e66ef8d790c8d3670e3cfd59dbec3b659965f6ae45867cf9ec0e010b9cb502f"
+      },
+      "frontend/playwright.config.ts": {
+        "base_sha256": "86e5ed52bf0608fc2914da3519075a0ab7b699f7dabec4e114fc4937bd75e6a9",
+        "candidate_sha256": "bb010e99aa8f90a77ca9ce8f5d134b9befb6eec72ed37b225f41810220e52fd9"
+      },
+      "frontend/src/app/(auth)/login/page.tsx": {
+        "base_sha256": "f09db9fe800319778c31bd0fae84a3b35ad8632b632732be58388d8ac1506227",
+        "candidate_sha256": "c8688502f8f381ff0fdcd71708ad2c9a4b27915c8e21c16dedcb573405024b7c"
+      },
+      "frontend/src/app/mock/api/im/session-tree/route.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "8c738d0284f58039333e59d87deacfee270be52bbb2b865dc8cdfbc1df2dbfb0"
+      },
+      "frontend/src/app/workspace/layout.tsx": {
+        "base_sha256": "36857625c04bd2516fdf139ab9b2669be5bf3e5dca5a209a276dc34ecc71e349",
+        "candidate_sha256": "76a336cc610172b3609385e202d2931d1824607dcee43e8ec58fabbc0335d2d7"
+      },
+      "frontend/src/components/workspace/artifacts/artifact-file-detail.tsx": {
+        "base_sha256": "d94c326e8704c047b83c96178748d3e3a8451a45f134df268ebda9b593ad12cf",
+        "candidate_sha256": "ec794f68d3552da7f065fe25963b5e0929e0617f880e7720a2b7e7e3b8175545"
+      },
+      "frontend/src/components/workspace/artifacts/artifact-file-list.tsx": {
+        "base_sha256": "6b105e5017adc0e9112c57d5e4c7be9c95cc66c3b62d4cff033b275bbfa30980",
+        "candidate_sha256": "c0eb5d91fed3560bcf8d3a7cfba80304c9cef31f99a2909ccdbb69d876bbd70f"
+      },
+      "frontend/src/components/workspace/artifacts/send-artifact-to-feishu.tsx": {
+        "base_sha256": null,
+        "candidate_sha256": "2cfa8be90f038640d70b671308e65d1cafba2b7fdeb93a548c4785ef1fe81da9"
+      },
+      "frontend/src/components/workspace/export-trigger.tsx": {
+        "base_sha256": "5b91719ccb0ab127d44b9abe49d0caa557527c2c3a2e3764aa09722358fd0aea",
+        "candidate_sha256": "3478bca73ae1fd50ae5bad79bfe6346c90c4e897acc682c919505bdfc47de60f"
+      },
+      "frontend/src/components/workspace/im-session-search.tsx": {
+        "base_sha256": null,
+        "candidate_sha256": "4d8e5bca71860a162db66cd2be6f8251bf1db19db055c3cc2910b3fb110a3d33"
+      },
+      "frontend/src/components/workspace/im-session-tree.tsx": {
+        "base_sha256": null,
+        "candidate_sha256": "497157c3adc5d38c8f1a3d84acdf43469b7d01460301691dd1d26ad7a929a562"
+      },
+      "frontend/src/components/workspace/messages/virtual-message-list.tsx": {
+        "base_sha256": "881b7f7435a83cd54655a313ee33db4f0501c15cf6f5d3eeeb7e7333caa8e55e",
+        "candidate_sha256": "73e02713ea635c32decef562c5476cf38db518c4a038264c176011ed5d94fc6f"
+      },
+      "frontend/src/components/workspace/recent-chat-list.tsx": {
+        "base_sha256": "3a1f32666ad121a22497800b60a8ecb76a90e2c8bceb8ae2509f1f8879a2cfbd",
+        "candidate_sha256": "bf43ff45eaa5bd8b6296d94ca8b7b68aea55db5ded109d971021633241c16957"
+      },
+      "frontend/src/components/workspace/workspace-sidebar.tsx": {
+        "base_sha256": "c20af9076bbd342330ed37028cc355d7eac0b5e06a266cdf3d52053dbe93371f",
+        "candidate_sha256": "f6f2568af8cf1c9ccd56b5381b73408e7072b32a6279a195b965a4059d0bacdd"
+      },
+      "frontend/src/core/artifacts/utils.ts": {
+        "base_sha256": "56142a1dfa3228982f31401f115578fff46b985fbafc6afdf5011233dc4ce824",
+        "candidate_sha256": "562421191e25abc5025e3432e57308ad82e1958117f5ced618bbcffe79993815"
+      },
+      "frontend/src/core/channels/targets.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "f1813b2d1f27fd47836c405f3a8246673b3d0d0284cdacf6e31ecb2dafae4f40"
+      },
+      "frontend/src/core/i18n/feishu-export.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "abb4c23eb7adee7ed74ab28eaea7865c65f72fc08a3f118f4ecad202a8a37c66"
+      },
+      "frontend/src/core/i18n/im-session-tree.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "1662d69db24c9f632f59fc5be18d6130c0b2b5704abc455a997f408ad8d01675"
+      },
+      "frontend/src/core/im/api.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "5f364cfacc41d1f096895dc0ca81e5167ad78c3f9ee87da80c44da4bff184e0a"
+      },
+      "frontend/src/core/im/hooks.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "bb4424b36444491868165a602b55c36f2ae99464e71af1634eb94d74419a139d"
+      },
+      "frontend/src/core/im/tree.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "3a2381ed2d36e200b78c7d6d785693c80293ca0248a039363f4a652611c3ff58"
+      },
+      "frontend/src/core/im/types.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "eab235d68d3002d14d8a6127d0f65997e34710958257a9d82fc395145a1fc3ec"
+      },
+      "frontend/src/core/threads/export.ts": {
+        "base_sha256": "a29caefe5ea7f340a6efd0e4728e966a8d5f61baf588b1d6d02b4e163d421edc",
+        "candidate_sha256": "a873e5af8eff7af562dc752725986476fcd85beef9b50c79551e127065c3a31d"
+      },
+      "frontend/src/core/threads/utils.ts": {
+        "base_sha256": "baf8cacd5d59a3b757ea6b5be74d0ffdac091b9b15a8d5e8021ad8a3ab2a208a",
+        "candidate_sha256": "02da53a844124cab3de87bc0f163cd71aff0ad4fe368892b13e2c78b7d76874a"
+      },
+      "frontend/tests/e2e/im-session-tree.spec.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "998da9b5b113345f1716348a85034e3e0eeef099d762cc84406f0260386b3544"
+      },
+      "frontend/tests/e2e/utils/mock-api.ts": {
+        "base_sha256": "71bd271481b893f27ce8c09b14c0c815e02f8395c587f4b265c9820cbdd29b49",
+        "candidate_sha256": "042c6d0e462e465afb7c592a31c5e850dd8e5732626e14891731326b1a0150cf"
+      },
+      "frontend/tests/unit/components/workspace/artifacts/send-artifact-to-feishu.dom.test.tsx": {
+        "base_sha256": null,
+        "candidate_sha256": "2994e2a1e2cacb467af7e5556ab30a4e5209a5f8391430292914ccce415cc357"
+      },
+      "frontend/tests/unit/components/workspace/im-session-search.dom.test.tsx": {
+        "base_sha256": null,
+        "candidate_sha256": "f7485ffe1c4b6279ab5acbc4912a3750578e948f0863cd71a9f6f3e3f48aa722"
+      },
+      "frontend/tests/unit/components/workspace/im-session-tree.dom.test.tsx": {
+        "base_sha256": null,
+        "candidate_sha256": "f28a20154ef17d74af58397a00b4415f2a1b5e0d04882b9633ab3bf459db3838"
+      },
+      "frontend/tests/unit/components/workspace/workspace-auth-layout.test.tsx": {
+        "base_sha256": "e01fef95e7b05a4ce0d5742039808242ba2bff11770d0c823b0f663e3662e870",
+        "candidate_sha256": "29c10d5e6a9e1d0a3a861cfced83fef35b5d8293ea26b8db384c1a43ac1da81b"
+      },
+      "frontend/tests/unit/core/channels/targets.test.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "035f4cc4bd0b82107cac76de074b77493f3a0a33db780b1ad61312a32812a524"
+      },
+      "frontend/tests/unit/core/im/tree.test.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "350ca55ab6375cf2845d849d2b8728e0cefb7d900696d15b43f93655914e7dbc"
+      },
+      "frontend/tests/unit/core/threads/export-feishu.test.ts": {
+        "base_sha256": null,
+        "candidate_sha256": "3a789b5a30044025d4ef23cbbf8da30fd2eeffe6f3c5fda51a0cfe7c69f55564"
+      },
+      "frontend/tests/unit/core/threads/utils.test.ts": {
+        "base_sha256": "9f71e6d1f980a07806a5f9d115efae8ca7706fb4ab05d8bcd37419e85844eb82",
+        "candidate_sha256": "8b7168a24f29a66b669fd326cdfc33ff49dcc2b243ff57c289a959456b4fb70c"
+      }
+    },
+    "test": {
+      "backend/scripts/backfill_im_thread_registry.py": {
+        "base_sha256": null,
+        "candidate_sha256": "f1178a6996081da77c0f05f2ba4b706a42d136bfb4b0b7acb7cf55ffbfebc6b3"
+      },
+      "backend/tests/blocking_io/test_channel_runtime_config_store.py": {
+        "base_sha256": "2d5fec4f552bae72a9f1cc7b7fba2110b82d716c8be256b70da8ea8fc2ad3345",
+        "candidate_sha256": "330dc5b38ae374ba7e989189ee8aba424325398151c1a71b5adddc4821fe278b"
+      },
+      "backend/tests/test_channel_connections_router.py": {
+        "base_sha256": "8bb907b65ff2ac72b7c54cf1f8bd456d85f19524c1d6d315de1ea93ca042b03f",
+        "candidate_sha256": "f501616dace3efe4ded6c58f190d2d1da3a5f5172253db58ffc426801e30f60c"
+      },
+      "backend/tests/test_channel_routing_v2.py": {
+        "base_sha256": null,
+        "candidate_sha256": "811e0073e1d64e7ee4eef8b6bcbcfbd0920d98fb57dbfd63132c9fb7c6255630"
+      },
+      "backend/tests/test_feishu_group_events.py": {
+        "base_sha256": null,
+        "candidate_sha256": "788eab5fe023c4d5b733ad840a5ad9a724027e15e9d3b6347ba43e9a7c6001b2"
+      },
+      "backend/tests/test_feishu_group_isolation.py": {
+        "base_sha256": null,
+        "candidate_sha256": "94ebd28fc204e0ad9d9b5abbd77ede28a4bf2f9d69dbfccff533cd82cf41583e"
+      },
+      "backend/tests/test_feishu_parser.py": {
+        "base_sha256": "66ef7061c0b7492c1d735171288a9245eca6a7c1803bf60dc2d7ecf61352686f",
+        "candidate_sha256": "98f1dc72b0e2bf22a3252504a9fed748fc53514c8bf4883cba7bcd9eef703f4f"
+      },
+      "backend/tests/test_feishu_routing_v2.py": {
+        "base_sha256": null,
+        "candidate_sha256": "dc8f54e16cbe020dea9b90ae09a9b090c5cf3318e1b9322e90c68f71bf5c6e14"
+      },
+      "backend/tests/test_im_backfill.py": {
+        "base_sha256": null,
+        "candidate_sha256": "dddb0a6c429ba4a8b3831a1337157b486e23921498eb5f2b6d2d0354f3d30e79"
+      },
+      "backend/tests/test_im_conversation_api.py": {
+        "base_sha256": null,
+        "candidate_sha256": "a6a24f43439648b081150671dbf9f5849e29cc129820d710ab884ebd08b00df3"
+      },
+      "backend/tests/test_im_group_catalog.py": {
+        "base_sha256": null,
+        "candidate_sha256": "8f6e024a609eb1f187e0cfdf1587ea055330c114ba47fccc5cedadc6463c3ee0"
+      },
+      "backend/tests/test_im_identity_resolver.py": {
+        "base_sha256": null,
+        "candidate_sha256": "50564c24f414f89269e456fe753bdb2e4141996f352e8867fafba372851977e3"
+      },
+      "backend/tests/test_im_routing_repository.py": {
+        "base_sha256": null,
+        "candidate_sha256": "76bf2f324f6d7972607150bff7e1ea30626e25de461d70ffb70b5d528dfb00a4"
+      },
+      "backend/tests/test_im_thread_registry.py": {
+        "base_sha256": null,
+        "candidate_sha256": "a89da26623b50230c652d1e9df44a11700b1b25dafb9cb8a0d16a79d498f89a2"
+      },
+      "backend/tests/test_im_user_bindings.py": {
+        "base_sha256": null,
+        "candidate_sha256": "bce48eddf7dd81eec10478c452dc16a1ca4d0477acf4268a6988e8f824c4aecd"
+      },
+      "backend/tests/test_migration_0022_work.py": {
+        "base_sha256": "48e41c1780fca209568fc8409c2706b1fe86ec77e55a1170bc8d3ca132337b0b",
+        "candidate_sha256": "4d842fda486442cb4f7898d6916c10d8621a9c01d9a1d7fbcad0209018cc8713"
+      },
+      "backend/tests/test_migration_0024_im_s08_archive.py": {
+        "base_sha256": null,
+        "candidate_sha256": "4d4f892eead8925d6f1d9ef3fa3094a22f1dc2600c45a93e904fcbb3528bd523"
+      },
+      "backend/tests/test_persistence_bootstrap.py": {
+        "base_sha256": "57f9013ff5291715a0638111f5cb19aa7e46a603b264eeeb18b650370971da11",
+        "candidate_sha256": "ce84c55cc111f9d1d0a37472e6462bba8487322e953385f8f822b681e6f9e0c9"
+      },
+      "backend/tests/test_persistence_bootstrap_concurrency.py": {
+        "base_sha256": "6a3da4a6cf1abc3f81f93191b9b0e65046a643b95071ef48491c3aa43d80f465",
+        "candidate_sha256": "2d52fa9255724ec3b3014835c1068b19770613c39d62119fc976180e834aa9a9"
+      },
+      "backend/tests/test_persistence_bootstrap_regression.py": {
+        "base_sha256": "adf61e60cb60598b6f4fa5626ca97b44fe76ed04945f1960c424d3345e080771",
+        "candidate_sha256": "23504b7627acd8abfb6f6113daf5d890c9dcb05e5885efb7f1414cc6fb3214e7"
+      },
+      "backend/tests/test_routing_v2.py": {
+        "base_sha256": null,
+        "candidate_sha256": "7bc64c583ff28444f03701f7a121946bdb5eb36abb4343af58f5a9a6ecac2614"
+      },
+      "backend/tests/test_s08_scenarios.py": {
+        "base_sha256": null,
+        "candidate_sha256": "4cdd92d26313142cf10325aa4c2d347db9c651a37eeeb81928d3d5d38d1b7801"
+      },
+      "backend/tests/test_work_notification_sender.py": {
+        "base_sha256": "517e778d2575344e8033998ba196001e6e717fcdcdd478208a054b3ec4d0b25f",
+        "candidate_sha256": "cb5e5a89f1f18e7235b4f409ebc4ed4dd82806132654d462b214a8c354e8cde3"
+      }
+    }
+  },
+  "documentation": {
+    "AGENTS.md": "551d3e18030dc2155b8902e14a99993bb4328c311c377990525e7ce81b4f1334",
+    "README.md": "14228f7db4b04e0ecc987d9b57440f9fb09b5cd5af1739f2d1b76a293eff5f7c",
+    "backend/AGENTS.md": "a15589568c96ce0acd6bb82f4a5b88bb55b82c461fa31cfc49a9a2286c524b37",
+    "deploy/enterprise/feishu-export-source-candidate-20261106.json": "4cf42545941e8126bb374dbdcf9d5d1b7420bf13fa8b28d7b4ec6193f269f7ca",
+    "deploy/enterprise/im_s08_source_20261111.py": "b0d8f6a5c50b409ee96f8752f2165282f74564a7f2bb4f2b91aad997125ad5d0",
+    "deploy/enterprise/test_im_s08_source_20261111.py": "40e7327f9ba2940d07388b7bf0d6681207cb604187a71ba5fcece56d45049014",
+    "deploy/enterprise/verify-dashboard-navigation-source-20261103.py": "6ac7481f68a5085559f7d55ee81bcdcd7f6a4992555bc13614c5cc59f4bf9bd1",
+    "deploy/enterprise/verify-im-s08-source-20261111.py": "5928dc842e49bfb268c363e0eb1f0ca29597755f8b5dc21a0b6e733ea89562bf",
+    "deploy/enterprise/verify-nov01-released-source-20261102.py": "01c4d9d0ca42a004132121322719831637fdcd4c396077e1152d2127af2d6a2f",
+    "deploy/enterprise/verify-nov02-released-source-20261103.py": "6517eeaa83b17dddf01be9e4e92d2b0277be833fa9c7eab1dcfc9e39c9f24e23",
+    "deploy/enterprise/verify-production-baseline-20261029.py": "014365f4846b0034e7414960652ba22c21b3016874e45d1807b6b1e500d8120d",
+    "deploy/enterprise/verify-release-source-20261023.py": "31448b3ce0cc52146d8308de1346fcfad3a99eec6f08233ec9fcbc9aa4acb569",
+    "deploy/enterprise/work_integration_source_20261106.py": "83fb34d93e790943a245ef7440ae224b1182c1932a032aa983853e76b2fd51a6",
+    "docs/im-routing-v2-acceptance.md": "d99c96eae60126f3be2b95792de7d84fa9f2769786528ec2d77ab21cc8f97c05",
+    "docs/im-routing-v2-adr.md": "e4d19ef454cbdab7d0893e6fa48947973dfcf7140f6a31698ed2a634098993d3",
+    "docs/im-routing-v2-architecture.md": "2e145cadd528f3bc75a4511958389b87d862b31c6b024a6b9f23514f242caea2",
+    "docs/im-routing-v2-migration-runbook.md": "d118cd59ddd68affa13640cda6c49013263c9f8b4df8d5eb4ebe0035c40cb0d8",
+    "docs/im-routing-v2-status-and-test-plan.md": "3eae7872b459659db7a8575dd77319c51716efd2f573eff4c6f7c1d5cdaa1c56",
+    "scripts/switch-feishu-domain.cmd": "a8c942d91999c3114eab6fcf28bb0a5a1f5d6ece8978218e2dec2a3ae3f8da86",
+    "scripts/switch-feishu-domain.ps1": "659bb87942988f718b9c99e6d512bf37561afba347ffedfcd4b2e3dcec8bbb2d"
+  }
+}

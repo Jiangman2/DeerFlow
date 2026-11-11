@@ -19,7 +19,9 @@ export function treeIsEmpty(tree: ImSessionTree | null | undefined): boolean {
   return privateCount === 0 && (tree.groups?.length ?? 0) === 0;
 }
 
-export function countTreeThreads(tree: ImSessionTree | null | undefined): number {
+export function countTreeThreads(
+  tree: ImSessionTree | null | undefined,
+): number {
   if (!tree) {
     return 0;
   }

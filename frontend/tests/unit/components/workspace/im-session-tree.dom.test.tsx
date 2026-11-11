@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { ImSessionTree } from "@/components/workspace/im-session-tree";
+import { imSessionCopy } from "@/core/i18n/im-session-tree";
 import { zhCN } from "@/core/i18n/locales/zh-CN";
 import {
   useImCapabilities,
@@ -23,6 +24,8 @@ rs.mock("@/core/i18n/hooks", () => ({
 rs.mock("next/navigation", () => ({
   usePathname: () => "/workspace/chats/other-thread",
 }));
+
+const copy = imSessionCopy("zh-CN");
 
 const mockedCapabilities = rs.mocked(useImCapabilities);
 const mockedTree = rs.mocked(useImSessionTree);
@@ -106,8 +109,8 @@ beforeEach(() => {
 describe("IM session tree", () => {
   it("renders the private section and group section without empty directories", () => {
     renderTree();
-    expect(screen.getByText(zhCN.sidebar.privateSection)).toBeTruthy();
-    expect(screen.getByText(zhCN.sidebar.groupSection)).toBeTruthy();
+    expect(screen.getByText(copy.privateSection)).toBeTruthy();
+    expect(screen.getByText(copy.groupSection)).toBeTruthy();
     expect(screen.getByText("私聊里的新会话")).toBeTruthy();
     expect(screen.getByText("研发一群")).toBeTruthy();
   });
@@ -115,7 +118,7 @@ describe("IM session tree", () => {
   it("marks the Feishu current conversation with an accessible label", () => {
     renderTree();
     expect(
-      screen.getAllByLabelText(zhCN.sidebar.imCurrentThread).length,
+      screen.getAllByLabelText(copy.imCurrentThread).length,
     ).toBeGreaterThan(0);
   });
 
@@ -146,7 +149,7 @@ describe("IM session tree", () => {
       isLoading: false,
     } as unknown as ReturnType<typeof useImCapabilities>);
     renderTree();
-    expect(screen.queryByText(zhCN.sidebar.privateSection)).toBeNull();
+    expect(screen.queryByText(copy.privateSection)).toBeNull();
     expect(screen.queryAllByTestId("im-session-thread")).toHaveLength(0);
   });
 
@@ -158,7 +161,7 @@ describe("IM session tree", () => {
       refetch: rs.fn(),
     } as unknown as ReturnType<typeof useImSessionTree>);
     renderTree();
-    expect(screen.queryByText(zhCN.sidebar.privateSection)).toBeNull();
+    expect(screen.queryByText(copy.privateSection)).toBeNull();
     expect(screen.queryAllByTestId("im-session-thread")).toHaveLength(0);
   });
 
@@ -171,8 +174,8 @@ describe("IM session tree", () => {
       refetch,
     } as unknown as ReturnType<typeof useImSessionTree>);
     renderTree();
-    expect(screen.getByText(zhCN.sidebar.imLoadFailed)).toBeTruthy();
-    fireEvent.click(screen.getByText(zhCN.sidebar.imRetry));
+    expect(screen.getByText(copy.imLoadFailed)).toBeTruthy();
+    fireEvent.click(screen.getByText(copy.imRetry));
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 });

@@ -11,6 +11,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useI18n } from "@/core/i18n/hooks";
+import { imSessionCopy } from "@/core/i18n/im-session-tree";
 import { useImThreadSearch } from "@/core/im/hooks";
 import { threadDisplayTitle } from "@/core/im/tree";
 import { pathOfThread } from "@/core/threads/utils";
@@ -18,7 +19,8 @@ import { pathOfThread } from "@/core/threads/utils";
 const SEARCH_DEBOUNCE_MS = 250;
 
 export function ImSessionSearch() {
-  const { t } = useI18n();
+  const { locale } = useI18n();
+  const copy = imSessionCopy(locale);
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
 
@@ -43,8 +45,8 @@ export function ImSessionSearch() {
         <Input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder={t.sidebar.imSearchPlaceholder}
-          aria-label={t.sidebar.imSearchPlaceholder}
+          placeholder={copy.imSearchPlaceholder}
+          aria-label={copy.imSearchPlaceholder}
           className="h-7 pl-7 text-xs"
           data-testid="im-session-search-input"
         />
@@ -53,7 +55,7 @@ export function ImSessionSearch() {
         <div data-testid="im-session-search-results">
           {results.length === 0 && !isFetching && (
             <p className="text-muted-foreground px-1 py-1 text-[11px]">
-              {t.sidebar.imSearchNoResult}
+              {copy.imSearchNoResult}
             </p>
           )}
           {results.length > 0 && (
@@ -71,9 +73,11 @@ export function ImSessionSearch() {
                         </span>
                         <span className="bg-muted text-muted-foreground ml-auto inline-flex h-4 max-w-16 shrink-0 items-center rounded px-1 text-[10px]">
                           <span className="truncate">
-                            {(thread.chat_name ?? "").toLowerCase().includes(query.toLowerCase())
-                              ? t.sidebar.imMatchGroup
-                              : t.sidebar.imMatchThread}
+                            {(thread.chat_name ?? "")
+                              .toLowerCase()
+                              .includes(query.toLowerCase())
+                              ? copy.imMatchGroup
+                              : copy.imMatchThread}
                           </span>
                         </span>
                       </Link>
@@ -85,7 +89,7 @@ export function ImSessionSearch() {
           )}
           {truncated && (
             <p className="text-muted-foreground px-1 py-1 text-[10px] leading-snug">
-              {t.sidebar.imSearchTruncated}
+              {copy.imSearchTruncated}
             </p>
           )}
         </div>
