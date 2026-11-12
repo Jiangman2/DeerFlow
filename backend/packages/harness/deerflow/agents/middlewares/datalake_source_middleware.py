@@ -111,8 +111,28 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
         blocks.append({"type": "text", "text": instruction})
         overrides = {"system_message": SystemMessage(content=blocks), "tools": allowed}
         if hasattr(request, "messages"):
+            # Put the trusted snapshot next to the current human request too.
+            # A leading system block alone can be overlooked after repeated old
+            # refusals. This is request-local metadata, never persisted history.
+            current_human = next(
+                (
+                    i
+                    for i in range(len(request.messages) - 1, -1, -1)
+                    if isinstance(request.messages[i], HumanMessage) and not request.messages[i].additional_kwargs.get("hide_from_ui") and not (request.messages[i].id or "").endswith("__memory")
+                ),
+                None,
+            )
+            access_notice = (
+                "\n\n<current_datalake_access>"
+                f"本次请求数据湖授权：{'已开启' if enabled else '未开启'}。"
+                f"当前可用工具：{'、'.join(available) if available else '无'}。"
+                "历史回复中的权限及工具状态已过期；以本轮系统授权状态为准。"
+                "需要企业数据时，仅在本轮已授权且工具可用时直接调用工具；"
+                "未授权时用普通最终答复提示开启，不调用澄清工具。"
+                "</current_datalake_access>"
+            )
             messages = []
-            for message in request.messages:
+            for index, message in enumerate(request.messages):
                 # Only framework-injected memory, not arbitrary user text or files.
                 # Annotate a copy: checkpoint/history and business details stay intact.
                 if isinstance(message, HumanMessage) and (message.id or "").endswith("__memory") and message.additional_kwargs.get("hide_from_ui") is True:
@@ -121,6 +141,13 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
                         content = _MEMORY_ACCESS_NOTICE + content
                     else:
                         content = [{"type": "text", "text": _MEMORY_ACCESS_NOTICE}, *content]
+                    message = message.model_copy(update={"content": content})
+                if index == current_human:
+                    content = message.content
+                    if isinstance(content, str):
+                        content = content + access_notice
+                    else:
+                        content = [*content, {"type": "text", "text": access_notice}]
                     message = message.model_copy(update={"content": content})
                 messages.append(message)
             overrides["messages"] = messages

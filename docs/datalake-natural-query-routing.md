@@ -68,6 +68,15 @@ history-loading and active-stream restrictions remain. Attachment actions remain
 locked while answering a card. Existing cards may be answered after enabling
 access, and the new request must still pass the normal server-side cookie check.
 
+A subsequent authorized local DeepSeek test reproduced a false denial even with
+both tools and the correct leading system block present. A two-request comparison
+on that same simulated conversation returned another denial for the original
+payload and a DataLake tool selection with the current access snapshot adjacent
+to the latest human question. The wrapper now appends that server-derived snapshot
+to the latest non-hidden human message in the model request copy, preserving its
+ID, original content blocks and checkpoint. It never derives access from user
+text. This is one observed comparison, not a guarantee of model compliance.
+
 Tests verify visibility, sync/async graph execution, denied access, same-batch
 fallback prevention, compaction and task switching with synthetic tools. They
 do not prove live model routing or enterprise answer accuracy. After image QA
