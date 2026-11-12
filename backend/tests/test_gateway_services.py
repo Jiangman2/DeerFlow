@@ -906,7 +906,7 @@ def test_merge_run_context_overrides_keeps_data_lake_flag_runtime_only():
         ({"datalake_enabled": True}, "matching", False, True),
     ],
 )
-def test_data_lake_run_requires_opt_in_and_current_user_session(context, session, internal, expected):
+def test_data_lake_run_requires_opt_in_and_current_user_session(context, session, internal, expected, caplog):
     from types import SimpleNamespace
 
     from starlette.requests import Request
@@ -925,11 +925,16 @@ def test_data_lake_run_requires_opt_in_and_current_user_session(context, session
     request.state.auth_source = AUTH_SOURCE_INTERNAL if internal else "session"
     config = build_run_config("thread-1", None, None)
     merge_run_context_overrides(config, context)
-    inject_data_lake_access_context(config, request)
+    with caplog.at_level("INFO"):
+        inject_data_lake_access_context(config, request, run_id="auth-test-run")
 
     assert config["context"]["datalake_enabled"] is expected
     assert "datalake_enabled" not in config["configurable"]
     assert token not in json.dumps(config)
+    assert "DATALAKE_ACCESS run_id=auth-test-run" in caplog.text
+    assert f"effective_enabled={expected}" in caplog.text
+    assert "authorization_reason=" in caplog.text
+    assert token not in caplog.text
 
 
 def test_merge_run_context_overrides_rejects_invalid_data_lake_context():

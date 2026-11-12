@@ -320,7 +320,7 @@ def _validate_datalake_context(
             )
 
 
-def inject_data_lake_access_context(config: dict[str, Any], request: Request) -> None:
+def inject_data_lake_access_context(config: dict[str, Any], request: Request, *, run_id: str | None = None) -> None:
     """Intersect explicit opt-in with the authenticated user's Data Lake session.
 
     Never infer permission from model text, persisted state, owner attribution,
@@ -329,7 +329,25 @@ def inject_data_lake_access_context(config: dict[str, Any], request: Request) ->
     runtime_context = config.setdefault("context", {})
     user = getattr(request.state, "user", None)
     token = request.cookies.get(CNOOC_PLATFORM_TOKEN_COOKIE_NAME, "").strip()
-    runtime_context[_DATALAKE_CONTEXT_KEY] = runtime_context.get(_DATALAKE_CONTEXT_KEY) is True and getattr(request.state, "auth_source", None) != AUTH_SOURCE_INTERNAL and platform_token_matches_user(user, token)
+    requested = runtime_context.get(_DATALAKE_CONTEXT_KEY) is True
+    if not requested:
+        reason = "not_requested"
+    elif getattr(request.state, "auth_source", None) == AUTH_SOURCE_INTERNAL:
+        reason = "internal_caller"
+    elif not token:
+        reason = "missing_session"
+    elif not platform_token_matches_user(user, token):
+        reason = "session_user_mismatch"
+    else:
+        reason = "authorized"
+    runtime_context[_DATALAKE_CONTEXT_KEY] = reason == "authorized"
+    logger.info(
+        "DATALAKE_ACCESS run_id=%s requested_enabled=%s effective_enabled=%s authorization_reason=%s",
+        sanitize_log_param(str(run_id or "")),
+        requested,
+        runtime_context[_DATALAKE_CONTEXT_KEY],
+        reason,
+    )
 
 
 def strip_internal_context_keys(config: dict[str, Any]) -> None:
@@ -951,7 +969,7 @@ async def start_run(
             internal_owner_user=internal_owner_user,
             request_context=getattr(body, "context", None),
         )
-        inject_data_lake_access_context(config, request)
+        inject_data_lake_access_context(config, request, run_id=record.run_id)
         await inject_weknora_user_context(config, request, internal_owner_user=internal_owner_user)
 
         stream_modes = normalize_stream_modes(body.stream_mode)

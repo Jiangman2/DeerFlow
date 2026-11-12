@@ -30,6 +30,32 @@ access. Exact facts must be supported by returned records, not inferred to fill
 a missing tool response. No endpoint, key, tool registration or global Bash
 permission is changed.
 
+## Current-run authorization clarity (November 12 candidate)
+
+Every model invocation receives a `current_datalake_access` system section built
+from the server-validated runtime flag and the filtered tool list. This section
+supersedes historical permission claims; user confirmation and query outcomes
+never grant or revoke access. Authorized-but-missing tools are configuration
+failures, not a reason to ask the user to enable the button again.
+
+Framework-injected memory messages receive a historical-status notice in the
+model request copy only. Stored messages and business context are unchanged;
+no keyword-based deletion or destructive memory migration is performed. The
+memory updater is instructed to omit transient authorization/tool availability
+and remove those assertions from existing summaries when updating them. This
+is model guidance, not a guarantee of perfect semantic memory extraction.
+
+`DATALAKE_ACCESS` logs the run ID, requested/effective flags and a bounded reason
+code; `DATALAKE_MODEL_ACCESS` logs the run ID, effective flag and active tool names.
+Neither record includes cookies, tokens, questions, memory or returned data.
+The frontend contract is unchanged. These logs distinguish an authorization
+transport failure from model misinterpretation without exposing credentials.
+
+Regression tests cover false/true/false transitions, repeated identical questions,
+four mode contexts, old memory, missing tools, unsuccessful receipts and a real
+checkpointed synthetic graph. Live model behavior and production acceptance
+remain to be verified after deployment; synthetic replies do not prove them.
+
 Tests verify visibility, sync/async graph execution, denied access, same-batch
 fallback prevention, compaction and task switching with synthetic tools. They
 do not prove live model routing or enterprise answer accuracy. After image QA
