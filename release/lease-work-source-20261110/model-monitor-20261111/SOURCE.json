@@ -1,0 +1,39 @@
+{
+  "schema": "model-monitor-source-provenance.v1",
+  "base_commit": "c54b723b427702fdbafd688c86887972bd62a51a",
+  "production_acceptance_claimed": false,
+  "changes": {
+    "backend/app/gateway/model_monitor.py": {
+      "base_sha256": "e07782e0438d25584920daf0c56e696144092129039b1b03638777350d754ec6",
+      "current_sha256": "2aff27a58dab0220576940f669a3d5914d79dde498ba02b4041f2ace8ccac0db"
+    },
+    "backend/packages/harness/deerflow/models/factory.py": {
+      "base_sha256": "bca1631ae23ff8837c19b621f271ae98b23bb7dc65b7544e59674de8fbcd7c8b",
+      "current_sha256": "959a5c4df46836b8be91ee336b43cda1faa05077d2d6ae02c8159e3c224298fd"
+    },
+    "backend/packages/harness/deerflow/observability/model_metrics.py": {
+      "base_sha256": "b720ecf551df4764e8d5f0415f793c5e75215abdabf8a6f67e18a3e64f74f39d",
+      "current_sha256": "447129fda14ff1b50583f0d10a3f08412d421ccbc1d25b2e52bb4b11fed2e464"
+    },
+    "backend/tests/test_model_monitor.py": {
+      "base_sha256": "1292d007292073411f6087bfb7c6d31723f371e6ccbe497c26897e5194567e81",
+      "current_sha256": "1c2858a05bac831e5cef6f210815684c099153608d815589c5fd8fcb390c0068"
+    },
+    "backend/tests/test_model_metrics_cancellation.py": {
+      "base_sha256": null,
+      "current_sha256": "90824b2a50e9c0bfc4e0a10562ecc21bcb2a8b2d18ff91b7c9e415836b581ded"
+    },
+    "frontend/src/components/workspace/model-monitor-panel.tsx": {
+      "base_sha256": "e2588a38599c0f87b059b4cd856a5b1348e630f0c5f882856ff7fa1cb9347eee",
+      "current_sha256": "db08a117c30c8a37ff28f7e6228a7b7cbc4c5ed579ac80c11a8fa032d6c81037"
+    },
+    "frontend/src/core/console/model-monitor.ts": {
+      "base_sha256": "21db53e0c1dc7161a5dc8677ead2020c38262776b7c709f477d2a1ff4f165e7b",
+      "current_sha256": "5eb8f6dd45af965cae605186d3c4d361bb7784e9309dd25b1019fab3e2197a18"
+    },
+    "frontend/src/core/i18n/model-monitor.ts": {
+      "base_sha256": "9edc338c93ac40806e2676d3b57efe771918db306f5eb032bb716ad1d70820db",
+      "current_sha256": "8faae95c360f2b8039374846484903608f09c431d7b188711fcd0d34dbbc7a42"
+    }
+  }
+}

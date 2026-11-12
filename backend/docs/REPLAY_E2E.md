@@ -110,6 +110,13 @@ screenshot + Playwright HTML report are uploaded as a CI artifact.
 
 ## Known limitations
 
+- The legacy file-only fixture predates the request-local Data Lake access
+  snapshot. Replay removes only its exact disabled/no-tools suffix. An enabled
+  snapshot, changed tool list, altered notice or changed user request still
+  changes the match key. The input-sanitization/DataLake middleware integration
+  test separately verifies trusted versus forged snapshots. Fixture outputs and
+  SSE golden events are not rewritten by this compatibility rule.
+
 - Visual regression baselines are OS-specific, so they are a **local dev gate
   only** (gitignored); CI uploads the render as an artifact for human review
   instead of hard-asserting a cross-OS baseline.

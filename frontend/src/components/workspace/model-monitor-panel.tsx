@@ -313,6 +313,7 @@ export function ModelMonitorPanel({
                       copy.cancelled,
                       copy.peak,
                       copy.average,
+                      copy.oldest,
                     ].map((t) => (
                       <th key={t} className="whitespace-nowrap">
                         {t}
@@ -341,6 +342,11 @@ export function ModelMonitorPanel({
                         {row.average_seconds === null
                           ? "—"
                           : `${row.average_seconds.toFixed(1)} ${copy.seconds}`}
+                      </td>
+                      <td className="whitespace-nowrap tabular-nums">
+                        {row.oldest_active_seconds == null
+                          ? "—"
+                          : `${row.oldest_active_seconds.toFixed(1)} ${copy.seconds}`}
                       </td>
                     </tr>
                   ))}

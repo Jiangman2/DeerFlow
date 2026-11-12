@@ -4,7 +4,17 @@ This validates source provenance only, never deployment or business acceptance.
 """
 import ast
 import hashlib
+import importlib.util
 import json
+from pathlib import Path
+
+_model_spec = importlib.util.spec_from_file_location("model_monitor_source_20261111", Path(__file__).with_name("model_monitor_source_20261111.py"))
+model_monitor = importlib.util.module_from_spec(_model_spec)
+_model_spec.loader.exec_module(model_monitor)
+
+_datalake_spec = importlib.util.spec_from_file_location("datalake_combined_source_20261112", Path(__file__).with_name("datalake_combined_source_20261112.py"))
+datalake_combined = importlib.util.module_from_spec(_datalake_spec)
+_datalake_spec.loader.exec_module(datalake_combined)
 
 ARCHIVE = "release/lease-work-source-20261110/"
 MANIFEST = ARCHIVE + "SOURCE.json"
@@ -27,6 +37,8 @@ def digest(raw):
 
 
 def historical_view(read):
+    read, datalake_result = datalake_combined.historical_view(read)
+    read, model_result = model_monitor.historical_view(read)
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):
@@ -60,6 +72,8 @@ def historical_view(read):
         return parents[path] if path in parents else read(path)
 
     return projected, {
+        "datalake_combined_source": datalake_result,
+        "model_monitor_source": model_result,
         "base_commit": BASE_COMMIT,
         "tested_source_tree": SOURCE_TREE,
         "changed_paths_verified": len(changes),

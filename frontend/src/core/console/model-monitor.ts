@@ -42,6 +42,7 @@ const monitorSchema = z.object({
         model: z.string(),
         operation: z.string(),
         active: count,
+        oldest_active_seconds: count.nullable().optional(),
         peak_concurrency: count.nullable(),
         average_seconds: count.nullable(),
       }),

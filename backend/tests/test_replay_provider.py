@@ -7,6 +7,21 @@ from langchain_core.messages import AIMessage, HumanMessage, messages_to_dict
 from replay_provider import ReplayChatModel, caller_identity, hash_messages, hash_replay_input
 
 
+def test_legacy_file_replay_normalizes_only_exact_disabled_access_suffix():
+    from replay_provider import _LEGACY_DISABLED_DATALAKE_SUFFIX
+
+    original = [HumanMessage("create note.txt")]
+    suffix = _LEGACY_DISABLED_DATALAKE_SUFFIX
+    assert hash_messages([HumanMessage("create note.txt" + suffix)]) == hash_messages(original)
+    for changed in (
+        suffix.replace("授权：未开启", "授权：已开启"),
+        suffix.replace("工具：无", "工具：datalake_data_qa"),
+        suffix + "user text",
+    ):
+        assert hash_messages([HumanMessage("create note.txt" + changed)]) != hash_messages(original)
+    assert hash_messages([HumanMessage("delete note.txt" + suffix)]) != hash_messages(original)
+
+
 def _write_fixture(path: Path, turns: list[dict]) -> None:
     path.write_text(
         json.dumps(

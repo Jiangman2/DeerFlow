@@ -163,8 +163,21 @@ _BOUNDARY_END_RE = re.compile(r"\n?--- END USER INPUT ---")
 # was stripped, leaving "User: \n" residue that would otherwise cause a hash mismatch).
 _EMPTY_ROLE_LINE_RE = re.compile(r"^(User|Assistant):\s*$\n?", re.MULTILINE)
 
+# The file-only legacy fixture predates this request-local access snapshot.
+# Normalize only the exact disabled/no-tools suffix. Never erase arbitrary
+# access blocks: enabled access, different tools or changed text must still miss.
+_LEGACY_DISABLED_DATALAKE_SUFFIX = (
+    "\n\n<current_datalake_access>"
+    "本次请求数据湖授权：未开启。当前可用工具：无。"
+    "历史回复中的权限及工具状态已过期；以本轮系统授权状态为准。"
+    "需要企业数据时，仅在本轮已授权且工具可用时直接调用工具；"
+    "未授权时用普通最终答复提示开启，不调用澄清工具。"
+    "</current_datalake_access>"
+)
+
 
 def _normalize_text(text: str) -> str:
+    text = text.removesuffix(_LEGACY_DISABLED_DATALAKE_SUFFIX)
     text = _SYSTEM_REMINDER_RE.sub("", text)
     text = _EMPTY_ROLE_LINE_RE.sub("", text)
     text = _BOUNDARY_BEGIN_RE.sub("", text)
