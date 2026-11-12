@@ -2,6 +2,7 @@ export type NewShopCartFile = {
   id: string;
   fileId: string | null;
   userId: string;
+  // Upstream states: -1 download failed, 0 downloading, 1 ready, 2 oversized.
   isComplete: number;
   createDate: string;
   fileName: string;
@@ -42,12 +43,20 @@ function isNewShopCartFile(value: unknown): value is NewShopCartFile {
   const hasPendingDownloadFields =
     record.fileId === null && record.num === null;
   const hasValidDownloadState =
-    record.isComplete === 1 ? hasDownloadFields : hasPendingDownloadFields;
+    record.isComplete === 1
+      ? hasDownloadFields
+      : record.isComplete === 2
+        ? (record.fileId === null || typeof record.fileId === "string") &&
+          (record.num === null || typeof record.num === "number")
+        : hasPendingDownloadFields;
 
   return (
     typeof record.id === "string" &&
     typeof record.userId === "string" &&
-    (record.isComplete === 0 || record.isComplete === 1) &&
+    (record.isComplete === -1 ||
+      record.isComplete === 0 ||
+      record.isComplete === 1 ||
+      record.isComplete === 2) &&
     hasValidDownloadState &&
     typeof record.createDate === "string" &&
     typeof record.fileName === "string" &&

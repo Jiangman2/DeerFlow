@@ -129,6 +129,50 @@ describe("routes that consume cnooc.platform_token", () => {
     expect(await response.json()).toEqual({ files });
   });
 
+  test("new shop-cart list returns 200 for mixed failed, downloading and ready rows", async () => {
+    rs.stubGlobal(
+      "fetch",
+      rs.fn(() => Promise.resolve(Response.json({ authorized: true }))),
+    );
+    const files = [
+      {
+        ...DOWNLOADABLE_FILE,
+        id: "failed",
+        isComplete: -1,
+        fileId: null,
+        num: null,
+        errorInfo: "文件下载异常",
+      },
+      {
+        ...DOWNLOADABLE_FILE,
+        id: "pending",
+        isComplete: 0,
+        fileId: null,
+        num: null,
+      },
+      DOWNLOADABLE_FILE,
+      {
+        ...DOWNLOADABLE_FILE,
+        id: "oversized",
+        isComplete: 2,
+        fileId: null,
+        num: null,
+      },
+    ];
+    const { requestDataLakeJson } = await import("@/server/shop-cart/new-api");
+    rs.mocked(requestDataLakeJson).mockResolvedValue(
+      Response.json({ code: 0, msg: null, data: files }),
+    );
+    const { GET } = await import("@/app/api/shop-cart/new/list/route");
+    const response = await GET(
+      new NextRequest("http://deerflow.local/api/shop-cart/new/list", {
+        headers: { cookie: COOKIE },
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ files });
+  });
+
   test("new shop-cart list reports when the upstream Data Lake login is missing", async () => {
     rs.stubGlobal(
       "fetch",

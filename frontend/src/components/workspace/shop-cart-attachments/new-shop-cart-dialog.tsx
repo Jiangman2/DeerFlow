@@ -164,6 +164,12 @@ export function NewShopCartDialog({
               visibleFiles.map((file) => {
                 const selectable = isDownloadableNewShopCartFile(file);
                 const selected = selectable && selectedIds.has(file.id);
+                const statusDetail =
+                  typeof file.errorInfo === "string" && file.errorInfo.trim()
+                    ? file.errorInfo
+                    : file.isComplete === -1
+                      ? t.inputBox.newShopCartFailureUnknown
+                      : null;
                 return (
                   <button
                     className="cnooc-material-row"
@@ -189,6 +195,12 @@ export function NewShopCartDialog({
                       <span className="text-muted-foreground mt-1 block text-xs">
                         {file.createDate}
                       </span>
+                      {(file.isComplete === -1 || file.isComplete === 2) &&
+                        statusDetail && (
+                          <span className="text-destructive mt-1 block text-xs break-all">
+                            {statusDetail}
+                          </span>
+                        )}
                     </span>
                     <Badge
                       variant="secondary"
@@ -196,7 +208,11 @@ export function NewShopCartDialog({
                     >
                       {file.isComplete === 1
                         ? t.inputBox.newShopCartComplete
-                        : t.inputBox.newShopCartProcessing}
+                        : file.isComplete === -1
+                          ? t.inputBox.newShopCartFailed
+                          : file.isComplete === 2
+                            ? t.inputBox.newShopCartOversized
+                            : t.inputBox.newShopCartProcessing}
                     </Badge>
                   </button>
                 );

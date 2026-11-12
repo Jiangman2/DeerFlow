@@ -222,6 +222,9 @@ export interface Translations {
     newShopCartLoadFailed: string;
     newShopCartComplete: string;
     newShopCartProcessing: string;
+    newShopCartFailed: string;
+    newShopCartOversized: string;
+    newShopCartFailureUnknown: string;
     newShopCartSelectionSummary: (selected: number, total: number) => string;
     shopCartAddSelected: string;
     shopCartAdding: string;

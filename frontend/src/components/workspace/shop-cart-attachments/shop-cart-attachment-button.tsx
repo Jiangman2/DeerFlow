@@ -200,7 +200,7 @@ export function ShopCartAttachmentButton({
 
     if (!result.ok) {
       const loginRequired = result.code === "data_lake_login_required";
-      if (result.status === 401 && !loginRequired) {
+      if (result.status === 401 || loginRequired) {
         resetDataLakeUi();
         commitDataLakeEnabled(false);
       }

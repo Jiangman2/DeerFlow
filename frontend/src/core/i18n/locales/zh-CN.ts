@@ -247,7 +247,10 @@ export const zhCN: Translations = {
     newShopCartClearSelection: "清空选择",
     newShopCartLoadFailed: "数据湖文件列表加载失败，请重试",
     newShopCartComplete: "可下载",
-    newShopCartProcessing: "处理中",
+    newShopCartProcessing: "下载中",
+    newShopCartFailed: "下载失败",
+    newShopCartOversized: "超大文件",
+    newShopCartFailureUnknown: "未提供失败原因",
     newShopCartSelectionSummary: (selected: number, total: number) =>
       `已选择 ${selected} / ${total} 个文件`,
     shopCartAddSelected: "添加所选文件",

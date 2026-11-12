@@ -1,6 +1,7 @@
 import hashlib
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -289,7 +290,22 @@ def test_data_lake_authorization_returns_login_required_for_invalid_platform_tok
         return "invalid-platform-token"
 
     async def reject_invalid_token(_token: str):
-        raise cnooc.CnoocAuthError("token verification failed", 401)
+        class Client:
+            async def get(self, url, **_kwargs):
+                assert url.endswith("/apigateway/zhy/tokenCheck")
+                return httpx.Response(
+                    200,
+                    json={
+                        "code": 403,
+                        "msg": "您没有权限操作此功能！",
+                        "bizCode": None,
+                        "dataSize": 0,
+                        "data": None,
+                    },
+                )
+
+        config = cnooc.CnoocAuthConfig("http://datalake.internal", "app", "id", "user-info")
+        return await cnooc._fetch_user_info(Client(), config, "app-code", _token)
 
     monkeypatch.setattr(data_lake_auth, "issue_data_lake_token", exchange)
     monkeypatch.setattr(data_lake_auth, "check_cnooc_token", reject_invalid_token)

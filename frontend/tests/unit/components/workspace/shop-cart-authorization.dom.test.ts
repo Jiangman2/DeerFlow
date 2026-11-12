@@ -158,7 +158,7 @@ describe("Data Lake authorization feedback", () => {
     expect(ensureDataLakeAuthorization).toHaveBeenCalledTimes(2);
   });
 
-  it("preserves enabled state and reloads files after a list login failure", async () => {
+  it("disables and unhighlights Data Lake on list login failure and restores it after retry", async () => {
     rs.mocked(ensureDataLakeAuthorization).mockResolvedValue({ ok: true });
     rs.mocked(fetchNewShopCartFiles)
       .mockResolvedValueOnce({
@@ -171,11 +171,15 @@ describe("Data Lake authorization feedback", () => {
     render(createElement(Harness, { enabled: true }));
     fireEvent.click(screen.getByText("Data Lake file list"));
     await screen.findByRole("dialog");
-    expect(screen.getByText("Do not use Data Lake")).toBeDefined();
+    expect(screen.getByText("Use Data Lake")).toBeDefined();
+    expect(document.querySelector('[data-active="true"]')).toBeNull();
+    expect(screen.queryByText("new-shop-cart-dialog")).toBeNull();
     fireEvent.click(screen.getByText("I have signed in, retry"));
     await waitFor(() => expect(fetchNewShopCartFiles).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(rs.mocked(NewShopCartDialog).mock.calls.at(-1)?.[0].open).toBe(true);
+    expect(screen.getByText("Do not use Data Lake")).toBeDefined();
+    expect(document.querySelector('[data-active="true"]')).not.toBeNull();
   });
 
   it("does not offer login for permission denial or timeout and restores the button", async () => {
