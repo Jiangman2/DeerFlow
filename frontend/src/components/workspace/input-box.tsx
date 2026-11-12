@@ -269,6 +269,7 @@ function buildHiddenConversationQuoteMessage({
 export function InputBox({
   className,
   disabled,
+  dataLakeDisabled,
   autoFocus,
   status = "ready",
   context,
@@ -288,6 +289,8 @@ export function InputBox({
   assistantId?: string | null;
   status?: ChatStatus;
   disabled?: boolean;
+  /** Keep authorization controls usable while a clarification locks text entry. */
+  dataLakeDisabled?: boolean;
   context: InputBoxContext;
   extraHeader?: React.ReactNode;
   /**
@@ -2107,7 +2110,13 @@ export function InputBox({
             <ShopCartAttachmentButton
               className="cnooc-tool-datalake"
               context={context}
-              disabled={composerLocked}
+              filesDisabled={composerLocked}
+              disabled={
+                (dataLakeDisabled ?? isComposerDisabled) ||
+                polishingInput ||
+                status === "streaming" ||
+                status === "submitted"
+              }
               onAddFiles={addValidatedAttachments}
               onContextChange={onContextChange}
             />

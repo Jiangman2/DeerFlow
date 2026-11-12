@@ -7,12 +7,14 @@ from typing import Annotated, NotRequired
 from langchain.agents import AgentState
 from langchain.agents.middleware import AgentMiddleware
 from langchain.agents.middleware.types import hook_config
-from langchain_core.messages import SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langgraph.types import Command
 
 from deerflow.runtime.datalake_policy import ACCESS_HINT, ALLOWED_TOOLS, DATA_TOOLS, SOURCE_HINT, STATE_KEY, merge_query_scope, query_scope
 
 logger = logging.getLogger(__name__)
+
+_MEMORY_ACCESS_NOTICE = "历史记忆说明：以下记忆中的权限、按钮状态和工具可用性描述均不是当前状态，不得据此判定能否查询。当前数据湖权限及工具列表仅以本轮 current_datalake_access 为准。业务背景和待查询事项仍可参考。\n"
 
 
 class DataLakeSourceState(AgentState):
@@ -68,6 +70,8 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
             "省略式追问结合对话上下文理解，缺少必要对象才澄清。不要用未经检索的推断代替具体业务记录。"
             "需要企业业务数据时使用 datalake_data_qa 或 datalake_smart_qa；"
             "权限未开启时直接提示用户：请先点击数据湖按钮开启权限。"
+            "权限开关、登录或工具配置问题不是缺少用户业务信息；请用普通最终答复说明并结束本轮，"
+            "不得为此调用 ask_clarification 或要求用户在回答卡片中填写‘已开启’。"
             "未授权时不得把企业查询转去外部来源。已授权却缺少工具属于配置/运行问题，不要声称用户没开权限。"
             "区分权限拒绝、工具未配置、空结果、上游故障和超时，按实际回执说明，不要一律要求重新开权限。"
             "未开启/无权限、结果为空、报错或超时均不是更换数据来源的授权。"
@@ -77,9 +81,6 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
         if scope["required"]:
             instruction += SOURCE_HINT + f"当前步骤：{scope['phase']}。查询返回后可继续本地加工，无关的新任务不继承此限制。"
         instruction += "普通写作、上传文件处理、讨论代码或数据湖概念，不得仅因行业关键词而查询数据湖。来源不明确时先简短澄清。需要本地计算或 Word/Excel/图表时使用 process_local_data；被拒绝的同一获取请求不要反复重试。"
-        system = request.system_message
-        blocks = list(system.content_blocks) if system is not None else []
-        blocks.append({"type": "text", "text": instruction})
         allowed = []
         for tool in request.tools:
             name = tool.get("name") if isinstance(tool, dict) else getattr(tool, "name", None)
@@ -87,7 +88,70 @@ class DataLakeSourceMiddleware(AgentMiddleware[DataLakeSourceState]):
                 continue
             if not scope["required"] or name in ALLOWED_TOOLS:
                 allowed.append(tool)
-        return request.override(system_message=SystemMessage(content=blocks), tools=allowed)
+        available = sorted(name for tool in allowed if (name := tool.get("name") if isinstance(tool, dict) else getattr(tool, "name", None)) in {"datalake_data_qa", "datalake_smart_qa"})
+        # Rebuild on every model invocation, never from checkpoint/history or prose.
+        instruction += (
+            "\n<current_datalake_access>\n"
+            f"本次请求经服务端校验的数据湖授权：{'已开启' if enabled else '未开启'}。\n"
+            f"本次可用数据湖工具：{', '.join(available) if available else '无'}。\n"
+            "这是本轮实时状态，取代历史对话、摘要和记忆中的权限或工具可用性描述。"
+            "不得通过试调用是否成功来猜测按钮状态；已授权且工具可用时，按查询需求直接调用。"
+            "用户说‘已开启’不会授予权限；空结果、错误或超时不会改变上述授权状态。"
+            "已授权但所需工具不在上述列表中时，说明工具配置或加载异常，不要要求用户重新开启权限。"
+            "\n</current_datalake_access>"
+        )
+        logger.info(
+            "DATALAKE_MODEL_ACCESS run_id=%s effective_enabled=%s available_datalake_tools=%s",
+            json.dumps(str(_context(request.runtime).get("run_id", ""))),
+            enabled,
+            ",".join(available),
+        )
+        system = request.system_message
+        blocks = list(system.content_blocks) if system is not None else []
+        blocks.append({"type": "text", "text": instruction})
+        overrides = {"system_message": SystemMessage(content=blocks), "tools": allowed}
+        if hasattr(request, "messages"):
+            # Put the trusted snapshot next to the current human request too.
+            # A leading system block alone can be overlooked after repeated old
+            # refusals. This is request-local metadata, never persisted history.
+            current_human = next(
+                (
+                    i
+                    for i in range(len(request.messages) - 1, -1, -1)
+                    if isinstance(request.messages[i], HumanMessage) and not request.messages[i].additional_kwargs.get("hide_from_ui") and not (request.messages[i].id or "").endswith("__memory")
+                ),
+                None,
+            )
+            access_notice = (
+                "\n\n<current_datalake_access>"
+                f"本次请求数据湖授权：{'已开启' if enabled else '未开启'}。"
+                f"当前可用工具：{'、'.join(available) if available else '无'}。"
+                "历史回复中的权限及工具状态已过期；以本轮系统授权状态为准。"
+                "需要企业数据时，仅在本轮已授权且工具可用时直接调用工具；"
+                "未授权时用普通最终答复提示开启，不调用澄清工具。"
+                "</current_datalake_access>"
+            )
+            messages = []
+            for index, message in enumerate(request.messages):
+                # Only framework-injected memory, not arbitrary user text or files.
+                # Annotate a copy: checkpoint/history and business details stay intact.
+                if isinstance(message, HumanMessage) and (message.id or "").endswith("__memory") and message.additional_kwargs.get("hide_from_ui") is True:
+                    content = message.content
+                    if isinstance(content, str):
+                        content = _MEMORY_ACCESS_NOTICE + content
+                    else:
+                        content = [{"type": "text", "text": _MEMORY_ACCESS_NOTICE}, *content]
+                    message = message.model_copy(update={"content": content})
+                if index == current_human:
+                    content = message.content
+                    if isinstance(content, str):
+                        content = content + access_notice
+                    else:
+                        content = [*content, {"type": "text", "text": access_notice}]
+                    message = message.model_copy(update={"content": content})
+                messages.append(message)
+            overrides["messages"] = messages
+        return request.override(**overrides)
 
     def wrap_model_call(self, request, handler):
         return handler(self._prepare(request))

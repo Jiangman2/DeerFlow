@@ -70,6 +70,10 @@ Instructions:
 Durability boundary:
 - Durable memory is for information that remains useful across unrelated future threads.
 - Keep single-task progress, current tool state, and temporary resources in the conversation/thread state only.
+- NEVER persist current DataLake authorization/button state or tool availability,
+  even when the user confirms it. These are revalidated for every run. Remove
+  such transient assertions from existing summaries/facts when updating memory,
+  preserving unrelated business context and the user's pending query.
 - NEVER persist knowledge-base IDs, run/thread/session IDs, container or filesystem paths, filenames, uploaded-document names, tool-call results, transient infrastructure errors, or generated-artifact progress.
 - A deliverable's page count, outline, template, brand/VI, colors, logo, watermark,
   fonts, layout, chart/matrix requirements, and export settings are task-local unless

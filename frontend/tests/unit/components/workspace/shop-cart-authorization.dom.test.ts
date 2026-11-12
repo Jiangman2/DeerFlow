@@ -96,7 +96,13 @@ rs.mock("@/core/i18n/hooks", () => ({
   }),
 }));
 
-function Harness({ enabled = false }: { enabled?: boolean }) {
+function Harness({
+  enabled = false,
+  filesDisabled = false,
+}: {
+  enabled?: boolean;
+  filesDisabled?: boolean;
+}) {
   const [context, setContext] = useState<
     React.ComponentProps<typeof ShopCartAttachmentButton>["context"]
   >({
@@ -105,12 +111,31 @@ function Harness({ enabled = false }: { enabled?: boolean }) {
   });
   return createElement(ShopCartAttachmentButton, {
     context,
+    filesDisabled,
     onContextChange: setContext,
     onAddFiles: (files) => files.length,
   });
 }
 
 describe("Data Lake authorization feedback", () => {
+  it("allows authorization while clarification locks attachment actions", async () => {
+    rs.mocked(ensureDataLakeAuthorization).mockResolvedValue({ ok: true });
+    render(createElement(Harness, { filesDisabled: true }));
+    fireEvent.click(screen.getByText("Use Data Lake"));
+    await waitFor(() =>
+      expect(screen.getByText("Data Lake file list")).toBeDefined(),
+    );
+    expect(
+      screen.getByText("Data Lake file list").closest("button")?.disabled,
+    ).toBe(true);
+    expect(
+      screen.getByText("Do not use Data Lake").closest("button")?.disabled,
+    ).toBe(false);
+    fireEvent.click(screen.getByText("Do not use Data Lake"));
+    expect(screen.getByText("Use Data Lake").closest("button")?.disabled).toBe(
+      false,
+    );
+  });
   beforeEach(() => {
     rs.clearAllMocks();
   });

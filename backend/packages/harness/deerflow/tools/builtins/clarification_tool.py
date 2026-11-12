@@ -29,6 +29,11 @@ def ask_clarification_tool(
     The execution will be interrupted and the question will be presented to the user.
     Wait for the user's response before continuing.
 
+    Do NOT use this tool to ask the user to enable the DataLake button, sign in,
+    or repair missing tool configuration. These are platform access conditions,
+    not missing business requirements. Explain the current access condition in
+    an ordinary final response and end the turn so the user can change settings.
+
     When to use ask_clarification:
     - You need information that wasn't provided in the user's request
     - The requirement can be interpreted in multiple ways

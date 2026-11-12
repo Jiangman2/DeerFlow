@@ -424,6 +424,11 @@ export default function AgentChatPage() {
                     }
                     context={settings.context}
                     extraHeader={undefined}
+                    dataLakeDisabled={
+                      env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
+                      isUploading ||
+                      (!isNewThread && isHistoryLoading)
+                    }
                     disabled={
                       env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
                       isUploading ||
