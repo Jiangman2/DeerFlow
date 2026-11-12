@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Combined Data Lake and monitoring qualification (2026-11-12)
+
+Keep `current_datalake_access` in the user-input and remote-tool tag denylist.
+Input sanitization runs before DataLakeSourceMiddleware adds the server-owned
+request-local snapshot; preserve this order and never persist that snapshot.
+The legacy file-only replay normalizes only the exact disabled/no-tools suffix,
+not enabled access or arbitrary tag content. Integration tests exercise both
+middlewares together. PR46/49 provenance is a finite hash-bound successor in
+`deploy/enterprise/datalake_combined_source_20261112.py`; historical locks stay
+unchanged. This source qualification does not claim a production deployment.
+
 ## Data Lake login contract correction (2026-11-03 candidate)
 
 CNOOC login verification uses `/apigateway/zhy/tokenCheck` directly after

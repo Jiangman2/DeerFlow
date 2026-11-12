@@ -314,7 +314,9 @@ def create_chat_model(
 
     _warn_unknown_model_settings(model_class, name, model_settings_from_config)
 
-    model_instance = model_class(**kwargs, **model_settings_from_config)
+    from deerflow.observability.model_metrics import instrument_model_class
+
+    model_instance = instrument_model_class(model_class)(**kwargs, **model_settings_from_config)
 
     from langchain_core.callbacks.base import BaseCallbackManager
 

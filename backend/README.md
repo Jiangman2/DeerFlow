@@ -1,5 +1,12 @@
 # DeerFlow Backend
 
+Data Lake authorization is checked for each request. Current server-validated
+access takes precedence over historical refusals; enabling access remains
+available while a clarification card waits, without unlocking file attachment
+operations. Login failures clear the enabled UI state; temporary service errors
+remain retryable. The combined PR46/49 and model-monitor candidate is tested as
+source first and is not a production release.
+
 ### Incident repair candidate (2026-10-31; not deployed)
 
 Month-sized dashboard queries no longer expand every thread, user or scheduled

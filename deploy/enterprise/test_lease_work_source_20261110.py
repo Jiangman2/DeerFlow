@@ -46,7 +46,11 @@ assert verifier.lease_work.SOURCE_TREE == sys.argv[2]
                 else:
                     original = subprocess.check_output(["git", "show", f"{lease.BASE_COMMIT}:{path}"], cwd=ROOT)
                     self.assertEqual(projected(path), original)
-        untouched = "backend/app/gateway/services.py"
+        # services.py is now a qualified PR49 successor. Its historical view
+        # must be the exact pre-PR bytes, while unrelated files remain intact.
+        services = "backend/app/gateway/services.py"
+        self.assertEqual(projected(services), self.read(lease.datalake_combined.ARCHIVE + "baseline/" + services))
+        untouched = "backend/app/gateway/app.py"
         self.assertEqual(projected(untouched), self.read(untouched))
         again, metadata = lease.historical_view(projected)
         self.assertIs(again, projected)

@@ -58,6 +58,21 @@ def test_old_process_heartbeat_does_not_leave_permanent_inflight():
     assert aggregate_frames([m.snapshot()], [], now=150, minutes=15)["series"] == []
 
 
+def test_oldest_age_uses_max_across_processes_and_unknown_in_mixed_rollout():
+    clock = [120.0]
+    first, second = collector(clock), collector(clock)
+    first.start("model-a")
+    clock[0] = 130
+    second.start("model-a")
+    clock[0] = 150
+    frames = [first.snapshot(), second.snapshot()]
+    row = aggregate_frames(frames, [], now=150, minutes=15)["series"][0]
+    assert row["active"] == 2 and row["oldest_active_seconds"] == 30
+    del frames[1]["series"]["text:invoke:model-a"]["oldest_active_seconds"]
+    row = aggregate_frames(frames, [], now=150, minutes=15)["series"][0]
+    assert row["active"] == 2 and row["oldest_active_seconds"] is None
+
+
 def test_disabled_and_cardinality_bound():
     assert ModelMetrics().start("a") is None
     m = collector([120.0])

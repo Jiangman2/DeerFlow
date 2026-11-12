@@ -101,13 +101,19 @@ def aggregate_frames(live: list[dict], frames: list[dict], *, now: float, minute
     series: dict[str, dict] = {}
     buckets: dict[int, dict] = {}
     samples: dict[tuple[int, str], float] = {}
+    unknown_age = set()
     start = int(now // 60) * 60 - (minutes - 1) * 60
     for frame in live:
         if now - frame.get("at", 0) > 20:
             continue
         for key, value in frame.get("series", {}).items():
-            row = series.setdefault(key, {**value, "active": 0, **dict.fromkeys(_FIELDS, 0)})
+            row = series.setdefault(key, {**value, "active": 0, "oldest_active_seconds": 0.0, **dict.fromkeys(_FIELDS, 0)})
             row["active"] += value["active"]
+            if value["active"]:
+                if value.get("oldest_active_seconds") is None:
+                    unknown_age.add(key)
+                else:
+                    row["oldest_active_seconds"] = max(row["oldest_active_seconds"], value["oldest_active_seconds"])
     for frame in frames:
         minute = frame["minute"]
         if minute < start or minute > now:
@@ -131,6 +137,8 @@ def aggregate_frames(live: list[dict], frames: list[dict], *, now: float, minute
         values = minute_peaks.setdefault(stamp // 60 * 60, {})
         values[key] = max(values.get(key, 0), value)
     for key, row in series.items():
+        # Mixed-version collectors must not turn unavailable age into zero.
+        row["oldest_active_seconds"] = None if key in unknown_age else row.get("oldest_active_seconds")
         row["peak_concurrency"] = peaks.get(key)
         completed = sum(row[field] for field in ("success", "error", "timeout", "cancelled"))
         row["average_seconds"] = row["duration_seconds"] / completed if completed else None

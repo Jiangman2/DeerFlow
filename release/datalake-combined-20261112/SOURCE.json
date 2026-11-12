@@ -1,0 +1,151 @@
+{
+  "schema": "datalake-combined-source.v1",
+  "base_commit": "d58c87dfd5f961548dcb44e861ee88c5ea6853ee",
+  "pr_heads": {
+    "46": "1dd89889171f955e128dc12f84ec6a6a131b2b89",
+    "49": "c69970c6ba00720e355730e1020556ca376fd350"
+  },
+  "production_acceptance_claimed": false,
+  "changes": {
+    "backend/AGENTS.md": {
+      "base_sha256": "f73c253812d02bc048535a8cae99fdda47ec2f865442904454b1ca74fb926144",
+      "current_sha256": "8a02d9065e72017389fee1a6aa79cf8ed3e25a82d95063fac27ff40e4536d82b"
+    },
+    "backend/README.md": {
+      "base_sha256": "49de3961c8ba07ffab3d415584430d59f623b57f2ae67718c34e1a4ec1be658f",
+      "current_sha256": "d97bf45882bd62f1288a7afe49e1c3afd7bdc879815aa6cebceb1ccff50c7987"
+    },
+    "backend/app/gateway/auth/cnooc.py": {
+      "base_sha256": "8654567b389f8dc3a41ddc01ec89be8dbc98b48adede3e34acd3e540cb97e52d",
+      "current_sha256": "1712b049d674f430ae731f28b4fda148952998784ce5bf272e9565091855b37c"
+    },
+    "backend/app/gateway/services.py": {
+      "base_sha256": "6e46773b1d9ae19f7d15bd01b7ac51dd85f56d4da1df6c6773df8f78d490d377",
+      "current_sha256": "4bf26f6ac2166de7851015af36fed73a8b7d1b0e98b7918806c454e623dbd435"
+    },
+    "backend/docs/REPLAY_E2E.md": {
+      "base_sha256": "fd6820c1fd2b282068ae2c595f0826e0ade112c72afb8f0850d0d35c512e1cab",
+      "current_sha256": "6a0837b624397ef4d031f14914a2f8202918f4e45fa4fbaa4b8506680fc127c6"
+    },
+    "backend/packages/harness/deerflow/agents/lead_agent/prompt.py": {
+      "base_sha256": "508f7d1de9e3fe50fa90eacb1a8241baecf7c9b2f79d19061046966e52309abb",
+      "current_sha256": "fd2296236a4bcce9aef0c171687a0eea5795cec1695e2e20298e750cea0d6bd1"
+    },
+    "backend/packages/harness/deerflow/agents/memory/backends/deermem/deermem/core/prompt.py": {
+      "base_sha256": "4868026675be3c081994e2ff21032ee41c584d369f107921f1dc9665f9d7a217",
+      "current_sha256": "a2ed5cb3698c0b905e6a0d7512766ab7b7c430e86c42a8a86796d5fcca960063"
+    },
+    "backend/packages/harness/deerflow/agents/middlewares/datalake_source_middleware.py": {
+      "base_sha256": "25f4e37ffd7011949318657584a0c3a352ae414c44a6b4a37f173f535af702b1",
+      "current_sha256": "082968e3bad83bc0cdb31eec36404856c325858ad5b9f3070fea57e6b1bff5ae"
+    },
+    "backend/packages/harness/deerflow/agents/middlewares/input_sanitization_middleware.py": {
+      "base_sha256": "2d51ff9f050c1000a3b27ce3359d0ba322be89c24ffab5f2fff174c12f6703ba",
+      "current_sha256": "e2219f71605337ae882507c681f6af386768cde0e3de8271ec05600ddfd91f87"
+    },
+    "backend/packages/harness/deerflow/tools/builtins/clarification_tool.py": {
+      "base_sha256": "8c9b20c2b8df2ebdbc15b57b44b4c1a420f26c5a84a2525da8e2fb0c38c84c9c",
+      "current_sha256": "bbcaec4c098fef740f31e13d376bee153ba31a8e54ff1cde6d3893d0fe0f30ce"
+    },
+    "backend/tests/replay_provider.py": {
+      "base_sha256": "7e15494ff3cdc1664e263aa1b2fac5082f3a2ea51f5a58574991deedcb89002a",
+      "current_sha256": "72906148590069ecba621d74be25623acb82cb56e4ac5f6c2466694aafaa2e13"
+    },
+    "backend/tests/test_cnooc_auth.py": {
+      "base_sha256": "f788209251d1b87590d91e3beb0394d74c025da46c9e9d3d9e468518faabd0fc",
+      "current_sha256": "626dc97f66425f6900b8d526eee1ffeecf1d159517cde28f3a85cb0027be1989"
+    },
+    "backend/tests/test_data_lake_auth.py": {
+      "base_sha256": "4fe5ec3211510592142f15205beb9bf755914edd3a61fa7e9242a01b3ee81206",
+      "current_sha256": "89d3cdabb88579ef40f2cd844a57c494e2886c8fe57bf68281cf0384e4f67cba"
+    },
+    "backend/tests/test_datalake_model_routing.py": {
+      "base_sha256": "e3a7b5442781dcea375ed7614e3fbcbdb787f5cfd73997dd0d6c5a1fc40088e5",
+      "current_sha256": "df321740129692ae7c4996876e93444244e0ecccca4ae19fd71ca2f35a0316db"
+    },
+    "backend/tests/test_gateway_services.py": {
+      "base_sha256": "acc0044a42f9ae5f692930a0e9e0f14c9d3a5326085c43e3ca2f5bf24417a644",
+      "current_sha256": "f2ffc74ddbce81d51c780649d4782490e192bac208b5fb9424eeaeb4818ef299"
+    },
+    "backend/tests/test_replay_provider.py": {
+      "base_sha256": "bf52744f352da58074dbeaf27fa79439a4cd1f46a1f133243e10fbb8a4a669ec",
+      "current_sha256": "64157aa48fef3d83737013585498da57cb779981d5c35bfa42ccb6b6b5ff86e8"
+    },
+    "docs/assets/data-lake-pr-46/file-statuses.png": {
+      "base_sha256": null,
+      "current_sha256": "00f79a9ab30b88caa2e77c4ffd3e0eab37c7bd5f32087d3c90a5d7f377265ebc"
+    },
+    "docs/assets/data-lake-pr-46/login-required.png": {
+      "base_sha256": null,
+      "current_sha256": "ceeff495703cc418bfbba95737d41c9c80eb0f6e076820b2b6807926ee5139ca"
+    },
+    "docs/datalake-natural-query-routing.md": {
+      "base_sha256": "71ae8f3beebe6a021a1cf36acdaca7797ac6245d3b511cd5c373015acf03a45e",
+      "current_sha256": "7a8f3f3e57cad3d3c9e8864d1802fa355405f815e4fa54783f171797b71ce15c"
+    },
+    "frontend/AGENTS.md": {
+      "base_sha256": "223dd31021fc2644d78621d9d1fbd5ce468839e3b9cd314e7a26485c4cd59e22",
+      "current_sha256": "7d66be68262b0656c86ab2e9853385442c32eed9abbf66f6c787e4e61080faab"
+    },
+    "frontend/src/app/workspace/agents/[agent_name]/chats/[thread_id]/page.tsx": {
+      "base_sha256": "cc31fed25e7290503fea8a22a562fff170b8ba54bd2b4783a134d1d6a673d3e8",
+      "current_sha256": "ba2e2e3434f540fe3af7c57c41fa99a1f7e895be9e5dbc27380678ee885bb210"
+    },
+    "frontend/src/app/workspace/chats/[thread_id]/page.tsx": {
+      "base_sha256": "0f5e7916b35799fdc900ec9cae4ff09d5a77764b222bc7739145826fc99e22f7",
+      "current_sha256": "39947055f36d8c9a46b8845fa16abf5623af2907305282ed9e57044fb0c2293e"
+    },
+    "frontend/src/components/workspace/input-box.tsx": {
+      "base_sha256": "cb1279f65d4bd6d99a7d5c15e1c3bae78dabe61006289179634b6abfb2ff08d1",
+      "current_sha256": "c35d43069baf2179f187dea5bc8cced59c8525bed0acd117b9d3b46d9af0d601"
+    },
+    "frontend/src/components/workspace/shop-cart-attachments/new-shop-cart-dialog.tsx": {
+      "base_sha256": "a244860bf5b6433e4f8a3a8bb6e536d73e14d0e531dbb6125fb80c870a4c83f6",
+      "current_sha256": "cae3e1d8835b1cb2a7b1dd6456169b137966c127e67d741f0a4c17f7264c805d"
+    },
+    "frontend/src/components/workspace/shop-cart-attachments/shop-cart-attachment-button.tsx": {
+      "base_sha256": "6d0a9318b5eb62f8e90d163f48a65a1ccd35271fdca9689d745065548afc35a1",
+      "current_sha256": "bc25c93bafdbab224d73b227b1afba21f33ac138248e2c446febb172a264f732"
+    },
+    "frontend/src/core/i18n/locales/en-US.ts": {
+      "base_sha256": "dd26506614b6a8887a9e3c2505abc59156fa7034a0096b40fabeadd8aad733cf",
+      "current_sha256": "ef8f23dec9aac679bd693882385343215027fb17bd73149f22afa09ce587d1f7"
+    },
+    "frontend/src/core/i18n/locales/types.ts": {
+      "base_sha256": "7f5953e52f01230c44c6a944f9f1e20671402453d94021d60882402ac2ea2e85",
+      "current_sha256": "885cd6db29eaeeb73e3e2ce57898c081572d3869057c282f1f17bf989385af4b"
+    },
+    "frontend/src/core/i18n/locales/zh-CN.ts": {
+      "base_sha256": "84fa780ae8e31c0d726b23f87e9b6afe7b0c6adf7db206967a80efa045fa3d40",
+      "current_sha256": "c9aed102146c23190b045ab783f7b8e34c0ded0e3b0340172ee8398763e49dda"
+    },
+    "frontend/src/core/shop-cart/api-files.ts": {
+      "base_sha256": "54745cfdee89cda0b54f00d1340f6376830d3129d8a2f2d72d210874df4f8fca",
+      "current_sha256": "6c23711348d04c73cad38ba72f8448725f48e7eea770395dd29a724dba8583b8"
+    },
+    "frontend/tests/e2e/data-lake-branch.spec.ts": {
+      "base_sha256": null,
+      "current_sha256": "7a2b702599755144ec8ab40584c89311bb2fc7725e2c82a5606f697b0f5feba3"
+    },
+    "frontend/tests/unit/app/api/cnooc-platform-token-routes.test.ts": {
+      "base_sha256": "014cfa3313640c4ea20dee35009f128f871d510fec9323e003c5639812438faf",
+      "current_sha256": "2cbd5f701e7e8c733fe49440bd6d3a991a18558ff8d08ea8ef0667a22fa68d90"
+    },
+    "frontend/tests/unit/components/workspace/new-shop-cart-dialog.dom.test.tsx": {
+      "base_sha256": null,
+      "current_sha256": "91f37036537c18c6947ca9a54f88a86ba119e0b6a10a308d88f19c2d497d4ca0"
+    },
+    "frontend/tests/unit/components/workspace/shop-cart-attachment-button.test.ts": {
+      "base_sha256": "396c42fc695ad2f5b9febac87a22a9d88fd069af3c98d23539d4b4f527a2905b",
+      "current_sha256": "4648ffcbcdafd1562533b75ef26bdd65a34a5ca834eb338b91c044c8c7cc0923"
+    },
+    "frontend/tests/unit/components/workspace/shop-cart-authorization.dom.test.ts": {
+      "base_sha256": "3f7933abef6835f8ea8da63f4e7fb4f4201c9a5d38397c1f1a91b4f3b56a940e",
+      "current_sha256": "ac923776bc3d19df81a2d24dfe2ba6d20ed7c0d0e542c156ee59364a31337766"
+    },
+    "frontend/tests/unit/core/shop-cart/api-files.test.ts": {
+      "base_sha256": "974cce13c1dff244ea513fcaa44cb19a6c7e2bcc27fec08a6aafa6b924ad068a",
+      "current_sha256": "14293618d05be84ea6659a2f3429e0b774ff6ff58c4f365ba5931dfb86ff937b"
+    }
+  }
+}

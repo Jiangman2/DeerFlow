@@ -29,7 +29,7 @@ class WorkIntegrationSourceTests(unittest.TestCase):
         self.assertEqual(projected("backend/app/gateway/routers/model_monitor.py"), self.read("backend/app/gateway/routers/model_monitor.py"))
 
     def test_rejects_changed_runtime_or_manifest(self):
-        for target, error in ((MODIFIED, "WORK_FOLLOWUP_CURRENT_CHANGED"), (ADDED, "WORK_FOLLOWUP_CURRENT_CHANGED"), (work.MANIFEST, "WORK_FOLLOWUP_SEAL_CHANGED")):
+        for target, error in ((MODIFIED, "DATALAKE_COMBINED_CURRENT_CHANGED"), (ADDED, "WORK_FOLLOWUP_CURRENT_CHANGED"), (work.MANIFEST, "WORK_FOLLOWUP_SEAL_CHANGED")):
             with self.subTest(target=target), self.assertRaisesRegex(AssertionError, error):
                 work.historical_view(lambda path: self.read(path) + (b"\n" if path == target else b""))
 
