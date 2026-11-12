@@ -632,3 +632,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+### A/B platform embedding
+
+`PlatformSwitcher` wraps workspace route content with a default A (DeerFlow)
+view and a lazy-mounted B iframe at `https://heq.cnooc.com.cn/#/home`.
+Switching only changes visibility; neither panel is unmounted. The switch is
+workspace-local and resets to A after a full reload. Existing sidebar links
+continue to navigate DeerFlow routes. B authentication remains owned by the
+remote site; no tokens are passed through JavaScript or URLs. Validate remote
+frame-ancestors/X-Frame-Options, parent frame-src, and SSO cookies in deployment.
+An iframe load event is not proof of authentication or successful embedding.
