@@ -545,6 +545,18 @@ export default function ChatPage() {
                       }
                       context={settings.context}
                       extraHeader={undefined}
+                      dataLakeDisabled={
+                        isAdminReview ||
+                        isMock ||
+                        isStaticDemo ||
+                        isUploading ||
+                        (isNewThread &&
+                          (modelsLoading ||
+                            (models.length > 0 &&
+                              settings.context.model_name !==
+                                selectedModel?.name))) ||
+                        (!isNewThread && isHistoryLoading)
+                      }
                       disabled={
                         isAdminReview ||
                         isMock ||

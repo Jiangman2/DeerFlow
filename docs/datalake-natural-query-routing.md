@@ -56,6 +56,18 @@ four mode contexts, old memory, missing tools, unsuccessful receipts and a real
 checkpointed synthetic graph. Live model behavior and production acceptance
 remain to be verified after deployment; synthetic replies do not prove them.
 
+Manual testing exposed a separate interaction trap: the model used
+`ask_clarification` to request authorization, while an open clarification card
+disabled the composer including its DataLake button. The lead prompt, DataLake
+context and clarification tool description now explicitly require a normal final
+response for platform access conditions. Actual missing business parameters still
+use clarification. This is prompt guidance, not a semantic keyword interceptor.
+The ordinary and custom-agent chat composers independently gate the DataLake
+authorization control so existing cards cannot lock it; read-only/demo/upload/
+history-loading and active-stream restrictions remain. Attachment actions remain
+locked while answering a card. Existing cards may be answered after enabling
+access, and the new request must still pass the normal server-side cookie check.
+
 Tests verify visibility, sync/async graph execution, denied access, same-batch
 fallback prevention, compaction and task switching with synthetic tools. They
 do not prove live model routing or enterprise answer accuracy. After image QA

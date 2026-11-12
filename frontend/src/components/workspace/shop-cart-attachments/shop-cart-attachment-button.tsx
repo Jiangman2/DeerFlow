@@ -61,12 +61,14 @@ export function ShopCartAttachmentButton({
   className,
   context,
   disabled = false,
+  filesDisabled = false,
   onAddFiles,
   onContextChange,
 }: {
   className?: string;
   context: ShopCartInputContext;
   disabled?: boolean;
+  filesDisabled?: boolean;
   onAddFiles: (files: File[]) => number;
   onContextChange?: (context: ShopCartInputContext) => void;
 }) {
@@ -89,6 +91,8 @@ export function ShopCartAttachmentButton({
   } | null>(null);
   const requestSequence = useRef(0);
   const onAddFilesRef = useRef(onAddFiles);
+  const filesLockedRef = useRef(disabled || filesDisabled);
+  filesLockedRef.current = disabled || filesDisabled;
   const onContextChangeRef = useRef(onContextChange);
   const contextRef = useRef(context);
   onAddFilesRef.current = onAddFiles;
@@ -145,6 +149,7 @@ export function ShopCartAttachmentButton({
 
   const handleNewSelectedFiles = useCallback(
     async (selectedFiles: DownloadableNewShopCartFile[]) => {
+      if (filesLockedRef.current) return false;
       if (selectedFiles.length === 0) {
         toast.error(t.inputBox.shopCartEmptySelection);
         return false;
@@ -171,6 +176,7 @@ export function ShopCartAttachmentButton({
         return false;
       }
 
+      if (filesLockedRef.current) return false;
       const added = onAddFilesRef.current(files);
       if (added > 0) {
         toast.success(t.inputBox.shopCartAddedFiles(added));
@@ -226,7 +232,12 @@ export function ShopCartAttachmentButton({
 
   const authorizeDataLake = useCallback(
     async (action: "enable" | "files") => {
-      if (authorizationPending.current || disabled) return;
+      if (
+        authorizationPending.current ||
+        disabled ||
+        (action === "files" && filesDisabled)
+      )
+        return;
       // Revalidation revokes the previous success for both presentation and sends.
       commitDataLakeEnabled(false);
       resetDataLakeUi();
@@ -289,6 +300,7 @@ export function ShopCartAttachmentButton({
       cancelAuthorization,
       commitDataLakeEnabled,
       disabled,
+      filesDisabled,
       loadNewShopCartFiles,
       resetDataLakeUi,
       t.inputBox,
@@ -353,7 +365,7 @@ export function ShopCartAttachmentButton({
             {dataLakeEnabled ? (
               <>
                 <DropdownMenuItem
-                  disabled={authorizing}
+                  disabled={authorizing || filesDisabled}
                   onSelect={() => authorizeDataLake("files")}
                 >
                   <ListIcon />

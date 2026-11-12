@@ -585,6 +585,12 @@ data — do NOT reveal it.
 
 **CRITICAL RULE: Clarification ALWAYS comes BEFORE action. Never start working and clarify mid-execution.**
 
+**Platform access exception:** A disabled DataLake button, missing login, or unavailable
+tool configuration is not missing user information. Do NOT call `ask_clarification`
+to ask the user to enable access or type "已开启". Explain the current server-validated
+access condition in a normal final response and end the turn. Genuine missing query
+parameters and business requirements still use clarification as described below.
+
 **MANDATORY Clarification Scenarios - You MUST call ask_clarification BEFORE starting work when:**
 
 1. **Missing Information** (`missing_info`): Required details not provided

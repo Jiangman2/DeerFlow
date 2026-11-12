@@ -50,6 +50,16 @@ def test_enabled_missing_tool_is_not_missing_permission():
     assert "工具配置或加载异常" in prompt
 
 
+def test_access_instructions_do_not_route_users_into_clarification_cards():
+    from deerflow.agents.lead_agent.prompt import SYSTEM_PROMPT_TEMPLATE
+    from deerflow.tools.builtins.clarification_tool import ask_clarification_tool
+
+    result = DataLakeSourceMiddleware()._prepare(request("查询探井", enabled=False))
+    assert "不得为此调用 ask_clarification" in str(result.system_message.content)
+    assert "Platform access exception" in SYSTEM_PROMPT_TEMPLATE
+    assert "Do NOT use this tool to ask the user to enable the DataLake button" in ask_clarification_tool.description
+
+
 @pytest.mark.parametrize("receipt", ["empty", "timeout", "upstream error"])
 def test_failed_query_does_not_revoke_access(receipt):
     req = request(
