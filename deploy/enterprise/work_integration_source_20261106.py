@@ -2,10 +2,15 @@
 
 import ast
 import hashlib
+import importlib.util
 import io
 import json
 import subprocess
 from pathlib import Path, PurePosixPath
+
+_lease_spec = importlib.util.spec_from_file_location("lease_work_source_20261110", Path(__file__).with_name("lease_work_source_20261110.py"))
+lease_work = importlib.util.module_from_spec(_lease_spec)
+_lease_spec.loader.exec_module(lease_work)
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = "release/work-integration-followup-20261106/SOURCE.json"
@@ -57,6 +62,7 @@ def _parent_sources(paths):
 
 def historical_view(read):
     """Validate all declared current and parent bytes, then expose only their parents."""
+    read, lease_result = lease_work.historical_view(read)
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):
@@ -97,7 +103,8 @@ def historical_view(read):
         "status": manifest["status"],
         "base_commit": BASE_COMMIT,
         "changed_paths_verified": len(changes),
-        "added_gateway_runtime": sorted(path for path in added if _gateway_source(path)),
+        "added_gateway_runtime": sorted({path for path in added if _gateway_source(path)} | set(lease_result["added_gateway_runtime"] if lease_result else [])),
         "added_frontend_runtime": sorted(path for path in added if path.startswith("frontend/src/")),
+        "lease_work_source": lease_result,
         "production_acceptance_claimed": False,
     }

@@ -35,6 +35,7 @@ _stream_spec.loader.exec_module(terminal_stream)
 _work_followup_spec = importlib.util.spec_from_file_location("work_integration_source_20261106", Path(__file__).with_name("work_integration_source_20261106.py"))
 work_followup = importlib.util.module_from_spec(_work_followup_spec)
 _work_followup_spec.loader.exec_module(work_followup)
+lease_work = work_followup.lease_work
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = 'deploy/enterprise/production-source-lock-20261029.json'
@@ -411,6 +412,8 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(pagination.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
             extra.append("release/artifact-delivery-recovery-20261109/")
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.MANIFEST], cwd=ROOT).strip():
+            extra.extend(lease_work.ARCHIVE_INPUTS)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:

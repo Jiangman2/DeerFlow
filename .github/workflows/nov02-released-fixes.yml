@@ -25,6 +25,8 @@ on:
       - 'deploy/enterprise/*nov02*'
       - 'deploy/enterprise/*work_integration_source_20261106.py'
       - 'release/work-integration-followup-20261106/**'
+      - 'deploy/enterprise/*lease_work_source_20261110.py'
+      - 'release/lease-work-source-20261110/**'
       - 'deploy/enterprise/released_source_20261102.py'
       - 'deploy/enterprise/released-source-delta-20261102.json'
       - 'deploy/enterprise/verify-release-source-20261023.py'
@@ -44,6 +46,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - run: python -B deploy/enterprise/test_lease_work_source_20261110.py
       - run: python -B deploy/enterprise/test_history_composer_source_20261106.py
       - run: python -B deploy/enterprise/verify-history-composer-source-20261106.py --ref HEAD
       - run: python -B deploy/enterprise/test_model_default_test_followup_20261106.py

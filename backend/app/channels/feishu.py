@@ -11,6 +11,7 @@ import time
 from collections import OrderedDict
 from typing import Any, Literal
 
+from app.channels.attachment_storage import store_attachment
 from app.channels.base import Channel
 from app.channels.commands import is_known_channel_command, strip_leading_mentions
 from app.channels.connection_identity import attach_connection_identity
@@ -27,7 +28,7 @@ from app.channels.message_bus import (
 from app.integrations.work.cards import CARD_PREVIEW_KEY, CARD_REPLY_TARGET_KEY, WORK_TENANT_METADATA_KEY, CardPreview, CardReplyTarget, CardSettings, card_callback_response
 from app.integrations.work.config import WorkSettings
 from app.integrations.work.notifications import remember_work_notification_target, work_notifications_enabled
-from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
+from deerflow.config.paths import get_paths
 from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.sandbox.sandbox_provider import get_sandbox_provider
@@ -547,8 +548,6 @@ class FeishuChannel(Channel):
 
         paths = get_paths()
         effective_user_id = user_id or get_effective_user_id()
-        paths.ensure_thread_dirs(thread_id, user_id=effective_user_id)
-        uploads_dir = paths.sandbox_uploads_dir(thread_id, user_id=effective_user_id).resolve()
 
         ext = "png" if type == "image" else "bin"
         raw_filename = getattr(response, "file_name", "") or f"feishu_{file_key[-12:]}.{ext}"
@@ -560,32 +559,10 @@ class FeishuChannel(Channel):
             filename = f"{name_part}.{ext}"
         else:
             filename = re.sub(r"[./\\]", "_", raw_filename)
-        resolved_target = uploads_dir / filename
-
-        def down_load():
-            # use thread_lock to avoid filename conflicts when writing
-            with self._thread_lock:
-                resolved_target.write_bytes(content)
-
         try:
-            await asyncio.to_thread(down_load)
-        except Exception:
-            logger.exception("[Feishu] failed to persist downloaded resource: %s, type=%s", resolved_target, type)
-            return f"Failed to obtain the [{type}]"
-
-        virtual_path = f"{VIRTUAL_PATH_PREFIX}/uploads/{resolved_target.name}"
-
-        try:
-            sandbox_provider = get_sandbox_provider()
-            sandbox_id = sandbox_provider.acquire(thread_id, user_id=effective_user_id)
-            if sandbox_id != "local":
-                sandbox = sandbox_provider.get(sandbox_id)
-                if sandbox is None:
-                    logger.warning("[Feishu] sandbox not found for thread_id=%s", thread_id)
-                    return f"Failed to obtain the [{type}]"
-                sandbox.update_file(virtual_path, content)
-        except Exception:
-            logger.exception("[Feishu] failed to sync resource into non-local sandbox: %s", virtual_path)
+            virtual_path = await store_attachment(paths, get_sandbox_provider, thread_id, effective_user_id, filename, content)
+        except Exception as exc:
+            logger.warning("[Feishu] attachment storage failed: type=%s error_class=%s", type, exc.__class__.__name__)
             return f"Failed to obtain the [{type}]"
 
         logger.info("[Feishu] downloaded resource mapped: file_key=%s -> %s", file_key, virtual_path)

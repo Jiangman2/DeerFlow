@@ -1,6 +1,7 @@
 """Offline source verification; never a deployment or business-acceptance check."""
 
 import argparse
+import lease_work_source_20261110 as lease_work
 import io
 import json
 from pathlib import Path
@@ -22,6 +23,8 @@ def verify(ref=None):
             extra.extend((work_followup.MANIFEST, "backend/app", "backend/packages/harness"))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, "release/artifact-delivery-recovery-20261109/SOURCE.json"], cwd=ROOT).strip():
             extra.append("release/artifact-delivery-recovery-20261109/")
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.MANIFEST], cwd=ROOT).strip():
+            extra.extend(lease_work.ARCHIVE_INPUTS)
         raw = subprocess.check_output(["git", "archive", ref, "frontend/src", "frontend/tests", navigation.ARCHIVE, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             files = {m.name: archive.extractfile(m).read() for m in archive if m.isfile()}
