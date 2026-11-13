@@ -1,0 +1,407 @@
+{
+  "checks": [
+    {
+      "exit_code": 0,
+      "result": {
+        "energy_version": "2.1.0-portable",
+        "gateway_files": 6,
+        "production_commands_executed": false,
+        "scheduler_budget_candidate": 10000,
+        "scheduler_budget_deployed": false,
+        "source_files": 107,
+        "status": "POST44_SOURCE_AND_EVIDENCE_VERIFIED",
+        "support_files": 730
+      },
+      "script": "verify-post44-source-20261113.py",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "5fb8e15acce6de212b4d0e4f9d2b2bfe7d3a44c9c24c6ce3c7078a2b66e66328"
+    },
+    {
+      "exit_code": 0,
+      "result": {
+        "energy_full_report_accepted": false,
+        "energy_original_files": 158,
+        "financial_business_acceptance_pending": true,
+        "historical_original_preserved_outside_public": true,
+        "portable_skill_version": "2.1.0-portable",
+        "portable_source_files": 107,
+        "production_commands_executed": false,
+        "scheduler_budget_deployed": false,
+        "source_and_evidence_files": 263,
+        "status": "DEPLOYED_SOURCE_AND_OPERATOR_EVIDENCE_MATCH"
+      },
+      "script": "verify-released-sync-20261110.py",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "756563d5016d566d18440f6a5c31ed189ff2376f3e333a7a501d440c1648d62e"
+    },
+    {
+      "exit_code": 0,
+      "result": {
+        "business_acceptance_pending": true,
+        "candidate_tree_sha256": "b09b69fb2078bc580b6e6d52a76f0be0917b044d9ac2bea2fcb6fca14477c907",
+        "deployed_tree_sha256": "0b417f6540cbab2f35ce9bbde28efe0d9d214273bf4fbf9baf47734f9ea01c85",
+        "evidence_files_verified": 39,
+        "historical_skill_files": 29,
+        "historical_tree_sha256": "33ca005e82b4c9cae70fe6745b186447c54c323925d9e193605406653b6905be",
+        "intermediate_tree_sha256": "0d935a5e5c45e8bf916b6b52ee310826d68acb22fffb0cbc70ab5d3304840a4c",
+        "late_evidence_files_verified": 68,
+        "prior_successor_tree_sha256": "6c393b11a0023a50de29a1958088322324f759e85c6f3080816aed023c61e951",
+        "production_acceptance_claimed": false,
+        "production_commands_executed": false,
+        "report_labels_tree_sha256": "883b98f54f2756c218e98bb535d4d6265fb7bd1fffc2049a54bbac7746ea39dc",
+        "revision": "f30615aa627a69fa6dec9483f3dea4883b8a2c74",
+        "skill_files": 31,
+        "status": "ADJUSTED_BUDGET_CANDIDATE_VERIFIED_NOT_DEPLOYED",
+        "support_files_verified": 10,
+        "tree_sha256": "0b417f6540cbab2f35ce9bbde28efe0d9d214273bf4fbf9baf47734f9ea01c85"
+      },
+      "script": "verify-research-fund-production-source.py",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "750fcc1187c0b6d24c34d3144057c989dc06a1751da2d8a69ae15ffce51021f4"
+    },
+    {
+      "exit_code": 0,
+      "result": {
+        "delta": "deploy/enterprise/released-source-delta-20261102.json",
+        "enterprise_source_followup": {
+          "changed_paths_verified": 18,
+          "formatting_corrections_verified": 14,
+          "production_acceptance_claimed": false,
+          "runtime_sources_verified": 7,
+          "source_commit": "1fbc07fcf6a7a7258d15e84e040042da4b5c8748",
+          "status": "COMMITTED_SOURCE_NOT_DEPLOYMENT_ACCEPTANCE"
+        },
+        "evidence": 20,
+        "frontend": 239,
+        "gateway": 403,
+        "production_commands_executed": false,
+        "scope": "22 shipped Gateway overlay files and 19 Frontend239 runtime changes relative to PR25; not a whole-backend image rebuild claim",
+        "sources": 41,
+        "status": "ENTERPRISE_SOURCE_FOLLOWUP_ON_NOV02_VERIFIED",
+        "tests": 27,
+        "work_datalake_deferred": true,
+        "work_integration_followup": {
+          "added_frontend_runtime": [
+            "frontend/src/components/workspace/scheduled-task-work-notification.tsx"
+          ],
+          "added_gateway_runtime": [
+            "backend/app/channels/attachment_storage.py",
+            "backend/app/gateway/routers/work_cards.py",
+            "backend/app/integrations/work/bitable_read.py",
+            "backend/app/integrations/work/cards.py",
+            "backend/app/integrations/work/file_content.py",
+            "backend/app/integrations/work/file_read.py",
+            "backend/app/integrations/work/file_search.py",
+            "backend/app/integrations/work/notifications.py",
+            "backend/app/scheduler/work_notification_delivery.py",
+            "backend/app/scheduler/work_notifications.py",
+            "backend/packages/harness/deerflow/utils/bounded_work.py",
+            "backend/packages/harness/deerflow/utils/conversation_url.py",
+            "backend/packages/harness/deerflow/utils/conversion_worker.py",
+            "backend/packages/harness/deerflow/utils/isolated_conversion.py"
+          ],
+          "base_commit": "3f7a59c06db925359f2d48c89057ffc73b88803b",
+          "changed_paths_verified": 43,
+          "lease_work_source": {
+            "added_gateway_runtime": [
+              "backend/app/channels/attachment_storage.py",
+              "backend/packages/harness/deerflow/utils/bounded_work.py",
+              "backend/packages/harness/deerflow/utils/conversation_url.py",
+              "backend/packages/harness/deerflow/utils/conversion_worker.py",
+              "backend/packages/harness/deerflow/utils/isolated_conversion.py"
+            ],
+            "base_commit": "ced7db0cf083aeff02fd142a7d8fb7dcc266213d",
+            "changed_paths_verified": 15,
+            "datalake_combined_source": {
+              "base_commit": "d58c87dfd5f961548dcb44e861ee88c5ea6853ee",
+              "changed_paths_verified": 35,
+              "production_acceptance_claimed": false
+            },
+            "model_monitor_source": {
+              "base_commit": "c54b723b427702fdbafd688c86887972bd62a51a",
+              "changed_paths_verified": 8,
+              "production_acceptance_claimed": false
+            },
+            "post44_source": {
+              "added_gateway_runtime": [
+                "backend/packages/harness/deerflow/utils/conversation_url.py"
+              ],
+              "energy_version": "2.1.0-portable",
+              "production_acceptance_claimed": false,
+              "scheduler_budget_candidate": 10000,
+              "scheduler_budget_deployed": false,
+              "status": "POST44_CURRENT_SOURCE_AND_PRESERVED_PARENT_VERIFIED"
+            },
+            "production_acceptance_claimed": false,
+            "tested_source_tree": "06933fb2211346321f47efa5d1ac07f706e9944e"
+          },
+          "production_acceptance_claimed": false,
+          "status": "NOT_DEPLOYED"
+        }
+      },
+      "script": "verify-nov02-released-source-20261103.py",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "fe133c5b9e0bda2a4f92fc9837cdebe0f5ad5a7190db7516bc5ff72fd2bf8721"
+    },
+    {
+      "exit_code": 0,
+      "result": {
+        "browser_and_business_acceptance_pending": true,
+        "candidate": {
+          "base_commit": "fb5744e93602280bff62f4603186642b1fba6b18",
+          "changed_sources": 55,
+          "incident_delta": {
+            "base_commit": "af6c26649a930b3dd2b8e1f338585b5f4e9d2b1e",
+            "changed_sources": 27,
+            "frontend_runtime_paths": [
+              "frontend/src/app/workspace/admin/dashboard/page.tsx",
+              "frontend/src/core/dashboard/api.ts",
+              "frontend/src/core/dashboard/hooks.ts",
+              "frontend/src/core/dashboard/types.ts",
+              "frontend/src/core/observability/api.ts",
+              "frontend/src/core/observability/diagnostic-response.ts",
+              "frontend/src/core/observability/hooks.ts",
+              "frontend/src/core/observability/types.ts"
+            ]
+          },
+          "status": "NOT_DEPLOYED",
+          "work_authority_sanitizer_delta": {
+            "base_commit": "a651e31ee39cb88d123989b083d0f490bd96162f",
+            "changed_sources": 1,
+            "status": "NOT_DEPLOYED"
+          },
+          "work_release_alignment": {
+            "base_commit": "ef4ce7a177a92750ceb780eb8725814328bade3d",
+            "changed_sources": 2,
+            "status": "NOT_DEPLOYED"
+          },
+          "work_routing_delta": {
+            "base_commit": "0dc61aa7435ce57546e93eae81fb3d124a4ef6a7",
+            "changed_sources": 14,
+            "status": "NOT_DEPLOYED"
+          },
+          "work_task_agent_delta": {
+            "base_commit": "0dc61aa7435ce57546e93eae81fb3d124a4ef6a7",
+            "changed_sources": 10,
+            "status": "NOT_DEPLOYED"
+          },
+          "work_task_agent_fix_delta": {
+            "base_commit": "0dc61aa7435ce57546e93eae81fb3d124a4ef6a7",
+            "changed_sources": 4,
+            "status": "NOT_DEPLOYED"
+          },
+          "work_task_agent_model_fix_delta": {
+            "base_commit": "0dc61aa7435ce57546e93eae81fb3d124a4ef6a7",
+            "changed_sources": 1,
+            "status": "NOT_DEPLOYED"
+          }
+        },
+        "candidate_deployed": false,
+        "dashboard_navigation_candidate": {
+          "changed_paths_verified": 17,
+          "frontend_runtime_paths": [
+            "frontend/src/app/workspace/admin/dashboard/page.tsx",
+            "frontend/src/app/workspace/chats/history-page.tsx",
+            "frontend/src/app/workspace/chats/page.tsx",
+            "frontend/src/components/workspace/dashboard/section-navigation.tsx",
+            "frontend/src/components/workspace/model-monitor-panel.tsx",
+            "frontend/src/core/console/model-monitor.ts",
+            "frontend/src/core/dashboard/hooks.ts",
+            "frontend/src/core/i18n/dashboard-navigation.ts",
+            "frontend/src/core/i18n/locales/en-US.ts",
+            "frontend/src/core/i18n/locales/zh-CN.ts"
+          ],
+          "production_acceptance_claimed": false,
+          "status": "CANDIDATE_SOURCE_NOT_DEPLOYMENT_ACCEPTANCE"
+        },
+        "enterprise_source_followup": {
+          "changed_paths_verified": 18,
+          "formatting_corrections_verified": 14,
+          "production_acceptance_claimed": false,
+          "runtime_sources_verified": 7,
+          "source_commit": "1fbc07fcf6a7a7258d15e84e040042da4b5c8748",
+          "status": "COMMITTED_SOURCE_NOT_DEPLOYMENT_ACCEPTANCE"
+        },
+        "evidence_files_verified": 46,
+        "git_ref": "f30615aa627a69fa6dec9483f3dea4883b8a2c74",
+        "historical_component_observation": "2026-10-26; preserved by combined rollout receipt",
+        "history_composer_candidate": {
+          "base_commit": "47a4fb82b2fae402c7fc95e6e9e3e93ad6187d50",
+          "frontend_runtime_paths": [
+            "frontend/src/components/workspace/input-box.tsx",
+            "frontend/src/hooks/use-textarea-autosize.ts",
+            "frontend/src/styles/cnooc-concept.css"
+          ],
+          "production_acceptance_claimed": false,
+          "runtime_sources_verified": 3,
+          "status": "NOT_DEPLOYED",
+          "tests_verified": 3
+        },
+        "lock_file": "deploy/enterprise/production-source-lock-20261029.json",
+        "new_chat_model_source": {
+          "production_acceptance_claimed": false,
+          "runtime_sources_verified": 6,
+          "source_commit": "459b44eae00e671466c90fc20462dee018b6a0c0",
+          "tests_verified": 2
+        },
+        "post_release_test_only_corrections": 10,
+        "production_baseline_runtime_accepted": true,
+        "production_modified": false,
+        "released_delta": {
+          "changed_sources": 25,
+          "frontend_runtime_paths": [
+            "frontend/src/app/workspace/admin/dashboard/page.tsx",
+            "frontend/src/components/workspace/shop-cart-attachments/shop-cart-attachment-button.tsx",
+            "frontend/src/core/dashboard/api.ts",
+            "frontend/src/core/dashboard/failure-response.ts",
+            "frontend/src/core/dashboard/hooks.ts",
+            "frontend/src/core/dashboard/types.ts",
+            "frontend/src/core/data-lake/auth.ts",
+            "frontend/src/core/settings/local.ts",
+            "frontend/src/core/settings/store.ts",
+            "frontend/src/core/threads/run-config.ts"
+          ],
+          "source_manifest": "release/nov01-released-fixes-source-20261102/SOURCE.json"
+        },
+        "released_delta_nov02": {
+          "changed_sources": 55,
+          "frontend_runtime_paths": [
+            "frontend/src/app/workspace/admin/dashboard/page.tsx",
+            "frontend/src/components/workspace/composer-attachment.tsx",
+            "frontend/src/components/workspace/input-box.tsx",
+            "frontend/src/components/workspace/knowledge-scope-selector.tsx",
+            "frontend/src/components/workspace/mode-selector.tsx",
+            "frontend/src/components/workspace/model-monitor-panel.tsx",
+            "frontend/src/components/workspace/settings/account-activity-panel.tsx",
+            "frontend/src/components/workspace/settings/account-settings-page.tsx",
+            "frontend/src/components/workspace/settings/account-usage-card.tsx",
+            "frontend/src/components/workspace/settings/settings-dialog.tsx",
+            "frontend/src/core/console/account-activity.ts",
+            "frontend/src/core/console/model-monitor.ts",
+            "frontend/src/core/i18n/model-monitor.ts",
+            "frontend/src/core/i18n/usage-analytics.ts",
+            "frontend/src/core/settings/local.ts",
+            "frontend/src/core/threads/hooks.ts",
+            "frontend/src/core/threads/types.ts",
+            "frontend/src/styles/cnooc-concept.css",
+            "frontend/src/styles/globals.css"
+          ],
+          "source_manifest": "release/nov02-released-fixes-source-20261103/SOURCE.json"
+        },
+        "results": [
+          {
+            "component": "gateway",
+            "files": 641,
+            "format_normalized": 13,
+            "hashes": "PASS"
+          },
+          {
+            "component": "frontend",
+            "files": 986,
+            "format_normalized": 0,
+            "hashes": "PASS"
+          },
+          {
+            "component": "ppt-master-runner",
+            "files": 551,
+            "format_normalized": 0,
+            "hashes": "PASS"
+          },
+          {
+            "component": "weknora-member-ui-overlay",
+            "configmap_hash": "PASS",
+            "files": 10,
+            "full_base_image_source_mapping": "NOT_PROVEN",
+            "observation_bindings": "PASS",
+            "source_files": 4
+          }
+        ],
+        "runtime_accepted": false,
+        "scope": "Scoped Work candidate; historical sources and production acceptance preserved",
+        "sidechat_frontend_source": {
+          "fresh_production_acceptance_claimed": false,
+          "frontend_image": "sha256:172243f3abbb8c5a2ebff0242d4386f19ef63e9c9c9cffe9b238cbcfe6159ab3",
+          "runtime_sources_verified": 1,
+          "status": "SOURCE_REGISTRATION_NOT_FRESH_DEPLOYMENT_ACCEPTANCE",
+          "tests_verified": 1
+        },
+        "status": "WORK_INTEGRATION_FOLLOWUP_ON_HISTORICAL_BASELINE_VERIFIED",
+        "terminal_stream_candidate": {
+          "frontend_runtime_paths": [
+            "frontend/src/core/api/api-client.ts",
+            "frontend/src/core/api/reconcile-run-stream.ts"
+          ],
+          "status": "NOT_DEPLOYED"
+        },
+        "v41_enabled": false,
+        "work_datalake_deferred": true,
+        "work_integration_followup": {
+          "added_frontend_runtime": [
+            "frontend/src/components/workspace/scheduled-task-work-notification.tsx"
+          ],
+          "added_gateway_runtime": [
+            "backend/app/channels/attachment_storage.py",
+            "backend/app/gateway/routers/work_cards.py",
+            "backend/app/integrations/work/bitable_read.py",
+            "backend/app/integrations/work/cards.py",
+            "backend/app/integrations/work/file_content.py",
+            "backend/app/integrations/work/file_read.py",
+            "backend/app/integrations/work/file_search.py",
+            "backend/app/integrations/work/notifications.py",
+            "backend/app/scheduler/work_notification_delivery.py",
+            "backend/app/scheduler/work_notifications.py",
+            "backend/packages/harness/deerflow/utils/bounded_work.py",
+            "backend/packages/harness/deerflow/utils/conversation_url.py",
+            "backend/packages/harness/deerflow/utils/conversion_worker.py",
+            "backend/packages/harness/deerflow/utils/isolated_conversion.py"
+          ],
+          "base_commit": "3f7a59c06db925359f2d48c89057ffc73b88803b",
+          "changed_paths_verified": 43,
+          "lease_work_source": {
+            "added_gateway_runtime": [
+              "backend/app/channels/attachment_storage.py",
+              "backend/packages/harness/deerflow/utils/bounded_work.py",
+              "backend/packages/harness/deerflow/utils/conversation_url.py",
+              "backend/packages/harness/deerflow/utils/conversion_worker.py",
+              "backend/packages/harness/deerflow/utils/isolated_conversion.py"
+            ],
+            "base_commit": "ced7db0cf083aeff02fd142a7d8fb7dcc266213d",
+            "changed_paths_verified": 15,
+            "datalake_combined_source": {
+              "base_commit": "d58c87dfd5f961548dcb44e861ee88c5ea6853ee",
+              "changed_paths_verified": 35,
+              "production_acceptance_claimed": false
+            },
+            "model_monitor_source": {
+              "base_commit": "c54b723b427702fdbafd688c86887972bd62a51a",
+              "changed_paths_verified": 8,
+              "production_acceptance_claimed": false
+            },
+            "post44_source": {
+              "added_gateway_runtime": [
+                "backend/packages/harness/deerflow/utils/conversation_url.py"
+              ],
+              "energy_version": "2.1.0-portable",
+              "production_acceptance_claimed": false,
+              "scheduler_budget_candidate": 10000,
+              "scheduler_budget_deployed": false,
+              "status": "POST44_CURRENT_SOURCE_AND_PRESERVED_PARENT_VERIFIED"
+            },
+            "production_acceptance_claimed": false,
+            "tested_source_tree": "06933fb2211346321f47efa5d1ac07f706e9944e"
+          },
+          "production_acceptance_claimed": false,
+          "status": "NOT_DEPLOYED"
+        },
+        "work_update_included": false
+      },
+      "script": "verify-production-baseline-20261029.py",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "30a2a165a3358bffcd407ed93823de54b504f6d048de2b49d36ceb3eb29adef1"
+    }
+  ],
+  "commit": "f30615aa627a69fa6dec9483f3dea4883b8a2c74",
+  "passed": true,
+  "production_access": false,
+  "schema": "post44-committed-source-verification.v1"
+}

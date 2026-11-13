@@ -67,11 +67,14 @@ def qualify(read, energy_paths=None, gateway_only=False):
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):
-        try:
-            read(ENERGY + 'scripts/daily.py')
-        except (KeyError, FileNotFoundError):
-            return None
-        raise ValueError('POST44_MANIFEST_REQUIRED')
+        for marker in (ENERGY + 'scripts/daily.py',
+                       'backend/packages/harness/deerflow/utils/conversation_url.py'):
+            try:
+                read(marker)
+            except (KeyError, FileNotFoundError):
+                continue
+            raise ValueError('POST44_MANIFEST_REQUIRED')
+        return None
     require(sha(raw) == MANIFEST_SHA256, 'POST44_MANIFEST_CHANGED')
     seal = json.loads(raw)
     require(seal['schema'] == 'post44-source-reconciliation.v1'
@@ -116,6 +119,8 @@ def qualify(read, energy_paths=None, gateway_only=False):
 
 def project(read, seal):
     def historical(path):
+        if path == MANIFEST:
+            raise KeyError(path)
         if path in seal['parent_files']:
             row = seal['parent_files'][path]
             if row is None:

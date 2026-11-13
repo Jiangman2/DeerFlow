@@ -36,7 +36,13 @@ assert verifier.lease_work.SOURCE_TREE == sys.argv[2]
         projected, result = lease.historical_view(self.read)
         changes = json.loads(self.read(lease.MANIFEST))["changes"]
         self.assertEqual(result["changed_paths_verified"], 15)
-        self.assertEqual(result["added_gateway_runtime"], sorted(lease.MARKERS))
+        expected_added = set(lease.MARKERS)
+        if result.get("post44_source"):
+            expected_added.add("backend/packages/harness/deerflow/utils/conversation_url.py")
+            self.assertFalse(result["post44_source"]["scheduler_budget_deployed"])
+            with self.assertRaises(KeyError):
+                projected("backend/packages/harness/deerflow/utils/conversation_url.py")
+        self.assertEqual(result["added_gateway_runtime"], sorted(expected_added))
         self.assertFalse(result["production_acceptance_claimed"])
         for path, row in changes.items():
             with self.subTest(path=path):

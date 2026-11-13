@@ -4,6 +4,8 @@
     "format_check": "PASS",
     "formatted_files_checked": 1317
   },
+  "committed_git_verifiers_passed": 5,
+  "committed_verification_ref": "f30615aa627a69fa6dec9483f3dea4883b8a2c74",
   "credential_values_exported": false,
   "limits": [
     "Three pre-existing ChannelService tests require Linux fcntl and fail on Windows; no runtime workaround was added.",
@@ -18,6 +20,7 @@
     "gateway_links_and_publication": 79,
     "historical_energy_subtests": 35,
     "historical_energy_tests": 171,
+    "lease_and_work_projection_tests": 11,
     "portable_operator_subtests": 20,
     "portable_operator_tests": 350,
     "scheduler_r5_boundaries": 50,
@@ -39,7 +42,7 @@
   "private_value_scan": {
     "archive_members": 1959,
     "existing_private_password_compared_without_export": true,
-    "files": 1024,
+    "files": 1048,
     "matches": 0,
     "sealed_assets": 86
   },

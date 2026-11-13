@@ -99,3 +99,5 @@ def test_gateway_projection_preserves_latest_enterprise_parent(snapshot):
     assert result['added_gateway_runtime'] == ['backend/packages/harness/deerflow/utils/conversation_url.py']
     with pytest.raises(KeyError):
         read('backend/packages/harness/deerflow/utils/conversation_url.py')
+    again, repeated = source.historical_view(read)
+    assert again is read and repeated is None
