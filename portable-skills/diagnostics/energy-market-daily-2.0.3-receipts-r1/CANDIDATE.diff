@@ -1,0 +1,96 @@
+--- 2.0.2/MANIFEST.json
++++ 2.0.3/MANIFEST.json
+@@ -1,11 +1,15 @@
+ {
+   "schema": "energy-daily-portable-files.v1",
+-  "version": "2.0.2-portable",
++  "version": "2.0.3-portable",
+   "files": {
+     ".gitignore": {
+       "bytes": 36,
+       "sha256": "0b38df42d58989002b0a92b957aa0edda1b7fc98f2b8e57178a97e51837a5b7c"
+     },
++    "SKILL.md": {
++      "bytes": 8472,
++      "sha256": "20ea1152e4f8abee00df150bede65dceb90a52ebdda411b4a836129e30536cbe"
++    },
+     "assets/history/jkx_new_2026-08-06.json": {
+       "bytes": 2512,
+       "sha256": "62a1315a5d2ea492ab82f4c55e090108cfa0de02e19767cb561a06999099ccea"
+@@ -403,8 +407,8 @@
+       "sha256": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0"
+     },
+     "scripts/daily.py": {
+-      "bytes": 36907,
+-      "sha256": "a084be61164e4b8842fbcdd5467f6de21c692f6faab65894cf5f04aada057d0f"
++      "bytes": 37454,
++      "sha256": "f6dadc21e0051b3bcf553588a35b72db527662ab883704b8fc2000d29694f25c"
+     },
+     "scripts/market.py": {
+       "bytes": 8259,
+@@ -417,10 +421,6 @@
+     "scripts/research.py": {
+       "bytes": 13863,
+       "sha256": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee"
+-    },
+-    "SKILL.md": {
+-      "bytes": 8238,
+-      "sha256": "70b20874da4d37eb47c5af4126d9e6692af92062120a2bd38161ce1e255cf822"
+     }
+   }
+ }
+--- 2.0.2/SKILL.md
++++ 2.0.3/SKILL.md
+@@ -43,9 +43,9 @@
+ 
+    要换备选文章时，先按简短候选标题选好 ID，再执行 `select --workspace <项目> --market-ids <逗号分隔ID> --company-ids <逗号分隔ID>`，读取新生成的同一份批次；不用通读完整研究库。
+ 
+-   `NEWS_SUPPLEMENT_REQUIRED`、原页不足或事件重复时才用宿主联网工具补搜，最多两批、最多补十个原页；不重跑 `prepare`。按 [补充证据协议](references/evidence.md) 保存原页，调用一次 `import-news` 后重新选择；不得让模型遍历程序、探测环境、反复重读旧文档。仍达不到新闻要求时，返回具体缺项和项目路径并结束，不询问用户、不拆新闻凑数。
++   `NEWS_SUPPLEMENT_REQUIRED`、原页不足或事件重复时才用宿主联网工具补搜，最多两批、最多补十个原页；不重跑 `prepare`。按 [补充证据协议](references/evidence.md) 保存原页，调用一次 `import-news` 后直接读取其回执 `research_file` 指定的现成批次，一次整理摘要并写入 `news_file`；无需换文章 ID 时不再调用 `select`。仅确需更换 ID 时执行上述 `select`。不得让模型遍历程序、探测环境、反复重读旧文档。仍达不到新闻要求时，返回具体缺项和项目路径并结束，不询问用户、不拆新闻凑数。
+ 
+-3. 直接执行 `prepare` 回执的完整 `next_command`，完成校验及 PNG、HTML、JSON、文字生成。每条命令都使用完整绝对路径，**不依赖上次 Bash 的变量、工作目录或 export**。正常流程不用查看 Python 源码，不调用旧版 `init/check/build` 链、不运行原包历史脚本。
++3. 摘要写入后，直接执行当前 `prepare`、`import-news` 或 `select` 回执的完整 `next_command`，完成校验及 PNG、HTML、JSON、文字生成。每条命令都使用完整绝对路径，**不依赖上次 Bash 的变量、工作目录或 export**。正常流程不用查看 Python 源码，不调用旧版 `init/check/build` 链、不运行原包历史脚本。
+ 
+    只有回执明确指向新闻 JSON 字段的校验错误，才修复相应 JSON，并最多重试同一 `build` 一次；不重取已经准备的行情。浏览器由程序选择，模型不安装浏览器、修改源码或试启动参数。
+ 
+--- 2.0.2/scripts/daily.py
++++ 2.0.3/scripts/daily.py
+@@ -27,9 +27,9 @@
+ from report_renderer import render
+ from browser_runtime import observe_runtime, runtime_browser
+ 
+-VERSION = '2.0.2-portable'
+-# This release changes browser discovery only; prepared evidence stays valid.
+-PROJECT_VERSIONS = frozenset((VERSION, '2.0.1-portable', '2.0.0-portable'))
++VERSION = '2.0.3-portable'
++# This release extends news handoff receipts only; prepared evidence stays valid.
++PROJECT_VERSIONS = frozenset((VERSION, '2.0.2-portable', '2.0.1-portable', '2.0.0-portable'))
+ 
+ 
+ def require(ok, code, **details):
+@@ -262,7 +262,10 @@
+                   **{section: [dict(catalog[key], body=catalog[key]['body'][:4500]) for key in values] for section, values in selected.items()}}
+         save(project / 'summary-tasks.json', chosen)
+     return {'status': 'SUMMARY_BATCH_READY', 'file': str(project / 'summary-tasks.json'),
+-            'market_count': len(chosen['market_news']), 'company_count': len(chosen['company_news'])}
++            'market_count': len(chosen['market_news']), 'company_count': len(chosen['company_news']),
++            'research_file': str(project / 'summary-tasks.json'), 'news_file': str(project / 'news.json'),
++            'publication_date': chosen['publication_date'], 'news_as_of': chosen['news_as_of'],
++            'next_command': command('build', project)}
+ 
+ 
+ def import_news(args):
+@@ -306,8 +309,11 @@
+     save(project / 'research.json', catalog)
+     state['input_hashes']['research'] = digest((project / 'research.json').read_bytes())
+     save(project / 'PROJECT.json', state)
+-    research.write_summary_tasks(project, catalog)
+-    return {'status': 'VERIFIED_SOURCE_EVIDENCE_IMPORTED', 'added': added, 'article_count': len(catalog['articles']), 'file': str(project / 'summary-tasks.json')}
++    chosen = research.write_summary_tasks(project, catalog)
++    return {'status': 'VERIFIED_SOURCE_EVIDENCE_IMPORTED', 'added': added, 'article_count': len(catalog['articles']), 'file': str(project / 'summary-tasks.json'),
++            'research_file': str(project / 'summary-tasks.json'), 'news_file': str(project / 'news.json'),
++            'publication_date': chosen['publication_date'], 'news_as_of': chosen['news_as_of'],
++            'next_command': command('build', project)}
+ 
+ 
+ def evidence_valid(project, quote):

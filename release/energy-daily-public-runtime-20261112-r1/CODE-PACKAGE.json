@@ -1,0 +1,37 @@
+{
+  "schema": "energy-public-runtime-code-package.v1",
+  "version": "2.0.2-portable",
+  "files": 106,
+  "tree_sha256": "49ae81313f5c8869f272737851f57ee2e84a9470de7f8cffc97f0c06c08ed372",
+  "archive": {
+    "filename": "energy-market-daily-2.0.2-public-code.zip",
+    "bytes": 106087,
+    "sha256": "76d37a35a6b38a5388568f7f44701b02224fd24c103898e618ee99682ddc7fcb"
+  },
+  "accepted_previous_archive_sha256": "ba86a3c48dd2b6f4349f3884dfab541730759dc1670ab5f0e7bd72377c439084",
+  "before_live_tree_sha256": "6362fa76e30f4c0850a3a6d5f9e2c2e5fd74cf841235b279ea868f00b8d4122b",
+  "changed_source_files": [
+    "MANIFEST.json",
+    "SKILL.md",
+    "references/runtime.md",
+    "scripts/browser_runtime.py",
+    "scripts/daily.py",
+    "scripts/market.py"
+  ],
+  "market_parsing_and_calculation_ast_unchanged": true,
+  "report_business_functions_ast_unchanged": [
+    "acquisition_job",
+    "evidence_valid",
+    "import_news",
+    "numeric",
+    "reply_text",
+    "select_news",
+    "snapshot",
+    "worker"
+  ],
+  "history_research_and_renderer_bytes_unchanged": true,
+  "credentials_included": false,
+  "enterprise_binding_included": false,
+  "runtime_binaries_included": false,
+  "production_deployed": false
+}

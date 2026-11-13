@@ -1,0 +1,57 @@
+{
+  "schema": "energy-gateway-result-links-package.v3",
+  "filename": "activate-energy-daily-result-links-20261111-r3.py",
+  "bytes": 332063,
+  "sha256": "23bf0f7cba4343fa48707e05880c88ad732f45f886477eda80bb06abc1f149c5",
+  "gateway_before_generation": 413,
+  "gateway_after_generation": 414,
+  "same_image": "deerflow.local/deer-flow-gateway@sha256:c0fd1a6e981d551ab65459f8125b0e847ac7276433e020d1b65f88dea888ae29",
+  "application_source_files": 6,
+  "assets": {
+    "source_inspector": {
+      "bytes": 22201,
+      "sha256": "a3fa3954bece459e5bbc614caa17d77abc1f685b92713533d153e9fe97973e00"
+    },
+    "qualifier": {
+      "bytes": 30283,
+      "sha256": "c872911a56f1e5499e97a3091aca3dec2f1aef03e7cbe23aab000a39c1dcf918"
+    },
+    "skill_reader": {
+      "bytes": 9991,
+      "sha256": "0806aa8c64526a7f1a7e1f5668bc474463b7140c4d3299ad184e3d573f7da590"
+    },
+    "manager.py": {
+      "bytes": 94358,
+      "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
+    },
+    "notifications.py": {
+      "bytes": 10025,
+      "sha256": "2f25958bcb2556685d153bef55f72afebd360deb157cd13164ceb4261001f039"
+    },
+    "work_notification_delivery.py": {
+      "bytes": 4297,
+      "sha256": "d446868a681754fa98241b62ebfe45a886c6bf21b0da0f68d0d69cd111e8a42e"
+    },
+    "work_notifications.py": {
+      "bytes": 14201,
+      "sha256": "d3f7e6c4acc4fd0cb7e4f6b31861ddf8b68ff1d2f44761a99da90536a6982645"
+    },
+    "present_file_tool.py": {
+      "bytes": 19640,
+      "sha256": "eccfe1e5975c771465abf96f1da60fdb2a11e0712716aeb2453a2d10fbe30e3b"
+    },
+    "conversation_url.py": {
+      "bytes": 4842,
+      "sha256": "6a77dba057547e84f069261717857f4a9860ba59165a8ce86d59740e6162d4a5"
+    }
+  },
+  "local_real_module_qualification_checks": 25,
+  "windows_focused_tests": 79,
+  "linux_focused_tests": 79,
+  "operator_boundary_checks": 28,
+  "requires_installed_portable_skill": true,
+  "public_conversation_origin": "https://cnoocclaw.cnooc.com.cn",
+  "operator_direct_cutover_no_task_wait": true,
+  "production_executed": false,
+  "credentials_included": false
+}

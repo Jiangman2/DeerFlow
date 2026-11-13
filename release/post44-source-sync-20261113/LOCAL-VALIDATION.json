@@ -1,0 +1,59 @@
+{
+  "backend_ruff": {
+    "check": "PASS",
+    "format_check": "PASS",
+    "formatted_files_checked": 1317
+  },
+  "committed_git_verifiers_passed": 5,
+  "committed_verification_ref": "f30615aa627a69fa6dec9483f3dea4883b8a2c74",
+  "credential_values_exported": false,
+  "limits": [
+    "Three pre-existing ChannelService tests require Linux fcntl and fail on Windows; no runtime workaround was added.",
+    "Initial financial CLI subprocess checks used the Windows code page; the affected test modules pass with explicit inherited UTF-8.",
+    "Initial pytest tmp_path setup encountered an existing inaccessible global temporary root; subsequent runs use isolated workspace basetemp.",
+    "Historical production receipts are retained separately from this source validation.",
+    "Scheduled budget 10000 is not deployed; real full daily and Work webhook acceptance remain open."
+  ],
+  "passed": {
+    "financial_adjusted_and_cli_targeted": 55,
+    "financial_full_suite": 374,
+    "gateway_links_and_publication": 79,
+    "historical_energy_subtests": 35,
+    "historical_energy_tests": 171,
+    "lease_and_work_projection_tests": 11,
+    "portable_operator_subtests": 20,
+    "portable_operator_tests": 350,
+    "scheduler_r5_boundaries": 50,
+    "source_and_rejection_tests": 31
+  },
+  "platform_skips": {
+    "historical_energy_tests": 3,
+    "portable_candidate_browser_tests": 2,
+    "portable_operator_tests": 60
+  },
+  "portable_210_separate_process_regressions": {
+    "browser": 10,
+    "browser_skipped": 2,
+    "failures": 0,
+    "final_text": 13,
+    "main": 37,
+    "receipt": 3
+  },
+  "private_value_scan": {
+    "archive_members": 1959,
+    "existing_private_password_compared_without_export": true,
+    "files": 1048,
+    "matches": 0,
+    "sealed_assets": 86
+  },
+  "production_commands_executed": false,
+  "schema": "post44-local-validation.v1",
+  "worktree_verifiers": [
+    "post44-source-20261113",
+    "released-sync-20261110",
+    "research-fund-production-source",
+    "nov02-released-source-20261103",
+    "production-baseline-20261029",
+    "sealed-current-energy-skill-review"
+  ]
+}

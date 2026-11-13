@@ -5,6 +5,8 @@ import json
 from pathlib import PurePosixPath
 import zipfile
 
+import post44_source_20261113 as successor
+
 ARCHIVE = 'release/released-sync-20261110/'
 MANIFEST = ARCHIVE+'SOURCE.json'
 MANIFEST_SHA256 = '3f570a30ac92fb02511af9e306b2f8d5188b4b06cf4ad80fce87e7dbf99671b7'
@@ -32,6 +34,7 @@ def check(read, path, row):
 
 
 def verify(read, energy_paths):
+    read, energy_paths, qualification = successor.energy_historical_view(read, energy_paths)
     raw = read(MANIFEST)
     require(sha(raw) == MANIFEST_SHA256, 'RELEASE_SEAL_CHANGED')
     seal = json.loads(raw)
@@ -71,6 +74,9 @@ def verify(read, energy_paths):
             'SKILLHUB_NATIVE_SCOPE_CHANGED')
     require(edge['status'] == 'SKILLHUB_EDGE_AUTH_ACCEPTED_BROWSER_PENDING'
             and edge['browser_business_acceptance_pending'] is True, 'SKILLHUB_EDGE_SCOPE_CHANGED')
-    return {'status':'DEPLOYED_SOURCE_AND_OPERATOR_EVIDENCE_MATCH','energy_original_files':158,
+    result = {'status':'DEPLOYED_SOURCE_AND_OPERATOR_EVIDENCE_MATCH','energy_original_files':158,
             'source_and_evidence_files':len(seal['files']),'energy_full_report_accepted':False,
             'financial_business_acceptance_pending':True,'production_commands_executed':False}
+    if qualification:
+        result.update(qualification)
+    return result

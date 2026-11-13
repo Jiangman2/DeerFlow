@@ -1,0 +1,28 @@
+{
+  "all_interpretations_confirmed": true,
+  "checks": {
+    "read_only_true": true,
+    "sa_path": true,
+    "selector_key": true,
+    "selector_operator": true,
+    "self_revision_value": true
+  },
+  "field_observation_sha256": "c07fa1e3e7c2ef83e91f6aff8aea9449d6004d6e1afd749e7bdd3a36f23191e5",
+  "mock_mount_name_must_be_synthetic_and_dynamically_bound": true,
+  "mount_name_plaintext_observed": false,
+  "observed_all_nine_original_volumes_unchanged": true,
+  "observed_init_addition_indices": [
+    [
+      0,
+      2
+    ],
+    [
+      1,
+      1
+    ]
+  ],
+  "observed_main_extra_mount_count": 1,
+  "production_operations": 0,
+  "schema": "scheduler-admission-field-binding.v1",
+  "secret_content_read": false
+}

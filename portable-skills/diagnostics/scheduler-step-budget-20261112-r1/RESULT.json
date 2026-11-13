@@ -1,0 +1,67 @@
+{
+  "schema": "scheduler-step-budget-local-fixture.v1",
+  "evidence_origin": "Transcribed from the prior successful inline offline run; saving these files did not rerun it.",
+  "configuration_is_synthetic": true,
+  "live_compiled_graph_proven": false,
+  "real_model_requests": 0,
+  "shell_commands_executed": 0,
+  "external_requests_in_fixture": 0,
+  "network_activity_instrumented_in_prior_run": false,
+  "production_modified": false,
+  "real_middleware_bodies_executed": false,
+  "versions": {
+    "langchain": "1.3.14",
+    "langchain-core": "1.4.9",
+    "langgraph": "1.2.9"
+  },
+  "fixture": {
+    "description": "Source-declared middleware hook topology with no-op hook bodies, summarization omitted, and the listed optional hooks included. It is not proof of production enablement.",
+    "planned_distinct_fake_tool_commands": 16,
+    "planned_final_answer": true,
+    "hook_counts": {
+      "before_agent": 13,
+      "before_model": 3,
+      "after_model": 13,
+      "after_agent": 8
+    }
+  },
+  "cases": [
+    {
+      "limit": 300,
+      "status": "RECURSION_CAPPED",
+      "tasks": 300,
+      "counts": {
+        "before_agent": 13,
+        "before_model": 48,
+        "model": 16,
+        "after_model": 208,
+        "tools": 15
+      },
+      "last_tasks": [
+        [297, "DurableContextMiddleware.after_model"],
+        [298, "SkillWorkflowMiddleware.after_model"],
+        [299, "DanglingToolCallMiddleware.after_model"],
+        [300, "DataLakeSourceMiddleware.after_model"]
+      ]
+    },
+    {
+      "limit": 1000,
+      "status": "SUCCESS",
+      "tasks": 326,
+      "counts": {
+        "before_agent": 13,
+        "before_model": 51,
+        "model": 17,
+        "after_model": 221,
+        "tools": 16,
+        "after_agent": 8
+      },
+      "last_tasks": [
+        [323, "MemoryMiddleware.after_agent"],
+        [324, "SkillWorkflowMiddleware.after_agent"],
+        [325, "DanglingToolCallMiddleware.after_agent"],
+        [326, "SandboxMiddleware.after_agent"]
+      ]
+    }
+  ]
+}

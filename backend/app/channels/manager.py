@@ -44,6 +44,7 @@ from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.skills.slash import parse_slash_skill_reference
 from deerflow.skills.storage import get_or_new_skill_storage
 from deerflow.skills.storage.skill_storage import SkillStorage
+from deerflow.utils.conversation_url import append_conversation_link, current_conversation_url, energy_daily_files
 from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY
 
 logger = logging.getLogger(__name__)
@@ -484,6 +485,38 @@ def _is_hidden_human_control_message(msg: Mapping[str, Any]) -> bool:
         return False
 
     return additional_kwargs.get("hide_from_ui") is True
+
+
+def _append_presented_conversation_link(text: str, *, channel_name: str, thread_id: str, result: dict | list, attachments: list[ResolvedAttachment], user_id: str | None = None) -> str:
+    """Only final Work replies with a current successful publication get a link."""
+    if channel_name != "feishu":
+        return text
+    messages = result if isinstance(result, list) else result.get("messages", []) if isinstance(result, dict) else []
+    resolved = {attachment.virtual_path for attachment in attachments}
+    for msg in reversed(messages):
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("type") == "human" and not _is_hidden_human_control_message(msg):
+            break
+        if msg.get("type") != "tool" or msg.get("name") != "present_files":
+            continue
+        artifact = msg.get("artifact")
+        content = msg.get("content")
+        if msg.get("status") == "error" and isinstance(artifact, dict) and artifact.get("publication_status") == "failed":
+            return append_conversation_link(text, current_conversation_url(thread_id), delivery_failed=True)
+        if msg.get("status") != "success":
+            continue
+        if not isinstance(artifact, dict) or not isinstance(content, str) or not content.startswith("Successfully presented files"):
+            continue
+        presented = artifact.get("presented_files")
+        if isinstance(presented, list):
+            paths = [path for path in presented if isinstance(path, str)]
+            # The model may have supplied workspace paths. present_files publishes
+            # normalized outputs paths; those owning receipts are authoritative.
+            if any(path in resolved for path in paths) or _resolve_attachments(thread_id, paths, user_id=user_id):
+                complete = all(path in resolved for path in paths) or len(_resolve_attachments(thread_id, paths, user_id=user_id)) == len(paths)
+                return append_conversation_link(text, current_conversation_url(thread_id), daily=complete and energy_daily_files(paths))
+    return text
 
 
 def _format_artifact_text(artifacts: list[str]) -> str:
@@ -1731,6 +1764,7 @@ class ChannelManager:
         # artifact delivery always resolve to the same bucket, even if a future
         # channel.receive_file returns a rewritten InboundMessage.
         response_text, attachments = _prepare_artifact_delivery(thread_id, response_text, artifacts, user_id=storage_user_id)
+        response_text = _append_presented_conversation_link(response_text, channel_name=msg.channel_name, thread_id=thread_id, result=result, attachments=attachments, user_id=storage_user_id)
 
         if not response_text:
             if attachments:
@@ -1848,6 +1882,7 @@ class ChannelManager:
             # matches the upload bucket and we avoid re-running _safe_user_id_for_run
             # (and its possible filesystem touch) on the streaming-error path.
             response_text, attachments = _prepare_artifact_delivery(thread_id, response_text, artifacts, user_id=storage_user_id)
+            response_text = _append_presented_conversation_link(response_text, channel_name=msg.channel_name, thread_id=thread_id, result=result, attachments=attachments, user_id=storage_user_id)
 
             if not response_text:
                 if attachments:

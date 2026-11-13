@@ -1,5 +1,32 @@
 # AGENTS.md
 
+## November 13 post-44 source synchronization
+
+See `docs/post44-skill-delivery-sync-20261113.md` and run
+`python deploy/enterprise/verify-post44-source-20261113.py --ref HEAD` with
+Python 3.12+, plus the existing financial, released-source and historical
+baseline verifiers. Current public energy Skill is 2.1.0 (107 source files;
+production adds one browser binding). Preserve the original 158-file project,
+ZIP and old entry outside discovery in the sealed parent archive. Credentials
+and browser binaries are never Git content. Gateway's six result-link files
+retain independent deployed bytes; two canonical files have AST-equal formatting.
+The source seal predates deployment. The operator's November 13 readonly
+acceptance separately confirms Gateway 416, 70 Pods/endpoints and scheduled
+budget 10000; preserve that receipt and all earlier candidate/failure evidence.
+The current post-44 verifier reports both the sealed and later runtime state.
+Loaded application modules and new scheduled-run business delivery remain
+unproven. Never rerun archived activation tools during review or infer full Work
+business delivery from code/PNG acceptance.
+
+## November 10 adjusted-budget financial candidate
+
+`docs/research-fund-adjusted-budget-20261110.md` documents an unshipped candidate:
+the group/company expenditure summary now displays the adjusted budget used by
+its execution rate, and expenditure items explicitly label that basis. Preserve
+the earlier source seals and receipts. The financial verifier qualifies the new
+candidate before projecting the deployed files; candidate verification is not
+production acceptance. No production update is implied by this source change.
+
 ## November 10 deployed-source synchronization
 
 See `docs/released-source-sync-20261110.md` and the sealed source manifests in

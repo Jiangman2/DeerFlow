@@ -1,0 +1,79 @@
+{
+  "accepted_old_tree_sha256": "f9865f7b1fd1745c471bb808f081bf3e86f2170c0c9c22df20e776c0a56ffcf9",
+  "assets": {
+    "package": {
+      "bytes": 111115,
+      "sha256": "980eed816ef30b5d6bbbc91744943d64ba0fb7ad1abf10c2abb1ec10b60b2ac8"
+    },
+    "publisher": {
+      "bytes": 21061,
+      "sha256": "9c3a3936593cbbf8001ab8b9c3dc32dd14c815e648cf46e4061a8e7d89e1b3d9"
+    },
+    "test_files": {
+      "bytes": 116226,
+      "sha256": "cc2b15b99b3654e1673037c8a1b54ebcee5f14aacf7811715a7187a4bd3251bd"
+    },
+    "verifier": {
+      "bytes": 16916,
+      "sha256": "a0f07944b3a431624c7c30fcd8044c8e03716d30a47ed29b34b97684dbae8240"
+    }
+  },
+  "candidate_manifest_sha256": "8ddbf43d4e08f08e485b85f96814f7680d96b976989b61340c230603b37d3bef",
+  "code_files": 107,
+  "code_tree_sha256": "e7964d23fdc7698f8d8edc44140f8877ca8634b3874f4bd7a1bd8fcf9c6eb131",
+  "compose_probe_sha256": "9929a01d4a296ab888c02661d5b71ad3599a5aa84d2fb8e468159b5c4d1c4a5f",
+  "credentials_included": false,
+  "enterprise_binding_in_public_code": false,
+  "files": {
+    "energy-market-daily-2.1.0-public-code.zip": {
+      "bytes": 111115,
+      "sha256": "980eed816ef30b5d6bbbc91744943d64ba0fb7ad1abf10c2abb1ec10b60b2ac8"
+    },
+    "install-energy-delivery-skill-20261112-r1.py": {
+      "bytes": 387813,
+      "sha256": "b39f956edf5d36539169d0e23dc103b1f78cb0f92a01e43865e43a3bc27ec3ec"
+    },
+    "publisher.sealed.py": {
+      "bytes": 21061,
+      "sha256": "9c3a3936593cbbf8001ab8b9c3dc32dd14c815e648cf46e4061a8e7d89e1b3d9"
+    },
+    "verify_child.sealed.py": {
+      "bytes": 16916,
+      "sha256": "a0f07944b3a431624c7c30fcd8044c8e03716d30a47ed29b34b97684dbae8240"
+    }
+  },
+  "gateway_modified": false,
+  "installed_files_including_binding": 108,
+  "messages_sent": 0,
+  "production_executed": false,
+  "provider_requests": 0,
+  "provisioner_modified": false,
+  "real_arm64_uid1000_render_and_synthetic_final_text_qualification_required_before_publication": true,
+  "required_order": "SKILL_INSTALL_THEN_SEPARATE_GATEWAY_415_BUDGET_ROLLOUT",
+  "runtime_binaries_included": false,
+  "runtime_replacement_requested": false,
+  "schema": "energy-delivery-skill-install-package.v1",
+  "source_inputs": {
+    "compose_probe.py": {
+      "bytes": 4951,
+      "sha256": "9929a01d4a296ab888c02661d5b71ad3599a5aa84d2fb8e468159b5c4d1c4a5f"
+    },
+    "operator.py": {
+      "bytes": 33589,
+      "sha256": "34c8be7c88e7b15d88b4e0f431be2fafbe95b3d00e9cc09e270539ab0dfcf7e0"
+    },
+    "publisher.py": {
+      "bytes": 21025,
+      "sha256": "b5d20e58c925f9c45d308e2dff78b2a9dfdb4274ca9c20910eeb218b87883726"
+    },
+    "seal.py": {
+      "bytes": 7956,
+      "sha256": "4752e0cdf7193a044c3680c78901c3dd76e52df868eeb451bba144773731b439"
+    },
+    "verify_child.py": {
+      "bytes": 11441,
+      "sha256": "08d51f32d71a09d5893858252de0e9ca7943d8aac8c0468677abacd2756e93fb"
+    }
+  },
+  "version": "2.1.0-portable"
+}

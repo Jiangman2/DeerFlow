@@ -1,0 +1,136 @@
+{
+  "all_inputs_unchanged": true,
+  "application_imported": false,
+  "author_files_modified": false,
+  "basis": "Exact observed admission field shape; all other fixture content is explicitly synthetic",
+  "business_acceptance_proven": false,
+  "cases": [
+    {
+      "accepted": true,
+      "case": "observed_two_init_mounts_and_self_hash_merge"
+    },
+    {
+      "accepted": false,
+      "case": "changed_init_command",
+      "error_code": "INIT_CONTAINER_ADMISSION_CHANGED",
+      "error_field": "initContainers",
+      "error_path": "/spec/initContainers/0/command/0"
+    },
+    {
+      "accepted": false,
+      "case": "different_init_volume_name",
+      "error_code": "INIT_CONTAINER_ADMISSION_CHANGED",
+      "error_field": "initContainers",
+      "error_path": "/spec/initContainers/0/volumeMounts/2/name"
+    },
+    {
+      "accepted": false,
+      "case": "writable_init_mount",
+      "error_code": "INIT_CONTAINER_ADMISSION_CHANGED",
+      "error_field": "initContainers",
+      "error_path": "/spec/initContainers/1/volumeMounts/1/readOnly"
+    },
+    {
+      "accepted": false,
+      "case": "selector_wrong_operator",
+      "error_code": "TOPOLOGY_SELECTOR_ADMISSION_CHANGED",
+      "error_field": "topologySpreadConstraints",
+      "error_path": "/spec/topologySpreadConstraints/0/labelSelector/matchExpressions/0/operator"
+    },
+    {
+      "accepted": false,
+      "case": "selector_wrong_value",
+      "error_code": "TOPOLOGY_SELECTOR_ADMISSION_CHANGED",
+      "error_field": "topologySpreadConstraints",
+      "error_path": "/spec/topologySpreadConstraints/0/labelSelector/matchExpressions/0/values/0"
+    },
+    {
+      "accepted": false,
+      "case": "selector_wrong_key",
+      "error_code": "TOPOLOGY_SELECTOR_ADMISSION_CHANGED",
+      "error_field": "topologySpreadConstraints",
+      "error_path": "/spec/topologySpreadConstraints/0/labelSelector/matchExpressions/0/key"
+    },
+    {
+      "accepted": false,
+      "case": "selector_extra_expression",
+      "error_code": "TOPOLOGY_SELECTOR_ADMISSION_CHANGED",
+      "error_field": "topologySpreadConstraints",
+      "error_path": "/spec/topologySpreadConstraints/0/labelSelector/matchExpressions/1"
+    },
+    {
+      "accepted": false,
+      "case": "changed_topology_key",
+      "error_code": "TOPOLOGY_SELECTOR_ADMISSION_CHANGED",
+      "error_field": "topologySpreadConstraints",
+      "error_path": "/spec/topologySpreadConstraints/0/topologyKey"
+    },
+    {
+      "accepted": false,
+      "case": "changed_max_skew",
+      "error_code": "TOPOLOGY_SELECTOR_ADMISSION_CHANGED",
+      "error_field": "topologySpreadConstraints",
+      "error_path": "/spec/topologySpreadConstraints/0/maxSkew"
+    },
+    {
+      "accepted": false,
+      "case": "template_did_not_declare_match_key",
+      "error_code": "TOPOLOGY_HASH_MATCH_KEY_NOT_DECLARED",
+      "error_field": "topologySpreadConstraints",
+      "error_path": "/spec/topologySpreadConstraints/0/matchLabelKeys"
+    },
+    {
+      "accepted": false,
+      "case": "replicaset_metadata_hash_disagrees",
+      "error_code": "TOPOLOGY_POD_RS_HASH_MISMATCH",
+      "error_field": "topologySpreadConstraints",
+      "error_path": "/spec/topologySpreadConstraints/0/labelSelector"
+    },
+    {
+      "accepted": false,
+      "case": "replicaset_template_hash_disagrees",
+      "error_code": "TOPOLOGY_POD_RS_HASH_MISMATCH",
+      "error_field": "topologySpreadConstraints",
+      "error_path": "/spec/topologySpreadConstraints/0/labelSelector"
+    },
+    {
+      "accepted": false,
+      "case": "replicaset_selector_hash_disagrees",
+      "error_code": "TOPOLOGY_POD_RS_HASH_MISMATCH",
+      "error_field": "topologySpreadConstraints",
+      "error_path": "/spec/topologySpreadConstraints/0/labelSelector"
+    },
+    {
+      "accepted": false,
+      "case": "automount_explicitly_disabled",
+      "error_code": "SA_PROJECTED_TOKEN_REQUIRED",
+      "error_field": "volumes",
+      "error_path": "/spec/volumes"
+    },
+    {
+      "accepted": false,
+      "case": "projected_token_source_absent",
+      "error_code": "SA_PROJECTED_TOKEN_REQUIRED",
+      "error_field": "volumes",
+      "error_path": "/spec/volumes"
+    }
+  ],
+  "observed_init_added_mount_indices": [
+    [
+      0,
+      2
+    ],
+    [
+      1,
+      1
+    ]
+  ],
+  "original_volumes_unchanged": 9,
+  "passed": true,
+  "production_operations": 0,
+  "schema": "scheduler-admission-independent-cases.v1",
+  "source_bytes": 65070,
+  "source_sha256": "fac6ff86da851e06b6f59ec88fcffefeedeb61064d6c82650ee5b72e09ace04a",
+  "synthetic_mount_name_is_not_claimed_as_observed": true,
+  "token_or_secret_content_read": false
+}

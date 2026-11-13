@@ -1,0 +1,50 @@
+{
+  "schema": "energy-daily-final-text.v1",
+  "formatter_version": "2.1.0-portable",
+  "accepted_result_sha256": "6c0609930be6622f37c56b5c50b5b7a1282cde106b0d246fabab0ac3d81e1f43",
+  "accepted_files": [
+    {
+      "name": "油气与金融市场日报_2026-11-07.png",
+      "bytes": 1224,
+      "sha256": "a8f6eddab2f1bea0a9d9f9604bb41768da15e2a289aa6ad631e3c91830846544"
+    },
+    {
+      "name": "油气与金融市场日报_2026-11-07.html",
+      "bytes": 39,
+      "sha256": "457b144a448a5e45a06e161ecd38ceeacb84ba9e1dbbee43abab4526b3cb35c0"
+    },
+    {
+      "name": "油气与金融市场日报_2026-11-07.json",
+      "bytes": 37339,
+      "sha256": "779207daf6312e1ca62c6fcf043f3ccedd1bcf5f0a7d712b3496d194ab5086f7"
+    },
+    {
+      "name": "油气与金融市场日报_2026-11-07.txt",
+      "bytes": 207,
+      "sha256": "d455c851345be94d17771778d4f80881ca3551b57617e6109defcde81ac426c9"
+    }
+  ],
+  "outputs_generation": "generation-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "publication_date": "2026-11-07",
+  "data_date": "2026-11-06",
+  "quality": "数据不完整",
+  "publication_projection_sha256": "ff58214a0bc4647d4a6a68552927680179176625aefc7838e92219fce319e19f",
+  "publication": {
+    "confirmed": true,
+    "conversation_url": "https://cnoocclaw.cnooc.com.cn/workspace/chats/545097ca-bd47-4416-888e-b6579229c865",
+    "projection_basis": "CALLER_SUPPLIED_TOOLMESSAGE_NOT_INDEPENDENT_HOST_ATTESTATION",
+    "current_thread_identity_independently_verified": false,
+    "reason": null,
+    "file_binding_basis": "VISIBLE_TOOLMESSAGE_AND_ITS_REQUESTED_FILES",
+    "publication_run_binding_not_independently_verified": true,
+    "tool_call_id_sha256": "4c2892fd46e69d5fdbacb57543edd64b83eb9499845a8c5cb3c59c68fb7c793e",
+    "published_files_sha256": "6fd70fe0880cbabb7fa7e5505075463150ab3a99c7806ca7aff7a183c07dcfe6"
+  },
+  "final_text_sha256": "cab65f7013191463bb042c9b83491e272a59b654862c87f14007dfe904721f45",
+  "final_text_bytes": 501,
+  "caller_supplied_projection_is_not_independent_host_attestation": true,
+  "same_file_for_web_and_explicitly_authorized_external_delivery": true,
+  "external_delivery_requested": false,
+  "messages_sent": 0,
+  "composed_at": "2026-11-12T13:57:24.484539+08:00"
+}

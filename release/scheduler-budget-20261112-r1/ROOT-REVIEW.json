@@ -1,0 +1,24 @@
+{
+  "schema": "scheduler-budget-independent-review.v1",
+  "operator_sha256": "98f44cd5d512c98575c2a4ca2284cd8129cab398655a2431086df43fb4f0476c",
+  "source_sha256": "48671e7df9c95ca5f4946641d3227cd8446aab19233e91a993f2111838be3103",
+  "child_sha256": "3bab9d0bc5dd1aae24c9282f80f46407dd81e4b69cea17267c6ab8a602cc2a10",
+  "independent_review_blockers_resolved": [
+    "EndpointSlice addresses, families, ports and protocols now close over all verified Pod IPs and Service targets.",
+    "Unrequested behavioral Pod fields are rejected; only explicit safe API defaults are accepted.",
+    "Unnamed Service and EndpointSlice port names are normalized consistently.",
+    "The deprecated serviceAccount alias derives from the requested service account name."
+  ],
+  "scope": "Only scheduler.recursion_limit 300 to 1000; global maximum stays 10000.",
+  "scope_applies_to_all_future_scheduled_dispatches": true,
+  "old_runs_modified_or_replayed": false,
+  "existing_ca_openssl_and_source_overlay_references_preserved": true,
+  "single_new_immutable_configmap_and_single_full_spec_cas_patch": true,
+  "readonly_mode_never_repatches_or_writes_original_journals": true,
+  "source_and_runtime_verification_is_not_business_acceptance": true,
+  "accepted_prior_skill_install_operator_receipt_sha256": "780034c2c0778a06bd6bd2957bb32dcb4e15898997cf20eae451e33c73356e02",
+  "prior_skill_install_binding_basis": "OPERATOR_RECEIPT_ARCHIVE_NOT_A_NEW_LIVE_READ_BY_BUDGET_TOOL",
+  "production_budget_update_executed": false,
+  "messages_sent_by_review": 0,
+  "provider_requests_by_review": 0
+}

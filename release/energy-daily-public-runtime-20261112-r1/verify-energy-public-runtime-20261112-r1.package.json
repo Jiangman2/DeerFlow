@@ -1,0 +1,10 @@
+{
+  "schema": "energy-public-runtime-visibility-package.v1",
+  "filename": "verify-energy-public-runtime-20261112-r1.py",
+  "bytes": 16177,
+  "sha256": "34f14de54eb751101976b8577c2c560ca3fb372c41392e38f1b0b35bab35870e",
+  "visibility_child_sha256": "d4fb1acbd0c4dd7652240ef392ce98d125cf4a25c6db852b3cba6e70752b5e85",
+  "credentials_included": false,
+  "production_executed": false,
+  "readonly": true
+}

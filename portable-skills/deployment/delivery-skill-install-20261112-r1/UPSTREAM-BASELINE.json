@@ -1,0 +1,21 @@
+{
+  "schema": "delivery-skill-installer-upstream.v1",
+  "copied_sources": {
+    "operator.py": {
+      "source": "portable-skills/deployment/public-runtime-20261112-r1/repair-energy-public-runtime-20261112-r1.py",
+      "sha256": "98b0c2e6e0e0c102705a3a53c9b3221f7ad6eb494fd1f52269c779a18fec5ae4",
+      "bytes": 32528
+    },
+    "publisher.py": {
+      "source": "portable-skills/deployment/public-runtime-20261112-r1/publisher.py",
+      "sha256": "fc760f027b2d91f3bb78a95d348f8d5eee7fbd1107ea5db2a53cf48e4bf42cf2",
+      "bytes": 23141
+    },
+    "verify_child.py": {
+      "source": "portable-skills/deployment/public-runtime-20261112-r1/verify_child.py",
+      "sha256": "6c1e5b670460fd2c6a4b99c85332f06e4352251cf4f6b772b45b12efea7dc353",
+      "bytes": 9853
+    }
+  },
+  "production_modified": false
+}

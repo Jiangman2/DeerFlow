@@ -1,0 +1,82 @@
+{
+  "schema": "scheduler-budget-local-validation.v1",
+  "tool_revision": "r3",
+  "production_accessed": false,
+  "production_mutations": 0,
+  "superseded_r1_r2_artifacts_modified": false,
+  "sealed_operator": {
+    "filename": "activate-scheduler-budget-20261112-r3.py",
+    "bytes": 67178,
+    "sha256": "a02605691a235695f8a0e85fc42b2b67768b8dbfcf43fdb5bd686c473f46c49e"
+  },
+  "qualification_child": {
+    "bytes": 8290,
+    "sha256": "b052131a1e37f7f3e38e3f64ba1cefa8735337011d50c1e104614996ec919d81"
+  },
+  "budget_scope": {
+    "gateway_before": 414,
+    "gateway_after": 415,
+    "scheduler_recursion_limit_before": 300,
+    "scheduler_recursion_limit_after": 10000,
+    "global_max_recursion_limit_before": 10000,
+    "global_max_recursion_limit_after": 10000,
+    "candidate_configuration_byte_length_delta": 2,
+    "existing_runs_replayed": false
+  },
+  "source_tests": {
+    "windows": {"run": 42, "failures": 0, "errors": 0, "skipped": 0},
+    "linux": {
+      "run": 42,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "uid": 1000,
+      "network": "none",
+      "repository_mount": "readonly",
+      "root_filesystem": "readonly",
+      "capabilities": "ALL dropped"
+    },
+    "retained_acceptance_scope": [
+      "strict YAML parsing and unchanged configuration outside scheduler.recursion_limit",
+      "full spec CAS and one immutable ConfigMap create",
+      "source overlays, OpenSSL compatibility and CA references preserved",
+      "seventy Pod IP, endpoint address family, address and service port closure",
+      "dangerous extra Pod fields rejected; only explicit API defaults accepted",
+      "one-time private backups and read-only journal recovery without resubmission"
+    ],
+    "r3_transport_tests": [
+      "real subprocess produces full PodList greater than 4 MiB and the unchanged r2 transport rejects it",
+      "real subprocess transports 70 sparse name/UID/phase/deletion rows successfully",
+      "fixed sparse parsing rejects malformed identities, unknown phase, invalid deletion timestamp, duplicates and excess rows/bytes",
+      "aggregate JSON PodList command is no longer allowed",
+      "real subprocess single-Pod stdout over 4 MiB is rejected with only fixed command kind and numeric bound metadata",
+      "real subprocess qualification stdout over 64 KiB remains rejected",
+      "real subprocess stderr over 128 KiB remains rejected",
+      "complete simulated cutover and read-only recovery retain full selected-Pod and final seventy-Pod checks"
+    ]
+  },
+  "output_bounds": {
+    "sparse_list_stdout_bytes": 262144,
+    "sparse_list_rows": 512,
+    "single_pod_stdout_bytes": 4194304,
+    "qualification_stdout_bytes": 65536,
+    "command_stderr_bytes": 131072,
+    "failure_fields": ["command_kind", "stream", "limit", "observed_bytes"],
+    "raw_errors_exported": false,
+    "sparse_cli_projection_is_not_metadata_only_api": true
+  },
+  "final_sealed_python37_validation": {
+    "python": "3.7.17",
+    "uid": 1000,
+    "network": "none",
+    "host_compiled": true,
+    "sealed_child_decoded_and_compiled": true,
+    "observed_candidate_budget": 10000,
+    "observed_global_max": 10000,
+    "wrong_host_guards": [
+      {"mode": "--activate-scheduler-budget-once", "error_code": "DATAX01_REQUIRED", "commands": 0, "once_claimed": false, "persistent_files_modified": false},
+      {"mode": "--verify-readonly", "error_code": "DATAX01_REQUIRED", "commands": 0, "once_claimed": false, "persistent_files_modified": false}
+    ]
+  },
+  "acceptance_boundary": "Local checks and sealed asset guards only. All future scheduled dispatches are affected; production rollout and real scheduled-run business acceptance remain pending."
+}

@@ -4,6 +4,8 @@ import json
 from pathlib import PurePosixPath
 
 import research_fund_late_source_20261105 as prior
+import research_fund_adjusted_budget_source_20261110 as adjusted
+import post44_source_20261113 as post44
 
 ARCHIVE = 'release/research-fund-current-source-20261110/'
 MANIFEST = ARCHIVE + 'SOURCE.json'
@@ -35,6 +37,7 @@ def check(read, path, row):
 
 
 def qualify(read, paths):
+    read = post44.financial_historical_view(read)
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):
@@ -45,6 +48,10 @@ def qualify(read, paths):
             and seal['business_acceptance_pending'] is True
             and seal['production_commands_executed'] is False, 'CURRENT_FINANCE_SCOPE_CHANGED')
     require(sha(read(prior.MANIFEST)) == prior.MANIFEST_SHA256, 'CURRENT_FINANCE_PARENT_CHANGED')
+    candidate, projection = adjusted.qualify(read, paths)
+    if projection is not None:
+        candidate_read = read
+        read = lambda path: projection[path] if path in projection else candidate_read(path)
     for path, row in seal['evidence_files'].items():
         check(read, path, row)
     for path, row in seal['support_files'].items():
@@ -66,6 +73,9 @@ def qualify(read, paths):
     for path, row in seal['parent_support'].items():
         require(row['snapshot'].startswith(ARCHIVE+'parent/'), 'CURRENT_FINANCE_PARENT_SCOPE')
         parent[path] = check(read, row['snapshot'], row)
-    return {'status':'SOURCE_MATCHES_OPERATOR_ACCEPTED_SKILL_FILES','tree_sha256':AFTER,
+    result = {'status':'SOURCE_MATCHES_OPERATOR_ACCEPTED_SKILL_FILES','tree_sha256':AFTER,
             'skill_files':31,'report_labels_tree_sha256':MIDDLE,
-            'business_acceptance_pending':True,'production_commands_executed':False}, parent
+            'business_acceptance_pending':True,'production_commands_executed':False}
+    if candidate:
+        result.update(candidate, deployed_tree_sha256=AFTER)
+    return result, parent

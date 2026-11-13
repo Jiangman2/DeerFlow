@@ -79,6 +79,7 @@ skills/public/energy-market-daily/** -text whitespace=blank-at-eol,blank-at-eof,
 release/research-fund-report-labels-20261106-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/research-fund-expense-purposes-20261110-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/research-fund-current-source-20261110/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-adjusted-budget-20261110-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/energy-market-released-20261110/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/skillhub-auth-remediation-20261106-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/released-sync-20261110/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
@@ -90,3 +91,18 @@ skills/public/energy-market-daily/upstream/** -whitespace
 release/research-fund-expense-purposes-20261110-r1/skill-source.patch -whitespace
 release/research-fund-expense-purposes-20261110-r1/expense_purposes_release_builder.py -whitespace
 release/research-fund-report-labels-20261106-r1/report_labels_release_builder.py -whitespace
+
+# Byte-exact public source packages, operator tools and append-only observations.
+portable-skills/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/post44-source-sync-20261113/** -text -whitespace
+release/energy-daily-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/energy-delivery-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/sandbox-capacity-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/sandbox-reclaim-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/sandbox-retention-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/scheduler-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+portable-skills/diagnostics/*/*.diff -whitespace
+portable-skills/deployment/gateway-link-r3/tests/test_result_link_activation.py -whitespace
+portable-skills/deployment/gateway-link-r3/tests/test_result_link_activation_r4.py -whitespace
+portable-skills/deployment/publish_portable_daily_child.py -whitespace
+release/research-fund-adjusted-budget-20261110-r1/adjusted_budget_release_builder.py -whitespace

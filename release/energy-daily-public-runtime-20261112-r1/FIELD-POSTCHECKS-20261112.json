@@ -1,0 +1,149 @@
+{
+  "schema": "energy-public-runtime-postchecks-field-summary.v1",
+  "evidence_origin": "OPERATOR_PASTED_COMMAND_OUTPUT",
+  "raw_server_receipts_downloaded": false,
+  "source_paste_sha256": "002af0e2a66cd0d5d5c3062fd334ba2df81c437726da1bf387a0b6f61b23d4f8",
+  "ordinary_visibility": {
+    "status": "ORDINARY_SANDBOX_PUBLIC_RUNTIME_VISIBLE_READONLY_ACCEPTED",
+    "observed_at": "2026-11-12T02:14:39.258579+00:00",
+    "accepted_repair": {
+      "after_tree_sha256": "f9865f7b1fd1745c471bb808f081bf3e86f2170c0c9c22df20e776c0a56ffcf9",
+      "bytes": 6038,
+      "operation": "2677be7ae78e4339b7df3628e0ffa1c9",
+      "path": "/var/lib/portal-energy-public-runtime-repair-20261112-r1/REPORT.json",
+      "qualified_png_sha256": "bedd5af036641c695510cca936b1e530ed7600238a8892fe88b5d7d5953bdd9b",
+      "sha256": "8a36ab323f83d7bc1fba16ef7eac06faa07520fa109efb86ffe087af4d733ce0"
+    },
+    "inventory": {
+      "deleting": 0,
+      "image_mismatch": 0,
+      "not_ready": 2,
+      "ready_expected_image": 118,
+      "rows": 120
+    },
+    "public_category_mount": {
+      "claim_is_expected": true,
+      "mount_path": "/mnt/skills/public",
+      "read_only": true,
+      "subpath_expression_present": false,
+      "subpath_is_public": true,
+      "volume_read_only": true
+    },
+    "observation": {
+      "browser_launched": false,
+      "credentials_read": false,
+      "files_modified": false,
+      "gid": 1000,
+      "nondefault_tmpdir_configured": false,
+      "provider_requests": 0,
+      "runtime_manifest_sha256": "cef35e8edb510631197d5d4874e2e9d6fb2c9ef93a7be8393f38fa9446ea0598",
+      "skill_tree_sha256": "f9865f7b1fd1745c471bb808f081bf3e86f2170c0c9c22df20e776c0a56ffcf9",
+      "status": "ORDINARY_SANDBOX_PUBLIC_RUNTIME_VISIBLE",
+      "temporary": {
+        "available_bytes": 1033319297024,
+        "noexec": false,
+        "path": "/tmp",
+        "readable": true,
+        "searchable": true,
+        "writable": true
+      },
+      "uid": 1000
+    },
+    "sample": {
+      "node": "ecs-zdz-pro-0011",
+      "pod": "sandbox-025cefdf",
+      "uid": "2fabf06a-1930-4f11-97eb-48533dc5922f"
+    },
+    "queries": 5,
+    "stable_readback": true
+  },
+  "gateway": {
+    "generation": 414,
+    "spec_sha256": "542846c6041c25b7ba94073c4b1b58f883910b8042d00951e33455994df76877",
+    "replicas": {
+      "available": 70,
+      "desired": 70,
+      "observed_generation": 414,
+      "ready": 70,
+      "terminating": 0,
+      "total": 70,
+      "updated": 70
+    },
+    "all_pod_sources_verified_by_this_probe": false
+  },
+  "persisted_market": {
+    "thread_id": "201fb3d5-49c0-4276-9e3f-3db67f8edfe7",
+    "observed_at": "2026-11-12T02:14:50.401950+00:00",
+    "status": "NAMED_THREAD_PERSISTED_MARKET_OBSERVED_NO_CHANGE",
+    "project": "/mnt/user-data/workspace/energy-daily-20261112",
+    "publication_date": "2026-11-12",
+    "data_date": "2026-11-11",
+    "prepared_at": "2026-11-12T08:06:42.308840+08:00",
+    "retrieved_at": "2026-11-12T08:06:35.393787+08:00",
+    "market_sha256": "1877541b1d93f076015780c58e3da0ba2752a3d478ab5b7005ad1714637cc257",
+    "target_cache_sha256": "b1e176077e0b85944406a57e712144079b6c65a8e2ed51d01a873c84be8c285d",
+    "project_manifest_sha256": "99387d1f37b2ab3a02353f4a4f58219af830a26033cbc735c7e1bac32816c903",
+    "market_matches_project_input_hash": true,
+    "stable_readback": true,
+    "provider_errcode_zero": true,
+    "target_rows": 14,
+    "target_dates_match": true,
+    "numeric_positive_codes": [
+      "LD0221",
+      "XA0008",
+      "NY0121",
+      "NY0421",
+      "XA0942",
+      "LD1221"
+    ],
+    "recognized_missing_codes": [
+      "LPGD59",
+      "LPGD60",
+      "LPG1225",
+      "LPG1224",
+      "LPG1179",
+      "LPG1177",
+      "LPG1227",
+      "LPG1226"
+    ],
+    "acquisition_failure_count": 0,
+    "target_failure_code": null,
+    "market_complete": false,
+    "project_outputs": {
+      "additional_matching_files": false,
+      "file_bodies_exported": false,
+      "files": [
+        {
+          "bytes": 31686,
+          "name": "\u6cb9\u6c14\u4e0e\u91d1\u878d\u5e02\u573a\u65e5\u62a5_2026-11-12.html",
+          "sha256": "c5fe38a283c773a758d8363f53d136a537affa173d18973dae60e11c0803a7e6"
+        },
+        {
+          "bytes": 63491,
+          "name": "\u6cb9\u6c14\u4e0e\u91d1\u878d\u5e02\u573a\u65e5\u62a5_2026-11-12.json",
+          "sha256": "8406df316f085ad001943260e7876dad0b9b0d12492e0f57b979eb4091287999"
+        },
+        {
+          "bytes": 6810,
+          "name": "\u6cb9\u6c14\u4e0e\u91d1\u878d\u5e02\u573a\u65e5\u62a5_2026-11-12.txt",
+          "sha256": "363d806e2d0c843c4ec632f010c2d989cfbbfef4f9d3a36ce3b64931c069c1a3"
+        }
+      ],
+      "present": true
+    },
+    "published_outputs": {
+      "additional_matching_files": false,
+      "file_bodies_exported": false,
+      "files": [],
+      "present": true
+    },
+    "generation_subdirectories_not_inspected": true,
+    "earlier_jkm_only_snapshot_reconstructed": false,
+    "reason_for_supplier_freight_missing_proven": false
+  },
+  "browser_environment_accepted": true,
+  "real_conversation_png_delivery_accepted": false,
+  "fresh_provider_requests_by_postchecks": 0,
+  "work_messages_sent": 0,
+  "schedule_created": false
+}

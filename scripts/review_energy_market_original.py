@@ -1,7 +1,8 @@
-"""CI-only review of the exact deployed, immutable upstream energy package.
+"""CI-only review of the sealed portable Skill and archived original package.
 
-The nested original instructions/ZIP are deliberate provenance, and the one
-wrapper subprocess invokes the unchanged generator with bounded argv/time/output.
+The immutable original/ZIP is verified outside public discovery. Three scanner
+matches are runtime credential reads, never literal values. The two subprocess
+matches quote argv or invoke the fixed same-file worker with bounded timeout.
 This does not change the platform's runtime scanner or another Skill's policy.
 """
 from pathlib import Path
@@ -13,12 +14,12 @@ import released_sync_source_20261110 as source
 
 FIELDS = ('source','profile','rule_id','severity','path','line')
 ALLOWED = {
-    ('skillscan','deerflow','package-nested-archive','error','assets/energy-daily-v1.0.original.zip',None),
-    ('skillscan','deerflow','python-subprocess','error','scripts/entry.py',172),
+    ('skillscan','deerflow','secret-env-assignment','error','scripts/common.py',70),
+    ('skillscan','deerflow','python-subprocess','error','scripts/daily.py',47),
+    ('skillscan','deerflow','secret-env-assignment','error','scripts/daily.py',203),
+    ('skillscan','deerflow','python-subprocess','error','scripts/daily.py',210),
+    ('skillscan','deerflow','secret-env-assignment','error','scripts/market.py',122),
 }
-for path in ('upstream/agent/SKILL.md','upstream/provenance/original-skill/SKILL.md'):
-    ALLOWED.add(('skillscan','deerflow','package-nested-skill-md','blocker',path,None))
-    ALLOWED.add(('review-core','deerflow','structure.nested-skill-md','blocker',path,None))
 
 
 def reviewed(facts):
@@ -49,7 +50,7 @@ def main():
     facts = analyze_skill_package(snapshot)
     _print_text(facts)
     accepted = not snapshot.get('reader_errors') and reviewed(facts)
-    print('[skill-review] Exact deployed upstream/ZIP and bounded original subprocess: '+('REVIEWED' if accepted else 'FAILED'))
+    print('[skill-review] Sealed portable sources, preserved original/ZIP, runtime credential reads and bounded worker: '+('REVIEWED' if accepted else 'FAILED'))
     return 0 if accepted else 1
 
 

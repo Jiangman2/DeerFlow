@@ -1,0 +1,26 @@
+{
+  "schema": "energy-browser-nonroot-qualification-package.v1",
+  "filename": "qualify-energy-browser-nonroot-20261112-r4.py",
+  "bytes": 1803870,
+  "sha256": "8da2f0c4e6688f07001317e5a353145635a1f8a4163735d845185c60a656c1eb",
+  "assets": {
+    "init": {
+      "bytes": 7473,
+      "sha256": "99589c9a81d5a5d08954b2c0fbd13a84921729d5fb69dee8e47cf19f6648ed59"
+    },
+    "child": {
+      "bytes": 13386,
+      "sha256": "e54ba23050ce59f747a1361d03cf8b714dfec098f2cf2a092606c703fd6bfcc3"
+    },
+    "package": {
+      "bytes": 103343,
+      "sha256": "ba86a3c48dd2b6f4349f3884dfab541730759dc1670ab5f0e7bd72377c439084"
+    },
+    "test_files": {
+      "bytes": 1211579,
+      "sha256": "b9d51a305bc6ae216637d4016dd2bad344f01415c9558642854aa3429b93373e"
+    }
+  },
+  "credentials_included": false,
+  "production_executed": false
+}

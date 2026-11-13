@@ -1,0 +1,34 @@
+{
+  "schema": "energy-portable-install-package.v1",
+  "filename": "install-energy-market-daily-portable-20261111-r1.py",
+  "bytes": 210718,
+  "sha256": "ee69b38551aaf4d2817345334452c939c8adf11478bfa09e15f6cdea7b565e24",
+  "assets": {
+    "publisher": {
+      "bytes": 9639,
+      "sha256": "ed936947b9f36c2389fee16532e7080b9dc7d9aabdd11d204a7fe447a137a76d"
+    },
+    "package": {
+      "bytes": 98416,
+      "sha256": "7964309dda73a26f7679ae48b98e2dcfb1aa1cefdc0bb9d2a8c09f2e06562610"
+    },
+    "source_inspector": {
+      "bytes": 22201,
+      "sha256": "c6cfbeabfd8e21c9513742261df85c7a5dede9d7cb87889f8ea7a4233ec3cd7d"
+    },
+    "idle_guard": {
+      "bytes": 5520,
+      "sha256": "690f8cbe77394152f23bb7e4a71e00224c55399983f1487f10144363836ddec7"
+    },
+    "visual_receipt": {
+      "bytes": 583,
+      "sha256": "3aedd34d1a4f2b1de2896a4675d8dd72a7f333d23178a0d821cd5ea1b215fafa"
+    }
+  },
+  "windows_and_linux_tests": 66,
+  "actual_arm64_qualification": "PASS",
+  "actual_arm64_sample_visual_review": "PASS",
+  "production_executed": false,
+  "gateway_link_activation_separate": true,
+  "credentials_included": false
+}

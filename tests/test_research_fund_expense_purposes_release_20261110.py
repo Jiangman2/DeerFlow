@@ -38,7 +38,10 @@ class Checks(unittest.TestCase):
         self.assertEqual(target.BUNDLE['deployments'], actual['deployments'])
         self.assertEqual(target.BUNDLE['frontend_observation'], actual['frontend_observation'])
         self.assertEqual(target.BUNDLE['before'], BEFORE)
-        self.assertEqual(target.BUNDLE['after'], b.manifest(ROOT/'skills/public/research-fund-settlement'))
+        # This historical updater must match its recorded expense-purpose
+        # candidate; the live Skill is now the separately sealed adjusted-budget
+        # successor, qualified by the current-source verifier and behavior suite.
+        self.assertEqual(target.BUNDLE['after'], json.loads((RELEASE/'candidate-manifest.json').read_bytes()))
         self.assertEqual(target.BUNDLE['baseline_receipt_sha256'], b.sha((RELEASE/'operator-preflight-20261110.json').read_bytes()))
         self.assertIsNone(target.BUNDLE['runtime_review'])
         self.assertEqual(b.literal_binding(target.BUNDLE['remote_source'], 'QUALIFIER_EXPECTED'), 320)

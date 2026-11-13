@@ -95,7 +95,7 @@ def test_zero_categories_remove_whole_paragraphs_and_commissioned_ratio():
     assert len(_body_paragraphs(root)) == len(paragraphs) - len(omitted)
     for index, paragraph in enumerate(paragraphs):
         assert (paragraph.getparent() is None) == (index in omitted)
-    assert "材料/燃料动力费：批复概预算140万元" in _text(paragraphs[102])
+    assert "材料/燃料动力费：批复概预算（调整后）140万元" in _text(paragraphs[102])
     assert "外委研究费占直接经费总支出" not in _text(root)
 
     # Reporting omission must not hide actual spending from totals or tables.
@@ -125,7 +125,7 @@ def test_adjusted_nonzero_original_zero_is_retained_with_displayed_amount():
 
     assert zero_budget_narrative_paragraph_indices(normalized) == ()
     assert len(_body_paragraphs(root)) == len(paragraphs)
-    assert "设备与软件费：批复概预算180万元" in _text(paragraphs[101])
+    assert "设备与软件费：批复概预算（调整后）180万元" in _text(paragraphs[101])
     assert "设备与软件费：结余" in _text(paragraphs[114])
 
 

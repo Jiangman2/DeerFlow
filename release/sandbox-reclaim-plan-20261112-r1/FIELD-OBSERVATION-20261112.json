@@ -1,0 +1,42 @@
+{
+  "schema": "energy-scheduled-run-capacity-operator-summary.v1",
+  "evidence_basis": "SUMMARY_OF_OPERATOR_SUPPLIED_LOG_NOT_A_DOWNLOADED_SERVER_RECEIPT",
+  "source_log_sha256": "b3e8f67828124916eed10613009fa204eb272d204cd61912af56079de1b2d679",
+  "observed_at": "2026-11-12T04:33:57.814001+00:00",
+  "run_id": "887ea9f6-1347-4f0f-ab6d-1295ae3ead49",
+  "id_mapping_basis": "EXACT_RUN_ID",
+  "run": {
+    "created_at": "2026-11-12T03:52:39.417138+00:00",
+    "updated_at": "2026-11-12T03:55:16.290738+00:00",
+    "status": "error",
+    "stop_reason": "recursion_capped",
+    "projected_config_recursion_limit": 300,
+    "message_count": 36
+  },
+  "observed_skill_receipts": [
+    {"seq": 8, "action": "doctor", "tool_status": "success", "status": "ENVIRONMENT_OBSERVED", "credentials_configured": true, "ready_for_report": true},
+    {"seq": 10, "action": "prepare", "tool_status": "success", "status": "NEWS_SUPPLEMENT_REQUIRED", "market_data_complete": false},
+    {"seq": 35, "action": "import-news", "tool_status": "success", "status": "VERIFIED_SOURCE_EVIDENCE_IMPORTED"},
+    {"seq": 39, "action": "select", "tool_status": "success", "status": "SUMMARY_BATCH_READY"},
+    {"seq": 40, "action": "bash_proposal", "executed_receipt_observed": false},
+    {"seq": 41, "kind": "run.error", "recursion_limit": 300}
+  ],
+  "sample_boundaries": {
+    "selection": "FIRST8_AND_LAST24_FIXED_RUN",
+    "events": 32,
+    "tool_results_in_sample": 13,
+    "proposed_calls_in_sample": 16,
+    "duplicate_command_hash_groups": 0,
+    "middle_or_oversized_content_omitted": true,
+    "no_duplicate_hash_does_not_prove_no_loop": true,
+    "summary_batch_ready_does_not_prove_summaries_complete": true,
+    "no_successful_build_or_delivery_receipt_in_sample": true
+  },
+  "sandbox_counts": {"total": 39, "bound_to_current_pool": 39, "fully_ready": 38, "deleting": 1, "unassigned_pending": 0},
+  "reclamation": {"review_candidates": 7, "no_deletion_authorization": true, "nonrun_activity_not_excluded": true, "deletion_performed": false, "not_needed_to_explain_this_run": true},
+  "gateway_generation": 414,
+  "workload_modified": false,
+  "task_retried": false,
+  "recursion_limit_modified": false,
+  "business_delivery_acceptance": false
+}

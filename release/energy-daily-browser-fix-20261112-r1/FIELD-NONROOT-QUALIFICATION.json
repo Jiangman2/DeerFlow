@@ -1,0 +1,44 @@
+{
+  "schema": "energy-browser-operator-evidence-summary.v1",
+  "basis": "operator_pasted_json_not_a_download_of_the_raw_receipt",
+  "observed_at": "2026-11-11T17:33:18.732638+00:00",
+  "operation": "25c51dbcb0f3456aa9a19fedc28346a0",
+  "status": "NONROOT_BROWSER_AND_REPORT_QUALIFIED_NOT_PUBLISHED",
+  "report": {
+    "path": "/var/lib/portal-energy-browser-nonroot-qualification-20261112-r4/REPORT.json",
+    "bytes": 5473,
+    "sha256": "3c73f895fb9841bd9f26abaf3f722aa87601c0eb92a80fc6740c281dec477223"
+  },
+  "code_package_sha256": "ba86a3c48dd2b6f4349f3884dfab541730759dc1670ab5f0e7bd72377c439084",
+  "uid": 1000,
+  "gid": 1000,
+  "architecture": "aarch64",
+  "tests": {"run": 47, "failures": 0, "errors": 0, "skipped": 0},
+  "render": {
+    "width": 780,
+    "height": 5250,
+    "bytes": 757088,
+    "seconds": 3.1,
+    "browser_fallback_count": 0,
+    "sha256": "bedd5af036641c695510cca936b1e530ed7600238a8892fe88b5d7d5953bdd9b"
+  },
+  "visual_acceptance": {
+    "basis": "exact_byte_identity_with_previously_downloaded_and_viewed_fixed_sample",
+    "actual_current_day_business_report": false
+  },
+  "runtime": {
+    "files": 11,
+    "bytes": 349929765,
+    "manifest_sha256": "cef35e8edb510631197d5d4874e2e9d6fb2c9ef93a7be8393f38fa9446ea0598",
+    "source_image_id": "sha256:fb36911f899cc43f1228ee4d0701130761b43b3e9792320bf4e0f16f41f0bec8"
+  },
+  "root_private_cache_accessible": false,
+  "automatic_binding_used": true,
+  "private_local_copy_cleaned": true,
+  "temporary_pod_absent": true,
+  "skill_published": false,
+  "credentials_read": false,
+  "provider_requests": 0,
+  "work_messages_sent": 0,
+  "schedule_created": false
+}

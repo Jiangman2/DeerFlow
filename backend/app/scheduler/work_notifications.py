@@ -59,6 +59,19 @@ class WorkNotification:
     once_recovering: bool = False
 
 
+def _notification_summary(value: str | None) -> str:
+    text = (value or "").strip()
+    if not text.startswith("油气与金融市场日报"):
+        return text[:1200]
+    raw = text.encode("utf-8")
+    if len(raw) <= 9000:
+        return text
+    # Keep whole Markdown lines so a byte limit cannot cut a source link.
+    clipped = raw[:8800].decode("utf-8", "ignore")
+    clipped = clipped.rsplit("\n", 1)[0] if "\n" in clipped else "油气与金融市场日报"
+    return clipped + "\n\n正文较长，完整内容请点击日报链接查看。"
+
+
 class WorkNotificationDispatcher:
     def __init__(
         self,
@@ -109,7 +122,7 @@ class WorkNotificationDispatcher:
             task_id=task.id,
             task_run_id=occurrence.id,
             title=task.title[:200],
-            result_text=(result_text or "").strip()[:1200],
+            result_text=_notification_summary(result_text),
             thread_id=occurrence.thread_id,
             delivery_id=str(uuid.uuid5(uuid.NAMESPACE_URL, f"{self._namespace}:{occurrence.id}:{connection_id}:{binding_key}")),
             finished_at=finished_at.isoformat() if finished_at is not None else "",

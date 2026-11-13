@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parents[1]
-SKILL = REPO / "skills/public/energy-market-daily"
+SKILL = REPO / "release/post44-source-sync-20261113/parent/skills/public/energy-market-daily"
 spec = importlib.util.spec_from_file_location(
     "energy_entry", SKILL / "scripts/entry.py"
 )

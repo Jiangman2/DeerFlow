@@ -1,0 +1,95 @@
+{
+  "schema": "sandbox-capacity-field-summary.v1",
+  "evidence_origin": "OPERATOR_PASTED_COMMAND_OUTPUT",
+  "raw_server_receipt_downloaded": false,
+  "source_paste_sha256": "e1cc1240049fe400089a0627e9e59f89679d9c23f649baf12bb5f4b6c16d9281",
+  "observed_at": "2026-11-12T03:19:00.335637+00:00",
+  "provisioner": {
+    "generation": 87,
+    "spec_sha256": "bc12d70e8afe965ff984a8d2e961bfc5675edda73d98a5061a8e4175c29a7c12",
+    "uid": "9d2480a2-b7d0-4f4e-8fbe-1ce0ac5d2253"
+  },
+  "provisioner_source_sha256": "b5c733bc176da4aa37d34b809e007b4201ff2fff0a35e321eaa322c8652171bb",
+  "template_cpu_cores": "1",
+  "template_memory_mib": 1536,
+  "template_has_ppt_sidecar": true,
+  "resource_basis": "NATIVE_NODE_ALLOCATABLE_MINUS_NATIVE_KUBECTL_DESCRIBE_REQUESTS_NOT_ACTUAL_UTILIZATION",
+  "pool": [
+    {
+      "node": "ecs-zdz-pro-0011",
+      "unrequested_cpu_cores": "2.9",
+      "unrequested_memory_mib": "889.5625000000",
+      "fits_1cpu_1536mib_requests": false,
+      "ready": "True",
+      "unschedulable": false,
+      "taints": []
+    },
+    {
+      "node": "ecs-zdz-pro-0012",
+      "unrequested_cpu_cores": "3.9",
+      "unrequested_memory_mib": "1401.6875000000",
+      "fits_1cpu_1536mib_requests": false,
+      "ready": "True",
+      "unschedulable": false,
+      "taints": []
+    },
+    {
+      "node": "ecs-zdz-pro-0013",
+      "unrequested_cpu_cores": "2.9",
+      "unrequested_memory_mib": "889.6875000000",
+      "fits_1cpu_1536mib_requests": false,
+      "ready": "True",
+      "unschedulable": false,
+      "taints": []
+    },
+    {
+      "node": "ecs-zdz-pro-0014",
+      "unrequested_cpu_cores": "5.9",
+      "unrequested_memory_mib": "377.6875000000",
+      "fits_1cpu_1536mib_requests": false,
+      "ready": "True",
+      "unschedulable": false,
+      "taints": []
+    },
+    {
+      "node": "ecs-zdz-pro-0015",
+      "unrequested_cpu_cores": "2.7",
+      "unrequested_memory_mib": "1529.6875000000",
+      "fits_1cpu_1536mib_requests": false,
+      "ready": "True",
+      "unschedulable": false,
+      "taints": []
+    },
+    {
+      "node": "ecs-zdz-pro-0016",
+      "unrequested_cpu_cores": "5.9",
+      "unrequested_memory_mib": "1401.6875000000",
+      "fits_1cpu_1536mib_requests": false,
+      "ready": "True",
+      "unschedulable": false,
+      "taints": []
+    },
+    {
+      "node": "ecs-zdz-pro-0017",
+      "unrequested_cpu_cores": "0.9",
+      "unrequested_memory_mib": "16249.6875000000",
+      "fits_1cpu_1536mib_requests": false,
+      "ready": "True",
+      "unschedulable": false,
+      "taints": []
+    }
+  ],
+  "sandbox_count": 174,
+  "bound_sandbox_count": 124,
+  "unassigned_pending_count": 50,
+  "bound_deleting_count": 1,
+  "bound_sandbox_count_is_not_idle_or_active_task_count": true,
+  "named_thread_existing_sandboxes": {
+    "0fb37c34-d996-4d8b-aeeb-ea9dcd252a28": [],
+    "201fb3d5-49c0-4276-9e3f-3db67f8edfe7": []
+  },
+  "projection_matches_are_not_proof_of_universal_sandbox_absence": true,
+  "capacity_restore_applied": false,
+  "execution_leases_read_or_acquired": false,
+  "workload_modified": false
+}

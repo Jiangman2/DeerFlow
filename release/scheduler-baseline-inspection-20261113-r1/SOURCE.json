@@ -1,0 +1,13 @@
+{
+  "child": {
+    "bytes": 7844,
+    "sha256": "62d84007979fe611e60c4e711a3828098d006e28a7d5b7ceb6562e8ad7a33995"
+  },
+  "operator": {
+    "bytes": 24953,
+    "filename": "inspect-scheduler-baseline-20261113-r1.py",
+    "sha256": "7f48ec3d98a4fa410b20009331ea2833cdb651516a6123551cb5049e7ef760a4"
+  },
+  "production_accessed": false,
+  "schema": "scheduler-baseline-inspector-source.v1"
+}

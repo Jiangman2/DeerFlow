@@ -1,0 +1,3566 @@
+{
+  "base_commit": "f882aa44b96a8aa7e35008a683677c7e55d2ddf8",
+  "copied_files": {
+    "backend/tests/test_conversation_result_links.py": {
+      "bytes": 15198,
+      "sha256": "fd5a016412108ff6b20dfe549d99d14a738b6dbf95e158c535355dc5d589e1ef"
+    },
+    "backend/tests/test_work_notification_sender.py": {
+      "bytes": 10911,
+      "sha256": "16f74a0eea1660e302c9994a6c2a47041d6fb60462f4ca64c93d963379f99ea8"
+    },
+    "deploy/enterprise/inspect-portal-research-fund-adjusted-budget-20261110-r1.py": {
+      "bytes": 39471,
+      "sha256": "c27693a3bdc5edbd1c631c97d15845b5ec2a622b5ba765ea1679393910794b32"
+    },
+    "deploy/enterprise/research_fund_adjusted_budget_source_20261110.py": {
+      "bytes": 2195,
+      "sha256": "abafc7aa5b4c61122ea2847dda52a8a7624542d817aa5a268d9fa6307e3b9090"
+    },
+    "deploy/enterprise/test_research_fund_adjusted_budget_source_20261110.py": {
+      "bytes": 2367,
+      "sha256": "3549f41af58fa69d7625504cb8ef2b346ed542838d25df8b39bf808c7818f2de"
+    },
+    "docs/research-fund-adjusted-budget-20261110.md": {
+      "bytes": 2643,
+      "sha256": "40655d0881a9ebedaca1077c91ed81fc79983968dcacb675c2f54c9da327d361"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/.gitignore": {
+      "bytes": 36,
+      "sha256": "0b38df42d58989002b0a92b957aa0edda1b7fc98f2b8e57178a97e51837a5b7c"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/MANIFEST.json": {
+      "bytes": 16559,
+      "sha256": "3c31eee75657a7a2ed074a7e5254b2e2feff05645bb2ae50b1505452234c20ba"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/SKILL.md": {
+      "bytes": 8472,
+      "sha256": "20ea1152e4f8abee00df150bede65dceb90a52ebdda411b4a836129e30536cbe"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-06.json": {
+      "bytes": 2512,
+      "sha256": "62a1315a5d2ea492ab82f4c55e090108cfa0de02e19767cb561a06999099ccea"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-07.json": {
+      "bytes": 2514,
+      "sha256": "fce29b1eb02d174471532d8edef7cb4523f88db7ec8773300148e8e26b810762"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-08.json": {
+      "bytes": 2506,
+      "sha256": "512d4464d044d807d12297fd6afc81809edc8c97db78f3aa5c8777b80e2fff3b"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-09.json": {
+      "bytes": 2506,
+      "sha256": "5004af883fe884be0865f2f22148ab2f42ded6a2d94624013f53ca6c3a36f30b"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-10.json": {
+      "bytes": 2514,
+      "sha256": "d4433960be70ed58edf5d9e83794e068aa43c28a185c68cd548ee543ff0d39df"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-11.json": {
+      "bytes": 2512,
+      "sha256": "1fc999cb9a8cb1ca59dcdaeba6feeda81dc2a52f6ab3e05928f6ed67d49de96f"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-12.json": {
+      "bytes": 2510,
+      "sha256": "d744ce42b00a9ee8b68d6fc4164391d57bce6f2b62fddb9e37edbf121f10edc9"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-13.json": {
+      "bytes": 2513,
+      "sha256": "e85f20d543b2a387b148bc6c6480627079029dc9e48007f70ab936e228b3f4cc"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-14.json": {
+      "bytes": 2512,
+      "sha256": "088e22d891749658ea599b429c9532d366d855db5866d52b824825e7ed98968a"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-15.json": {
+      "bytes": 2507,
+      "sha256": "0f56c97c3bcfa68a473518dc84329618c47b2db0056690826b14d8952115c0b9"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-16.json": {
+      "bytes": 2507,
+      "sha256": "0674db6c7e37a1b8bfd0e4a59912044b72e907f0ede13da826a20e135c9ce709"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-17.json": {
+      "bytes": 2509,
+      "sha256": "340902b50080dde1c5a55361131a923f1a3e8fc384d0fa8c30cf0bfbd0e3e1c6"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-18.json": {
+      "bytes": 2513,
+      "sha256": "a667b675589419f3d04c3850d9329f3cb04eb0bec9a6a5c2b4997ce03a0ef0e6"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-19.json": {
+      "bytes": 2513,
+      "sha256": "f9347cb7472f3b668d489a4c74a3ee8dd5d718cf11ee2ce2e4e8f99af912f0ee"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-20.json": {
+      "bytes": 2515,
+      "sha256": "c520a8b97f656dc201118ee6aced94b7be657b20889bc62ee574d91c659cbea8"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-21.json": {
+      "bytes": 2514,
+      "sha256": "50367ad4e847888cdea4fd23018358284e41eb4f06a9dc92918c8bf7df06e9cf"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-22.json": {
+      "bytes": 2507,
+      "sha256": "9b734ab44fe03829440a40ce3b811e754c146b6a91e1701b85b831cdb4857c3a"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-23.json": {
+      "bytes": 2507,
+      "sha256": "367485236cb8bdcefa0b969383f2013d87c4c2e1d320b809ac126a748856034b"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-24.json": {
+      "bytes": 2514,
+      "sha256": "bcacacfe20b93dac588f820e5e7785f99a2d17508d0c6442f3a8580593787a7c"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-25.json": {
+      "bytes": 2512,
+      "sha256": "05b196eaad0f69f6e4696f6d8de86dfff7d19436c20cb9543456909599135b87"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-26.json": {
+      "bytes": 2514,
+      "sha256": "1d52467246c5cd9b88c9e886e7960c39195fc6c71174a1c20af93b0ca12d5a81"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-27.json": {
+      "bytes": 2512,
+      "sha256": "c7f035c6dcf03fc51e71987663511b79d7cc1b88f79a7504e32619705a283de6"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-28.json": {
+      "bytes": 2512,
+      "sha256": "ad1e626297a69f2c104bb191a654fc5a21e0b166f511214bd392061ac873c27e"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-29.json": {
+      "bytes": 2507,
+      "sha256": "328da868c6c9be0f704216736b9d62e94b361447ec8b70d959f261cbcfca3c56"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-30.json": {
+      "bytes": 2507,
+      "sha256": "3c5697589976d473dc806de4a8b1e8d3c36ad29096a8aaa36bf749d06e9e3275"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-08-31.json": {
+      "bytes": 2532,
+      "sha256": "ce0c37a4416d04b4f7fa629310eb0c365da3542c56cf42fb7753b12d3b540e94"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-01.json": {
+      "bytes": 2513,
+      "sha256": "35101f6fbd2f2007ccf8fae048e1de9d715fbc49e781134da79a1722fe819b93"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-02.json": {
+      "bytes": 2514,
+      "sha256": "f90bf217b0278cb7e7717cfc819bc78005b87c41fee236dabca81f75682b2d78"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-03.json": {
+      "bytes": 2513,
+      "sha256": "20bcca9f232a554065afbdcddb40905aba6c6333c5706228d388c3028c255db4"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-04.json": {
+      "bytes": 2516,
+      "sha256": "039f56754fbbe7e258ba7e77d57cfbba576b1cf037ca5449b6170e141b330989"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-05.json": {
+      "bytes": 2505,
+      "sha256": "77a20c94f2222e53b75b50b05725665f1ec8304b96d6ca33599192d39e3ebf37"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-06.json": {
+      "bytes": 2505,
+      "sha256": "2dbefc23017aaa922f6d6d800b756785cdbc355e483381a96148845576d95a9e"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-07.json": {
+      "bytes": 2517,
+      "sha256": "1213d2fe5469ed130c25e6de818b583164ed05403391a7515e17cd5024abfa8d"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-08.json": {
+      "bytes": 2515,
+      "sha256": "fc60f68fcf650f0b364c6ab9bdf2455ec1a37ad60b1412bfda4f5860c14b8fcc"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-09.json": {
+      "bytes": 2517,
+      "sha256": "0f57d26bc63f330701bf55023a2e1d64167ab61a6be700e31ce6c60a53a5b773"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-10.json": {
+      "bytes": 2515,
+      "sha256": "787572a42aa98793593bc240b57a0251a9dff071c4f7c3cb3ae3f6d44f92b357"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-11.json": {
+      "bytes": 2519,
+      "sha256": "c5c6016cdfa771065b31b3ab83b1639517ec41e1c47d4d7a49c77f3c17635528"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-12.json": {
+      "bytes": 2507,
+      "sha256": "6cad141cf70f0e234a20290d158ec60b65679b9ddc877a13b5b419a2e22d5618"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-13.json": {
+      "bytes": 2507,
+      "sha256": "73e9f9a73950a92aa10bb49df585c84ea373176277508e32ad0ee6e6a7783358"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-14.json": {
+      "bytes": 2520,
+      "sha256": "544fe0eb110b8f013197831b4ac6d5da9be98aaab46013b2e333758629dc395b"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-15.json": {
+      "bytes": 2519,
+      "sha256": "d2e197ff7831727865a692a3472461b9a5ed27ed622040855d1262e0c4facdb2"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-16.json": {
+      "bytes": 2520,
+      "sha256": "e7600af3ece2461e4f367d2077caa78c07d87cc76adcbfa8485649cb4e492347"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-17.json": {
+      "bytes": 2519,
+      "sha256": "1f8f631258b8cbe3591a907ae6efd016b0146f381ad1042d8095dfc236a8915d"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-18.json": {
+      "bytes": 2519,
+      "sha256": "7c9ae851f62cbf13414cf3973989c7f25f025b08231a96b3d5185d82403a131c"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-19.json": {
+      "bytes": 2507,
+      "sha256": "1a3baf0cd74b74f698d573937e95efc94f14b35059adeac87db384e68cbaf270"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-20.json": {
+      "bytes": 2507,
+      "sha256": "c9677aea1d82580755a50456352fc2fbaa005288feea88ce0987a0678212fa40"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-21.json": {
+      "bytes": 2518,
+      "sha256": "b32b673586bef4657cd45ef774232b3dc3efda53a0e217de0c681bb7f7add591"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-22.json": {
+      "bytes": 2516,
+      "sha256": "757de36a6abd00c2296f60168cd112503ae41da59b0cad5cdae172f5c7a16dc5"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-23.json": {
+      "bytes": 2517,
+      "sha256": "9dfc5a6f359ea85653dc06bd6c4f3f4d9edf7a4bcc28f8a7715517d359590279"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-24.json": {
+      "bytes": 2518,
+      "sha256": "87513e5b564da9594652452bac87d554ab0fec4f37dfcd8b1dd04e84d770b45f"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-25.json": {
+      "bytes": 2518,
+      "sha256": "90e99a51b95da1b755cfa9b699465900e1febbbb83405612f5fe100b1a3ce371"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-26.json": {
+      "bytes": 2507,
+      "sha256": "3686caa8952f50a12926b64df38b39170e6d115b8073d93e5427b52f6d0e1339"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-27.json": {
+      "bytes": 2507,
+      "sha256": "034869ea371540061bf471d069f001432247d76b96ea64cd8be0885ae2905267"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-28.json": {
+      "bytes": 2516,
+      "sha256": "0e32f9836aba793b6a7ac3e9a6abca24f8ed66b8920e5bdd5dade63c4ab56c22"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-29.json": {
+      "bytes": 2515,
+      "sha256": "4293ba837a5ea7cf12982f16f54f8a742cb554ad2949c8ebfae492eefc5f3ee4"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-09-30.json": {
+      "bytes": 2517,
+      "sha256": "fff525adbea0a993bef33bd4da55af8fc4147d5ff6f8f75711fe2e8059fa72ee"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-01.json": {
+      "bytes": 2517,
+      "sha256": "85c072ce4293fa0e9bda312de84135a1a05871631bda52acebbb01381a02fd2f"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-02.json": {
+      "bytes": 2518,
+      "sha256": "ba66f2687359279f4031ab7c4ed5630fb9825b8699dea6022a8c8a93404f4ebb"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-03.json": {
+      "bytes": 2507,
+      "sha256": "e7e34fdb92b1fbdaddb1459874cc9f3e0dfe178f0a1c4c4faa52d335b01d0a91"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-04.json": {
+      "bytes": 2507,
+      "sha256": "b763414227bf8a4f68e43cad02e7e22584b839b658643e4f379ed61b1ec81a7a"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-05.json": {
+      "bytes": 2518,
+      "sha256": "781deacab3f7d163d60529c6fe85eb424db8c2e615e3f1f2026dff8d03eb2b4d"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-06.json": {
+      "bytes": 2519,
+      "sha256": "ab89c60fb3ef7067ec243aba023949c16593ea1128d4063ff14e6357b493c6f2"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-07.json": {
+      "bytes": 2516,
+      "sha256": "9ee4363095501bcb5130f46a2f0a3a48d8410aa7801fe5882b48e7c0a8b4b7d1"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-08.json": {
+      "bytes": 2518,
+      "sha256": "b153e2fe69f5913c1eda7058c0f76e3b099c5c84fab920f1770247903974cac9"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-09.json": {
+      "bytes": 2518,
+      "sha256": "2bd1ca9282064880e3e7b148ddc19d0a066af12be059df7e9a8517a9cc738e78"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-10.json": {
+      "bytes": 2509,
+      "sha256": "d6bc1c0201e96a53d9ba017ee9a8fca5767663d26d079e3e7538a77eaf2565ce"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-11.json": {
+      "bytes": 2509,
+      "sha256": "db6850df751295d29e7769aa7b31f5c358a122c5fa12b9be2d5bbbfa14cd9e6b"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-12.json": {
+      "bytes": 2518,
+      "sha256": "7c9816a3e5905170396256a79cf40683404546cee8abf9c772465e7b7399dc85"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-13.json": {
+      "bytes": 2518,
+      "sha256": "c62d2fa346073c20ef6226fad6435dd41b5ca9fdc5d7c346b301427abee5a740"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-14.json": {
+      "bytes": 2516,
+      "sha256": "1c3fa63d6caac4466fcde757fab67523a3ae421dc63a8ed6348e508660b9f8ae"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-15.json": {
+      "bytes": 2518,
+      "sha256": "f1db312bb38e073833c9509297ce4e9890a672b40faff9a426af32b47767e255"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-16.json": {
+      "bytes": 2519,
+      "sha256": "9908b22ea324f6e4aa39a69ad6240bbaf6f346f5839ed43d49881a2a6c3d20df"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-17.json": {
+      "bytes": 2509,
+      "sha256": "4dd68f560fe2a6a7f984a4c783575929daa48f38e055a7de6d94281c045b37f8"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-18.json": {
+      "bytes": 2509,
+      "sha256": "d281e26d599e6bc2f08070f009c8126ab7a227bea1d9a9d6755c5a859444226b"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-19.json": {
+      "bytes": 2518,
+      "sha256": "b468c2d4a6e17bfbf4e7b903732a980b71e79a7621efb4969086f9bbb0a44bdc"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-20.json": {
+      "bytes": 2520,
+      "sha256": "93739324cd2aa2b056d3cf20ddfb8e987c1bf5d4509cf55db32001a247f1fbb0"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-21.json": {
+      "bytes": 2517,
+      "sha256": "0140bb8d4c8c17d49a749b08f394fddea8746acf5ae382c7b0eecd5797f030d6"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-22.json": {
+      "bytes": 2519,
+      "sha256": "cc705297d809b91bb610b0753228253d3ca715211fcd04e6e631435bc6255df9"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-23.json": {
+      "bytes": 2516,
+      "sha256": "f86ab3d646a3e02d0c862cb93f021d033496d512c7754c36feba0f7eaa1d9010"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-24.json": {
+      "bytes": 2509,
+      "sha256": "ec90563465836a0c543babb4a4977749b78364dea443bb50c2b2828f9ba424f9"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-25.json": {
+      "bytes": 2509,
+      "sha256": "e95c74c455bcc84cd4bd3e219e3a839e03285ebd0879be319b95fd0a3f599487"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-26.json": {
+      "bytes": 2517,
+      "sha256": "cc0d271ab0a4eb74e834ba4ad8973d9646cc656411a1da8e68c252122bffe14c"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-27.json": {
+      "bytes": 2516,
+      "sha256": "7f5877f7e6be9f75deb23dd4fc32bca429d771daceaa9312c5ab77cbd995d4c8"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-28.json": {
+      "bytes": 2518,
+      "sha256": "e610d679e87eb592e52e73cffc2896827199d79a28b3480d34606591b47be497"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-29.json": {
+      "bytes": 2519,
+      "sha256": "e8a6ed9d8fd729afa6a8699be75fb10da905bd92155e215f038340f6de6cebb5"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-30.json": {
+      "bytes": 2518,
+      "sha256": "151277472872666298c773cd8aea90e836f552c41b303120672705ad83f82cf8"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-10-31.json": {
+      "bytes": 2509,
+      "sha256": "d16606d6b621e2d521767d8d9063c40b250a1627dbdcce459e9d37b3a356bbbc"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-11-01.json": {
+      "bytes": 2507,
+      "sha256": "e2ac1ef6d52b4b92589d05e76de3ee5373df70c6277d43f1c9672418b4ae692a"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-11-02.json": {
+      "bytes": 2519,
+      "sha256": "f4ceceea35c79ad796f035120e7dddd53606e17eb469a81fad24a040afe4b534"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-11-03.json": {
+      "bytes": 2518,
+      "sha256": "c685ef3d9ed8b7ddc0951349b4739d8c1d38fae652756126d9f85832b965dcac"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-11-04.json": {
+      "bytes": 2515,
+      "sha256": "051fe6b2ee7da3100c6fc198ff6c21237877819e01a757b233f062bef1bf35aa"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-11-05.json": {
+      "bytes": 2516,
+      "sha256": "660b8cac21968766171ea55bf8ebdd699f4fc9997b5d344fe4a5ee98056bda8e"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/assets/history/jkx_new_2026-11-06.json": {
+      "bytes": 2522,
+      "sha256": "bbeb52b48fdae15b8205bbf10af7c2f90c94819baa2b305e644cd1f09f710d2a"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/references/evidence.md": {
+      "bytes": 1170,
+      "sha256": "1109594c0f68aeb0b51386ceb59538aafacf5273a4c723485aa236ea53144017"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/references/provenance.json": {
+      "bytes": 402,
+      "sha256": "e0f7d37be7235a1d120f310de6f9991077aeec9ea39d8af30bb055680a5d5871"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/references/runtime.md": {
+      "bytes": 4514,
+      "sha256": "a8de5cdbd394bfe45e71201105fc81a363eb667a2b2c5496f9aba83b9ecab8c2"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/requirements.txt": {
+      "bytes": 20,
+      "sha256": "e062756e078c1fa38bdb2796046b669990ab5b5d5e4b5196779b917127b846f3"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/scripts/browser_runtime.py": {
+      "bytes": 10051,
+      "sha256": "9844b8e4c5e6a6de99a6f7d9cf42f2aafeda1dea5e2b9966f709da7cebf71ae8"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/scripts/common.py": {
+      "bytes": 7380,
+      "sha256": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/scripts/daily.py": {
+      "bytes": 37454,
+      "sha256": "f6dadc21e0051b3bcf553588a35b72db527662ab883704b8fc2000d29694f25c"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/scripts/market.py": {
+      "bytes": 8259,
+      "sha256": "ab4ee17ea34750150c2048aa5406cd6685a4bcf992170ada19a10953efb72cac"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/scripts/report_renderer.py": {
+      "bytes": 15285,
+      "sha256": "bc70625139f3c56da9ebfba5bc139461e862a86b05d180691ef5a2c66ecf75a3"
+    },
+    "portable-skills/candidates/energy-market-daily-2.0.3/scripts/research.py": {
+      "bytes": 13863,
+      "sha256": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/.gitignore": {
+      "bytes": 36,
+      "sha256": "0b38df42d58989002b0a92b957aa0edda1b7fc98f2b8e57178a97e51837a5b7c"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/MANIFEST.json": {
+      "bytes": 17135,
+      "sha256": "8ddbf43d4e08f08e485b85f96814f7680d96b976989b61340c230603b37d3bef"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/SKILL.md": {
+      "bytes": 9758,
+      "sha256": "c0a5b6e29d7337ac4dc67326e1eb1549d6c394316a685efbee525c28041d64e4"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-06.json": {
+      "bytes": 2512,
+      "sha256": "62a1315a5d2ea492ab82f4c55e090108cfa0de02e19767cb561a06999099ccea"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-07.json": {
+      "bytes": 2514,
+      "sha256": "fce29b1eb02d174471532d8edef7cb4523f88db7ec8773300148e8e26b810762"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-08.json": {
+      "bytes": 2506,
+      "sha256": "512d4464d044d807d12297fd6afc81809edc8c97db78f3aa5c8777b80e2fff3b"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-09.json": {
+      "bytes": 2506,
+      "sha256": "5004af883fe884be0865f2f22148ab2f42ded6a2d94624013f53ca6c3a36f30b"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-10.json": {
+      "bytes": 2514,
+      "sha256": "d4433960be70ed58edf5d9e83794e068aa43c28a185c68cd548ee543ff0d39df"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-11.json": {
+      "bytes": 2512,
+      "sha256": "1fc999cb9a8cb1ca59dcdaeba6feeda81dc2a52f6ab3e05928f6ed67d49de96f"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-12.json": {
+      "bytes": 2510,
+      "sha256": "d744ce42b00a9ee8b68d6fc4164391d57bce6f2b62fddb9e37edbf121f10edc9"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-13.json": {
+      "bytes": 2513,
+      "sha256": "e85f20d543b2a387b148bc6c6480627079029dc9e48007f70ab936e228b3f4cc"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-14.json": {
+      "bytes": 2512,
+      "sha256": "088e22d891749658ea599b429c9532d366d855db5866d52b824825e7ed98968a"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-15.json": {
+      "bytes": 2507,
+      "sha256": "0f56c97c3bcfa68a473518dc84329618c47b2db0056690826b14d8952115c0b9"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-16.json": {
+      "bytes": 2507,
+      "sha256": "0674db6c7e37a1b8bfd0e4a59912044b72e907f0ede13da826a20e135c9ce709"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-17.json": {
+      "bytes": 2509,
+      "sha256": "340902b50080dde1c5a55361131a923f1a3e8fc384d0fa8c30cf0bfbd0e3e1c6"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-18.json": {
+      "bytes": 2513,
+      "sha256": "a667b675589419f3d04c3850d9329f3cb04eb0bec9a6a5c2b4997ce03a0ef0e6"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-19.json": {
+      "bytes": 2513,
+      "sha256": "f9347cb7472f3b668d489a4c74a3ee8dd5d718cf11ee2ce2e4e8f99af912f0ee"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-20.json": {
+      "bytes": 2515,
+      "sha256": "c520a8b97f656dc201118ee6aced94b7be657b20889bc62ee574d91c659cbea8"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-21.json": {
+      "bytes": 2514,
+      "sha256": "50367ad4e847888cdea4fd23018358284e41eb4f06a9dc92918c8bf7df06e9cf"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-22.json": {
+      "bytes": 2507,
+      "sha256": "9b734ab44fe03829440a40ce3b811e754c146b6a91e1701b85b831cdb4857c3a"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-23.json": {
+      "bytes": 2507,
+      "sha256": "367485236cb8bdcefa0b969383f2013d87c4c2e1d320b809ac126a748856034b"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-24.json": {
+      "bytes": 2514,
+      "sha256": "bcacacfe20b93dac588f820e5e7785f99a2d17508d0c6442f3a8580593787a7c"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-25.json": {
+      "bytes": 2512,
+      "sha256": "05b196eaad0f69f6e4696f6d8de86dfff7d19436c20cb9543456909599135b87"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-26.json": {
+      "bytes": 2514,
+      "sha256": "1d52467246c5cd9b88c9e886e7960c39195fc6c71174a1c20af93b0ca12d5a81"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-27.json": {
+      "bytes": 2512,
+      "sha256": "c7f035c6dcf03fc51e71987663511b79d7cc1b88f79a7504e32619705a283de6"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-28.json": {
+      "bytes": 2512,
+      "sha256": "ad1e626297a69f2c104bb191a654fc5a21e0b166f511214bd392061ac873c27e"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-29.json": {
+      "bytes": 2507,
+      "sha256": "328da868c6c9be0f704216736b9d62e94b361447ec8b70d959f261cbcfca3c56"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-30.json": {
+      "bytes": 2507,
+      "sha256": "3c5697589976d473dc806de4a8b1e8d3c36ad29096a8aaa36bf749d06e9e3275"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-08-31.json": {
+      "bytes": 2532,
+      "sha256": "ce0c37a4416d04b4f7fa629310eb0c365da3542c56cf42fb7753b12d3b540e94"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-01.json": {
+      "bytes": 2513,
+      "sha256": "35101f6fbd2f2007ccf8fae048e1de9d715fbc49e781134da79a1722fe819b93"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-02.json": {
+      "bytes": 2514,
+      "sha256": "f90bf217b0278cb7e7717cfc819bc78005b87c41fee236dabca81f75682b2d78"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-03.json": {
+      "bytes": 2513,
+      "sha256": "20bcca9f232a554065afbdcddb40905aba6c6333c5706228d388c3028c255db4"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-04.json": {
+      "bytes": 2516,
+      "sha256": "039f56754fbbe7e258ba7e77d57cfbba576b1cf037ca5449b6170e141b330989"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-05.json": {
+      "bytes": 2505,
+      "sha256": "77a20c94f2222e53b75b50b05725665f1ec8304b96d6ca33599192d39e3ebf37"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-06.json": {
+      "bytes": 2505,
+      "sha256": "2dbefc23017aaa922f6d6d800b756785cdbc355e483381a96148845576d95a9e"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-07.json": {
+      "bytes": 2517,
+      "sha256": "1213d2fe5469ed130c25e6de818b583164ed05403391a7515e17cd5024abfa8d"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-08.json": {
+      "bytes": 2515,
+      "sha256": "fc60f68fcf650f0b364c6ab9bdf2455ec1a37ad60b1412bfda4f5860c14b8fcc"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-09.json": {
+      "bytes": 2517,
+      "sha256": "0f57d26bc63f330701bf55023a2e1d64167ab61a6be700e31ce6c60a53a5b773"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-10.json": {
+      "bytes": 2515,
+      "sha256": "787572a42aa98793593bc240b57a0251a9dff071c4f7c3cb3ae3f6d44f92b357"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-11.json": {
+      "bytes": 2519,
+      "sha256": "c5c6016cdfa771065b31b3ab83b1639517ec41e1c47d4d7a49c77f3c17635528"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-12.json": {
+      "bytes": 2507,
+      "sha256": "6cad141cf70f0e234a20290d158ec60b65679b9ddc877a13b5b419a2e22d5618"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-13.json": {
+      "bytes": 2507,
+      "sha256": "73e9f9a73950a92aa10bb49df585c84ea373176277508e32ad0ee6e6a7783358"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-14.json": {
+      "bytes": 2520,
+      "sha256": "544fe0eb110b8f013197831b4ac6d5da9be98aaab46013b2e333758629dc395b"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-15.json": {
+      "bytes": 2519,
+      "sha256": "d2e197ff7831727865a692a3472461b9a5ed27ed622040855d1262e0c4facdb2"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-16.json": {
+      "bytes": 2520,
+      "sha256": "e7600af3ece2461e4f367d2077caa78c07d87cc76adcbfa8485649cb4e492347"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-17.json": {
+      "bytes": 2519,
+      "sha256": "1f8f631258b8cbe3591a907ae6efd016b0146f381ad1042d8095dfc236a8915d"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-18.json": {
+      "bytes": 2519,
+      "sha256": "7c9ae851f62cbf13414cf3973989c7f25f025b08231a96b3d5185d82403a131c"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-19.json": {
+      "bytes": 2507,
+      "sha256": "1a3baf0cd74b74f698d573937e95efc94f14b35059adeac87db384e68cbaf270"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-20.json": {
+      "bytes": 2507,
+      "sha256": "c9677aea1d82580755a50456352fc2fbaa005288feea88ce0987a0678212fa40"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-21.json": {
+      "bytes": 2518,
+      "sha256": "b32b673586bef4657cd45ef774232b3dc3efda53a0e217de0c681bb7f7add591"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-22.json": {
+      "bytes": 2516,
+      "sha256": "757de36a6abd00c2296f60168cd112503ae41da59b0cad5cdae172f5c7a16dc5"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-23.json": {
+      "bytes": 2517,
+      "sha256": "9dfc5a6f359ea85653dc06bd6c4f3f4d9edf7a4bcc28f8a7715517d359590279"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-24.json": {
+      "bytes": 2518,
+      "sha256": "87513e5b564da9594652452bac87d554ab0fec4f37dfcd8b1dd04e84d770b45f"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-25.json": {
+      "bytes": 2518,
+      "sha256": "90e99a51b95da1b755cfa9b699465900e1febbbb83405612f5fe100b1a3ce371"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-26.json": {
+      "bytes": 2507,
+      "sha256": "3686caa8952f50a12926b64df38b39170e6d115b8073d93e5427b52f6d0e1339"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-27.json": {
+      "bytes": 2507,
+      "sha256": "034869ea371540061bf471d069f001432247d76b96ea64cd8be0885ae2905267"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-28.json": {
+      "bytes": 2516,
+      "sha256": "0e32f9836aba793b6a7ac3e9a6abca24f8ed66b8920e5bdd5dade63c4ab56c22"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-29.json": {
+      "bytes": 2515,
+      "sha256": "4293ba837a5ea7cf12982f16f54f8a742cb554ad2949c8ebfae492eefc5f3ee4"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-09-30.json": {
+      "bytes": 2517,
+      "sha256": "fff525adbea0a993bef33bd4da55af8fc4147d5ff6f8f75711fe2e8059fa72ee"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-01.json": {
+      "bytes": 2517,
+      "sha256": "85c072ce4293fa0e9bda312de84135a1a05871631bda52acebbb01381a02fd2f"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-02.json": {
+      "bytes": 2518,
+      "sha256": "ba66f2687359279f4031ab7c4ed5630fb9825b8699dea6022a8c8a93404f4ebb"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-03.json": {
+      "bytes": 2507,
+      "sha256": "e7e34fdb92b1fbdaddb1459874cc9f3e0dfe178f0a1c4c4faa52d335b01d0a91"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-04.json": {
+      "bytes": 2507,
+      "sha256": "b763414227bf8a4f68e43cad02e7e22584b839b658643e4f379ed61b1ec81a7a"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-05.json": {
+      "bytes": 2518,
+      "sha256": "781deacab3f7d163d60529c6fe85eb424db8c2e615e3f1f2026dff8d03eb2b4d"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-06.json": {
+      "bytes": 2519,
+      "sha256": "ab89c60fb3ef7067ec243aba023949c16593ea1128d4063ff14e6357b493c6f2"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-07.json": {
+      "bytes": 2516,
+      "sha256": "9ee4363095501bcb5130f46a2f0a3a48d8410aa7801fe5882b48e7c0a8b4b7d1"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-08.json": {
+      "bytes": 2518,
+      "sha256": "b153e2fe69f5913c1eda7058c0f76e3b099c5c84fab920f1770247903974cac9"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-09.json": {
+      "bytes": 2518,
+      "sha256": "2bd1ca9282064880e3e7b148ddc19d0a066af12be059df7e9a8517a9cc738e78"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-10.json": {
+      "bytes": 2509,
+      "sha256": "d6bc1c0201e96a53d9ba017ee9a8fca5767663d26d079e3e7538a77eaf2565ce"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-11.json": {
+      "bytes": 2509,
+      "sha256": "db6850df751295d29e7769aa7b31f5c358a122c5fa12b9be2d5bbbfa14cd9e6b"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-12.json": {
+      "bytes": 2518,
+      "sha256": "7c9816a3e5905170396256a79cf40683404546cee8abf9c772465e7b7399dc85"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-13.json": {
+      "bytes": 2518,
+      "sha256": "c62d2fa346073c20ef6226fad6435dd41b5ca9fdc5d7c346b301427abee5a740"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-14.json": {
+      "bytes": 2516,
+      "sha256": "1c3fa63d6caac4466fcde757fab67523a3ae421dc63a8ed6348e508660b9f8ae"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-15.json": {
+      "bytes": 2518,
+      "sha256": "f1db312bb38e073833c9509297ce4e9890a672b40faff9a426af32b47767e255"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-16.json": {
+      "bytes": 2519,
+      "sha256": "9908b22ea324f6e4aa39a69ad6240bbaf6f346f5839ed43d49881a2a6c3d20df"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-17.json": {
+      "bytes": 2509,
+      "sha256": "4dd68f560fe2a6a7f984a4c783575929daa48f38e055a7de6d94281c045b37f8"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-18.json": {
+      "bytes": 2509,
+      "sha256": "d281e26d599e6bc2f08070f009c8126ab7a227bea1d9a9d6755c5a859444226b"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-19.json": {
+      "bytes": 2518,
+      "sha256": "b468c2d4a6e17bfbf4e7b903732a980b71e79a7621efb4969086f9bbb0a44bdc"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-20.json": {
+      "bytes": 2520,
+      "sha256": "93739324cd2aa2b056d3cf20ddfb8e987c1bf5d4509cf55db32001a247f1fbb0"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-21.json": {
+      "bytes": 2517,
+      "sha256": "0140bb8d4c8c17d49a749b08f394fddea8746acf5ae382c7b0eecd5797f030d6"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-22.json": {
+      "bytes": 2519,
+      "sha256": "cc705297d809b91bb610b0753228253d3ca715211fcd04e6e631435bc6255df9"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-23.json": {
+      "bytes": 2516,
+      "sha256": "f86ab3d646a3e02d0c862cb93f021d033496d512c7754c36feba0f7eaa1d9010"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-24.json": {
+      "bytes": 2509,
+      "sha256": "ec90563465836a0c543babb4a4977749b78364dea443bb50c2b2828f9ba424f9"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-25.json": {
+      "bytes": 2509,
+      "sha256": "e95c74c455bcc84cd4bd3e219e3a839e03285ebd0879be319b95fd0a3f599487"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-26.json": {
+      "bytes": 2517,
+      "sha256": "cc0d271ab0a4eb74e834ba4ad8973d9646cc656411a1da8e68c252122bffe14c"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-27.json": {
+      "bytes": 2516,
+      "sha256": "7f5877f7e6be9f75deb23dd4fc32bca429d771daceaa9312c5ab77cbd995d4c8"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-28.json": {
+      "bytes": 2518,
+      "sha256": "e610d679e87eb592e52e73cffc2896827199d79a28b3480d34606591b47be497"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-29.json": {
+      "bytes": 2519,
+      "sha256": "e8a6ed9d8fd729afa6a8699be75fb10da905bd92155e215f038340f6de6cebb5"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-30.json": {
+      "bytes": 2518,
+      "sha256": "151277472872666298c773cd8aea90e836f552c41b303120672705ad83f82cf8"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-10-31.json": {
+      "bytes": 2509,
+      "sha256": "d16606d6b621e2d521767d8d9063c40b250a1627dbdcce459e9d37b3a356bbbc"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-11-01.json": {
+      "bytes": 2507,
+      "sha256": "e2ac1ef6d52b4b92589d05e76de3ee5373df70c6277d43f1c9672418b4ae692a"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-11-02.json": {
+      "bytes": 2519,
+      "sha256": "f4ceceea35c79ad796f035120e7dddd53606e17eb469a81fad24a040afe4b534"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-11-03.json": {
+      "bytes": 2518,
+      "sha256": "c685ef3d9ed8b7ddc0951349b4739d8c1d38fae652756126d9f85832b965dcac"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-11-04.json": {
+      "bytes": 2515,
+      "sha256": "051fe6b2ee7da3100c6fc198ff6c21237877819e01a757b233f062bef1bf35aa"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-11-05.json": {
+      "bytes": 2516,
+      "sha256": "660b8cac21968766171ea55bf8ebdd699f4fc9997b5d344fe4a5ee98056bda8e"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/assets/history/jkx_new_2026-11-06.json": {
+      "bytes": 2522,
+      "sha256": "bbeb52b48fdae15b8205bbf10af7c2f90c94819baa2b305e644cd1f09f710d2a"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/references/evidence.md": {
+      "bytes": 1170,
+      "sha256": "1109594c0f68aeb0b51386ceb59538aafacf5273a4c723485aa236ea53144017"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/references/provenance.json": {
+      "bytes": 402,
+      "sha256": "e0f7d37be7235a1d120f310de6f9991077aeec9ea39d8af30bb055680a5d5871"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/references/runtime.md": {
+      "bytes": 4514,
+      "sha256": "a8de5cdbd394bfe45e71201105fc81a363eb667a2b2c5496f9aba83b9ecab8c2"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/requirements.txt": {
+      "bytes": 20,
+      "sha256": "e062756e078c1fa38bdb2796046b669990ab5b5d5e4b5196779b917127b846f3"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/scripts/browser_runtime.py": {
+      "bytes": 10051,
+      "sha256": "9844b8e4c5e6a6de99a6f7d9cf42f2aafeda1dea5e2b9966f709da7cebf71ae8"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/scripts/common.py": {
+      "bytes": 7380,
+      "sha256": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/scripts/daily.py": {
+      "bytes": 38365,
+      "sha256": "dff7c59813d439ccefe16954bf695a6eac11d6f915ef163e39991dad890df42a"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/scripts/delivery_text.py": {
+      "bytes": 12710,
+      "sha256": "8277f0d203305eb9094a9dd1e81b2b31d6bfa5e567779713d1cae960e6f3f2a1"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/scripts/market.py": {
+      "bytes": 8259,
+      "sha256": "ab4ee17ea34750150c2048aa5406cd6685a4bcf992170ada19a10953efb72cac"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/scripts/report_renderer.py": {
+      "bytes": 15285,
+      "sha256": "bc70625139f3c56da9ebfba5bc139461e862a86b05d180691ef5a2c66ecf75a3"
+    },
+    "portable-skills/candidates/energy-market-daily-2.1.0/scripts/research.py": {
+      "bytes": 13863,
+      "sha256": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/browser_init.py": {
+      "bytes": 5129,
+      "sha256": "d194a45d0638142d0afdae707dd270a0fdf505f5b86fedcb574220cf7ad1c129"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/browser_init_r2.py": {
+      "bytes": 7385,
+      "sha256": "80c3624de7061822078bbdee6721149e8301aae4cfad08b29c66ef04c73b2d3a"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/browser_init_r3.py": {
+      "bytes": 7473,
+      "sha256": "99589c9a81d5a5d08954b2c0fbd13a84921729d5fb69dee8e47cf19f6648ed59"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/install-energy-browser-fix-20261112-r1.py": {
+      "bytes": 25940,
+      "sha256": "04ecf8e696fd36c9ad85da62e24824da47eaa3bb1f3ed28540214d1a1b580848"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/publish_browser_fix_child.py": {
+      "bytes": 22944,
+      "sha256": "6273c4281929a2643e28cc720fd1c9ccb54561de36299cee1aec511e4fba7e9d"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/publish_verify_child.py": {
+      "bytes": 10159,
+      "sha256": "4dee86275f54b22d9bd9d972428d9ac14e28fdf43e296b264fc406d0666349a2"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/qualify-energy-browser-nonroot-20261112-r1.py": {
+      "bytes": 17080,
+      "sha256": "8c401df7836b40a5f1583a80a0254611f177a0ac0b14be1838f3e478e5b6bb5b"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/qualify-energy-browser-nonroot-20261112-r2.py": {
+      "bytes": 20808,
+      "sha256": "c64bbb36bedd500e3f8be16b06d910652d8d598e804130097dfd06a43d5120e6"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/qualify-energy-browser-nonroot-20261112-r3.py": {
+      "bytes": 21577,
+      "sha256": "0ff94429e48355bad3427f1c1751970d91050e3e3f216586e252f30ae3f3daa1"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/qualify-energy-browser-nonroot-20261112-r4.py": {
+      "bytes": 22410,
+      "sha256": "7d689b23451eef946f6b3838957c4bcdddb10e2db08b7a9326ee580554b6706b"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/qualify_browser_child.py": {
+      "bytes": 11198,
+      "sha256": "20869389268639c4386827ed166d2510f6e294213cf15eef47c8878814df5136"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/qualify_browser_child_r4.py": {
+      "bytes": 13386,
+      "sha256": "e54ba23050ce59f747a1361d03cf8b714dfec098f2cf2a092606c703fd6bfcc3"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/seal_install.py": {
+      "bytes": 1911,
+      "sha256": "180a313ee23f3dedd6253af2a79c5ecab7d651008e485f89dfe92081431edc60"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/seal_qualification.py": {
+      "bytes": 2586,
+      "sha256": "b25eeddde8b5f14a9e299984e0939d2c998f6e4fbb3ec597362fd1fe93b6274d"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/seal_qualification_r2.py": {
+      "bytes": 2589,
+      "sha256": "31c1065a0a6c319f86e9916c5a00b33a4463f8a0a8a833f33324ff43ddea8b1e"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/seal_qualification_r3.py": {
+      "bytes": 2589,
+      "sha256": "4ffe5ea9562995e3368bcb5719b7a39541f33f963e5ee81bce63e981c53a0736"
+    },
+    "portable-skills/deployment/browser-runtime-20261112/seal_qualification_r4.py": {
+      "bytes": 2592,
+      "sha256": "c1091f4ce6068be7e3aaaf3883e642cfb7317e5f3d2683b58f5d9a942c4a4674"
+    },
+    "portable-skills/deployment/capacity-20261112-r1/inspect-sandbox-capacity-20261112-r1.py": {
+      "bytes": 13606,
+      "sha256": "951d8c9efed71b9540b888724d66251cd9444713bce19bbd500a397c352b2356"
+    },
+    "portable-skills/deployment/capacity-20261112-r1/inspect_capacity_child.py": {
+      "bytes": 5211,
+      "sha256": "0c2bc2662c6e937f9943335fe21905f314a58bc3886f02f88912b895b1dc9d84"
+    },
+    "portable-skills/deployment/capacity-20261112-r1/seal_capacity_probe.py": {
+      "bytes": 1206,
+      "sha256": "eb25d02c42e147f0149a7cf71abaa18f372822fd40f00170cb04fef139bf7b41"
+    },
+    "portable-skills/deployment/delivery-skill-install-20261112-r1/README.md": {
+      "bytes": 3194,
+      "sha256": "f7327df1ba08ba46f58c1b0d1af2aeea187d0f1b8e285bee634bcd8d085dcc02"
+    },
+    "portable-skills/deployment/delivery-skill-install-20261112-r1/UPSTREAM-BASELINE.json": {
+      "bytes": 808,
+      "sha256": "ee9a81e2f2fc4b1c6894e2ea673000946bb35e0a4de3c3e37f756846cb98393e"
+    },
+    "portable-skills/deployment/delivery-skill-install-20261112-r1/VALIDATION-SKELETON-15.json": {
+      "bytes": 2334,
+      "sha256": "7493169d8b8ddccbe05ec3177b87efdb45afc61e668b4309f2e6cb9cdad3b0b6"
+    },
+    "portable-skills/deployment/delivery-skill-install-20261112-r1/VALIDATION.json": {
+      "bytes": 3635,
+      "sha256": "c78ce15569960e11401f7dd7fd7437c8428673a21caea810ae5ca611716672a6"
+    },
+    "portable-skills/deployment/delivery-skill-install-20261112-r1/compose_probe.py": {
+      "bytes": 4951,
+      "sha256": "9929a01d4a296ab888c02661d5b71ad3599a5aa84d2fb8e468159b5c4d1c4a5f"
+    },
+    "portable-skills/deployment/delivery-skill-install-20261112-r1/operator.py": {
+      "bytes": 33959,
+      "sha256": "bdc125d247521df63d6f77f75ce4b347d2f0dd47a185b212e3da6f527fc72cd1"
+    },
+    "portable-skills/deployment/delivery-skill-install-20261112-r1/publisher.py": {
+      "bytes": 21025,
+      "sha256": "b5d20e58c925f9c45d308e2dff78b2a9dfdb4274ca9c20910eeb218b87883726"
+    },
+    "portable-skills/deployment/delivery-skill-install-20261112-r1/seal.py": {
+      "bytes": 7956,
+      "sha256": "4752e0cdf7193a044c3680c78901c3dd76e52df868eeb451bba144773731b439"
+    },
+    "portable-skills/deployment/delivery-skill-install-20261112-r1/test_api.py": {
+      "bytes": 11435,
+      "sha256": "a8b83d73b7cdc4687c071077ec5221a33f7a98da665108bf87e8fff9c7a5d052"
+    },
+    "portable-skills/deployment/delivery-skill-install-20261112-r1/test_compose_api.py": {
+      "bytes": 2681,
+      "sha256": "a8a5008e676a75db256122210f5d97a03d1244e3b3b6fa39fbf9a673bacba66c"
+    },
+    "portable-skills/deployment/delivery-skill-install-20261112-r1/test_sealed_package.py": {
+      "bytes": 2245,
+      "sha256": "1402060307b8eb9f32d5f1e545e1ff9b9856b8a4d59606161fb0bcd0aafe2064"
+    },
+    "portable-skills/deployment/delivery-skill-install-20261112-r1/verify_child.py": {
+      "bytes": 11441,
+      "sha256": "08d51f32d71a09d5893858252de0e9ca7943d8aac8c0468677abacd2756e93fb"
+    },
+    "portable-skills/deployment/gateway-link-r2/activate-energy-daily-result-links-20261111-r2.py": {
+      "bytes": 53578,
+      "sha256": "4e521bbcbd6a71542b66449f6f06d0fb75e2ae3005eea7bd58b35fe7680823d2"
+    },
+    "portable-skills/deployment/gateway-link-r2/backend/app/channels/manager.py": {
+      "bytes": 94358,
+      "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
+    },
+    "portable-skills/deployment/gateway-link-r2/backend/app/integrations/work/notifications.py": {
+      "bytes": 10025,
+      "sha256": "2f25958bcb2556685d153bef55f72afebd360deb157cd13164ceb4261001f039"
+    },
+    "portable-skills/deployment/gateway-link-r2/backend/app/scheduler/work_notification_delivery.py": {
+      "bytes": 4297,
+      "sha256": "d446868a681754fa98241b62ebfe45a886c6bf21b0da0f68d0d69cd111e8a42e"
+    },
+    "portable-skills/deployment/gateway-link-r2/backend/app/scheduler/work_notifications.py": {
+      "bytes": 14201,
+      "sha256": "d3f7e6c4acc4fd0cb7e4f6b31861ddf8b68ff1d2f44761a99da90536a6982645"
+    },
+    "portable-skills/deployment/gateway-link-r2/backend/packages/harness/deerflow/tools/builtins/present_file_tool.py": {
+      "bytes": 19640,
+      "sha256": "eccfe1e5975c771465abf96f1da60fdb2a11e0712716aeb2453a2d10fbe30e3b"
+    },
+    "portable-skills/deployment/gateway-link-r2/backend/packages/harness/deerflow/utils/conversation_url.py": {
+      "bytes": 4466,
+      "sha256": "ef20ca84241617a489859fca4f660b07ba5923616828e0fad654b6c59d2f4abc"
+    },
+    "portable-skills/deployment/gateway-link-r2/backend/tests/test_conversation_result_links.py": {
+      "bytes": 14592,
+      "sha256": "34cd061196954866256652fa255b4a6623c6f50c039a25c5e2e31e4cd09ea88f"
+    },
+    "portable-skills/deployment/gateway-link-r2/backend/tests/test_work_notification_sender.py": {
+      "bytes": 10911,
+      "sha256": "16f74a0eea1660e302c9994a6c2a47041d6fb60462f4ca64c93d963379f99ea8"
+    },
+    "portable-skills/deployment/gateway-link-r2/inspect-energy-daily-result-link-source-20261111-r2.py": {
+      "bytes": 22201,
+      "sha256": "c6cfbeabfd8e21c9513742261df85c7a5dede9d7cb87889f8ea7a4233ec3cd7d"
+    },
+    "portable-skills/deployment/gateway-link-r2/qualify-energy-daily-result-link-20261111-r2.py": {
+      "bytes": 29643,
+      "sha256": "4dec52395be158bc08fa1c7fc9cd245ee238149b0a4c160a2c12a9e22ab44dcc"
+    },
+    "portable-skills/deployment/gateway-link-r2/skill_reader.py": {
+      "bytes": 9991,
+      "sha256": "0806aa8c64526a7f1a7e1f5668bc474463b7140c4d3299ad184e3d573f7da590"
+    },
+    "portable-skills/deployment/gateway-link-r2/tests/test_result_link_activation.py": {
+      "bytes": 29709,
+      "sha256": "ce8238a604d628573cab848c243ed57df02a3aaa680571f25fe6907f555e0c18"
+    },
+    "portable-skills/deployment/gateway-link-r2/tests/test_result_link_source.py": {
+      "bytes": 13693,
+      "sha256": "fcfe8890a91e2109cce980efee8a16c855b2d2852cce0928cc8e87b6aaa5c6ac"
+    },
+    "portable-skills/deployment/gateway-link-r3/activate-energy-daily-result-links-20261111-r3.py": {
+      "bytes": 51182,
+      "sha256": "ec53b36b11b5cee2c02c3e493f17a5301f8da75b23ae79454f0411451b2628df"
+    },
+    "portable-skills/deployment/gateway-link-r3/activate-energy-daily-result-links-20261111-r4.py": {
+      "bytes": 51566,
+      "sha256": "be8739718d536e8e3ef3d3672f2ac139e20d69036848d032ef28efa34bcfaf1c"
+    },
+    "portable-skills/deployment/gateway-link-r3/backend/app/channels/manager.py": {
+      "bytes": 94358,
+      "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
+    },
+    "portable-skills/deployment/gateway-link-r3/backend/app/integrations/work/notifications.py": {
+      "bytes": 10025,
+      "sha256": "2f25958bcb2556685d153bef55f72afebd360deb157cd13164ceb4261001f039"
+    },
+    "portable-skills/deployment/gateway-link-r3/backend/app/scheduler/work_notification_delivery.py": {
+      "bytes": 4297,
+      "sha256": "d446868a681754fa98241b62ebfe45a886c6bf21b0da0f68d0d69cd111e8a42e"
+    },
+    "portable-skills/deployment/gateway-link-r3/backend/app/scheduler/work_notifications.py": {
+      "bytes": 14201,
+      "sha256": "d3f7e6c4acc4fd0cb7e4f6b31861ddf8b68ff1d2f44761a99da90536a6982645"
+    },
+    "portable-skills/deployment/gateway-link-r3/backend/packages/harness/deerflow/tools/builtins/present_file_tool.py": {
+      "bytes": 19640,
+      "sha256": "eccfe1e5975c771465abf96f1da60fdb2a11e0712716aeb2453a2d10fbe30e3b"
+    },
+    "portable-skills/deployment/gateway-link-r3/backend/packages/harness/deerflow/utils/conversation_url.py": {
+      "bytes": 5042,
+      "sha256": "f5ac36f16038a3532cd3110d134b72e58c42693c1b9ab9a1b6390d9b4209c0b8"
+    },
+    "portable-skills/deployment/gateway-link-r3/backend/tests/test_conversation_result_links.py": {
+      "bytes": 15198,
+      "sha256": "fd5a016412108ff6b20dfe549d99d14a738b6dbf95e158c535355dc5d589e1ef"
+    },
+    "portable-skills/deployment/gateway-link-r3/backend/tests/test_work_notification_sender.py": {
+      "bytes": 10911,
+      "sha256": "16f74a0eea1660e302c9994a6c2a47041d6fb60462f4ca64c93d963379f99ea8"
+    },
+    "portable-skills/deployment/gateway-link-r3/inspect-energy-daily-result-link-source-20261111-r3.py": {
+      "bytes": 22201,
+      "sha256": "11d87389f1d5354bc21c4873773c5fe8aec691e017e90d4c294264d1c699dcc3"
+    },
+    "portable-skills/deployment/gateway-link-r3/qualify-energy-daily-result-link-20261111-r3.py": {
+      "bytes": 30347,
+      "sha256": "1eb26c3732c62c8ca2b4aa3fb63be336423630d0531877b1d8b68c2319528480"
+    },
+    "portable-skills/deployment/gateway-link-r3/skill_reader.py": {
+      "bytes": 9991,
+      "sha256": "0806aa8c64526a7f1a7e1f5668bc474463b7140c4d3299ad184e3d573f7da590"
+    },
+    "portable-skills/deployment/gateway-link-r3/skill_reader_r4.py": {
+      "bytes": 10315,
+      "sha256": "d18414a0997e831cf816b39589856483b86295b2d0937a9cd29458b5b81fe233"
+    },
+    "portable-skills/deployment/gateway-link-r3/tests/test_result_link_activation.py": {
+      "bytes": 27579,
+      "sha256": "c9fe98e6caf50ddfddf8db7b45b6df233dea773e445a79a4d256ee227ecfaa2a"
+    },
+    "portable-skills/deployment/gateway-link-r3/tests/test_result_link_activation_r4.py": {
+      "bytes": 30231,
+      "sha256": "3503137a10333e225b38baaeb08e4b42fc4d701472d56ba386c3e1c147f59965"
+    },
+    "portable-skills/deployment/gateway-link-r3/tests/test_result_link_source.py": {
+      "bytes": 13693,
+      "sha256": "8db7d5dec82cf1b814ebde31191a01e0f9beb7d8bfd899e39701c93ba2df8ccf"
+    },
+    "portable-skills/deployment/gateway-postcheck-20261112/VALIDATION-R2.json": {
+      "bytes": 2274,
+      "sha256": "3f095fe515b6f80e4abeaa80f27615ed65550b5c1b3185c9c1d04df3e7eacbf4"
+    },
+    "portable-skills/deployment/gateway-postcheck-20261112/VALIDATION-R3.json": {
+      "bytes": 1663,
+      "sha256": "e99fb2a262770c99d3196ce0fd34ce585debca65a75958ce1dac1246c9e28740"
+    },
+    "portable-skills/deployment/gateway-postcheck-20261112/VALIDATION.json": {
+      "bytes": 1385,
+      "sha256": "9f452c8b890b929b7aaf068db7a472a829c345da255621c6b7c71021dc2853b4"
+    },
+    "portable-skills/deployment/gateway-postcheck-20261112/skill_reader_r2.py": {
+      "bytes": 5745,
+      "sha256": "81c9c249dedb5c0d599df90f43605e858abb17b5c5b8d0f3050fb604f20c182e"
+    },
+    "portable-skills/deployment/gateway-postcheck-20261112/test_gateway_postcheck.py": {
+      "bytes": 13360,
+      "sha256": "c233737de369292cd39da6bb66c96b234a404ef99f168239d66e4f1b57216080"
+    },
+    "portable-skills/deployment/gateway-postcheck-20261112/test_gateway_postcheck_r2.py": {
+      "bytes": 10265,
+      "sha256": "3db2f22d8a43789eb5b0870c04799192f0277a7e9ec936bd3d4086659b760e84"
+    },
+    "portable-skills/deployment/gateway-postcheck-20261112/test_gateway_postcheck_r3.py": {
+      "bytes": 10896,
+      "sha256": "239b124118c7e78ee69ba84da9e74ab65b3df7ddf8242c367b2c64bb7e94d630"
+    },
+    "portable-skills/deployment/gateway-postcheck-20261112/verify-energy-daily-result-links-20261112-r1.py": {
+      "bytes": 12319,
+      "sha256": "0e45c003b24c3110552195a38671a4b35dc54f25e58544b586fa45673b073f96"
+    },
+    "portable-skills/deployment/gateway-postcheck-20261112/verify-energy-daily-result-links-20261112-r2.py": {
+      "bytes": 25566,
+      "sha256": "774ac250f11261a81151e2a23f5e8e26d4c79a5e33fc650ce32f585e502bc7b4"
+    },
+    "portable-skills/deployment/gateway-postcheck-20261112/verify-energy-daily-result-links-20261112-r3.py": {
+      "bytes": 25566,
+      "sha256": "b31eceaa5708c9c83b67508bac73afba66279019afb60a1b81854b58c587606d"
+    },
+    "portable-skills/deployment/inspect-energy-browser-permissions-20261112-r1.py": {
+      "bytes": 7284,
+      "sha256": "7ac8011c5a6dffa9b106e51db458aafcf13204018e2f1dcbb104bafcee0563ba"
+    },
+    "portable-skills/deployment/inspect-energy-daily-portable-runtime-20261111-r1.py": {
+      "bytes": 12212,
+      "sha256": "b6340fce4756902e25592670968b3d88e6461a4d406b58cdb02af3983a52bec1"
+    },
+    "portable-skills/deployment/inspect-energy-daily-portable-runtime-20261111-r2.py": {
+      "bytes": 12219,
+      "sha256": "d91c6a8ecfe7f311d7188912c0e4e77c7ecfd7a0e1881f2515bae293f22bde10"
+    },
+    "portable-skills/deployment/install-energy-market-daily-portable-20261111-r1.py": {
+      "bytes": 28354,
+      "sha256": "c83eeee05f302945e8a4d5a4a87259f281bd7c504cb7528ccd3865422a850e17"
+    },
+    "portable-skills/deployment/install-energy-market-daily-portable-20261111-r2.py": {
+      "bytes": 27308,
+      "sha256": "e9af0d860e04430a63b9f9a76c94b7c9ade37372baff0cb563f3f556abadc543"
+    },
+    "portable-skills/deployment/package_browser_fix_20261112.py": {
+      "bytes": 3752,
+      "sha256": "b6790d07b78a674aa433da0f585c1a643dee46c821f6d50905eead6b732c49dc"
+    },
+    "portable-skills/deployment/package_portable_daily.py": {
+      "bytes": 4915,
+      "sha256": "0e3123f0efcbabd6645ead9745f53af2445dbed1f9dd21ab964be4123df9e0d7"
+    },
+    "portable-skills/deployment/public-runtime-20261112-r1/VALIDATION.json": {
+      "bytes": 1938,
+      "sha256": "45cf958e299b88f030384b8ad572d603991c9804a90f500c215d66a021093b7c"
+    },
+    "portable-skills/deployment/public-runtime-20261112-r1/inspect-energy-daily-persisted-thread-20261112-r1.py": {
+      "bytes": 12436,
+      "sha256": "073bf5dd521fcd5de7f39c6e8b2ebd20eeda4fd903b20fe643cce84dbf4f15cc"
+    },
+    "portable-skills/deployment/public-runtime-20261112-r1/inspect-energy-daily-thread-20261112-r1.py": {
+      "bytes": 17042,
+      "sha256": "501efdfac64de68ad2d712f1b86120622de8009808a0d20d40769e90f5f4f3fb"
+    },
+    "portable-skills/deployment/public-runtime-20261112-r1/inspect_persisted_child.py": {
+      "bytes": 11019,
+      "sha256": "84eb7a3a9fdcf34e31a5ed41cef5ba3c67c40f1f79a65467172d202df2d8c1d0"
+    },
+    "portable-skills/deployment/public-runtime-20261112-r1/package_code.py": {
+      "bytes": 4472,
+      "sha256": "c4e38fa8dccdb3be66c5fd95fdd5b0e074a19308838179c83864abde7a0bdc0a"
+    },
+    "portable-skills/deployment/public-runtime-20261112-r1/publisher.py": {
+      "bytes": 23141,
+      "sha256": "fc760f027b2d91f3bb78a95d348f8d5eee7fbd1107ea5db2a53cf48e4bf42cf2"
+    },
+    "portable-skills/deployment/public-runtime-20261112-r1/repair-energy-public-runtime-20261112-r1.py": {
+      "bytes": 32528,
+      "sha256": "98b0c2e6e0e0c102705a3a53c9b3221f7ad6eb494fd1f52269c779a18fec5ae4"
+    },
+    "portable-skills/deployment/public-runtime-20261112-r1/seal_persisted_probe.py": {
+      "bytes": 2163,
+      "sha256": "2e148e79fbd73c63a05ef57cb75866ff54042b5569ede6133f300a0b2147f4af"
+    },
+    "portable-skills/deployment/public-runtime-20261112-r1/seal_repair.py": {
+      "bytes": 3301,
+      "sha256": "e529266a796de5484837be0d1e8ae1fb80e0782abe2c458d60620500591fb908"
+    },
+    "portable-skills/deployment/public-runtime-20261112-r1/seal_visibility_postcheck.py": {
+      "bytes": 1632,
+      "sha256": "e468bc53776cd5e8ee6a52ace0f871b5b2231d7061622472937161932899a9fb"
+    },
+    "portable-skills/deployment/public-runtime-20261112-r1/verify-energy-public-runtime-20261112-r1.py": {
+      "bytes": 13130,
+      "sha256": "57641866da463e6af82764341bb74fea092cd7a164caa74bf524abbe6274413c"
+    },
+    "portable-skills/deployment/public-runtime-20261112-r1/verify_child.py": {
+      "bytes": 9853,
+      "sha256": "6c1e5b670460fd2c6a4b99c85332f06e4352251cf4f6b772b45b12efea7dc353"
+    },
+    "portable-skills/deployment/publish_portable_daily_child.py": {
+      "bytes": 9639,
+      "sha256": "ed936947b9f36c2389fee16532e7080b9dc7d9aabdd11d204a7fe447a137a76d"
+    },
+    "portable-skills/deployment/qualify-energy-market-daily-portable-20261111-r1.py": {
+      "bytes": 14593,
+      "sha256": "b961462b3d8bb9436ad9d31b20ab6099e515a3af721fef5ab4fd7666bdf7bfeb"
+    },
+    "portable-skills/deployment/qualify_portable_daily_child.py": {
+      "bytes": 6442,
+      "sha256": "372b87f7c12843cee20a16e3c1fb859e323cbe3a75989677245bcdc966727bb5"
+    },
+    "portable-skills/deployment/reclaim-plan-20261112-r1/inspect_reclaim_child.py": {
+      "bytes": 34960,
+      "sha256": "688dfe86d9eb5167450403135712efe3575f9a42b84fefcd6f0b92f42e4b5566"
+    },
+    "portable-skills/deployment/reclaim-plan-20261112-r1/inspect_reclaim_host_extra.py": {
+      "bytes": 13357,
+      "sha256": "df1a8b2dd2dc0ad11dfe657b0a136d03f799e61c2cdd179918db7dbbddba24b1"
+    },
+    "portable-skills/deployment/reclaim-plan-20261112-r1/seal_reclaim_plan.py": {
+      "bytes": 2979,
+      "sha256": "e3a2477dad58a92e0890584d9f6cdcb8e6fc55c3566f1ccc1bfd1ebcfd478e7b"
+    },
+    "portable-skills/deployment/recovery-gate-20261112-r1/inspect-energy-daily-recovery-gate-20261112-r1.py": {
+      "bytes": 10075,
+      "sha256": "ae84eab9b89fe4b54289d7c646cda2ee00b8cb486024b7d363a118349901ac80"
+    },
+    "portable-skills/deployment/recovery-gate-20261112-r1/inspect_recovery_child.py": {
+      "bytes": 18273,
+      "sha256": "165430fdf189cf1f6d77be46d5495b6c23a3889d453af432500011a1ba361272"
+    },
+    "portable-skills/deployment/recovery-gate-20261112-r1/seal_recovery_probe.py": {
+      "bytes": 10181,
+      "sha256": "3f4691aa9e50a8e7ec06a7e4d3930f6d0e16a60e7a83680249c266b395250989"
+    },
+    "portable-skills/deployment/recovery-gate-20261112-r2/inspect-energy-daily-recovery-gate-20261112-r2.py": {
+      "bytes": 14956,
+      "sha256": "cb0a9a65db20dd54784ee1520a44b9dacfdee45629d23b82741c2e645e42a1e3"
+    },
+    "portable-skills/deployment/recovery-gate-20261112-r2/inspect_transport_child.py": {
+      "bytes": 10924,
+      "sha256": "339f8bb2f00b9b6ba35428adb3ed38a2c4a2a6e15e6124ff8c40a248af35c072"
+    },
+    "portable-skills/deployment/recovery-gate-20261112-r2/seal_transport_probe.py": {
+      "bytes": 9223,
+      "sha256": "d5a941dcc0062eb77a34be8b46de783a3208838fb58a1ba0f8275c8b7108e990"
+    },
+    "portable-skills/deployment/retention-20261112-r1/inspect-sandbox-retention-20261112-r1.py": {
+      "bytes": 10862,
+      "sha256": "841bd25cf22f1ca4981d30b85b7f6f20a03adcacd2dcff132dae515bca2e7a0a"
+    },
+    "portable-skills/deployment/retention-20261112-r1/inspect_retention_child.py": {
+      "bytes": 2714,
+      "sha256": "dbc4dadc770a95539f3729c0ad13df42a1d14a65939fd82022f2f8e616ca94d1"
+    },
+    "portable-skills/deployment/retention-20261112-r1/seal_retention_probe.py": {
+      "bytes": 9760,
+      "sha256": "c492ef7b79d312aa628654cb57504a04c378359f69996a8016e1b073bd8be4af"
+    },
+    "portable-skills/deployment/run_gateway_result_qualification.py": {
+      "bytes": 828,
+      "sha256": "99c56aa64fe132343797ab573d632448ab9d9c8970d1d6cd1a452148db82085e"
+    },
+    "portable-skills/deployment/run_gateway_result_qualification_r3.py": {
+      "bytes": 833,
+      "sha256": "632d70f73a3b44194ad7df14b81e8aa20ce85d9fb270a8b9c6ed83471f7df669"
+    },
+    "portable-skills/deployment/scheduler-baseline-inspection-20261113-r1/inspect-scheduler-baseline-20261113-r1.py": {
+      "bytes": 14403,
+      "sha256": "a04eec017b15cd77557ea7613c48b3664ab054f7392ec60da7cc63cd65ae11b1"
+    },
+    "portable-skills/deployment/scheduler-baseline-inspection-20261113-r1/inspect_baseline_child.py": {
+      "bytes": 7844,
+      "sha256": "62d84007979fe611e60c4e711a3828098d006e28a7d5b7ceb6562e8ad7a33995"
+    },
+    "portable-skills/deployment/scheduler-baseline-inspection-20261113-r1/seal_baseline_inspector.py": {
+      "bytes": 1736,
+      "sha256": "f6c21ad4b88ae8c2045b2dced92a3dea86cec3f3463d8c2033d3b69b538edfae"
+    },
+    "portable-skills/deployment/scheduler-baseline-inspection-20261113-r1/test_baseline_inspector.py": {
+      "bytes": 5653,
+      "sha256": "e4aa87f51fc1e2eb0f5ccd2517daf8a224fb1ab4045c6169cbbfda59d7b14504"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r1/README.md": {
+      "bytes": 2206,
+      "sha256": "83f13f327df0015f72c24e222e3150950604a72f6c3f00fdd8e6e734fabc3059"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r1/activate-scheduler-budget-20261112-r1.py": {
+      "bytes": 52643,
+      "sha256": "48671e7df9c95ca5f4946641d3227cd8446aab19233e91a993f2111838be3103"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r1/qualify_budget_child.py": {
+      "bytes": 8288,
+      "sha256": "3bab9d0bc5dd1aae24c9282f80f46407dd81e4b69cea17267c6ab8a602cc2a10"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r1/seal_scheduler_budget.py": {
+      "bytes": 2239,
+      "sha256": "1464f58baaa02366a6f062510fa5862f0942f2ae955b464fdfca8db86a7493b3"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r1/test_scheduler_budget.py": {
+      "bytes": 32077,
+      "sha256": "7b3968337f0c8263fb1c118164cffe28704de868d54286b9a99d60f0a76773a7"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r2/README.md": {
+      "bytes": 2435,
+      "sha256": "cc3dc817b1fecff8418f6a9e58afc9085e8450fd503bafdc10501829ed10bca8"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r2/activate-scheduler-budget-20261112-r2.py": {
+      "bytes": 52651,
+      "sha256": "d1de613d7bad7a2cddd0d6630290419e97c2123a5051e279c3bd946fd88c2309"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r2/qualify_budget_child.py": {
+      "bytes": 8290,
+      "sha256": "b052131a1e37f7f3e38e3f64ba1cefa8735337011d50c1e104614996ec919d81"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r2/seal_scheduler_budget.py": {
+      "bytes": 2263,
+      "sha256": "34aa1deeae3aee3bf80fc8dc2b501b9a8e298ce174b61a9ba1f07556ac3f235a"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r2/test_scheduler_budget.py": {
+      "bytes": 32892,
+      "sha256": "7912d00d38e1341ed03add2f669a97843792b2cb6e397ec76648c47372b845d8"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r3/README.md": {
+      "bytes": 3076,
+      "sha256": "74791bb11939dedb72d4abd33e61a0ff4206207cdb4389b04fff2b68701f8cf2"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r3/activate-scheduler-budget-20261112-r3.py": {
+      "bytes": 56086,
+      "sha256": "e4cd8f163cc6d22f51b333d8c989e65a9446930bcd6393efad89c2f388516ef4"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r3/qualify_budget_child.py": {
+      "bytes": 8290,
+      "sha256": "b052131a1e37f7f3e38e3f64ba1cefa8735337011d50c1e104614996ec919d81"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r3/seal_scheduler_budget.py": {
+      "bytes": 2263,
+      "sha256": "16e64582192b648e21491900157ef09d2e952859f96482bd83859fc0c5a38bd3"
+    },
+    "portable-skills/deployment/scheduler-budget-20261112-r3/test_scheduler_budget.py": {
+      "bytes": 38758,
+      "sha256": "0d24909b8ac1e3e47868420a372f085319039f1f34302f5eac44e818988989ba"
+    },
+    "portable-skills/deployment/scheduler-budget-20261113-r4/README.md": {
+      "bytes": 3431,
+      "sha256": "fcfac69491bfdc26a9e6843fe2607bd67b828cae9219a0edd2e5846d211b6f7d"
+    },
+    "portable-skills/deployment/scheduler-budget-20261113-r4/activate-scheduler-budget-20261113-r4.py": {
+      "bytes": 58395,
+      "sha256": "3f23ec76a27d862b101515775a50c2794efa02ab2e88473532668424ba036b7e"
+    },
+    "portable-skills/deployment/scheduler-budget-20261113-r4/qualify_budget_child.py": {
+      "bytes": 8290,
+      "sha256": "b052131a1e37f7f3e38e3f64ba1cefa8735337011d50c1e104614996ec919d81"
+    },
+    "portable-skills/deployment/scheduler-budget-20261113-r4/seal_scheduler_budget.py": {
+      "bytes": 2263,
+      "sha256": "501b4ccb2f69d3a8a95b9155fdbfdad1fd7d94936809c10d6736086d8909239c"
+    },
+    "portable-skills/deployment/scheduler-budget-20261113-r4/test_scheduler_budget.py": {
+      "bytes": 40535,
+      "sha256": "6ffa115e16f2bae75f0bb8f785f41a61bf8cb9073bc83d7ff7ace7fdc2b13292"
+    },
+    "portable-skills/deployment/scheduler-budget-20261113-r5/README.md": {
+      "bytes": 4599,
+      "sha256": "ae167da23edf802ba708e73cb5fcc4c1f2f7bbfb6d58cf6b7b7b3619d4bd9aaf"
+    },
+    "portable-skills/deployment/scheduler-budget-20261113-r5/activate-scheduler-budget-20261113-r5.py": {
+      "bytes": 65070,
+      "sha256": "fac6ff86da851e06b6f59ec88fcffefeedeb61064d6c82650ee5b72e09ace04a"
+    },
+    "portable-skills/deployment/scheduler-budget-20261113-r5/qualify_budget_child.py": {
+      "bytes": 8290,
+      "sha256": "b052131a1e37f7f3e38e3f64ba1cefa8735337011d50c1e104614996ec919d81"
+    },
+    "portable-skills/deployment/scheduler-budget-20261113-r5/seal_scheduler_budget.py": {
+      "bytes": 2263,
+      "sha256": "55740e2efeae7823e636741b4a2aef8ccd0f4e536b62eb514e9688218c15dba1"
+    },
+    "portable-skills/deployment/scheduler-budget-20261113-r5/test_scheduler_budget.py": {
+      "bytes": 49631,
+      "sha256": "1d2e4b62f7b3a0517e21f128a3b535721d85162351ec606176e743d2a257ac69"
+    },
+    "portable-skills/deployment/seal_gateway_result_links.py": {
+      "bytes": 2840,
+      "sha256": "c1ad2c26bcba982eef388fc5f635baf118d10c946effddd6b5351763c038ff49"
+    },
+    "portable-skills/deployment/seal_gateway_result_links_r3.py": {
+      "bytes": 2882,
+      "sha256": "c4c6472c05bdd43418c19226850c1f0bc9e19d0e2b8d4d4f1571233c1b7e6150"
+    },
+    "portable-skills/deployment/seal_gateway_result_links_r4.py": {
+      "bytes": 2966,
+      "sha256": "565129e20a5d3e4e5f10789e81e52f13952d4854530ab94e69d76789689bfe05"
+    },
+    "portable-skills/deployment/seal_portable_install.py": {
+      "bytes": 2213,
+      "sha256": "0951800ef0bc1a0c3c3bfb46252e71c38221e437a4c4fd17d3dac118ae145cb5"
+    },
+    "portable-skills/deployment/seal_portable_install_r2.py": {
+      "bytes": 2133,
+      "sha256": "fb52491fed75de5570d2840eb57cf54e5c7cf63deb4d92b70b8374844c99dd8e"
+    },
+    "portable-skills/deployment/seal_portable_qualification.py": {
+      "bytes": 2354,
+      "sha256": "feca1413aaca6ddf71a052959479717fda85c9916a081471bfe14178df365f3d"
+    },
+    "portable-skills/deployment/test_gateway_link_overlay.py": {
+      "bytes": 1812,
+      "sha256": "8157257aff98b0f3146777ae5bf1359645667bad49635590770ca28e73aef3bf"
+    },
+    "portable-skills/deployment/test_gateway_result_overlay_r3.py": {
+      "bytes": 1812,
+      "sha256": "d453ee09e514660337a619c28a978215e59a6621abfeccce696264f363955a89"
+    },
+    "portable-skills/deployment/webhook-budget-20261112-r1/inspect_delivery_child.py": {
+      "bytes": 29829,
+      "sha256": "9f9dd4470b7073d6fe9ac3f55e33db6d19158550a3ade78a3e1fe2a9d1990db5"
+    },
+    "portable-skills/deployment/webhook-budget-20261112-r1/inspect_delivery_host_extra.py": {
+      "bytes": 6980,
+      "sha256": "649a4f4016c4b4a913f6471c2ccb514d58447bb9a2e5c3eadfc647d4797318c4"
+    },
+    "portable-skills/deployment/webhook-budget-20261112-r1/runtime_summary.py": {
+      "bytes": 6680,
+      "sha256": "ce54a1d1335d50f10d60c487024deee4599c3e75e9fb033927d754e37b1a0f77"
+    },
+    "portable-skills/deployment/webhook-budget-20261112-r1/seal_delivery_probe.py": {
+      "bytes": 3013,
+      "sha256": "82faef95dd9755d5d3fb9e393581a181684ed527d6841be4530b952f0ef11a1b"
+    },
+    "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/FORWARD-EVAL.json": {
+      "bytes": 6059,
+      "sha256": "61c79d5763d8718be66440a94bfc0d5865b2c94151ab3011362420239af2fb52"
+    },
+    "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/project/PROJECT.json": {
+      "bytes": 63,
+      "sha256": "2188cf20f197b2ba110a376c93d068c2bd855c31e75ea84b632a9f86ca8a7a6e"
+    },
+    "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/project/RESULT.json": {
+      "bytes": 2203,
+      "sha256": "6c0609930be6622f37c56b5c50b5b7a1282cde106b0d246fabab0ac3d81e1f43"
+    },
+    "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/project/delivery/MANIFEST.json": {
+      "bytes": 2222,
+      "sha256": "40184f1e535be02733ab5760f40e5124c110051d042ff22bea05175cd4815e1e"
+    },
+    "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/project/delivery/final.md": {
+      "bytes": 501,
+      "sha256": "cab65f7013191463bb042c9b83491e272a59b654862c87f14007dfe904721f45"
+    },
+    "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/project/delivery/group-robot-would-send.md": {
+      "bytes": 501,
+      "sha256": "cab65f7013191463bb042c9b83491e272a59b654862c87f14007dfe904721f45"
+    },
+    "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/project/delivery/host-publication.json": {
+      "bytes": 1263,
+      "sha256": "ff58214a0bc4647d4a6a68552927680179176625aefc7838e92219fce319e19f"
+    },
+    "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/project/delivery/web-would-send.md": {
+      "bytes": 501,
+      "sha256": "cab65f7013191463bb042c9b83491e272a59b654862c87f14007dfe904721f45"
+    },
+    "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/project/outputs/generation-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/\u6cb9\u6c14\u4e0e\u91d1\u878d\u5e02\u573a\u65e5\u62a5_2026-11-07.html": {
+      "bytes": 39,
+      "sha256": "457b144a448a5e45a06e161ecd38ceeacb84ba9e1dbbee43abab4526b3cb35c0"
+    },
+    "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/project/outputs/generation-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/\u6cb9\u6c14\u4e0e\u91d1\u878d\u5e02\u573a\u65e5\u62a5_2026-11-07.json": {
+      "bytes": 37339,
+      "sha256": "779207daf6312e1ca62c6fcf043f3ccedd1bcf5f0a7d712b3496d194ab5086f7"
+    },
+    "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/project/outputs/generation-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/\u6cb9\u6c14\u4e0e\u91d1\u878d\u5e02\u573a\u65e5\u62a5_2026-11-07.png": {
+      "bytes": 1224,
+      "sha256": "a8f6eddab2f1bea0a9d9f9604bb41768da15e2a289aa6ad631e3c91830846544"
+    },
+    "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/project/outputs/generation-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/\u6cb9\u6c14\u4e0e\u91d1\u878d\u5e02\u573a\u65e5\u62a5_2026-11-07.txt": {
+      "bytes": 207,
+      "sha256": "d455c851345be94d17771778d4f80881ca3551b57617e6109defcde81ac426c9"
+    },
+    "portable-skills/diagnostics/energy-market-daily-2.0.3-receipts-r1/CANDIDATE.diff": {
+      "bytes": 6020,
+      "sha256": "e7d23845e2bb79bf3f211795747298f7ae95092fbdb918249d0dc59f27f9264c"
+    },
+    "portable-skills/diagnostics/energy-market-daily-2.0.3-receipts-r1/CANDIDATE.json": {
+      "bytes": 18284,
+      "sha256": "d8a601ab1054d063ec51e3991066f7b55bd261ea28b4e40ee3c6b6f669f69445"
+    },
+    "portable-skills/diagnostics/energy-market-daily-2.0.3-receipts-r1/README.md": {
+      "bytes": 1795,
+      "sha256": "fff01c95a7550ad9b1eff72b06fc7f5291fb337d7699fc87f93fd3f8da444a7e"
+    },
+    "portable-skills/diagnostics/energy-market-daily-2.0.3-receipts-r1/energy-market-daily-2.0.3-candidate.zip": {
+      "bytes": 105615,
+      "sha256": "a2b7c4a95525bfb20e4ce37cc5dbaac24e0768ec6794a4ea7c556eda25cd8635"
+    },
+    "portable-skills/diagnostics/energy-market-daily-2.0.3-receipts-r1/test_candidate_receipts.py": {
+      "bytes": 8703,
+      "sha256": "3f7ca8f183d335b9d47e7e90491b6845116d8d52cf78c3f0115656689e48acf8"
+    },
+    "portable-skills/diagnostics/energy-market-daily-2.1.0-final-text-r1/CANDIDATE.json": {
+      "bytes": 801,
+      "sha256": "3cc1587e5d197c73aa60cc647555435ff1b6e0872b0969513107a6c091a047ef"
+    },
+    "portable-skills/diagnostics/energy-market-daily-2.1.0-final-text-r1/run_candidate_regressions.py": {
+      "bytes": 2218,
+      "sha256": "a3f74334f5655bbcc7cc7cd055382d742bba03463454a483b3e1f41f623ba671"
+    },
+    "portable-skills/diagnostics/energy-market-daily-2.1.0-final-text-r1/test_final_text.py": {
+      "bytes": 14184,
+      "sha256": "122bf23574b1509ee594ff3feb0da05d4e8b4df661ed98e741156a7208ea322b"
+    },
+    "portable-skills/diagnostics/gateway415-20261113-source-review/INDEPENDENT-DISPATCH-REVIEW.json": {
+      "bytes": 1306,
+      "sha256": "1b7e3c541deaa028287881287bb930cc6632f0e0ce2d41a69ac6dfc8e050070e"
+    },
+    "portable-skills/diagnostics/gateway415-20261113-source-review/SOURCE-REVIEW.json": {
+      "bytes": 893,
+      "sha256": "04ce8ba95d0b299064c3c04aad683f1346d5e9fd83c13c0a23644e6b6bc86594"
+    },
+    "portable-skills/diagnostics/gateway415-20261113-source-review/github-services.base64": {
+      "bytes": 72305,
+      "sha256": "6b762dd48ed77cd548da89504d29013df1519a4ab455ff9783521a6b1d70d960"
+    },
+    "portable-skills/diagnostics/gateway415-20261113-source-review/services-matching-production.py": {
+      "bytes": 54226,
+      "sha256": "4bf26f6ac2166de7851015af36fed73a8b7d1b0e98b7918806c454e623dbd435"
+    },
+    "portable-skills/diagnostics/pod-template-diff-20261113-r1/FIELD-OBSERVATION.json": {
+      "bytes": 3034,
+      "sha256": "c07fa1e3e7c2ef83e91f6aff8aea9449d6004d6e1afd749e7bdd3a36f23191e5"
+    },
+    "portable-skills/diagnostics/pod-template-diff-20261113-r1/INDEPENDENT-SYNTHETIC-REVIEW.json": {
+      "bytes": 918,
+      "sha256": "0476e77323d75cbc3442a158ee73195b9e0c879bbe7af75a909780c5a0a71da1"
+    },
+    "portable-skills/diagnostics/pod-template-diff-20261113-r1/SOURCE.json": {
+      "bytes": 463,
+      "sha256": "92df34bd382150b1d01ed434ef371a2d97d8c3fb07ea58217e2eba1b3f67e576"
+    },
+    "portable-skills/diagnostics/pod-template-diff-20261113-r1/inspect-gateway-template-diff-20261113-r1-command.txt": {
+      "bytes": 7509,
+      "sha256": "f4aae6f18866ae712d9659db0b919d9172d3194078eaac7f2e40f9a5a1c09ba7"
+    },
+    "portable-skills/diagnostics/pod-template-diff-20261113-r1/snippet.py": {
+      "bytes": 7478,
+      "sha256": "d65b2fe6b46db92240824c0a307e5a0e728c76be027aa4d69a3af425e893dab4"
+    },
+    "portable-skills/diagnostics/pod-template-diff-20261113-r1/test_snippet.py": {
+      "bytes": 2812,
+      "sha256": "40156cc5e9a63de25971814800acbe2123c36abecf04dbdd5bd73dc6569fbd79"
+    },
+    "portable-skills/diagnostics/scheduler-admission-review-20261113-r5/FIELD-BINDING.json": {
+      "bytes": 748,
+      "sha256": "4ccf7a7b7d7661c7989034fe2dd345cc67b5f54038a4db6084cdfee2447b4694"
+    },
+    "portable-skills/diagnostics/scheduler-admission-review-20261113-r5/INDEPENDENT-CASES.json": {
+      "bytes": 4747,
+      "sha256": "c3aeab9918ffbc2cbb6f9763708587b451cb765e48f9782f516af723c75b4d6d"
+    },
+    "portable-skills/diagnostics/scheduler-admission-review-20261113-r5/PRIMARY-RULES.json": {
+      "bytes": 2751,
+      "sha256": "5214fee3e788d2e7dd38dfda20e586ade81cc7dc01f53264c50e36df6012c74a"
+    },
+    "portable-skills/diagnostics/scheduler-admission-review-20261113-r5/PROTECTED-SCOPE.json": {
+      "bytes": 1558,
+      "sha256": "0289bf07ee3dd418372072ff6b05d92bc154b27f581abd1b7ca30fdcb7ce332a"
+    },
+    "portable-skills/diagnostics/scheduler-admission-review-20261113-r5/independent_cases.py": {
+      "bytes": 7116,
+      "sha256": "3557b25b95b7d1cc97270d48a61ce55b8e09ccb695df3681ba63f0d26d973354"
+    },
+    "portable-skills/diagnostics/scheduler-podlist-transport-20261112-r1.json": {
+      "bytes": 1407,
+      "sha256": "e132b4be733415b8659408c817f1d310d82695832e6b68d84b4fccfd5175a218"
+    },
+    "portable-skills/diagnostics/scheduler-podlist-transport-20261112-r3.json": {
+      "bytes": 1386,
+      "sha256": "668da299a90381c8296d3369bcf896af7b8898524f35c3622304dc3d3a254afa"
+    },
+    "portable-skills/diagnostics/scheduler-r4-independent-review-20261113.json": {
+      "bytes": 1470,
+      "sha256": "670ff83451a5281910e8bb7f007f8d9a3cc13f25a3a5abf57b9fe76c2dae6f59"
+    },
+    "portable-skills/diagnostics/scheduler-step-budget-20261112-r1/README.md": {
+      "bytes": 2120,
+      "sha256": "5ff6a39d8b5aa4449c84319c5358bca1b7bb7f90f96e1c3052e79a580a2245ea"
+    },
+    "portable-skills/diagnostics/scheduler-step-budget-20261112-r1/RESULT.json": {
+      "bytes": 2006,
+      "sha256": "ca1b007d73a6c169d2c71917f1bdecfd127b29d898a74f6f3c0508f9204870c0"
+    },
+    "portable-skills/diagnostics/scheduler-step-budget-20261112-r1/reproduce.py": {
+      "bytes": 6631,
+      "sha256": "967fdd66b58a93e17512dcab698d605567088b4fcf460546c60d7fe03cfa3f00"
+    },
+    "portable-skills/diagnostics/scheduler-step-budget-20261112-r2/ERRATA.md": {
+      "bytes": 338,
+      "sha256": "749d32fc660969c63f4ba0253b54733d143c430e89eb7e2ed60966079b3cb75c"
+    },
+    "portable-skills/diagnostics/scheduler-step-budget-20261112-r2/README.md": {
+      "bytes": 1924,
+      "sha256": "8aea82a682322b4a5a2e7983c0be0e5133687f4914f3cde2b190c147fc33d26e"
+    },
+    "portable-skills/diagnostics/scheduler-step-budget-20261112-r2/RESULT.json": {
+      "bytes": 1758,
+      "sha256": "4ee49249186b2c1fa810c7436a96b9afb6f3e4ddd3911baa7d607ee16126b7b6"
+    },
+    "portable-skills/diagnostics/scheduler-step-budget-20261112-r2/SOURCE-MATCH-CORRECTION.json": {
+      "bytes": 874,
+      "sha256": "f1df7a9c27369c731dc8f090d51e7830db5dd244a5dafbde54680ec8fba897c6"
+    },
+    "portable-skills/diagnostics/scheduler-step-budget-20261112-r2/SOURCE-MATCH.json": {
+      "bytes": 2691,
+      "sha256": "dacdb13d08b925edf0583072e876df6c8a0278a861cccc4fafc57b5f796ca912"
+    },
+    "portable-skills/diagnostics/scheduler-step-budget-20261112-r2/reproduce.py": {
+      "bytes": 1660,
+      "sha256": "4cf21a7a04a407a2a353dbf44fad6f91cc479e159884f43ab2b7778d21f04e91"
+    },
+    "portable-skills/energy-market-daily/.gitignore": {
+      "bytes": 36,
+      "sha256": "0b38df42d58989002b0a92b957aa0edda1b7fc98f2b8e57178a97e51837a5b7c"
+    },
+    "portable-skills/energy-market-daily/MANIFEST.json": {
+      "bytes": 16559,
+      "sha256": "aaaa4b2d17aacb752fe170e1acebce93f91c05601fd007fa289eb5c016db7c24"
+    },
+    "portable-skills/energy-market-daily/SKILL.md": {
+      "bytes": 8238,
+      "sha256": "70b20874da4d37eb47c5af4126d9e6692af92062120a2bd38161ce1e255cf822"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-06.json": {
+      "bytes": 2512,
+      "sha256": "62a1315a5d2ea492ab82f4c55e090108cfa0de02e19767cb561a06999099ccea"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-07.json": {
+      "bytes": 2514,
+      "sha256": "fce29b1eb02d174471532d8edef7cb4523f88db7ec8773300148e8e26b810762"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-08.json": {
+      "bytes": 2506,
+      "sha256": "512d4464d044d807d12297fd6afc81809edc8c97db78f3aa5c8777b80e2fff3b"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-09.json": {
+      "bytes": 2506,
+      "sha256": "5004af883fe884be0865f2f22148ab2f42ded6a2d94624013f53ca6c3a36f30b"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-10.json": {
+      "bytes": 2514,
+      "sha256": "d4433960be70ed58edf5d9e83794e068aa43c28a185c68cd548ee543ff0d39df"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-11.json": {
+      "bytes": 2512,
+      "sha256": "1fc999cb9a8cb1ca59dcdaeba6feeda81dc2a52f6ab3e05928f6ed67d49de96f"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-12.json": {
+      "bytes": 2510,
+      "sha256": "d744ce42b00a9ee8b68d6fc4164391d57bce6f2b62fddb9e37edbf121f10edc9"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-13.json": {
+      "bytes": 2513,
+      "sha256": "e85f20d543b2a387b148bc6c6480627079029dc9e48007f70ab936e228b3f4cc"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-14.json": {
+      "bytes": 2512,
+      "sha256": "088e22d891749658ea599b429c9532d366d855db5866d52b824825e7ed98968a"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-15.json": {
+      "bytes": 2507,
+      "sha256": "0f56c97c3bcfa68a473518dc84329618c47b2db0056690826b14d8952115c0b9"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-16.json": {
+      "bytes": 2507,
+      "sha256": "0674db6c7e37a1b8bfd0e4a59912044b72e907f0ede13da826a20e135c9ce709"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-17.json": {
+      "bytes": 2509,
+      "sha256": "340902b50080dde1c5a55361131a923f1a3e8fc384d0fa8c30cf0bfbd0e3e1c6"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-18.json": {
+      "bytes": 2513,
+      "sha256": "a667b675589419f3d04c3850d9329f3cb04eb0bec9a6a5c2b4997ce03a0ef0e6"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-19.json": {
+      "bytes": 2513,
+      "sha256": "f9347cb7472f3b668d489a4c74a3ee8dd5d718cf11ee2ce2e4e8f99af912f0ee"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-20.json": {
+      "bytes": 2515,
+      "sha256": "c520a8b97f656dc201118ee6aced94b7be657b20889bc62ee574d91c659cbea8"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-21.json": {
+      "bytes": 2514,
+      "sha256": "50367ad4e847888cdea4fd23018358284e41eb4f06a9dc92918c8bf7df06e9cf"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-22.json": {
+      "bytes": 2507,
+      "sha256": "9b734ab44fe03829440a40ce3b811e754c146b6a91e1701b85b831cdb4857c3a"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-23.json": {
+      "bytes": 2507,
+      "sha256": "367485236cb8bdcefa0b969383f2013d87c4c2e1d320b809ac126a748856034b"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-24.json": {
+      "bytes": 2514,
+      "sha256": "bcacacfe20b93dac588f820e5e7785f99a2d17508d0c6442f3a8580593787a7c"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-25.json": {
+      "bytes": 2512,
+      "sha256": "05b196eaad0f69f6e4696f6d8de86dfff7d19436c20cb9543456909599135b87"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-26.json": {
+      "bytes": 2514,
+      "sha256": "1d52467246c5cd9b88c9e886e7960c39195fc6c71174a1c20af93b0ca12d5a81"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-27.json": {
+      "bytes": 2512,
+      "sha256": "c7f035c6dcf03fc51e71987663511b79d7cc1b88f79a7504e32619705a283de6"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-28.json": {
+      "bytes": 2512,
+      "sha256": "ad1e626297a69f2c104bb191a654fc5a21e0b166f511214bd392061ac873c27e"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-29.json": {
+      "bytes": 2507,
+      "sha256": "328da868c6c9be0f704216736b9d62e94b361447ec8b70d959f261cbcfca3c56"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-30.json": {
+      "bytes": 2507,
+      "sha256": "3c5697589976d473dc806de4a8b1e8d3c36ad29096a8aaa36bf749d06e9e3275"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-08-31.json": {
+      "bytes": 2532,
+      "sha256": "ce0c37a4416d04b4f7fa629310eb0c365da3542c56cf42fb7753b12d3b540e94"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-01.json": {
+      "bytes": 2513,
+      "sha256": "35101f6fbd2f2007ccf8fae048e1de9d715fbc49e781134da79a1722fe819b93"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-02.json": {
+      "bytes": 2514,
+      "sha256": "f90bf217b0278cb7e7717cfc819bc78005b87c41fee236dabca81f75682b2d78"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-03.json": {
+      "bytes": 2513,
+      "sha256": "20bcca9f232a554065afbdcddb40905aba6c6333c5706228d388c3028c255db4"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-04.json": {
+      "bytes": 2516,
+      "sha256": "039f56754fbbe7e258ba7e77d57cfbba576b1cf037ca5449b6170e141b330989"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-05.json": {
+      "bytes": 2505,
+      "sha256": "77a20c94f2222e53b75b50b05725665f1ec8304b96d6ca33599192d39e3ebf37"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-06.json": {
+      "bytes": 2505,
+      "sha256": "2dbefc23017aaa922f6d6d800b756785cdbc355e483381a96148845576d95a9e"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-07.json": {
+      "bytes": 2517,
+      "sha256": "1213d2fe5469ed130c25e6de818b583164ed05403391a7515e17cd5024abfa8d"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-08.json": {
+      "bytes": 2515,
+      "sha256": "fc60f68fcf650f0b364c6ab9bdf2455ec1a37ad60b1412bfda4f5860c14b8fcc"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-09.json": {
+      "bytes": 2517,
+      "sha256": "0f57d26bc63f330701bf55023a2e1d64167ab61a6be700e31ce6c60a53a5b773"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-10.json": {
+      "bytes": 2515,
+      "sha256": "787572a42aa98793593bc240b57a0251a9dff071c4f7c3cb3ae3f6d44f92b357"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-11.json": {
+      "bytes": 2519,
+      "sha256": "c5c6016cdfa771065b31b3ab83b1639517ec41e1c47d4d7a49c77f3c17635528"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-12.json": {
+      "bytes": 2507,
+      "sha256": "6cad141cf70f0e234a20290d158ec60b65679b9ddc877a13b5b419a2e22d5618"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-13.json": {
+      "bytes": 2507,
+      "sha256": "73e9f9a73950a92aa10bb49df585c84ea373176277508e32ad0ee6e6a7783358"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-14.json": {
+      "bytes": 2520,
+      "sha256": "544fe0eb110b8f013197831b4ac6d5da9be98aaab46013b2e333758629dc395b"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-15.json": {
+      "bytes": 2519,
+      "sha256": "d2e197ff7831727865a692a3472461b9a5ed27ed622040855d1262e0c4facdb2"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-16.json": {
+      "bytes": 2520,
+      "sha256": "e7600af3ece2461e4f367d2077caa78c07d87cc76adcbfa8485649cb4e492347"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-17.json": {
+      "bytes": 2519,
+      "sha256": "1f8f631258b8cbe3591a907ae6efd016b0146f381ad1042d8095dfc236a8915d"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-18.json": {
+      "bytes": 2519,
+      "sha256": "7c9ae851f62cbf13414cf3973989c7f25f025b08231a96b3d5185d82403a131c"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-19.json": {
+      "bytes": 2507,
+      "sha256": "1a3baf0cd74b74f698d573937e95efc94f14b35059adeac87db384e68cbaf270"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-20.json": {
+      "bytes": 2507,
+      "sha256": "c9677aea1d82580755a50456352fc2fbaa005288feea88ce0987a0678212fa40"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-21.json": {
+      "bytes": 2518,
+      "sha256": "b32b673586bef4657cd45ef774232b3dc3efda53a0e217de0c681bb7f7add591"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-22.json": {
+      "bytes": 2516,
+      "sha256": "757de36a6abd00c2296f60168cd112503ae41da59b0cad5cdae172f5c7a16dc5"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-23.json": {
+      "bytes": 2517,
+      "sha256": "9dfc5a6f359ea85653dc06bd6c4f3f4d9edf7a4bcc28f8a7715517d359590279"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-24.json": {
+      "bytes": 2518,
+      "sha256": "87513e5b564da9594652452bac87d554ab0fec4f37dfcd8b1dd04e84d770b45f"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-25.json": {
+      "bytes": 2518,
+      "sha256": "90e99a51b95da1b755cfa9b699465900e1febbbb83405612f5fe100b1a3ce371"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-26.json": {
+      "bytes": 2507,
+      "sha256": "3686caa8952f50a12926b64df38b39170e6d115b8073d93e5427b52f6d0e1339"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-27.json": {
+      "bytes": 2507,
+      "sha256": "034869ea371540061bf471d069f001432247d76b96ea64cd8be0885ae2905267"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-28.json": {
+      "bytes": 2516,
+      "sha256": "0e32f9836aba793b6a7ac3e9a6abca24f8ed66b8920e5bdd5dade63c4ab56c22"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-29.json": {
+      "bytes": 2515,
+      "sha256": "4293ba837a5ea7cf12982f16f54f8a742cb554ad2949c8ebfae492eefc5f3ee4"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-09-30.json": {
+      "bytes": 2517,
+      "sha256": "fff525adbea0a993bef33bd4da55af8fc4147d5ff6f8f75711fe2e8059fa72ee"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-01.json": {
+      "bytes": 2517,
+      "sha256": "85c072ce4293fa0e9bda312de84135a1a05871631bda52acebbb01381a02fd2f"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-02.json": {
+      "bytes": 2518,
+      "sha256": "ba66f2687359279f4031ab7c4ed5630fb9825b8699dea6022a8c8a93404f4ebb"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-03.json": {
+      "bytes": 2507,
+      "sha256": "e7e34fdb92b1fbdaddb1459874cc9f3e0dfe178f0a1c4c4faa52d335b01d0a91"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-04.json": {
+      "bytes": 2507,
+      "sha256": "b763414227bf8a4f68e43cad02e7e22584b839b658643e4f379ed61b1ec81a7a"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-05.json": {
+      "bytes": 2518,
+      "sha256": "781deacab3f7d163d60529c6fe85eb424db8c2e615e3f1f2026dff8d03eb2b4d"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-06.json": {
+      "bytes": 2519,
+      "sha256": "ab89c60fb3ef7067ec243aba023949c16593ea1128d4063ff14e6357b493c6f2"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-07.json": {
+      "bytes": 2516,
+      "sha256": "9ee4363095501bcb5130f46a2f0a3a48d8410aa7801fe5882b48e7c0a8b4b7d1"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-08.json": {
+      "bytes": 2518,
+      "sha256": "b153e2fe69f5913c1eda7058c0f76e3b099c5c84fab920f1770247903974cac9"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-09.json": {
+      "bytes": 2518,
+      "sha256": "2bd1ca9282064880e3e7b148ddc19d0a066af12be059df7e9a8517a9cc738e78"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-10.json": {
+      "bytes": 2509,
+      "sha256": "d6bc1c0201e96a53d9ba017ee9a8fca5767663d26d079e3e7538a77eaf2565ce"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-11.json": {
+      "bytes": 2509,
+      "sha256": "db6850df751295d29e7769aa7b31f5c358a122c5fa12b9be2d5bbbfa14cd9e6b"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-12.json": {
+      "bytes": 2518,
+      "sha256": "7c9816a3e5905170396256a79cf40683404546cee8abf9c772465e7b7399dc85"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-13.json": {
+      "bytes": 2518,
+      "sha256": "c62d2fa346073c20ef6226fad6435dd41b5ca9fdc5d7c346b301427abee5a740"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-14.json": {
+      "bytes": 2516,
+      "sha256": "1c3fa63d6caac4466fcde757fab67523a3ae421dc63a8ed6348e508660b9f8ae"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-15.json": {
+      "bytes": 2518,
+      "sha256": "f1db312bb38e073833c9509297ce4e9890a672b40faff9a426af32b47767e255"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-16.json": {
+      "bytes": 2519,
+      "sha256": "9908b22ea324f6e4aa39a69ad6240bbaf6f346f5839ed43d49881a2a6c3d20df"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-17.json": {
+      "bytes": 2509,
+      "sha256": "4dd68f560fe2a6a7f984a4c783575929daa48f38e055a7de6d94281c045b37f8"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-18.json": {
+      "bytes": 2509,
+      "sha256": "d281e26d599e6bc2f08070f009c8126ab7a227bea1d9a9d6755c5a859444226b"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-19.json": {
+      "bytes": 2518,
+      "sha256": "b468c2d4a6e17bfbf4e7b903732a980b71e79a7621efb4969086f9bbb0a44bdc"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-20.json": {
+      "bytes": 2520,
+      "sha256": "93739324cd2aa2b056d3cf20ddfb8e987c1bf5d4509cf55db32001a247f1fbb0"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-21.json": {
+      "bytes": 2517,
+      "sha256": "0140bb8d4c8c17d49a749b08f394fddea8746acf5ae382c7b0eecd5797f030d6"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-22.json": {
+      "bytes": 2519,
+      "sha256": "cc705297d809b91bb610b0753228253d3ca715211fcd04e6e631435bc6255df9"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-23.json": {
+      "bytes": 2516,
+      "sha256": "f86ab3d646a3e02d0c862cb93f021d033496d512c7754c36feba0f7eaa1d9010"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-24.json": {
+      "bytes": 2509,
+      "sha256": "ec90563465836a0c543babb4a4977749b78364dea443bb50c2b2828f9ba424f9"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-25.json": {
+      "bytes": 2509,
+      "sha256": "e95c74c455bcc84cd4bd3e219e3a839e03285ebd0879be319b95fd0a3f599487"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-26.json": {
+      "bytes": 2517,
+      "sha256": "cc0d271ab0a4eb74e834ba4ad8973d9646cc656411a1da8e68c252122bffe14c"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-27.json": {
+      "bytes": 2516,
+      "sha256": "7f5877f7e6be9f75deb23dd4fc32bca429d771daceaa9312c5ab77cbd995d4c8"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-28.json": {
+      "bytes": 2518,
+      "sha256": "e610d679e87eb592e52e73cffc2896827199d79a28b3480d34606591b47be497"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-29.json": {
+      "bytes": 2519,
+      "sha256": "e8a6ed9d8fd729afa6a8699be75fb10da905bd92155e215f038340f6de6cebb5"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-30.json": {
+      "bytes": 2518,
+      "sha256": "151277472872666298c773cd8aea90e836f552c41b303120672705ad83f82cf8"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-10-31.json": {
+      "bytes": 2509,
+      "sha256": "d16606d6b621e2d521767d8d9063c40b250a1627dbdcce459e9d37b3a356bbbc"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-11-01.json": {
+      "bytes": 2507,
+      "sha256": "e2ac1ef6d52b4b92589d05e76de3ee5373df70c6277d43f1c9672418b4ae692a"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-11-02.json": {
+      "bytes": 2519,
+      "sha256": "f4ceceea35c79ad796f035120e7dddd53606e17eb469a81fad24a040afe4b534"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-11-03.json": {
+      "bytes": 2518,
+      "sha256": "c685ef3d9ed8b7ddc0951349b4739d8c1d38fae652756126d9f85832b965dcac"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-11-04.json": {
+      "bytes": 2515,
+      "sha256": "051fe6b2ee7da3100c6fc198ff6c21237877819e01a757b233f062bef1bf35aa"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-11-05.json": {
+      "bytes": 2516,
+      "sha256": "660b8cac21968766171ea55bf8ebdd699f4fc9997b5d344fe4a5ee98056bda8e"
+    },
+    "portable-skills/energy-market-daily/assets/history/jkx_new_2026-11-06.json": {
+      "bytes": 2522,
+      "sha256": "bbeb52b48fdae15b8205bbf10af7c2f90c94819baa2b305e644cd1f09f710d2a"
+    },
+    "portable-skills/energy-market-daily/references/evidence.md": {
+      "bytes": 1170,
+      "sha256": "1109594c0f68aeb0b51386ceb59538aafacf5273a4c723485aa236ea53144017"
+    },
+    "portable-skills/energy-market-daily/references/provenance.json": {
+      "bytes": 402,
+      "sha256": "e0f7d37be7235a1d120f310de6f9991077aeec9ea39d8af30bb055680a5d5871"
+    },
+    "portable-skills/energy-market-daily/references/runtime.md": {
+      "bytes": 4514,
+      "sha256": "a8de5cdbd394bfe45e71201105fc81a363eb667a2b2c5496f9aba83b9ecab8c2"
+    },
+    "portable-skills/energy-market-daily/requirements.txt": {
+      "bytes": 20,
+      "sha256": "e062756e078c1fa38bdb2796046b669990ab5b5d5e4b5196779b917127b846f3"
+    },
+    "portable-skills/energy-market-daily/scripts/browser_runtime.py": {
+      "bytes": 10051,
+      "sha256": "9844b8e4c5e6a6de99a6f7d9cf42f2aafeda1dea5e2b9966f709da7cebf71ae8"
+    },
+    "portable-skills/energy-market-daily/scripts/common.py": {
+      "bytes": 7380,
+      "sha256": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0"
+    },
+    "portable-skills/energy-market-daily/scripts/daily.py": {
+      "bytes": 36907,
+      "sha256": "a084be61164e4b8842fbcdd5467f6de21c692f6faab65894cf5f04aada057d0f"
+    },
+    "portable-skills/energy-market-daily/scripts/market.py": {
+      "bytes": 8259,
+      "sha256": "ab4ee17ea34750150c2048aa5406cd6685a4bcf992170ada19a10953efb72cac"
+    },
+    "portable-skills/energy-market-daily/scripts/report_renderer.py": {
+      "bytes": 15285,
+      "sha256": "bc70625139f3c56da9ebfba5bc139461e862a86b05d180691ef5a2c66ecf75a3"
+    },
+    "portable-skills/energy-market-daily/scripts/research.py": {
+      "bytes": 13863,
+      "sha256": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee"
+    },
+    "portable-skills/tests/fixtures/approved.json": {
+      "bytes": 62335,
+      "sha256": "3edab45e9afa77e78332bc41a8474dcb61d233b0fc047333fed44d496d9c47df"
+    },
+    "portable-skills/tests/fixtures/cny-source.txt": {
+      "bytes": 322103,
+      "sha256": "68d3e43b268470f9395268d265b86f823e3cd24cb96d28239c91d9a2587621fa"
+    },
+    "portable-skills/tests/fixtures/dxy-source.txt": {
+      "bytes": 476561,
+      "sha256": "efccb90d7d550aa27298de6d9fea8a1ebfbda7555d68a609b32a73f81c7f8aff"
+    },
+    "portable-skills/tests/fixtures/original_renderer.py": {
+      "bytes": 14856,
+      "sha256": "f361492a588d481d6b50ed7740fbf839b3c2775a389bb2f43ceaeebb984f15eb"
+    },
+    "portable-skills/tests/test_browser_fix_install.py": {
+      "bytes": 8786,
+      "sha256": "f52c494c6f50e4c686ec4bcbffbb91bbe357b872f89575020a61dfba9ed8688d"
+    },
+    "portable-skills/tests/test_browser_fix_publisher.py": {
+      "bytes": 14776,
+      "sha256": "3c9c43ba1130e1936ab8e012f89ebc50184d2a73e0fcfd2951cf81be2429522e"
+    },
+    "portable-skills/tests/test_browser_permissions_probe.py": {
+      "bytes": 2893,
+      "sha256": "4f050f73c746274b123c2dcb7acb25e2b9121202615e8884a2b440aef6c06a5a"
+    },
+    "portable-skills/tests/test_browser_publish_verification.py": {
+      "bytes": 6703,
+      "sha256": "14b14d62337babf11d88e930e2482ae740a04a6e0c30be841768cdaf52e24bab"
+    },
+    "portable-skills/tests/test_browser_runtime_assets.py": {
+      "bytes": 9058,
+      "sha256": "2357e4267506e6bea3305eabb9e0817bc538e24cfcd1ea12105e1eccdfced6c1"
+    },
+    "portable-skills/tests/test_browser_runtime_qualification.py": {
+      "bytes": 10396,
+      "sha256": "c883cceb27b25155564f5b68560c3b1cd2f50368b4f8965dd16d6e8f176a8280"
+    },
+    "portable-skills/tests/test_browser_runtime_qualification_r2.py": {
+      "bytes": 13100,
+      "sha256": "f99598cf0158a863bf864c4cc829575ed21c0fa31f4740d83ef5cabd5bf8552f"
+    },
+    "portable-skills/tests/test_browser_runtime_qualification_r3.py": {
+      "bytes": 13503,
+      "sha256": "472b1567d775d005d54168db355eef734ed0237d0e7eeeda3d819cf9e977dc26"
+    },
+    "portable-skills/tests/test_browser_runtime_qualification_r4.py": {
+      "bytes": 13509,
+      "sha256": "ab3e26ba99c4f9cd815e5e9c37bea687cd11719f2feccd58ee3f8be118221089"
+    },
+    "portable-skills/tests/test_delivery_probe_host.py": {
+      "bytes": 6804,
+      "sha256": "7624747d7241359b38a94c21620aad663d8c969d5d56bf57b2529856e968b4dd"
+    },
+    "portable-skills/tests/test_energy_browser_runtime.py": {
+      "bytes": 7875,
+      "sha256": "dc771f861f24fd39a0ce25426216467e884ca1ad54ea244d21e9e41af1114fac"
+    },
+    "portable-skills/tests/test_energy_failure_handling.py": {
+      "bytes": 11437,
+      "sha256": "d0ed24b3cad7ce440be669d5614d03f4fc745c4f84c88c07e16d3166a0496e50"
+    },
+    "portable-skills/tests/test_energy_market_daily.py": {
+      "bytes": 24786,
+      "sha256": "f026268b7a2e501cb3f6d09bbda4c5405780342cb3eba8816b4ab4fe769de1b9"
+    },
+    "portable-skills/tests/test_energy_persisted_thread_inspection.py": {
+      "bytes": 13285,
+      "sha256": "a7cffd24d2c70f448db0bcefa80032451484fedf1b69be59c5c1f0dd7a414f85"
+    },
+    "portable-skills/tests/test_energy_recovery_gate_inspection.py": {
+      "bytes": 10400,
+      "sha256": "db05024bf61fed7c50ff9361a090b5e440b3840d9d1872e703126dcc41c1d066"
+    },
+    "portable-skills/tests/test_energy_recovery_transport_inspection.py": {
+      "bytes": 8428,
+      "sha256": "b10b7051946be69f1eb12454f5fcad476857aa9768a7ad6c329c38ec202c40dc"
+    },
+    "portable-skills/tests/test_energy_runtime_summary.py": {
+      "bytes": 7800,
+      "sha256": "1f131da3fc085f8cd0bfe719d090e0a895a7d0c9a4e6b665f7101e9a21cb98b4"
+    },
+    "portable-skills/tests/test_energy_thread_inspection.py": {
+      "bytes": 9488,
+      "sha256": "6239b8452375907c447607b2cbab55695ac3e479906064cc8effda0bf2d8db62"
+    },
+    "portable-skills/tests/test_energy_webhook_delivery_child.py": {
+      "bytes": 12640,
+      "sha256": "ba055e9aa0cfaa73bb9df9b1aac06bb6a2252c72a7b3b5b07e98f5bb93f9ff7c"
+    },
+    "portable-skills/tests/test_portable_install.py": {
+      "bytes": 11480,
+      "sha256": "daa9aeed80504462d91d8dc269a61c90d3083f88589ff9f604f6724e102fbb6b"
+    },
+    "portable-skills/tests/test_portable_preflight.py": {
+      "bytes": 3087,
+      "sha256": "4f5e25e4e545e0ebf3222c0215b2548662bed8d47a4510ac19f954a8f1d87ef9"
+    },
+    "portable-skills/tests/test_portable_qualification.py": {
+      "bytes": 3187,
+      "sha256": "63303eacd516f6e5660604dd386f7507177657d703ea494063993e9e5766c7b0"
+    },
+    "portable-skills/tests/test_public_runtime_operator.py": {
+      "bytes": 12598,
+      "sha256": "406a35774ea6060b392a6cb60f12f851e99c60f3bf406ae1a908eabb97425888"
+    },
+    "portable-skills/tests/test_public_runtime_postcheck.py": {
+      "bytes": 8566,
+      "sha256": "672e3bd3f322863e4dcecd22dc25fa7245aa92f2c3f2826269e324c54dd1c9e3"
+    },
+    "portable-skills/tests/test_public_runtime_publisher.py": {
+      "bytes": 14981,
+      "sha256": "1a7d7de8f396c5b8b4f16ba8cd691d3d6ac0c8037afaf540653a3eb386ca1162"
+    },
+    "portable-skills/tests/test_sandbox_capacity_inspection.py": {
+      "bytes": 7339,
+      "sha256": "cbd05a89b4a205b86093324747eaf765b108ebc1de0ece48ab1405721b77ed66"
+    },
+    "portable-skills/tests/test_sandbox_reclaim_child.py": {
+      "bytes": 11941,
+      "sha256": "77c714ed3093bad049ad4152d41aab55a693e53ffc8e98e4c969d68d712520f9"
+    },
+    "portable-skills/tests/test_sandbox_reclaim_fixed_run.py": {
+      "bytes": 5946,
+      "sha256": "452f45632e6f0edf5a262fa9ebb0732827406edb958f7dd5dc26367952cfab4a"
+    },
+    "portable-skills/tests/test_sandbox_reclaim_plan_host.py": {
+      "bytes": 8665,
+      "sha256": "2fbaba1327717a9a5c36ab6867e957489caacf99ab17d34c586207b4083b8591"
+    },
+    "portable-skills/tests/test_sandbox_retention_inspection.py": {
+      "bytes": 5861,
+      "sha256": "bf978eeaf2780a6eb8efb028f004894229e20dee36aa1ad80633acaeb5a5ba25"
+    },
+    "portable-skills/tests/verify_delivery_probe_sealed.py": {
+      "bytes": 1287,
+      "sha256": "95068e9878fb35f5db1c2de348710c0d2b69f379d4466bd985a3579d351c2e44"
+    },
+    "portable-skills/tests/verify_sealed_scheduled_capacity_guard.py": {
+      "bytes": 1358,
+      "sha256": "6e58d57c06d8d1125e7820767df831fe120a2fcec71f102a5c36fd37e5f18e97"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/CODE-PACKAGE-r2.json": {
+      "bytes": 916,
+      "sha256": "92b4518e6bdd81e54d58ae330aa8d4890ea4853b290e7f887d4e56656c8d4e95"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/CODE-PACKAGE.json": {
+      "bytes": 913,
+      "sha256": "e8ab5c932157b424b38d409a39a911aebffd4da047d9cdfd5eb338ca86b8eb3c"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/FIELD-INSTALL-ACCEPTANCE.json": {
+      "bytes": 1732,
+      "sha256": "931e6cc9feff62a7c6d322fcc2b8e0185f7b91f10a65ed620d36c2fa05ccc638"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/FIELD-NONROOT-QUALIFICATION.json": {
+      "bytes": 1641,
+      "sha256": "ff7d71a028230da3745662f013180664b586fe3dfa725a7b19689833734e3648"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/RELEASE.md": {
+      "bytes": 2935,
+      "sha256": "4aa9b30619d8f081ab0438735dd0e773c259830e437ecb327e00d43246a3f04a"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/energy-market-daily-2.0.1-public-code-r2.zip": {
+      "bytes": 103343,
+      "sha256": "ba86a3c48dd2b6f4349f3884dfab541730759dc1670ab5f0e7bd72377c439084"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/energy-market-daily-2.0.1-public-code.zip": {
+      "bytes": 103252,
+      "sha256": "1eed96708841b2c7fb2a3b840353a61d799a3b681856fbacff67b7597e5d5138"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/install-energy-browser-fix-20261112-r1.package.json": {
+      "bytes": 858,
+      "sha256": "2f4734911d94074ab0c037c354bcfe80438ece9cd4c21fd4d718560d791b38bb"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/install-energy-browser-fix-20261112-r1.py": {
+      "bytes": 363304,
+      "sha256": "f1aac01d9e0f1bb6ab2c6d85c08af8f919f75ea0164ef68b6ba7e31c4387a9f2"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/qualify-energy-browser-nonroot-20261112-r1.package.json": {
+      "bytes": 854,
+      "sha256": "dbc847006be5e04604c651ba4cf916938d951b10537d45d3a7a84ceb6d1486a2"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/qualify-energy-browser-nonroot-20261112-r1.py": {
+      "bytes": 1792380,
+      "sha256": "ed0cd7c5cab9202d8e78c3ce870a0df466956503effeb3f65822ed881c0da0d0"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/qualify-energy-browser-nonroot-20261112-r2.package.json": {
+      "bytes": 854,
+      "sha256": "a1854076f8126384f5a1be7a4dfd446364b5aae31eeb995c30e1fbd61ea7558c"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/qualify-energy-browser-nonroot-20261112-r2.py": {
+      "bytes": 1799116,
+      "sha256": "7c92c3e4b181f9761c92a3e242ae90a600f6c4b5e2b1e4744a22a4b008e94b70"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/qualify-energy-browser-nonroot-20261112-r3.package.json": {
+      "bytes": 854,
+      "sha256": "4a2d2bba2a6b108c2707f63de7c7440062e80b96ad965173cfe413d8609c2171"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/qualify-energy-browser-nonroot-20261112-r3.py": {
+      "bytes": 1800121,
+      "sha256": "a0d6eff335aeb0c60b734b6bda95d6ccca019f50b49a784c827aa3e1ee434b9c"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/qualify-energy-browser-nonroot-20261112-r4.package.json": {
+      "bytes": 854,
+      "sha256": "f9e196fca9f3690eb908c17d8fda9edb95aa406148d1590bf3ef7b5ad6e45a02"
+    },
+    "release/energy-daily-browser-fix-20261112-r1/qualify-energy-browser-nonroot-20261112-r4.py": {
+      "bytes": 1803870,
+      "sha256": "8da2f0c4e6688f07001317e5a353145635a1f8a4163735d845185c60a656c1eb"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/FIELD-OBSERVATION-20261112.json": {
+      "bytes": 2140,
+      "sha256": "ccb97163ea6b075fed00d52dcc89be9e954fb58f9a6ff60d2cca6a56064a0ac7"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/LOCAL-VALIDATION.json": {
+      "bytes": 3635,
+      "sha256": "c78ce15569960e11401f7dd7fd7437c8428673a21caea810ae5ca611716672a6"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/ROOT-REVIEW.json": {
+      "bytes": 1929,
+      "sha256": "6b2b9ec3c4b5ab76f410a60defc1e725bf9988a52688e865f441fbcf63de2d75"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/SHA256SUMS.txt": {
+      "bytes": 472,
+      "sha256": "bb5df04f968ef5bee35513a8882b4f017b8f2f953fe4ef79a241d1893fcd101a"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/SOURCE.json": {
+      "bytes": 2888,
+      "sha256": "d4c3c7274b477cd9c0fa3ad17fc294452963256db788e6e14b4c9f88f8c3cf44"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/energy-market-daily-2.1.0-public-code.zip": {
+      "bytes": 111115,
+      "sha256": "980eed816ef30b5d6bbbc91744943d64ba0fb7ad1abf10c2abb1ec10b60b2ac8"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/install-energy-delivery-skill-20261112-r1.py": {
+      "bytes": 388183,
+      "sha256": "b9a188ce55a9f531b44f41dcae61cb04d127d612947046b36272e05185122e03"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/publisher.sealed.py": {
+      "bytes": 21061,
+      "sha256": "9c3a3936593cbbf8001ab8b9c3dc32dd14c815e648cf46e4061a8e7d89e1b3d9"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/rejected-preflight-runtime-shape/REJECTED.json": {
+      "bytes": 1104,
+      "sha256": "71ab076eda2b8fa70b7b6bd55fb273a33105ce3355adb20fcd90d290a828739b"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/rejected-preflight-runtime-shape/SHA256SUMS.txt.rejected": {
+      "bytes": 472,
+      "sha256": "2bb25533f7b13ca99b82e5c21e6e1cd2e3ff49d493817e80850a695dd24ac373"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/rejected-preflight-runtime-shape/SOURCE.json.rejected": {
+      "bytes": 2888,
+      "sha256": "d9427894b73db786396d8bef7806be35664cb2f135bcd46e4c8eadaa6268b781"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/rejected-preflight-runtime-shape/energy-market-daily-2.1.0-public-code.zip.rejected": {
+      "bytes": 111115,
+      "sha256": "980eed816ef30b5d6bbbc91744943d64ba0fb7ad1abf10c2abb1ec10b60b2ac8"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/rejected-preflight-runtime-shape/install-energy-delivery-skill-20261112-r1.py.rejected": {
+      "bytes": 387813,
+      "sha256": "b39f956edf5d36539169d0e23dc103b1f78cb0f92a01e43865e43a3bc27ec3ec"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/rejected-preflight-runtime-shape/publisher.sealed.py.rejected": {
+      "bytes": 21061,
+      "sha256": "9c3a3936593cbbf8001ab8b9c3dc32dd14c815e648cf46e4061a8e7d89e1b3d9"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/rejected-preflight-runtime-shape/verify_child.sealed.py.rejected": {
+      "bytes": 16916,
+      "sha256": "a0f07944b3a431624c7c30fcd8044c8e03716d30a47ed29b34b97684dbae8240"
+    },
+    "release/energy-daily-delivery-skill-20261112-r1/verify_child.sealed.py": {
+      "bytes": 16916,
+      "sha256": "a0f07944b3a431624c7c30fcd8044c8e03716d30a47ed29b34b97684dbae8240"
+    },
+    "release/energy-daily-portable-20261111/ARM64-VISUAL-REVIEW.json": {
+      "bytes": 583,
+      "sha256": "3aedd34d1a4f2b1de2896a4675d8dd72a7f333d23178a0d821cd5ea1b215fafa"
+    },
+    "release/energy-daily-portable-20261111/FIELD-INSTALL-ACCEPTANCE.json": {
+      "bytes": 1039,
+      "sha256": "e914d0bcca985364edc445d2e0aaa4e152a4bcf2b266ca5c22db9f478728ea6e"
+    },
+    "release/energy-daily-portable-20261111/GATEWAY-FINAL-VALIDATION.json": {
+      "bytes": 1191,
+      "sha256": "bffc74dd61b6741435bfad701a34e9b98a7d2ca2048b034605930db31ff84d21"
+    },
+    "release/energy-daily-portable-20261111/GATEWAY-R3-STOPPED-NO-CHANGE.json": {
+      "bytes": 547,
+      "sha256": "5f9c0b0aa140ed7c406e96976f9050cdcdeef0ec0eed031e1ec1513d4a972111"
+    },
+    "release/energy-daily-portable-20261111/GATEWAY-R4-VALIDATION.json": {
+      "bytes": 882,
+      "sha256": "935527ead11605d19f183c9386246eebdb35be71e95a1b34569bd8e431fe7f9c"
+    },
+    "release/energy-daily-portable-20261111/GATEWAY-RESULT-LINKS-PACKAGE-R3.json": {
+      "bytes": 2139,
+      "sha256": "df231b0edcc380f260482cb4b430347c6317b21619a3e6ff78aeb9162282a37b"
+    },
+    "release/energy-daily-portable-20261111/GATEWAY-RESULT-LINKS-PACKAGE.json": {
+      "bytes": 2165,
+      "sha256": "33ddc41869e74597a818dc7250219cf46313634183aa0ab8a231bbc38c7b57cb"
+    },
+    "release/energy-daily-portable-20261111/INSTALL-PACKAGE-R2.json": {
+      "bytes": 1078,
+      "sha256": "8d522ab63cd15e9de03eb7412f559c1ba9b76c7b2d3457dfc179d2c7e9976f12"
+    },
+    "release/energy-daily-portable-20261111/INSTALL-PACKAGE.json": {
+      "bytes": 1164,
+      "sha256": "c06b38df76f9cb3d78902b2fc6bb0cb2e627a8f4d8fe4d5398d4e09e136dae8b"
+    },
+    "release/energy-daily-portable-20261111/LOCAL-VALIDATION.json": {
+      "bytes": 2348,
+      "sha256": "ad1f03fc4d4567e05d1d98c973ed60170e8ec7aa8f257bbb2b6bf9d03afa2bd6"
+    },
+    "release/energy-daily-portable-20261111/PACKAGE.json": {
+      "bytes": 534,
+      "sha256": "0b659fcb9b2b681b7d19aa1726b20d8d3f05f3ead2e57f55d2da5078121a353e"
+    },
+    "release/energy-daily-portable-20261111/QUALIFICATION-PACKAGE.json": {
+      "bytes": 699,
+      "sha256": "52a4d411f0eef6a3bdf731b140db3e2254e38d7c6166de2e3562197a31337281"
+    },
+    "release/energy-daily-portable-20261111/RELEASE.md": {
+      "bytes": 4415,
+      "sha256": "7970f4cf950eec357e83bc940021d779f8b68a45832db394952f87956dbd530c"
+    },
+    "release/energy-daily-portable-20261111/activate-energy-daily-result-links-20261111-r2.py": {
+      "bytes": 340529,
+      "sha256": "fe268cb6638035d52677a822baf7a6d84300edb688566941a21932b9600d8d4b"
+    },
+    "release/energy-daily-portable-20261111/activate-energy-daily-result-links-20261111-r3.py": {
+      "bytes": 332063,
+      "sha256": "23bf0f7cba4343fa48707e05880c88ad732f45f886477eda80bb06abc1f149c5"
+    },
+    "release/energy-daily-portable-20261111/energy-market-daily-2.0.0-public.zip": {
+      "bytes": 98416,
+      "sha256": "7964309dda73a26f7679ae48b98e2dcfb1aa1cefdc0bb9d2a8c09f2e06562610"
+    },
+    "release/energy-daily-portable-20261111/gateway-final-r3-py37/GATEWAY-RESULT-LINKS-PACKAGE-R3.json": {
+      "bytes": 2139,
+      "sha256": "891cfb5e5b8103387d811ccbac635e2c6de7488d6c6405e97fbef269e4578ce9"
+    },
+    "release/energy-daily-portable-20261111/gateway-final-r3-py37/activate-energy-daily-result-links-20261111-r3.py": {
+      "bytes": 332366,
+      "sha256": "266a582e2a7fde783371980956634afc9c5ff8e17504886e645874d313b9931c"
+    },
+    "release/energy-daily-portable-20261111/gateway-final-r3/GATEWAY-RESULT-LINKS-PACKAGE-R3.json": {
+      "bytes": 2139,
+      "sha256": "06bb680c7c9d7ed8b725cfdd972e3201e28506b8d4a3d66cd8dae9805907d081"
+    },
+    "release/energy-daily-portable-20261111/gateway-final-r3/activate-energy-daily-result-links-20261111-r3.py": {
+      "bytes": 332415,
+      "sha256": "11f20eafec2679018d4ae25f3c2f7384abd357d988d1d198202fa3762d63353c"
+    },
+    "release/energy-daily-portable-20261111/gateway-final-r4/GATEWAY-RESULT-LINKS-PACKAGE-R4.json": {
+      "bytes": 2232,
+      "sha256": "5ba020528a38b52699af2ba806702df0dcead103a8f9cfec7924ee27e42400ba"
+    },
+    "release/energy-daily-portable-20261111/gateway-final-r4/activate-energy-daily-result-links-20261111-r4.py": {
+      "bytes": 333182,
+      "sha256": "e2f8e06d1ecb87849d40a124bd382e429c28bea74562a99aa60d0bdc06d7b7a0"
+    },
+    "release/energy-daily-portable-20261111/install-energy-market-daily-portable-20261111-r1.py": {
+      "bytes": 210718,
+      "sha256": "ee69b38551aaf4d2817345334452c939c8adf11478bfa09e15f6cdea7b565e24"
+    },
+    "release/energy-daily-portable-20261111/install-energy-market-daily-portable-20261111-r2.py": {
+      "bytes": 202204,
+      "sha256": "7fe0f19034a55ad2f17af5e276f42756c89dd96725891ee3ea5e370d5ffef89a"
+    },
+    "release/energy-daily-portable-20261111/qualify-energy-market-daily-portable-20261111-r1.py": {
+      "bytes": 1754611,
+      "sha256": "d0a1318bf660d3339e8aefc513cd4895fbecbe365896dc424a943e74ae32104c"
+    },
+    "release/energy-daily-public-runtime-20261112-r1/CODE-PACKAGE.json": {
+      "bytes": 1245,
+      "sha256": "a65efa3f1d7961a9474640e278e6a83561ae2075e76d0f25e60c8066243a3394"
+    },
+    "release/energy-daily-public-runtime-20261112-r1/FIELD-POSTCHECKS-20261112.json": {
+      "bytes": 5185,
+      "sha256": "24190cbb056f071139b43ff764cd7e6817926614489bf4f5d16c5c20bc2d698d"
+    },
+    "release/energy-daily-public-runtime-20261112-r1/FIELD-PUBLIC-REPAIR.json": {
+      "bytes": 3031,
+      "sha256": "98b8eb3b2596491e4824ac7db4b33e841490d0ceec0248087e99a9ee2775d7a8"
+    },
+    "release/energy-daily-public-runtime-20261112-r1/FIELD-THREAD-PROBE.json": {
+      "bytes": 1876,
+      "sha256": "8f2499807dc56d0dc3eb3c505e9587ad99cffa7cff99dc40619698709e727027"
+    },
+    "release/energy-daily-public-runtime-20261112-r1/RELEASE.md": {
+      "bytes": 4976,
+      "sha256": "944b06f487239537505fbb58149b1f60bfa03ce48cd9e22697eac3e8a1faa0de"
+    },
+    "release/energy-daily-public-runtime-20261112-r1/energy-market-daily-2.0.2-public-code.zip": {
+      "bytes": 106087,
+      "sha256": "76d37a35a6b38a5388568f7f44701b02224fd24c103898e618ee99682ddc7fcb"
+    },
+    "release/energy-daily-public-runtime-20261112-r1/inspect-energy-daily-persisted-thread-20261112-r1.package.json": {
+      "bytes": 443,
+      "sha256": "f90705592b8523642aeff925ce29271c869f11c0b4199cf0f0507af9dbeb217a"
+    },
+    "release/energy-daily-public-runtime-20261112-r1/inspect-energy-daily-persisted-thread-20261112-r1.py": {
+      "bytes": 45421,
+      "sha256": "e8f57d400092a98102f55eb50a3a936493a4b4f432b5106f557d3653206026ea"
+    },
+    "release/energy-daily-public-runtime-20261112-r1/repair-energy-public-runtime-20261112-r1.package.json": {
+      "bytes": 945,
+      "sha256": "378405492a434fe25edc29dba26903c909deb1bac55d11976e70432d3980d616"
+    },
+    "release/energy-daily-public-runtime-20261112-r1/repair-energy-public-runtime-20261112-r1.py": {
+      "bytes": 373784,
+      "sha256": "46494495ae0339786f4ff1557ba829d1fc2d62a31cf2933dc4ccfa308d11c682"
+    },
+    "release/energy-daily-public-runtime-20261112-r1/verify-energy-public-runtime-20261112-r1.package.json": {
+      "bytes": 413,
+      "sha256": "5cb4cfccd118646922c88c5c7d31d12637c9118dfe11e6bcfb4612c9159a37c1"
+    },
+    "release/energy-daily-public-runtime-20261112-r1/verify-energy-public-runtime-20261112-r1.py": {
+      "bytes": 16177,
+      "sha256": "34f14de54eb751101976b8577c2c560ca3fb372c41392e38f1b0b35bab35870e"
+    },
+    "release/energy-daily-recovery-gate-20261112-r1/FIELD-OBSERVATION-20261112.json": {
+      "bytes": 2647,
+      "sha256": "a70186fcbfb1ddc750da1922527bbba7d83f3304533696ab46f19fd3068ab638"
+    },
+    "release/energy-daily-recovery-gate-20261112-r1/inspect-energy-daily-recovery-gate-20261112-r1.package.json": {
+      "bytes": 342,
+      "sha256": "eeaba25fa45a4536bb0c27f81f40362cbe489effe96161160052b13158fe1109"
+    },
+    "release/energy-daily-recovery-gate-20261112-r1/inspect-energy-daily-recovery-gate-20261112-r1.py": {
+      "bytes": 37612,
+      "sha256": "33debf640015705f575caf0bd99ef4a09757fe25252b9271ac2afcd9eab52077"
+    },
+    "release/energy-daily-recovery-gate-20261112-r2/FIELD-OBSERVATION-20261112.json": {
+      "bytes": 2696,
+      "sha256": "76df75e81b52515d14cd45329bfbd417e92bd6a5a51feee6267c20e7aac1f121"
+    },
+    "release/energy-daily-recovery-gate-20261112-r2/INCIDENT.md": {
+      "bytes": 2175,
+      "sha256": "0625645d7af4910c7abc8342bea5d4f20e9b9a6ab2b6b6aa922af071e288dedd"
+    },
+    "release/energy-daily-recovery-gate-20261112-r2/inspect-energy-daily-recovery-gate-20261112-r2.package.json": {
+      "bytes": 346,
+      "sha256": "9cf3c66d768aad4a903bd14f0d3ab4554a1ac32172d24826507c71065a124c4b"
+    },
+    "release/energy-daily-recovery-gate-20261112-r2/inspect-energy-daily-recovery-gate-20261112-r2.py": {
+      "bytes": 48097,
+      "sha256": "214cd2be3c21874fe0b1a5191e7cb6f8aa34028c96b1c9140aaa19589d92f758"
+    },
+    "release/energy-delivery-budget-inspection-20261112-r1/FIELD-OBSERVATION-20261112.json": {
+      "bytes": 2931,
+      "sha256": "2cdf1f4c180af1064e98864a50f6b34b8f7a8270fbfee23ee38e87e2faf9348d"
+    },
+    "release/energy-delivery-budget-inspection-20261112-r1/README.md": {
+      "bytes": 3020,
+      "sha256": "91b9f8c120cd0d19a4a6097820d80204e600b1ee636e42cfbc4e2fe4743e95ed"
+    },
+    "release/energy-delivery-budget-inspection-20261112-r1/inspect-energy-daily-webhook-budget-20261112-r1.package.json": {
+      "bytes": 411,
+      "sha256": "e127aceb2209c83e13ba48537922e965f95bf15be91b24fc63d84731265c0f52"
+    },
+    "release/energy-delivery-budget-inspection-20261112-r1/inspect-energy-daily-webhook-budget-20261112-r1.py": {
+      "bytes": 59086,
+      "sha256": "e0245793115640fb54eb12c838ddd599863a36faa66f71b062f31f9449e69235"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/SHA256SUMS.txt": {
+      "bytes": 126,
+      "sha256": "cc2cc43eb570e8d289a10fa1fbc7fcf1930757c2f5f1409d68cde71fbac44ad8"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/SOURCE.json": {
+      "bytes": 8385,
+      "sha256": "7581bd0a68503fcb60e346afbb71171e3f0ecf7b4ce06763948f0270bdd5283f"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/adjusted_budget_collect_pytest.py": {
+      "bytes": 1433,
+      "sha256": "3f2e2342df400faa0e6ae9cda4022230f2c03d699387c6774355a9eba0954cb6"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/adjusted_budget_qualification_plan.py": {
+      "bytes": 4845,
+      "sha256": "ec31b19da40d29c9573ad5ba62636b8b7941407cf79127a9ac22d6355d7024a6"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/adjusted_budget_qualifier.py": {
+      "bytes": 88749,
+      "sha256": "7e8d870896591634755dd7fc725981da94626e712d27dc91655763e044a8bc54"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/adjusted_budget_qualifier_builder.py": {
+      "bytes": 2105,
+      "sha256": "b532ecde7e84d5093830d315565ce43e93b1109d3e35ca79ec83609eab38c2eb"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/adjusted_budget_qualifier_template.py": {
+      "bytes": 9551,
+      "sha256": "4a914c8c3563dd7a307d4ba41a8f6d4f5bdc9f66e602afd2203721df064ccd4a"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/adjusted_budget_release_builder.py": {
+      "bytes": 15725,
+      "sha256": "992bc230fb20ddced146d678a6891dd400c876c81ad39aa37547adad318a2fc2"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/adjusted_budget_remote.py": {
+      "bytes": 15280,
+      "sha256": "1c70ae04d74bcd1c44c49755c528c8f61539fd4288ff809bd1d45ce02b56e40c"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/adjusted_budget_updater_template.py": {
+      "bytes": 25189,
+      "sha256": "1bd4e5faffcd44cffa547c4174e45ab6874dea84207497b53b9ffb720ef60dc4"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/baseline-manifest.json": {
+      "bytes": 4295,
+      "sha256": "4cba0d30934e4bbdfdb7516ba0feaf014dbcfdb9ee9f77ada786026b61d12921"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/bound-package/installed_remote.py": {
+      "bytes": 104844,
+      "sha256": "302f24bc7979aae7b250c1eec447246ed507bd7e996ab7699bae7d5f038cc1d9"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/bound-package/qualification-receipt.json": {
+      "bytes": 15450,
+      "sha256": "2999380e8a9b3cfee1a16775a7f9104670bc761d7f36e0f7980fa98fb20f7ac9"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/bound-package/sealed-bundle.json": {
+      "bytes": 874951,
+      "sha256": "69d3706b325c0838ffd35aa1b905582c2b0a4d7af60ce3ad45087c86a633f135"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/bound-package/update-portal-research-fund-adjusted-budget-20261110-r1.py": {
+      "bytes": 903057,
+      "sha256": "d88d94d5917f5eb8d11f092a3fea2c3d9af82081dfa59988970c34dbbd11ef4d"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/candidate-manifest.json": {
+      "bytes": 4295,
+      "sha256": "727fbc164fefcf8dae7507d18bf4ec37b4e05ffe2682a73ebfc029c4ced1887d"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/linux-qualification-run.json": {
+      "bytes": 15753,
+      "sha256": "143663059fc3286bfa1a473bf1dbeb480d26f000d854b15eb01d71e4da944682"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/local-install-qualification.json": {
+      "bytes": 3146,
+      "sha256": "65f604ca7cc35e695ce0cd5907d7425d881e3c011c522bc7a1b641352fb277d6"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/operator-preflight-20261110.json": {
+      "bytes": 50655,
+      "sha256": "521e659e1c04ed361e1288ace6960a5bc944803a33a1c636518c1a54b38af361"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/operator-preflight-20261110.txt": {
+      "bytes": 50809,
+      "sha256": "b08140e1589c6fcf16469068b32a75758036cfa914a4582d1faad1ca6297b2ef"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/operator-update-20261110.json": {
+      "bytes": 7539,
+      "sha256": "f838b83173107e3e3143d45a73688b0101d68e107636e6234f3b78a720923706"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/operator-update-20261110.txt": {
+      "bytes": 8328,
+      "sha256": "3ca8bf19a42cd54c666561eb5e54ebb22cd427ceb03909396e289c1fda4ab6dd"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/parent/skills/public/research-fund-settlement/SKILL.md": {
+      "bytes": 13369,
+      "sha256": "b8157ae421ba521dd220f521662d772b24545d7e8d887c270a763878f406e63f"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/parent/skills/public/research-fund-settlement/references/group-company.md": {
+      "bytes": 5255,
+      "sha256": "4a57014cbe9dd89147dd9a53c26b901c584ff69fd4ff28409cc20cbc569e8006"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/parent/skills/public/research-fund-settlement/scripts/group_template.py": {
+      "bytes": 24224,
+      "sha256": "757d25219b9d36911668ec1c58d3441492be648bece00cf87db1e17c20d20cfd"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/parent/tests/skills/test_research_fund_expense_purposes.py": {
+      "bytes": 7213,
+      "sha256": "9233948375baf44b80cddef3c97767f3edd6ee0a8f4857437b4d105812e47164"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/parent/tests/skills/test_research_fund_zero_budget.py": {
+      "bytes": 6717,
+      "sha256": "fc2eed6f866e03bc508ec08112e0ea9d903e90a7d92eabdce2f23e1087341745"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/production-server-report-20261110.json": {
+      "bytes": 7337,
+      "sha256": "785f68805d046ab81a9d588743c3682f6d8949d9fa92faafdaa8f3e9b3ac5f36"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/qualification-collection.json": {
+      "bytes": 77590,
+      "sha256": "156fd7485f479cda545de180a69f2d7556ec23017c16f418b408f6a7b4f54994"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/qualification-plan.json": {
+      "bytes": 2806,
+      "sha256": "8084815b9037ce629061081fc1136eb908192977366702cda9badb614436ec36"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/qualification-run.json": {
+      "bytes": 15368,
+      "sha256": "c56fe3a7596068ab39e4700241ad1c357d1c1619ae10192a46b546450edd9e61"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/release-readiness.json": {
+      "bytes": 1198,
+      "sha256": "542ad6ce6e0dcf39debf4d364066bebff78b145f5ce4446847bf0a4a3502a77f"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/rollout-preparation.json": {
+      "bytes": 2671,
+      "sha256": "282ebc09233cb7a9f371741e55945d5c522a60bc982827c328554d59e823ee20"
+    },
+    "release/research-fund-adjusted-budget-20261110-r1/runtime-acceptance-20261110.json": {
+      "bytes": 715,
+      "sha256": "adf2b377b6680d5216d2621f2ac778e0d03c489e17cb400ed391f81f73542403"
+    },
+    "release/sandbox-capacity-20261112-r1/FIELD-OBSERVATION-20261112.json": {
+      "bytes": 3059,
+      "sha256": "89f45e145a1927ee7df3deb97fc057103074c2c7074bde9834dd02cd0e9577ed"
+    },
+    "release/sandbox-capacity-20261112-r1/inspect-sandbox-capacity-20261112-r1.package.json": {
+      "bytes": 327,
+      "sha256": "460a877e0a970500788a870a0952e92e05f792dc94b5c0a25803b73d8b1c646f"
+    },
+    "release/sandbox-capacity-20261112-r1/inspect-sandbox-capacity-20261112-r1.py": {
+      "bytes": 20655,
+      "sha256": "7af52669c6e410159df50f321eb3739e2b29c0c7dd99607664164702af1c9063"
+    },
+    "release/sandbox-reclaim-plan-20261112-r1/FIELD-OBSERVATION-20261112.json": {
+      "bytes": 2228,
+      "sha256": "0ef0eb634ccd5f96e6058c40b84c0adfb158d58b23ccae1eb5ba908adfb0c71d"
+    },
+    "release/sandbox-reclaim-plan-20261112-r1/README.md": {
+      "bytes": 2468,
+      "sha256": "fc57ee1c69de6d96c5fe2f7e800cc393746bae0f2c34142dc96c47436455f2db"
+    },
+    "release/sandbox-reclaim-plan-20261112-r1/inspect-energy-scheduled-run-and-capacity-20261112-r1.package.json": {
+      "bytes": 401,
+      "sha256": "d91d615ad5d692f8e4e9b39aac044e0a5e922443dfa621bfc47ef79c3cfe3aad"
+    },
+    "release/sandbox-reclaim-plan-20261112-r1/inspect-energy-scheduled-run-and-capacity-20261112-r1.py": {
+      "bytes": 63382,
+      "sha256": "5bbc42c697077d0adf71a2f716e8c45392d135d45430203dd437dbf92e560b1d"
+    },
+    "release/sandbox-retention-20261112-r1/ASSESSMENT.md": {
+      "bytes": 2689,
+      "sha256": "c50dc76b542c899d7dd331808034447301aaebcba0240b70f073dd18eba7ac53"
+    },
+    "release/sandbox-retention-20261112-r1/FIELD-OBSERVATION-20261112.json": {
+      "bytes": 2088,
+      "sha256": "27466f92be3649456d7f0bd027b0eb344f4163af2246dcaff671bdbd1b5e1e4d"
+    },
+    "release/sandbox-retention-20261112-r1/inspect-sandbox-retention-20261112-r1.package.json": {
+      "bytes": 329,
+      "sha256": "254a243670f5f2079b1cf064c341a5d7de4303f0c66026af5af0ed140a425f72"
+    },
+    "release/sandbox-retention-20261112-r1/inspect-sandbox-retention-20261112-r1.py": {
+      "bytes": 14583,
+      "sha256": "dc91ddddfaa5ebbd4f915440f30ab378a597359a670f4fea0d7b3d3a310225c2"
+    },
+    "release/scheduler-baseline-inspection-20261113-r1/FIELD-OBSERVATION-20261113.json": {
+      "bytes": 15127,
+      "sha256": "6c537b1ed86eaeedb8f14b7e43796b590b08c0d12aec4674c2c4ed95285e9142"
+    },
+    "release/scheduler-baseline-inspection-20261113-r1/LOCAL-VALIDATION.json": {
+      "bytes": 2123,
+      "sha256": "1cab3c3101d41e36a701cfaff9865492b575e8511c2b50246bed2beb216e3468"
+    },
+    "release/scheduler-baseline-inspection-20261113-r1/ROOT-REVIEW.json": {
+      "bytes": 1803,
+      "sha256": "1f14ec1c8b48ecf27c99229040766fad8bc0f2eca3718418e4b9c083f1e657c1"
+    },
+    "release/scheduler-baseline-inspection-20261113-r1/SOURCE.json": {
+      "bytes": 401,
+      "sha256": "1def1ead44983a21839358b04dd4b26b181acc40166c512807f1f2860d292191"
+    },
+    "release/scheduler-baseline-inspection-20261113-r1/inspect-scheduler-baseline-20261113-r1.py": {
+      "bytes": 24953,
+      "sha256": "7f48ec3d98a4fa410b20009331ea2833cdb651516a6123551cb5049e7ef760a4"
+    },
+    "release/scheduler-budget-20261112-r1/LOCAL-VALIDATION.json": {
+      "bytes": 2544,
+      "sha256": "5a639d5db0c65b2a5cb87f14b64ae12e9feedbece1a3c312c443d595891a62cf"
+    },
+    "release/scheduler-budget-20261112-r1/README.md": {
+      "bytes": 2206,
+      "sha256": "83f13f327df0015f72c24e222e3150950604a72f6c3f00fdd8e6e734fabc3059"
+    },
+    "release/scheduler-budget-20261112-r1/ROOT-REVIEW.json": {
+      "bytes": 1573,
+      "sha256": "abb625513755ccc8b414bb9fdcdba58fb2c783e75853a46cd3f1ad65c31b7a80"
+    },
+    "release/scheduler-budget-20261112-r1/SOURCE.json": {
+      "bytes": 735,
+      "sha256": "1729eca22893814da52073c20d172f0fd24da0b4c99578ac535f7bb4ad794b81"
+    },
+    "release/scheduler-budget-20261112-r1/activate-scheduler-budget-20261112-r1.py": {
+      "bytes": 63731,
+      "sha256": "98f44cd5d512c98575c2a4ca2284cd8129cab398655a2431086df43fb4f0476c"
+    },
+    "release/scheduler-budget-20261112-r2/FIELD-FAILURE-20261112.json": {
+      "bytes": 1302,
+      "sha256": "c89354a4dd25d7b615f7985e561b30c0a5012b48c3dbf0c46b90a46b506b9bf3"
+    },
+    "release/scheduler-budget-20261112-r2/LOCAL-VALIDATION.json": {
+      "bytes": 2869,
+      "sha256": "20c4486956930345231f0039cdd69ec3390032f0bf5b47489f87dcdc4ce6176c"
+    },
+    "release/scheduler-budget-20261112-r2/README.md": {
+      "bytes": 2435,
+      "sha256": "cc3dc817b1fecff8418f6a9e58afc9085e8450fd503bafdc10501829ed10bca8"
+    },
+    "release/scheduler-budget-20261112-r2/ROOT-REVIEW.json": {
+      "bytes": 1806,
+      "sha256": "d0884f21470a5db07a64ff4fc653e63c6b7e41f48a64b233528af49e65759cdc"
+    },
+    "release/scheduler-budget-20261112-r2/SOURCE.json": {
+      "bytes": 761,
+      "sha256": "6d82c0f660695bbd3875eeb4b111cfef6fed0e6336c857d6882dfec79e5e085c"
+    },
+    "release/scheduler-budget-20261112-r2/activate-scheduler-budget-20261112-r2.py": {
+      "bytes": 63743,
+      "sha256": "17fb030c30f469500b2f27196d229c0fde1394a256dc8e76c01a0f55a506d80e"
+    },
+    "release/scheduler-budget-20261112-r3/FIELD-FAILURE-20261113.json": {
+      "bytes": 1159,
+      "sha256": "15bd69c6dfab8c99a17cbd62b868af332b999511526d7bbdbc6ce48906a6afce"
+    },
+    "release/scheduler-budget-20261112-r3/LOCAL-VALIDATION.json": {
+      "bytes": 3697,
+      "sha256": "6c519f0546580a7f921f824248e443627264bdb31a11e46a89ed1309763ea006"
+    },
+    "release/scheduler-budget-20261112-r3/README.md": {
+      "bytes": 3076,
+      "sha256": "74791bb11939dedb72d4abd33e61a0ff4206207cdb4389b04fff2b68701f8cf2"
+    },
+    "release/scheduler-budget-20261112-r3/ROOT-REVIEW.json": {
+      "bytes": 2187,
+      "sha256": "48f54537895b65a5289467e6e5e754b0bd105f432dca9b45c35cfd17bea7708e"
+    },
+    "release/scheduler-budget-20261112-r3/SOURCE.json": {
+      "bytes": 761,
+      "sha256": "fbdb71ca91cab78f00f3a109f3e9b437a0dad627a7fd25c9b9c2e6a79dd5e2c6"
+    },
+    "release/scheduler-budget-20261112-r3/activate-scheduler-budget-20261112-r3.py": {
+      "bytes": 67178,
+      "sha256": "a02605691a235695f8a0e85fc42b2b67768b8dbfcf43fdb5bd686c473f46c49e"
+    },
+    "release/scheduler-budget-20261113-r4/FIELD-FAILURE-20261113.json": {
+      "bytes": 1192,
+      "sha256": "509335d067efd003d7d4de36a7e18ecaef670a0a043bce3a9791f2112e293ea6"
+    },
+    "release/scheduler-budget-20261113-r4/LOCAL-VALIDATION.json": {
+      "bytes": 3558,
+      "sha256": "ea5f509b189e397e8c18fa03928b1074a737308393b2562cf0969b531b70fb29"
+    },
+    "release/scheduler-budget-20261113-r4/README.md": {
+      "bytes": 3431,
+      "sha256": "fcfac69491bfdc26a9e6843fe2607bd67b828cae9219a0edd2e5846d211b6f7d"
+    },
+    "release/scheduler-budget-20261113-r4/ROOT-REVIEW.json": {
+      "bytes": 2143,
+      "sha256": "4b83b40b4374790c9b09ab59ca2f5d38e4b7f52e603fcf1759918a632b7ada3d"
+    },
+    "release/scheduler-budget-20261113-r4/SOURCE.json": {
+      "bytes": 761,
+      "sha256": "0c8fa041ba754a72fe70e1b93bc6f6e06ec0ac7be010e810fed1802796c937d7"
+    },
+    "release/scheduler-budget-20261113-r4/activate-scheduler-budget-20261113-r4.py": {
+      "bytes": 69487,
+      "sha256": "f0c0ce5087f4880f17ffa61d407ef1417b30a9f73babe495f63fa6c488bceda9"
+    },
+    "release/scheduler-budget-20261113-r5/LOCAL-VALIDATION.json": {
+      "bytes": 3907,
+      "sha256": "33f20c6d2c6e0c950eeb38881eba0f9e951bcbd9602584f485fee2f1c554c053"
+    },
+    "release/scheduler-budget-20261113-r5/README.md": {
+      "bytes": 4599,
+      "sha256": "ae167da23edf802ba708e73cb5fcc4c1f2f7bbfb6d58cf6b7b7b3619d4bd9aaf"
+    },
+    "release/scheduler-budget-20261113-r5/ROOT-REVIEW.json": {
+      "bytes": 2651,
+      "sha256": "b39950f699817126f45ba093a98ab2664562033c42b6164eb0d72c0eb70d17c3"
+    },
+    "release/scheduler-budget-20261113-r5/SOURCE.json": {
+      "bytes": 761,
+      "sha256": "d6f8b3f1f5edafd89f4dbab89cccece0af36db283efdd97e57385ef27ff46d65"
+    },
+    "release/scheduler-budget-20261113-r5/activate-scheduler-budget-20261113-r5.py": {
+      "bytes": 76162,
+      "sha256": "2645f26db25d81e1809e2d6249cad6f9ac7b6f71987f0fdf80df49b82a4a5705"
+    },
+    "skills/public/energy-market-daily/.gitignore": {
+      "bytes": 36,
+      "sha256": "0b38df42d58989002b0a92b957aa0edda1b7fc98f2b8e57178a97e51837a5b7c"
+    },
+    "skills/public/energy-market-daily/MANIFEST.json": {
+      "bytes": 17135,
+      "sha256": "8ddbf43d4e08f08e485b85f96814f7680d96b976989b61340c230603b37d3bef"
+    },
+    "skills/public/energy-market-daily/SKILL.md": {
+      "bytes": 9758,
+      "sha256": "c0a5b6e29d7337ac4dc67326e1eb1549d6c394316a685efbee525c28041d64e4"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-06.json": {
+      "bytes": 2512,
+      "sha256": "62a1315a5d2ea492ab82f4c55e090108cfa0de02e19767cb561a06999099ccea"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-07.json": {
+      "bytes": 2514,
+      "sha256": "fce29b1eb02d174471532d8edef7cb4523f88db7ec8773300148e8e26b810762"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-08.json": {
+      "bytes": 2506,
+      "sha256": "512d4464d044d807d12297fd6afc81809edc8c97db78f3aa5c8777b80e2fff3b"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-09.json": {
+      "bytes": 2506,
+      "sha256": "5004af883fe884be0865f2f22148ab2f42ded6a2d94624013f53ca6c3a36f30b"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-10.json": {
+      "bytes": 2514,
+      "sha256": "d4433960be70ed58edf5d9e83794e068aa43c28a185c68cd548ee543ff0d39df"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-11.json": {
+      "bytes": 2512,
+      "sha256": "1fc999cb9a8cb1ca59dcdaeba6feeda81dc2a52f6ab3e05928f6ed67d49de96f"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-12.json": {
+      "bytes": 2510,
+      "sha256": "d744ce42b00a9ee8b68d6fc4164391d57bce6f2b62fddb9e37edbf121f10edc9"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-13.json": {
+      "bytes": 2513,
+      "sha256": "e85f20d543b2a387b148bc6c6480627079029dc9e48007f70ab936e228b3f4cc"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-14.json": {
+      "bytes": 2512,
+      "sha256": "088e22d891749658ea599b429c9532d366d855db5866d52b824825e7ed98968a"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-15.json": {
+      "bytes": 2507,
+      "sha256": "0f56c97c3bcfa68a473518dc84329618c47b2db0056690826b14d8952115c0b9"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-16.json": {
+      "bytes": 2507,
+      "sha256": "0674db6c7e37a1b8bfd0e4a59912044b72e907f0ede13da826a20e135c9ce709"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-17.json": {
+      "bytes": 2509,
+      "sha256": "340902b50080dde1c5a55361131a923f1a3e8fc384d0fa8c30cf0bfbd0e3e1c6"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-18.json": {
+      "bytes": 2513,
+      "sha256": "a667b675589419f3d04c3850d9329f3cb04eb0bec9a6a5c2b4997ce03a0ef0e6"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-19.json": {
+      "bytes": 2513,
+      "sha256": "f9347cb7472f3b668d489a4c74a3ee8dd5d718cf11ee2ce2e4e8f99af912f0ee"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-20.json": {
+      "bytes": 2515,
+      "sha256": "c520a8b97f656dc201118ee6aced94b7be657b20889bc62ee574d91c659cbea8"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-21.json": {
+      "bytes": 2514,
+      "sha256": "50367ad4e847888cdea4fd23018358284e41eb4f06a9dc92918c8bf7df06e9cf"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-22.json": {
+      "bytes": 2507,
+      "sha256": "9b734ab44fe03829440a40ce3b811e754c146b6a91e1701b85b831cdb4857c3a"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-23.json": {
+      "bytes": 2507,
+      "sha256": "367485236cb8bdcefa0b969383f2013d87c4c2e1d320b809ac126a748856034b"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-24.json": {
+      "bytes": 2514,
+      "sha256": "bcacacfe20b93dac588f820e5e7785f99a2d17508d0c6442f3a8580593787a7c"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-25.json": {
+      "bytes": 2512,
+      "sha256": "05b196eaad0f69f6e4696f6d8de86dfff7d19436c20cb9543456909599135b87"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-26.json": {
+      "bytes": 2514,
+      "sha256": "1d52467246c5cd9b88c9e886e7960c39195fc6c71174a1c20af93b0ca12d5a81"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-27.json": {
+      "bytes": 2512,
+      "sha256": "c7f035c6dcf03fc51e71987663511b79d7cc1b88f79a7504e32619705a283de6"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-28.json": {
+      "bytes": 2512,
+      "sha256": "ad1e626297a69f2c104bb191a654fc5a21e0b166f511214bd392061ac873c27e"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-29.json": {
+      "bytes": 2507,
+      "sha256": "328da868c6c9be0f704216736b9d62e94b361447ec8b70d959f261cbcfca3c56"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-30.json": {
+      "bytes": 2507,
+      "sha256": "3c5697589976d473dc806de4a8b1e8d3c36ad29096a8aaa36bf749d06e9e3275"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-08-31.json": {
+      "bytes": 2532,
+      "sha256": "ce0c37a4416d04b4f7fa629310eb0c365da3542c56cf42fb7753b12d3b540e94"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-01.json": {
+      "bytes": 2513,
+      "sha256": "35101f6fbd2f2007ccf8fae048e1de9d715fbc49e781134da79a1722fe819b93"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-02.json": {
+      "bytes": 2514,
+      "sha256": "f90bf217b0278cb7e7717cfc819bc78005b87c41fee236dabca81f75682b2d78"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-03.json": {
+      "bytes": 2513,
+      "sha256": "20bcca9f232a554065afbdcddb40905aba6c6333c5706228d388c3028c255db4"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-04.json": {
+      "bytes": 2516,
+      "sha256": "039f56754fbbe7e258ba7e77d57cfbba576b1cf037ca5449b6170e141b330989"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-05.json": {
+      "bytes": 2505,
+      "sha256": "77a20c94f2222e53b75b50b05725665f1ec8304b96d6ca33599192d39e3ebf37"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-06.json": {
+      "bytes": 2505,
+      "sha256": "2dbefc23017aaa922f6d6d800b756785cdbc355e483381a96148845576d95a9e"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-07.json": {
+      "bytes": 2517,
+      "sha256": "1213d2fe5469ed130c25e6de818b583164ed05403391a7515e17cd5024abfa8d"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-08.json": {
+      "bytes": 2515,
+      "sha256": "fc60f68fcf650f0b364c6ab9bdf2455ec1a37ad60b1412bfda4f5860c14b8fcc"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-09.json": {
+      "bytes": 2517,
+      "sha256": "0f57d26bc63f330701bf55023a2e1d64167ab61a6be700e31ce6c60a53a5b773"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-10.json": {
+      "bytes": 2515,
+      "sha256": "787572a42aa98793593bc240b57a0251a9dff071c4f7c3cb3ae3f6d44f92b357"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-11.json": {
+      "bytes": 2519,
+      "sha256": "c5c6016cdfa771065b31b3ab83b1639517ec41e1c47d4d7a49c77f3c17635528"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-12.json": {
+      "bytes": 2507,
+      "sha256": "6cad141cf70f0e234a20290d158ec60b65679b9ddc877a13b5b419a2e22d5618"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-13.json": {
+      "bytes": 2507,
+      "sha256": "73e9f9a73950a92aa10bb49df585c84ea373176277508e32ad0ee6e6a7783358"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-14.json": {
+      "bytes": 2520,
+      "sha256": "544fe0eb110b8f013197831b4ac6d5da9be98aaab46013b2e333758629dc395b"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-15.json": {
+      "bytes": 2519,
+      "sha256": "d2e197ff7831727865a692a3472461b9a5ed27ed622040855d1262e0c4facdb2"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-16.json": {
+      "bytes": 2520,
+      "sha256": "e7600af3ece2461e4f367d2077caa78c07d87cc76adcbfa8485649cb4e492347"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-17.json": {
+      "bytes": 2519,
+      "sha256": "1f8f631258b8cbe3591a907ae6efd016b0146f381ad1042d8095dfc236a8915d"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-18.json": {
+      "bytes": 2519,
+      "sha256": "7c9ae851f62cbf13414cf3973989c7f25f025b08231a96b3d5185d82403a131c"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-19.json": {
+      "bytes": 2507,
+      "sha256": "1a3baf0cd74b74f698d573937e95efc94f14b35059adeac87db384e68cbaf270"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-20.json": {
+      "bytes": 2507,
+      "sha256": "c9677aea1d82580755a50456352fc2fbaa005288feea88ce0987a0678212fa40"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-21.json": {
+      "bytes": 2518,
+      "sha256": "b32b673586bef4657cd45ef774232b3dc3efda53a0e217de0c681bb7f7add591"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-22.json": {
+      "bytes": 2516,
+      "sha256": "757de36a6abd00c2296f60168cd112503ae41da59b0cad5cdae172f5c7a16dc5"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-23.json": {
+      "bytes": 2517,
+      "sha256": "9dfc5a6f359ea85653dc06bd6c4f3f4d9edf7a4bcc28f8a7715517d359590279"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-24.json": {
+      "bytes": 2518,
+      "sha256": "87513e5b564da9594652452bac87d554ab0fec4f37dfcd8b1dd04e84d770b45f"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-25.json": {
+      "bytes": 2518,
+      "sha256": "90e99a51b95da1b755cfa9b699465900e1febbbb83405612f5fe100b1a3ce371"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-26.json": {
+      "bytes": 2507,
+      "sha256": "3686caa8952f50a12926b64df38b39170e6d115b8073d93e5427b52f6d0e1339"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-27.json": {
+      "bytes": 2507,
+      "sha256": "034869ea371540061bf471d069f001432247d76b96ea64cd8be0885ae2905267"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-28.json": {
+      "bytes": 2516,
+      "sha256": "0e32f9836aba793b6a7ac3e9a6abca24f8ed66b8920e5bdd5dade63c4ab56c22"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-29.json": {
+      "bytes": 2515,
+      "sha256": "4293ba837a5ea7cf12982f16f54f8a742cb554ad2949c8ebfae492eefc5f3ee4"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-09-30.json": {
+      "bytes": 2517,
+      "sha256": "fff525adbea0a993bef33bd4da55af8fc4147d5ff6f8f75711fe2e8059fa72ee"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-01.json": {
+      "bytes": 2517,
+      "sha256": "85c072ce4293fa0e9bda312de84135a1a05871631bda52acebbb01381a02fd2f"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-02.json": {
+      "bytes": 2518,
+      "sha256": "ba66f2687359279f4031ab7c4ed5630fb9825b8699dea6022a8c8a93404f4ebb"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-03.json": {
+      "bytes": 2507,
+      "sha256": "e7e34fdb92b1fbdaddb1459874cc9f3e0dfe178f0a1c4c4faa52d335b01d0a91"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-04.json": {
+      "bytes": 2507,
+      "sha256": "b763414227bf8a4f68e43cad02e7e22584b839b658643e4f379ed61b1ec81a7a"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-05.json": {
+      "bytes": 2518,
+      "sha256": "781deacab3f7d163d60529c6fe85eb424db8c2e615e3f1f2026dff8d03eb2b4d"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-06.json": {
+      "bytes": 2519,
+      "sha256": "ab89c60fb3ef7067ec243aba023949c16593ea1128d4063ff14e6357b493c6f2"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-07.json": {
+      "bytes": 2516,
+      "sha256": "9ee4363095501bcb5130f46a2f0a3a48d8410aa7801fe5882b48e7c0a8b4b7d1"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-08.json": {
+      "bytes": 2518,
+      "sha256": "b153e2fe69f5913c1eda7058c0f76e3b099c5c84fab920f1770247903974cac9"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-09.json": {
+      "bytes": 2518,
+      "sha256": "2bd1ca9282064880e3e7b148ddc19d0a066af12be059df7e9a8517a9cc738e78"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-10.json": {
+      "bytes": 2509,
+      "sha256": "d6bc1c0201e96a53d9ba017ee9a8fca5767663d26d079e3e7538a77eaf2565ce"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-11.json": {
+      "bytes": 2509,
+      "sha256": "db6850df751295d29e7769aa7b31f5c358a122c5fa12b9be2d5bbbfa14cd9e6b"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-12.json": {
+      "bytes": 2518,
+      "sha256": "7c9816a3e5905170396256a79cf40683404546cee8abf9c772465e7b7399dc85"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-13.json": {
+      "bytes": 2518,
+      "sha256": "c62d2fa346073c20ef6226fad6435dd41b5ca9fdc5d7c346b301427abee5a740"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-14.json": {
+      "bytes": 2516,
+      "sha256": "1c3fa63d6caac4466fcde757fab67523a3ae421dc63a8ed6348e508660b9f8ae"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-15.json": {
+      "bytes": 2518,
+      "sha256": "f1db312bb38e073833c9509297ce4e9890a672b40faff9a426af32b47767e255"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-16.json": {
+      "bytes": 2519,
+      "sha256": "9908b22ea324f6e4aa39a69ad6240bbaf6f346f5839ed43d49881a2a6c3d20df"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-17.json": {
+      "bytes": 2509,
+      "sha256": "4dd68f560fe2a6a7f984a4c783575929daa48f38e055a7de6d94281c045b37f8"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-18.json": {
+      "bytes": 2509,
+      "sha256": "d281e26d599e6bc2f08070f009c8126ab7a227bea1d9a9d6755c5a859444226b"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-19.json": {
+      "bytes": 2518,
+      "sha256": "b468c2d4a6e17bfbf4e7b903732a980b71e79a7621efb4969086f9bbb0a44bdc"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-20.json": {
+      "bytes": 2520,
+      "sha256": "93739324cd2aa2b056d3cf20ddfb8e987c1bf5d4509cf55db32001a247f1fbb0"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-21.json": {
+      "bytes": 2517,
+      "sha256": "0140bb8d4c8c17d49a749b08f394fddea8746acf5ae382c7b0eecd5797f030d6"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-22.json": {
+      "bytes": 2519,
+      "sha256": "cc705297d809b91bb610b0753228253d3ca715211fcd04e6e631435bc6255df9"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-23.json": {
+      "bytes": 2516,
+      "sha256": "f86ab3d646a3e02d0c862cb93f021d033496d512c7754c36feba0f7eaa1d9010"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-24.json": {
+      "bytes": 2509,
+      "sha256": "ec90563465836a0c543babb4a4977749b78364dea443bb50c2b2828f9ba424f9"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-25.json": {
+      "bytes": 2509,
+      "sha256": "e95c74c455bcc84cd4bd3e219e3a839e03285ebd0879be319b95fd0a3f599487"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-26.json": {
+      "bytes": 2517,
+      "sha256": "cc0d271ab0a4eb74e834ba4ad8973d9646cc656411a1da8e68c252122bffe14c"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-27.json": {
+      "bytes": 2516,
+      "sha256": "7f5877f7e6be9f75deb23dd4fc32bca429d771daceaa9312c5ab77cbd995d4c8"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-28.json": {
+      "bytes": 2518,
+      "sha256": "e610d679e87eb592e52e73cffc2896827199d79a28b3480d34606591b47be497"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-29.json": {
+      "bytes": 2519,
+      "sha256": "e8a6ed9d8fd729afa6a8699be75fb10da905bd92155e215f038340f6de6cebb5"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-30.json": {
+      "bytes": 2518,
+      "sha256": "151277472872666298c773cd8aea90e836f552c41b303120672705ad83f82cf8"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-10-31.json": {
+      "bytes": 2509,
+      "sha256": "d16606d6b621e2d521767d8d9063c40b250a1627dbdcce459e9d37b3a356bbbc"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-11-01.json": {
+      "bytes": 2507,
+      "sha256": "e2ac1ef6d52b4b92589d05e76de3ee5373df70c6277d43f1c9672418b4ae692a"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-11-02.json": {
+      "bytes": 2519,
+      "sha256": "f4ceceea35c79ad796f035120e7dddd53606e17eb469a81fad24a040afe4b534"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-11-03.json": {
+      "bytes": 2518,
+      "sha256": "c685ef3d9ed8b7ddc0951349b4739d8c1d38fae652756126d9f85832b965dcac"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-11-04.json": {
+      "bytes": 2515,
+      "sha256": "051fe6b2ee7da3100c6fc198ff6c21237877819e01a757b233f062bef1bf35aa"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-11-05.json": {
+      "bytes": 2516,
+      "sha256": "660b8cac21968766171ea55bf8ebdd699f4fc9997b5d344fe4a5ee98056bda8e"
+    },
+    "skills/public/energy-market-daily/assets/history/jkx_new_2026-11-06.json": {
+      "bytes": 2522,
+      "sha256": "bbeb52b48fdae15b8205bbf10af7c2f90c94819baa2b305e644cd1f09f710d2a"
+    },
+    "skills/public/energy-market-daily/references/evidence.md": {
+      "bytes": 1170,
+      "sha256": "1109594c0f68aeb0b51386ceb59538aafacf5273a4c723485aa236ea53144017"
+    },
+    "skills/public/energy-market-daily/references/provenance.json": {
+      "bytes": 402,
+      "sha256": "e0f7d37be7235a1d120f310de6f9991077aeec9ea39d8af30bb055680a5d5871"
+    },
+    "skills/public/energy-market-daily/references/runtime.md": {
+      "bytes": 4514,
+      "sha256": "a8de5cdbd394bfe45e71201105fc81a363eb667a2b2c5496f9aba83b9ecab8c2"
+    },
+    "skills/public/energy-market-daily/requirements.txt": {
+      "bytes": 20,
+      "sha256": "e062756e078c1fa38bdb2796046b669990ab5b5d5e4b5196779b917127b846f3"
+    },
+    "skills/public/energy-market-daily/scripts/browser_runtime.py": {
+      "bytes": 10051,
+      "sha256": "9844b8e4c5e6a6de99a6f7d9cf42f2aafeda1dea5e2b9966f709da7cebf71ae8"
+    },
+    "skills/public/energy-market-daily/scripts/common.py": {
+      "bytes": 7380,
+      "sha256": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0"
+    },
+    "skills/public/energy-market-daily/scripts/daily.py": {
+      "bytes": 38365,
+      "sha256": "dff7c59813d439ccefe16954bf695a6eac11d6f915ef163e39991dad890df42a"
+    },
+    "skills/public/energy-market-daily/scripts/delivery_text.py": {
+      "bytes": 12710,
+      "sha256": "8277f0d203305eb9094a9dd1e81b2b31d6bfa5e567779713d1cae960e6f3f2a1"
+    },
+    "skills/public/energy-market-daily/scripts/market.py": {
+      "bytes": 8259,
+      "sha256": "ab4ee17ea34750150c2048aa5406cd6685a4bcf992170ada19a10953efb72cac"
+    },
+    "skills/public/energy-market-daily/scripts/report_renderer.py": {
+      "bytes": 15285,
+      "sha256": "bc70625139f3c56da9ebfba5bc139461e862a86b05d180691ef5a2c66ecf75a3"
+    },
+    "skills/public/energy-market-daily/scripts/research.py": {
+      "bytes": 13863,
+      "sha256": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee"
+    },
+    "tests/test_research_fund_adjusted_budget_preflight_20261110.py": {
+      "bytes": 23291,
+      "sha256": "4e26b3e949f00317b09ff9fe4c9c41261260a2993caeb5066ad2eca5e735be51"
+    },
+    "tests/test_research_fund_adjusted_budget_release_20261110.py": {
+      "bytes": 13129,
+      "sha256": "a4b084788822fd0b981e3806add03465f49b0b5bda9fd4432f7aeafa566e346c"
+    }
+  },
+  "credentials_included": false,
+  "gateway_changes": {
+    "backend/app/channels/manager.py": {
+      "combined_source_matches_deployed_overlay": true,
+      "current": {
+        "bytes": 94358,
+        "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
+      },
+      "deployed_overlay": {
+        "bytes": 94358,
+        "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
+      },
+      "parent": {
+        "bytes": 91779,
+        "sha256": "ec362f03f17ee491ad3a1d37e1dfa652195d168e4f1188ad3269f5db60fbd0f4"
+      }
+    },
+    "backend/app/integrations/work/notifications.py": {
+      "combined_source_matches_deployed_overlay": true,
+      "current": {
+        "bytes": 10025,
+        "sha256": "2f25958bcb2556685d153bef55f72afebd360deb157cd13164ceb4261001f039"
+      },
+      "deployed_overlay": {
+        "bytes": 10025,
+        "sha256": "2f25958bcb2556685d153bef55f72afebd360deb157cd13164ceb4261001f039"
+      },
+      "parent": {
+        "bytes": 9657,
+        "sha256": "06a09ea242667b6769b273231827918883ac1128755086ad934951689a55079b"
+      }
+    },
+    "backend/app/scheduler/work_notification_delivery.py": {
+      "combined_source_matches_deployed_overlay": true,
+      "current": {
+        "bytes": 4297,
+        "sha256": "d446868a681754fa98241b62ebfe45a886c6bf21b0da0f68d0d69cd111e8a42e"
+      },
+      "deployed_overlay": {
+        "bytes": 4297,
+        "sha256": "d446868a681754fa98241b62ebfe45a886c6bf21b0da0f68d0d69cd111e8a42e"
+      },
+      "parent": {
+        "bytes": 3422,
+        "sha256": "1202321726b304b1c1b03e343f440f116b9734e416804cab894ea825e97bb79f"
+      }
+    },
+    "backend/app/scheduler/work_notifications.py": {
+      "combined_source_matches_deployed_overlay": true,
+      "current": {
+        "bytes": 14201,
+        "sha256": "d3f7e6c4acc4fd0cb7e4f6b31861ddf8b68ff1d2f44761a99da90536a6982645"
+      },
+      "deployed_overlay": {
+        "bytes": 14201,
+        "sha256": "d3f7e6c4acc4fd0cb7e4f6b31861ddf8b68ff1d2f44761a99da90536a6982645"
+      },
+      "parent": {
+        "bytes": 13646,
+        "sha256": "83649f4a9ab99372beb81aa363e5da55bad89cbd59a50f397e4d5af1148eac32"
+      }
+    },
+    "backend/packages/harness/deerflow/tools/builtins/present_file_tool.py": {
+      "combined_source_matches_deployed_overlay": true,
+      "current": {
+        "bytes": 19640,
+        "sha256": "eccfe1e5975c771465abf96f1da60fdb2a11e0712716aeb2453a2d10fbe30e3b"
+      },
+      "deployed_overlay": {
+        "bytes": 19640,
+        "sha256": "eccfe1e5975c771465abf96f1da60fdb2a11e0712716aeb2453a2d10fbe30e3b"
+      },
+      "parent": {
+        "bytes": 18822,
+        "sha256": "532af34c6e78a271f90b903cb328710424aec75d15dcc59d65bc01e10f0271ad"
+      }
+    },
+    "backend/packages/harness/deerflow/utils/conversation_url.py": {
+      "combined_source_matches_deployed_overlay": true,
+      "current": {
+        "bytes": 5042,
+        "sha256": "f5ac36f16038a3532cd3110d134b72e58c42693c1b9ab9a1b6390d9b4209c0b8"
+      },
+      "deployed_overlay": {
+        "bytes": 5042,
+        "sha256": "f5ac36f16038a3532cd3110d134b72e58c42693c1b9ab9a1b6390d9b4209c0b8"
+      },
+      "parent": null
+    }
+  },
+  "last_sync_merge": "ced7db0cf083aeff02fd142a7d8fb7dcc266213d",
+  "original_energy_paths": [
+    "skills/public/energy-market-daily/SKILL.md",
+    "skills/public/energy-market-daily/UPSTREAM.json",
+    "skills/public/energy-market-daily/assets/energy-daily-v1.0.original.zip",
+    "skills/public/energy-market-daily/scripts/entry.py",
+    "skills/public/energy-market-daily/upstream/.gitignore",
+    "skills/public/energy-market-daily/upstream/MANIFEST.sha256.json",
+    "skills/public/energy-market-daily/upstream/README.md",
+    "skills/public/energy-market-daily/upstream/acceptance/RESULTS.md",
+    "skills/public/energy-market-daily/upstream/acceptance/environment-check.json",
+    "skills/public/energy-market-daily/upstream/acceptance/pixel-comparison.json",
+    "skills/public/energy-market-daily/upstream/agent/AGENT_PROMPT.md",
+    "skills/public/energy-market-daily/upstream/agent/SKILL.md",
+    "skills/public/energy-market-daily/upstream/app/data/energy_2026-11-06.json",
+    "skills/public/energy-market-daily/upstream/app/data/financial_2026-11-06.json",
+    "skills/public/energy-market-daily/upstream/app/data/news_2026-11-07.json",
+    "skills/public/energy-market-daily/upstream/app/fetch_energy_data.py",
+    "skills/public/energy-market-daily/upstream/app/fetch_market_history.py",
+    "skills/public/energy-market-daily/upstream/app/generate_report.py",
+    "skills/public/energy-market-daily/upstream/app/report_data.py",
+    "skills/public/energy-market-daily/upstream/app/report_renderer.py",
+    "skills/public/energy-market-daily/upstream/app/sources/1107-market-0.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/1107-market-2.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/1107-news-0.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/1107-news-1.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/1107-news-2.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/1107-news-3.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/1107-news-4.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/1107-news-5.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/DINIW-20261106.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/browser-hk00883-1109.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/browser-sh000002-1109.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/browser-sh600028-1109.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/browser-sh600938-1109.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/browser-sh601857-1109.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/fx_susdcny-20261106.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/fxpage-DINIW-1109.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/fxpage-USDCNY-1109.txt",
+    "skills/public/energy-market-daily/upstream/app/sources/hk00883-20261106.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-06.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-07.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-08.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-09.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-10.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-11.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-12.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-13.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-14.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-15.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-16.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-17.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-18.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-19.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-20.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-21.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-22.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-23.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-24.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-25.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-26.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-27.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-28.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-29.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-30.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-08-31.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-01.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-02.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-03.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-04.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-05.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-06.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-07.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-08.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-09.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-10.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-11.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-12.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-13.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-14.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-15.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-16.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-17.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-18.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-19.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-20.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-21.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-22.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-23.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-24.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-25.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-26.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-27.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-28.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-29.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-09-30.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-01.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-02.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-03.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-04.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-05.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-06.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-07.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-08.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-09.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-10.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-11.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-12.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-13.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-14.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-15.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-16.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-17.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-18.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-19.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-20.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-21.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-22.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-23.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-24.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-25.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-26.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-27.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-28.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-29.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-30.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-10-31.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-01.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-02.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-03.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-04.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-05.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-06.before-unit-correction.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_new_2026-11-06.json",
+    "skills/public/energy-market-daily/upstream/app/sources/jkx_refresh_2026-11-06.json",
+    "skills/public/energy-market-daily/upstream/app/sources/sh000002-20261106.json",
+    "skills/public/energy-market-daily/upstream/app/sources/sh600028-20261106.json",
+    "skills/public/energy-market-daily/upstream/app/sources/sh600938-20261106.json",
+    "skills/public/energy-market-daily/upstream/app/sources/sh601857-20261106.json",
+    "skills/public/energy-market-daily/upstream/app/test_market_history.py",
+    "skills/public/energy-market-daily/upstream/app/test_workflow_gate.py",
+    "skills/public/energy-market-daily/upstream/app/validate_inputs.py",
+    "skills/public/energy-market-daily/upstream/app/workflow_gate.py",
+    "skills/public/energy-market-daily/upstream/config/font-manifest.json",
+    "skills/public/energy-market-daily/upstream/config/reference-environment.json",
+    "skills/public/energy-market-daily/upstream/config/runtime.env.example",
+    "skills/public/energy-market-daily/upstream/config/schedule.json",
+    "skills/public/energy-market-daily/upstream/docs/01-STYLE.md",
+    "skills/public/energy-market-daily/upstream/docs/02-API.md",
+    "skills/public/energy-market-daily/upstream/docs/03-ACQUISITION.md",
+    "skills/public/energy-market-daily/upstream/docs/04-EXECUTION.md",
+    "skills/public/energy-market-daily/upstream/docs/05-DATA-CONTRACT.md",
+    "skills/public/energy-market-daily/upstream/docs/06-DEPLOYMENT.md",
+    "skills/public/energy-market-daily/upstream/provenance/original-skill/SKILL.md",
+    "skills/public/energy-market-daily/upstream/provenance/original-skill/references/acquisition.md",
+    "skills/public/energy-market-daily/upstream/provenance/original-usage.md",
+    "skills/public/energy-market-daily/upstream/reference/approved-2026-11-07.html",
+    "skills/public/energy-market-daily/upstream/reference/approved-2026-11-07.json",
+    "skills/public/energy-market-daily/upstream/reference/approved-2026-11-07.png",
+    "skills/public/energy-market-daily/upstream/reference/original-style-reference.png",
+    "skills/public/energy-market-daily/upstream/requirements-reference.txt",
+    "skills/public/energy-market-daily/upstream/tools/check_environment.py",
+    "skills/public/energy-market-daily/upstream/tools/reproduce.py",
+    "skills/public/energy-market-daily/upstream/tools/verify_manifest.py"
+  ],
+  "production_commands_executed": false,
+  "scheduler_budget_deployed": false
+}

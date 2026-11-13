@@ -1,0 +1,8 @@
+{
+  "schema": "sandbox-retention-package.v1",
+  "filename": "inspect-sandbox-retention-20261112-r1.py",
+  "bytes": 14583,
+  "sha256": "dc91ddddfaa5ebbd4f915440f30ab378a597359a670f4fea0d7b3d3a310225c2",
+  "child_sha256": "dbc4dadc770a95539f3729c0ad13df42a1d14a65939fd82022f2f8e616ca94d1",
+  "production_executed": false
+}

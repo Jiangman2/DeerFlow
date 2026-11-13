@@ -1,0 +1,35 @@
+{
+  "baseline_sha256": "521e659e1c04ed361e1288ace6960a5bc944803a33a1c636518c1a54b38af361",
+  "before_tree_sha256": "0b417f6540cbab2f35ce9bbde28efe0d9d214273bf4fbf9baf47734f9ea01c85",
+  "business_acceptance_pending": true,
+  "candidate_tree_sha256": "b09b69fb2078bc580b6e6d52a76f0be0917b044d9ac2bea2fcb6fca14477c907",
+  "changed_skill_files": [
+    "SKILL.md",
+    "references/group-company.md",
+    "scripts/group_template.py"
+  ],
+  "exact_bundle_local_install": {
+    "backup_verified": true,
+    "command_checks": 9,
+    "published_manifest_verified": true,
+    "regression_instances": 325,
+    "status": "PASS"
+  },
+  "file": {
+    "bytes": 903057,
+    "name": "update-portal-research-fund-adjusted-budget-20261110-r1.py",
+    "sha256": "d88d94d5917f5eb8d11f092a3fea2c3d9af82081dfa59988970c34dbbd11ef4d"
+  },
+  "production_actions": 0,
+  "python37_wrong_host": {
+    "commands": 0,
+    "error_code": "WRONG_HOST",
+    "once_claimed": false
+  },
+  "release_boundary_checks": {
+    "linux_passed": 20,
+    "windows_passed": 20
+  },
+  "schema": "research-fund-adjusted-budget-release-readiness.v1",
+  "status": "READY_FOR_OPERATOR_ONCE_EXECUTION_NOT_DEPLOYED"
+}

@@ -1,0 +1,17 @@
+{
+  "schema": "energy-portable-arm64-visual-review.v1",
+  "actual_image_viewed": true,
+  "png_sha256": "bedd5af036641c695510cca936b1e530ed7600238a8892fe88b5d7d5953bdd9b",
+  "bytes": 757088,
+  "dimensions": [
+    780,
+    5250
+  ],
+  "local_path": "C:/Users/15285/AppData/Local/Temp/codex-clipboard-227f29f9-8096-4e7f-b9f4-2899600b534e.png",
+  "seven_sections_present": true,
+  "chinese_readable": true,
+  "no_clipping_or_horizontal_overflow_observed": true,
+  "edition": "2026-11-07",
+  "fixed_sample_not_latest_market": true,
+  "production_skill_switched": false
+}

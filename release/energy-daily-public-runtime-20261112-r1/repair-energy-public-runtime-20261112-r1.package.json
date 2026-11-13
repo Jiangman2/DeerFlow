@@ -1,0 +1,27 @@
+{
+  "schema": "energy-public-runtime-repair-package.v1",
+  "filename": "repair-energy-public-runtime-20261112-r1.py",
+  "bytes": 373784,
+  "sha256": "46494495ae0339786f4ff1557ba829d1fc2d62a31cf2933dc4ccfa308d11c682",
+  "code_package_sha256": "76d37a35a6b38a5388568f7f44701b02224fd24c103898e618ee99682ddc7fcb",
+  "assets": {
+    "publisher": {
+      "bytes": 23185,
+      "sha256": "84ee2c5e57a82fb9c1f90d08b0c79d68a22a3130ce5e2b527ea2ed0ecf3c688f"
+    },
+    "verifier": {
+      "bytes": 10088,
+      "sha256": "7bf06721abb76c0ec02748a4db7d59f4265ea7a384674604f5694f616d8930d8"
+    },
+    "package": {
+      "bytes": 106087,
+      "sha256": "76d37a35a6b38a5388568f7f44701b02224fd24c103898e618ee99682ddc7fcb"
+    },
+    "test_files": {
+      "bytes": 116226,
+      "sha256": "cc2b15b99b3654e1673037c8a1b54ebcee5f14aacf7811715a7187a4bd3251bd"
+    }
+  },
+  "credentials_included": false,
+  "production_executed": false
+}

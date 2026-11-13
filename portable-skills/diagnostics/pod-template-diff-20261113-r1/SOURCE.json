@@ -1,0 +1,13 @@
+{
+  "changes_requested": 0,
+  "command_bytes": 7509,
+  "command_sha256": "f4aae6f18866ae712d9659db0b919d9172d3194078eaac7f2e40f9a5a1c09ba7",
+  "pod_exec_requests": 0,
+  "production_executed": false,
+  "raw_values_exported": false,
+  "readonly_get_requests": 6,
+  "schema": "gateway-pod-template-diff-command.v1",
+  "secret_api_reads": 0,
+  "snippet_bytes": 7478,
+  "snippet_sha256": "d65b2fe6b46db92240824c0a307e5a0e728c76be027aa4d69a3af425e893dab4"
+}

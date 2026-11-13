@@ -1,0 +1,33 @@
+{
+  "schema": "scheduler-admission-primary-rules.v1",
+  "review_scope": "Narrow observation-compatible comparison only; no workload or admission-policy change",
+  "primary_sources": [
+    {
+      "url": "https://raw.githubusercontent.com/kubernetes/kubernetes/v1.34.0/plugin/pkg/admission/serviceaccount/admission.go",
+      "lines": "383-445, 448-487",
+      "finding": "The ServiceAccount admission implementation selects one kube-api-access-prefixed volume name, appends a read-only mount at the fixed service-account path to both init and ordinary containers lacking that path, and creates its projected volume when needed."
+    },
+    {
+      "url": "https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#serviceaccount-admission-controller",
+      "finding": "The official description documents token-volume and per-container mount injection when automount is enabled; containers already mounting the standard path are skipped."
+    },
+    {
+      "url": "https://v1-34.docs.kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/#spread-constraint-definition",
+      "finding": "For declared matchLabelKeys, the API server resolves incoming Pod label values and merges the result into labelSelector. Since v1.34 that merge is explicit. The documentation identifies pod-template-hash as a revision-specific use case."
+    },
+    {
+      "url": "https://raw.githubusercontent.com/kubernetes/kubernetes/v1.34.0/pkg/registry/core/pod/strategy.go",
+      "lines": "80-95, 831-847",
+      "finding": "PrepareForCreate invokes topology-spread mutation. Each constraint applies declared matchLabelKeys to its labelSelector using the In operator and the incoming Pod labels."
+    }
+  ],
+  "required_comparison_boundary": {
+    "init_containers": "Preserve count, order and every original field; normalize only one exact additional read-only service-account mount, bound to the same single observed extra projected kube-api-access volume used by the main container.",
+    "topology_spread": "Preserve every original constraint field. A merge difference is eligible only when the template declares pod-template-hash in matchLabelKeys, and only one added expression may use that exact key, the In operator and a single value equal to the owning ReplicaSet and Pod revision hash.",
+    "replicaset_binding": "Use the already-read ReplicaSet to bind its revision hash to the Pod label; never pin the old observed revision value across a new rollout.",
+    "unknown_differences": "Reject other fields, mount paths/options, selector expressions, values, keys, topologyKey or maxSkew changes."
+  },
+  "no_token_or_secret_content_read": true,
+  "production_accessed": false,
+  "business_acceptance_proven": false
+}

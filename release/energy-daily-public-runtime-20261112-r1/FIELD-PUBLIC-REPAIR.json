@@ -1,0 +1,71 @@
+{
+  "schema": "energy-public-runtime-repair-field-summary.v1",
+  "evidence_origin": "OPERATOR_PASTED_COMMAND_OUTPUT",
+  "raw_server_receipt_downloaded": false,
+  "observed_at": "2026-11-12T01:41:34.932982+00:00",
+  "operation": "2677be7ae78e4339b7df3628e0ffa1c9",
+  "status": "ENERGY_PUBLIC_RUNTIME_REPAIR_INSTALLED_VISIBILITY_PENDING",
+  "receipt": {
+    "schema": "energy-public-runtime-repair.v1",
+    "path": "/var/lib/portal-energy-public-runtime-repair-20261112-r1/REPORT.json",
+    "bytes": 6038,
+    "sha256": "8a36ab323f83d7bc1fba16ef7eac06faa07520fa109efb86ffe087af4d733ce0"
+  },
+  "version": "2.0.2-portable",
+  "code_package_sha256": "76d37a35a6b38a5388568f7f44701b02224fd24c103898e618ee99682ddc7fcb",
+  "publication": {
+    "files": 107,
+    "before_tree_sha256": "6362fa76e30f4c0850a3a6d5f9e2c2e5fd74cf841235b279ea868f00b8d4122b",
+    "after_tree_sha256": "f9865f7b1fd1745c471bb808f081bf3e86f2170c0c9c22df20e776c0a56ffcf9",
+    "status": "PUBLIC_RUNTIME_REPAIR_PUBLISHED",
+    "backup_path": "/mnt/skills/.energy-public-runtime-repair-20261112-r1-2677be7ae78e4339b7df3628e0ffa1c9/backup",
+    "retired_path": "/mnt/skills/.energy-public-runtime-repair-20261112-r1-2677be7ae78e4339b7df3628e0ffa1c9/retired-original",
+    "historical_reports_modified": false
+  },
+  "runtime": {
+    "path": "/mnt/skills/public/.energy-browser-runtime-20261112-r1/linux-arm64",
+    "files": 11,
+    "bytes": 349929765,
+    "manifest_sha256": "cef35e8edb510631197d5d4874e2e9d6fb2c9ef93a7be8393f38fa9446ea0598",
+    "source_image_id": "sha256:fb36911f899cc43f1228ee4d0701130761b43b3e9792320bf4e0f16f41f0bec8",
+    "original_outside_public_runtime_preserved": true
+  },
+  "shared_runtime_qualification": {
+    "status": "NONROOT_ARM64_BROWSER_AND_FIXED_REPORT_QUALIFIED",
+    "category_only_mount_validation": true,
+    "uid": 1000,
+    "gid": 1000,
+    "automatic_binding_used": true,
+    "png_width": 780,
+    "png_height": 5250,
+    "png_sha256": "bedd5af036641c695510cca936b1e530ed7600238a8892fe88b5d7d5953bdd9b",
+    "browser_fallback_count": 0,
+    "render_seconds": 3.764,
+    "synthetic_sources_unchanged": true,
+    "private_local_copy_cleaned": true,
+    "temporary_project_cleaned": true
+  },
+  "ordinary_sandbox_visibility": {
+    "status": "ORDINARY_SANDBOX_VIEW_PENDING",
+    "error_class": "Refused",
+    "specific_error_not_exported_by_install_tool": true,
+    "qualified": false
+  },
+  "gateway_generation": 414,
+  "gateway_spec_sha256": "542846c6041c25b7ba94073c4b1b58f883910b8042d00951e33455994df76877",
+  "gateway_modified": false,
+  "frontend_modified": false,
+  "provisioner_modified": false,
+  "existing_sandboxes_modified": false,
+  "unrelated_deployment_drift_observed": false,
+  "maintenance_pod_absent": true,
+  "maintenance_configmap_absent": true,
+  "credentials_read": false,
+  "credentials_exported": false,
+  "secret_api_reads": 0,
+  "provider_requests": 0,
+  "schedule_created": false,
+  "work_messages_sent": 0,
+  "browser_business_acceptance_pending": true,
+  "market_missing_data_cause_proven": false
+}

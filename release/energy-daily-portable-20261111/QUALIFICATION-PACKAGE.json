@@ -1,0 +1,21 @@
+{
+  "schema": "energy-portable-qualification-package.v1",
+  "filename": "qualify-energy-market-daily-portable-20261111-r1.py",
+  "bytes": 1754611,
+  "sha256": "d0a1318bf660d3339e8aefc513cd4895fbecbe365896dc424a943e74ae32104c",
+  "assets": {
+    "child": {
+      "bytes": 6442,
+      "sha256": "372b87f7c12843cee20a16e3c1fb859e323cbe3a75989677245bcdc966727bb5"
+    },
+    "package": {
+      "bytes": 98416,
+      "sha256": "7964309dda73a26f7679ae48b98e2dcfb1aa1cefdc0bb9d2a8c09f2e06562610"
+    },
+    "test_files": {
+      "bytes": 1199915,
+      "sha256": "4d3d20995704f1c9cf8b47ccaf620e28cbf341a6ff9bf21c6c6c7744abcf1170"
+    }
+  },
+  "production_execution_requested": false
+}

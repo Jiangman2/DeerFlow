@@ -1,0 +1,31 @@
+{
+  "schema": "scheduler-podlist-transport-regression.v1",
+  "scenario": "Synthetic local transport regression through the unmodified r2 Operator.command; no Kubernetes executable launched",
+  "source": "portable-skills/deployment/scheduler-budget-20261112-r2/activate-scheduler-budget-20261112-r2.py",
+  "payload": {
+    "kind": "PodList",
+    "active_pods": 70,
+    "bytes": 5785903,
+    "synthetic_metadata_bytes_per_pod": 80000,
+    "contains_production_data": false
+  },
+  "transport": {
+    "method": "Popen launch replaced only with an actual isolated local Python emitter; real temporary stdout files, polling, output limits and JSON decoding remained unmodified",
+    "real_local_subprocesses_launched": 3,
+    "default_4mib_podlist_error": "COMMAND_OUTPUT_BOUND",
+    "exploratory_podlist_only_16mib_parsed_count": 70,
+    "other_command_default_4mib_error": "COMMAND_OUTPUT_BOUND"
+  },
+  "validation": {
+    "full_pod_guards_accepted": 70,
+    "full_endpoint_closure_accepted": 70,
+    "passed": true,
+    "exit_code": 0,
+    "temporary_fixture_cleaned": true
+  },
+  "decision": "The 16MiB branch was diagnostic only. Root selected a new r3 sparse-list plus UID-bound full-read design; this evidence does not claim that unimplemented design is already qualified.",
+  "network_requests": 0,
+  "production_operations": 0,
+  "author_files_modified": false,
+  "production_acceptance_proven": false
+}

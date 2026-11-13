@@ -1,0 +1,23 @@
+{
+  "schema": "energy-portable-operator-install-summary.v1",
+  "status": "PORTABLE_SKILL_INSTALLED_GATEWAY_LINK_PENDING",
+  "operator_observed_at": "2026-11-11T16:02:13.305763+00:00",
+  "operation": "0b6d15bb24554d6b8117a31849fde2a6",
+  "source": "operator_pasted_final_json",
+  "full_server_report_downloaded": false,
+  "server_report": {
+    "path": "/var/lib/portal-energy-portable-install-20261111-r2/REPORT.json",
+    "bytes": 3374,
+    "sha256": "8cc79c16a7c6e15ef0f4292e71b6cd3dc5b63ce1b0a55bd84ffa40a2ca4379b0"
+  },
+  "skill_tree_sha256": "f880bc0bd379612a20c0f62fe0c3c14389aad4a9aa26960f5d67a3145f8a7044",
+  "old_skill_removed_from_discovery": true,
+  "provisioner_generation": 87,
+  "provisioner_spec_sha256": "bc12d70e8afe965ff984a8d2e961bfc5675edda73d98a5061a8e4175c29a7c12",
+  "maintenance_pod_absent": true,
+  "active_task_check_skipped_by_explicit_operator_request": true,
+  "gateway_link_pending": true,
+  "business_acceptance_pending": true,
+  "schedule_created": false,
+  "work_messages_sent": 0
+}

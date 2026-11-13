@@ -1,0 +1,8 @@
+{
+  "schema": "energy-recovery-transport-package.v2",
+  "filename": "inspect-energy-daily-recovery-gate-20261112-r2.py",
+  "bytes": 48097,
+  "sha256": "214cd2be3c21874fe0b1a5191e7cb6f8aa34028c96b1c9140aaa19589d92f758",
+  "child_sha256": "e57d9329244a909a2fee975930fa8e96c2a03f95db9f0f6f6414521731c73150",
+  "production_executed": false
+}

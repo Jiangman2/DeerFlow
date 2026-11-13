@@ -1,0 +1,56 @@
+{
+  "schema": "energy-portable-local-validation.v1",
+  "version": "2.0.0-portable",
+  "windows_portable_tests": 50,
+  "gateway_link_focused_tests": {
+    "windows": 78,
+    "linux": 78
+  },
+  "original_complete_renderer_html_equal": true,
+  "collection_seconds": 37.828,
+  "render_seconds": 28.906,
+  "duration_excludes_chinese_summary_authoring": true,
+  "market_and_freight_quotes": 14,
+  "financial_quotes": 7,
+  "market_news": 3,
+  "company_news": 5,
+  "png": {
+    "width": 780,
+    "height": 5798,
+    "browser_fallback_count": 0
+  },
+  "artifacts": [
+    {
+      "path": "C:\\Users\\15285\\.codex\\worktrees\\nov02-usage-monitor-pr\\deer-flow\\.codex-portable-daily-live4-20261111\\outputs\\油气与金融市场日报_2026-11-11.png",
+      "bytes": 805484,
+      "sha256": "d89fc5d5fd86a3dc3b97320e42399dcf83815d8c08f512833b1091c5c6d114e2"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\worktrees\\nov02-usage-monitor-pr\\deer-flow\\.codex-portable-daily-live4-20261111\\outputs\\油气与金融市场日报_2026-11-11.html",
+      "bytes": 30062,
+      "sha256": "f031525e24b1068fe88ab77a079fe3df566c21f2be6b41636aa2a3ff934f3cf3"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\worktrees\\nov02-usage-monitor-pr\\deer-flow\\.codex-portable-daily-live4-20261111\\outputs\\油气与金融市场日报_2026-11-11.json",
+      "bytes": 61946,
+      "sha256": "34de38e0d425ee5be525c96adacfb592d34eb88e657d9eb83cf18ddd1ae2af63"
+    },
+    {
+      "path": "C:\\Users\\15285\\.codex\\worktrees\\nov02-usage-monitor-pr\\deer-flow\\.codex-portable-daily-live4-20261111\\outputs\\油气与金融市场日报_2026-11-11.txt",
+      "bytes": 5345,
+      "sha256": "19998847f3618d3938b7c6b4158a9d53a92c30af762f7a3afb13b4aa4268417d"
+    }
+  ],
+  "actual_windows_png_reviewed": true,
+  "linux_arm64_render_pending": false,
+  "private_configuration_separate_from_public_skill": true,
+  "production_deployed": false,
+  "old_skill_removed": false,
+  "work_messages_sent": 0,
+  "linux_portable_tests": 50,
+  "linux_arm64_render_verified": true,
+  "linux_arm64_actual_png_reviewed": true,
+  "linux_arm64_fresh_collection_seconds": 9.861,
+  "linux_arm64_render_seconds": 2.712,
+  "production_qualification_report_sha256": "eda21ffb64720e49aedfb40897897242b1b6d73d18a1419d890d1b06f0538c83"
+}

@@ -1,0 +1,7 @@
+{
+  "original_archive_sha256": "eb66843bbe6170d86d33b65efa593be263e778275c6f7d491e1fd0c3c6d98f99",
+  "renderer_origin": "app/report_renderer.py",
+  "renderer_original_sha256": "f361492a588d481d6b50ed7740fbf839b3c2775a389bb2f43ceaeebb984f15eb",
+  "history_seed_days": 93,
+  "changes": "portable successor: deterministic acquisition, explicit configuration, standalone validation and rendering"
+}

@@ -95,9 +95,12 @@ def snapshot(ref):
              "release/production-source-20261027/research-fund-settlement", *successor.SUPPORT_PATHS,
              later.ARCHIVE, later.ROUND3, later.PROJECT_TYPE, later.INSPECTOR, *later.SUPPORT_PATHS]
     roots.extend((current.ARCHIVE, current.OLD, current.NEW, 'tests/skills',
+                  current.adjusted.ARCHIVE,
                   'tests/test_research_fund_expense_purposes_release_20261110.py',
                   'tests/test_research_fund_expense_purposes_preflight_20261110.py',
                   'deploy/enterprise/inspect-portal-research-fund-expense-purposes-20261110-r1.py'))
+    if subprocess.check_output(['git', 'ls-tree', '--name-only', revision, current.post44.MANIFEST], cwd=ROOT).strip():
+        roots.extend((current.post44.MANIFEST, current.post44.ARCHIVE + 'parent/tests/test_research_fund_expense_purposes_release_20261110.py'))
     names = subprocess.check_output(
         ["git", "ls-tree", "-r", "--name-only", revision, "--", *roots], cwd=ROOT
     ).decode().splitlines()

@@ -16,7 +16,7 @@ from unittest.mock import Mock, patch
 
 
 BASE = Path(__file__).resolve().parents[1]
-SKILL = BASE / "skills/public/energy-market-daily"
+SKILL = BASE / "release/post44-source-sync-20261113/parent/skills/public/energy-market-daily"
 SPEC = importlib.util.spec_from_file_location("energy_chat_feedback_entry", SKILL / "scripts/entry.py")
 entry = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(entry)

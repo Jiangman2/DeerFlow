@@ -17,6 +17,9 @@ class ArtifactDirectoryHistoryTests(unittest.TestCase):
     def test_only_verified_middleware_is_projected(self):
         q = V._nov02.followup
         read = lambda path: (ROOT / path).read_bytes()
+        # First qualify the newer current-thread link layer. The following
+        # assertions still exercise the exact older directory-delta bytes.
+        read, _ = V.lease_work.post44.historical_view(read)
         projected = q.artifact_directory_historical_read(read)
         self.assertEqual(projected(q.ARTIFACT_SOURCE), read(q.ARTIFACT_PARENT))
         self.assertNotEqual(read(q.ARTIFACT_SOURCE), projected(q.ARTIFACT_SOURCE))

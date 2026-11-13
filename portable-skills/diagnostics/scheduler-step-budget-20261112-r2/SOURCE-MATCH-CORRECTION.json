@@ -1,0 +1,23 @@
+{
+  "schema": "scheduler-step-budget-source-match-correction.v1",
+  "correction": "The supplied app fingerprint denotes config/app_config.py, not gateway/app.py. The gateway_app mapping in SOURCE-MATCH.json was an interpretation error and must not be used.",
+  "reported_production": {
+    "bytes": 31735,
+    "sha256": "ab3056db7657d4ee9de7fbd754f59f4d8e14be78f2535b049047d6d03cc863ad",
+    "relative": "backend/packages/harness/deerflow/config/app_config.py"
+  },
+  "local": {
+    "current": {
+      "bytes": 31735,
+      "sha256": "ab3056db7657d4ee9de7fbd754f59f4d8e14be78f2535b049047d6d03cc863ad",
+      "matches_production": true
+    },
+    "old": {
+      "bytes": 31735,
+      "sha256": "ab3056db7657d4ee9de7fbd754f59f4d8e14be78f2535b049047d6d03cc863ad",
+      "matches_production": true
+    }
+  },
+  "production_modified": false,
+  "earlier_record_preserved": true
+}

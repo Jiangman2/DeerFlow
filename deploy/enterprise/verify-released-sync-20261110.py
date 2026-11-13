@@ -1,6 +1,7 @@
 """Verify the committed source/receipt archive, without production access."""
 import argparse
 import io
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
@@ -15,6 +16,11 @@ def snapshot(ref=None):
         paths = [p.relative_to(ROOT).as_posix() for p in (ROOT/source.ENERGY).rglob('*')
                  if p.is_file() and '__pycache__' not in p.parts]
         return lambda p:(ROOT/p).read_bytes(), paths
+    if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, source.successor.MANIFEST], cwd=ROOT).strip():
+        spec = importlib.util.spec_from_file_location('post44_snapshot', ROOT / 'deploy/enterprise/verify-post44-source-20261113.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.snapshot(ref)
     def blob(path):
         return subprocess.check_output(['git','show',ref+':'+path],cwd=ROOT)
     raw = blob(source.MANIFEST)

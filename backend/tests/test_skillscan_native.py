@@ -243,15 +243,11 @@ def test_bundled_public_skills_have_no_unreviewed_critical_findings() -> None:
     for skill_dir in skill_dirs:
         criticals = [finding for finding in scan_skill_dir(skill_dir)["findings"] if finding["severity"] == "CRITICAL"]
         if skill_dir == public_skills_root / "energy-market-daily":
-            # Only this byte-sealed original package has a reviewed CI disposition.
-            # Runtime scanning still blocks these findings. Any extra finding,
-            # changed file, ZIP member, or release receipt must fail this check.
-            expected = {
-                ("package-nested-skill-md", "CRITICAL", "upstream/agent/SKILL.md", None),
-                ("package-nested-skill-md", "CRITICAL", "upstream/provenance/original-skill/SKILL.md", None),
-            }
-            observed = {(f["rule_id"], f["severity"], f["file"], f["line"]) for f in criticals}
-            assert observed == expected and len(criticals) == len(expected)
+            # The portable package has no nested original instructions. They
+            # remain in the immutable archive outside public discovery. Require
+            # zero critical findings and the exact sealed five-finding review;
+            # runtime scanning and every other package retain their own policy.
+            assert not criticals
             review = subprocess.run(
                 [sys.executable, "-B", str(root / "scripts" / "review_energy_market_original.py")],
                 cwd=root,

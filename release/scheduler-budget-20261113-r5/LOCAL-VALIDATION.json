@@ -1,0 +1,85 @@
+{
+  "schema": "scheduler-budget-local-validation.v1",
+  "tool_revision": "r5",
+  "production_accessed": false,
+  "production_mutations": 0,
+  "superseded_artifacts_modified": false,
+  "sealed_operator": {
+    "filename": "activate-scheduler-budget-20261113-r5.py",
+    "bytes": 76162,
+    "sha256": "2645f26db25d81e1809e2d6249cad6f9ac7b6f71987f0fdf80df49b82a4a5705"
+  },
+  "qualification_child": {
+    "bytes": 8290,
+    "sha256": "b052131a1e37f7f3e38e3f64ba1cefa8735337011d50c1e104614996ec919d81"
+  },
+  "fresh_baseline_binding": {
+    "gateway_generation": 415,
+    "gateway_uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1",
+    "gateway_spec_sha256": "162716342c8bbc067e5d6441dd00e0ab235139f626a1df691037a56bd1c6fb52",
+    "image": "deerflow.local/deer-flow-gateway@sha256:0255237caedba428d7ceafd584e171a6d23739f07fc7a566bce016f28d543c5e",
+    "fixed_source_files": 13
+  },
+  "budget_scope": {
+    "gateway_before": 415,
+    "gateway_after": 416,
+    "scheduler_recursion_limit_before": 300,
+    "scheduler_recursion_limit_after": 10000,
+    "global_max_recursion_limit_before": 10000,
+    "global_max_recursion_limit_after": 10000,
+    "only_deployment_change": "configuration ConfigMap name leaf",
+    "existing_runs_replayed": false
+  },
+  "source_tests": {
+    "windows": {"run": 50, "failures": 0, "errors": 0, "skipped": 0},
+    "linux": {
+      "run": 50,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "uid": 1000,
+      "network": "none",
+      "repository_mount": "readonly",
+      "root_filesystem": "readonly",
+      "capabilities": "ALL dropped"
+    },
+    "retained_prior_cases": 44,
+    "admission_case_groups": [
+      "combined two-init ServiceAccount mount and topology spread selector projection with different per-Pod labels and generated volume names; no input mutation",
+      "init image, environment, command, container order and any other mount change rejected",
+      "wrong selector key, operator, value, extra expression, maxSkew, topologyKey and inconsistent ReplicaSet hash rejected",
+      "missing or duplicate token projection, wrong token path and explicitly disabled automount rejected",
+      "failure report includes schema field and path without compared values or command text",
+      "already occupied ServiceAccount mount path, duplicate selector key and missing ReplicaSet selector hash rejected"
+    ]
+  },
+  "admission_acceptance_boundary": {
+    "init_fields_other_than_appended_mount_compared_in_full": true,
+    "init_mount_sequence_preserved": true,
+    "one_shared_projected_serviceaccount_volume_required": true,
+    "exactly_one_token_projection_at_token_path": true,
+    "automount_false_rejected": true,
+    "topology_matchLabelKeys_declaration_required": true,
+    "pod_replica_set_metadata_template_and_selector_hash_equal": true,
+    "one_exact_appended_In_expression_only": true,
+    "earlier_random_pod_hash_or_volume_name_pinned": false,
+    "unknown_top_level_fields_remain_rejected": true,
+    "deployment_spec_or_business_code_modified_by_normalization": false
+  },
+  "final_sealed_python37_validation": {
+    "python": "3.7.17",
+    "uid": 1000,
+    "network": "none",
+    "host_compiled": true,
+    "sealed_child_decoded_and_compiled": true,
+    "observed_before_generation": 415,
+    "observed_fresh_source_files": 13,
+    "observed_candidate_budget": 10000,
+    "observed_global_max": 10000,
+    "wrong_host_guards": [
+      {"mode": "--activate-scheduler-budget-once", "error_code": "DATAX01_REQUIRED", "commands": 0, "once_claimed": false, "persistent_files_modified": false},
+      {"mode": "--verify-readonly", "error_code": "DATAX01_REQUIRED", "commands": 0, "once_claimed": false, "persistent_files_modified": false}
+    ]
+  },
+  "acceptance_boundary": "Local tests and sealed guards only. All future scheduled dispatches are affected; production rollout and real scheduled-run business acceptance remain pending."
+}
