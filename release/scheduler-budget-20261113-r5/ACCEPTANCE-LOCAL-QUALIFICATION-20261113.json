@@ -1,0 +1,17 @@
+{
+  "schema": "scheduler-budget-runtime-evidence-local-qualification.v1",
+  "receipt_sha256": "e5ba3dd0857d2b7a13f8ef4027b36cd91a1e19ae78c9d9f82ac8756d9fbcf289",
+  "operator_sha256": "2645f26db25d81e1809e2d6249cad6f9ac7b6f71987f0fdf80df49b82a4a5705",
+  "runtime_evidence_tests": 12,
+  "post44_and_historical_source_tests": 34,
+  "combined_passed": 46,
+  "working_tree_source_and_runtime_receipt_verifier": "PASS",
+  "previous_source_seal_modified": false,
+  "historical_receipts_modified": false,
+  "application_imported": false,
+  "cluster_access": false,
+  "provider_requests": 0,
+  "work_messages_sent": 0,
+  "new_scheduled_run_executed": false,
+  "business_acceptance_pending": true
+}

@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 
 import post44_source_20261113 as source
+import scheduler_budget_runtime_acceptance_20261113 as runtime_acceptance
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -45,10 +46,17 @@ def verify(ref=None):
     read, paths = snapshot(ref)
     seal = source.qualify(read, paths)
     source.require(seal is not None, 'POST44_MANIFEST_REQUIRED')
-    return {'status': 'POST44_SOURCE_AND_EVIDENCE_VERIFIED', 'source_files': len(paths),
+    result = {'status': 'POST44_SOURCE_AND_EVIDENCE_VERIFIED', 'source_files': len(paths),
             'gateway_files': len(seal['gateway_sources']), 'support_files': len(seal['support_files']),
             'energy_version': '2.1.0-portable', 'scheduler_budget_candidate': 10000,
-            'scheduler_budget_deployed': False, 'production_commands_executed': False}
+            'scheduler_budget_deployed': False, 'scheduler_budget_deployed_at_source_seal': False,
+            'production_commands_executed': False}
+    try:
+        read(runtime_acceptance.RECEIPT)
+    except (KeyError, FileNotFoundError):
+        return result
+    result.update(runtime_acceptance.verify(read))
+    return result
 
 
 if __name__ == '__main__':

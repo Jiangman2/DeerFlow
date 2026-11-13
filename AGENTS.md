@@ -10,8 +10,12 @@ production adds one browser binding). Preserve the original 158-file project,
 ZIP and old entry outside discovery in the sealed parent archive. Credentials
 and browser binaries are never Git content. Gateway's six result-link files
 retain independent deployed bytes; two canonical files have AST-equal formatting.
-The scheduled budget 10000 is an undeployed candidate, not accepted production
-state. Never rerun archived activation tools during review or infer full Work
+The source seal predates deployment. The operator's November 13 readonly
+acceptance separately confirms Gateway 416, 70 Pods/endpoints and scheduled
+budget 10000; preserve that receipt and all earlier candidate/failure evidence.
+The current post-44 verifier reports both the sealed and later runtime state.
+Loaded application modules and new scheduled-run business delivery remain
+unproven. Never rerun archived activation tools during review or infer full Work
 business delivery from code/PNG acceptance.
 
 ## November 10 adjusted-budget financial candidate

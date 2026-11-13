@@ -1,0 +1,16 @@
+{
+  "schema": "scheduler-budget-operator-evidence-provenance.v1",
+  "evidence_kind": "operator_pasted_readonly_stdout_json",
+  "receipt": "OPERATOR-READONLY-ACCEPTANCE-20261113.json",
+  "operator_original_activation_console_closed": true,
+  "original_activation_final_stdout_available": false,
+  "server_control_directory_downloaded": false,
+  "server_report_reconstructed_claimed": false,
+  "readonly_followup_requested_by_operator_conversation": true,
+  "local_production_access": false,
+  "source_seal_precedes_this_acceptance": true,
+  "old_source_manifests_and_receipts_modified": false,
+  "business_acceptance_pending": true,
+  "loaded_application_modules_verified": false,
+  "status": "OPERATOR_READONLY_RUNTIME_ACCEPTANCE_ARCHIVED"
+}

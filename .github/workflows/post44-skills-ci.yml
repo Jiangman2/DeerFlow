@@ -41,4 +41,4 @@ jobs:
       - name: Latest scheduler budget guards
         run: backend/.venv/bin/python -B portable-skills/deployment/scheduler-budget-20261113-r5/test_scheduler_budget.py
       - name: Reject source and evidence tampering
-        run: backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=tests -q tests/test_post44_source_20261113.py
+        run: backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=tests -q tests/test_post44_source_20261113.py tests/test_scheduler_budget_runtime_acceptance_20261113.py
