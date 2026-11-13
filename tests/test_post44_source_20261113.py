@@ -47,6 +47,8 @@ def test_current_and_original_are_separately_verified(snapshot):
     'backend/packages/harness/deerflow/utils/conversation_url.py',
     'release/energy-daily-delivery-skill-20261112-r1/FIELD-OBSERVATION-20261112.json',
     'release/scheduler-budget-20261113-r5/activate-scheduler-budget-20261113-r5.py',
+    'tests/test_research_fund_expense_purposes_release_20261110.py',
+    source.ARCHIVE + 'parent/tests/test_research_fund_expense_purposes_release_20261110.py',
 ])
 def test_tampered_bytes_rejected(snapshot, path):
     data, paths = snapshot
@@ -101,3 +103,14 @@ def test_gateway_projection_preserves_latest_enterprise_parent(snapshot):
         read('backend/packages/harness/deerflow/utils/conversation_url.py')
     again, repeated = source.historical_view(read)
     assert again is read and repeated is None
+
+
+def test_financial_projection_checks_current_and_parent_before_historical_read(snapshot):
+    data, _ = snapshot
+    path = 'tests/test_research_fund_expense_purposes_release_20261110.py'
+    snapshot_path = source.ARCHIVE + 'parent/' + path
+    read = source.financial_historical_view(data.__getitem__)
+    assert read(path) == data[snapshot_path] and read(path) != data[path]
+    for target in (path, snapshot_path):
+        with pytest.raises(ValueError):
+            source.financial_historical_view(lambda key: data[key] + b'changed' if key == target else data[key])

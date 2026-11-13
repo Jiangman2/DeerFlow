@@ -99,6 +99,8 @@ def snapshot(ref):
                   'tests/test_research_fund_expense_purposes_release_20261110.py',
                   'tests/test_research_fund_expense_purposes_preflight_20261110.py',
                   'deploy/enterprise/inspect-portal-research-fund-expense-purposes-20261110-r1.py'))
+    if subprocess.check_output(['git', 'ls-tree', '--name-only', revision, current.post44.MANIFEST], cwd=ROOT).strip():
+        roots.extend((current.post44.MANIFEST, current.post44.ARCHIVE + 'parent/tests/test_research_fund_expense_purposes_release_20261110.py'))
     names = subprocess.check_output(
         ["git", "ls-tree", "-r", "--name-only", revision, "--", *roots], cwd=ROOT
     ).decode().splitlines()

@@ -5,6 +5,7 @@ from pathlib import PurePosixPath
 
 import research_fund_late_source_20261105 as prior
 import research_fund_adjusted_budget_source_20261110 as adjusted
+import post44_source_20261113 as post44
 
 ARCHIVE = 'release/research-fund-current-source-20261110/'
 MANIFEST = ARCHIVE + 'SOURCE.json'
@@ -36,6 +37,7 @@ def check(read, path, row):
 
 
 def qualify(read, paths):
+    read = post44.financial_historical_view(read)
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):

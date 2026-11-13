@@ -157,3 +157,21 @@ def energy_historical_view(read, energy_paths):
         'historical_original_preserved_outside_public': True,
         'scheduler_budget_deployed': False,
     }
+
+
+def financial_historical_view(read):
+    """Validate the one changed historical expense test before its old seal."""
+    try:
+        raw = read(MANIFEST)
+    except (KeyError, FileNotFoundError):
+        return read
+    require(sha(raw) == MANIFEST_SHA256, 'POST44_MANIFEST_CHANGED')
+    seal = json.loads(raw)
+    require(seal['schema'] == 'post44-source-reconciliation.v1'
+            and seal['base_commit'] == BASE_COMMIT, 'POST44_SCOPE_CHANGED')
+    path = 'tests/test_research_fund_expense_purposes_release_20261110.py'
+    check(read, path, seal['support_files'][path])
+    parent = seal['parent_files'][path]
+    require(parent['snapshot'] == ARCHIVE + 'parent/' + path, 'POST44_PARENT_PATH')
+    original = check(read, parent['snapshot'], parent)
+    return lambda name: original if name == path else read(name)
