@@ -416,6 +416,8 @@ def verify(ref=None, lock_path=LOCK):
             extra.extend(lease_work.ARCHIVE_INPUTS)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.datalake_combined.MANIFEST], cwd=ROOT).strip():
             extra.extend((lease_work.datalake_combined.ARCHIVE, *lease_work.datalake_combined.PATHS))
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.post44.MANIFEST], cwd=ROOT).strip():
+            extra.append(lease_work.post44.ARCHIVE)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:

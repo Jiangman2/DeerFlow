@@ -16,6 +16,7 @@ from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.sandbox.sandbox_provider import get_sandbox_provider
 from deerflow.tools.builtins.presentation_acceptance import validate_ppt_master_delivery
 from deerflow.tools.types import Runtime
+from deerflow.utils.conversation_url import current_conversation_url
 
 OUTPUTS_VIRTUAL_PREFIX = f"{VIRTUAL_PATH_PREFIX}/outputs"
 OFFICE_PREVIEW_EXTENSIONS = frozenset(
@@ -445,13 +446,20 @@ def present_file_tool(
                 "guard_detail": "",
                 "resume_pointer": action,
             }
+        conversation_url = current_conversation_url(_get_thread_id(runtime))
+        failure_text = f"Error: {exc}"
+        failure_artifact = {"publication_status": "failed", "presented_files": []}
+        if conversation_url:
+            failure_text += f"\nFile delivery incomplete. conversation_url: {conversation_url}"
+            failure_artifact["conversation_url"] = conversation_url
         update = {
             "messages": [
                 ToolMessage(
-                    f"Error: {exc}",
+                    failure_text,
                     tool_call_id=tool_call_id,
                     name="present_files",
                     status="error",
+                    artifact=failure_artifact,
                 )
             ]
         }
@@ -479,14 +487,20 @@ def present_file_tool(
             "resume_pointer": "",
             "delivered_artifacts": normalized_paths,
         }
+    conversation_url = current_conversation_url(_get_thread_id(runtime)) if normalized_paths else ""
+    success_text = "Successfully presented files"
+    publication = {"presented_files": normalized_paths, "publication_run_id": (runtime.context or {}).get("run_id")}
+    if conversation_url:
+        success_text += f"\nconversation_url: {conversation_url}"
+        publication["conversation_url"] = conversation_url
     update = {
         "artifacts": normalized_paths,
         "messages": [
             ToolMessage(
-                "Successfully presented files",
+                success_text,
                 tool_call_id=tool_call_id,
                 name="present_files",
-                artifact={"presented_files": normalized_paths, "publication_run_id": (runtime.context or {}).get("run_id")},
+                artifact=publication,
             )
         ],
     }

@@ -1,0 +1,8 @@
+{
+  "schema": "sandbox-capacity-package.v1",
+  "filename": "inspect-sandbox-capacity-20261112-r1.py",
+  "bytes": 20655,
+  "sha256": "7af52669c6e410159df50f321eb3739e2b29c0c7dd99607664164702af1c9063",
+  "child_sha256": "0c2bc2662c6e937f9943335fe21905f314a58bc3886f02f88912b895b1dc9d84",
+  "production_executed": false
+}

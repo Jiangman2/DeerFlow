@@ -1,0 +1,44 @@
+name: Post-44 Skills and Scheduler Sources
+on:
+  pull_request:
+    paths:
+      - 'portable-skills/**'
+      - 'skills/public/energy-market-daily/**'
+      - 'release/post44-source-sync-20261113/**'
+      - 'release/scheduler-*/**'
+      - 'deploy/enterprise/post44_source_20261113.py'
+      - 'deploy/enterprise/verify-post44-source-20261113.py'
+      - '.github/workflows/post44-skills-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: post44-skills-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  offline-portable-and-operator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --group dev
+        working-directory: backend
+      - name: Verify committed source and preserved originals
+        run: backend/.venv/bin/python -B deploy/enterprise/verify-post44-source-20261113.py --ref HEAD
+      - name: Portable 2.1.0 behavior and original renderer parity
+        run: backend/.venv/bin/python -B portable-skills/diagnostics/energy-market-daily-2.1.0-final-text-r1/run_candidate_regressions.py
+      - name: Final text and exact publication receipt behavior
+        run: backend/.venv/bin/python -B portable-skills/diagnostics/energy-market-daily-2.1.0-final-text-r1/test_final_text.py
+      - name: Operator and recovery boundaries without production
+        run: backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=portable-skills/tests -q portable-skills/tests
+      - name: Latest scheduler budget guards
+        run: backend/.venv/bin/python -B portable-skills/deployment/scheduler-budget-20261113-r5/test_scheduler_budget.py
+      - name: Reject source and evidence tampering
+        run: backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=tests -q tests/test_post44_source_20261113.py

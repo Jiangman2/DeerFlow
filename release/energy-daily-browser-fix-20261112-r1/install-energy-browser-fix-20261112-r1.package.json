@@ -1,0 +1,26 @@
+{
+  "schema": "energy-browser-fix-install-package.v1",
+  "filename": "install-energy-browser-fix-20261112-r1.py",
+  "bytes": 363304,
+  "sha256": "f1aac01d9e0f1bb6ab2c6d85c08af8f919f75ea0164ef68b6ba7e31c4387a9f2",
+  "assets": {
+    "publisher": {
+      "bytes": 22944,
+      "sha256": "6273c4281929a2643e28cc720fd1c9ccb54561de36299cee1aec511e4fba7e9d"
+    },
+    "verifier": {
+      "bytes": 10159,
+      "sha256": "4dee86275f54b22d9bd9d972428d9ac14e28fdf43e296b264fc406d0666349a2"
+    },
+    "package": {
+      "bytes": 103343,
+      "sha256": "ba86a3c48dd2b6f4349f3884dfab541730759dc1670ab5f0e7bd72377c439084"
+    },
+    "test_files": {
+      "bytes": 116254,
+      "sha256": "bf8d661d52ec168ac3f36ecdbf295204670485a968f5847b7919d2810b327614"
+    }
+  },
+  "production_execution_requested": false,
+  "credentials_included": false
+}

@@ -1,0 +1,413 @@
+{
+  "basis": "OPERATOR_PASTED_INSPECTION_JSON",
+  "expected_inspection_tool_sha256": "7f48ec3d98a4fa410b20009331ea2833cdb651516a6123551cb5049e7ef760a4",
+  "observation": {
+    "all_gateway_pods_verified": false,
+    "business_acceptance": false,
+    "credentials_exported": false,
+    "deployment": {
+      "available": 70,
+      "desired": 70,
+      "generation": 415,
+      "images": {
+        "gateway": "deerflow.local/deer-flow-gateway@sha256:0255237caedba428d7ceafd584e171a6d23739f07fc7a566bce016f28d543c5e"
+      },
+      "matches_old_uid": true,
+      "observed_generation": 415,
+      "paused": false,
+      "ready": 70,
+      "resource_version": "34347413",
+      "spec_sha256": "162716342c8bbc067e5d6441dd00e0ab235139f626a1df691037a56bd1c6fb52",
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": 1,
+          "maxUnavailable": 0
+        },
+        "type": "RollingUpdate"
+      },
+      "terminating": 0,
+      "total": 70,
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1",
+      "updated": 70
+    },
+    "deployment_after": {
+      "available": 70,
+      "desired": 70,
+      "generation": 415,
+      "images": {
+        "gateway": "deerflow.local/deer-flow-gateway@sha256:0255237caedba428d7ceafd584e171a6d23739f07fc7a566bce016f28d543c5e"
+      },
+      "matches_old_uid": true,
+      "observed_generation": 415,
+      "paused": false,
+      "ready": 70,
+      "resource_version": "34347413",
+      "spec_sha256": "162716342c8bbc067e5d6441dd00e0ab235139f626a1df691037a56bd1c6fb52",
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": 1,
+          "maxUnavailable": 0
+        },
+        "type": "RollingUpdate"
+      },
+      "terminating": 0,
+      "total": 70,
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1",
+      "updated": 70
+    },
+    "deployment_mounts": [
+      {
+        "container": "gateway",
+        "mount_path": "/etc/deerflow-ca",
+        "read_only": true,
+        "source_type": "Secret"
+      },
+      {
+        "configmap_name": "deer-flow-gateway-openssl-compat",
+        "container": "gateway",
+        "items": [
+          {
+            "key": "openssl.cnf",
+            "path": "openssl.cnf"
+          }
+        ],
+        "mount_path": "/etc/deerflow-openssl",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": null,
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "deer-flow-budget-10000-bf39d16f673d2259",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/config.yaml",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "config.yaml",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-conversation-stream-12dc02bb473d5ad9",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/app/gateway/routers/uploads.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "uploads.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-conversation-stream-12dc02bb473d5ad9",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/app/gateway/upload_document_memory_guard.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "upload_document_memory_guard.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-energy-links-b6fb1ab44d10",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/app/channels/manager.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "manager.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-energy-links-b6fb1ab44d10",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/app/integrations/work/notifications.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "notifications.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-energy-links-b6fb1ab44d10",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/app/scheduler/work_notification_delivery.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "work_notification_delivery.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-energy-links-b6fb1ab44d10",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/app/scheduler/work_notifications.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "work_notifications.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-energy-links-b6fb1ab44d10",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/packages/harness/deerflow/tools/builtins/present_file_tool.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "present_file_tool.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-energy-links-b6fb1ab44d10",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/packages/harness/deerflow/utils/conversation_url.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "conversation_url.py",
+        "sub_path_expr_present": false
+      }
+    ],
+    "explicit_database_queries": 0,
+    "inspection_scope": "ONE_READY_OWNED_GATEWAY_POD",
+    "last_command_kind": "GET_DEPLOYMENT",
+    "observed_at": "2026-11-13T02:06:25.529136+00:00",
+    "persistent_files_modified": false,
+    "provider_requests": 0,
+    "queries": 8,
+    "raw_configuration_exported": false,
+    "readonly": true,
+    "runtime": {
+      "application_imported": false,
+      "configuration": {
+        "both_budgets_are_integers": true,
+        "bytes": 15990,
+        "max_recursion_limit": 10000,
+        "present": true,
+        "scheduler_recursion_limit": 300,
+        "sha256": "bf39d16f673d2259a0430357e7a9a435482add27194aa947a0e34cdd594f1fb7"
+      },
+      "content_bytes_read": 354601,
+      "credentials_exported": false,
+      "explicit_database_queries": 0,
+      "files": {
+        "/app/backend/app/channels/manager.py": {
+          "bytes": 94358,
+          "present": true,
+          "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
+        },
+        "/app/backend/app/gateway/routers/uploads.py": {
+          "bytes": 37879,
+          "present": true,
+          "sha256": "13b842ee8fd7035555768b1ecb787d944c53088121a6e240f32b69b669b93b1f"
+        },
+        "/app/backend/app/gateway/services.py": {
+          "bytes": 54226,
+          "present": true,
+          "sha256": "4bf26f6ac2166de7851015af36fed73a8b7d1b0e98b7918806c454e623dbd435"
+        },
+        "/app/backend/app/gateway/upload_document_memory_guard.py": {
+          "bytes": 8956,
+          "present": true,
+          "sha256": "37e67be268214537ae8f149a3d45751111cfd34c460a0125e1b03cf65bce4fcf"
+        },
+        "/app/backend/app/integrations/work/notifications.py": {
+          "bytes": 10025,
+          "present": true,
+          "sha256": "2f25958bcb2556685d153bef55f72afebd360deb157cd13164ceb4261001f039"
+        },
+        "/app/backend/app/scheduler/work_notification_delivery.py": {
+          "bytes": 4297,
+          "present": true,
+          "sha256": "d446868a681754fa98241b62ebfe45a886c6bf21b0da0f68d0d69cd111e8a42e"
+        },
+        "/app/backend/app/scheduler/work_notifications.py": {
+          "bytes": 14201,
+          "present": true,
+          "sha256": "d3f7e6c4acc4fd0cb7e4f6b31861ddf8b68ff1d2f44761a99da90536a6982645"
+        },
+        "/app/backend/config.yaml": {
+          "bytes": 15990,
+          "present": true,
+          "sha256": "bf39d16f673d2259a0430357e7a9a435482add27194aa947a0e34cdd594f1fb7"
+        },
+        "/app/backend/packages/harness/deerflow/agents/lead_agent/agent.py": {
+          "bytes": 41101,
+          "present": true,
+          "sha256": "ec108a4b8cc9c608ba790e71bc5a1c34bbd33cd5241503c7a4ddba7a7e5e0d30"
+        },
+        "/app/backend/packages/harness/deerflow/config/app_config.py": {
+          "bytes": 31735,
+          "present": true,
+          "sha256": "ab3056db7657d4ee9de7fbd754f59f4d8e14be78f2535b049047d6d03cc863ad"
+        },
+        "/app/backend/packages/harness/deerflow/config/scheduler_config.py": {
+          "bytes": 972,
+          "present": true,
+          "sha256": "4495e7c800fa602dd7a0bf85ef15768030abf6bf4f2095e654330a56db1070cb"
+        },
+        "/app/backend/packages/harness/deerflow/tools/builtins/present_file_tool.py": {
+          "bytes": 19640,
+          "present": true,
+          "sha256": "eccfe1e5975c771465abf96f1da60fdb2a11e0712716aeb2453a2d10fbe30e3b"
+        },
+        "/app/backend/packages/harness/deerflow/utils/conversation_url.py": {
+          "bytes": 5042,
+          "present": true,
+          "sha256": "f5ac36f16038a3532cd3110d134b72e58c42693c1b9ab9a1b6390d9b4209c0b8"
+        },
+        "/etc/deerflow-openssl/openssl.cnf": {
+          "bytes": 189,
+          "present": true,
+          "sha256": "20130c1b277e0a5fb79a27af7dc35be38162a6e086aa91e45b4f249d73c61604"
+        }
+      },
+      "max_content_bytes_read": 4325376,
+      "persistent_files_modified": false,
+      "provider_requests": 0,
+      "raw_configuration_exported": false,
+      "runtime_config_stable_readback": true,
+      "schema": "scheduler-current-runtime-child.v1",
+      "source_text_exported": false,
+      "status": "CURRENT_GATEWAY_FIXED_RUNTIME_OBSERVED",
+      "versions": {
+        "langchain": "1.2.15",
+        "langchain-core": "1.3.3",
+        "langgraph": "1.1.9"
+      }
+    },
+    "sample": {
+      "container_id_sha256": "a803de562b4383917400a9dda992de8f018819dbdae72da972155ed943d4a80a",
+      "image_id_sha256": "f368a3d4f15d0deb00f7f1aed1f0ca9a76224a0c17609cff70d6d5af47cad096",
+      "name": "gateway-565b4ff8d6-2d2r2",
+      "restart_count": 0,
+      "running_since": "2026-11-12T14:00:42Z",
+      "spec_sha256": "460bfe400ce74d613fb952c61eea369ec8e9a3dcfd19dc2f8f88eb9afeb8a838",
+      "uid": "80265483-5404-444c-b26f-d06d3622a3cb"
+    },
+    "sample_mounts": [
+      {
+        "container": "gateway",
+        "mount_path": "/etc/deerflow-ca",
+        "read_only": true,
+        "source_type": "Secret"
+      },
+      {
+        "configmap_name": "deer-flow-gateway-openssl-compat",
+        "container": "gateway",
+        "items": [
+          {
+            "key": "openssl.cnf",
+            "path": "openssl.cnf"
+          }
+        ],
+        "mount_path": "/etc/deerflow-openssl",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": null,
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "deer-flow-budget-10000-bf39d16f673d2259",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/config.yaml",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "config.yaml",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-conversation-stream-12dc02bb473d5ad9",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/app/gateway/routers/uploads.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "uploads.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-conversation-stream-12dc02bb473d5ad9",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/app/gateway/upload_document_memory_guard.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "upload_document_memory_guard.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-energy-links-b6fb1ab44d10",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/app/channels/manager.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "manager.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-energy-links-b6fb1ab44d10",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/app/integrations/work/notifications.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "notifications.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-energy-links-b6fb1ab44d10",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/app/scheduler/work_notification_delivery.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "work_notification_delivery.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-energy-links-b6fb1ab44d10",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/app/scheduler/work_notifications.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "work_notifications.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-energy-links-b6fb1ab44d10",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/packages/harness/deerflow/tools/builtins/present_file_tool.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "present_file_tool.py",
+        "sub_path_expr_present": false
+      },
+      {
+        "configmap_name": "gateway-energy-links-b6fb1ab44d10",
+        "container": "gateway",
+        "items": [],
+        "mount_path": "/app/backend/packages/harness/deerflow/utils/conversation_url.py",
+        "read_only": true,
+        "source_type": "ConfigMap",
+        "sub_path": "conversation_url.py",
+        "sub_path_expr_present": false
+      }
+    ],
+    "sample_template_matches_current": true,
+    "schema": "scheduler-current-baseline-inspection.v1",
+    "secret_api_reads": 0,
+    "stable_readback": true,
+    "status": "CURRENT_GATEWAY_BASELINE_OBSERVED_NO_CHANGE",
+    "work_messages_sent": 0,
+    "workload_modified": false
+  },
+  "pasted_markdown_image_link_labels_normalized": true,
+  "schema": "scheduler-current-baseline-field-observation.v1",
+  "source_attachment_bytes": 11611,
+  "source_attachment_sha256": "6394f1a8eb81551eab25f211f05ff186682db72f43e17ee0536de59d690d27af"
+}

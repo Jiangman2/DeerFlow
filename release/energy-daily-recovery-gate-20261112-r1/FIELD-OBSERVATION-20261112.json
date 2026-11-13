@@ -1,0 +1,62 @@
+{
+  "schema": "energy-recovery-gate-field-summary.v1",
+  "evidence_origin": "OPERATOR_PASTED_COMMAND_OUTPUT",
+  "raw_server_receipt_downloaded": false,
+  "observed_at": "2026-11-12T02:36:55.371654+00:00",
+  "thread_id": "0fb37c34-d996-4d8b-aeeb-ea9dcd252a28",
+  "run_id": "dc9f8dc8-1f62-4e7b-8452-a9a7bf13e79e",
+  "probe_status": "NAMED_THREAD_RECOVERY_EVIDENCE_OBSERVED_NO_CHANGE",
+  "gateway_generation": 414,
+  "gateway_spec_sha256": "542846c6041c25b7ba94073c4b1b58f883910b8042d00951e33455994df76877",
+  "source_observation": {
+    "middleware_bytes": 167108,
+    "middleware_sha256": "662f378899c0f4e99f18956933ca7d009d30a678b68b28b52beb05cff1df426c",
+    "daily_bytes": 36907,
+    "daily_sha256": "a084be61164e4b8842fbcdd5467f6de21c692f6faab65894cf5f04aada057d0f",
+    "authority_bytes": 8238,
+    "authority_sha256": "70b20874da4d37eb47c5af4126d9e6692af92062120a2bd38161ce1e255cf822",
+    "loaded_application_modules_verified": false
+  },
+  "first_observed_doctor": {
+    "call_seq": 5,
+    "call_created_at": "2026-11-12T02:05:29.731346+00:00",
+    "tool_result_seq": 7,
+    "tool_result_created_at": "2026-11-12T02:08:32.106248+00:00",
+    "journal_interval_seconds": 182.374902,
+    "interval_basis": "JOURNAL_EVENT_TIMESTAMPS_NOT_COMMAND_CPU_TIME",
+    "tool_status": "success",
+    "starts_with_error_prefix": true,
+    "exception_classes": ["RuntimeError"],
+    "structured_skill_receipts": [],
+    "exit_codes": [],
+    "stored_tool_message_bytes": 375,
+    "workspace_contains_shell_date_substitution": true,
+    "command_body_execution_proven": false,
+    "precise_transport_error_template_exported_by_r1": false
+  },
+  "post_failure_observations": {
+    "proposed_bash_call_seqs": [8, 9, 10],
+    "matching_tool_results_present_in_selected_window": false,
+    "terminal_stop_seq": 11,
+    "terminal_stop_mentions_three_recovery_contract_attempts": true,
+    "event_window_may_omit_middle_events": false,
+    "checkpoint_state_read": false
+  },
+  "interpretation": {
+    "normal_exit_zero_environment_observation_is_not_itself_a_failed_receipt": true,
+    "runtime_error_before_cli_receipt_observed": true,
+    "sandbox_startup_readiness_timeout_candidate": true,
+    "sandbox_startup_readiness_timeout_confirmed": false,
+    "specific_pod_or_network_cause_confirmed": false,
+    "three_daily_program_executions_proven": false
+  },
+  "database_readonly": true,
+  "database_modified": false,
+  "database_credentials_used_internally": true,
+  "credentials_exported": false,
+  "provider_requests_by_probe": 0,
+  "task_retry_requested": false,
+  "gate_modified": false,
+  "workload_modified": false,
+  "production_fix_applied": false
+}

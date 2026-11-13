@@ -1,0 +1,1 @@
+The supplied 31,735-byte app fingerprint refers to backend/packages/harness/deerflow/config/app_config.py. SOURCE-MATCH.json incorrectly mapped it to gateway/app.py. Use SOURCE-MATCH-CORRECTION.json for this identity comparison. OLD app_config.py matches the supplied live hash exactly. No source file or previous evidence was rewritten.

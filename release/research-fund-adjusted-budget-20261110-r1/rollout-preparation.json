@@ -1,0 +1,77 @@
+{
+  "bound_updater_created": false,
+  "candidate_commit": "d9085ef9de19b055b6bfd93e6e768ebd571271de",
+  "candidate_tree_sha256": "b09b69fb2078bc580b6e6d52a76f0be0917b044d9ac2bea2fcb6fca14477c907",
+  "expected_production_tree_sha256": "0b417f6540cbab2f35ce9bbde28efe0d9d214273bf4fbf9baf47734f9ea01c85",
+  "fresh_production_preflight_received": false,
+  "inspector": {
+    "bytes": 39471,
+    "linux_passed": 46,
+    "python37_wrong_host_reads": 0,
+    "sha256": "c27693a3bdc5edbd1c631c97d15845b5ec2a622b5ba765ea1679393910794b32",
+    "windows_linux_only_skipped": 1,
+    "windows_passed": 45
+  },
+  "pending": [
+    "fresh_server_readonly_receipt",
+    "bind_and_test_exact_installer",
+    "operator_run_once",
+    "runtime_consumer_verification",
+    "business_report_acceptance"
+  ],
+  "prepared_source_files": [
+    {
+      "bytes": 1433,
+      "path": "adjusted_budget_collect_pytest.py",
+      "sha256": "3f2e2342df400faa0e6ae9cda4022230f2c03d699387c6774355a9eba0954cb6"
+    },
+    {
+      "bytes": 4845,
+      "path": "adjusted_budget_qualification_plan.py",
+      "sha256": "ec31b19da40d29c9573ad5ba62636b8b7941407cf79127a9ac22d6355d7024a6"
+    },
+    {
+      "bytes": 88749,
+      "path": "adjusted_budget_qualifier.py",
+      "sha256": "7e8d870896591634755dd7fc725981da94626e712d27dc91655763e044a8bc54"
+    },
+    {
+      "bytes": 2105,
+      "path": "adjusted_budget_qualifier_builder.py",
+      "sha256": "b532ecde7e84d5093830d315565ce43e93b1109d3e35ca79ec83609eab38c2eb"
+    },
+    {
+      "bytes": 9551,
+      "path": "adjusted_budget_qualifier_template.py",
+      "sha256": "4a914c8c3563dd7a307d4ba41a8f6d4f5bdc9f66e602afd2203721df064ccd4a"
+    },
+    {
+      "bytes": 15725,
+      "path": "adjusted_budget_release_builder.py",
+      "sha256": "992bc230fb20ddced146d678a6891dd400c876c81ad39aa37547adad318a2fc2"
+    },
+    {
+      "bytes": 15280,
+      "path": "adjusted_budget_remote.py",
+      "sha256": "1c70ae04d74bcd1c44c49755c528c8f61539fd4288ff809bd1d45ce02b56e40c"
+    },
+    {
+      "bytes": 25189,
+      "path": "adjusted_budget_updater_template.py",
+      "sha256": "1bd4e5faffcd44cffa547c4174e45ab6874dea84207497b53b9ffb720ef60dc4"
+    }
+  ],
+  "production_actions": 0,
+  "schema": "research-fund-adjusted-budget-rollout-preparation.v1",
+  "status": "PREPARED_AWAITING_FRESH_PRODUCTION_PREFLIGHT",
+  "synthetic_qualification": {
+    "failed": 0,
+    "passed": 325,
+    "receipt_sha256": "143663059fc3286bfa1a473bf1dbeb480d26f000d854b15eb01d71e4da944682",
+    "skipped": 0
+  },
+  "unbound_release_boundary_tests": {
+    "linux_passed": 16,
+    "windows_passed": 16
+  }
+}

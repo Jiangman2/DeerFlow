@@ -1,0 +1,59 @@
+{
+  "schema": "energy-gateway-result-links-package.v2",
+  "filename": "activate-energy-daily-result-links-20261111-r2.py",
+  "bytes": 340529,
+  "sha256": "fe268cb6638035d52677a822baf7a6d84300edb688566941a21932b9600d8d4b",
+  "gateway_before_generation": 413,
+  "gateway_after_generation": 414,
+  "same_image": "deerflow.local/deer-flow-gateway@sha256:c0fd1a6e981d551ab65459f8125b0e847ac7276433e020d1b65f88dea888ae29",
+  "application_source_files": 6,
+  "assets": {
+    "source_inspector": {
+      "bytes": 22201,
+      "sha256": "c6cfbeabfd8e21c9513742261df85c7a5dede9d7cb87889f8ea7a4233ec3cd7d"
+    },
+    "qualifier": {
+      "bytes": 29643,
+      "sha256": "4dec52395be158bc08fa1c7fc9cd245ee238149b0a4c160a2c12a9e22ab44dcc"
+    },
+    "task_origin_guard": {
+      "bytes": 5520,
+      "sha256": "690f8cbe77394152f23bb7e4a71e00224c55399983f1487f10144363836ddec7"
+    },
+    "skill_reader": {
+      "bytes": 9991,
+      "sha256": "0806aa8c64526a7f1a7e1f5668bc474463b7140c4d3299ad184e3d573f7da590"
+    },
+    "manager.py": {
+      "bytes": 94358,
+      "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
+    },
+    "notifications.py": {
+      "bytes": 10025,
+      "sha256": "2f25958bcb2556685d153bef55f72afebd360deb157cd13164ceb4261001f039"
+    },
+    "work_notification_delivery.py": {
+      "bytes": 4297,
+      "sha256": "d446868a681754fa98241b62ebfe45a886c6bf21b0da0f68d0d69cd111e8a42e"
+    },
+    "work_notifications.py": {
+      "bytes": 14201,
+      "sha256": "d3f7e6c4acc4fd0cb7e4f6b31861ddf8b68ff1d2f44761a99da90536a6982645"
+    },
+    "present_file_tool.py": {
+      "bytes": 19640,
+      "sha256": "eccfe1e5975c771465abf96f1da60fdb2a11e0712716aeb2453a2d10fbe30e3b"
+    },
+    "conversation_url.py": {
+      "bytes": 4466,
+      "sha256": "ef20ca84241617a489859fca4f660b07ba5923616828e0fad654b6c59d2f4abc"
+    }
+  },
+  "local_real_module_qualification_checks": 23,
+  "windows_focused_tests": 78,
+  "linux_focused_tests": 78,
+  "operator_boundary_checks": 32,
+  "requires_installed_portable_skill": true,
+  "production_executed": false,
+  "credentials_included": false
+}

@@ -1,0 +1,56 @@
+{
+  "schema": "scheduler-budget-local-validation.v1",
+  "production_accessed": false,
+  "production_mutations": 0,
+  "sealed_operator": {
+    "filename": "activate-scheduler-budget-20261112-r1.py",
+    "bytes": 63731,
+    "sha256": "98f44cd5d512c98575c2a4ca2284cd8129cab398655a2431086df43fb4f0476c"
+  },
+  "qualification_child": {
+    "bytes": 8288,
+    "sha256": "3bab9d0bc5dd1aae24c9282f80f46407dd81e4b69cea17267c6ab8a602cc2a10"
+  },
+  "source_tests": {
+    "windows": {"run": 35, "failures": 0, "errors": 0, "skipped": 0},
+    "linux": {
+      "run": 35,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "uid": 1000,
+      "network": "none",
+      "repository_mount": "readonly",
+      "root_filesystem": "readonly",
+      "capabilities": "ALL dropped"
+    },
+    "coverage": [
+      "unique ASCII 300 to 1000 substitution preserves all other configuration bytes",
+      "strict duplicate-key, alias, merge and unsafe-tag YAML rejection",
+      "integer budget types and unchanged global maximum 10000",
+      "full deployment spec CAS changes only the configuration ConfigMap name",
+      "old configuration data and binaryData retained in a private backup",
+      "source overlays, OpenSSL compatibility and CA references preserved",
+      "seventy verified Pod IPs match service endpoint address families and addresses",
+      "service targetPort, protocol and named or unnamed port mapping",
+      "valid dual-stack endpoint closure and invalid address or port rejection",
+      "unexpected Pod behavior fields and injected containers rejected",
+      "documented API defaults and requested ServiceAccount alias accepted",
+      "one create and one patch in a complete simulated rollout",
+      "read-only journal recovery cannot write, wait or resubmit the patch",
+      "old observed generation cannot satisfy new-rollout convergence"
+    ]
+  },
+  "final_sealed_python37_validation": {
+    "python": "3.7.17",
+    "uid": 1000,
+    "network": "none",
+    "host_compiled": true,
+    "sealed_child_decoded_and_compiled": true,
+    "wrong_host_guards": [
+      {"mode": "--activate-scheduler-budget-once", "error_code": "DATAX01_REQUIRED", "commands": 0, "once_claimed": false, "persistent_files_modified": false},
+      {"mode": "--verify-readonly", "error_code": "DATAX01_REQUIRED", "commands": 0, "once_claimed": false, "persistent_files_modified": false}
+    ]
+  },
+  "acceptance_boundary": "Local checks and sealed asset guards only; production rollout and future scheduled-run business acceptance remain pending."
+}

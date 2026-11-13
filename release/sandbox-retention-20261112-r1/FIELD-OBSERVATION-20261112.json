@@ -1,0 +1,43 @@
+{
+  "schema": "sandbox-retention-operator-evidence-summary.v1",
+  "evidence_basis": "OPERATOR_PASTED_FINAL_JSON_NOT_A_DOWNLOADED_SERVER_RECEIPT",
+  "observed_at": "2026-11-12T03:43:35.309667+00:00",
+  "tool": {
+    "filename": "inspect-sandbox-retention-20261112-r1.py",
+    "bytes": 14583,
+    "sha256": "dc91ddddfaa5ebbd4f915440f30ab378a597359a670f4fea0d7b3d3a310225c2"
+  },
+  "status": "SANDBOX_RETENTION_AND_NODE_OCCUPANTS_OBSERVED_NO_CHANGE",
+  "gateway": {
+    "generation": 414,
+    "spec_sha256": "542846c6041c25b7ba94073c4b1b58f883910b8042d00951e33455994df76877",
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+  },
+  "fresh_config_only_not_loaded_provider_state": {
+    "replicas": 6,
+    "idle_timeout": 600,
+    "startup_timeout": 180
+  },
+  "node_0015_regular_container_request_groups": [
+    {"owner": "deer-flow-mineru-dedicated-r1-w-ecs-0015-b85b66b48", "pods": 2, "cpu": ["2"], "memory": ["4Gi"]},
+    {"owner": "deer-flow-mineru-interactive-r1-w-0015-cb65d98b4", "pods": 1, "cpu": ["2"], "memory": ["8Gi"]},
+    {"owner": "deer-flow-mineru-interactive-r1-x16-w-0015-6bc9b79d94", "pods": 2, "cpu": ["2"], "memory": ["8Gi"]},
+    {"owner": "energy-market-collector-5f5c458b45", "pods": 1, "cpu": ["100m"], "memory": ["128Mi"]},
+    {"owner": "frontend-546cfc4558", "pods": 1, "cpu": ["100m"], "memory": ["256Mi"]},
+    {"owner": "kube-flannel-ds", "pods": 1, "cpu": ["100m"], "memory": ["50Mi"]},
+    {"owner": "kube-proxy", "pods": 1, "cpu": [], "memory": []},
+    {"workload_type": "sandbox", "pods": 19, "cpu": ["750m", "250m"], "memory": ["1Gi", "512Mi"]}
+  ],
+  "node_0015_nonterminated_pods": 28,
+  "boundaries": {
+    "fresh_policy_does_not_prove_all_live_providers_have_this_policy": true,
+    "regular_container_requests_not_scheduler_effective_total": true,
+    "idle_or_cleanup_eligibility_not_inferred": true,
+    "database_access": false,
+    "lease_files_read_or_acquired": false,
+    "sandbox_cleanup_requested": false,
+    "workload_modified": false,
+    "capacity_restoration_performed": false,
+    "real_daily_delivery_acceptance_pending": true
+  }
+}

@@ -8,6 +8,10 @@ import importlib.util
 import json
 from pathlib import Path
 
+_post44_spec = importlib.util.spec_from_file_location("post44_source_20261113", Path(__file__).with_name("post44_source_20261113.py"))
+post44 = importlib.util.module_from_spec(_post44_spec)
+_post44_spec.loader.exec_module(post44)
+
 _model_spec = importlib.util.spec_from_file_location("model_monitor_source_20261111", Path(__file__).with_name("model_monitor_source_20261111.py"))
 model_monitor = importlib.util.module_from_spec(_model_spec)
 _model_spec.loader.exec_module(model_monitor)
@@ -37,6 +41,7 @@ def digest(raw):
 
 
 def historical_view(read):
+    read, post44_result = post44.historical_view(read)
     read, datalake_result = datalake_combined.historical_view(read)
     read, model_result = model_monitor.historical_view(read)
     try:
@@ -72,11 +77,12 @@ def historical_view(read):
         return parents[path] if path in parents else read(path)
 
     return projected, {
+        "post44_source": post44_result,
         "datalake_combined_source": datalake_result,
         "model_monitor_source": model_result,
         "base_commit": BASE_COMMIT,
         "tested_source_tree": SOURCE_TREE,
         "changed_paths_verified": len(changes),
-        "added_gateway_runtime": sorted(path for path, parent in parents.items() if parent is None and path.startswith(("backend/app/", "backend/packages/harness/")) and path.endswith(".py")),
+        "added_gateway_runtime": sorted({path for path, parent in parents.items() if parent is None and path.startswith(("backend/app/", "backend/packages/harness/")) and path.endswith(".py")} | set(post44_result["added_gateway_runtime"] if post44_result else [])),
         "production_acceptance_claimed": False,
     }

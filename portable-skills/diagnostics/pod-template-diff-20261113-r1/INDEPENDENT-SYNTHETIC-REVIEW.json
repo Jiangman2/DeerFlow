@@ -1,0 +1,34 @@
+{
+  "author_files_modified": false,
+  "cases": [
+    {
+      "case": "success_redacted_six_gets",
+      "error_code": null,
+      "get_only": true,
+      "queries": 6,
+      "sentinels_absent": true,
+      "status": "POD_TEMPLATE_DIFFERENCES_OBSERVED_NO_CHANGE"
+    },
+    {
+      "case": "wrong_fixed_pod_uid",
+      "error_code": "FIXED_POD_CHANGED",
+      "get_only": true,
+      "queries": 3,
+      "sentinels_absent": true,
+      "status": "INCOMPLETE"
+    },
+    {
+      "case": "snapshot_changed",
+      "error_code": "SNAPSHOT_CHANGED",
+      "get_only": true,
+      "queries": 6,
+      "sentinels_absent": true,
+      "status": "INCOMPLETE"
+    }
+  ],
+  "helper_hash_verified": true,
+  "passed": true,
+  "production_operations": 0,
+  "schema": "pod-template-diff-independent-review.v1",
+  "source_sha256": "d65b2fe6b46db92240824c0a307e5a0e728c76be027aa4d69a3af425e893dab4"
+}

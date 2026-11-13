@@ -1,0 +1,22 @@
+{
+  "schema": "gateway-result-link-postcheck-validation.v1",
+  "tool": "verify-energy-daily-result-links-20261112-r1.py",
+  "bytes": 12319,
+  "sha256": "0e45c003b24c3110552195a38671a4b35dc54f25e58544b586fa45673b073f96",
+  "sealed_original_r4_sha256": "e2f8e06d1ecb87849d40a124bd382e429c28bea74562a99aa60d0bdc06d7b7a0",
+  "windows_checks": {"run": 16, "failures": 0, "errors": 0},
+  "linux_nonroot_network_disabled_checks": {"run": 16, "failures": 0, "errors": 0},
+  "python37_linux_nonroot_network_disabled_checks": {"run": 16, "failures": 0, "errors": 0},
+  "python37_actual_wrong_host_guard": "DATAX01_ROOT_REQUIRED_ZERO_QUERIES",
+  "production_executed": false,
+  "kubernetes_mutations": 0,
+  "application_started": false,
+  "secret_api_reads": 0,
+  "business_acceptance": false,
+  "pending_rollout_behavior": "RETURN_CURRENT_COUNTS_IMMEDIATELY_NO_WAIT_NO_RETRY",
+  "converged_verification": "REUSE_SEALED_R4_ALL_70_SOURCE_HEALTH_ENDPOINT_AND_SKILL_NODE_VIEW_GUARDS",
+  "current_skill_binding": "f880bc0bd379612a20c0f62fe0c3c14389aad4a9aa26960f5d67a3145f8a7044",
+  "original_receipts_modified": false,
+  "service_original_pre_rollout_snapshot_available": false,
+  "notes": "Checks current Service stability during verification without claiming unavailable pre-rollout Service provenance. Source hashes are on-disk runtime evidence, not loaded-module or business-call acceptance."
+}

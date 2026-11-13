@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 BASE = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location(
-    "energy_browser_entry", BASE / "skills/public/energy-market-daily/scripts/entry.py"
+    "energy_browser_entry", BASE / "release/post44-source-sync-20261113/parent/skills/public/energy-market-daily/scripts/entry.py"
 )
 entry = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(entry)

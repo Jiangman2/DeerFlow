@@ -1,0 +1,83 @@
+{
+  "schema": "scheduler-step-budget-source-match.v1",
+  "source": "Operator-provided log18 fixed-file fingerprints",
+  "production_modified": false,
+  "rows": {
+    "lead_agent": {
+      "reported_production": {
+        "bytes": 41101,
+        "sha256": "ec108a4b8cc9c608ba790e71bc5a1c34bbd33cd5241503c7a4ddba7a7e5e0d30",
+        "relative": "backend/packages/harness/deerflow/agents/lead_agent/agent.py"
+      },
+      "local": {
+        "current": {
+          "bytes": 40753,
+          "sha256": "ec90288229cee4e54a34e41b31b946d22be7c8d6d21a8363be790c799dad9945",
+          "matches_production": false
+        },
+        "old": {
+          "bytes": 41101,
+          "sha256": "ec108a4b8cc9c608ba790e71bc5a1c34bbd33cd5241503c7a4ddba7a7e5e0d30",
+          "matches_production": true
+        }
+      }
+    },
+    "services": {
+      "reported_production": {
+        "bytes": 53637,
+        "sha256": "6e46773b1d9ae19f7d15bd01b7ac51dd85f56d4da1df6c6773df8f78d490d377",
+        "relative": "backend/app/gateway/services.py"
+      },
+      "local": {
+        "current": {
+          "bytes": 53134,
+          "sha256": "1ce41123a0238f29960096cf4f6ff787a93add931714e23660ed5efd649d4980",
+          "matches_production": false
+        },
+        "old": {
+          "bytes": 53637,
+          "sha256": "6e46773b1d9ae19f7d15bd01b7ac51dd85f56d4da1df6c6773df8f78d490d377",
+          "matches_production": true
+        }
+      }
+    },
+    "gateway_app": {
+      "reported_production": {
+        "bytes": 31735,
+        "sha256": "ab3056db7657d4ee9de7fbd754f59f4d8e14be78f2535b049047d6d03cc863ad",
+        "relative": "backend/app/gateway/app.py"
+      },
+      "local": {
+        "current": {
+          "bytes": 30497,
+          "sha256": "2188bfc885035df5a78b38dafa1061f8908a8d050a88959d60114c8c45c508c2",
+          "matches_production": false
+        },
+        "old": {
+          "bytes": 31197,
+          "sha256": "f130bad760b6fb895795a0b4622503ad013a13716e2eb4c3c1dcf78aa85d98f0",
+          "matches_production": false
+        }
+      }
+    },
+    "scheduler_config": {
+      "reported_production": {
+        "bytes": 972,
+        "sha256": "4495e7c800fa602dd7a0bf85ef15768030abf6bf4f2095e654330a56db1070cb",
+        "relative": "backend/packages/harness/deerflow/config/scheduler_config.py"
+      },
+      "local": {
+        "current": {
+          "bytes": 972,
+          "sha256": "4495e7c800fa602dd7a0bf85ef15768030abf6bf4f2095e654330a56db1070cb",
+          "matches_production": true
+        },
+        "old": {
+          "bytes": 972,
+          "sha256": "4495e7c800fa602dd7a0bf85ef15768030abf6bf4f2095e654330a56db1070cb",
+          "matches_production": true
+        }
+      }
+    }
+  }
+}

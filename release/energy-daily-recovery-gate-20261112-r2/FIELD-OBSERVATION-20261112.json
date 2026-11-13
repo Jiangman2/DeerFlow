@@ -1,0 +1,61 @@
+{
+  "schema": "energy-recovery-transport-field-summary.v2",
+  "evidence_origin": "OPERATOR_PASTED_COMMAND_OUTPUT",
+  "raw_server_receipt_downloaded": false,
+  "observed_at": "2026-11-12T02:58:53.518172+00:00",
+  "thread_id": "0fb37c34-d996-4d8b-aeeb-ea9dcd252a28",
+  "run_id": "dc9f8dc8-1f62-4e7b-8452-a9a7bf13e79e",
+  "probe_status": "FIXED_DOCTOR_TRANSPORT_EVIDENCE_OBSERVED_NO_CHANGE",
+  "gateway_generation": 414,
+  "sandbox_pod_name": "sandbox-4afd412d",
+  "first_failure": {
+    "event_seq": 7,
+    "message_sha256": "052e104c7f94fdb00f2a81fb08648aa2b83176e46429789513c7b4450791ff2c",
+    "message_bytes": 175,
+    "stored_tool_message_bytes": 375,
+    "message_template_recognized": true,
+    "transport_markers": ["sandbox_readiness_timeout", "initialization_wrapper"],
+    "startup_wait_seconds": 180,
+    "configured_startup_timeout_seconds": 180,
+    "sanitized_message": "Error: Unexpected error initializing sandbox: RuntimeError: Sandbox [id] failed to become ready within 180s at [endpoint]",
+    "skill_json_receipt_present": false,
+    "shell_exit_code_present": false,
+    "command_initialization_failed_before_doctor_body": true
+  },
+  "named_sandbox_observation": {
+    "currently_present": false,
+    "absence_alone_does_not_prove_historical_cause": true,
+    "historical_scheduling_event_count": 2,
+    "scheduling_event_reason": "FailedScheduling",
+    "both_events_same_pod_uid_sha256": "072285f7d2e74c599a37486b05c5aa93336d5cb6a31800f78057403ea0565565",
+    "flags": ["insufficient_cpu", "insufficient_memory", "node_affinity", "taint"]
+  },
+  "subsequent_operator_scheduling_message": {
+    "operator_terminal_time": "2026-11-12T10:58:44+08:00",
+    "reported_node_count": 18,
+    "available_node_count": 0,
+    "reported_failure_counts": {
+      "insufficient_cpu": 1,
+      "unschedulable": 1,
+      "node_affinity_or_selector_mismatch": 3,
+      "insufficient_memory": 6,
+      "untolerated_taints": 7
+    },
+    "categories_assumed_mutually_exclusive": false,
+    "preemption_not_helpful_node_count": 11,
+    "no_preemption_victims_node_count": 7
+  },
+  "source_hashes": {
+    "aio_sandbox_provider": "477ad5e5afb0ab3178e75cff85290268f4c2b72a74b30d27a69bb6e2ec6c1be4",
+    "backend": "f159757348a224958d58703b3b0e247ac57cd7058b51162b82c9375ce8458648",
+    "remote_backend": "a57007d2a4c2841a2e8e22382697b36b69ec5773b5234a81c7a03bceb796e2a6"
+  },
+  "confirmed_failure_layer": "SANDBOX_SCHEDULING_BEFORE_SKILL_COMMAND_EXECUTION",
+  "capacity_or_configuration_fix_applied": false,
+  "task_retry_requested": false,
+  "gate_modified": false,
+  "database_modified": false,
+  "workload_modified": false,
+  "provider_requests_by_probe": 0,
+  "credentials_exported": false
+}

@@ -34,6 +34,8 @@ def test_actual_release_and_original_zip_match():
     source.HUB+'edge-bound-20261106-r2/REPORT-RECONSTRUCTED.json'])
 def test_changed_bytes_are_rejected(path):
     read, paths = snapshot()
+    if not (ROOT / path).is_file():
+        path = source.successor.ARCHIVE + 'parent/' + path
     with pytest.raises(ValueError):
         source.verify(lambda p:read(p)+b'changed' if p==path else read(p), paths)
 

@@ -1,5 +1,19 @@
 # AGENTS.md
 
+## November 13 post-44 source synchronization
+
+See `docs/post44-skill-delivery-sync-20261113.md` and run
+`python deploy/enterprise/verify-post44-source-20261113.py --ref HEAD` with
+Python 3.12+, plus the existing financial, released-source and historical
+baseline verifiers. Current public energy Skill is 2.1.0 (107 source files;
+production adds one browser binding). Preserve the original 158-file project,
+ZIP and old entry outside discovery in the sealed parent archive. Credentials
+and browser binaries are never Git content. Gateway's six result-link files
+retain independent deployed bytes; two canonical files have AST-equal formatting.
+The scheduled budget 10000 is an undeployed candidate, not accepted production
+state. Never rerun archived activation tools during review or infer full Work
+business delivery from code/PNG acceptance.
+
 ## November 10 adjusted-budget financial candidate
 
 `docs/research-fund-adjusted-budget-20261110.md` documents an unshipped candidate:

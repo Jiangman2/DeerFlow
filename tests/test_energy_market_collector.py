@@ -20,7 +20,7 @@ import requests
 ROOT = Path(__file__).resolve().parents[1]
 HERE = ROOT / 'release/energy-market-released-20261110/proxy/repair'
 OLD = ROOT / 'release/energy-market-released-20261110/baseline/energy_market_collector.py'
-UPSTREAM = ROOT / 'skills/public/energy-market-daily/upstream'
+UPSTREAM = ROOT / 'release/post44-source-sync-20261113/parent/skills/public/energy-market-daily/upstream'
 spec = importlib.util.spec_from_file_location('proxy_collector_candidate', HERE / 'energy_market_collector.py')
 collector = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(collector)

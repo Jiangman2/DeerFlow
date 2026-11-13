@@ -1,0 +1,43 @@
+{
+  "schema": "energy-browser-operator-install-summary.v1",
+  "basis": "operator_pasted_json_not_a_download_of_the_raw_receipt",
+  "observed_at": "2026-11-11T17:36:37.595812+00:00",
+  "operation": "b9fa75fd4b2a4b6db4ced09aa0f53b45",
+  "status": "ENERGY_BROWSER_FIX_INSTALLED_RUNTIME_ACCEPTED",
+  "report": {
+    "path": "/var/lib/portal-energy-browser-fix-install-20261112-r1/REPORT.json",
+    "bytes": 4776,
+    "sha256": "bce4c6e9b2e3cfce3dfd4bbfb2ffdfd7dffa008b24ae95558cf06f93107be87e"
+  },
+  "code_package_sha256": "ba86a3c48dd2b6f4349f3884dfab541730759dc1670ab5f0e7bd72377c439084",
+  "before_tree_sha256": "f880bc0bd379612a20c0f62fe0c3c14389aad4a9aa26960f5d67a3145f8a7044",
+  "after_tree_sha256": "6362fa76e30f4c0850a3a6d5f9e2c2e5fd74cf841235b279ea868f00b8d4122b",
+  "after_files": 107,
+  "skill_updated": true,
+  "shared_mount_qualification": {
+    "uid": 1000,
+    "gid": 1000,
+    "render_seconds": 3.108,
+    "width": 780,
+    "height": 5250,
+    "png_sha256": "bedd5af036641c695510cca936b1e530ed7600238a8892fe88b5d7d5953bdd9b",
+    "automatic_binding_used": true,
+    "private_local_copy_cleaned": true,
+    "synthetic_sources_unchanged": true
+  },
+  "runtime_manifest_sha256": "cef35e8edb510631197d5d4874e2e9d6fb2c9ef93a7be8393f38fa9446ea0598",
+  "runtime_files": 11,
+  "runtime_bytes": 349929765,
+  "maintenance_pod_absent": true,
+  "maintenance_configmap_absent": true,
+  "gateway_modified": false,
+  "provisioner_modified": false,
+  "existing_sandboxes_modified": false,
+  "historical_reports_modified": false,
+  "credentials_read": false,
+  "provider_requests": 0,
+  "work_messages_sent": 0,
+  "schedule_created": false,
+  "browser_business_acceptance_pending": true,
+  "gateway_414_fleet_postcheck_pending": true
+}

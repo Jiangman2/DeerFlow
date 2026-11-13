@@ -1,0 +1,31 @@
+{
+  "schema": "energy-delivery-skill-independent-review.v1",
+  "candidate_version": "2.1.0-portable",
+  "candidate_manifest_sha256": "8ddbf43d4e08f08e485b85f96814f7680d96b976989b61340c230603b37d3bef",
+  "installer_sha256": "b9a188ce55a9f531b44f41dcae61cb04d127d612947046b36272e05185122e03",
+  "code_archive_sha256": "980eed816ef30b5d6bbbc91744943d64ba0fb7ad1abf10c2abb1ec10b60b2ac8",
+  "sealed_assets_and_archive_manifest_independently_reconciled": true,
+  "quick_validate_passed": true,
+  "changed_paths_vs_published_code": [
+    "MANIFEST.json",
+    "SKILL.md",
+    "scripts/daily.py",
+    "scripts/delivery_text.py"
+  ],
+  "market_news_render_and_browser_modules_byte_unchanged": true,
+  "independent_forward_execution_passed": true,
+  "forward_execution_evidence": "portable-skills/diagnostics/energy-delivery-forward-eval-20261112-r1/FORWARD-EVAL.json",
+  "forward_execution_uses_synthetic_publication_projection": true,
+  "forward_execution_is_not_real_png_or_delivery_acceptance": true,
+  "shared_public_category_uid1000_render_required_before_cutover": true,
+  "root_review_correction": "Original receipt path is publication.runtime.path, not top-level runtime.path; both runtime manifest and image references remain checked.",
+  "custom_webhook_transport_is_not_implemented_or_intercepted": true,
+  "final_text_requires_caller_to_copy_actual_present_files_receipt": true,
+  "external_delivery_still_requires_existing_user_authorization_and_channel_acceptance": true,
+  "independent_installer_review": "Passed; object-UID-scoped cleanup and fixed assets reviewed by a second agent.",
+  "cleanup_report_limit": "If an owned ConfigMap remains after its delete request, maintenance_configmap_absent can be false while Skill status remains installed; do not infer full resource cleanup from status alone.",
+  "real_business_acceptance": false,
+  "production_executed": false,
+  "messages_sent": 0,
+  "provider_requests": 0
+}

@@ -1,0 +1,92 @@
+sudo python3 -I -B - <<'PY'
+"""Paste under sudo python3 -I -B -; six metadata GETs, no Pod execution."""
+import hashlib,json,os,re,stat
+BASE='/home/cnooc/inspect-scheduler-baseline-20261113-r1.py'
+BASE_SHA='7f48ec3d98a4fa410b20009331ea2833cdb651516a6123551cb5049e7ef760a4'
+DEP_UID='a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1'
+SPEC_SHA='162716342c8bbc067e5d6441dd00e0ab235139f626a1df691037a56bd1c6fb52'
+POD='gateway-565b4ff8d6-2d2r2'; POD_UID='80265483-5404-444c-b26f-d06d3622a3cb'
+MISSING=object()
+class Refused(ValueError):pass
+def need(ok,code):
+ if not ok:raise Refused(code)
+def canonical(value):return json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=True).encode('ascii')
+def digest(raw):return hashlib.sha256(raw).hexdigest()
+def summary(value):
+ if value is MISSING:return {'present':False,'type':'missing','sha256':None}
+ return {'present':True,'type':type(value).__name__,'sha256':digest(canonical(value))}
+def pointer(path,key):return path+'/'+str(key).replace('~','~0').replace('/','~1')
+def differences(left,right):
+ rows=[]; state={'truncated':False,'nodes':0}
+ def walk(a,b,path,depth):
+  state['nodes']+=1
+  if a is not MISSING and b is not MISSING and type(a) is type(b) and a==b:return
+  if len(rows)>=64 or state['nodes']>2048:state['truncated']=True;return
+  if depth<16 and (isinstance(a,dict) or a is MISSING) and (isinstance(b,dict) or b is MISSING) and (a or b):
+   aa={} if a is MISSING else a;bb={} if b is MISSING else b
+   if not aa and not bb:rows.append({'path':path,'requested':summary(a),'actual':summary(b)});return
+   for key in sorted(set(aa)|set(bb)):walk(aa.get(key,MISSING),bb.get(key,MISSING),pointer(path,key),depth+1)
+  elif depth<16 and (isinstance(a,list) or a is MISSING) and (isinstance(b,list) or b is MISSING):
+   aa=[] if a is MISSING else a;bb=[] if b is MISSING else b
+   if not aa and not bb:rows.append({'path':path,'requested':summary(a),'actual':summary(b)});return
+   for i in range(max(len(aa),len(bb))):walk(aa[i] if i<len(aa) else MISSING,bb[i] if i<len(bb) else MISSING,pointer(path,i),depth+1)
+  else:rows.append({'path':path,'requested':summary(a),'actual':summary(b)})
+ walk(left,right,'',0)
+ return rows,state['truncated']
+def selector_keys(template):
+ rows=[];count=[0]
+ def walk(value,path,depth):
+  count[0]+=1
+  need(count[0]<=4096 and depth<=24,'SELECTOR_METADATA_BOUND')
+  if isinstance(value,dict):
+   for key,item in value.items():
+    target=pointer(path,key)
+    if key in ('matchLabelKeys','mismatchLabelKeys'):
+     need(len(rows)<64,'SELECTOR_METADATA_BOUND')
+     rows.append({'path':target,'contains_pod_template_hash':isinstance(item,list) and 'pod-template-hash' in item})
+    walk(item,target,depth+1)
+  elif isinstance(value,list):
+   for i,item in enumerate(value):walk(item,pointer(path,i),depth+1)
+ walk(template,'',0);return rows
+def closure(m,pod,rs,dep):
+ need(pod['metadata']['name']==POD and pod['metadata']['uid']==POD_UID and pod['metadata'].get('namespace')=='deer-flow','FIXED_POD_CHANGED')
+ ref=m['owner'](pod,'ReplicaSet');parent=m['owner'](rs,'Deployment')
+ need(not rs['metadata'].get('deletionTimestamp') and rs['metadata']['name']==ref['name'] and rs['metadata']['uid']==ref['uid'] and parent['name']=='gateway' and parent['uid']==DEP_UID,'OWNER_CLOSURE_CHANGED')
+ template=json.loads(json.dumps(rs['spec']['template']));template.get('metadata',{}).get('labels',{}).pop('pod-template-hash',None)
+ need(template==dep['spec']['template'],'CURRENT_TEMPLATE_REQUIRED')
+def main():
+ out={'schema':'gateway-pod-template-diff.v1','status':'INCOMPLETE','readonly':True,'files_modified':False,'workload_modified':False,'provider_requests':0,'secret_api_reads':0,'raw_values_exported':False};op=None
+ try:
+  need(os.name=='posix' and os.uname().nodename.split('.')[0]=='datax-01' and os.geteuid()==0,'DATAX01_ROOT_REQUIRED')
+  fd=os.open(BASE,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+  try:
+   first=os.fstat(fd);need(stat.S_ISREG(first.st_mode) and first.st_nlink==1 and 0<first.st_size<=32768,'FIXED_HELPER_TYPE_BOUND')
+   raw=os.read(fd,32769);need(len(raw)==first.st_size and digest(raw)==BASE_SHA,'FIXED_HELPER_HASH_REQUIRED')
+  finally:os.close(fd)
+  m={'__name__':'verified_readonly_helper'};exec(compile(raw,'<verified-readonly-helper>','exec'),m)
+  op=m['Inspector']('');op.pod=POD
+  dep=op.call(['get','deployment','gateway','-o','json']);out['deployment']=m['deployment_summary'](dep)
+  need(m['identity'](dep)=={'uid':DEP_UID,'generation':415,'spec_sha256':SPEC_SHA},'FIXED_GATEWAY_BASELINE_CHANGED')
+  pod=op.call(['get','pod',POD,'-o','json']);stamp=m['pod_stamp'](pod)
+  op.rs=m['owner'](pod,'ReplicaSet')['name'];need(re.fullmatch('gateway-[a-z0-9]{1,20}',op.rs),'REPLICASET_NAME_INVALID')
+  rs=op.call(['get','replicaset',op.rs,'-o','json']);closure(m,pod,rs,dep)
+  requested=dep['spec']['template']['spec'];actual=pod['spec']
+  keys=sorted(key for key in requested if key not in ('containers','volumes','tolerations') and actual.get(key)!=requested[key])
+  selected_left={key:requested[key] for key in keys};selected_right={key:actual[key] for key in keys if key in actual}
+  rows,truncated=differences(selected_left,selected_right)
+  label=pod['metadata'].get('labels',{}).get('pod-template-hash',MISSING)
+  out.update(sample=stamp,mismatched_top_fields=keys,differences=rows,diff_truncated=truncated,extra_pod_fields=sorted(set(actual)-set(requested)),pod_template_hash_label=summary(label),selector_key_metadata=selector_keys(requested))
+  sc=[row for row in requested.get('containers',[]) if row.get('name')=='gateway'];ac=[row for row in actual.get('containers',[]) if row.get('name')=='gateway'];need(len(sc)==len(ac)==1,'GATEWAY_CONTAINER_SHAPE')
+  source,active=sc[0],ac[0];em=source.get('volumeMounts',[]);am=active.get('volumeMounts',[])
+  out['subsequent_contract_summary']={'container_field_mismatches':[key for key in source if key!='volumeMounts' and active.get(key)!=source[key]],'extra_container_fields':sorted(set(active)-set(source)),'mounts_expected_subset':all(row in am for row in em),'extra_mount_count':sum(row not in em for row in am)}
+  out['subsequent_contract_summary']['volumes']=[{'index':i,'same_name_present':sum(v.get('name')==row.get('name') for v in actual.get('volumes',[]))==1,'equal':any(v==row for v in actual.get('volumes',[]))} for i,row in enumerate(requested.get('volumes',[]))]
+  out['subsequent_contract_summary'].update(ready=any(row.get('type')=='Ready' and row.get('status')=='True' for row in pod.get('status',{}).get('conditions',[])),restart_count=stamp['restart_count'],pod_ip_present=bool(pod.get('status',{}).get('podIP')),pod_ips_present=bool(pod.get('status',{}).get('podIPs')))
+  rs2=op.call(['get','replicaset',op.rs,'-o','json']);pod2=op.call(['get','pod',POD,'-o','json']);dep2=op.call(['get','deployment','gateway','-o','json'])
+  closure(m,pod2,rs2,dep2)
+  need(m['pod_stamp'](pod2)==stamp and m['owner'](pod2,'ReplicaSet')==m['owner'](pod,'ReplicaSet') and rs2['metadata']['uid']==rs['metadata']['uid'] and rs2['spec']==rs['spec'] and m['identity'](dep2)==m['identity'](dep) and pod2['metadata'].get('labels',{}).get('pod-template-hash',MISSING)==label,'SNAPSHOT_CHANGED')
+  out.update(status='POD_TEMPLATE_DIFFERENCES_OBSERVED_NO_CHANGE',stable_readback=True)
+ except Exception as exc:out.update(error_class=type(exc).__name__,error_code=str(exc) if isinstance(exc,Refused) else 'READONLY_SNAPSHOT_FAILED_REDACTED')
+ out['queries']=op.calls if op else 0
+ print(json.dumps(out,sort_keys=True))
+if __name__=='__main__':main()
+PY

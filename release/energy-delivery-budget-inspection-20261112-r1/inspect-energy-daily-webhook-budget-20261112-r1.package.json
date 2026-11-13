@@ -1,0 +1,10 @@
+{
+  "schema": "energy-delivery-budget-inspection-package.v1",
+  "filename": "inspect-energy-daily-webhook-budget-20261112-r1.py",
+  "bytes": 59086,
+  "sha256": "e0245793115640fb54eb12c838ddd599863a36faa66f71b062f31f9449e69235",
+  "child_sha256": "569d28531a42ec286fd223fae4cf5c338eca01e70111375e30eaf40c8cfb5bfb",
+  "production_executed": false,
+  "messages_sent": 0,
+  "mutations_supported": false
+}

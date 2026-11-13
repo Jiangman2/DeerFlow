@@ -1,0 +1,51 @@
+{
+  "schema": "scheduler-baseline-local-validation.v1",
+  "production_accessed": false,
+  "production_mutations": 0,
+  "sealed_operator": {
+    "filename": "inspect-scheduler-baseline-20261113-r1.py",
+    "bytes": 24953,
+    "sha256": "7f48ec3d98a4fa410b20009331ea2833cdb651516a6123551cb5049e7ef760a4"
+  },
+  "qualification_child": {
+    "bytes": 7844,
+    "sha256": "62d84007979fe611e60c4e711a3828098d006e28a7d5b7ceb6562e8ad7a33995"
+  },
+  "source_tests": {
+    "windows": {"run": 8, "failures": 0, "errors": 0, "skipped": 0},
+    "linux": {
+      "run": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "uid": 1000,
+      "network": "none",
+      "repository_mount": "readonly",
+      "root_filesystem": "readonly",
+      "capabilities": "ALL dropped"
+    },
+    "coverage": [
+      "new Gateway UID and generation are observed without stale-baseline refusal",
+      "an ongoing rollout returns deployment metadata without running a Pod child",
+      "fixed sparse list parsing rejects duplicates and malformed or oversized input",
+      "Secret and mixed projected-Secret mounts hide names and keys and skip covered file reads",
+      "read-only command allowlist rejects Secret API reads and all mutations",
+      "configuration YAML parse errors retain bytes and hash with unknown budget values",
+      "successful configuration reads are independently checked again",
+      "ancestor symlink and exhausted content-read budget are refused before open",
+      "wrong-host execution does not load child resources or issue commands"
+    ]
+  },
+  "final_sealed_python37_validation": {
+    "python": "3.7.17",
+    "uid": 1000,
+    "network": "none",
+    "host_compiled": true,
+    "sealed_child_decoded_and_compiled": true,
+    "wrong_host_error_code": "DATAX01_ROOT_REQUIRED",
+    "wrong_host_queries": 0,
+    "persistent_files_modified": false,
+    "workload_modified": false
+  },
+  "acceptance_boundary": "Read-only current deployment metadata and at most one owned, ready, current-template Pod. This does not authorize a new deployment, verify all Gateway Pods, or establish business acceptance."
+}

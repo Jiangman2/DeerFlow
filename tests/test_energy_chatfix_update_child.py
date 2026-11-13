@@ -19,7 +19,7 @@ SPEC = importlib.util.spec_from_file_location('energy_chatfix_update_child_teste
 child = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(child)
 OLD_SKILL = BASE / 'release/energy-market-released-20261110/baseline/skill'
-NEW_SKILL = BASE / 'skills/public/energy-market-daily'
+NEW_SKILL = BASE / 'release/post44-source-sync-20261113/parent/skills/public/energy-market-daily'
 OPERATION = '1234567890abcdef1234567890abcdef'
 
 

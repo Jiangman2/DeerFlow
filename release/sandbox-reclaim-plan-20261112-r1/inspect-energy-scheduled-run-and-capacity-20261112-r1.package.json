@@ -1,0 +1,9 @@
+{
+  "schema": "energy-scheduled-run-capacity-inspection-package.v1",
+  "filename": "inspect-energy-scheduled-run-and-capacity-20261112-r1.py",
+  "bytes": 63382,
+  "sha256": "5bbc42c697077d0adf71a2f716e8c45392d135d45430203dd437dbf92e560b1d",
+  "child_sha256": "688dfe86d9eb5167450403135712efe3575f9a42b84fefcd6f0b92f42e4b5566",
+  "production_executed": false,
+  "mutations_supported": false
+}

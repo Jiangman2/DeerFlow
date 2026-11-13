@@ -1,0 +1,27 @@
+{
+  "schema": "energy-daily-gateway-final-validation.v3",
+  "windows_application_regressions": 79,
+  "linux_application_regressions": 79,
+  "operator_boundary_checks": 28,
+  "isolated_real_module_scenarios": 25,
+  "candidate_application_files": 6,
+  "python37_entry_guard_commands": 0,
+  "python37_assets_loaded": 9,
+  "ruff": "PASS",
+  "active_task_wait_removed_by_explicit_operator_request": true,
+  "public_conversation_origin": "https://cnoocclaw.cnooc.com.cn",
+  "conversation_link_label": "点击查看完整日报",
+  "wrong_plain_and_same_label_markdown_links_replaced": true,
+  "failed_delivery_does_not_claim_complete_report": true,
+  "tool": {
+    "path": "gateway-final-r3-py37/activate-energy-daily-result-links-20261111-r3.py",
+    "bytes": 332366,
+    "sha256": "266a582e2a7fde783371980956634afc9c5ff8e17504886e645874d313b9931c"
+  },
+  "production_executed": false,
+  "production_gateway_before_generation": 413,
+  "accepted_skill_install_report_sha256": "8cc79c16a7c6e15ef0f4292e71b6cd3dc5b63ce1b0a55bd84ffa40a2ca4379b0",
+  "normal_application_startup_database_access_may_occur": true,
+  "scheduled_job_created": false,
+  "work_messages_sent": 0
+}

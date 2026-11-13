@@ -1,0 +1,49 @@
+{
+  "schema": "energy-delivery-budget-operator-summary.v1",
+  "evidence_basis": "SUMMARY_OF_OPERATOR_SUPPLIED_LOG_NOT_A_DOWNLOADED_SERVER_RECEIPT",
+  "source_log_sha256": "221cfbe5ac26bc558828140e50d0bfa7509eb9c529254bf2d9f20170e0121166",
+  "observed_at": "2026-11-12T05:24:58.478890+00:00",
+  "thread_id": "545097ca-bd47-4416-888e-b6579229c865",
+  "run_selection": "LATEST_RUN_AS_OF_REPEATABLE_READ_SNAPSHOT",
+  "latest_run": {
+    "created_at": "2026-11-12T04:08:31.098452+00:00",
+    "updated_at": "2026-11-12T04:14:19.867653+00:00",
+    "status": "success",
+    "projected_config_recursion_limit": 10000
+  },
+  "previous_run": {"status": "error", "stop_reason": "recursion_capped", "projected_config_recursion_limit": 300},
+  "selected_timeline": [
+    {"seq": 83, "created_at": "2026-11-12T04:12:45.515349+00:00", "tool": "bash", "status_receipt": "REPORT_ACCEPTED"},
+    {"seq": 85, "created_at": "2026-11-12T04:12:53.853594+00:00", "tool": "bash", "business_code_observed": 19002, "http_context_not_proven": true},
+    {"seq": 87, "created_at": "2026-11-12T04:13:05.219235+00:00", "tool": "bash", "business_code_observed": 0, "http_context_not_proven": true},
+    {"seq": 91, "created_at": "2026-11-12T04:13:36.851210+00:00", "tool": "present_files", "tool_status": "success", "success_prefix_observed": true, "current_thread_url_present": true},
+    {"seq": 92, "created_at": "2026-11-12T04:14:18.777765+00:00", "kind": "llm.ai.response", "tool_calls": 0, "current_thread_url_present": true, "daily_link_label_present": true, "incomplete_data_marker_present": true, "old_price_not_used_marker_present": true}
+  ],
+  "sampling": {"events": 40, "content_bytes": 72592, "partial_selected_events": 0, "selection": "FIRST8_AND_LAST32_LATEST_RUN", "middle_may_be_omitted": true},
+  "webhook_boundaries": {
+    "post_candidate_timeline_count": 0,
+    "no_candidates_does_not_prove_no_send": true,
+    "actual_http_payload_not_reconstructed": true,
+    "codes_not_treated_as_webhook_success_or_failure": true,
+    "wire_length_or_server_truncation_not_proven": true,
+    "no_tool_send_after_final_ai_in_selected_tail": true
+  },
+  "runtime": {
+    "fresh_scheduler_recursion_limit": 300,
+    "fresh_max_recursion_limit": 10000,
+    "config_path": "/app/backend/config.yaml",
+    "config_map": "deer-flow-budget-10000-bf39d16f673d2259",
+    "subpath": "config.yaml",
+    "read_only": true,
+    "configuration_bytes": 15990,
+    "configuration_sha256": "bf39d16f673d2259a0430357e7a9a435482add27194aa947a0e34cdd594f1fb7",
+    "library_versions": {"langchain": "1.2.15", "langchain-core": "1.3.3", "langgraph": "1.1.9"},
+    "fresh_config_not_all_loaded_process_state": true
+  },
+  "gateway_generation": 414,
+  "gateway_spec_sha256": "542846c6041c25b7ba94073c4b1b58f883910b8042d00951e33455994df76877",
+  "workload_modified": false,
+  "work_messages_sent_by_inspector": 0,
+  "task_retried": false,
+  "recursion_limit_modified": false
+}

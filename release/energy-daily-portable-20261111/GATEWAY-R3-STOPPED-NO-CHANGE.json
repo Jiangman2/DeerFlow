@@ -1,0 +1,15 @@
+{
+  "schema": "energy-gateway-r3-failure-operator-summary.v1",
+  "source": "operator_pasted_final_json",
+  "operation": "7d2510a56c73463a89a9995f288606cd",
+  "observed_at": "2026-11-11T16:11:47.288927+00:00",
+  "status": "INCOMPLETE",
+  "error_code": "READONLY_SHARED_SKILLS_MOUNT_REQUIRED",
+  "once_claimed": false,
+  "configmap_create_requested": false,
+  "maintenance_create_requested": false,
+  "patch_request_count": 0,
+  "patch_may_have_applied": false,
+  "gateway_generation_before": 413,
+  "skill_install_preserved": true
+}

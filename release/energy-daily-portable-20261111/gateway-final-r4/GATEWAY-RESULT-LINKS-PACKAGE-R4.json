@@ -1,0 +1,59 @@
+{
+  "schema": "energy-gateway-result-links-package.v4",
+  "filename": "activate-energy-daily-result-links-20261111-r4.py",
+  "bytes": 333182,
+  "sha256": "e2f8e06d1ecb87849d40a124bd382e429c28bea74562a99aa60d0bdc06d7b7a0",
+  "gateway_before_generation": 413,
+  "gateway_after_generation": 414,
+  "same_image": "deerflow.local/deer-flow-gateway@sha256:c0fd1a6e981d551ab65459f8125b0e847ac7276433e020d1b65f88dea888ae29",
+  "application_source_files": 6,
+  "assets": {
+    "source_inspector": {
+      "bytes": 22201,
+      "sha256": "11d87389f1d5354bc21c4873773c5fe8aec691e017e90d4c294264d1c699dcc3"
+    },
+    "qualifier": {
+      "bytes": 30347,
+      "sha256": "1eb26c3732c62c8ca2b4aa3fb63be336423630d0531877b1d8b68c2319528480"
+    },
+    "skill_reader": {
+      "bytes": 10315,
+      "sha256": "d18414a0997e831cf816b39589856483b86295b2d0937a9cd29458b5b81fe233"
+    },
+    "manager.py": {
+      "bytes": 94358,
+      "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
+    },
+    "notifications.py": {
+      "bytes": 10025,
+      "sha256": "2f25958bcb2556685d153bef55f72afebd360deb157cd13164ceb4261001f039"
+    },
+    "work_notification_delivery.py": {
+      "bytes": 4297,
+      "sha256": "d446868a681754fa98241b62ebfe45a886c6bf21b0da0f68d0d69cd111e8a42e"
+    },
+    "work_notifications.py": {
+      "bytes": 14201,
+      "sha256": "d3f7e6c4acc4fd0cb7e4f6b31861ddf8b68ff1d2f44761a99da90536a6982645"
+    },
+    "present_file_tool.py": {
+      "bytes": 19640,
+      "sha256": "eccfe1e5975c771465abf96f1da60fdb2a11e0712716aeb2453a2d10fbe30e3b"
+    },
+    "conversation_url.py": {
+      "bytes": 5042,
+      "sha256": "f5ac36f16038a3532cd3110d134b72e58c42693c1b9ab9a1b6390d9b4209c0b8"
+    }
+  },
+  "local_real_module_qualification_checks": 25,
+  "windows_focused_tests": 79,
+  "linux_focused_tests": 79,
+  "operator_boundary_checks": 29,
+  "requires_installed_portable_skill": true,
+  "skills_mount_resolved_from_pvc": true,
+  "existing_mount_permissions_preserved": true,
+  "public_conversation_origin": "https://cnoocclaw.cnooc.com.cn",
+  "operator_direct_cutover_no_task_wait": true,
+  "production_executed": false,
+  "credentials_included": false
+}

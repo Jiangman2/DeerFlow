@@ -1,0 +1,67 @@
+{
+  "schema": "scheduler-budget-local-validation.v1",
+  "tool_revision": "r2",
+  "production_accessed": false,
+  "production_mutations": 0,
+  "superseded_r1_artifacts_modified": false,
+  "sealed_operator": {
+    "filename": "activate-scheduler-budget-20261112-r2.py",
+    "bytes": 63743,
+    "sha256": "17fb030c30f469500b2f27196d229c0fde1394a256dc8e76c01a0f55a506d80e"
+  },
+  "qualification_child": {
+    "bytes": 8290,
+    "sha256": "b052131a1e37f7f3e38e3f64ba1cefa8735337011d50c1e104614996ec919d81"
+  },
+  "budget_scope": {
+    "gateway_before": 414,
+    "gateway_after": 415,
+    "scheduler_recursion_limit_before": 300,
+    "scheduler_recursion_limit_after": 10000,
+    "global_max_recursion_limit_before": 10000,
+    "global_max_recursion_limit_after": 10000,
+    "candidate_configuration_byte_length_delta": 2,
+    "accepts_superseded_r1_gateway_415_baseline": false,
+    "existing_runs_replayed": false
+  },
+  "source_tests": {
+    "distinct_test_method_names": 36,
+    "duplicate_test_method_names": 0,
+    "windows": {"run": 36, "failures": 0, "errors": 0, "skipped": 0},
+    "linux": {
+      "run": 36,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "uid": 1000,
+      "network": "none",
+      "repository_mount": "readonly",
+      "root_filesystem": "readonly",
+      "capabilities": "ALL dropped"
+    },
+    "retained_r1_acceptance_scope": [
+      "strict YAML parsing and unchanged configuration outside scheduler.recursion_limit",
+      "full spec CAS and one immutable ConfigMap create",
+      "source overlays, OpenSSL compatibility and CA references preserved",
+      "seventy Pod IP, endpoint address family, address and service port closure",
+      "named and unnamed service ports including valid dual stack",
+      "dangerous extra Pod fields rejected; only explicit API defaults accepted",
+      "one-time private backups and read-only journal recovery without resubmission"
+    ],
+    "r2_additional_check": "300 to 10000 adds exactly two bytes; the pre-existing global 10000 remains unchanged and equals the new scheduler budget."
+  },
+  "final_sealed_python37_validation": {
+    "python": "3.7.17",
+    "uid": 1000,
+    "network": "none",
+    "host_compiled": true,
+    "sealed_child_decoded_and_compiled": true,
+    "observed_candidate_budget": 10000,
+    "observed_global_max": 10000,
+    "wrong_host_guards": [
+      {"mode": "--activate-scheduler-budget-once", "error_code": "DATAX01_REQUIRED", "commands": 0, "once_claimed": false, "persistent_files_modified": false},
+      {"mode": "--verify-readonly", "error_code": "DATAX01_REQUIRED", "commands": 0, "once_claimed": false, "persistent_files_modified": false}
+    ]
+  },
+  "acceptance_boundary": "Local checks and sealed asset guards only. All future scheduled dispatches are affected; production rollout and real scheduled-run business acceptance remain pending."
+}

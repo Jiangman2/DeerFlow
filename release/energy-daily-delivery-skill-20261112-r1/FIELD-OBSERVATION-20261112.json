@@ -1,0 +1,55 @@
+{
+  "schema": "energy-delivery-skill-field-observation.v1",
+  "basis": "OPERATOR_PASTED_FINAL_JSON",
+  "observed_at": "2026-11-12T06:06:54.549400+00:00",
+  "status": "ENERGY_DELIVERY_SKILL_INSTALLED",
+  "operation": "722481d5ab5246cf8d959cb7c3b213e0",
+  "accepted_tool_sha256": "b9a188ce55a9f531b44f41dcae61cb04d127d612947046b36272e05185122e03",
+  "report": {
+    "path": "/var/lib/portal-energy-delivery-skill-install-20261112-r1/REPORT.json",
+    "bytes": 7038,
+    "sha256": "780034c2c0778a06bd6bd2957bb32dcb4e15898997cf20eae451e33c73356e02"
+  },
+  "version": "2.1.0-portable",
+  "code_package_sha256": "980eed816ef30b5d6bbbc91744943d64ba0fb7ad1abf10c2abb1ec10b60b2ac8",
+  "installed_files": 108,
+  "installed_tree_sha256": "8ac3ca5df517d5ed269593d7c9e1216cfc758bf76b3367a40e4d05f372df7ccc",
+  "shared_public_mount_qualification": {
+    "uid": 1000,
+    "gid": 1000,
+    "render_seconds": 3.406,
+    "png_dimensions": [780, 5250],
+    "png_sha256": "bedd5af036641c695510cca936b1e530ed7600238a8892fe88b5d7d5953bdd9b",
+    "browser_fallback_count": 0,
+    "private_local_copy_cleaned": true,
+    "synthetic_sources_unchanged": true
+  },
+  "final_text_qualification": {
+    "complete_artifacts_accepted": true,
+    "missing_artifact_rejected": true,
+    "missing_data_marked": true,
+    "missing_projection_marked_unconfirmed": true,
+    "accepted_four_files_unchanged": true,
+    "synthetic_projection_used": true,
+    "real_publication_proven": false
+  },
+  "ordinary_sandbox_visibility": {
+    "status": "ORDINARY_SANDBOX_PUBLIC_RUNTIME_VISIBLE",
+    "uid": 1000,
+    "gid": 1000,
+    "node": "ecs-zdz-pro-0012",
+    "skill_tree_matches_publication": true,
+    "tmp_writable": true,
+    "tmp_noexec": false
+  },
+  "before_and_after_deployments": {"gateway": 414, "frontend": 243, "provisioner": 87},
+  "unrelated_deployment_drift_observed": false,
+  "maintenance_pod_absent": true,
+  "maintenance_configmap_absent": true,
+  "runtime_replacement_requested": false,
+  "credentials_read": false,
+  "provider_requests": 0,
+  "work_messages_sent": 0,
+  "schedule_created": false,
+  "real_report_and_group_delivery_acceptance_pending": true
+}

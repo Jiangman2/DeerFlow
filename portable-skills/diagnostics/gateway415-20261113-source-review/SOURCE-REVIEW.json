@@ -1,0 +1,21 @@
+{
+  "application_imported": false,
+  "ast_same_as_prior_reviewed_dispatch_chain": {
+    "_clamp_recursion_limit": true,
+    "_resolve_max_recursion_limit": true,
+    "build_run_config": true,
+    "launch_scheduled_thread_run": true
+  },
+  "bytes": 54226,
+  "changed_top_level_functions": [
+    "inject_data_lake_access_context",
+    "start_run"
+  ],
+  "display_url": "https://github.com/Jiangman2/DeerFlow/blob/codex/enterprise-consolidation-20260716/backend/app/gateway/services.py",
+  "github_blob_sha": "5379f191c2c76c003be28e1cf45609377cdeb26f",
+  "matches_operator_observed_runtime": true,
+  "production_accessed": false,
+  "schema": "scheduler-gateway415-source-review.v1",
+  "sha256": "4bf26f6ac2166de7851015af36fed73a8b7d1b0e98b7918806c454e623dbd435",
+  "source": "GitHub Jiangman2/DeerFlow codex/enterprise-consolidation-20260716 backend/app/gateway/services.py"
+}

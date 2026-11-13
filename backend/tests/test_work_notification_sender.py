@@ -122,6 +122,21 @@ async def test_sender_reuses_app_http_client_and_retains_identity_across_secret_
 
 
 @pytest.mark.asyncio
+async def test_daily_markdown_card_keeps_identity_uuid_and_real_link(runtime):
+    channel, repo, _, create = runtime
+    row = await _bind(repo)
+    await _remember(channel, row["id"])
+    text = "[点击查看完整日报](https://portal.example/workspace/chats/current)"
+    assert await notifications.send_work_notification("owner", row["id"], text, UUID, markdown=True) == "om_receipt"
+    request = create.call_args.args[0]
+    assert request.body.msg_type == "interactive"
+    assert request.body.receive_id == "oc_private"
+    assert request.body.uuid == UUID
+    assert json.loads(request.body.content)["elements"] == [{"tag": "markdown", "content": text}]
+    assert create.call_count == 1
+
+
+@pytest.mark.asyncio
 async def test_wrong_owner_tenant_app_or_binding_key_cannot_send(runtime, monkeypatch):
     channel, repo, config, create = runtime
     row = await _bind(repo)

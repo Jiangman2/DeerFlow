@@ -1,0 +1,15 @@
+{
+  "schema": "energy-daily-portable-package.v1",
+  "public_files": 105,
+  "public_credential_scan": "PASS",
+  "private_config_discovery": "PASS",
+  "private_credentials_location": "energy-market-daily/.private/credentials.json",
+  "public": {
+    "filename": "energy-market-daily-2.0.0-public.zip",
+    "bytes": 98416,
+    "sha256": "7964309dda73a26f7679ae48b98e2dcfb1aa1cefdc0bb9d2a8c09f2e06562610"
+  },
+  "production_deployed": false,
+  "credentials_exported": false,
+  "private_package_verified_separately": true
+}

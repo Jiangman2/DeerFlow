@@ -1,0 +1,24 @@
+{
+  "schema": "energy-gateway-r4-validation.v1",
+  "application_files_unchanged_from_r3": true,
+  "application_regressions_windows": 79,
+  "application_regressions_linux": 79,
+  "application_isolated_scenarios": 25,
+  "r4_operator_boundaries_windows": 29,
+  "r4_operator_boundaries_linux": 29,
+  "real_reader_on_supplied_root_and_tamper_rejection": "PASS",
+  "python37_host_and_assets": "PASS",
+  "assets": 9,
+  "source_files": 6,
+  "actual_pvc_mount_lookup": true,
+  "mount_permissions_unchanged": true,
+  "verification_reads_only": true,
+  "operator_direct_cutover_no_task_wait": true,
+  "tool": {
+    "path": "gateway-final-r4/activate-energy-daily-result-links-20261111-r4.py",
+    "bytes": 333182,
+    "sha256": "e2f8e06d1ecb87849d40a124bd382e429c28bea74562a99aa60d0bdc06d7b7a0"
+  },
+  "production_executed": false,
+  "gateway_before_generation": 413
+}

@@ -146,9 +146,9 @@ async def resolve_work_notification_connection(owner_user_id: str, connection_id
     return targets[0] if len(targets) == 1 else None
 
 
-async def send_work_notification(owner_user_id: str, connection_id: str, text: str, uuid: str, *, binding_key: str | None = None) -> str:
+async def send_work_notification(owner_user_id: str, connection_id: str, text: str, uuid: str, *, binding_key: str | None = None, markdown: bool = False) -> str:
     """Perform one bot-identity send, returning only a verified provider ID."""
-    if not connection_id or not isinstance(uuid, str) or not _SEND_UUID.fullmatch(uuid) or not isinstance(text, str) or not text.strip() or len(text.encode()) > _MAX_MESSAGE_BYTES:
+    if type(markdown) is not bool or not connection_id or not isinstance(uuid, str) or not _SEND_UUID.fullmatch(uuid) or not isinstance(text, str) or not text.strip() or len(text.encode()) > _MAX_MESSAGE_BYTES:
         raise WorkNotificationError("invalid_notification")
     current = await _current_runtime(owner_user_id)
     if current is None or current[1]._api_client is None:
@@ -166,10 +166,13 @@ async def send_work_notification(owner_user_id: str, connection_id: str, text: s
         raise WorkNotificationError("target_unavailable")
     if not channel.is_running or channel._api_client is None:
         raise WorkNotificationError("sender_unavailable")
+    # Only an explicit host caller opts into the existing Work Markdown card
+    # format. Keep recipient, owner rechecks, UUID and send-once semantics.
+    content = {"config": {"wide_screen_mode": True}, "elements": [{"tag": "markdown", "content": text}]} if markdown else {"text": text}
     request = (
         channel._CreateMessageRequest.builder()
         .receive_id_type("chat_id")
-        .request_body(channel._CreateMessageRequestBody.builder().receive_id(targets[0].chat_id).msg_type("text").content(json.dumps({"text": text}, ensure_ascii=False)).uuid(uuid).build())
+        .request_body(channel._CreateMessageRequestBody.builder().receive_id(targets[0].chat_id).msg_type("interactive" if markdown else "text").content(json.dumps(content, ensure_ascii=False)).uuid(uuid).build())
         .build()
     )
     try:

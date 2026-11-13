@@ -1,0 +1,28 @@
+{
+  "schema": "energy-daily-compose-candidate.v1",
+  "version": "2.1.0-portable",
+  "parent_version": "2.0.3-portable",
+  "parent_manifest": {
+    "bytes": 16559,
+    "sha256": "3c31eee75657a7a2ed074a7e5254b2e2feff05645bb2ae50b1505452234c20ba"
+  },
+  "candidate_manifest": {
+    "bytes": 17135,
+    "sha256": "8ddbf43d4e08f08e485b85f96814f7680d96b976989b61340c230603b37d3bef"
+  },
+  "changed_files": [
+    "SKILL.md",
+    "scripts/daily.py",
+    "scripts/delivery_text.py"
+  ],
+  "candidate_files_including_manifest": 107,
+  "core_sources_byte_identical_to_parent": [
+    "scripts/common.py",
+    "scripts/market.py",
+    "scripts/research.py",
+    "scripts/report_renderer.py",
+    "scripts/browser_runtime.py"
+  ],
+  "messages_sent": 0,
+  "deployment_requested": false
+}

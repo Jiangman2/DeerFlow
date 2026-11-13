@@ -1,0 +1,9 @@
+{
+  "schema": "energy-persisted-inspection-package.v1",
+  "filename": "inspect-energy-daily-persisted-thread-20261112-r1.py",
+  "bytes": 45421,
+  "sha256": "e8f57d400092a98102f55eb50a3a936493a4b4f432b5106f557d3653206026ea",
+  "child_sha256": "22ce207965aaecb61375bdadb102e5e5f95e854fa60a6227eeb44bbb3d96b131",
+  "classifier_sha256": "b302a340589b5381018a2a78b0c02e9ff1319b8442125b10bbdd2872e269b22c",
+  "production_executed": false
+}

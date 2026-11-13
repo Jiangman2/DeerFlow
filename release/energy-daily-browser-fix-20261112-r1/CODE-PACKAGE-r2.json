@@ -1,0 +1,24 @@
+{
+  "schema": "energy-browser-code-package.v1",
+  "version": "2.0.1-portable",
+  "files": 106,
+  "tree_sha256": "e4639be48ccc11c36c886e45e36a9e1f51f2730948f84e893de27be2b8feb3af",
+  "accepted_original_archive_sha256": "7964309dda73a26f7679ae48b98e2dcfb1aa1cefdc0bb9d2a8c09f2e06562610",
+  "accepted_live_before_tree_sha256": "f880bc0bd379612a20c0f62fe0c3c14389aad4a9aa26960f5d67a3145f8a7044",
+  "changed_source_files": [
+    "SKILL.md",
+    "references/runtime.md",
+    "scripts/browser_runtime.py",
+    "scripts/daily.py",
+    "MANIFEST.json"
+  ],
+  "business_source_bytes_unchanged": true,
+  "credentials_included": false,
+  "runtime_dependency_binaries_included": false,
+  "production_deployed": false,
+  "archive": {
+    "filename": "energy-market-daily-2.0.1-public-code-r2.zip",
+    "bytes": 103343,
+    "sha256": "ba86a3c48dd2b6f4349f3884dfab541730759dc1670ab5f0e7bd72377c439084"
+  }
+}

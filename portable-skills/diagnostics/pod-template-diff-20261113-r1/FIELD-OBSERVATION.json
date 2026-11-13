@@ -1,0 +1,68 @@
+{
+  "schema": "gateway-pod-template-diff-field-observation.v1",
+  "basis": "OPERATOR_PASTED_SIX_GET_READONLY_RESULT",
+  "status": "POD_TEMPLATE_DIFFERENCES_OBSERVED_NO_CHANGE",
+  "deployment": {
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1",
+    "generation": 415,
+    "spec_sha256": "162716342c8bbc067e5d6441dd00e0ab235139f626a1df691037a56bd1c6fb52",
+    "desired": 70,
+    "updated": 70,
+    "ready": 70,
+    "available": 70
+  },
+  "sample": {
+    "name": "gateway-565b4ff8d6-2d2r2",
+    "uid": "80265483-5404-444c-b26f-d06d3622a3cb",
+    "spec_sha256": "460bfe400ce74d613fb952c61eea369ec8e9a3dcfd19dc2f8f88eb9afeb8a838",
+    "container_id_sha256": "a803de562b4383917400a9dda992de8f018819dbdae72da972155ed943d4a80a",
+    "image_id_sha256": "f368a3d4f15d0deb00f7f1aed1f0ca9a76224a0c17609cff70d6d5af47cad096",
+    "restart_count": 0
+  },
+  "mismatched_top_fields": ["initContainers", "topologySpreadConstraints"],
+  "init_added_mount_leaf_paths": [
+    "/initContainers/0/volumeMounts/2/mountPath",
+    "/initContainers/0/volumeMounts/2/name",
+    "/initContainers/0/volumeMounts/2/readOnly",
+    "/initContainers/1/volumeMounts/1/mountPath",
+    "/initContainers/1/volumeMounts/1/name",
+    "/initContainers/1/volumeMounts/1/readOnly"
+  ],
+  "init_added_mount_observed_canonical_hashes": {
+    "mountPath": "53a282da5189358b0bb74d8c9fcc5a27d2f7ddab6669d198a6330889bc9fe9b3",
+    "name": "2268d48a6cb1be3f5208361c4bb604e6cb29ee283e2cba1e6a9873570c668d54",
+    "readOnly": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+  },
+  "selector_added_expression_path": "/topologySpreadConstraints/0/labelSelector/matchExpressions/0",
+  "selector_added_expression_observed_canonical_hashes": {
+    "key": "4bd80129dd621d30d60d5f9987b597e694c55427893c45b166bb8da8567b68b2",
+    "operator": "4dc08fa5817bfd4eef339a4f9a9aaf262a59b7458f93703fbc2ec473ca5f0efa",
+    "values/0": "63f414d31781310f0580b7411fbd71bf2f8f9a0447ee02718c996b4ace6c8af7"
+  },
+  "pod_template_hash_label_canonical_sha256": "63f414d31781310f0580b7411fbd71bf2f8f9a0447ee02718c996b4ace6c8af7",
+  "template_match_label_keys_contains_pod_template_hash": true,
+  "diff_truncated": false,
+  "stable_readback": true,
+  "main_container_field_mismatches": [],
+  "main_extra_container_fields": [],
+  "main_mounts_expected_subset": true,
+  "main_extra_mount_count": 1,
+  "all_nine_template_volumes_present_once_and_equal": true,
+  "ready": true,
+  "pod_ip_and_pod_ips_present": true,
+  "queries": 6,
+  "raw_values_exported": false,
+  "secret_api_reads": 0,
+  "provider_requests": 0,
+  "files_modified": false,
+  "workload_modified": false,
+  "hash_interpretation": {
+    "mount_path_matches_standard_serviceaccount_path": true,
+    "read_only_matches_true": true,
+    "selector_key_matches_pod_template_hash": true,
+    "selector_operator_matches_In": true,
+    "selector_value_matches_the_pod_own_hash_label": true,
+    "mount_name_plaintext_not_observed": true,
+    "future_validator_must_bind_mount_to_actual_single_projected_serviceaccount_volume": true
+  }
+}

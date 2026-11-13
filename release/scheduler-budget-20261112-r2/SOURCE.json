@@ -1,0 +1,23 @@
+{
+  "after_gateway_generation": 415,
+  "before_gateway_generation": 414,
+  "global_max_recursion_limit": 10000,
+  "operator": {
+    "bytes": 63743,
+    "filename": "activate-scheduler-budget-20261112-r2.py",
+    "sha256": "17fb030c30f469500b2f27196d229c0fde1394a256dc8e76c01a0f55a506d80e"
+  },
+  "production_mutation_performed_by_sealer": false,
+  "qualification_child": {
+    "bytes": 8290,
+    "sha256": "b052131a1e37f7f3e38e3f64ba1cefa8735337011d50c1e104614996ec919d81"
+  },
+  "scheduler_recursion_limit_after": 10000,
+  "scheduler_recursion_limit_before": 300,
+  "schema": "scheduler-budget-source-release.v1",
+  "source": {
+    "bytes": 52651,
+    "sha256": "d1de613d7bad7a2cddd0d6630290419e97c2123a5051e279c3bd946fd88c2309"
+  },
+  "tool_revision": "r2"
+}
