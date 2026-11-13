@@ -16,7 +16,7 @@ def snapshot(ref=None):
         paths = [p.relative_to(ROOT).as_posix() for p in (ROOT / source.ENERGY).rglob('*')
                  if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc']
         return lambda path: (ROOT / path).read_bytes(), paths
-    names = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref], cwd=ROOT).decode().splitlines()
+    names = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', '-z', ref], cwd=ROOT).decode().split('\0')
     # Reading is lazy and cached: every selected byte comes from the chosen ref.
     cache = {}
     def read(path):

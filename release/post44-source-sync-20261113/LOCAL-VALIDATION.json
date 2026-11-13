@@ -1,35 +1,50 @@
 {
-  "schema": "post44-local-validation.v1",
-  "production_commands_executed": false,
-  "credential_values_exported": false,
-  "private_value_scan": {
-    "files": 1024,
-    "archive_members": 1959,
-    "sealed_assets": 86,
-    "existing_private_password_compared_without_export": true,
-    "matches": 0
+  "backend_ruff": {
+    "check": "PASS",
+    "format_check": "PASS",
+    "formatted_files_checked": 1317
   },
+  "credential_values_exported": false,
+  "limits": [
+    "Three pre-existing ChannelService tests require Linux fcntl and fail on Windows; no runtime workaround was added.",
+    "Initial financial CLI subprocess checks used the Windows code page; the affected test modules pass with explicit inherited UTF-8.",
+    "Initial pytest tmp_path setup encountered an existing inaccessible global temporary root; subsequent runs use isolated workspace basetemp.",
+    "Historical production receipts are retained separately from this source validation.",
+    "Scheduled budget 10000 is not deployed; real full daily and Work webhook acceptance remain open."
+  ],
   "passed": {
-    "portable_operator_tests": 350,
-    "portable_operator_subtests": 20,
-    "scheduler_r5_boundaries": 50,
+    "financial_adjusted_and_cli_targeted": 55,
+    "financial_full_suite": 374,
     "gateway_links_and_publication": 79,
-    "source_and_rejection_tests": 31,
-    "financial_adjusted_and_cli_targeted": 55
+    "historical_energy_subtests": 35,
+    "historical_energy_tests": 171,
+    "portable_operator_subtests": 20,
+    "portable_operator_tests": 350,
+    "scheduler_r5_boundaries": 50,
+    "source_and_rejection_tests": 31
   },
   "platform_skips": {
-    "portable_operator_tests": 60,
-    "portable_candidate_browser_tests": 2
+    "historical_energy_tests": 3,
+    "portable_candidate_browser_tests": 2,
+    "portable_operator_tests": 60
   },
   "portable_210_separate_process_regressions": {
-    "main": 37,
     "browser": 10,
     "browser_skipped": 2,
-    "receipt": 3,
+    "failures": 0,
     "final_text": 13,
-    "failures": 0
+    "main": 37,
+    "receipt": 3
   },
-  "backend_ruff": {"check": "PASS", "format_check": "PASS", "formatted_files_checked": 1317},
+  "private_value_scan": {
+    "archive_members": 1959,
+    "existing_private_password_compared_without_export": true,
+    "files": 1024,
+    "matches": 0,
+    "sealed_assets": 86
+  },
+  "production_commands_executed": false,
+  "schema": "post44-local-validation.v1",
   "worktree_verifiers": [
     "post44-source-20261113",
     "released-sync-20261110",
@@ -37,12 +52,5 @@
     "nov02-released-source-20261103",
     "production-baseline-20261029",
     "sealed-current-energy-skill-review"
-  ],
-  "limits": [
-    "Three pre-existing ChannelService tests require Linux fcntl and fail on Windows; no runtime workaround was added.",
-    "Initial financial CLI subprocess checks used the Windows code page; the affected test modules pass with explicit inherited UTF-8.",
-    "Initial pytest tmp_path setup encountered an existing inaccessible global temporary root; subsequent runs use isolated workspace basetemp.",
-    "Historical production receipts are retained separately from this source validation.",
-    "Scheduled budget 10000 is not deployed; real full daily and Work webhook acceptance remain open."
   ]
 }
