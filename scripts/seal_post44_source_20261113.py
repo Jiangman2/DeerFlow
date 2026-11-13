@@ -53,6 +53,9 @@ def main():
             if path.is_file():
                 support[path.relative_to(ROOT).as_posix()] = row(path)
     support[ARCHIVE + 'ASSEMBLY.json'] = row(ROOT / ARCHIVE / 'ASSEMBLY.json')
+    for name in parents:
+        if name.startswith('tests/') and (ROOT / name).is_file():
+            support[name] = row(ROOT / name)
     # Formatting is recorded independently of the exact production overlay bytes.
     proofs = {}
     for name in gateway:

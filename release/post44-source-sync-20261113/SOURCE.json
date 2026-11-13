@@ -1510,6 +1510,11 @@
       "bytes": 18569,
       "sha256": "15e3d63b7d32b9a0f75dca7a63507311d610fa5794331e364f09f472a1a362f2",
       "snapshot": "release/post44-source-sync-20261113/parent/tests/test_energy_market_collector.py"
+    },
+    "tests/test_research_fund_expense_purposes_release_20261110.py": {
+      "bytes": 13200,
+      "sha256": "4e345262db7e47ebfeb4d960191e9062092302f237a3287983d8082c569e7980",
+      "snapshot": "release/post44-source-sync-20261113/parent/tests/test_research_fund_expense_purposes_release_20261110.py"
     }
   },
   "production_commands_executed": false,
@@ -4429,6 +4434,26 @@
       "bytes": 76162,
       "sha256": "2645f26db25d81e1809e2d6249cad6f9ac7b6f71987f0fdf80df49b82a4a5705"
     },
+    "tests/test_energy_chat_feedback_entry.py": {
+      "bytes": 25591,
+      "sha256": "57303f22943ccc7513efe5f69649878dbf97339c6f1f3bbe3af954672657df4c"
+    },
+    "tests/test_energy_chatfix_update_child.py": {
+      "bytes": 14752,
+      "sha256": "b33f0f7b195de560e26cb4cc81230a9acb91c4121dcb9d529aa96c2ffa4398f9"
+    },
+    "tests/test_energy_daily_original_entry.py": {
+      "bytes": 7904,
+      "sha256": "849ae7ba77e610ffcdacf06bd7078b2c939bf5a30cb6dfc50317541463e84161"
+    },
+    "tests/test_energy_market_browser.py": {
+      "bytes": 2194,
+      "sha256": "10ce64564635b97c315a109079c66992594ed06afe627f138d1aaa5fdc2bb85b"
+    },
+    "tests/test_energy_market_collector.py": {
+      "bytes": 18612,
+      "sha256": "5a2adbe9836b831c9841bcd5b3981ff114c39631b1cf6594b346e397cf34c8c5"
+    },
     "tests/test_research_fund_adjusted_budget_preflight_20261110.py": {
       "bytes": 23291,
       "sha256": "4e26b3e949f00317b09ff9fe4c9c41261260a2993caeb5066ad2eca5e735be51"
@@ -4436,6 +4461,10 @@
     "tests/test_research_fund_adjusted_budget_release_20261110.py": {
       "bytes": 13129,
       "sha256": "a4b084788822fd0b981e3806add03465f49b0b5bda9fd4432f7aeafa566e346c"
+    },
+    "tests/test_research_fund_expense_purposes_release_20261110.py": {
+      "bytes": 13440,
+      "sha256": "64dfbd2e0119def677b504c8b4a2e0a37ef5372123d02bb383cfb82fc337bff0"
     }
   }
 }

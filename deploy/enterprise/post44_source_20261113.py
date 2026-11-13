@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 
 ARCHIVE = 'release/post44-source-sync-20261113/'
 MANIFEST = ARCHIVE + 'SOURCE.json'
-MANIFEST_SHA256 = '5eebacbe4d40a36f26c0a77e8b8502fbcd3d1a1ef052b9f19ebda0ea332563e7'
+MANIFEST_SHA256 = '705f0a8fcfc68a855137bb939faf2b248b62613ee73765ebd84a69a3c94d9436'
 ENERGY = 'skills/public/energy-market-daily/'
 BASE_COMMIT = 'f882aa44b96a8aa7e35008a683677c7e55d2ddf8'
 GATEWAY_PATHS = frozenset({
