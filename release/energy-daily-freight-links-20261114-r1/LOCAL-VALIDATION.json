@@ -1,0 +1,74 @@
+{
+  "schema": "energy-freight-links-local-validation.v1",
+  "version": "2.1.1-portable",
+  "candidate_manifest_sha256": "e7e66e6e00e7b0fc64e1ccec098c09b2eedf23b3b1ee89687496d28a651b79a9",
+  "package_sha256": "a950ad0d06a7c77ede65683523c24a9c87f802b1ead636e995101025861c3ca9",
+  "installer_sha256": "12525a5395a1744580c3705dcf24a27bca868f78f48ba6180388fa3339275697",
+  "tests": [
+    {
+      "suite": "frozen_candidate_regressions",
+      "runtime": "Windows Python 3.12",
+      "run": 97,
+      "passed": 95,
+      "skipped": 2,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "frozen_candidate_regressions",
+      "runtime": "Linux Python 3.10 UID1000 repository readonly network none executable tmpfs",
+      "run": 97,
+      "passed": 97,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "installer_api_compose_and_sealed_package",
+      "runtime": "Windows Python 3.12",
+      "run": 26,
+      "passed": 26
+    },
+    {
+      "suite": "installer_api_compose_and_sealed_package",
+      "runtime": "Linux Python 3.10 UID1000 network none",
+      "run": 26,
+      "passed": 26
+    },
+    {
+      "suite": "sealed_assets_and_wrong_host",
+      "runtime": "Linux Python 3.7.17 network none",
+      "assets_verified": 4,
+      "wrong_host_refused": true,
+      "commands": 0
+    },
+    {
+      "suite": "skill_creator_structure",
+      "status": "PASS_UTF8"
+    }
+  ],
+  "local_render": {
+    "basis": "Windows synthetic complete and freight fallback fixture; final search-completeness-only correction subsequently covered by frozen regressions",
+    "complete_png_sha256": "67afa8620f63c3ab974570fe5bcd8896e29ba99e9f942e85d6ed6bbc6e9b58fa",
+    "freight_png_sha256": "0ab7beea73f625b06c3458c01a6ce117c3bf80efc52f1d21174d4c279b308cd4",
+    "freight_png_width": 780,
+    "freight_png_height": 5870,
+    "freight_render_seconds": 2.891,
+    "actual_html_json_txt_dates_checked": true,
+    "per_quote_code_date_value_checked": true,
+    "visual_review": "Freight date labels and values readable, no overlap, seven sections retained",
+    "not_production_arm64_pixel_identity": true
+  },
+  "reviews": {
+    "freight_search_completeness_bug_fixed": true,
+    "actual_output_checks_strengthened": true,
+    "installation_scope_reviewed": true
+  },
+  "production_executed": false,
+  "arm64_candidate_qualification_pending": true,
+  "real_current_conversation_delivery_pending": true,
+  "credentials_read": false,
+  "provider_requests": 0,
+  "messages_sent": 0,
+  "gateway_modified": false
+}

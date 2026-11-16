@@ -1,0 +1,18 @@
+{
+  "actual_ordinary_view_not_yet_proven": true,
+  "all_protected_deployments_unchanged": true,
+  "fixed_png_render_seconds": 3.485,
+  "installed_files": 110,
+  "maintenance_resources_cleaned": true,
+  "messages_sent": 0,
+  "operation": "1ed48e84ae104d2abd3645c01221cf34",
+  "production_arm64_regressions": 57,
+  "receipt_bytes": 9782,
+  "receipt_reconstructed_exactly_from_operator_json": true,
+  "receipt_sha256": "a6d9ead7b1a0fe4d3573c655eb0cac582290a59c0f978a1f691a633e79055815",
+  "schema": "energy-webhook-skill-install-field-observation.v1",
+  "status": "SKILL_217_PUBLISHED_ARM64_RENDER_ACCEPTED_CONSUMER_VISIBILITY_PENDING",
+  "tree_sha256": "e9f273fb122b42a692517e39323ef0bbe6c80318cacdf694bb39ebc094ce99a0",
+  "visibility_probe_packaging_defect": "EMBEDDED_EXPECTED_SKILL_COUNT_108_FOR_110_FILE_RELEASE",
+  "webhook_business_acceptance_pending": true
+}

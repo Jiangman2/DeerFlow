@@ -1,0 +1,12 @@
+{
+  "bytes": 91458,
+  "child_sha256": "bd52531b6c93de1b3888331582e804387daf7771747d50531022f18a14d89d62",
+  "database_readonly": true,
+  "filename": "inspect-energy-webhook-permissions-20261116-r1.py",
+  "files_modified": false,
+  "messages_sent": 0,
+  "production_executed": false,
+  "schema": "energy-webhook-permissions-package.v1",
+  "sha256": "483dfa86c7cb38a2aa8a3431fdc7aee5e1002d8eb1d235ed89f35d4830deaebb",
+  "target_thread": "cd2ca7b0-139c-4576-ab5f-c67e9837db10"
+}

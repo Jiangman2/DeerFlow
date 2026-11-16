@@ -1,0 +1,35 @@
+{
+  "configured_global_concurrency": 3,
+  "gateway": {
+    "generation": 418,
+    "spec_sha256": "ebdfb3f85c151a67b12c6aed4f145b60330e19925996194f201f31d839ee0c0e",
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+  },
+  "multi_instance_configured": false,
+  "observed_at_utc": "2026-11-16T01:21:55.592455+00:00",
+  "production_update_performed": false,
+  "queued": 86,
+  "read_only": true,
+  "requested_final_concurrency": 32,
+  "running": 3,
+  "running_leases_not_expired": 3,
+  "scheduler_step_budget": 10000,
+  "schema": "scheduler-queue-field-observation.v1",
+  "source_attachment_sha256": "4346a3f596db200874ec4eb8cb84dd6b5b86006f5e2d26f3c7cbfc9bb7c4b858",
+  "source_hashes": {
+    "app/scheduler/service.py": {
+      "bytes": 28780,
+      "sha256": "ab48b5861cec9eff14cb9dea062c8a16dfa62df94e8801dcb9b53f584e8ba263"
+    },
+    "packages/harness/deerflow/config/scheduler_config.py": {
+      "bytes": 972,
+      "sha256": "4495e7c800fa602dd7a0bf85ef15768030abf6bf4f2095e654330a56db1070cb"
+    },
+    "packages/harness/deerflow/persistence/scheduled_task_runs/sql.py": {
+      "bytes": 39510,
+      "sha256": "7c056874bcbdcede1743fbe55b498f2df5a7d9d12cdea3a38af03703d9462281"
+    }
+  },
+  "status": "CAPACITY_THREE_SATURATED_WITH_86_WAITING",
+  "targets_not_started": 2
+}

@@ -1,0 +1,31 @@
+{
+  "application_config_may_resolve_database_credentials": true,
+  "assets": {
+    "edge": {
+      "bytes": 9762,
+      "sha256": "f5fe18df9b2fedb9a7b78162ea3a6f16b86d65f9f772561c2ff01bec8983ee02"
+    },
+    "task": {
+      "bytes": 64602,
+      "sha256": "298824f6c3c4eec61a6468c5c67ad19fbb796217c851de2e6d28f511cf25d241"
+    },
+    "views": {
+      "bytes": 30743,
+      "sha256": "7290d284c8d4d8353aa61ffd96e592c3373aad5adbc815da90c06ad0a751ab1a"
+    }
+  },
+  "bytes": 142394,
+  "child_sha256": "77b8d3d5e065bdad883d72e1f516e377b2790a6060bf33d278b1d83825ae7743",
+  "credentials_exported": false,
+  "database_readonly": true,
+  "filename": "inspect-energy-serving-reader-20261115-r1.py",
+  "fixed_thread": "d934a54e-b894-4970-a32e-9b983c55d0df",
+  "mutations_supported": false,
+  "production_executed": false,
+  "provider_requests": 0,
+  "raw_configuration_exported": false,
+  "raw_messages_exported": false,
+  "schema": "energy-serving-reader-diagnostic-package.v1",
+  "sha256": "f846ed9763fe200d49fd75b53ecd7256eecae7d64f707f4ee9953464ddc324b0",
+  "work_messages_sent": 0
+}

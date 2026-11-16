@@ -1,0 +1,19 @@
+{
+  "create_patch_delete_supported": false,
+  "field_input_bytes": 1341,
+  "field_input_sha256": "e37e8c6b1766f5bcf673fc7e3ca669e266fa1739603cc1f37d769db966ac5f99",
+  "field_report_sha256": "93e1e731551a2ad724f201ac3832e03f40b641bc99ecb8837051af961053d592",
+  "immutable_parent_sha256": "dff040f55c50089d3f1b3f3c738f00699ed2ec844fc476182c81ef63dd8309c8",
+  "old_releases_modified": false,
+  "only_observed_defaulting_accepted": true,
+  "operator": {
+    "bytes": 307415,
+    "filename": "verify-task-conversation-context-20261114-r2.py",
+    "sha256": "2981acbafeb57493e6b3ab8d70c6d37c2abd7e0d25f703be7bc031d28a65431c"
+  },
+  "prior_operation": "86bbcfd1fb7f40819284fa431ecce9f1",
+  "production_requests": 0,
+  "schema": "task-context-readonly-postcheck-release.v1",
+  "template_sha256": "50ac69d8eb508fdeb5c71645d5778eafeeed7c7a5ae3b832d94454925ab42c82",
+  "tests": 11
+}

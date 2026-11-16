@@ -1,0 +1,18 @@
+{
+  "authenticated_mobile_html_access_proven": false,
+  "fixed_png_and_dated_freight_render_qualified": true,
+  "gateway_generation_unchanged": 418,
+  "observed_at": "2026-11-15T12:23:58.600665+00:00",
+  "old_notifications_replayed": false,
+  "operation": "db234834b59a4fbca2cc4d466d861bcd",
+  "ordinary_sandbox_visible": true,
+  "provider_requests": 0,
+  "real_future_scheduled_work_delivery_proven": false,
+  "receipt_bytes": 10368,
+  "receipt_reconstructed_exactly_from_operator_json": true,
+  "receipt_sha256": "cf114e7b616df747e706f9efedb3757692abba0ea7f1ef14524fd30ebb362a5b",
+  "schema": "energy-work-preview-operator-acceptance.v1",
+  "skill_tree_sha256": "432383e2ee0d52d49328b6a0ccde56b0d04c10b81e03e4b854a507d9078e44ba",
+  "status": "SKILL_216_INSTALLED_RUNTIME_ACCEPTED_BUSINESS_PENDING",
+  "work_messages_sent": 0
+}

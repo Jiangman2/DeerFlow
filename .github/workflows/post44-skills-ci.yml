@@ -5,9 +5,13 @@ on:
       - 'portable-skills/**'
       - 'skills/public/energy-market-daily/**'
       - 'release/post44-source-sync-20261113/**'
+      - 'release/post51-energy-production-sync-20261116/**'
+      - 'release/energy-*/**'
       - 'release/scheduler-*/**'
       - 'deploy/enterprise/post44_source_20261113.py'
       - 'deploy/enterprise/verify-post44-source-20261113.py'
+      - 'deploy/enterprise/post51_energy_source_20261116.py'
+      - 'deploy/enterprise/verify-post51-energy-source-20261116.py'
       - '.github/workflows/post44-skills-ci.yml'
   workflow_dispatch:
 permissions:
@@ -32,13 +36,19 @@ jobs:
         working-directory: backend
       - name: Verify committed source and preserved originals
         run: backend/.venv/bin/python -B deploy/enterprise/verify-post44-source-20261113.py --ref HEAD
+      - name: Verify November 16 production source and acceptance limits
+        run: backend/.venv/bin/python -B deploy/enterprise/verify-post51-energy-source-20261116.py --ref HEAD
+      - name: Current 2.1.8 sealed publication behavior
+        run: backend/.venv/bin/python -B portable-skills/deployment/webhook-publication-fix-20261116-r1/check_local.py
+      - name: Scheduler 32 admission and lease-aware mode boundaries
+        run: backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=portable-skills/deployment -q portable-skills/deployment/scheduler-concurrency-20261116-r1/test_activation.py portable-skills/deployment/scheduler-concurrency-20261116-r1/test_config_change.py
       - name: Portable 2.1.0 behavior and original renderer parity
         run: backend/.venv/bin/python -B portable-skills/diagnostics/energy-market-daily-2.1.0-final-text-r1/run_candidate_regressions.py
       - name: Final text and exact publication receipt behavior
         run: backend/.venv/bin/python -B portable-skills/diagnostics/energy-market-daily-2.1.0-final-text-r1/test_final_text.py
       - name: Operator and recovery boundaries without production
-        run: backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=portable-skills/tests -q portable-skills/tests
+        run: backend/.venv/bin/python -B scripts/test_portable_energy_versions.py
       - name: Latest scheduler budget guards
         run: backend/.venv/bin/python -B portable-skills/deployment/scheduler-budget-20261113-r5/test_scheduler_budget.py
       - name: Reject source and evidence tampering
-        run: backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=tests -q tests/test_post44_source_20261113.py tests/test_scheduler_budget_runtime_acceptance_20261113.py
+        run: backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=tests -q tests/test_post44_source_20261113.py tests/test_scheduler_budget_runtime_acceptance_20261113.py tests/test_post51_energy_source_20261116.py

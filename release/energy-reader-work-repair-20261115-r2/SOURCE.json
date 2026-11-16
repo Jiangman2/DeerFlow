@@ -1,0 +1,98 @@
+{
+  "assets": {
+    "code": {
+      "bytes": 20869,
+      "sha256": "018d6c05f6d775a8d03634b9367c70a8246e930c94940037badbb77ad6c791b3"
+    },
+    "gateway_child": {
+      "bytes": 43709,
+      "sha256": "9554cbd5ae347acc7f4bec8ea0ee12d4de459b92b4a61827efc5f3b3e2849035"
+    },
+    "reader": {
+      "bytes": 10217,
+      "sha256": "066a24491ad15c24fc8c190c92b0a5c4620dfbeb937f6a24197ead7670a81b5c"
+    },
+    "startup": {
+      "bytes": 28386,
+      "sha256": "cdb21eb0c088071455f731ea96408e569e5decc082d9e63a688034ab469eb006"
+    }
+  },
+  "bytes": 178973,
+  "changed_gateway_files": [
+    "work_notification_delivery.py",
+    "work_notifications.py"
+  ],
+  "filename": "repair-energy-reader-work-20261115-r2.py",
+  "gateway_next_sources": {
+    "/app/backend/app/channels/manager.py": {
+      "bytes": 94358,
+      "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
+    },
+    "/app/backend/app/gateway/routers/uploads.py": {
+      "bytes": 37879,
+      "sha256": "13b842ee8fd7035555768b1ecb787d944c53088121a6e240f32b69b669b93b1f"
+    },
+    "/app/backend/app/gateway/services.py": {
+      "bytes": 54226,
+      "sha256": "4bf26f6ac2166de7851015af36fed73a8b7d1b0e98b7918806c454e623dbd435"
+    },
+    "/app/backend/app/gateway/upload_document_memory_guard.py": {
+      "bytes": 8956,
+      "sha256": "37e67be268214537ae8f149a3d45751111cfd34c460a0125e1b03cf65bce4fcf"
+    },
+    "/app/backend/app/integrations/work/notifications.py": {
+      "bytes": 10025,
+      "sha256": "2f25958bcb2556685d153bef55f72afebd360deb157cd13164ceb4261001f039"
+    },
+    "/app/backend/app/scheduler/work_notification_delivery.py": {
+      "bytes": 5209,
+      "sha256": "2127f2f5cc89dea6ca1772cb0e3c79ecc88ce449dd2a707c1d4a6bacca674b12"
+    },
+    "/app/backend/app/scheduler/work_notifications.py": {
+      "bytes": 14575,
+      "sha256": "03a20b2909d5b3904cb77f8aa929ef45741bc7ad2ff111f3b8a273f6cabf7762"
+    },
+    "/app/backend/packages/harness/deerflow/agents/lead_agent/agent.py": {
+      "bytes": 41101,
+      "sha256": "ec108a4b8cc9c608ba790e71bc5a1c34bbd33cd5241503c7a4ddba7a7e5e0d30"
+    },
+    "/app/backend/packages/harness/deerflow/config/app_config.py": {
+      "bytes": 31735,
+      "sha256": "ab3056db7657d4ee9de7fbd754f59f4d8e14be78f2535b049047d6d03cc863ad"
+    },
+    "/app/backend/packages/harness/deerflow/config/scheduler_config.py": {
+      "bytes": 972,
+      "sha256": "4495e7c800fa602dd7a0bf85ef15768030abf6bf4f2095e654330a56db1070cb"
+    },
+    "/app/backend/packages/harness/deerflow/sandbox/tools.py": {
+      "bytes": 100988,
+      "sha256": "e598a0fd0e9d9a83ecdb781be6a345bf974cdef957852d181732f3596ad58330"
+    },
+    "/app/backend/packages/harness/deerflow/tools/builtins/present_file_tool.py": {
+      "bytes": 19640,
+      "sha256": "eccfe1e5975c771465abf96f1da60fdb2a11e0712716aeb2453a2d10fbe30e3b"
+    },
+    "/app/backend/packages/harness/deerflow/utils/conversation_url.py": {
+      "bytes": 5042,
+      "sha256": "f5ac36f16038a3532cd3110d134b72e58c42693c1b9ab9a1b6390d9b4209c0b8"
+    },
+    "/etc/deerflow-openssl/openssl.cnf": {
+      "bytes": 189,
+      "sha256": "20130c1b277e0a5fb79a27af7dc35be38162a6e086aa91e45b4f249d73c61604"
+    }
+  },
+  "gateway_rollout_required": true,
+  "notification_code_and_gateway_child_unchanged": true,
+  "prior_r1_script_sha256": "0c9116a7c9665cd85dee788691b9a6d5648586056dd831f00ac9248f2daf50b5",
+  "production_executed": false,
+  "provider_requests": 0,
+  "repair_scope": "bounded_pod_identity_projection_and_command_size_diagnostics",
+  "revision": "r2",
+  "schedule_updated": false,
+  "scheduled_daily_message": "[\u70b9\u51fb\u67e5\u770b\u65e5\u62a5\u7f51\u9875](<current-task-authenticated-html-reader-url>)",
+  "schema": "energy-reader-work-repair-package.v1",
+  "serving_nginx_deployment": "nginx-security-heai-20261012-r1",
+  "sha256": "40d866d17e6e6ea19e40102b4f7b54c113b029c3e0dbaf042d7a10f74ace62bc",
+  "skill_updated": false,
+  "work_messages_sent": 0
+}

@@ -1,0 +1,15 @@
+{
+  "schema": "energy-publication-fix-webhook-operator-confirmation.v1",
+  "operator_confirmation_date": "2026-11-16",
+  "timezone": "Asia/Shanghai",
+  "accepted_skill_version": "2.1.8-portable",
+  "confirmation": "刚才我试了一下通过webhook向群聊机器人发送结果已经成功",
+  "group_webhook_delivery": "OPERATOR_CONFIRMED_SUCCESS",
+  "specific_test_thread_not_identified_by_confirmation": true,
+  "single_link_message_shape_independently_verified_in_this_test": false,
+  "mobile_reader_login_and_authorization_independently_verified_in_this_test": false,
+  "personal_work_notification_shape": "SEPARATE_REPORTED_ISSUE_UNDER_READONLY_INSPECTION",
+  "messages_sent_by_agent": 0,
+  "task_replayed_by_agent": false,
+  "original_install_receipt_modified": false
+}

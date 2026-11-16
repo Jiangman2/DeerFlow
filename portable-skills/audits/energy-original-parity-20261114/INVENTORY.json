@@ -1,0 +1,213 @@
+{
+  "candidate_sources": [
+    {
+      "bytes": 1500,
+      "path": "CANDIDATE.md",
+      "sha256": "b24b3be6da102c8ef042462c51b96526383e37ada613ddab359b654396749eb1"
+    },
+    {
+      "bytes": 1170,
+      "path": "references/evidence.md",
+      "sha256": "1109594c0f68aeb0b51386ceb59538aafacf5273a4c723485aa236ea53144017"
+    },
+    {
+      "bytes": 4916,
+      "path": "references/runtime.md",
+      "sha256": "aee4792f940c6bf653927ee50ada75b0e69630928b28f47d90459944ac311f7f"
+    },
+    {
+      "bytes": 10051,
+      "path": "scripts/browser_runtime.py",
+      "sha256": "9844b8e4c5e6a6de99a6f7d9cf42f2aafeda1dea5e2b9966f709da7cebf71ae8"
+    },
+    {
+      "bytes": 7380,
+      "path": "scripts/common.py",
+      "sha256": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0"
+    },
+    {
+      "bytes": 45298,
+      "path": "scripts/daily.py",
+      "sha256": "5e2e6beccff0a2cbdad2bba998dc1b1c40732e5de3a1a40b0c804aeff68852a5"
+    },
+    {
+      "bytes": 18770,
+      "path": "scripts/delivery_text.py",
+      "sha256": "b7063ece2863e3c15fd7de1c6243fcd4d9c25743471facfbb241b556d36cbef0"
+    },
+    {
+      "bytes": 12199,
+      "path": "scripts/market.py",
+      "sha256": "0ade49587ad07af0da852e384090525466b79bd936cd9edaf21789493c8a115c"
+    },
+    {
+      "bytes": 16028,
+      "path": "scripts/report_renderer.py",
+      "sha256": "2d82ef0d5a81ff5fd21f5695fe94f8cfca7de3df2ea47911127d7c9346b64c8f"
+    },
+    {
+      "bytes": 13863,
+      "path": "scripts/research.py",
+      "sha256": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee"
+    },
+    {
+      "bytes": 10704,
+      "path": "SKILL.md",
+      "sha256": "fb2546f269136c287243580f197fcc09c4084d42d17f9bca78a0eddc0d107203"
+    }
+  ],
+  "credentials_read": false,
+  "current_candidate": "2.1.2",
+  "history_seed_days": 93,
+  "history_seed_mismatches": [],
+  "original_archive_bytes": 2643453,
+  "original_archive_files": 158,
+  "original_archive_sha256": "eb66843bbe6170d86d33b65efa593be263e778275c6f7d491e1fd0c3c6d98f99",
+  "original_extracted_copy_mismatches": [],
+  "original_files_modified": false,
+  "original_program_and_instruction_files": [
+    {
+      "bytes": 4308,
+      "path": "README.md",
+      "sha256": "1aba95744651c060211ab0e2ce8efdadbe12e2c1943a255530a12c2f903dfe9a"
+    },
+    {
+      "bytes": 1106,
+      "path": "acceptance/RESULTS.md",
+      "sha256": "219ac5de836d1f66ba7502cc253a539a8a9bf45e924e81dcff7538a0c702b0ed"
+    },
+    {
+      "bytes": 3616,
+      "path": "agent/AGENT_PROMPT.md",
+      "sha256": "c5a8a2deacc5b60c8eedcb9c91d04e90b2cf524615c1df667d5e80af95e53365"
+    },
+    {
+      "bytes": 2321,
+      "path": "agent/SKILL.md",
+      "sha256": "4a1f692c9f019f84241e2b97f58d76cbe8a5c0320de99139b6e6c27796671d3e"
+    },
+    {
+      "bytes": 684,
+      "path": "app/fetch_energy_data.py",
+      "sha256": "741636b0c4778748c7605b0b4f6d84c87e291c945b444a51190077bc885ccf9b"
+    },
+    {
+      "bytes": 6591,
+      "path": "app/fetch_market_history.py",
+      "sha256": "3ce565cf11ac261a351c78e69dc4647a521c600b5165d09938f6a52ee6ec7b8a"
+    },
+    {
+      "bytes": 2631,
+      "path": "app/generate_report.py",
+      "sha256": "5bab6c533e4d8f1f0367fad62a9a5699ab34fa45be908c57edee59981ccd37d9"
+    },
+    {
+      "bytes": 10022,
+      "path": "app/report_data.py",
+      "sha256": "0237dd72bb8cdec0566c3f69a0dd071fcbf5ddd7be999ecd16f4b8c9ddd7ca5f"
+    },
+    {
+      "bytes": 14856,
+      "path": "app/report_renderer.py",
+      "sha256": "f361492a588d481d6b50ed7740fbf839b3c2775a389bb2f43ceaeebb984f15eb"
+    },
+    {
+      "bytes": 3372,
+      "path": "app/test_market_history.py",
+      "sha256": "9605a3e19a37b9e1de907fd771c08dd3fb040ee9c8924cd817a76b3afc9b9438"
+    },
+    {
+      "bytes": 1848,
+      "path": "app/test_workflow_gate.py",
+      "sha256": "26f719cfcf6a123782385514f6ecc83d099dc93324f176d5de05ec0c4622005c"
+    },
+    {
+      "bytes": 4721,
+      "path": "app/validate_inputs.py",
+      "sha256": "5fc4e96e4ee4cd5eda12a02f80e20df08d6377c6fa74ddda7d28b80dc20dff1f"
+    },
+    {
+      "bytes": 4807,
+      "path": "app/workflow_gate.py",
+      "sha256": "bdda92b8e86807f52f3ca80d32fc8fae449f3a07803bbce2c763e00bd2ddd140"
+    },
+    {
+      "bytes": 3835,
+      "path": "docs/01-STYLE.md",
+      "sha256": "b053ca62cedecdc2fe9615ef03b6bb7ca77c5d6b58dbe25b01cd4f8071c401c2"
+    },
+    {
+      "bytes": 3680,
+      "path": "docs/02-API.md",
+      "sha256": "97baec6d406513fbc9a4135e68b7e1a9fe421de028e4d2a544bef68ea6380b38"
+    },
+    {
+      "bytes": 4991,
+      "path": "docs/03-ACQUISITION.md",
+      "sha256": "5f81a64b6638e871ab9e17e79779f485da92f13e981fe72f4bbf13b67cadd635"
+    },
+    {
+      "bytes": 4521,
+      "path": "docs/04-EXECUTION.md",
+      "sha256": "92fdd5c33d5a50e6f4b7f546db176f40731d9276b858b19b6080e61915fc8536"
+    },
+    {
+      "bytes": 3660,
+      "path": "docs/05-DATA-CONTRACT.md",
+      "sha256": "979cfb2941e6fe734a241969f9d888f7f75ccb75a144cd6495273fd776ac8a4a"
+    },
+    {
+      "bytes": 4954,
+      "path": "docs/06-DEPLOYMENT.md",
+      "sha256": "408c585b621e659401451201b9f621481bf72c30b60b82b4615f565ea9929943"
+    },
+    {
+      "bytes": 12296,
+      "path": "provenance/original-usage.md",
+      "sha256": "21fe87adca86d029a3ad45ff11b4be7d7f26d750167dbf3f7ffd1d51ea7b50f0"
+    },
+    {
+      "bytes": 7369,
+      "path": "provenance/original-skill/SKILL.md",
+      "sha256": "d5d3753ed2e940b0d07d4f88e95c8ab6b8c4d641818b712db4fb9a7ba3a3cf01"
+    },
+    {
+      "bytes": 7203,
+      "path": "provenance/original-skill/references/acquisition.md",
+      "sha256": "494e1392f74ee242f0b22b6d783ece4c402e351cb978f8adda98c0a90e9d066f"
+    },
+    {
+      "bytes": 1979,
+      "path": "tools/check_environment.py",
+      "sha256": "c6152c8034c11d54ca999874899374a622f03baccca29e0e4493ad8c5651f803"
+    },
+    {
+      "bytes": 1449,
+      "path": "tools/reproduce.py",
+      "sha256": "0c136ac569f406f44b36c9a760152f7ae7a1c268268c5778c4ccedab871059fb"
+    },
+    {
+      "bytes": 506,
+      "path": "tools/verify_manifest.py",
+      "sha256": "3e2c26500a8f085573311f4eadc82a04c5c7b39f705292872f82ebd6c2c873eb"
+    }
+  ],
+  "production_requests": 0,
+  "provider_requests": 0,
+  "renderer_changed_functions": [
+    "chart",
+    "freight_panel",
+    "render"
+  ],
+  "renderer_current_sha256": "2d82ef0d5a81ff5fd21f5695fe94f8cfca7de3df2ea47911127d7c9346b64c8f",
+  "renderer_original_sha256": "f361492a588d481d6b50ed7740fbf839b3c2775a389bb2f43ceaeebb984f15eb",
+  "renderer_unchanged_functions": [
+    "esc",
+    "cards",
+    "news"
+  ],
+  "reviewed_source_mismatches": [],
+  "reviewed_source_sha256": "8052e55a8d8f675cdd80b93d1c94d87b6f270ad7bc9bbc5e8ec5d29093dea146",
+  "reviewed_source_version": "2.1.2-portable",
+  "schema": "energy-original-parity-inventory.v1"
+}

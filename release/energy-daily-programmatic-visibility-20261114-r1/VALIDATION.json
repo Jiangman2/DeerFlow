@@ -1,0 +1,13 @@
+{
+  "schema": "energy-programmatic-visibility-validation.v1",
+  "windows_python": "3.12",
+  "windows_tests": {"run": 16, "failures": 0, "errors": 0},
+  "linux_python": "3.10",
+  "linux_tests": {"run": 16, "failures": 0, "errors": 0, "uid": 1000, "network": "none", "repository_mount": "read_only"},
+  "python37": {"version": "3.7.17", "child_compiled": true, "wrong_host_and_nonroot_refused": true, "queries": 0},
+  "reads_only": ["exact accepted install receipt", "ordinary sandbox metadata", "current Skill files", "public browser runtime manifest and executable metadata"],
+  "production_access_during_local_validation": false,
+  "provider_requests": 0,
+  "messages_sent": 0,
+  "historical_installers_modified": false
+}

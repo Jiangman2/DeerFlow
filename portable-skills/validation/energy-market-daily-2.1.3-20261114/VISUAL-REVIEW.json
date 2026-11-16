@@ -1,0 +1,23 @@
+{
+  "chinese_news_readable": true,
+  "credentials_read": false,
+  "freight_actual_dates_and_reference_labels_preserved": true,
+  "global_warning_absent_from_reference_png": true,
+  "html_retains_warning": true,
+  "production_arm64_qualified": false,
+  "provider_requests": 0,
+  "reviewed_pngs": [
+    {
+      "name": "complete",
+      "sha256": "67afa8620f63c3ab974570fe5bcd8896e29ba99e9f942e85d6ed6bbc6e9b58fa"
+    },
+    {
+      "name": "freight-reference",
+      "sha256": "f24ce683c4b6b1d1092f34d4eeacfe8cfa7b6488fdf522bc73a7ea3f465097ce"
+    }
+  ],
+  "schema": "energy-213-local-visual-review.v1",
+  "seven_sections_visible": true,
+  "source": "LOCAL_SYNTHETIC_REPORTS",
+  "work_messages_sent": 0
+}

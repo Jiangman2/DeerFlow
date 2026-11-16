@@ -1,0 +1,34 @@
+{
+  "all_five_files_byte_identical": true,
+  "candidate_version": "2.1.3-portable",
+  "comparison_basis": "PUBLISHED_2.1.2_ADAPTATION_NOT_ORIGINAL_AUTHOR_FULL_WORKFLOW",
+  "files": {
+    "browser_runtime.py": {
+      "bytes": 10051,
+      "candidate_sha256": "9844b8e4c5e6a6de99a6f7d9cf42f2aafeda1dea5e2b9966f709da7cebf71ae8",
+      "prior_sha256": "9844b8e4c5e6a6de99a6f7d9cf42f2aafeda1dea5e2b9966f709da7cebf71ae8"
+    },
+    "common.py": {
+      "bytes": 7380,
+      "candidate_sha256": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0",
+      "prior_sha256": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0"
+    },
+    "market.py": {
+      "bytes": 12199,
+      "candidate_sha256": "0ade49587ad07af0da852e384090525466b79bd936cd9edaf21789493c8a115c",
+      "prior_sha256": "0ade49587ad07af0da852e384090525466b79bd936cd9edaf21789493c8a115c"
+    },
+    "report_renderer.py": {
+      "bytes": 16028,
+      "candidate_sha256": "2d82ef0d5a81ff5fd21f5695fe94f8cfca7de3df2ea47911127d7c9346b64c8f",
+      "prior_sha256": "2d82ef0d5a81ff5fd21f5695fe94f8cfca7de3df2ea47911127d7c9346b64c8f"
+    },
+    "research.py": {
+      "bytes": 13863,
+      "candidate_sha256": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee",
+      "prior_sha256": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee"
+    }
+  },
+  "prior_version": "2.1.2-portable",
+  "schema": "energy-programmatic-core-source-preservation.v1"
+}

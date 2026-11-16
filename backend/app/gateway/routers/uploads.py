@@ -22,10 +22,10 @@ from app.gateway.file_security import (
     validate_staged_upload,
     validate_upload_extension,
 )
+from app.gateway.upload_document_memory_guard import parse_conversation_document_file
 from app.gateway.upload_document_parser import (
     UploadDocumentParseError,
     conversation_document_parser_endpoint,
-    parse_conversation_document,
 )
 from deerflow.config.app_config import AppConfig
 from deerflow.config.paths import get_paths
@@ -770,11 +770,10 @@ async def upload_files(
             elif file_ext in ENTERPRISE_PARSER_EXTENSIONS and document_parser_endpoint:
                 parse_attempted = True
                 try:
-                    document_content = await run_file_io(Path(file_path).read_bytes)
-                    parsed_markdown = await parse_conversation_document(
+                    parsed_markdown = await parse_conversation_document_file(
                         endpoint=document_parser_endpoint,
                         filename=safe_filename,
-                        content=document_content,
+                        file_path=Path(file_path),
                     )
                     md_path = await run_file_io(
                         _write_parsed_markdown,

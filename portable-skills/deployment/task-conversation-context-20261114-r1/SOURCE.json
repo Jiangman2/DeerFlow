@@ -1,0 +1,26 @@
+{
+  "files": [
+    {
+      "candidate_bytes": 100988,
+      "candidate_sha256": "e598a0fd0e9d9a83ecdb781be6a345bf974cdef957852d181732f3596ad58330",
+      "parent_bytes": 99410,
+      "parent_path": ".codex-post44-sync-20261113/backend/packages/harness/deerflow/sandbox/tools.py",
+      "parent_sha256": "a8e8b4f3ff94f79e2e0458414f4c2d55310bdd170a8859c00b99dd1d65ad929c",
+      "path": "backend/packages/harness/deerflow/sandbox/tools.py",
+      "production_parent_sha256_pending": true
+    },
+    {
+      "bytes": 5042,
+      "gateway416_locked_source": true,
+      "modified": false,
+      "path": "backend/packages/harness/deerflow/utils/conversation_url.py",
+      "sha256": "f5ac36f16038a3532cd3110d134b72e58c42693c1b9ab9a1b6390d9b4209c0b8",
+      "source_path": "portable-skills/deployment/gateway-link-r3/backend/packages/harness/deerflow/utils/conversation_url.py"
+    }
+  ],
+  "production_requests": 0,
+  "runtime_parent_source_verified": false,
+  "schema": "task-conversation-context-candidate.v1",
+  "source_basis": "POST44_KNOWN_LOCAL_TOOLS_AND_GATEWAY416_LOCKED_CONVERSATION_HELPER",
+  "status": "OFFLINE_CANDIDATE_NOT_DEPLOYED"
+}

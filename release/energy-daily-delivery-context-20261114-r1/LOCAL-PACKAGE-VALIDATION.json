@@ -1,0 +1,16 @@
+{
+  "commands": 0,
+  "gateway_receipt_bytes": 4064,
+  "gateway_receipt_sha256": "e139a6a2d05b797f699aa094a3f92886473731a6c323a5267e7e39cff3e994b7",
+  "linux_uid": 1000,
+  "messages_sent": 0,
+  "network": "none",
+  "production_executed": false,
+  "provider_requests": 0,
+  "python": "3.7.17",
+  "real_browser_used": false,
+  "schema": "energy-delivery-context-formal-package-validation.v1",
+  "sealed_assets": 4,
+  "source_mount_readonly": true,
+  "status": "FORMAL_SEALED_ASSETS_AND_WRONG_HOST_ACCEPTED"
+}

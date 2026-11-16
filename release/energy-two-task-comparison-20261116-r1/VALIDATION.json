@@ -1,0 +1,22 @@
+{
+  "schema": "energy-two-result-comparison-offline-validation.v1",
+  "status": "READONLY_INSPECTOR_TESTED_FIELD_DIAGNOSIS_PENDING",
+  "windows_tests": {"run": 30, "errors": 0, "failures": 0},
+  "linux_python310_uid1000_tests": {"run": 30, "errors": 0, "failures": 0},
+  "python37_sealed_child_and_wrong_host_guard": "PASS",
+  "exact_thread_ids": [
+    "9214a4fc-4cff-4599-9855-ea0af1d1ee27",
+    "945b81c9-225f-4a12-a033-19d13da92903"
+  ],
+  "success_not_inferred_from_link_order": true,
+  "database_readonly": true,
+  "raw_messages_or_commands_exported": false,
+  "notification_ciphertext_selected_or_decrypted": false,
+  "pickle_or_application_object_loading": false,
+  "production_executed": false,
+  "provider_requests": 0,
+  "work_messages_sent": 0,
+  "tasks_retried": false,
+  "gateway_or_skill_modified": false,
+  "this_tool_establishes_rollout_acceptance": false
+}

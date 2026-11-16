@@ -1,0 +1,45 @@
+"""Scope the qualified readonly inspector to the newly reported personal result."""
+import ast
+import base64
+import hashlib
+import json
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2]
+THREAD = '9a762837-e4c4-4376-a14d-fcefbacd4bbc'
+RELEASE = ROOT / 'release/energy-personal-delivery-20261116-r1'
+NAME = 'inspect-energy-personal-delivery-20261116-r1.py'
+
+
+def build():
+    path = ROOT / 'release/energy-webhook-permissions-20261116-r2/inspect-energy-webhook-permissions-20261116-r2.py'
+    raw = path.read_bytes();assert hashlib.sha256(raw).hexdigest() == '12190a8560f8811dcd81acfb4cb2fdf0ce9b18cdaa590252c7d4b0322bbab65e'
+    scope = {'__name__': 'readonly_personal_parent'};exec(compile(raw, str(path), 'exec'), scope)
+    child = base64.b64decode(scope['ASSET']['base64']).decode().replace('cd2ca7b0-139c-4576-ab5f-c67e9837db10', THREAD)
+    marker = '\ndef main():\n';assert child.count(marker) == 1
+    child = child.replace(marker, '\n' + (HERE / 'extra.py').read_text(encoding='utf-8') + marker)
+    child = child.replace('energy-webhook-permissions-child.v2', 'energy-personal-delivery-child.v1')
+    asset = {'base64': base64.b64encode(child.encode()).decode(), 'bytes': len(child.encode()), 'sha256': hashlib.sha256(child.encode()).hexdigest()}
+    host = raw.decode().replace('cd2ca7b0-139c-4576-ab5f-c67e9837db10', THREAD)
+    node = next(n for n in ast.parse(host).body if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'ASSET' for t in n.targets))
+    lines = host.splitlines(keepends=True);lines[node.lineno - 1:node.end_lineno] = ['ASSET=' + repr(asset) + '\n']
+    host = ''.join(lines).replace('energy-webhook-permissions-inspection.v2', 'energy-personal-delivery-inspection.v1')
+    for source in (host, child):ast.parse(source, feature_version=(3, 7));compile(source, '<personal-delivery-inspection>', 'exec')
+    return host.encode(), child.encode()
+
+
+def main():
+    host, child = build();RELEASE.mkdir(parents=True, exist_ok=True)
+    meta = {'schema': 'energy-personal-delivery-package.v1', 'filename': NAME, 'bytes': len(host),
+        'sha256': hashlib.sha256(host).hexdigest(), 'child_sha256': hashlib.sha256(child).hexdigest(),
+        'target_thread': THREAD, 'production_executed': False, 'messages_sent': 0,
+        'database_readonly': True, 'task_replayed': False, 'external_chat_ids_exported': False}
+    for name, raw in ((NAME, host), ('SOURCE.json', (json.dumps(meta, sort_keys=True, indent=2) + '\n').encode())):
+        path = RELEASE / name
+        if path.exists():assert path.read_bytes() == raw
+        else:path.write_bytes(raw)
+    print(json.dumps(meta, sort_keys=True))
+
+
+if __name__ == '__main__':main()

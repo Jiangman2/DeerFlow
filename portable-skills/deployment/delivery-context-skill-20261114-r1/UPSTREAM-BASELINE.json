@@ -1,0 +1,42 @@
+{
+  "production_modified": false,
+  "copied_sources": {
+    "verify_child.py": {
+      "sha256": "dc48996e14124c24fa82acc1ab7ab3dc12109f4ea1ffc4f7809bb036c46c5a12",
+      "bytes": 13186,
+      "source": "portable-skills/deployment/freight-link-20261114-r1/verify_child.py"
+    },
+    "validate_candidate.py": {
+      "sha256": "1bcbb57c84dfc7bbd652abf7a6d0f9cf6f2a105b72d5daa9f0381c045a9bc7de",
+      "bytes": 3970,
+      "source": "portable-skills/deployment/freight-link-20261114-r1/validate_candidate.py"
+    },
+    "operator.py": {
+      "sha256": "e2c8e724ec0e12a6470e4b19d92622c45fc04886277317b35d2da50f7bcefad3",
+      "bytes": 34244,
+      "source": "portable-skills/deployment/freight-link-20261114-r1/operator.py"
+    },
+    "compose_probe.py": {
+      "sha256": "030283608d2934d44b2a16df000a7d4f3ed61f5c9ee781971291dbde3f351b0f",
+      "bytes": 12111,
+      "source": "portable-skills/deployment/freight-link-20261114-r1/compose_probe.py"
+    },
+    "test_api.py": {
+      "sha256": "912f9ce57dadafb3a46682ce5aa0945547d319c7f8f87adc23e5e1990b53b4fb",
+      "bytes": 17180,
+      "source": "portable-skills/deployment/freight-link-20261114-r1/test_api.py"
+    },
+    "publisher.py": {
+      "sha256": "8d273a92a538fb88393b92913b2bc49e1e8bf420b56289d2baa36e5975fa1128",
+      "bytes": 21410,
+      "source": "portable-skills/deployment/freight-link-20261114-r1/publisher.py"
+    },
+    "test_compose_api.py": {
+      "sha256": "e6eae9b33ef469582144b1d2fdd45374ed24a126d6c742927b9d11f55de58731",
+      "bytes": 2826,
+      "source": "portable-skills/deployment/freight-link-20261114-r1/test_compose_api.py"
+    }
+  },
+  "historical_sources_modified": false,
+  "schema": "delivery-context-installer-upstream.v1"
+}

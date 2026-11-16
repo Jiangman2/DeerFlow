@@ -1,0 +1,15 @@
+{
+  "accepted_operation": "8ca2af7963444e528d5add470bcf608e",
+  "accepted_receipt_sha256": "e47a95e921c403f37c3e8f7d97161c348c35e7da3bb8446c8ecdcab36abe41bb",
+  "bytes": 30743,
+  "expected_tree_sha256": "67b0cc44e9aec87fa4fa12274704f59baa636ccd566e55d8cb79cad23efbfeaa",
+  "filename": "inspect-energy-reader-skill-visibility-20261114-r1.py",
+  "max_sampled_nodes": 3,
+  "messages_sent": 0,
+  "production_executed": false,
+  "provider_requests": 0,
+  "read_only": true,
+  "schema": "energy-html-reader-skill-visibility-package.v1",
+  "sha256": "7290d284c8d4d8353aa61ffd96e592c3373aad5adbc815da90c06ad0a751ab1a",
+  "visibility_child_sha256": "3863b4ac28688cc3d93c9fa47c11a9a0ba99cb3cf6a74b109326566ca5169b1b"
+}

@@ -273,20 +273,23 @@ def test_work_uses_daily_markdown_link_from_host_not_model(tmp_path, monkeypatch
     assert text.endswith(f"[点击查看完整日报]({URL})")
 
 
-def test_scheduler_daily_keeps_only_public_news_urls_and_uses_host_link():
+def test_scheduler_daily_keeps_only_current_reader_link():
     from app.scheduler import work_notification_delivery as delivery
     from app.scheduler.work_notifications import _notification_summary
 
     body = "油气与金融市场日报\n1. [真实新闻](https://oilprice.com/real.html)\n其他：https://unsafe.example/private?token=private"
+    reader = f"{ORIGIN}/reports/energy-daily/{THREAD}/2026-11-16.html"
+    body += f"\n[点击查看日报网页]({reader})"
     notification = SimpleNamespace(title="日报", result_text=body, finished_at=None, thread_id=THREAD)
     text = delivery._message(notification, ORIGIN)
-    assert "[真实新闻](https://oilprice.com/real.html)" in text
+    assert text == f"[点击查看日报网页]({reader})"
     assert "unsafe.example" not in text and "token=private" not in text
-    assert text.endswith(f"[点击查看完整日报]({URL})")
-    assert _notification_summary(body) == body
+    assert "oilprice.com" not in text and URL not in text
+    assert reader in _notification_summary(body)
+    assert "真实新闻" not in _notification_summary(body)
     clipped = _notification_summary("油气与金融市场日报\n" + "一行很长的中文\n" * 2000)
     assert len(clipped.encode()) <= 9000
-    assert clipped.endswith("正文较长，完整内容请点击日报链接查看。")
+    assert clipped == "油气与金融市场日报"
     assert _notification_summary("ordinary" * 200) == ("ordinary" * 200)[:1200]
 
 

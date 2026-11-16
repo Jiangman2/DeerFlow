@@ -1,0 +1,14 @@
+{
+  "schema": "energy-html-visibility-validation.v1",
+  "windows_tests": {"run": 7, "failures": 0, "errors": 0},
+  "linux_python310_uid1000_tests": {"run": 7, "failures": 0, "errors": 0},
+  "actual_file_difference_metadata_tested": true,
+  "file_contents_not_exported": true,
+  "maximum_nodes": 3,
+  "maximum_difference_entries_per_node": 16,
+  "expected_inventory_reconstructs_exact_accepted_production_tree": true,
+  "python37": {"version": "3.7.17", "child_compiled": true, "wrong_host_refused": true, "queries": 0},
+  "production_access_during_validation": false,
+  "provider_requests": 0,
+  "work_messages_sent": 0
+}

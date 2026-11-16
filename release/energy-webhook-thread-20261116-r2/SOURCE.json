@@ -1,0 +1,16 @@
+{
+  "bytes": 87414,
+  "child_sha256": "6132649def813b3ea6bb3bf84188f5b53c50de1abfc8f3026da76eff5520280b",
+  "database_readonly": true,
+  "filename": "inspect-energy-webhook-thread-20261116-r2.py",
+  "messages_sent": 0,
+  "original_task_and_private_target_examined_in_memory": true,
+  "production_executed": false,
+  "schema": "energy-explicit-webhook-thread-inspection-package.v2",
+  "sha256": "9828fab1efb6aa8e816e753f2b015392ccbd92f39a66c7feef43fa16b6e91b1a",
+  "tasks_retried": false,
+  "thread_ids": [
+    "cd2ca7b0-139c-4576-ab5f-c67e9837db10"
+  ],
+  "webhook_urls_exported": false
+}

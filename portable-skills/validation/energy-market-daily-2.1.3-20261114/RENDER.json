@@ -1,0 +1,88 @@
+{
+  "credentials_read": false,
+  "messages_sent": 0,
+  "production_arm64_qualified": false,
+  "provider_requests": 0,
+  "real_browser_overflow_rejections": [
+    {
+      "png_written": false,
+      "status": "REJECTED",
+      "width": 320
+    },
+    {
+      "png_written": false,
+      "status": "REJECTED",
+      "width": 390
+    },
+    {
+      "png_written": false,
+      "status": "REJECTED",
+      "width": 430
+    }
+  ],
+  "real_browser_used": true,
+  "samples": [
+    {
+      "html_unchanged": true,
+      "name": "complete",
+      "png": {
+        "browser_fallback_count": 0,
+        "height": 5228,
+        "programmatic_checks": {
+          "basis": "PROGRAMMATIC_FIXED_TEMPLATE_CHECKS",
+          "dom_sections_verified": 7,
+          "fonts_loaded": true,
+          "global_warning_hidden_in_png_only": false,
+          "missing_data_label_verified": true,
+          "model_visual_review_used": false,
+          "news_content_verified": true,
+          "ocr_used": false,
+          "png_structure_verified": true,
+          "quote_set_verified": true,
+          "viewport_widths_without_overflow": [
+            320,
+            390,
+            430
+          ]
+        },
+        "structure_verified": true,
+        "width": 780
+      },
+      "png_bytes": 674279,
+      "png_sha256": "67afa8620f63c3ab974570fe5bcd8896e29ba99e9f942e85d6ed6bbc6e9b58fa"
+    },
+    {
+      "html_unchanged": true,
+      "name": "freight-reference",
+      "png": {
+        "browser_fallback_count": 0,
+        "height": 5658,
+        "programmatic_checks": {
+          "basis": "PROGRAMMATIC_FIXED_TEMPLATE_CHECKS",
+          "dom_sections_verified": 7,
+          "fonts_loaded": true,
+          "global_warning_hidden_in_png_only": true,
+          "missing_data_label_verified": true,
+          "model_visual_review_used": false,
+          "news_content_verified": true,
+          "ocr_used": false,
+          "png_structure_verified": true,
+          "quote_set_verified": true,
+          "viewport_widths_without_overflow": [
+            320,
+            390,
+            430
+          ]
+        },
+        "structure_verified": true,
+        "width": 780
+      },
+      "png_bytes": 732879,
+      "png_sha256": "f24ce683c4b6b1d1092f34d4eeacfe8cfa7b6488fdf522bc73a7ea3f465097ce"
+    }
+  ],
+  "schema": "energy-213-local-render.v1",
+  "sources": "SYNTHETIC_LOCAL_FIXTURE",
+  "status": "LOCAL_WINDOWS_BROWSER_RENDERED",
+  "visual_review_pending": true
+}

@@ -1,0 +1,34 @@
+{
+  "schema": "energy-delivery-detail-interpretation.v1",
+  "operator_report_sha256": "11d9430bd936382d2ff0e0593d65b510cde65ff8f0714e6b5f83e7e1334f0e66",
+  "thread_id": "8e27d29f-730b-4a89-9681-36fdddc87887",
+  "run_id_sha256": "03c66c03186bbf7365ee886846fc816c0b18ee85648c66af7629fb0e80be8ab5",
+  "confirmed": {
+    "seq_87_projection": {
+      "current_thread_url_present": true,
+      "content_starts_with_accepted_prefix": true,
+      "tool_call_id_type": "missing",
+      "tool_call_id_valid": false,
+      "artifact_status": "missing_or_other",
+      "caller_projection_not_host_attestation": true
+    },
+    "seq_90_final_text_receipt": {
+      "status": "FINAL_TEXT_READY",
+      "conversation_link_available": false,
+      "publication_confirmed_by_caller_projection": false,
+      "conversation_reason": "HOST_CONVERSATION_IDENTITY_INCOMPLETE"
+    },
+    "business_code_19002_receipt_sequences": [100, 106, 108, 110],
+    "business_code_zero_with_success_text_receipt_sequences": [112, 120]
+  },
+  "supported_interpretation": "The model-authored publication projection omitted tool_call_id. The final-text parser explicitly reported incomplete host conversation identity, despite the current URL having been present in the projection. This unnecessary transcribed-receipt boundary contributed to producing a text without the current conversation link.",
+  "limitations": [
+    "The static sender extractor recognized zero source fragments for the observed sending commands. This is a diagnostic coverage limitation, not evidence that no program or POST request ran.",
+    "The supplement does not establish the actual payload schema, msg_type versus msgtype, content nesting, JSON encoding, proxy use or wire body for either successful send.",
+    "The four 19002 receipts remain UNCLASSIFIED. No specific encoding, schema, length or proxy cause has been established.",
+    "The two zero business codes plus success text support two successful sender results, but the exact delivered wire bodies were intentionally not exported or independently reconciled.",
+    "Tool status success alone is not webhook business acceptance. Caller-authored publication projection is not host publication attestation."
+  ],
+  "additional_probe_prepared": false,
+  "raw_message_or_webhook_exported": false
+}

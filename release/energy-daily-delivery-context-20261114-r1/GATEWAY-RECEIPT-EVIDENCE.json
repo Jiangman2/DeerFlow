@@ -1,0 +1,18 @@
+{
+  "attachment_bytes": 5323,
+  "attachment_sha256": "b08b916145928cd8b88b33ee5f01b47096737a56d7e293473948feec0e111ef2",
+  "files": {
+    "GATEWAY-POSTCHECK-STDOUT.json": {
+      "bytes": 4563,
+      "sha256": "f60b09171c24bc8dbc475a25692c50f38c2d94df4d2fe28fdabe610bd2bc8604"
+    },
+    "GATEWAY-RUNTIME-ACCEPTANCE.json": {
+      "bytes": 4064,
+      "sha256": "e139a6a2d05b797f699aa094a3f92886473731a6c323a5267e7e39cff3e994b7"
+    }
+  },
+  "input_basis": "TERMINAL_JSON_RECONSTRUCTED_AND_EXACT_RECEIPT_HASH_VERIFIED",
+  "production_executed": false,
+  "receipt_matches_server_metadata": true,
+  "schema": "energy-delivery-context-gateway-receipt-evidence.v1"
+}

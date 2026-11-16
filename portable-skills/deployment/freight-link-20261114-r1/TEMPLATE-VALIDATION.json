@@ -1,0 +1,88 @@
+{
+  "sealed_package_tested": false,
+  "real_arm64_render_qualified": false,
+  "checks": [
+    {
+      "failures": 0,
+      "exitcode": 0,
+      "environment": "Windows Python 3.12",
+      "suite": "test_api.py",
+      "errors": 0,
+      "run": 23
+    },
+    {
+      "failures": 0,
+      "exitcode": 0,
+      "environment": "Windows Python 3.12",
+      "suite": "test_compose_api.py",
+      "errors": 0,
+      "run": 1
+    },
+    {
+      "failures": 0,
+      "exitcode": 0,
+      "environment": "Linux cached Python 3.10, network none, repository readonly",
+      "suite": "test_api.py",
+      "errors": 0,
+      "run": 23
+    },
+    {
+      "failures": 0,
+      "exitcode": 0,
+      "environment": "Linux cached Python 3.10, network none, repository readonly",
+      "suite": "test_compose_api.py",
+      "errors": 0,
+      "run": 1
+    },
+    {
+      "expected_exitcode": 1,
+      "error_code": "DATAX01_ROOT_REQUIRED",
+      "environment": "Linux cached Python 3.7, network none, repository readonly",
+      "commands": 0,
+      "check": "unsealed template wrong-host protection",
+      "once_claimed": false,
+      "actual_exitcode": 1
+    }
+  ],
+  "source_files": {
+    "seal.py": {
+      "sha256": "efb6fbcd8371a6c93259709712c072aef6174f3ebe7879a8035925b3e1f73db0",
+      "bytes": 8286
+    },
+    "publisher.py": {
+      "sha256": "8d273a92a538fb88393b92913b2bc49e1e8bf420b56289d2baa36e5975fa1128",
+      "bytes": 21410
+    },
+    "README.md": {
+      "sha256": "73de760fcac91f28825c38e375363443bcda4776c0055b720b52815a3a3bbecf",
+      "bytes": 3748
+    },
+    "verify_child.py": {
+      "sha256": "dc48996e14124c24fa82acc1ab7ab3dc12109f4ea1ffc4f7809bb036c46c5a12",
+      "bytes": 13186
+    },
+    "test_api.py": {
+      "sha256": "912f9ce57dadafb3a46682ce5aa0945547d319c7f8f87adc23e5e1990b53b4fb",
+      "bytes": 17180
+    },
+    "test_sealed_package.py": {
+      "sha256": "c902156009b992a079e1ca5222fa5af12c17189893145e78cc93c8739a8f483d",
+      "bytes": 2295
+    },
+    "operator.py": {
+      "sha256": "e2c8e724ec0e12a6470e4b19d92622c45fc04886277317b35d2da50f7bcefad3",
+      "bytes": 34244
+    },
+    "test_compose_api.py": {
+      "sha256": "e6eae9b33ef469582144b1d2fdd45374ed24a126d6c742927b9d11f55de58731",
+      "bytes": 2826
+    }
+  },
+  "candidate_frozen": false,
+  "provider_requests": 0,
+  "messages_sent": 0,
+  "schema": "energy-freight-links-template-validation.v1",
+  "production_modified": false,
+  "state": "UNSEALED_TEMPLATE_ONLY",
+  "credentials_read": false
+}

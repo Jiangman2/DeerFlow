@@ -1,0 +1,11 @@
+{
+  "schema": "energy-delivery-sequence-local-validation.v1",
+  "production_executed": false,
+  "provider_requests": 0,
+  "work_messages_sent": 0,
+  "windows_python312": {"tests": 27, "errors": 0, "failures": 0},
+  "linux_python310_uid1000": {"tests": 27, "errors": 0, "failures": 0, "network": "none", "root_filesystem_readonly": true},
+  "linux_python37": {"sealed_host_compiled": true, "embedded_child_hash_verified_and_compiled": true, "wrong_host_refused": true, "wrong_host_queries": 0},
+  "sealed_script_bytes": 56847,
+  "sealed_script_sha256": "140c31965a1db2f87e0e584672089039a6a234a15fc3b03ea16bc35417bbd7dc"
+}

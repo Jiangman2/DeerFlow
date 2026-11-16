@@ -1,0 +1,25 @@
+{
+  "production_access": false,
+  "provider_requests": 0,
+  "rows": {
+    "linux_nonroot_regressions": {
+      "exitcode": 0,
+      "stderr": "......................................\n----------------------------------------------------------------------\nRan 38 tests in 0.859s\n\nOK",
+      "stdout": "{\"phase\": \"QUALIFY_ACTUAL_SERVING_EDGE_AND_TWO_WORK_MODULES\"}"
+    },
+    "python37_entry_and_assets": {
+      "exitcode": 0,
+      "stderr": "",
+      "stdout": "{\"status\": \"PYTHON37_SEALED_ASSETS_AND_WRONG_HOST_GUARD_PASSED\", \"sealed_assets\": 4, \"commands\": 0, \"network_requests\": 0, \"work_messages_sent\": 0}"
+    },
+    "sealed_child_audit_and_configmap": {
+      "exitcode": 0,
+      "stderr": "",
+      "stdout": "{\"status\": \"SEALED_NOTIFICATION_TESTS_UNDER_PRODUCTION_AUDIT_PASSED\", \"notification_checks\": 12, \"projected_configmap_checks\": 2, \"network_requests\": 0, \"messages_sent\": 0}"
+    }
+  },
+  "schema": "energy-reader-work-repair-offline-validation.v1",
+  "script_sha256": "40d866d17e6e6ea19e40102b4f7b54c113b029c3e0dbaf042d7a10f74ace62bc",
+  "status": "OFFLINE_RUNTIME_CHECKS_PASSED",
+  "work_messages_sent": 0
+}

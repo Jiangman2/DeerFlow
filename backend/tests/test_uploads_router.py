@@ -323,7 +323,7 @@ def test_upload_files_creates_markdown_companion_from_enterprise_pdf_parser(
             "conversation_document_parser_endpoint",
             return_value="http://parser:50052/file_parse",
         ),
-        patch.object(uploads, "parse_conversation_document", parser),
+        patch.object(uploads, "parse_conversation_document_file", parser),
     ):
         file = UploadFile(filename="scan.pdf", file=BytesIO(INERT_PDF_BYTES))
         result = asyncio.run(
@@ -343,7 +343,7 @@ def test_upload_files_creates_markdown_companion_from_enterprise_pdf_parser(
     parser.assert_awaited_once_with(
         endpoint="http://parser:50052/file_parse",
         filename="scan.pdf",
-        content=INERT_PDF_BYTES,
+        file_path=thread_uploads_dir / "scan.pdf",
     )
 
 
@@ -363,7 +363,7 @@ def test_upload_files_creates_markdown_companion_from_enterprise_pptx_parser(
             "conversation_document_parser_endpoint",
             return_value="http://parser:50052/file_parse",
         ),
-        patch.object(uploads, "parse_conversation_document", parser),
+        patch.object(uploads, "parse_conversation_document_file", parser),
     ):
         file = UploadFile(filename="briefing.pptx", file=BytesIO(pptx_bytes))
         result = asyncio.run(
@@ -384,7 +384,7 @@ def test_upload_files_creates_markdown_companion_from_enterprise_pptx_parser(
     parser.assert_awaited_once_with(
         endpoint="http://parser:50052/file_parse",
         filename="briefing.pptx",
-        content=pptx_bytes,
+        file_path=thread_uploads_dir / "briefing.pptx",
     )
 
 
@@ -406,7 +406,7 @@ def test_upload_files_keeps_presentation_template_out_of_document_parsers(
             "conversation_document_parser_endpoint",
             return_value="http://parser:50052/file_parse",
         ),
-        patch.object(uploads, "parse_conversation_document", parser),
+        patch.object(uploads, "parse_conversation_document_file", parser),
         patch.object(uploads, "convert_file_to_markdown", converter),
     ):
         file = UploadFile(filename="brand-template.pptx", file=BytesIO(pptx_bytes))
@@ -445,7 +445,7 @@ def test_upload_files_creates_markdown_companion_from_enterprise_docx_parser(
             "conversation_document_parser_endpoint",
             return_value="http://parser:50052/file_parse",
         ),
-        patch.object(uploads, "parse_conversation_document", parser),
+        patch.object(uploads, "parse_conversation_document_file", parser),
     ):
         file = UploadFile(filename="report.docx", file=BytesIO(docx_bytes))
         result = asyncio.run(
@@ -466,7 +466,7 @@ def test_upload_files_creates_markdown_companion_from_enterprise_docx_parser(
     parser.assert_awaited_once_with(
         endpoint="http://parser:50052/file_parse",
         filename="report.docx",
-        content=docx_bytes,
+        file_path=thread_uploads_dir / "report.docx",
     )
 
 
@@ -486,7 +486,7 @@ def test_upload_files_reserves_parser_companion_before_same_stem_markdown(
             "conversation_document_parser_endpoint",
             return_value="http://parser:50052/file_parse",
         ),
-        patch.object(uploads, "parse_conversation_document", parser),
+        patch.object(uploads, "parse_conversation_document_file", parser),
     ):
         result = asyncio.run(
             call_unwrapped(
@@ -526,7 +526,7 @@ def test_upload_files_rejects_pdf_when_enterprise_parser_is_unavailable(tmp_path
         ),
         patch.object(
             uploads,
-            "parse_conversation_document",
+            "parse_conversation_document_file",
             AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 502")),
         ),
     ):
@@ -567,7 +567,7 @@ def test_strict_parser_failure_restores_replaced_upload_and_companion(tmp_path):
         ),
         patch.object(
             uploads,
-            "parse_conversation_document",
+            "parse_conversation_document_file",
             AsyncMock(
                 side_effect=UploadDocumentParseError(
                     "Document parser returned HTTP 502",
@@ -617,7 +617,7 @@ def test_upload_files_preserves_upstream_behavior_when_parsed_text_is_not_requir
         ),
         patch.object(
             uploads,
-            "parse_conversation_document",
+            "parse_conversation_document_file",
             AsyncMock(
                 side_effect=UploadDocumentParseError(
                     "Document parser returned HTTP 502",
@@ -673,7 +673,7 @@ def test_upload_files_rejects_whitespace_only_local_fallback(tmp_path):
         ),
         patch.object(
             uploads,
-            "parse_conversation_document",
+            "parse_conversation_document_file",
             AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 503")),
         ),
         patch.object(uploads, "convert_file_to_markdown", AsyncMock(side_effect=empty_convert)),
@@ -720,7 +720,7 @@ def test_upload_files_falls_back_to_local_conversion_after_enterprise_parser_fai
         ),
         patch.object(
             uploads,
-            "parse_conversation_document",
+            "parse_conversation_document_file",
             AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 502")),
         ),
         patch.object(
@@ -776,7 +776,7 @@ def test_enterprise_can_disable_duplicate_gateway_parse_after_adapter_failure(
         ),
         patch.object(
             uploads,
-            "parse_conversation_document",
+            "parse_conversation_document_file",
             AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 503")),
         ),
         patch.object(uploads, "convert_file_to_markdown", converter),
@@ -833,7 +833,7 @@ def test_upload_files_recovers_legacy_doc_through_sandbox_after_local_conversion
         ),
         patch.object(
             uploads,
-            "parse_conversation_document",
+            "parse_conversation_document_file",
             AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 502")),
         ),
         patch.object(

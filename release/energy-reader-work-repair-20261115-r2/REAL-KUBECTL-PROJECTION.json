@@ -1,0 +1,13 @@
+{
+  "columns": 9,
+  "credentials_used": false,
+  "full_json_bytes": 4635488,
+  "production_access": false,
+  "projected_stderr_bytes": 0,
+  "projected_stdout_bytes": 8470,
+  "provider_requests": 0,
+  "schema": "real-kubectl-pod-projection.v1",
+  "status": "REAL_KUBECTL_PROJECTION_PASSED",
+  "synthetic_pods": 70,
+  "work_messages_sent": 0
+}

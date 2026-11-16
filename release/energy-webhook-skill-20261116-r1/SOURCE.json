@@ -1,0 +1,40 @@
+{
+  "accepted_old_tree": "432383e2ee0d52d49328b6a0ccde56b0d04c10b81e03e4b854a507d9078e44ba",
+  "files": {
+    "CODE-MANIFEST.json": {
+      "bytes": 16994,
+      "sha256": "9d0b6018b84cf476fc5edaf99d33f550858c2548e43364bdb4c8ef0d09db13e9"
+    },
+    "energy-market-daily-2.1.7-public-code.zip": {
+      "bytes": 129982,
+      "sha256": "68f97b465ee04213c1f71f6863804dd262424495d942aa1ad108c93b9a965b81"
+    },
+    "install-energy-webhook-skill-20261116-r1.py": {
+      "bytes": 2183325,
+      "sha256": "5c0c376bad2dd2fa8d85c6b7c1bc04459e6d164067adc10ebc961bc7c00c2584"
+    },
+    "publisher.sealed.py": {
+      "bytes": 22936,
+      "sha256": "d960460ba741ec9f5e4d57cd7cb7fe4c63bf94bae5b98133c8fa59b7e2545832"
+    },
+    "verify_child.sealed.py": {
+      "bytes": 33817,
+      "sha256": "ef298f249370bd221ef1cbfacc1063e7858faa52d9ed3ad92c501b79cc7feaee"
+    }
+  },
+  "gateway_modified": false,
+  "installed_files": 110,
+  "offline_test_count": 54,
+  "package_sha256": "68f97b465ee04213c1f71f6863804dd262424495d942aa1ad108c93b9a965b81",
+  "production_executed": false,
+  "schema": "energy-webhook-skill-package.v1",
+  "skill_core_preserved": {
+    "browser_runtime.py": "9844b8e4c5e6a6de99a6f7d9cf42f2aafeda1dea5e2b9966f709da7cebf71ae8",
+    "common.py": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0",
+    "market.py": "0ade49587ad07af0da852e384090525466b79bd936cd9edaf21789493c8a115c",
+    "report_renderer.py": "2d82ef0d5a81ff5fd21f5695fe94f8cfca7de3df2ea47911127d7c9346b64c8f",
+    "research.py": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee"
+  },
+  "version": "2.1.7-portable",
+  "webhook_messages_sent": 0
+}

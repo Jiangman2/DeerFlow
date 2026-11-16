@@ -1,0 +1,18 @@
+{
+  "bytes": 70319,
+  "child_sha256": "88324a7973afd44b987347ec7cdbbe22ecbb55137eb4bebd69027c62e2fba59e",
+  "database_readonly": true,
+  "execution_event_row_limit_per_thread": 168,
+  "filename": "inspect-energy-two-results-20261116-r1.py",
+  "production_executed": false,
+  "provider_requests": 0,
+  "raw_messages_or_commands_exported": false,
+  "schema": "energy-two-result-comparison-package.v1",
+  "sha256": "6fa9f317a77d4a37d406e872f92337855ba51c6ed218df611a0b94e30f9468ec",
+  "tasks_retried": false,
+  "thread_ids": [
+    "9214a4fc-4cff-4599-9855-ea0af1d1ee27",
+    "945b81c9-225f-4a12-a033-19d13da92903"
+  ],
+  "work_messages_sent": 0
+}

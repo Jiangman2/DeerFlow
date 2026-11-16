@@ -1,0 +1,89 @@
+{
+  "activation_returns_after_patch": "READONLY_VERIFICATION_REQUIRED",
+  "after_gateway_generation": 419,
+  "automatic_retry": false,
+  "automatic_rollback": false,
+  "before_gateway_generation": 418,
+  "bytes": 80940,
+  "child_sha256": "1a2bb2ab351938e07389ad378645b011fb52f66b1d850359b6644bd1cfd3e3b9",
+  "concurrency_after": 32,
+  "concurrency_before": 3,
+  "expected_sources": {
+    "/app/backend/app/channels/manager.py": {
+      "bytes": 94358,
+      "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
+    },
+    "/app/backend/app/gateway/routers/uploads.py": {
+      "bytes": 37879,
+      "sha256": "13b842ee8fd7035555768b1ecb787d944c53088121a6e240f32b69b669b93b1f"
+    },
+    "/app/backend/app/gateway/services.py": {
+      "bytes": 54226,
+      "sha256": "4bf26f6ac2166de7851015af36fed73a8b7d1b0e98b7918806c454e623dbd435"
+    },
+    "/app/backend/app/gateway/upload_document_memory_guard.py": {
+      "bytes": 8956,
+      "sha256": "37e67be268214537ae8f149a3d45751111cfd34c460a0125e1b03cf65bce4fcf"
+    },
+    "/app/backend/app/integrations/work/notifications.py": {
+      "bytes": 10025,
+      "sha256": "2f25958bcb2556685d153bef55f72afebd360deb157cd13164ceb4261001f039"
+    },
+    "/app/backend/app/scheduler/service.py": {
+      "bytes": 28780,
+      "sha256": "ab48b5861cec9eff14cb9dea062c8a16dfa62df94e8801dcb9b53f584e8ba263"
+    },
+    "/app/backend/app/scheduler/work_notification_delivery.py": {
+      "bytes": 5209,
+      "sha256": "2127f2f5cc89dea6ca1772cb0e3c79ecc88ce449dd2a707c1d4a6bacca674b12"
+    },
+    "/app/backend/app/scheduler/work_notifications.py": {
+      "bytes": 14575,
+      "sha256": "03a20b2909d5b3904cb77f8aa929ef45741bc7ad2ff111f3b8a273f6cabf7762"
+    },
+    "/app/backend/packages/harness/deerflow/agents/lead_agent/agent.py": {
+      "bytes": 41101,
+      "sha256": "ec108a4b8cc9c608ba790e71bc5a1c34bbd33cd5241503c7a4ddba7a7e5e0d30"
+    },
+    "/app/backend/packages/harness/deerflow/config/app_config.py": {
+      "bytes": 31735,
+      "sha256": "ab3056db7657d4ee9de7fbd754f59f4d8e14be78f2535b049047d6d03cc863ad"
+    },
+    "/app/backend/packages/harness/deerflow/config/run_ownership_config.py": {
+      "bytes": 2057,
+      "sha256": "c79a648c1d24ee91153f29b61aadf56d9b5fb56b42ea30e75393cacd7c4fd4c5"
+    },
+    "/app/backend/packages/harness/deerflow/config/scheduler_config.py": {
+      "bytes": 972,
+      "sha256": "4495e7c800fa602dd7a0bf85ef15768030abf6bf4f2095e654330a56db1070cb"
+    },
+    "/app/backend/packages/harness/deerflow/persistence/scheduled_task_runs/sql.py": {
+      "bytes": 39510,
+      "sha256": "7c056874bcbdcede1743fbe55b498f2df5a7d9d12cdea3a38af03703d9462281"
+    },
+    "/app/backend/packages/harness/deerflow/sandbox/tools.py": {
+      "bytes": 100988,
+      "sha256": "e598a0fd0e9d9a83ecdb781be6a345bf974cdef957852d181732f3596ad58330"
+    },
+    "/app/backend/packages/harness/deerflow/tools/builtins/present_file_tool.py": {
+      "bytes": 19640,
+      "sha256": "eccfe1e5975c771465abf96f1da60fdb2a11e0712716aeb2453a2d10fbe30e3b"
+    },
+    "/app/backend/packages/harness/deerflow/utils/conversation_url.py": {
+      "bytes": 5042,
+      "sha256": "f5ac36f16038a3532cd3110d134b72e58c42693c1b9ab9a1b6390d9b4209c0b8"
+    },
+    "/etc/deerflow-openssl/openssl.cnf": {
+      "bytes": 189,
+      "sha256": "20130c1b277e0a5fb79a27af7dc35be38162a6e086aa91e45b4f249d73c61604"
+    }
+  },
+  "filename": "activate-scheduler-concurrency-20261116-r2.py",
+  "global_max_recursion_limit": 10000,
+  "multi_instance_after": true,
+  "multi_instance_before": false,
+  "production_executed": false,
+  "scheduler_recursion_limit": 10000,
+  "schema": "scheduler-concurrency-release.v1",
+  "sha256": "0a0f2a839a310282633c72ee2672984242ff9f495f4c4fcae6401d1d93296442"
+}

@@ -1,0 +1,11 @@
+{
+  "candidate": "C:\\Users\\15285\\.codex\\worktrees\\nov02-usage-monitor-pr\\deer-flow\\portable-skills\\candidates\\energy-market-daily-2.1.1",
+  "errors": 0,
+  "failures": 0,
+  "messages_sent": 0,
+  "provider_requests": 0,
+  "skipped": 2,
+  "success": true,
+  "tests": 97,
+  "version": "2.1.1-portable"
+}

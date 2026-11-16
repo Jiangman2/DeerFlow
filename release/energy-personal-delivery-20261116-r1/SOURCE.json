@@ -1,0 +1,13 @@
+{
+  "bytes": 98968,
+  "child_sha256": "5469479ae971885907390deba459c690b54834662e3b3267cc8c6fc8b94d2f24",
+  "database_readonly": true,
+  "external_chat_ids_exported": false,
+  "filename": "inspect-energy-personal-delivery-20261116-r1.py",
+  "messages_sent": 0,
+  "production_executed": false,
+  "schema": "energy-personal-delivery-package.v1",
+  "sha256": "234e54727dd6db353446e6711c9b4d567e9d31dfe79c8b113422d2c273f04af5",
+  "target_thread": "9a762837-e4c4-4376-a14d-fcefbacd4bbc",
+  "task_replayed": false
+}

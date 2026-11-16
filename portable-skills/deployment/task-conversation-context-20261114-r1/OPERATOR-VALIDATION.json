@@ -1,0 +1,13 @@
+{
+  "errors": 0,
+  "failures": 0,
+  "operator_template_sha256": "38f1e10be648c5ded2734e974fb93ab9e6167f4f101a70823517adf09b80d3ad",
+  "passed": true,
+  "production_requests": 0,
+  "provider_requests": 0,
+  "qualification_child_sha256": "d30d7c223160581869ba383bf6eced86ba446b4a3f27a8d24504a401ef24b152",
+  "schema": "task-context-operator-offline-tests.v1",
+  "sealed": false,
+  "skipped": 0,
+  "tests": 40
+}

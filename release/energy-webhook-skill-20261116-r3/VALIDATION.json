@@ -1,0 +1,17 @@
+{
+  "actual_sealed_posix_receipt_file_read_python310": true,
+  "actual_sealed_posix_receipt_file_read_python37": true,
+  "all_four_sealed_assets_loaded": true,
+  "linux_python310_uid1000_installer_checks": 12,
+  "messages_sent": 0,
+  "production_changes": 0,
+  "production_install_pending": true,
+  "real_bot_delivery_proven": false,
+  "receipt_read_test_scope": "ISOLATED_OFFLINE_CONTAINER_VAR_LIB_TMPFS_EXACT_SERVER_PATH",
+  "schema": "energy-webhook-installer-posix-validation.v1",
+  "skill_zip_identical_to_r2": true,
+  "unchanged_skill_prior_regressions": 57,
+  "verifier_identical_to_r2": true,
+  "windows_installer_checks": 12,
+  "wrong_host_entry_zero_production_queries": true
+}

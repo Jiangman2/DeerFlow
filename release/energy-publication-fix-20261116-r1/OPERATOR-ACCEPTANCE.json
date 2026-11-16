@@ -1,0 +1,19 @@
+{
+  "fixed_and_freight_pngs_accepted": true,
+  "gateway_rollout_completion_not_established_by_this_tool": true,
+  "messages_sent": 0,
+  "observed_at": "2026-11-16T05:42:07.747824+00:00",
+  "offline_tests_passed": 62,
+  "operation": "f1aa3b4d4f1249d4a270d1a2b4cebd2b",
+  "ordinary_sandbox_views_sampled": 1,
+  "ordinary_sandbox_visible": true,
+  "protected_deployment_specs_unchanged": true,
+  "provider_requests": 0,
+  "real_group_webhook_business_acceptance": "PENDING",
+  "receipt_sha256": "4155131e5d19b4ddf026f803a3a37bf086123b639fd5401ab83bcb0422761dd0",
+  "runtime_install_accepted": true,
+  "schema": "energy-publication-fix-operator-acceptance.v1",
+  "skill_tree_sha256": "9ddcf11a813158d00aa119de28955aeeb71c7eca60926b58be5ab67d5579e864",
+  "uid1000_mode_checks_passed": true,
+  "version": "2.1.8-portable"
+}

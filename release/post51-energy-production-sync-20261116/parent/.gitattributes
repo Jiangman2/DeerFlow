@@ -1,0 +1,108 @@
+# Normalize line endings to LF for all text files
+* text=auto eol=lf
+
+# Shell scripts and makefiles must always use LF
+*.sh text eol=lf
+Makefile text eol=lf
+**/Makefile text eol=lf
+
+# Common config/source files
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.html text eol=lf
+*.env text eol=lf
+
+# Windows scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.mp4 binary
+*.mov binary
+*.woff binary
+*.woff2 binary
+
+# Preserve original operator receipts and delivered script byte hashes.
+release/production-source-20261027/research-fund-settlement/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve the sealed combined-release receipts and historical tooling byte-for-byte.
+release/combined-features-20261028-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve the V4.1 operator-tool sources and qualification receipt byte hashes.
+deploy/enterprise/v41-glm-20261029/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve the already executed OA timeout tool's delivered byte hash.
+deploy/enterprise/set-portal-oa-run-timeout-60m-20261103-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve the already executed November 4/5 finance archives and delivered tools.
+release/research-fund-feedback-20261104/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-feedback-20261105/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+scripts/review_research_fund_templates.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/cleanup-portal-research-fund-skill-20261104-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/inspect-portal-research-fund-skill-20261104-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/inspect-portal-research-fund-skill-20261105-r2.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/update-portal-research-fund-skill-20261104-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/update-portal-research-fund-skill-20261105-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-feedback-round3-20261105/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-project-type-20261105/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-late-source-20261105/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/inspect-portal-research-fund-skill-20261105-r3.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+skills/public/research-fund-settlement/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# Archived unified-diff context includes intentional blank-line markers.
+release/research-fund-project-type-20261105/scoped-change.diff -whitespace
+
+# Preserve Frontend 242 delivered tools and original qualification/receipt byte hashes.
+release/sidechat-skillhub-security-20261105-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve deployed Skill bytes, original vendor archive, and append-only operator evidence.
+skills/public/energy-market-daily/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-report-labels-20261106-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-expense-purposes-20261110-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-current-source-20261110/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/research-fund-adjusted-budget-20261110-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/energy-market-released-20261110/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/skillhub-auth-remediation-20261106-r1/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/released-sync-20261110/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/*skillhub* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/*energy* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+deploy/enterprise/inspect-portal-research-fund-expense-purposes-20261110-r1.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# Immutable upstream captures and archived patches preserve original whitespace.
+skills/public/energy-market-daily/upstream/** -whitespace
+release/research-fund-expense-purposes-20261110-r1/skill-source.patch -whitespace
+release/research-fund-expense-purposes-20261110-r1/expense_purposes_release_builder.py -whitespace
+release/research-fund-report-labels-20261106-r1/report_labels_release_builder.py -whitespace
+
+# Byte-exact public source packages, operator tools and append-only observations.
+portable-skills/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/post44-source-sync-20261113/** -text -whitespace
+release/energy-daily-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/energy-delivery-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/sandbox-capacity-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/sandbox-reclaim-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/sandbox-retention-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/scheduler-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+portable-skills/diagnostics/*/*.diff -whitespace
+portable-skills/deployment/gateway-link-r3/tests/test_result_link_activation.py -whitespace
+portable-skills/deployment/gateway-link-r3/tests/test_result_link_activation_r4.py -whitespace
+portable-skills/deployment/publish_portable_daily_child.py -whitespace
+release/research-fund-adjusted-budget-20261110-r1/adjusted_budget_release_builder.py -whitespace

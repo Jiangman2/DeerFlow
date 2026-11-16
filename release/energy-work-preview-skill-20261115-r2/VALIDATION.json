@@ -1,0 +1,19 @@
+{
+  "schema": "energy-work-preview-local-validation.v1",
+  "status": "CANDIDATE_TESTED_NOT_DEPLOYED",
+  "windows_skill_regressions": {"run": 39, "failures": 0, "errors": 0},
+  "linux_python310_uid1000_skill_regressions": {"run": 39, "failures": 0, "errors": 0},
+  "windows_installation_boundary_tests": {"run": 10, "failures": 0, "errors": 0},
+  "linux_uid1000_installation_boundary_tests": {"run": 10, "failures": 0, "errors": 0},
+  "backend_preview_pipeline_regressions": {"run": 5, "failures": 0, "errors": 0},
+  "sealed_fixture_relocation_and_compose_probe": "PASS",
+  "two_2000_character_previews_preserve_reader": true,
+  "actual_gateway418_formatter_produces_one_link": true,
+  "python37_sealed_assets_and_wrong_host_guard": "PASS",
+  "make_test_before_and_after": "UNAVAILABLE_MAKE_COMMAND_NOT_INSTALLED",
+  "real_arm64_render_required_before_publication": true,
+  "production_executed": false,
+  "work_messages_sent": 0,
+  "provider_requests": 0,
+  "historical_failed_notification_replayed": false
+}

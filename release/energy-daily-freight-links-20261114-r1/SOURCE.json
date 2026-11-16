@@ -1,0 +1,79 @@
+{
+  "accepted_old_tree_sha256": "8ac3ca5df517d5ed269593d7c9e1216cfc758bf76b3367a40e4d05f372df7ccc",
+  "assets": {
+    "package": {
+      "bytes": 114687,
+      "sha256": "a950ad0d06a7c77ede65683523c24a9c87f802b1ead636e995101025861c3ca9"
+    },
+    "publisher": {
+      "bytes": 21446,
+      "sha256": "7aa5c66933656582895df79f96fd97c3b03df003401110e62df021999b8a622d"
+    },
+    "test_files": {
+      "bytes": 116226,
+      "sha256": "cc2b15b99b3654e1673037c8a1b54ebcee5f14aacf7811715a7187a4bd3251bd"
+    },
+    "verifier": {
+      "bytes": 26225,
+      "sha256": "81782d0c2e67a79c9081301291a283f36843fee7e6964fcbdb8773eb32ffb377"
+    }
+  },
+  "candidate_manifest_sha256": "e7e66e6e00e7b0fc64e1ccec098c09b2eedf23b3b1ee89687496d28a651b79a9",
+  "code_files": 107,
+  "code_tree_sha256": "a2e1c1a107e734ce9aa5589ace07a88d914f7189178216a79e48ca0708770bb3",
+  "compose_probe_sha256": "030283608d2934d44b2a16df000a7d4f3ed61f5c9ee781971291dbde3f351b0f",
+  "credentials_included": false,
+  "deployment_guard": "CURRENT_PROTECTED_UIDS_AND_UNCHANGED_SPEC_DURING_SKILL_UPDATE",
+  "enterprise_binding_in_public_code": false,
+  "files": {
+    "energy-market-daily-2.1.1-public-code.zip": {
+      "bytes": 114687,
+      "sha256": "a950ad0d06a7c77ede65683523c24a9c87f802b1ead636e995101025861c3ca9"
+    },
+    "install-energy-freight-links-20261114-r1.py": {
+      "bytes": 406152,
+      "sha256": "12525a5395a1744580c3705dcf24a27bca868f78f48ba6180388fa3339275697"
+    },
+    "publisher.sealed.py": {
+      "bytes": 21446,
+      "sha256": "7aa5c66933656582895df79f96fd97c3b03df003401110e62df021999b8a622d"
+    },
+    "verify_child.sealed.py": {
+      "bytes": 26225,
+      "sha256": "81782d0c2e67a79c9081301291a283f36843fee7e6964fcbdb8773eb32ffb377"
+    }
+  },
+  "gateway_modified": false,
+  "installed_files_including_binding": 108,
+  "messages_sent": 0,
+  "production_executed": false,
+  "provider_requests": 0,
+  "provisioner_modified": false,
+  "real_arm64_uid1000_render_and_synthetic_final_text_qualification_required_before_publication": true,
+  "runtime_binaries_included": false,
+  "runtime_replacement_requested": false,
+  "schema": "energy-freight-links-install-package.v1",
+  "source_inputs": {
+    "compose_probe.py": {
+      "bytes": 12111,
+      "sha256": "030283608d2934d44b2a16df000a7d4f3ed61f5c9ee781971291dbde3f351b0f"
+    },
+    "operator.py": {
+      "bytes": 34244,
+      "sha256": "e2c8e724ec0e12a6470e4b19d92622c45fc04886277317b35d2da50f7bcefad3"
+    },
+    "publisher.py": {
+      "bytes": 21410,
+      "sha256": "8d273a92a538fb88393b92913b2bc49e1e8bf420b56289d2baa36e5975fa1128"
+    },
+    "seal.py": {
+      "bytes": 8323,
+      "sha256": "8e4fcb68ed1d99cf09b6863e134cd56c9ea2f7069e50f39ea20fc5ef2e6e0748"
+    },
+    "verify_child.py": {
+      "bytes": 13186,
+      "sha256": "dc48996e14124c24fa82acc1ab7ab3dc12109f4ea1ffc4f7809bb036c46c5a12"
+    }
+  },
+  "version": "2.1.1-portable"
+}

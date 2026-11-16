@@ -1,0 +1,17 @@
+{
+  "bytes": 53577,
+  "child_sha256": "4ad458ed7168d0142da1fd527f8886625a2140037873af6ae2ed90cee09930b8",
+  "database_readonly": true,
+  "filename": "inspect-energy-two-tasks-20261114-r1.py",
+  "messages_sent": 0,
+  "mutations_supported": false,
+  "production_executed": false,
+  "provider_requests": 0,
+  "raw_messages_exported": false,
+  "schema": "energy-two-task-inspection-package.v1",
+  "sha256": "c08de2e49c13a8c12bf1b51479eec593da1e3e11ed2aff9dd9e2036bceb47808",
+  "threads": [
+    "1a749b15-a6dc-4fa6-99a3-7a3b2ed195c4",
+    "7f645bba-9bfd-4786-ab0a-e8636cf255d3"
+  ]
+}

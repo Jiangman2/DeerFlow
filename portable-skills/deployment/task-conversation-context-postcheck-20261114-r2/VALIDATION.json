@@ -1,0 +1,11 @@
+{
+  "errors": 0,
+  "failures": 0,
+  "field_defaulting_proof_bound": false,
+  "passed": true,
+  "production_requests": 0,
+  "schema": "task-context-postcheck-synthetic-tests.v1",
+  "sealed": false,
+  "template_sha256": "50ac69d8eb508fdeb5c71645d5778eafeeed7c7a5ae3b832d94454925ab42c82",
+  "tests": 11
+}

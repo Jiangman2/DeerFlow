@@ -1,0 +1,63 @@
+{
+  "schema": "energy-html-warning-operator-visibility-acceptance.v1",
+  "evidence_basis": "USER_PASTED_READONLY_TOOL_JSON",
+  "observed_at": "2026-11-14T07:17:17.360327+00:00",
+  "accepted_operation": "91ae0c5e6aff42dbb0b73aef146732d0",
+  "accepted_receipt_sha256": "5dd40639193ff9a9776c235b084977d47219ea2fde4ff154822feca625066663",
+  "skill_version": "2.1.4-portable",
+  "expected_skill_tree_sha256": "2a09015d31cee41cd2a329fff96062848255d3d49fb7cec8c52d47c939345259",
+  "ready_ordinary_pods": 26,
+  "eligible_public_mount_pods": 26,
+  "ineligible_public_mount_pods": 0,
+  "sampled_nodes": 3,
+  "all_sampled_views_match": true,
+  "sampled_views": [
+    {
+      "node": "ecs-znws-0004",
+      "pod": "sandbox-0636d6b8",
+      "uid": "c799cf71-1a08-4fba-8fc7-1f7eb1882d34",
+      "same_pod_as_installation_mismatch": true,
+      "restart_count": 0,
+      "observed_files": 108,
+      "difference_count": 0,
+      "stable_pod_readback": true,
+      "current_image_matches_qualified": true,
+      "uid1000_runtime_visible": true
+    },
+    {
+      "node": "ecs-zdz-pro-0017",
+      "pod": "sandbox-05ad3ef1",
+      "uid": "bf68ac30-f68a-4826-b4d9-8d1a89532de3",
+      "restart_count": 0,
+      "observed_files": 108,
+      "difference_count": 0,
+      "stable_pod_readback": true,
+      "current_image_matches_qualified": true,
+      "uid1000_runtime_visible": true
+    },
+    {
+      "node": "ecs-znws-0001",
+      "pod": "sandbox-0acf07fa",
+      "uid": "f3e534c3-5543-45d5-99f3-d37657f8ea50",
+      "restart_count": 0,
+      "observed_files": 108,
+      "difference_count": 0,
+      "stable_pod_readback": true,
+      "current_image_matches_qualified": true,
+      "uid1000_runtime_visible": true
+    }
+  ],
+  "runtime_manifest_sha256": "cef35e8edb510631197d5d4874e2e9d6fb2c9ef93a7be8393f38fa9446ea0598",
+  "status": "PUBLISHED_SKILL_VISIBLE_IN_SAMPLED_ORDINARY_SANDBOXES",
+  "read_only": true,
+  "queries": 10,
+  "provider_requests": 0,
+  "secret_api_reads": 0,
+  "work_messages_sent": 0,
+  "workload_modified": false,
+  "original_receipt_modified": false,
+  "persistent_files_modified": false,
+  "business_acceptance_pending": true,
+  "prior_mismatch_root_cause_proven": false,
+  "all_26_file_trees_individually_verified": false
+}

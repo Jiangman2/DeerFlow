@@ -29,6 +29,8 @@ def verify(ref=None):
             extra.extend((lease_work.datalake_combined.ARCHIVE, *lease_work.datalake_combined.PATHS))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.post44.MANIFEST], cwd=ROOT).strip():
             extra.append(lease_work.post44.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.post44.successor.MANIFEST], cwd=ROOT).strip():
+            extra.append(lease_work.post44.successor.ARCHIVE)
         raw = subprocess.check_output(["git", "archive", ref, "frontend/src", "frontend/tests", navigation.ARCHIVE, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             files = {m.name: archive.extractfile(m).read() for m in archive if m.isfile()}

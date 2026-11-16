@@ -1,0 +1,46 @@
+{
+  "accepted_old_tree": "432383e2ee0d52d49328b6a0ccde56b0d04c10b81e03e4b854a507d9078e44ba",
+  "corrected_server_receipt_path": "/var/lib/portal-energy-work-preview-skill-install-20261115-r3/REPORT.json",
+  "files": {
+    "CODE-MANIFEST.json": {
+      "bytes": 16994,
+      "sha256": "9573b7f82b9fb3db18543fad32b012cd4ff7c72ddec50f837a506dc7be843ce9"
+    },
+    "energy-market-daily-2.1.7-public-code.zip": {
+      "bytes": 130148,
+      "sha256": "6ecc8bf66ac874f9d99b7402657d585ed9efac64f26f6a87cc9603839b609d9f"
+    },
+    "install-energy-webhook-skill-20261116-r3.py": {
+      "bytes": 2191008,
+      "sha256": "3ab0b0ef8d6adf318a61e3eba5fe36fa4522cfe1eb84a555425fc252eed452b8"
+    },
+    "publisher.sealed.py": {
+      "bytes": 22936,
+      "sha256": "f773361bc9a41e0820963a55d646b483f0a909a9494b6830703bec2f4760cc9f"
+    },
+    "verify_child.sealed.py": {
+      "bytes": 33925,
+      "sha256": "3bf0af92b7c4cd5e94fa4e2dd74be3199e39fa914977f0078ab67d5ca8c51cfa"
+    }
+  },
+  "gateway_modified": false,
+  "installed_files": 110,
+  "offline_test_count": 57,
+  "original_failed_attempt_not_replayed": true,
+  "original_failed_operation": "cdf8c9bb0f0e48f98afc3db90b1da23c",
+  "original_once_claimed": false,
+  "package_sha256": "6ecc8bf66ac874f9d99b7402657d585ed9efac64f26f6a87cc9603839b609d9f",
+  "prior_installer_sha256": "46b46e2818604b71c2e15343869d823248ed545a501bbd3309ca8e576f3321f3",
+  "production_executed": false,
+  "schema": "energy-webhook-skill-installer-posix-fix.v1",
+  "skill_core_preserved": {
+    "browser_runtime.py": "9844b8e4c5e6a6de99a6f7d9cf42f2aafeda1dea5e2b9966f709da7cebf71ae8",
+    "common.py": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0",
+    "market.py": "0ade49587ad07af0da852e384090525466b79bd936cd9edaf21789493c8a115c",
+    "report_renderer.py": "2d82ef0d5a81ff5fd21f5695fe94f8cfca7de3df2ea47911127d7c9346b64c8f",
+    "research.py": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee"
+  },
+  "skill_payload_unchanged_from_r2": true,
+  "version": "2.1.7-portable",
+  "webhook_messages_sent": 0
+}

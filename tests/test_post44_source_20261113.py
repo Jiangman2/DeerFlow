@@ -13,11 +13,17 @@ import post44_source_20261113 as source
 
 @pytest.fixture(scope='module')
 def snapshot():
+    # These remain tests of the exact November 13 version; the successor has
+    # separate rejection tests and qualifies current bytes before projection.
+    reader, _, _ = source.successor.historical_view(
+        lambda path: (ROOT / path).read_bytes(),
+        [p.relative_to(ROOT).as_posix() for p in (ROOT / source.ENERGY).rglob('*')
+         if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc'])
     raw = (ROOT / source.MANIFEST).read_bytes()
     seal = json.loads(raw)
     paths = set(seal['support_files']) | set(seal['energy_files']) | set(seal['gateway_sources'])
     paths |= {row['snapshot'] for row in seal['parent_files'].values() if row is not None}
-    data = {path: (ROOT / path).read_bytes() for path in paths}
+    data = {path: reader(path) for path in paths}
     data[source.MANIFEST] = raw
     return data, sorted(seal['energy_files'])
 

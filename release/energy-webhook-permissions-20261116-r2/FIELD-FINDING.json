@@ -1,0 +1,255 @@
+{
+  "gateway_replicas": {
+    "availableReplicas": 70,
+    "readyReplicas": 70,
+    "replicas": 71,
+    "terminatingReplicas": 0,
+    "updatedReplicas": 31
+  },
+  "messages_sent": 0,
+  "projects": [
+    {
+      "file_ownership": [
+        {
+          "access_basis": "POSIX_MODE_BITS_NOT_ACL_OR_EFFECTIVE_ACCESS",
+          "chmod_requires_owner_or_privilege": true,
+          "comparison_gid": 1000,
+          "comparison_uid": 1000,
+          "directory": true,
+          "gid": 0,
+          "mode": "0o755",
+          "mode_readable_by_uid1000": true,
+          "mode_searchable_by_uid1000": true,
+          "mode_writable_by_uid1000": false,
+          "owner_matches_uid1000": false,
+          "path_exported": false,
+          "present": true,
+          "regular": false,
+          "role": "user_data",
+          "uid": 0
+        },
+        {
+          "access_basis": "POSIX_MODE_BITS_NOT_ACL_OR_EFFECTIVE_ACCESS",
+          "chmod_requires_owner_or_privilege": false,
+          "comparison_gid": 1000,
+          "comparison_uid": 1000,
+          "directory": true,
+          "gid": 1000,
+          "mode": "0o755",
+          "mode_readable_by_uid1000": true,
+          "mode_searchable_by_uid1000": true,
+          "mode_writable_by_uid1000": true,
+          "owner_matches_uid1000": true,
+          "path_exported": false,
+          "present": true,
+          "regular": false,
+          "role": "project",
+          "uid": 1000
+        },
+        {
+          "access_basis": "POSIX_MODE_BITS_NOT_ACL_OR_EFFECTIVE_ACCESS",
+          "chmod_requires_owner_or_privilege": false,
+          "comparison_gid": 1000,
+          "comparison_uid": 1000,
+          "directory": false,
+          "gid": 1000,
+          "mode": "0o600",
+          "mode_readable_by_uid1000": true,
+          "mode_searchable_by_uid1000": false,
+          "mode_writable_by_uid1000": true,
+          "owner_matches_uid1000": true,
+          "path_exported": false,
+          "present": true,
+          "regular": true,
+          "role": "result",
+          "uid": 1000
+        },
+        {
+          "access_basis": "POSIX_MODE_BITS_NOT_ACL_OR_EFFECTIVE_ACCESS",
+          "chmod_requires_owner_or_privilege": false,
+          "comparison_gid": 1000,
+          "comparison_uid": 1000,
+          "directory": true,
+          "gid": 1000,
+          "mode": "0o755",
+          "mode_readable_by_uid1000": true,
+          "mode_searchable_by_uid1000": true,
+          "mode_writable_by_uid1000": true,
+          "owner_matches_uid1000": true,
+          "path_exported": false,
+          "present": true,
+          "regular": false,
+          "role": "delivery_directory",
+          "uid": 1000
+        },
+        {
+          "access_basis": "POSIX_MODE_BITS_NOT_ACL_OR_EFFECTIVE_ACCESS",
+          "chmod_requires_owner_or_privilege": false,
+          "comparison_gid": 1000,
+          "comparison_uid": 1000,
+          "directory": false,
+          "gid": 1000,
+          "mode": "0o644",
+          "mode_readable_by_uid1000": true,
+          "mode_searchable_by_uid1000": false,
+          "mode_writable_by_uid1000": true,
+          "owner_matches_uid1000": true,
+          "path_exported": false,
+          "present": true,
+          "regular": true,
+          "role": "webhook_request",
+          "uid": 1000
+        },
+        {
+          "access_basis": "POSIX_MODE_BITS_NOT_ACL_OR_EFFECTIVE_ACCESS",
+          "chmod_requires_owner_or_privilege": true,
+          "comparison_gid": 1000,
+          "comparison_uid": 1000,
+          "directory": true,
+          "gid": 0,
+          "mode": "0o777",
+          "mode_readable_by_uid1000": true,
+          "mode_searchable_by_uid1000": true,
+          "mode_writable_by_uid1000": true,
+          "owner_matches_uid1000": false,
+          "path_exported": false,
+          "present": true,
+          "regular": false,
+          "role": "published_output_directory",
+          "uid": 0
+        }
+      ],
+      "permission_probe_called_sender": false,
+      "permission_probe_changed_modes": false,
+      "project_path_exported": false,
+      "project_path_sha256": "993b0dfdf5ca43925bcf6a14bd6c2c8b11a1aa34cf32e8a30fc0fc5adb3a190f",
+      "project_selection_basis": "UNIQUE_LITERAL_WORKSPACE_OF_OBSERVED_SEND_WEBHOOK_COMMANDS",
+      "published_copies": [
+        {
+          "extension": ".png",
+          "published_copy_matches_receipt": true,
+          "published_copy_present": true
+        },
+        {
+          "extension": ".html",
+          "published_copy_matches_receipt": true,
+          "published_copy_present": true
+        },
+        {
+          "extension": ".json",
+          "published_copy_matches_receipt": true,
+          "published_copy_present": true
+        },
+        {
+          "extension": ".txt",
+          "published_copy_matches_receipt": true,
+          "published_copy_present": true
+        }
+      ],
+      "result_has_current_thread": true,
+      "result_status": "REPORT_ACCEPTED",
+      "result_version": "2.1.7-portable",
+      "send_journals": [],
+      "status": "NAMED_PROJECT_OBSERVED_READONLY",
+      "webhook_request_file_present": true,
+      "webhook_request_shape_valid": true,
+      "webhook_request_target": {
+        "fragment_present": false,
+        "https": true,
+        "matches_sender_endpoint_policy": true,
+        "query_present": false,
+        "target_present": true,
+        "target_sha256": "3d360241653703501784b63cddbbd206a288c0576b44d1d3a1259d41a5d70e8a",
+        "url_exported": false,
+        "v2_hook_path": true
+      },
+      "webhook_token_examined_only_for_target_comparison": true,
+      "webhook_urls_exported": false
+    },
+    {
+      "file_ownership": [
+        {
+          "access_basis": "POSIX_MODE_BITS_NOT_ACL_OR_EFFECTIVE_ACCESS",
+          "chmod_requires_owner_or_privilege": true,
+          "comparison_gid": 1000,
+          "comparison_uid": 1000,
+          "directory": true,
+          "gid": 0,
+          "mode": "0o755",
+          "mode_readable_by_uid1000": true,
+          "mode_searchable_by_uid1000": true,
+          "mode_writable_by_uid1000": false,
+          "owner_matches_uid1000": false,
+          "path_exported": false,
+          "present": true,
+          "regular": false,
+          "role": "user_data",
+          "uid": 0
+        },
+        {
+          "access_basis": "POSIX_MODE_BITS_NOT_ACL_OR_EFFECTIVE_ACCESS",
+          "comparison_gid": 1000,
+          "comparison_uid": 1000,
+          "path_exported": false,
+          "present": false,
+          "role": "project"
+        },
+        {
+          "access_basis": "POSIX_MODE_BITS_NOT_ACL_OR_EFFECTIVE_ACCESS",
+          "comparison_gid": 1000,
+          "comparison_uid": 1000,
+          "path_exported": false,
+          "present": false,
+          "role": "result"
+        },
+        {
+          "access_basis": "POSIX_MODE_BITS_NOT_ACL_OR_EFFECTIVE_ACCESS",
+          "comparison_gid": 1000,
+          "comparison_uid": 1000,
+          "path_exported": false,
+          "present": false,
+          "role": "delivery_directory"
+        },
+        {
+          "access_basis": "POSIX_MODE_BITS_NOT_ACL_OR_EFFECTIVE_ACCESS",
+          "comparison_gid": 1000,
+          "comparison_uid": 1000,
+          "path_exported": false,
+          "present": false,
+          "role": "webhook_request"
+        },
+        {
+          "access_basis": "POSIX_MODE_BITS_NOT_ACL_OR_EFFECTIVE_ACCESS",
+          "chmod_requires_owner_or_privilege": true,
+          "comparison_gid": 1000,
+          "comparison_uid": 1000,
+          "directory": true,
+          "gid": 0,
+          "mode": "0o777",
+          "mode_readable_by_uid1000": true,
+          "mode_searchable_by_uid1000": true,
+          "mode_writable_by_uid1000": true,
+          "owner_matches_uid1000": false,
+          "path_exported": false,
+          "present": true,
+          "regular": false,
+          "role": "published_output_directory",
+          "uid": 0
+        }
+      ],
+      "permission_probe_called_sender": false,
+      "permission_probe_changed_modes": false,
+      "project_path_exported": false,
+      "project_path_sha256": "7e3dfda8cd75caa9b3f15411bc27aba23be97f431c75fc16a32f537eeab92292",
+      "project_selection_basis": "UNIQUE_LITERAL_WORKSPACE_OF_OBSERVED_SEND_WEBHOOK_COMMANDS",
+      "status": "PROJECT_NOT_PRESENT"
+    }
+  ],
+  "request_directory_nonowner_chmod_hypothesis_rejected_for_real_project": true,
+  "root_copy_modes_not_measured_by_field_probe": true,
+  "schema": "energy-webhook-permission-field-finding.v2",
+  "source_log_bytes": 62001,
+  "source_log_sha256": "47640ac28b6bfbe00c2823dc0f45c526ffc608023a352f039e22012950944d4f",
+  "tasks_replayed": false,
+  "thread_id": "cd2ca7b0-139c-4576-ab5f-c67e9837db10"
+}
