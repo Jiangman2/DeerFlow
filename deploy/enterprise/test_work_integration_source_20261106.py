@@ -29,8 +29,12 @@ class WorkIntegrationSourceTests(unittest.TestCase):
         self.assertEqual(projected("backend/app/gateway/routers/model_monitor.py"), self.read("backend/app/gateway/routers/model_monitor.py"))
 
     def test_rejects_changed_runtime_or_manifest(self):
-        for target, error in ((MODIFIED, "DATALAKE_COMBINED_CURRENT_CHANGED"), (ADDED, "WORK_FOLLOWUP_CURRENT_CHANGED"), (work.MANIFEST, "WORK_FOLLOWUP_SEAL_CHANGED")):
-            with self.subTest(target=target), self.assertRaisesRegex(AssertionError, error):
+        # November 16 seals the same services.py before the older DataLake
+        # projection. Corruption must fail at that exact earlier boundary.
+        successor_present = (work.ROOT / work.lease_work.post44.successor.MANIFEST).is_file()
+        modified_error = (ValueError, "POST51_FILE_CHANGED: " + MODIFIED) if successor_present else (AssertionError, "DATALAKE_COMBINED_CURRENT_CHANGED")
+        for target, exception, error in ((MODIFIED, *modified_error), (ADDED, AssertionError, "WORK_FOLLOWUP_CURRENT_CHANGED"), (work.MANIFEST, AssertionError, "WORK_FOLLOWUP_SEAL_CHANGED")):
+            with self.subTest(target=target), self.assertRaisesRegex(exception, error):
                 work.historical_view(lambda path: self.read(path) + (b"\n" if path == target else b""))
 
     def test_rejects_altered_git_parent(self):

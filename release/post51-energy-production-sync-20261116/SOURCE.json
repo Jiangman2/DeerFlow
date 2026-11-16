@@ -548,6 +548,10 @@
       "bytes": 5421,
       "sha256": "19f62c34887b1b780569f180fed5d5be9db02139903cc9f6cdb38d56d68e388c"
     },
+    "deploy/enterprise/test_work_integration_source_20261106.py": {
+      "bytes": 3044,
+      "sha256": "1e39111adfc8025cd6c92513dccada1e2fbf3531cb0f5b07b5e2a7b4dc766cad"
+    },
     "deploy/enterprise/verify-nov01-released-source-20261102.py": {
       "bytes": 8044,
       "sha256": "be0c8edcaa303f87b9b76f52870ba78edcd35cbed22fa5c9d0c998e23ced538a"
@@ -7114,6 +7118,11 @@
       "bytes": 5129,
       "sha256": "fb7968f5935f070ae0fb55dbe96f1654d1c70dfc24238d5e23cc44a43b97a0bf",
       "snapshot": "release/post51-energy-production-sync-20261116/parent/deploy/enterprise/test_lease_work_source_20261110.py"
+    },
+    "deploy/enterprise/test_work_integration_source_20261106.py": {
+      "bytes": 2628,
+      "sha256": "4c894e12d5b543659e41cf456c11bd1fcf914b67bfdab163aba7bd07a3ddb03f",
+      "snapshot": "release/post51-energy-production-sync-20261116/parent/deploy/enterprise/test_work_integration_source_20261106.py"
     },
     "deploy/enterprise/verify-nov01-released-source-20261102.py": {
       "bytes": 7850,
