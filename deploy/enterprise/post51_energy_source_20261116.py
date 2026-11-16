@@ -6,7 +6,7 @@ from pathlib import PurePosixPath
 
 ARCHIVE = 'release/post51-energy-production-sync-20261116/'
 MANIFEST = ARCHIVE + 'SOURCE.json'
-MANIFEST_SHA256 = '0bc4545021d32b6d3dd6da6b9f4e05ad42e289bbc68de98031b7f71ad9eaad5c'
+MANIFEST_SHA256 = 'd7fac072fb71fdf76c533f5f07ce4e42f074f5eec788527e10bca13a68316623'
 ENERGY = 'skills/public/energy-market-daily/'
 BASE_COMMIT = '5c39443075c007d6bf82148759f0b3b797826eee'
 

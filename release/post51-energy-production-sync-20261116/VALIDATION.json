@@ -4,6 +4,7 @@
     "backend_ruff_format_files": 1304,
     "backend_selected_passed": 136,
     "backend_selected_skipped": 5,
+    "historical_provenance_test_modules_passed": 15,
     "historical_publication_fixture_passed": 24,
     "historical_publication_fixture_skipped": 1,
     "linux_file_stream_parser_passed": 4,
@@ -17,7 +18,8 @@
     "sealed_218_failures": 0,
     "sealed_218_linux_uid1000_tests": 62,
     "sealed_current_skill_static_review": "PASS_EXACT_SEVEN_ERROR_FINDINGS_AFTER_COMPLETE_SOURCE_QUALIFICATION",
-    "source_and_rejection_checks_passed": 66,
+    "source_and_rejection_checks_passed": 74,
+    "task_context_regressions_linux_passed": 123,
     "task_context_regressions_windows_passed": 122,
     "task_context_regressions_windows_skipped": 1
   },

@@ -552,6 +552,10 @@
       "bytes": 3044,
       "sha256": "1e39111adfc8025cd6c92513dccada1e2fbf3531cb0f5b07b5e2a7b4dc766cad"
     },
+    "deploy/enterprise/verify-dashboard-navigation-source-20261103.py": {
+      "bytes": 2708,
+      "sha256": "cc15ab9328ae89575c1fbf70187ed48485fba6cd347a940220c1104966384c9f"
+    },
     "deploy/enterprise/verify-nov01-released-source-20261102.py": {
       "bytes": 8044,
       "sha256": "be0c8edcaa303f87b9b76f52870ba78edcd35cbed22fa5c9d0c998e23ced538a"
@@ -6925,8 +6929,8 @@
       "sha256": "f542862150920c4ff43d2dfee3b209d4c116a3935063b88aa500413cda587bcc"
     },
     "tests/test_post51_energy_source_20261116.py": {
-      "bytes": 5167,
-      "sha256": "556830c7c98a2679ef60850bc434447d5aa42726eb3953350104089a742d49d5"
+      "bytes": 6545,
+      "sha256": "e4e4f1e673612dc920e31bf8d4cafbe9850fafab6c57f3eda3aab5fb45702055"
     }
   },
   "fleet_runtime_acceptance_complete": false,
@@ -7123,6 +7127,11 @@
       "bytes": 2628,
       "sha256": "4c894e12d5b543659e41cf456c11bd1fcf914b67bfdab163aba7bd07a3ddb03f",
       "snapshot": "release/post51-energy-production-sync-20261116/parent/deploy/enterprise/test_work_integration_source_20261106.py"
+    },
+    "deploy/enterprise/verify-dashboard-navigation-source-20261103.py": {
+      "bytes": 2514,
+      "sha256": "5c621e7b50a98620f6fc23276654fdf46ba96f1f447f7922a9947cd3013f7328",
+      "snapshot": "release/post51-energy-production-sync-20261116/parent/deploy/enterprise/verify-dashboard-navigation-source-20261103.py"
     },
     "deploy/enterprise/verify-nov01-released-source-20261102.py": {
       "bytes": 7850,

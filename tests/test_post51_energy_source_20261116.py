@@ -1,5 +1,6 @@
 """Current release and historical projection must both reject unsealed drift."""
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -108,3 +109,36 @@ def test_backend_only_git_archive_includes_qualified_parent_closure(data):
     limited.pop('backend/app/scheduler/work_notification_delivery.py')
     with pytest.raises(ValueError, match='POST51_FILE_MISSING'):
         source.qualify(limited.__getitem__)
+
+
+@pytest.mark.parametrize('reader', [
+    'verify-dashboard-navigation-source-20261103.py',
+    'verify-nov01-released-source-20261102.py',
+    'verify-nov02-released-source-20261103.py',
+    'verify-release-source-20261023.py',
+])
+@pytest.mark.parametrize('has_successor', [False, True])
+def test_git_archive_selects_successor_evidence_for_the_chosen_ref(reader, has_successor, monkeypatch):
+    spec = importlib.util.spec_from_file_location('archive_closure_' + reader.replace('-', '_'), ROOT / 'deploy/enterprise' / reader)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    captured = []
+
+    class ArchiveSelected(Exception):
+        pass
+
+    def git(argv, **kwargs):
+        assert argv[0] == 'git'
+        if argv[1] == 'ls-tree':
+            return b'' if argv[-1] == source.MANIFEST and not has_successor else b'present\n'
+        if argv[1] == 'show':
+            return (ROOT / argv[2].split(':', 1)[1]).read_bytes()
+        if argv[1] == 'archive':
+            captured.extend(argv)
+            raise ArchiveSelected()
+        raise AssertionError('Unexpected operation in an offline archive selector')
+
+    monkeypatch.setattr(module.subprocess, 'check_output', git)
+    with pytest.raises(ArchiveSelected):
+        module.verify('chosen-ref')
+    assert (source.ARCHIVE in captured) is has_successor
