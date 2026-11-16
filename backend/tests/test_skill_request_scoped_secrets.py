@@ -970,7 +970,8 @@ class TestBashToolInjectsActiveSecrets:
         out, captured = self._run_bash({})
         assert captured["env"] in (None, {})
 
-    def test_local_bash_forwards_env_and_timeout(self, monkeypatch):
+    @pytest.mark.parametrize("windows", [False, True])
+    def test_local_bash_forwards_env_and_timeout(self, monkeypatch, windows):
         from deerflow.sandbox import tools as tools_mod
 
         captured = {}
@@ -992,6 +993,7 @@ class TestBashToolInjectsActiveSecrets:
             patch.object(tools_mod, "ensure_sandbox_initialized", return_value=FakeSandbox()),
             patch.object(tools_mod, "is_local_sandbox", return_value=True),
             patch.object(tools_mod, "is_host_bash_allowed", return_value=True),
+            patch.object(tools_mod, "_is_windows", return_value=windows),
             patch.object(tools_mod, "ensure_thread_directories_exist", return_value=None),
             patch.object(tools_mod, "get_thread_data", return_value=thread_data),
             patch.object(tools_mod, "validate_local_bash_command_paths", return_value=None),
@@ -1006,7 +1008,7 @@ class TestBashToolInjectsActiveSecrets:
             )
 
         assert out == "done"
-        assert captured["command"] == "echo hi"
+        assert captured["command"] == ("echo hi" if windows else "unset DEERFLOW_CONVERSATION_URL; echo hi")
         assert captured["env"] == {"ERP_TOKEN": "tok-456"}
         assert captured["timeout"] == 42
 

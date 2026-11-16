@@ -516,9 +516,17 @@
       "bytes": 5042,
       "sha256": "5cebf7fdaf502bd0eb978b93e8749350b77473e8c1db3786fdbb8f627fa78ac5"
     },
+    "backend/tests/test_channel_user_id_env.py": {
+      "bytes": 10677,
+      "sha256": "33512b07f0b6f736dbbcf3d2561577fa7a314dc905b89b22379f16cf35fd93c3"
+    },
     "backend/tests/test_conversation_result_links.py": {
       "bytes": 15319,
       "sha256": "44c7ab6f86c8cd6246ff53ed924796a2889544c6660fb43e0649b7802815b1b4"
+    },
+    "backend/tests/test_skill_request_scoped_secrets.py": {
+      "bytes": 59484,
+      "sha256": "a31126cc6391b5f35b065088785a352413427d5ebc05855d7bdf50892fee36fe"
     },
     "backend/tests/test_upload_memory_released_20261116.py": {
       "bytes": 3544,
@@ -7077,10 +7085,20 @@
       "sha256": "5cebf7fdaf502bd0eb978b93e8749350b77473e8c1db3786fdbb8f627fa78ac5",
       "snapshot": "release/post51-energy-production-sync-20261116/parent/backend/packages/harness/deerflow/utils/conversation_url.py"
     },
+    "backend/tests/test_channel_user_id_env.py": {
+      "bytes": 10479,
+      "sha256": "3e65705367ce894ec8f9973b1e8f4e2c75940928d963d10070b0f89ab9e525ad",
+      "snapshot": "release/post51-energy-production-sync-20261116/parent/backend/tests/test_channel_user_id_env.py"
+    },
     "backend/tests/test_conversation_result_links.py": {
       "bytes": 15198,
       "sha256": "fd5a016412108ff6b20dfe549d99d14a738b6dbf95e158c535355dc5d589e1ef",
       "snapshot": "release/post51-energy-production-sync-20261116/parent/backend/tests/test_conversation_result_links.py"
+    },
+    "backend/tests/test_skill_request_scoped_secrets.py": {
+      "bytes": 59285,
+      "sha256": "5106990f04bba97505d4c8b28e4ff30c52f316ad4c4492dc6e38ca9cebd8224a",
+      "snapshot": "release/post51-energy-production-sync-20261116/parent/backend/tests/test_skill_request_scoped_secrets.py"
     },
     "backend/tests/test_uploads_router.py": {
       "bytes": 61700,
