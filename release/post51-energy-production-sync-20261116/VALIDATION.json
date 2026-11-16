@@ -17,7 +17,7 @@
     "sealed_218_failures": 0,
     "sealed_218_linux_uid1000_tests": 62,
     "sealed_current_skill_static_review": "PASS_EXACT_SEVEN_ERROR_FINDINGS_AFTER_COMPLETE_SOURCE_QUALIFICATION",
-    "source_and_rejection_checks_passed": 65
+    "source_and_rejection_checks_passed": 66
   },
   "notes": [
     "Historical Python versions run in separate processes so import caches cannot select another candidate.",

@@ -97,3 +97,14 @@ def test_historical_source_set_excludes_only_real_additions():
         'backend/app/gateway/upload_document_memory_guard.py',
         'backend/packages/harness/deerflow/utils/conversation_url.py',
     ]
+
+
+def test_backend_only_git_archive_includes_qualified_parent_closure(data):
+    values, seal = data
+    names = set(seal['runtime_files']) | {source.MANIFEST}
+    names.update(r['snapshot'] for r in seal['parent_files'].values() if r)
+    limited = {n: values[n] for n in names}
+    assert source.qualify(limited.__getitem__)['gateway_generation'] == 419
+    limited.pop('backend/app/scheduler/work_notification_delivery.py')
+    with pytest.raises(ValueError, match='POST51_FILE_MISSING'):
+        source.qualify(limited.__getitem__)

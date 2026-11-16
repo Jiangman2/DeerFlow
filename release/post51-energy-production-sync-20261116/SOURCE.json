@@ -540,6 +540,10 @@
       "bytes": 4611,
       "sha256": "249c9437fe4ed63a58d22a6d49d7bc7a883b47234ca5b1a7f458bf5785cf72cc"
     },
+    "deploy/enterprise/verify-nov02-released-source-20261103.py": {
+      "bytes": 5489,
+      "sha256": "8b502ec91928cd013b665e47586c636aca108eeb57cbaea65b33821d34b64d83"
+    },
     "deploy/enterprise/verify-post44-source-20261113.py": {
       "bytes": 3448,
       "sha256": "bb4448b77ccf9335a78eab1525a4fbaf38ae69dcc6aa8bbb914dc2722cef45cd"
@@ -547,6 +551,10 @@
     "deploy/enterprise/verify-post51-energy-source-20261116.py": {
       "bytes": 2503,
       "sha256": "53956cf29442af3bed1b422dee02721a3cd779340452baf708f864469675c37d"
+    },
+    "deploy/enterprise/verify-release-source-20261023.py": {
+      "bytes": 47462,
+      "sha256": "c91aac71203f171e57574e8bc72d82b8e57475fde0a812648d61da812552ed00"
     },
     "docs/energy-daily-html-reader-incident-20261115.md": {
       "bytes": 10769,
@@ -6901,8 +6909,8 @@
       "sha256": "f542862150920c4ff43d2dfee3b209d4c116a3935063b88aa500413cda587bcc"
     },
     "tests/test_post51_energy_source_20261116.py": {
-      "bytes": 4631,
-      "sha256": "55dbc468bba2d7b1aa64c41a450f17242907508203b922b8217c9bdcbf3718a7"
+      "bytes": 5167,
+      "sha256": "556830c7c98a2679ef60850bc434447d5aa42726eb3953350104089a742d49d5"
     }
   },
   "fleet_runtime_acceptance_complete": false,
@@ -7085,10 +7093,20 @@
       "sha256": "88ee6a0f092e6390165fd694556c6a0b5d28acb2396967a2045f320fb223f29a",
       "snapshot": "release/post51-energy-production-sync-20261116/parent/deploy/enterprise/post44_source_20261113.py"
     },
+    "deploy/enterprise/verify-nov02-released-source-20261103.py": {
+      "bytes": 5295,
+      "sha256": "bbbef436ec54e9f59daf32bfeceb7d7f38bde388ce0c3e6416216e9963a41968",
+      "snapshot": "release/post51-energy-production-sync-20261116/parent/deploy/enterprise/verify-nov02-released-source-20261103.py"
+    },
     "deploy/enterprise/verify-post44-source-20261113.py": {
       "bytes": 3026,
       "sha256": "da8befcf624015aa2e9df1b865ac2311c00fc4e84cdec0f1e4612c94f91671f5",
       "snapshot": "release/post51-energy-production-sync-20261116/parent/deploy/enterprise/verify-post44-source-20261113.py"
+    },
+    "deploy/enterprise/verify-release-source-20261023.py": {
+      "bytes": 47268,
+      "sha256": "37e3881459c3305b63a1627ed7ea70970f4f9647e1a454c35ff340b476cd0472",
+      "snapshot": "release/post51-energy-production-sync-20261116/parent/deploy/enterprise/verify-release-source-20261023.py"
     },
     "docs/energy-daily-html-reader-incident-20261115.md": null,
     "docs/energy-two-task-findings-20261116.md": null,

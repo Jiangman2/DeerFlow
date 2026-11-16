@@ -6,7 +6,7 @@ from pathlib import PurePosixPath
 
 ARCHIVE = 'release/post51-energy-production-sync-20261116/'
 MANIFEST = ARCHIVE + 'SOURCE.json'
-MANIFEST_SHA256 = '8ad63986aea2fd9572b16ee8f2b206ef497db0ca9a408ac4eced330f8261cbc7'
+MANIFEST_SHA256 = 'b2cc9a9c9f29b2a407692f54ca58b8f3587874e0f79ffc13ea92645940cb36df'
 ENERGY = 'skills/public/energy-market-daily/'
 BASE_COMMIT = '5c39443075c007d6bf82148759f0b3b797826eee'
 
@@ -59,9 +59,10 @@ def qualify(read, energy_paths=None, full=False):
         paths.update(seal['energy_files'])
         if energy_paths is not None:
             require(set(energy_paths) == set(seal['energy_files']), 'ENERGY_FILE_SET_CHANGED: POST51')
-    # Every changed pre-existing support file must be checked before the old
-    # verifier sees its retained parent; new preparation archives are full-only.
-    paths.update(p for p in seal['parent_files'] if p in seal['files'] and not p.startswith(ENERGY))
+    # Backend-only readers qualify the runtime closure. Skill/full readers also
+    # qualify changed support files before exposing their retained parents.
+    if energy_paths is not None or full:
+        paths.update(p for p in seal['parent_files'] if p in seal['files'] and not p.startswith(ENERGY))
     if full:
         paths.update(seal['files'])
     for path in sorted(paths):
