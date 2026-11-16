@@ -1,0 +1,30 @@
+{
+  "schema": "scheduler-concurrency-offline-validation.v1",
+  "status": "CANDIDATE_32_WITH_MULTI_INSTANCE_TESTED_NOT_DEPLOYED",
+  "windows_tests": {"run": 52, "failures": 0, "errors": 0},
+  "field_identical_arm64_image_tests": {"run": 52, "failures": 0, "errors": 0},
+  "image": "deerflow.local/deer-flow-gateway@sha256:0255237caedba428d7ceafd584e171a6d23739f07fc7a566bce016f28d543c5e",
+  "isolated_database_budget_races": {
+    "backends": ["sqlite", "postgres"],
+    "field_matching_repository_sha256": "7c056874bcbdcede1743fbe55b498f2df5a7d9d12cdea3a38af03703d9462281",
+    "existing_executing": 3,
+    "concurrent_claimants": 40,
+    "repository_instances": 4,
+    "new_claims_accepted": 29,
+    "executing_total": 32,
+    "remaining_queued": 11
+  },
+  "python37_sealed_entry_and_wrong_host_guard": "PASS",
+  "production_source_identity_must_be_verified_by_operator": true,
+  "full_repository_make_test": "UNAVAILABLE_MAKE_NOT_INSTALLED",
+  "production_access_by_local_validation": false,
+  "provider_requests": 0,
+  "work_messages_sent": 0,
+  "queued_tasks_replayed": false,
+  "target_concurrency": 32,
+  "target_multi_instance": true,
+  "scheduler_step_budget": 10000,
+  "global_step_budget": 10000,
+  "production_deployed": false,
+  "business_acceptance_pending": true
+}

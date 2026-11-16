@@ -1,0 +1,76 @@
+{
+  "all_selected_kind_events_observed": true,
+  "binding_key_present": false,
+  "build_receipt": {
+    "artifacts_ready": true,
+    "conversation_link_available": true,
+    "data_date": "2026-11-15",
+    "error_code": null,
+    "file_extensions_in_receipt": [
+      ".png",
+      ".html",
+      ".json",
+      ".txt"
+    ],
+    "formal_report_ready": false,
+    "html_report_link_available": true,
+    "programmatic_checks_passed": true,
+    "publication_allowed": true,
+    "publication_date": "2026-11-16",
+    "render_seconds": 3.945,
+    "reply_text_ready": true,
+    "reported_file_count": 4,
+    "status": "REPORT_ACCEPTED",
+    "version": "2.1.6-portable"
+  },
+  "connection_id_present": false,
+  "content_coverage_complete": false,
+  "evidence_limits": [
+    "Native Work notification was not queued; this is not proof that all possible custom webhook traffic was absent.",
+    "The current read does not establish whether the binding was omitted at creation or removed by a subsequent edit.",
+    "Formatter evaluation is isolated replay, not an actual send or public reader-route probe."
+  ],
+  "gateway_at_inspection": {
+    "generation": 418,
+    "spec_sha256": "ebdfb3f85c151a67b12c6aed4f145b60330e19925996194f201f31d839ee0c0e",
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+  },
+  "messages_sent_by_diagnostic": 0,
+  "native_notification_configured": false,
+  "notification_formatter_source_hashes": {
+    "app/scheduler/work_notification_delivery.py": {
+      "bytes": 5209,
+      "sha256": "2127f2f5cc89dea6ca1772cb0e3c79ecc88ce449dd2a707c1d4a6bacca674b12"
+    },
+    "app/scheduler/work_notifications.py": {
+      "bytes": 14575,
+      "sha256": "03a20b2909d5b3904cb77f8aa929ef45741bc7ad2ff111f3b8a273f6cabf7762"
+    }
+  },
+  "outbox_statuses": [],
+  "platform_run_status": "success",
+  "production_changes": 0,
+  "schema": "energy-work-delivery-field-finding.v1",
+  "source_sha256": "d0b5fd24d323a7d7a56b0ed1c5d1414a547ae0043f6739145bb07dfb99ae96c4",
+  "status": "REPORT_PUBLISHED_NATIVE_NOTIFICATION_BINDING_ABSENT",
+  "stored_preview_formatting": {
+    "daily_title_prefix": false,
+    "isolated_replay_not_actual_delivery": true,
+    "notification_bytes": 132,
+    "notification_is_link_only": true,
+    "notification_summary_bytes": 161,
+    "notification_would_be_empty": false,
+    "raw_text_exported": false,
+    "reader_label_present": true,
+    "standalone_reader_lines": 1,
+    "text_bytes": 4502,
+    "text_present": true,
+    "text_sha256": "91efdd26d92047b8e92fd30251cba5e2b890007bed76c5a7c39ff39c1c07a10b",
+    "valid_current_reader_urls": [
+      "https://cnoocclaw.cnooc.com.cn/reports/energy-daily/d99e944a-6d4b-4f22-9f53-f85d04a12fc0/2026-11-16.html"
+    ]
+  },
+  "successful_publication_receipts": 1,
+  "tasks_retried": false,
+  "thread_id": "d99e944a-6d4b-4f22-9f53-f85d04a12fc0"
+}

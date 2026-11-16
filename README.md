@@ -1,5 +1,12 @@
 # 🦌 DeerFlow - 2.0
 
+Enterprise energy daily supports dated recent freight references, program-owned
+collection/build, matching HTML/PNG, an authenticated mobile HTML reader and
+explicit group-webhook delivery. The November 16 production source and open
+acceptance items are recorded in
+[the energy release reconciliation](docs/energy-production-source-sync-20261116.md).
+Git publication does not redeploy production or replay scheduled work.
+
 Homepage portal footer: total/today model usage remains supplied by Haineng;
 today's users/tasks use the business dashboard's active-user/started-run
 definitions for Shanghai midnight through the current minute. The authenticated

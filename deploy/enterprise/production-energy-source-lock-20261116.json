@@ -1,0 +1,104 @@
+{
+  "base_commit": "5c39443075c007d6bf82148759f0b3b797826eee",
+  "gateway": {
+    "fleet_runtime_acceptance_complete": false,
+    "generation": 419,
+    "image": "deerflow.local/deer-flow-gateway@sha256:0255237caedba428d7ceafd584e171a6d23739f07fc7a566bce016f28d543c5e",
+    "observed_python_sources": {
+      "backend/app/channels/manager.py": {
+        "bytes": 94358,
+        "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
+      },
+      "backend/app/gateway/routers/uploads.py": {
+        "bytes": 37879,
+        "sha256": "13b842ee8fd7035555768b1ecb787d944c53088121a6e240f32b69b669b93b1f"
+      },
+      "backend/app/gateway/services.py": {
+        "bytes": 54226,
+        "sha256": "4bf26f6ac2166de7851015af36fed73a8b7d1b0e98b7918806c454e623dbd435"
+      },
+      "backend/app/gateway/upload_document_memory_guard.py": {
+        "bytes": 8956,
+        "sha256": "37e67be268214537ae8f149a3d45751111cfd34c460a0125e1b03cf65bce4fcf"
+      },
+      "backend/app/integrations/work/notifications.py": {
+        "bytes": 10025,
+        "sha256": "2f25958bcb2556685d153bef55f72afebd360deb157cd13164ceb4261001f039"
+      },
+      "backend/app/scheduler/service.py": {
+        "bytes": 28780,
+        "sha256": "ab48b5861cec9eff14cb9dea062c8a16dfa62df94e8801dcb9b53f584e8ba263"
+      },
+      "backend/app/scheduler/work_notification_delivery.py": {
+        "bytes": 5209,
+        "sha256": "2127f2f5cc89dea6ca1772cb0e3c79ecc88ce449dd2a707c1d4a6bacca674b12"
+      },
+      "backend/app/scheduler/work_notifications.py": {
+        "bytes": 14575,
+        "sha256": "03a20b2909d5b3904cb77f8aa929ef45741bc7ad2ff111f3b8a273f6cabf7762"
+      },
+      "backend/packages/harness/deerflow/agents/lead_agent/agent.py": {
+        "bytes": 41101,
+        "sha256": "ec108a4b8cc9c608ba790e71bc5a1c34bbd33cd5241503c7a4ddba7a7e5e0d30"
+      },
+      "backend/packages/harness/deerflow/config/app_config.py": {
+        "bytes": 31735,
+        "sha256": "ab3056db7657d4ee9de7fbd754f59f4d8e14be78f2535b049047d6d03cc863ad"
+      },
+      "backend/packages/harness/deerflow/config/run_ownership_config.py": {
+        "bytes": 2057,
+        "sha256": "c79a648c1d24ee91153f29b61aadf56d9b5fb56b42ea30e75393cacd7c4fd4c5"
+      },
+      "backend/packages/harness/deerflow/config/scheduler_config.py": {
+        "bytes": 972,
+        "sha256": "4495e7c800fa602dd7a0bf85ef15768030abf6bf4f2095e654330a56db1070cb"
+      },
+      "backend/packages/harness/deerflow/persistence/scheduled_task_runs/sql.py": {
+        "bytes": 39510,
+        "sha256": "7c056874bcbdcede1743fbe55b498f2df5a7d9d12cdea3a38af03703d9462281"
+      },
+      "backend/packages/harness/deerflow/sandbox/tools.py": {
+        "bytes": 100988,
+        "sha256": "e598a0fd0e9d9a83ecdb781be6a345bf974cdef957852d181732f3596ad58330"
+      },
+      "backend/packages/harness/deerflow/tools/builtins/present_file_tool.py": {
+        "bytes": 19640,
+        "sha256": "eccfe1e5975c771465abf96f1da60fdb2a11e0712716aeb2453a2d10fbe30e3b"
+      },
+      "backend/packages/harness/deerflow/utils/conversation_url.py": {
+        "bytes": 5042,
+        "sha256": "f5ac36f16038a3532cd3110d134b72e58c42693c1b9ab9a1b6390d9b4209c0b8"
+      }
+    },
+    "oom_diagnostic_pending": true,
+    "rollout_converged": true,
+    "spec_sha256": "08a8afffb65eaca6259fe8b01111a5c68a2523fba639f17a4b25611e9ccb98c8",
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+  },
+  "personal_notification_candidate_deployed": false,
+  "production_access": false,
+  "runtime_configuration": {
+    "global_max_recursion_limit": 10000,
+    "max_concurrent_runs": 32,
+    "multi_instance": true,
+    "private_config_contents_included": false,
+    "scheduler_recursion_limit": 10000
+  },
+  "schema": "production-energy-source-lock.v1",
+  "scope": "Observed energy Skill, Gateway source overlay/config delta and actual serving reader; not a full image rebuild lock",
+  "serving_nginx": {
+    "deployment": "nginx-security-heai-20261012-r1",
+    "evidence": "release/energy-reader-work-repair-20261115-r2/OPERATOR-ACCEPTANCE.json",
+    "generation": 3,
+    "spec_sha256": "6061194b0c497f516b8b6c55e7f74f435bca5effc378d7f097c8b2d67d0dcd72"
+  },
+  "skill": {
+    "browser_binding_and_binary_deployment_managed": true,
+    "installed_files": 110,
+    "installed_receipt": "release/energy-publication-fix-20261116-r1/OPERATOR-INSTALL-REPORT.json",
+    "installed_tree_sha256": "9ddcf11a813158d00aa119de28955aeeb71c7eca60926b58be5ab67d5579e864",
+    "public_files": 108,
+    "receipt_sha256": "4155131e5d19b4ddf026f803a3a37bf086123b639fd5401ab83bcb0422761dd0",
+    "version": "2.1.8-portable"
+  }
+}

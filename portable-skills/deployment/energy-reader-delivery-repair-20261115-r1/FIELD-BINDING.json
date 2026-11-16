@@ -1,0 +1,311 @@
+{
+  "diagnostic_observed_at": "2026-11-15T02:42:03.138316+00:00",
+  "diagnostic_sha256": "ecf109129ee13919c983f0a819da5840861f7b1a019e9d72f3cb0a64eef96a60",
+  "gateway": {
+    "generation": 417,
+    "spec_sha256": "7faa311dc54be05137ec9c756aa278927e78d47f28118f6779415729c9029aa1",
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+  },
+  "gateway_config_sha256": "b160057a087d848310f4521162fbee07f25178812692c3b1ec253be3632b08bf",
+  "gateway_mount_metadata": [
+    {
+      "mount_path": "/etc/deerflow-ca",
+      "read_only": true,
+      "secret_name_and_values_exported": false,
+      "source_kind": "Secret",
+      "subpath": null,
+      "variable_subpath": false
+    },
+    {
+      "items": [
+        {
+          "key": "openssl.cnf",
+          "path": "openssl.cnf"
+        }
+      ],
+      "mount_path": "/etc/deerflow-openssl",
+      "read_only": true,
+      "source_kind": "ConfigMap",
+      "source_name": "deer-flow-gateway-openssl-compat",
+      "subpath": null,
+      "variable_subpath": false
+    },
+    {
+      "items": [],
+      "mount_path": "/app/backend/config.yaml",
+      "read_only": true,
+      "source_kind": "ConfigMap",
+      "source_name": "deer-flow-scheduler-budget-10000-b160057a087d8483",
+      "subpath": "config.yaml",
+      "variable_subpath": false
+    },
+    {
+      "items": [],
+      "mount_path": "/app/backend/extensions_config.json",
+      "read_only": true,
+      "source_kind": "ConfigMap",
+      "source_name": "deer-flow-extensions-config",
+      "subpath": "extensions_config.json",
+      "variable_subpath": false
+    },
+    {
+      "mount_path": "/app/backend/.deer-flow",
+      "read_only": false,
+      "source_kind": "PersistentVolumeClaim",
+      "source_name": "deer-flow-userdata-rwx-pvc",
+      "subpath": "deer-flow",
+      "variable_subpath": false
+    },
+    {
+      "mount_path": "/app/skills",
+      "read_only": true,
+      "source_kind": "PersistentVolumeClaim",
+      "source_name": "deer-flow-skills-rwx-pvc",
+      "subpath": null,
+      "variable_subpath": false
+    },
+    {
+      "mount_path": "/dev/shm",
+      "read_only": false,
+      "source_kind": "EmptyDir",
+      "subpath": null,
+      "variable_subpath": false
+    },
+    {
+      "items": [],
+      "mount_path": "/app/backend/app/gateway/routers/uploads.py",
+      "read_only": true,
+      "source_kind": "ConfigMap",
+      "source_name": "gateway-conversation-stream-12dc02bb473d5ad9",
+      "subpath": "uploads.py",
+      "variable_subpath": false
+    },
+    {
+      "items": [],
+      "mount_path": "/app/backend/app/gateway/upload_document_memory_guard.py",
+      "read_only": true,
+      "source_kind": "ConfigMap",
+      "source_name": "gateway-conversation-stream-12dc02bb473d5ad9",
+      "subpath": "upload_document_memory_guard.py",
+      "variable_subpath": false
+    },
+    {
+      "items": [],
+      "mount_path": "/app/backend/app/channels/manager.py",
+      "read_only": true,
+      "source_kind": "ConfigMap",
+      "source_name": "gateway-energy-links-b6fb1ab44d10",
+      "subpath": "manager.py",
+      "variable_subpath": false
+    },
+    {
+      "items": [],
+      "mount_path": "/app/backend/app/integrations/work/notifications.py",
+      "read_only": true,
+      "source_kind": "ConfigMap",
+      "source_name": "gateway-energy-links-b6fb1ab44d10",
+      "subpath": "notifications.py",
+      "variable_subpath": false
+    },
+    {
+      "items": [],
+      "mount_path": "/app/backend/app/scheduler/work_notification_delivery.py",
+      "read_only": true,
+      "source_kind": "ConfigMap",
+      "source_name": "gateway-energy-links-b6fb1ab44d10",
+      "subpath": "work_notification_delivery.py",
+      "variable_subpath": false
+    },
+    {
+      "items": [],
+      "mount_path": "/app/backend/app/scheduler/work_notifications.py",
+      "read_only": true,
+      "source_kind": "ConfigMap",
+      "source_name": "gateway-energy-links-b6fb1ab44d10",
+      "subpath": "work_notifications.py",
+      "variable_subpath": false
+    },
+    {
+      "items": [],
+      "mount_path": "/app/backend/packages/harness/deerflow/tools/builtins/present_file_tool.py",
+      "read_only": true,
+      "source_kind": "ConfigMap",
+      "source_name": "gateway-energy-links-b6fb1ab44d10",
+      "subpath": "present_file_tool.py",
+      "variable_subpath": false
+    },
+    {
+      "items": [],
+      "mount_path": "/app/backend/packages/harness/deerflow/utils/conversation_url.py",
+      "read_only": true,
+      "source_kind": "ConfigMap",
+      "source_name": "gateway-energy-links-b6fb1ab44d10",
+      "subpath": "conversation_url.py",
+      "variable_subpath": false
+    },
+    {
+      "items": [],
+      "mount_path": "/app/backend/packages/harness/deerflow/sandbox/tools.py",
+      "read_only": true,
+      "source_kind": "ConfigMap",
+      "source_name": "gateway-task-context-86bbcfd1fb7f",
+      "subpath": "tools.py",
+      "variable_subpath": false
+    },
+    {
+      "mount_path": "/var/run/secrets/kubernetes.io/serviceaccount",
+      "read_only": true,
+      "source_kind": "Projected",
+      "subpath": null,
+      "variable_subpath": false
+    }
+  ],
+  "gateway_parent_sources": {
+    "/app/backend/app/channels/manager.py": {
+      "bytes": 94358,
+      "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
+    },
+    "/app/backend/app/gateway/routers/uploads.py": {
+      "bytes": 37879,
+      "sha256": "13b842ee8fd7035555768b1ecb787d944c53088121a6e240f32b69b669b93b1f"
+    },
+    "/app/backend/app/gateway/services.py": {
+      "bytes": 54226,
+      "sha256": "4bf26f6ac2166de7851015af36fed73a8b7d1b0e98b7918806c454e623dbd435"
+    },
+    "/app/backend/app/gateway/upload_document_memory_guard.py": {
+      "bytes": 8956,
+      "sha256": "37e67be268214537ae8f149a3d45751111cfd34c460a0125e1b03cf65bce4fcf"
+    },
+    "/app/backend/app/integrations/work/notifications.py": {
+      "bytes": 10025,
+      "sha256": "2f25958bcb2556685d153bef55f72afebd360deb157cd13164ceb4261001f039"
+    },
+    "/app/backend/app/scheduler/work_notification_delivery.py": {
+      "bytes": 4297,
+      "sha256": "d446868a681754fa98241b62ebfe45a886c6bf21b0da0f68d0d69cd111e8a42e"
+    },
+    "/app/backend/app/scheduler/work_notifications.py": {
+      "bytes": 14201,
+      "sha256": "d3f7e6c4acc4fd0cb7e4f6b31861ddf8b68ff1d2f44761a99da90536a6982645"
+    },
+    "/app/backend/packages/harness/deerflow/agents/lead_agent/agent.py": {
+      "bytes": 41101,
+      "sha256": "ec108a4b8cc9c608ba790e71bc5a1c34bbd33cd5241503c7a4ddba7a7e5e0d30"
+    },
+    "/app/backend/packages/harness/deerflow/config/app_config.py": {
+      "bytes": 31735,
+      "sha256": "ab3056db7657d4ee9de7fbd754f59f4d8e14be78f2535b049047d6d03cc863ad"
+    },
+    "/app/backend/packages/harness/deerflow/config/scheduler_config.py": {
+      "bytes": 972,
+      "sha256": "4495e7c800fa602dd7a0bf85ef15768030abf6bf4f2095e654330a56db1070cb"
+    },
+    "/app/backend/packages/harness/deerflow/sandbox/tools.py": {
+      "bytes": 100988,
+      "sha256": "e598a0fd0e9d9a83ecdb781be6a345bf974cdef957852d181732f3596ad58330"
+    },
+    "/app/backend/packages/harness/deerflow/tools/builtins/present_file_tool.py": {
+      "bytes": 19640,
+      "sha256": "eccfe1e5975c771465abf96f1da60fdb2a11e0712716aeb2453a2d10fbe30e3b"
+    },
+    "/app/backend/packages/harness/deerflow/utils/conversation_url.py": {
+      "bytes": 5042,
+      "sha256": "f5ac36f16038a3532cd3110d134b72e58c42693c1b9ab9a1b6390d9b4209c0b8"
+    },
+    "/etc/deerflow-openssl/openssl.cnf": {
+      "bytes": 189,
+      "sha256": "20130c1b277e0a5fb79a27af7dc35be38162a6e086aa91e45b4f249d73c61604"
+    }
+  },
+  "native_work_notification_confirmed": true,
+  "nginx": {
+    "anonymous_route_probe": {
+      "credentials_used": false,
+      "exact_reader_login_redirect": false,
+      "http_status": 404,
+      "location_sha256s": [],
+      "response_body_read": false
+    },
+    "configmaps": [
+      {
+        "data_sha256": "b214d58b1936af0fd4df9348896376fffb12636e16a8e806f6ca83008ff35477",
+        "files": [
+          {
+            "bytes": 63948,
+            "key": "nginx.conf",
+            "reader_release_marker_present": false,
+            "reader_route_present": false,
+            "sha256": "388d96db7093983c7428b7731d12766befc7a24e26b3c64475cc170b3079fb21"
+          }
+        ],
+        "immutable": false,
+        "mount_path": "/etc/nginx/nginx.conf.template",
+        "name": "deer-flow-nginx-baseline-20261027201316",
+        "read_only": true,
+        "subpath": "nginx.conf",
+        "uid": "0c717077-deb9-428e-ade2-f01fa7d8dd47"
+      }
+    ],
+    "deployment": "nginx-security-heai-20261012-r1",
+    "deployment_uid": "ce96a382-140e-4baf-9a85-d623b7df6e3d",
+    "generation": 2,
+    "image": "m.daocloud.io/docker.io/library/nginx@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+    "node": "datax-01",
+    "pod": "nginx-security-heai-20261012-r1-5d66699595-cpq85",
+    "runtime_config": {
+      "bytes": 63804,
+      "reader_release_marker_present": false,
+      "reader_route_present": false,
+      "sha256": "2e508ad18f4de362c7ca387ca93126296ab9c236569a7dba48718003c66d739e"
+    },
+    "spec_sha256": "f065f125b1f8417010f3108ae682de3739c4a267040e6d803f26ce78363f6141",
+    "stable_readback": true,
+    "startup_uses_tmp_nginx_conf": true,
+    "uid": "a795d8c9-c487-4245-80a6-d7869f603a44"
+  },
+  "publication_date": "2026-11-15",
+  "reported_file_exists_and_final_response_contains_reader_url": true,
+  "schedule_mutation_authorized_by_this_repair": false,
+  "scheduled_hour_observed_asia_shanghai": 6,
+  "schema": "energy-reader-link-repair-field-binding.v1",
+  "services": [
+    {
+      "name": "nginx",
+      "ready_endpoints": [
+        {
+          "name": "nginx-security-heai-20261012-r1-5d66699595-cpq85",
+          "ports": [
+            2026
+          ],
+          "uid": "a795d8c9-c487-4245-80a6-d7869f603a44"
+        }
+      ],
+      "selector": {
+        "app": "nginx-security-heai-20261012-r1"
+      },
+      "spec_sha256": "4466eebc5928640ecee0982ed1b90131857897e1a7a59a8e7deee6381c1a8b67",
+      "uid": "968e2c68-6635-4e60-9eba-9b13ae10647c"
+    },
+    {
+      "name": "nginx-nodeport",
+      "ready_endpoints": [
+        {
+          "name": "nginx-security-heai-20261012-r1-5d66699595-cpq85",
+          "ports": [
+            2026
+          ],
+          "uid": "a795d8c9-c487-4245-80a6-d7869f603a44"
+        }
+      ],
+      "selector": {
+        "app": "nginx-security-heai-20261012-r1"
+      },
+      "spec_sha256": "d5c784d31129ffd4c77e67c2d613fac4717435b129d866e6ef2c8708673ffab1",
+      "uid": "5c200684-780b-4559-897c-39d3a4664afa"
+    }
+  ],
+  "skill_already_visible": true,
+  "skill_tree_sha256": "67b0cc44e9aec87fa4fa12274704f59baa636ccd566e55d8cb79cad23efbfeaa",
+  "thread_id": "d934a54e-b894-4970-a32e-9b983c55d0df"
+}

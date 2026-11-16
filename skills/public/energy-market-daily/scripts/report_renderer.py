@@ -2,6 +2,7 @@
 import datetime as dt
 import html
 import math
+from market import freight_reference_note
 
 
 def esc(value):
@@ -109,9 +110,15 @@ def freight_panel(data):
                 delta = '休市'
             elif q['value'] is None:
                 delta = '数据未取得'
-            return f'<td><b>{value}</b><span>{esc(q["unit"])}</span><small class="{state}">{delta}</small></td>'
+            reference = ('<small style="color:#8a3305">' + esc(freight_reference_note(q)) + '</small>') if q.get('status') == 'latest_available' else ''
+            return f'<td><b>{value}</b><span>{esc(q["unit"])}</span><small class="{state}">{delta}</small>{reference}</td>'
         rows.append(f'<tr><th>{esc(a["name"].split("（")[0])}</th>{cell(a)}{cell(b)}</tr>')
     body='<table class="freight-table"><thead><tr><th>航线</th><th>整船口径</th><th>每桶口径</th></tr></thead><tbody>'+''.join(rows)+'</tbody></table>'
+    if any(q.get('status') == 'latest_available' for q in data['freight']):
+        note = '部分航运运费未取得目标日有效报价，按各项实际日期引用最近已取得报价；涨跌按该报价日与此前同口径有效报价比较。查找范围为目标日前三个月。'
+        if not data.get('freight_reference_search_complete'):
+            note += '部分日期未完成重新核查，不能确认供应商是否另有更新。'
+        body += '<p class="small-note" style="color:#8a3305">' + note + '</p>'
     for unit in ['万美元']:
         series=[s for s in data['history']['freight'] if s['unit']==unit]
         if series:

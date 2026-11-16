@@ -1,0 +1,174 @@
+{
+  "actual_sender_receipts": [
+    {
+      "actions": [
+        "send-webhook"
+      ],
+      "at": "2026-11-16T04:46:21.867215+00:00",
+      "call": "6c086f6fda5bd3d0",
+      "categories": [
+        "SKILL_WEBHOOK_SENDER"
+      ],
+      "gap_seconds": 0.596,
+      "kind": "llm.tool.result",
+      "owner_seen": true,
+      "partial": false,
+      "receipt": {
+        "business_codes": [],
+        "error_codes": [
+          "WEBHOOK_LOCAL_FAILURE"
+        ],
+        "exception_classes": [
+          "PermissionError"
+        ],
+        "exit_codes": [],
+        "flags": [
+          "permissions"
+        ],
+        "raw_text_exported": false,
+        "statuses": [
+          "WEBHOOK_FAILED"
+        ]
+      },
+      "seq": 75,
+      "stage_facts": [
+        {
+          "error_code": "WEBHOOK_LOCAL_FAILURE",
+          "status": "WEBHOOK_FAILED"
+        },
+        {
+          "error_code": "WEBHOOK_LOCAL_FAILURE",
+          "retry_allowed": false,
+          "status": "WEBHOOK_FAILED"
+        }
+      ],
+      "tool": "bash",
+      "tool_seconds": 0.596,
+      "tool_status": "success"
+    },
+    {
+      "actions": [
+        "send-webhook"
+      ],
+      "at": "2026-11-16T04:46:43.424455+00:00",
+      "call": "27c2ce77d02c3477",
+      "categories": [
+        "SKILL_WEBHOOK_SENDER"
+      ],
+      "gap_seconds": 0.616,
+      "kind": "llm.tool.result",
+      "owner_seen": true,
+      "partial": false,
+      "receipt": {
+        "business_codes": [],
+        "error_codes": [
+          "WEBHOOK_LOCAL_FAILURE"
+        ],
+        "exception_classes": [
+          "PermissionError"
+        ],
+        "exit_codes": [],
+        "flags": [
+          "permissions"
+        ],
+        "raw_text_exported": false,
+        "statuses": [
+          "WEBHOOK_FAILED"
+        ]
+      },
+      "seq": 82,
+      "stage_facts": [
+        {
+          "error_code": "WEBHOOK_LOCAL_FAILURE",
+          "status": "WEBHOOK_FAILED"
+        },
+        {
+          "error_code": "WEBHOOK_LOCAL_FAILURE",
+          "retry_allowed": false,
+          "status": "WEBHOOK_FAILED"
+        }
+      ],
+      "tool": "bash",
+      "tool_seconds": 0.616,
+      "tool_status": "success"
+    }
+  ],
+  "build_receipts": [
+    {
+      "actions": [
+        "build"
+      ],
+      "at": "2026-11-16T04:45:59.593287+00:00",
+      "call": "add85d138d1b53af",
+      "categories": [],
+      "gap_seconds": 6.479,
+      "kind": "llm.tool.result",
+      "owner_seen": true,
+      "partial": false,
+      "receipt": {
+        "business_codes": [],
+        "error_codes": [],
+        "exception_classes": [],
+        "exit_codes": [],
+        "flags": [
+          "visual_review_required",
+          "ocr",
+          "data_incomplete"
+        ],
+        "raw_text_exported": false,
+        "statuses": [
+          "REPORT_ACCEPTED"
+        ]
+      },
+      "seq": 67,
+      "stage_facts": [
+        {
+          "artifacts_ready": true,
+          "conversation_link_available": true,
+          "data_date": "2026-11-15",
+          "error_code": null,
+          "file_extensions_in_receipt": [
+            ".png",
+            ".html",
+            ".json",
+            ".txt"
+          ],
+          "formal_report_ready": false,
+          "html_report_link_available": true,
+          "programmatic_checks_passed": true,
+          "publication_allowed": true,
+          "publication_date": "2026-11-16",
+          "render_seconds": 5.681,
+          "reply_text_ready": true,
+          "reported_file_count": 4,
+          "status": "REPORT_ACCEPTED",
+          "version": "2.1.7-portable"
+        }
+      ],
+      "tool": "bash",
+      "tool_seconds": 6.479,
+      "tool_status": "success"
+    }
+  ],
+  "exact_permission_operation_not_yet_proven": true,
+  "gateway_replicas": {
+    "availableReplicas": 70,
+    "readyReplicas": 70,
+    "replicas": 71,
+    "terminatingReplicas": 1,
+    "updatedReplicas": 23
+  },
+  "messages_sent_by_inspector": 0,
+  "original_request_has_supported_target": true,
+  "project_inspection": {
+    "files_read": false,
+    "status": "SINGLE_OWNING_PROJECT_NOT_ESTABLISHED"
+  },
+  "run_status": "success",
+  "schema": "energy-webhook-thread-field-finding.v1",
+  "source": "NO_SCHEDULE_OCCURRENCE_FOR_THREAD",
+  "source_log_bytes": 55966,
+  "source_log_sha256": "403a82f18492c5c657a2b2502d8617bd83070c60b8d8035cec752cba934f6294",
+  "task_replayed": false,
+  "thread_id": "cd2ca7b0-139c-4576-ab5f-c67e9837db10"
+}

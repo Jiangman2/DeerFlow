@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import time
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
@@ -61,15 +62,19 @@ class WorkNotification:
 
 def _notification_summary(value: str | None) -> str:
     text = (value or "").strip()
-    if not text.startswith("油气与金融市场日报"):
-        return text[:1200]
-    raw = text.encode("utf-8")
-    if len(raw) <= 9000:
-        return text
-    # Keep whole Markdown lines so a byte limit cannot cut a source link.
-    clipped = raw[:8800].decode("utf-8", "ignore")
-    clipped = clipped.rsplit("\n", 1)[0] if "\n" in clipped else "油气与金融市场日报"
-    return clipped + "\n\n正文较长，完整内容请点击日报链接查看。"
+    footers = []
+    for line in text.splitlines():
+        candidate = line.strip()
+        if len(candidate.encode("utf-8")) <= 2048 and re.fullmatch(r"\[点击查看日报网页\]\(https://[^\s()<>]+\)", candidate) and candidate not in footers:
+            footers.append(candidate)
+            if len(footers) > 2:
+                # An ambiguous report is never silently reduced to one date.
+                return "油气与金融市场日报"
+    if text.startswith("油气与金融市场日报") or footers:
+        # The sender validates the current task, trusted origin and real date.
+        # Store no report body in this scheduled notification's private outbox.
+        return "油气与金融市场日报" + ("\n\n" + "\n\n".join(footers) if footers else "")
+    return text[:1200]
 
 
 class WorkNotificationDispatcher:

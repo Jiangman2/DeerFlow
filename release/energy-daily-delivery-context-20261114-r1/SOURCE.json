@@ -1,0 +1,113 @@
+{
+  "accepted_gateway_runtime_receipt": {
+    "bytes": 4064,
+    "context_injection_runtime_accepted": true,
+    "gateway": {
+      "generation": 417,
+      "spec_sha256": "7faa311dc54be05137ec9c756aa278927e78d47f28118f6779415729c9029aa1",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "local_input_basis": "TERMINAL_JSON_RECONSTRUCTED_AND_EXACT_RECEIPT_HASH_VERIFIED",
+    "operation": "86bbcfd1fb7f40819284fa431ecce9f1",
+    "path": "/var/lib/portal-task-conversation-context-postcheck-20261114-r2/RUNTIME-ACCEPTANCE.json",
+    "qualification_synthetic_env_is_not_runtime_injection_evidence": true,
+    "sha256": "e139a6a2d05b797f699aa094a3f92886473731a6c323a5267e7e39cff3e994b7"
+  },
+  "accepted_old_tree_sha256": "9853df2b5db3966266ee4481ca32e972752f186ced1a41ac03205b19bec0c04b",
+  "assets": {
+    "package": {
+      "bytes": 115959,
+      "sha256": "73ae3778246c9bee1108f89ce764dc5621b87a52ca176f955c70eb055f6cfbe1"
+    },
+    "publisher": {
+      "bytes": 21959,
+      "sha256": "1e82d94a6d656f0992d67fadc3eac57dc916d92373d1b4bedf73c0dfb86584ea"
+    },
+    "test_files": {
+      "bytes": 1219328,
+      "sha256": "6d1aecbe25296066a2387d51ac4cfcfd1e5006748532cbcdffa71fa2a2d2c3f4"
+    },
+    "verifier": {
+      "bytes": 26808,
+      "sha256": "df0a2fccba50fe614a5b31675973759d9a83533f6cc58814baffc7a55228c82e"
+    }
+  },
+  "candidate_manifest_sha256": "b4a62c7436c1d95c23edcc0479e54514ea5e4aa79fca0ba2dfdc7af2cdcf7d25",
+  "code_files": 107,
+  "code_tree_sha256": "c43504d393fa53453c3691e51cf7bee98d792a6a9d284f9c9d027b1eb0b98569",
+  "compose_probe_sha256": "ab964ca22a6c59f802adca9174227bb5200e671c3d94ca3188674ab248545046",
+  "credentials_included": false,
+  "deployment_guard": "ACCEPTED_GATEWAY_CONTEXT_RECEIPT_AND_UNCHANGED_CURRENT_PROTECTED_SPECS",
+  "enterprise_binding_in_public_code": false,
+  "files": {
+    "CODE-MANIFEST.json": {
+      "bytes": 16707,
+      "sha256": "b4a62c7436c1d95c23edcc0479e54514ea5e4aa79fca0ba2dfdc7af2cdcf7d25"
+    },
+    "energy-market-daily-2.1.2-public-code.zip": {
+      "bytes": 115959,
+      "sha256": "73ae3778246c9bee1108f89ce764dc5621b87a52ca176f955c70eb055f6cfbe1"
+    },
+    "install-energy-delivery-context-skill-20261114-r1.py": {
+      "bytes": 1887058,
+      "sha256": "407aebcec697cdacd396f7249e3abee4952c5f3a313b49e8c189b4e0f8c0a05f"
+    },
+    "publisher.sealed.py": {
+      "bytes": 21959,
+      "sha256": "1e82d94a6d656f0992d67fadc3eac57dc916d92373d1b4bedf73c0dfb86584ea"
+    },
+    "verify_child.sealed.py": {
+      "bytes": 26808,
+      "sha256": "df0a2fccba50fe614a5b31675973759d9a83533f6cc58814baffc7a55228c82e"
+    }
+  },
+  "gateway_modified": false,
+  "gateway_receipt_contract": {
+    "bytes": 4064,
+    "operation": "86bbcfd1fb7f40819284fa431ecce9f1",
+    "path": "/var/lib/portal-task-conversation-context-postcheck-20261114-r2/RUNTIME-ACCEPTANCE.json",
+    "schema": "task-conversation-context-activation.v1",
+    "sha256": "e139a6a2d05b797f699aa094a3f92886473731a6c323a5267e7e39cff3e994b7",
+    "status": "TASK_CONVERSATION_CONTEXT_DEPLOYED_RUNTIME_ACCEPTED"
+  },
+  "installed_files_including_binding": 108,
+  "messages_sent": 0,
+  "production_executed": false,
+  "provider_requests": 0,
+  "provisioner_modified": false,
+  "real_arm64_uid1000_render_and_synthetic_final_text_qualification_required_before_publication": true,
+  "runtime_binaries_included": false,
+  "runtime_replacement_requested": false,
+  "schema": "energy-delivery-context-install-package.v1",
+  "source_inputs": {
+    "CORE-SOURCE-PRESERVATION.json": {
+      "bytes": 1346,
+      "sha256": "d0c0834ac70bff2abd714620f0ae401f1ec7bfe150c9b42b7cf3da217770b213"
+    },
+    "REVIEWED-SOURCE.json": {
+      "bytes": 17277,
+      "sha256": "8052e55a8d8f675cdd80b93d1c94d87b6f270ad7bc9bbc5e8ec5d29093dea146"
+    },
+    "compose_probe.py": {
+      "bytes": 10395,
+      "sha256": "ab964ca22a6c59f802adca9174227bb5200e671c3d94ca3188674ab248545046"
+    },
+    "operator.py": {
+      "bytes": 41182,
+      "sha256": "a104f88d7051674a8dfc6c53476dbef239089218a12e873927e27e692c7331ce"
+    },
+    "publisher.py": {
+      "bytes": 21923,
+      "sha256": "a5136e7f42549d3b4df7f39a52bf6d239b933037908a88fcdf9926cbbfa0511a"
+    },
+    "seal.py": {
+      "bytes": 13997,
+      "sha256": "a99a7aaba71d071b22789d1848fb9071988a8d2eaf42c9cd537329b724211029"
+    },
+    "verify_child.py": {
+      "bytes": 15191,
+      "sha256": "7f762cd6755776c14f7ecb186b6782e71c6d487b989852b9f83e3755b93f7311"
+    }
+  },
+  "version": "2.1.2-portable"
+}

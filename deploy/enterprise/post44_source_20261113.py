@@ -5,8 +5,13 @@ is loaded. The current portable Skill and deployed overlays have separate seals.
 """
 import ast
 import hashlib
+import importlib.util
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+
+_successor_spec = importlib.util.spec_from_file_location('post51_energy_source_20261116', Path(__file__).with_name('post51_energy_source_20261116.py'))
+successor = importlib.util.module_from_spec(_successor_spec)
+_successor_spec.loader.exec_module(successor)
 
 ARCHIVE = 'release/post44-source-sync-20261113/'
 MANIFEST = ARCHIVE + 'SOURCE.json'
@@ -64,6 +69,7 @@ def check(read, path, row):
 
 
 def qualify(read, energy_paths=None, gateway_only=False):
+    read, energy_paths, _ = successor.historical_view(read, energy_paths)
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):
@@ -118,6 +124,7 @@ def qualify(read, energy_paths=None, gateway_only=False):
 
 
 def project(read, seal):
+    read, _, _ = successor.historical_view(read)
     def historical(path):
         if path == MANIFEST:
             raise KeyError(path)
@@ -134,12 +141,16 @@ def project(read, seal):
 
 
 def historical_view(read):
+    read, _, current = successor.historical_view(read)
     seal = qualify(read, gateway_only=True)
     if seal is None:
         return read, None
     return project(read, seal), {
         'status': 'POST44_CURRENT_SOURCE_AND_PRESERVED_PARENT_VERIFIED',
-        'added_gateway_runtime': sorted(path for path in GATEWAY_PATHS if seal['parent_files'][path] is None),
+        'added_gateway_runtime': sorted(
+            {path for path in GATEWAY_PATHS if seal['parent_files'][path] is None}
+            | {path for path in (current['runtime_files'] if current else {})
+               if path in current['parent_files'] and current['parent_files'][path] is None}),
         'energy_version': '2.1.0-portable',
         'scheduler_budget_candidate': 10000,
         'scheduler_budget_deployed': False,

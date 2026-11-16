@@ -1,0 +1,14 @@
+{
+  "schema": "energy-programmatic-delivery-root-visual-review.v1",
+  "candidate_version": "2.1.3-portable",
+  "reviewed_images": ["complete.png", "freight-reference.png"],
+  "review_method": "LOCAL_IMAGE_VIEW_ORIGINAL_RESOLUTION",
+  "seven_sections_visible": true,
+  "top_incomplete_data_box_absent": true,
+  "freight_reference_dates_and_labels_retained": true,
+  "charts_and_news_layout_intact": true,
+  "obvious_text_or_chart_clipping_observed": false,
+  "synthetic_samples_only": true,
+  "production_task_or_scheduled_execution_proven": false,
+  "candidate_published": false
+}

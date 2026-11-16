@@ -1,0 +1,39 @@
+{
+  "accepted_old_tree": "67b0cc44e9aec87fa4fa12274704f59baa636ccd566e55d8cb79cad23efbfeaa",
+  "files": {
+    "CODE-MANIFEST.json": {
+      "bytes": 16707,
+      "sha256": "8896ececc3c805396e217923b02c7ebe3542010490c7777c5566979aa16df648"
+    },
+    "energy-market-daily-2.1.6-public-code.zip": {
+      "bytes": 122773,
+      "sha256": "e85763dae125c02beda939f994905f7da0c3accb81e48d4f20327a31146a50bb"
+    },
+    "install-energy-work-preview-skill-20261115-r1.py": {
+      "bytes": 2160863,
+      "sha256": "94f1fded6548534b3f6911da78f66bccf58d2bf5e52318a6ab7d1e6bc7da6da6"
+    },
+    "publisher.sealed.py": {
+      "bytes": 22941,
+      "sha256": "902f1964be2d29c1d4dd51906ac8df7c762c15753e1efee32323cfea981a2a0e"
+    },
+    "verify_child.sealed.py": {
+      "bytes": 33461,
+      "sha256": "4e654530353b8ad8caf6e2630ea08eba95f871a8e2b70df722ad290b0c97741d"
+    }
+  },
+  "gateway_modified": false,
+  "installed_files": 108,
+  "offline_test_count": 39,
+  "package_sha256": "e85763dae125c02beda939f994905f7da0c3accb81e48d4f20327a31146a50bb",
+  "production_executed": false,
+  "schema": "energy-work-preview-skill-package.v1",
+  "skill_core_preserved": {
+    "browser_runtime.py": "9844b8e4c5e6a6de99a6f7d9cf42f2aafeda1dea5e2b9966f709da7cebf71ae8",
+    "common.py": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0",
+    "market.py": "0ade49587ad07af0da852e384090525466b79bd936cd9edaf21789493c8a115c",
+    "report_renderer.py": "2d82ef0d5a81ff5fd21f5695fe94f8cfca7de3df2ea47911127d7c9346b64c8f",
+    "research.py": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee"
+  },
+  "version": "2.1.6-portable"
+}

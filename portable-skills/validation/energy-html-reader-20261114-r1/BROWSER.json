@@ -1,0 +1,20 @@
+{
+  "schema": "energy-html-reader-mobile-test.v1",
+  "status": "MOBILE_INLINE_HTML_AND_CSP_QUALIFIED",
+  "metrics": {
+    "title": "\u6cb9\u6c14\u4e0e\u91d1\u878d\u5e02\u573a\u65e5\u62a5",
+    "svg": 3,
+    "links": 15,
+    "viewport": 390,
+    "width": 390,
+    "scriptRan": false,
+    "reportWidth": 390
+  },
+  "provider_requests": 0,
+  "production_access": false,
+  "synthetic_session": true,
+  "external_network_requests": 0,
+  "browseract_fallback_reason": "NO_CONFIGURED_BROWSER_OR_API_KEY",
+  "browser": "existing local Playwright Chromium",
+  "transport": "Real isolated Nginx response supplied through local Playwright routing; no public port"
+}

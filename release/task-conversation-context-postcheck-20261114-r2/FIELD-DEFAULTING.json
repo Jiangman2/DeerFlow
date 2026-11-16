@@ -1,0 +1,11 @@
+{
+  "actual_default_mode": 420,
+  "actual_spec_sha256": "7faa311dc54be05137ec9c756aa278927e78d47f28118f6779415729c9029aa1",
+  "difference_count": 1,
+  "difference_path": "/template/spec/volumes/9/configMap/defaultMode",
+  "field_report_sha256": "93e1e731551a2ad724f201ac3832e03f40b641bc99ecb8837051af961053d592",
+  "gateway_uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1",
+  "generation": 417,
+  "requested_spec_sha256": "d9a8a00422329427b737b3f67d1c13f35482a16d6614cbc3365b705ad198b616",
+  "schema": "task-context-single-defaulting-field-proof.v1"
+}

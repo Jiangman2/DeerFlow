@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Retained November 16 energy/notification production sources
+
+See `../docs/energy-production-source-sync-20261116.md`. Scheduled daily reader
+notifications keep only a validated current-task HTML link; ordinary scheduled
+messages retain their prior format. The empty-result reconciliation race remains
+an explicitly unshipped candidate outside this application tree. The retained
+upload route streams an already validated file through
+`upload_document_memory_guard.py`, with bounded admission, response size and
+cancellation ownership; do not restore full-file buffering to satisfy old mocks.
+Its original deployed bytes are sealed separately from equivalent CI formatting.
+
 ## Combined Data Lake and monitoring qualification (2026-11-12)
 
 Keep `current_datalake_access` in the user-input and remote-tool tag denylist.

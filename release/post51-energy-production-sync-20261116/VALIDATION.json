@@ -1,0 +1,31 @@
+{
+  "checks": {
+    "backend_ruff_check": "PASS",
+    "backend_ruff_format_files": 1304,
+    "backend_selected_passed": 136,
+    "backend_selected_skipped": 5,
+    "historical_publication_fixture_passed": 24,
+    "historical_publication_fixture_skipped": 1,
+    "linux_file_stream_parser_passed": 4,
+    "personal_candidate_sqlite_tests_passed": 13,
+    "portable_failures": 0,
+    "portable_skipped": 60,
+    "portable_tests": 775,
+    "portable_version_modules": 43,
+    "scheduler_and_notification_checks_passed": 72,
+    "scheduler_subtests_passed": 7,
+    "sealed_218_failures": 0,
+    "sealed_218_linux_uid1000_tests": 62,
+    "sealed_current_skill_static_review": "PASS_EXACT_SEVEN_ERROR_FINDINGS_AFTER_COMPLETE_SOURCE_QUALIFICATION",
+    "source_and_rejection_checks_passed": 65
+  },
+  "notes": [
+    "Historical Python versions run in separate processes so import caches cannot select another candidate.",
+    "Linux sealed PNG checks here mock rendering; actual ARM64 PNGs and operator installation receipts are archived separately.",
+    "Group delivery is operator-confirmed; no real message is sent by local tests.",
+    "Personal notification repair remains undeployed.",
+    "Gateway419 fleet check remains incomplete after real OOMKilled/restart."
+  ],
+  "production_access": false,
+  "schema": "post51-energy-offline-validation.v1"
+}

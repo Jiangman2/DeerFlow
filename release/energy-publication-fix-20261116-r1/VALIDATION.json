@@ -1,0 +1,36 @@
+{
+  "checks": {
+    "actual_arm64_root_copy2_uid1000_sender_scenarios": {
+      "actual_http": false,
+      "passed": 3,
+      "transport_mocked": true
+    },
+    "exact_packaged_linux_uid1000_regressions": {
+      "errors": 0,
+      "failed": 0,
+      "passed": 62,
+      "png_renderer_mocked": true,
+      "skipped": 0
+    },
+    "focused_sender_and_publication_linux_uid1000": {
+      "passed": 23
+    },
+    "focused_sender_and_publication_windows": {
+      "passed": 23
+    },
+    "installer_boundaries_linux": {
+      "passed": 12
+    },
+    "installer_boundaries_windows": {
+      "passed": 12
+    },
+    "python37_actual_three_receipt_paths_and_zero_query_wrong_host_guard": true,
+    "skill_quick_validate": true
+  },
+  "production_executed": false,
+  "production_render_and_artifact_mode_qualification": "REQUIRED_BY_INSTALLER_BEFORE_SWITCH",
+  "real_business_webhook_acceptance": "PENDING",
+  "real_webhook_messages_sent": 0,
+  "schema": "energy-publication-fix-validation.v1",
+  "version": "2.1.8-portable"
+}

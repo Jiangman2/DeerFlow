@@ -1,0 +1,15 @@
+{
+  "bytes": 32066,
+  "child_sha256": "530679d3c670733f2930c47e9af7880a6a6a5aada5e3c49cf19929d831cfb986",
+  "database_readonly": true,
+  "filename": "inspect-scheduler-queue-20261116-r1.py",
+  "live_application_poller_state_inspected": false,
+  "mutations_supported": false,
+  "production_executed": false,
+  "provider_requests": 0,
+  "raw_messages_or_prompts_exported": false,
+  "schema": "scheduler-queue-inspection-package.v1",
+  "sha256": "ab19ce4fecc091938c7a15d9d1121277b9785ef5a145260d84c6b53ab2f58cfd",
+  "task_title": "\u6cb9\u6c14\u4e0e\u91d1\u878d\u5e02\u573a\u65e5\u62a5",
+  "work_messages_sent": 0
+}

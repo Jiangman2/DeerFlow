@@ -1,0 +1,30 @@
+{
+  "actual_python37_guard_pending": true,
+  "after_generation": 417,
+  "before_generation": 416,
+  "candidate_source": {
+    "bytes": 100988,
+    "sha256": "e598a0fd0e9d9a83ecdb781be6a345bf974cdef957852d181732f3596ad58330"
+  },
+  "child": {
+    "bytes": 13356,
+    "sha256": "d30d7c223160581869ba383bf6eced86ba446b4a3f27a8d24504a401ef24b152"
+  },
+  "field_baseline_sha256": "566f0f9374452ea0ff29eba79cb7555bc4481619ed0214ba09d0dc062df253ba",
+  "full_module_and_skill_integration_tests": 35,
+  "only_new_configmap_volume_and_mount": true,
+  "operator": {
+    "bytes": 221312,
+    "filename": "activate-task-conversation-context-20261114-r1.py",
+    "sha256": "dff040f55c50089d3f1b3f3c738f00699ed2ec844fc476182c81ef63dd8309c8"
+  },
+  "operator_template": {
+    "bytes": 68780,
+    "sha256": "38f1e10be648c5ded2734e974fb93ab9e6167f4f101a70823517adf09b80d3ad"
+  },
+  "operator_tests": 40,
+  "parent_source_sha256": "a8e8b4f3ff94f79e2e0458414f4c2d55310bdd170a8859c00b99dd1d65ad929c",
+  "production_business_acceptance_pending": true,
+  "production_mutation_performed": false,
+  "schema": "task-conversation-context-source-release.v1"
+}

@@ -1,0 +1,17 @@
+{
+  "schema": "energy-programmatic-sealed-local-validation.v1",
+  "status": "SEALED_ASSETS_AND_WRONG_HOST_GUARD_ACCEPTED",
+  "python": "3.7.17",
+  "sealed_assets": 4,
+  "offline_tests_sealed": 27,
+  "entry_bytes": 2110682,
+  "entry_sha256": "214b624bdbd7751a128c00cb6824f96a51bad32808168563cd9ca0b4ddcb22a9",
+  "commands": 0,
+  "provider_requests": 0,
+  "messages_sent": 0,
+  "network_disabled": true,
+  "repository_read_only": true,
+  "production_executed": false,
+  "on_server_arm64_public_mount_qualification_pending": true,
+  "business_acceptance_pending": true
+}

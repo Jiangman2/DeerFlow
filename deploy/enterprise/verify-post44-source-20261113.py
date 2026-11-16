@@ -31,6 +31,11 @@ def snapshot(ref=None):
     required = sorted(set(seal['support_files']) | set(seal['energy_files']) | set(seal['gateway_sources'])
                       | {row['snapshot'] for row in seal['parent_files'].values() if row is not None}
                       | (set(historical['files']) & set(names)))
+    if source.successor.MANIFEST in names:
+        current = json.loads(read(source.successor.MANIFEST))
+        required = sorted((set(required) | set(current['runtime_files']) | set(current['energy_files'])
+                           | {p for p in current['parent_files'] if p in current['files']}
+                           | {r['snapshot'] for r in current['parent_files'].values() if r}) & set(names))
     raw = subprocess.check_output(['git', 'cat-file', '--batch'], cwd=ROOT,
                                   input=''.join(ref + ':' + path + '\n' for path in required).encode())
     stream = io.BytesIO(raw)
@@ -46,7 +51,7 @@ def verify(ref=None):
     read, paths = snapshot(ref)
     seal = source.qualify(read, paths)
     source.require(seal is not None, 'POST44_MANIFEST_REQUIRED')
-    result = {'status': 'POST44_SOURCE_AND_EVIDENCE_VERIFIED', 'source_files': len(paths),
+    result = {'status': 'POST44_SOURCE_AND_EVIDENCE_VERIFIED', 'source_files': len(seal['energy_files']),
             'gateway_files': len(seal['gateway_sources']), 'support_files': len(seal['support_files']),
             'energy_version': '2.1.0-portable', 'scheduler_budget_candidate': 10000,
             'scheduler_budget_deployed': False, 'scheduler_budget_deployed_at_source_seal': False,

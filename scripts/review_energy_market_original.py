@@ -1,8 +1,10 @@
 """CI-only review of the sealed portable Skill and archived original package.
 
 The immutable original/ZIP is verified outside public discovery. Three scanner
-matches are runtime credential reads, never literal values. The two subprocess
-matches quote argv or invoke the fixed same-file worker with bounded timeout.
+matches are runtime credential reads, never literal values. The four subprocess
+matches quote argv or invoke fixed same-file workers with bounded timeouts.
+The explicit webhook worker receives its authorized target over stdin, keeps
+host validation and send-once journaling, and never executes caller shell text.
 This does not change the platform's runtime scanner or another Skill's policy.
 """
 from pathlib import Path
@@ -15,10 +17,12 @@ import released_sync_source_20261110 as source
 FIELDS = ('source','profile','rule_id','severity','path','line')
 ALLOWED = {
     ('skillscan','deerflow','secret-env-assignment','error','scripts/common.py',70),
-    ('skillscan','deerflow','python-subprocess','error','scripts/daily.py',47),
-    ('skillscan','deerflow','secret-env-assignment','error','scripts/daily.py',203),
-    ('skillscan','deerflow','python-subprocess','error','scripts/daily.py',210),
-    ('skillscan','deerflow','secret-env-assignment','error','scripts/market.py',122),
+    ('skillscan','deerflow','python-subprocess','error','scripts/daily.py',161),
+    ('skillscan','deerflow','secret-env-assignment','error','scripts/daily.py',338),
+    ('skillscan','deerflow','python-subprocess','error','scripts/daily.py',345),
+    ('skillscan','deerflow','python-subprocess','error','scripts/daily.py',657),
+    ('skillscan','deerflow','secret-env-assignment','error','scripts/market.py',157),
+    ('skillscan','deerflow','python-subprocess','error','scripts/send_webhook.py',146),
 }
 
 

@@ -1,5 +1,21 @@
 # AGENTS.md
 
+## Energy daily production reconciliation (November 16)
+
+PR #51 is the parent of the scoped source lock in
+`deploy/enterprise/production-energy-source-lock-20261116.json`.
+Run `python deploy/enterprise/verify-post51-energy-source-20261116.py --ref HEAD`
+and the historical verifiers with Python 3.12+. See
+`docs/energy-production-source-sync-20261116.md` for the exact acceptance scope.
+The discoverable energy Skill is the installed 2.1.8 public package; its browser
+binding and browser binary remain deployment-managed. Gateway 419 has 70 updated
+replicas and configured concurrency 32 with lease-aware multi-instance mode,
+but its fleet verifier stopped on a real OOMKilled/restart; runtime acceptance
+and throughput acceptance are not complete. Do not delete Pods to hide restart
+history, replay archived activators, or treat the personal notification candidate
+under `portable-skills/deployment/personal-notification-ready-20261116-r1` as
+deployed. Keep previous manifests and operator receipts immutable.
+
 ## November 13 post-44 source synchronization
 
 See `docs/post44-skill-delivery-sync-20261113.md` and run

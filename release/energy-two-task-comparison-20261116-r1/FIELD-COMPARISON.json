@@ -1,0 +1,174 @@
+{
+  "gateway_at_inspection": {
+    "generation": 418,
+    "spec_sha256": "ebdfb3f85c151a67b12c6aed4f145b60330e19925996194f201f31d839ee0c0e",
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+  },
+  "scheduler_config_snapshot": {
+    "enabled": true,
+    "max_concurrent_runs": 3,
+    "multi_instance": false,
+    "queue_timeout_seconds": 3600,
+    "recursion_limit": 10000
+  },
+  "schema": "energy-two-result-field-comparison.v1",
+  "source_of_production_evidence": "OPERATOR_SUPPLIED_READONLY_DIAGNOSTIC",
+  "source_sha256": "0e19b961c8db58b86269e8ceb013f94e7ae0e0ea6c77974f2bfd7faa6de0c3b0",
+  "status": "NEWS_IMPORT_FAILURE_AND_DISTINCT_NOTIFICATION_CONFIGURATION_CONFIRMED",
+  "task_or_configuration_changed": false,
+  "tasks": [
+    {
+      "build_receipts": [],
+      "initial_prepare": [
+        {
+          "company_news_candidates": 5,
+          "data_date": "2026-11-15",
+          "error_code": null,
+          "financial_quotes_available": 0,
+          "freight_reference_count": 8,
+          "freight_reference_search_complete": true,
+          "market_data_complete": false,
+          "market_news_candidates": 0,
+          "news_articles_with_original_pages": 14,
+          "prepare_seconds": 8.457,
+          "publication_allowed": false,
+          "publication_date": "2026-11-16",
+          "status": "NEWS_SUPPLEMENT_REQUIRED",
+          "version": "2.1.6-portable"
+        }
+      ],
+      "native_notification_configured": false,
+      "notification_outbox_statuses": [],
+      "observed_error_receipts": [
+        {
+          "error_codes": [
+            "NEWS_ORIGINAL_BODY_UNAVAILABLE"
+          ],
+          "seq": 34
+        },
+        {
+          "error_codes": [
+            "NEWS_SOURCE_URL_INVALID"
+          ],
+          "seq": 46
+        },
+        {
+          "error_codes": [
+            "NEWS_TIME_INVALID"
+          ],
+          "seq": 52
+        },
+        {
+          "error_codes": [
+            "NEWS_TIME_INVALID"
+          ],
+          "seq": 56
+        },
+        {
+          "error_codes": [
+            "NEWS_TIME_INVALID"
+          ],
+          "seq": 60
+        }
+      ],
+      "platform_run_status": "success",
+      "queue_wait_seconds": 3573,
+      "raw_news_or_commands_exported": false,
+      "run_duration_seconds": 304.139,
+      "successful_present_files_receipts": 0,
+      "thread_id": "9214a4fc-4cff-4599-9855-ea0af1d1ee27"
+    },
+    {
+      "build_receipts": [
+        {
+          "artifacts_ready": true,
+          "conversation_link_available": true,
+          "data_date": "2026-11-15",
+          "error_code": null,
+          "file_extensions_in_receipt": [
+            ".png",
+            ".html",
+            ".json",
+            ".txt"
+          ],
+          "formal_report_ready": false,
+          "html_report_link_available": true,
+          "programmatic_checks_passed": true,
+          "publication_allowed": true,
+          "publication_date": "2026-11-16",
+          "render_seconds": 3.135,
+          "reply_text_ready": true,
+          "reported_file_count": 4,
+          "status": "REPORT_ACCEPTED",
+          "version": "2.1.6-portable"
+        }
+      ],
+      "initial_prepare": [
+        {
+          "company_news_candidates": 5,
+          "data_date": "2026-11-15",
+          "error_code": null,
+          "financial_quotes_available": 0,
+          "freight_reference_count": 8,
+          "freight_reference_search_complete": true,
+          "market_data_complete": false,
+          "market_news_candidates": 0,
+          "news_articles_with_original_pages": 14,
+          "prepare_seconds": 8.845,
+          "publication_allowed": false,
+          "publication_date": "2026-11-16",
+          "status": "NEWS_SUPPLEMENT_REQUIRED",
+          "version": "2.1.6-portable"
+        }
+      ],
+      "native_notification_configured": true,
+      "notification_outbox_statuses": [
+        "sent"
+      ],
+      "observed_error_receipts": [
+        {
+          "error_codes": [
+            "WEB_ROUTER_ALL_PROVIDERS_FAILED"
+          ],
+          "seq": 14
+        },
+        {
+          "error_codes": [
+            "WEB_ROUTER_ALL_PROVIDERS_FAILED"
+          ],
+          "seq": 15
+        },
+        {
+          "error_codes": [
+            "WEB_ROUTER_ALL_PROVIDERS_FAILED"
+          ],
+          "seq": 17
+        },
+        {
+          "error_codes": [
+            "WEB_ROUTER_ALL_PROVIDERS_FAILED"
+          ],
+          "seq": 18
+        },
+        {
+          "error_codes": [
+            "WEB_ROUTER_ALL_PROVIDERS_FAILED"
+          ],
+          "seq": 20
+        },
+        {
+          "error_codes": [
+            "WEB_ROUTER_ALL_PROVIDERS_FAILED"
+          ],
+          "seq": 21
+        }
+      ],
+      "platform_run_status": "success",
+      "queue_wait_seconds": 3152,
+      "raw_news_or_commands_exported": false,
+      "run_duration_seconds": 315.004,
+      "successful_present_files_receipts": 1,
+      "thread_id": "945b81c9-225f-4a12-a033-19d13da92903"
+    }
+  ]
+}

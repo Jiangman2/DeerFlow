@@ -1,0 +1,9 @@
+{
+  "bytes": 65070,
+  "historical_source_modified": false,
+  "path": "portable-skills/deployment/scheduler-budget-20261113-r5/activate-scheduler-budget-20261113-r5.py",
+  "production_requests": 0,
+  "schema": "task-context-operator-parent.v1",
+  "sha256": "fac6ff86da851e06b6f59ec88fcffefeedeb61064d6c82650ee5b72e09ace04a",
+  "template_sealed": false
+}

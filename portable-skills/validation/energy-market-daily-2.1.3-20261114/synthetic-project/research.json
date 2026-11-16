@@ -1,0 +1,126 @@
+{
+  "publication_date": "2026-11-07",
+  "news_as_of": "2026-11-07T23:59:59+08:00",
+  "articles": [
+    {
+      "id": "market_news0",
+      "url": "https://www.news.cn/world/20261107/adc342f91947423b9b2b5097985f47bb/c.html",
+      "source": "新华社",
+      "published": "2026-11-07",
+      "published_at": "2026-11-07T00:00:00+08:00",
+      "retrieved_at": "2026-11-09T10:00:00+08:00",
+      "evidence": [
+        "sources/market_news0.html"
+      ],
+      "evidence_sha256": "bcbdbe0992307f088344e6c48155bb75ae814073a96a61555fe4ab5d860ff039",
+      "original_title": "美国扩大对伊朗关联资金网络制裁",
+      "body": "美国财政部制裁加拿大境内8家资金服务企业，指控其协助伊朗关联主体转移资产；相关在美财产被冻结，未经授权的相关交易被禁止。",
+      "suggested_section": "market_news"
+    },
+    {
+      "id": "market_news1",
+      "url": "https://www.offshore-energy.biz/2026/11/05/energy-security-to-keep-running-the-show-into-2027-amid-market-shifts-iea-chief-warns",
+      "source": "Offshore Energy",
+      "published": "2026-11-05",
+      "published_at": "2026-11-05T00:00:00+08:00",
+      "retrieved_at": "2026-11-09T10:00:00+08:00",
+      "evidence": [
+        "sources/market_news1.html"
+      ],
+      "evidence_sha256": "7499bb98d6c99b05b48d6c91c128c42b3d995ad6e9a4916cfa95ef11200665a9",
+      "original_title": "国际能源署警示供应安全风险延续",
+      "body": "据报道，国际能源署署长认为，能源市场2027年难以恢复战前状态，供应瓶颈及运输路线变化仍将影响市场，推动各国分散能源来源。",
+      "suggested_section": "market_news"
+    },
+    {
+      "id": "market_news2",
+      "url": "https://www.news.cn/energy/20261106/a3fc1bb7b6f14c1e95f6378ff29b9366/c.html",
+      "source": "新华网",
+      "published": "2026-11-06",
+      "published_at": "2026-11-06T00:00:00+08:00",
+      "retrieved_at": "2026-11-09T10:00:00+08:00",
+      "evidence": [
+        "sources/market_news2.html"
+      ],
+      "evidence_sha256": "1b6881375f523927e91d7b31da1a2afbd6850df8d4b3bb472515936fea04df2e",
+      "original_title": "东北新增煤制气气源投入保供",
+      "body": "中国大唐阜新煤制天然气项目首条生产线11月2日投产并接入国家管网，设计年产天然气13.3亿立方米，为东北、华北地区增加供应。",
+      "suggested_section": "market_news"
+    },
+    {
+      "id": "company_news0",
+      "url": "https://www.news.cn/energy/20261106/3f5ec34e6c73431d85664c98c83d60a6/c.html",
+      "source": "新华网",
+      "published": "2026-11-06",
+      "published_at": "2026-11-06T00:00:00+08:00",
+      "retrieved_at": "2026-11-09T10:00:00+08:00",
+      "evidence": [
+        "sources/company_news0.html"
+      ],
+      "evidence_sha256": "4a0cc9951a6c8a92827c199897fcf0ba5d10058c565d1d47245495c9e36569a0",
+      "original_title": "中国石油进博会采购签约超188亿美元",
+      "body": "与35家伙伴签署38份采购协议，来源覆盖16个国家和地区，涉及油气资源、高端装备、绿色低碳等领域，签约金额较去年稳中有升。",
+      "suggested_section": "company_news"
+    },
+    {
+      "id": "company_news1",
+      "url": "https://www.offshore-energy.biz/2026/11/06/totalenergies-locks-in-lng-supply-from-adnoc-and-offtake-deal-with-chinese-firm",
+      "source": "Offshore Energy",
+      "published": "2026-11-06",
+      "published_at": "2026-11-06T00:00:00+08:00",
+      "retrieved_at": "2026-11-09T10:00:00+08:00",
+      "evidence": [
+        "sources/company_news1.html"
+      ],
+      "evidence_sha256": "9e4f82cd07a4bdfd4150c812f81065434c04552255a2de327a5a2f7bfe24294d",
+      "original_title": "法国能源公司 TotalEnergies 扩大 LNG 长协布局",
+      "body": "与阿联酋天然气公司 ADNOC Gas 签署五年合计最多160万吨供气协议；另与江苏国信签署15年、每年90万吨采购框架协议，拟2028年起供，尚待最终购销协议。",
+      "suggested_section": "company_news"
+    },
+    {
+      "id": "company_news2",
+      "url": "https://www.offshore-energy.biz/2026/11/06/oil-and-gas-quartet-partners-up-to-unlock-over-65-trillion-cubic-feet-of-asian-gas",
+      "source": "Offshore Energy",
+      "published": "2026-11-06",
+      "published_at": "2026-11-06T00:00:00+08:00",
+      "retrieved_at": "2026-11-09T10:00:00+08:00",
+      "evidence": [
+        "sources/company_news2.html"
+      ],
+      "evidence_sha256": "48e2f92821a32eca13a4629eb18ab48f1841cfe4853defa2a0ceb594ab77e9bf",
+      "original_title": "四家油气公司联合开发马来西亚气田",
+      "body": "泰国油气公司 PTTEP、法国能源公司 TotalEnergies、科威特勘探公司 KUFPEC 与马来西亚国家石油公司 Petronas 签署权益转让协议，拟协同开发资源量超6.5万亿立方英尺的气田，尚待监管批准。",
+      "suggested_section": "company_news"
+    },
+    {
+      "id": "company_news3",
+      "url": "https://www.offshore-energy.biz/2026/11/06/worley-on-epc-duty-at-venture-globals-us-lng-expansion-project",
+      "source": "Offshore Energy",
+      "published": "2026-11-06",
+      "published_at": "2026-11-06T00:00:00+08:00",
+      "retrieved_at": "2026-11-09T10:00:00+08:00",
+      "evidence": [
+        "sources/company_news3.html"
+      ],
+      "evidence_sha256": "d439efd802badf0b664b97c9bd3cb7b02687c7e965f9adf0d6adf65775826795",
+      "original_title": "美国 LNG 公司 Venture Global 推进 CP2 扩建",
+      "body": "澳大利亚工程公司 Worley 获得扩建项目工程、采购和施工合同。Venture Global 计划2027年初作出最终投资决定，目前尚未完成该决定。",
+      "suggested_section": "company_news"
+    },
+    {
+      "id": "company_news4",
+      "url": "https://www.offshore-energy.biz/2026/11/06/first-gas-gushes-out-of-southeast-asian-deepwater-project",
+      "source": "Offshore Energy",
+      "published": "2026-11-06",
+      "published_at": "2026-11-06T00:00:00+08:00",
+      "retrieved_at": "2026-11-09T10:00:00+08:00",
+      "evidence": [
+        "sources/company_news4.html"
+      ],
+      "evidence_sha256": "02c09e1c3cc7c33921e79669783ba4f0b97e1566b80ac5ce3bd8b8693c069fc5",
+      "original_title": "菲律宾能源公司 Prime Energy 深水项目产气",
+      "body": "Malampaya 四期接入两口新井，较原计划提前约五个月；投资接近10亿美元，新增预计可采天然气储量2220亿立方英尺，后续仍将逐步爬产。",
+      "suggested_section": "company_news"
+    }
+  ]
+}

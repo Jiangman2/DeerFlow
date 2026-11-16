@@ -1,0 +1,17 @@
+{
+  "commands": 1,
+  "correct_posix_path": "/var/lib/portal-energy-work-preview-skill-install-20261115-r3/REPORT.json",
+  "error_class": "FileNotFoundError",
+  "error_code": "INSTALL_FAILED_REDACTED",
+  "gateway_modified": false,
+  "observed_at": "2026-11-16T04:07:38.536800+00:00",
+  "once_claimed": false,
+  "operation": "cdf8c9bb0f0e48f98afc3db90b1da23c",
+  "provisioner_modified": false,
+  "schema": "energy-webhook-installer-r2-operator-failure-summary.v1",
+  "skill_updated": false,
+  "source": "OPERATOR_PASTED_JSON_20261116",
+  "status": "INCOMPLETE",
+  "summary_is_not_a_byte_exact_original_server_receipt": true,
+  "wrong_path_literal": "\\var\\lib\\portal-energy-work-preview-skill-install-20261115-r3\\REPORT.json"
+}

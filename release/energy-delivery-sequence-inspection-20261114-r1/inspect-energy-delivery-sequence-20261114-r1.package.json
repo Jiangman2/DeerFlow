@@ -1,0 +1,13 @@
+{
+  "bytes": 56847,
+  "child_sha256": "68c2c4224d67a3aa58ca0d7b01fddda87011bca597728995328013da85a4e0ce",
+  "database_readonly": true,
+  "filename": "inspect-energy-delivery-sequence-20261114-r1.py",
+  "fixed_thread": "8e27d29f-730b-4a89-9681-36fdddc87887",
+  "messages_sent": 0,
+  "mutations_supported": false,
+  "production_executed": false,
+  "raw_messages_exported": false,
+  "schema": "energy-delivery-sequence-inspection-package.v1",
+  "sha256": "140c31965a1db2f87e0e584672089039a6a234a15fc3b03ea16bc35417bbd7dc"
+}

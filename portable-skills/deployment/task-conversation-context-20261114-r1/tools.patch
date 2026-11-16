@@ -1,0 +1,66 @@
+--- a/backend/packages/harness/deerflow/sandbox/tools.py
++++ b/backend/packages/harness/deerflow/sandbox/tools.py
+@@ -11,6 +11,7 @@
+ from typing import Any
+ 
+ from langchain.tools import tool
++from langgraph.config import get_config
+ 
+ from deerflow.agents.thread_state import ThreadDataState
+ from deerflow.config import get_app_config
+@@ -32,6 +33,7 @@
+ from deerflow.sandbox.security import LOCAL_HOST_BASH_DISABLED_MESSAGE, is_host_bash_allowed
+ from deerflow.sandbox.text_read_policy import IMAGE_READ_GUIDANCE, image_text_read_error
+ from deerflow.tools.types import Runtime
++from deerflow.utils.conversation_url import current_conversation_url
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -1678,6 +1680,38 @@
+     return f"unset {CHANNEL_USER_ID_ENV}; "
+ 
+ 
++CONVERSATION_URL_ENV = "DEERFLOW_CONVERSATION_URL"
++
++
++def _conversation_context_prefix(runtime: Runtime) -> str:
++    """Expose the host's current conversation on each POSIX command invocation.
++
++    Resolve the thread with the same precedence as ``present_files``. The URL
++    comes only from that identity and the operator-configured web origin; a
++    caller-provided URL is never used. An unavailable identity/origin clears a
++    stale value in the persistent shell. This non-secret context deliberately
++    does not use ``execute_command(env=...)`` or select its alternate AIO API.
++    The URL identifies the conversation, not successful artifact publication.
++    """
++    try:
++        thread_id = runtime.context.get("thread_id") if runtime.context else None
++        if not thread_id:
++            runtime_config = getattr(runtime, "config", None) or {}
++            thread_id = runtime_config.get("configurable", {}).get("thread_id")
++        if not thread_id:
++            try:
++                thread_id = get_config().get("configurable", {}).get("thread_id")
++            except RuntimeError:
++                thread_id = None
++        url = current_conversation_url(thread_id)
++    except Exception:
++        # Optional context must not break execution or disclose configuration.
++        url = ""
++    if url:
++        return f"export {CONVERSATION_URL_ENV}={shlex.quote(url)}; "
++    return f"unset {CONVERSATION_URL_ENV}; "
++
++
+ def _github_env_from_runtime(runtime: Runtime) -> dict[str, str] | None:
+     """Build a per-call env overlay carrying a GitHub App installation token.
+ 
+@@ -1747,7 +1781,7 @@
+         # GitHub channel. Both are injected as per-call env into the subprocess,
+         # never placed in the command string.
+         injected_env = read_active_secrets(getattr(runtime, "context", None)) or None
+-        identity_prefix = _channel_identity_prefix(runtime)
++        identity_prefix = (_channel_identity_prefix(runtime) or "") + _conversation_context_prefix(runtime)
+         github_env = _github_env_from_runtime(runtime)
+         if github_env:
+             injected_env = {**(injected_env or {}), **github_env}

@@ -1,0 +1,24 @@
+{
+  "bytes": 40145,
+  "child_sha256": "b9073ecb0e1e1f5d4812f50f7e155f4dfc8e8acba0d77f00c2a87fecff66abcd",
+  "database_readonly": true,
+  "filename": "inspect-energy-task-stop-detail-20261114-r2.py",
+  "fixed_seqs": [
+    10,
+    11,
+    12,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "messages_sent": 0,
+  "production_executed": false,
+  "provider_requests": 0,
+  "run_sha256": "37988b84a33cee73da5075227de02c32d461958225bebc747e0f2269915afcb0",
+  "schema": "energy-task-stop-detail-package.v2",
+  "sha256": "b6287cd1831cc17ee493730cf608710d7e72f60a84f2e8c6a96e57a52b1514d0",
+  "terminal_visible_text_redacted_max_characters": 4000,
+  "thread": "7f645bba-9bfd-4786-ab0a-e8636cf255d3"
+}

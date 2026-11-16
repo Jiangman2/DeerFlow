@@ -1,0 +1,15 @@
+{
+  "accepted_operation": "91ae0c5e6aff42dbb0b73aef146732d0",
+  "accepted_receipt_sha256": "5dd40639193ff9a9776c235b084977d47219ea2fde4ff154822feca625066663",
+  "bytes": 30736,
+  "expected_tree_sha256": "2a09015d31cee41cd2a329fff96062848255d3d49fb7cec8c52d47c939345259",
+  "filename": "inspect-energy-html-skill-visibility-20261114-r1.py",
+  "max_sampled_nodes": 3,
+  "messages_sent": 0,
+  "production_executed": false,
+  "provider_requests": 0,
+  "read_only": true,
+  "schema": "energy-html-warning-visibility-package.v1",
+  "sha256": "475b0658cb923b29533cb8a45884f42577133f4c974ae4698c12803c26163ed0",
+  "visibility_child_sha256": "ffe9f441d4e0c89ec50b2d9feeeb146527c866c426d6542b447a290daff4ecf9"
+}

@@ -1,0 +1,10 @@
+{
+  "bytes": 16145,
+  "filename": "inspect-energy-html-reader-20261114-r1.py",
+  "messages_sent": 0,
+  "production_executed": false,
+  "provider_requests": 0,
+  "read_only": true,
+  "schema": "energy-html-reader-preflight-package.v1",
+  "sha256": "988afa1727ca15ba77904469ba4c8f0a4d8807a277c728745783cde7b5d05b51"
+}

@@ -1,0 +1,14 @@
+{
+  "accepted_operation": "af7750a214e54d2ca4e951667e514e02",
+  "accepted_receipt_sha256": "3d16bea239ecde303aa32399e3a9d1c839bbb49a3f98ce4327ef5cc143b46d42",
+  "bytes": 12681,
+  "filename": "verify-energy-programmatic-skill-20261114-r1.py",
+  "installer_source_sha256": "214b624bdbd7751a128c00cb6824f96a51bad32808168563cd9ca0b4ddcb22a9",
+  "messages_sent": 0,
+  "production_executed": false,
+  "provider_requests": 0,
+  "read_only": true,
+  "schema": "energy-programmatic-visibility-package.v1",
+  "sha256": "830cf6cb4c8c6759507f927c1716406514d89c758f98ade502c66977d094c1a2",
+  "visibility_child_sha256": "9952d574a5a2337f9c0a349ec70d3ce87790926febeae9e0afad81a1eccec745"
+}

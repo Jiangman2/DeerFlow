@@ -1,0 +1,15 @@
+{
+  "accepted_operation": "1ed48e84ae104d2abd3645c01221cf34",
+  "accepted_receipt_sha256": "a6d9ead7b1a0fe4d3573c655eb0cac582290a59c0f978a1f691a633e79055815",
+  "bytes": 31122,
+  "expected_files": 110,
+  "expected_tree_sha256": "e9f273fb122b42a692517e39323ef0bbe6c80318cacdf694bb39ebc094ce99a0",
+  "filename": "verify-energy-webhook-skill-20261116-r1.py",
+  "max_sampled_nodes": 3,
+  "production_executed": false,
+  "read_only": true,
+  "schema": "energy-webhook-visibility-package.v1",
+  "sha256": "efcc457d0221853af9d8d0ca1bd77a9ff9da7d3242366a969d6d9b008de6f2ca",
+  "visibility_child_sha256": "e304e74264e7ecbfc5e82b882542e7764da2c53dde86e2cb1aba419b51084f80",
+  "work_messages_sent": 0
+}

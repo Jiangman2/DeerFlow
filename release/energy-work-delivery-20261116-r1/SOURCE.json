@@ -1,0 +1,18 @@
+{
+  "bytes": 70260,
+  "child_sha256": "7219c93e11a2e284fb41356c57c882abbba199c9c83051a6b3c8e49b7e573734",
+  "database_readonly": true,
+  "filename": "inspect-energy-work-delivery-20261116-r1.py",
+  "mutations_supported": false,
+  "notification_ciphertext_read": false,
+  "production_executed": false,
+  "provider_requests": 0,
+  "raw_messages_or_commands_exported": false,
+  "schema": "energy-work-delivery-inspection-package.v1",
+  "sha256": "e6ec5e5e8001174991bd393ffc0eed24812ddb556fa07b66ecdbac392b85f32b",
+  "tasks_retried": false,
+  "thread_ids": [
+    "d99e944a-6d4b-4f22-9f53-f85d04a12fc0"
+  ],
+  "work_messages_sent": 0
+}

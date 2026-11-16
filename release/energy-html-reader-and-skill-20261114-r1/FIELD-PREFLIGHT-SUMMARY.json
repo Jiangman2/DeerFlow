@@ -1,0 +1,32 @@
+{
+  "schema": "energy-html-reader-field-preflight-summary.v1",
+  "basis": "Normalized summary of operator-pasted JSON; not a byte-identical saved receipt",
+  "observed_at": "2026-11-14T14:25:20.100289+00:00",
+  "operator_status": "NGINX_READER_PREFLIGHT_OBSERVED_NO_CHANGE",
+  "stable_spec_readback": true,
+  "nginx": {
+    "uid": "10fb043a-eaee-433e-bce0-80688e798611",
+    "generation": 116,
+    "spec_sha256": "043c199d237cbab9f5169e10f909865fbf55c4cc3a11776c377a407605b1b03a",
+    "ready": 1,
+    "configmap": "deer-flow-nginx-hostguard-20261011-r1",
+    "configmap_uid": "e9d12df6-1f22-4a2a-818e-02bdb9b4efd9",
+    "configmap_immutable": true,
+    "data_sha256": "ad396fb11e888fb3434a0f6628aff101c7097981d4648c17da51a51e8c755828",
+    "nginx_conf_bytes": 49131,
+    "nginx_conf_sha256": "f8a07eb8e8b8bc86d74cb5666c0cd4917505da5cd9a1eaa370c906c91daf0d95",
+    "mount_path": "/etc/nginx/nginx.conf.template",
+    "mount_subpath": "nginx.conf",
+    "proxy_pass": "http://$gateway_upstream",
+    "forwarded_proto": "$forwarded_proto"
+  },
+  "gateway_generation": 417,
+  "gateway_ready": 70,
+  "frontend_generation": 244,
+  "frontend_ready": 2,
+  "credentials_exported": false,
+  "secret_api_reads": 0,
+  "provider_requests": 0,
+  "work_messages_sent": 0,
+  "workload_modified": false
+}

@@ -1,0 +1,100 @@
+{
+  "assets": {
+    "reader": {
+      "bytes": 24554,
+      "sha256": "9d7630de3b97769907b878705148a5f507ea755d23eabecb844a09ef47abd65a"
+    },
+    "skill": {
+      "bytes": 2118785,
+      "sha256": "16355e886e6023bfd61bcadda8a8ab44bbc492533441a1f035e0cd21209c373e"
+    }
+  },
+  "business_acceptance_pending": true,
+  "credentials_included": false,
+  "files": {
+    "activate-energy-html-reader-20261114-r1.py": {
+      "bytes": 24554,
+      "sha256": "9d7630de3b97769907b878705148a5f507ea755d23eabecb844a09ef47abd65a"
+    },
+    "install-energy-daily-html-links-20261114-r1.py": {
+      "bytes": 2860656,
+      "sha256": "4a587242a43679fe93ad9d9c2d697051be7cb5bf8a11d9c93e5dc71c9e82cf42"
+    }
+  },
+  "frontend_rebuild_requested": false,
+  "gateway_rollout_requested": false,
+  "local_checks": {
+    "activation_concurrency": 5,
+    "mobile_390_inline_html_svg_and_csp": true,
+    "nginx_parser": 8,
+    "real_nginx_http_fixed_upstream": 15,
+    "real_nginx_http_production_variable_upstream": 15,
+    "skill_linux_python310_uid1000": 34,
+    "skill_windows": 34
+  },
+  "nginx_configuration_change": "One immutable ConfigMap clone plus one ConfigMap-name reference CAS patch",
+  "production_executed": false,
+  "provider_requests": 0,
+  "reader_access": "Existing authenticated conversation artifact owner gate",
+  "schema": "energy-html-reader-and-skill-package.v1",
+  "sources": {
+    "activate_reader.py": {
+      "bytes": 14790,
+      "sha256": "d1c47b14f394e75b5c570babc7918b16d52cec2728464e777d025c6303c10842"
+    },
+    "bundle.py": {
+      "bytes": 2629,
+      "sha256": "e61142c7bf7ddb9a02ccb6b6819076ec56b8e6f06aca867add804b3fb9361859"
+    },
+    "nginx_reader.py": {
+      "bytes": 9325,
+      "sha256": "4e6b1fd735d8996e4a5ac370c8b337e97de5cc582bdedde6681eed1d91c7887f"
+    },
+    "preflight.py": {
+      "bytes": 6506,
+      "sha256": "85f584fb0b10839aee6c834571d50fc981be9f2db75e0794ac1788c118875466"
+    },
+    "prepare_candidate.py": {
+      "bytes": 5996,
+      "sha256": "ed932141b8f813a2d643dcb236817276177d40ad36670dfdbef2ad7037970696"
+    },
+    "prepare_skill_deployment.py": {
+      "bytes": 6879,
+      "sha256": "3b98329f8b73f4f24bdbd4b20728d365ac87073b22e8ca9492196c30a1fb916a"
+    },
+    "review_skill_release.py": {
+      "bytes": 2488,
+      "sha256": "e3fa5160f25f9de48842f106fdd3cc04f49112d6107ad2521300f419431399f1"
+    },
+    "seal_preflight.py": {
+      "bytes": 1438,
+      "sha256": "4ff7ec5b57fde5da29f6cb606a880df106902395eaecce4e94567e346c6f1b92"
+    },
+    "seal_release.py": {
+      "bytes": 3172,
+      "sha256": "0ba36e92499b378d84435940ff748467adbf383e8ae47579654837da68460589"
+    },
+    "test_activation.py": {
+      "bytes": 5078,
+      "sha256": "d3d19814f74583c3d2895df247b1caba3ffcfe819a398b7d9b6ae044baf3bc2f"
+    },
+    "test_mobile_reader.py": {
+      "bytes": 5659,
+      "sha256": "5904006388071c4cdcbf4b42c1c41b2ac52e2d699c0f3d1a962ab62911bde355"
+    },
+    "test_nginx_http.py": {
+      "bytes": 7308,
+      "sha256": "b56bd7f73741489dd85932446572ad15ab07066c8916c95d64fdc9a291bb27f4"
+    },
+    "test_reader.py": {
+      "bytes": 4860,
+      "sha256": "7186a6a4b1bb1d5198db3d85d06501e3dbce712a9790e199211dab97202fbf04"
+    },
+    "test_skill.py": {
+      "bytes": 4100,
+      "sha256": "480f923b156741003ddebd04e447f0438b5a0c806a558d766051de3e0a98ec19"
+    }
+  },
+  "version": "2.1.5-portable",
+  "work_messages_sent": 0
+}

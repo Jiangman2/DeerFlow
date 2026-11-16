@@ -1,0 +1,27 @@
+{
+  "compose_and_freight_sealed_probes_passed": true,
+  "five_acquisition_calculation_renderer_runtime_sources_preserved": true,
+  "installer_checks_linux_uid1000": 8,
+  "installer_checks_windows": 8,
+  "linux_python310_uid1000_regressions": 57,
+  "linux_regression_errors": 0,
+  "linux_regression_failures": 0,
+  "linux_regression_skips": 0,
+  "local_full_png_renderer_mocked": true,
+  "messages_sent": 0,
+  "official_protocol_reference": "https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot",
+  "production_arm64_real_png_qualification_pending": true,
+  "production_changes": 0,
+  "python37_all_sealed_assets_and_wrong_host_zero_mutation_guard": true,
+  "real_webhook_send_proven": false,
+  "schema": "energy-webhook-skill-local-validation.v1",
+  "skill_format_valid": true,
+  "source_files_changed_from_216": [
+    "SKILL.md",
+    "references/webhook.md",
+    "scripts/daily.py",
+    "scripts/delivery_text.py",
+    "scripts/send_webhook.py"
+  ],
+  "windows_sender_tests": 18
+}

@@ -66,24 +66,57 @@ def normalize(payload, day):
     return rows
 
 
-def build(start, end, records, failures):
+def valid_quote(row):
+    return (isinstance(row, dict) and row.get('status') == 'available'
+            and type(row.get('value')) in (int, float) and math.isfinite(row['value']) and row['value'] > 0)
+
+
+def freight_reference_note(quote):
+    if quote.get('status') != 'latest_available':
+        return ''
+    reason = '目标日休市' if quote.get('target_status') == 'non_trading' else '未取得目标日报价'
+    return '%s；参考最近已取得报价 %s（距目标日 %d 天）' % (reason, quote['date'], quote['quote_age_days'])
+
+
+def freight_search_complete(quotes, start, end, failures, recheck_failures):
+    failed_dates = set(failures) | set(recheck_failures)
+    for quote in quotes:
+        if quote['status'] == 'available':
+            continue  # A valid target-day quote needs no historical reference.
+        lower = quote['date'] if quote['status'] == 'latest_available' else start
+        if any(lower <= date <= end for date in failed_dates):
+            return False
+    return True
+
+
+def build(start, end, records, failures, *, reference_freight=True):
     snapshot = dict(data_date=end, start=start, end=end, retrieved_at=now().isoformat(), oil=[], gas=[], freight=[],
                     history=dict(start=start, end=end, single_day=False, oil=[], gas=[], freight=[]), observations=records,
                     acquisition_failures=failures)
     for code in list(SPECS) + FREIGHT:
-        rows = sorted((r for r in records if r['code'] == code), key=lambda r: r['date'])
+        rows = sorted((r for r in records if r['code'] == code and start <= r['date'] <= end), key=lambda r: r['date'])
         current = next((r for r in rows if r['date'] == end), None)
         kind, name, default_unit = SPECS[code] if code in SPECS else ('freight', NAMES[FREIGHT.index(code)], '万美元' if FREIGHT.index(code) % 2 == 0 else '美元/桶')
-        unit = current['unit'] if current else default_unit
-        previous = next((r for r in reversed(rows) if r['date'] < end and r['value'] is not None), None)
+        selected = current
+        if reference_freight and kind == 'freight' and not valid_quote(current):
+            selected = next((r for r in reversed(rows) if valid_quote(r)), current)
+        referenced = selected is not None and selected['date'] < end and valid_quote(selected)
+        quote_date = selected['date'] if referenced else end
+        unit = selected['unit'] if selected else default_unit
+        previous = next((r for r in reversed(rows) if r['date'] < quote_date and valid_quote(r)), None)
         same = previous and previous['unit'] == unit
-        value = current['value'] if current else None
-        status = current['status'] if current else 'missing'
-        quote = dict(name=name, code=code, unit=unit, date=end, value=value, status=status,
+        value = selected['value'] if selected else None
+        status = 'latest_available' if referenced else current['status'] if current else 'missing'
+        quote = dict(name=name, code=code, unit=unit, date=quote_date, value=value, status=status,
                      change=(value / previous['value'] - 1) * 100 if value is not None and same else None,
                      previous_date=previous['date'] if same else None, previous_value=previous['value'] if same else None,
-                     source='金凯讯', contract=current['item'] if current else '', basis='接口 close；名称及单位沿用接口',
+                     source='金凯讯', contract=selected['item'] if selected else '', basis='接口 close；名称及单位沿用接口',
                      decimals=3 if kind == 'gas' else 2, change_method='calculated' if value is not None and same else 'unit_changed_or_missing_previous')
+        if referenced:
+            quote.update(target_date=end, target_status=current['status'] if current else 'missing',
+                         target_missing_reason='供应商明确休市' if current and current['status'] == 'non_trading' else failures.get(end, '未取得目标日有效报价'),
+                         quote_age_days=(dt.date.fromisoformat(end) - dt.date.fromisoformat(quote_date)).days,
+                         reference_policy='latest_available_in_three_month_window')
         if value is None:
             quote['missing_reason'] = '供应商明确休市' if status == 'non_trading' else failures.get(end, '未取得目标日有效报价')
         snapshot[kind].append(quote)
@@ -108,6 +141,7 @@ def build(start, end, records, failures):
             segment['values'].append(row['value'])
         snapshot['history'][kind].extend(segments)
     snapshot['market_complete'] = not failures and all(q['status'] in ('available', 'non_trading') for k in ('oil', 'gas', 'freight') for q in snapshot[k])
+    snapshot['freight_reference_count'] = sum(q['status'] == 'latest_available' for q in snapshot['freight'])
     return snapshot
 
 
@@ -116,14 +150,16 @@ def acquire(project, publication, credential_path=None, cache=None, budget=120):
     start = previous_months(target)
     cache = Path(cache) if cache else Path(project) / 'cache' / 'jkx'
     cache.mkdir(parents=True, exist_ok=True)
-    records, failures = [], {}
+    records, failures, recheck_failures = [], {}, {}
+    unresolved_freight = set(FREIGHT)
     client = Client(time.monotonic() + budget)
     try:
         endpoint, password = credentials(credential_path)
     except Failure as exc:
         endpoint, password = None, None
         failures[target.isoformat()] = exc.code
-    # Fetch target first, always fresh. Historical cache is used only for history.
+    # Target is always fresh. While looking for a dated freight reference,
+    # recheck cached missing days once, within the same acquisition deadline.
     days = [target - dt.timedelta(days=i) for i in range((target - start).days + 1)]
     for day in days:
         date = day.isoformat()
@@ -132,8 +168,10 @@ def acquire(project, publication, credential_path=None, cache=None, budget=120):
         if day != target and not path.exists() and seeded.is_file():
             shutil.copyfile(seeded, path)
         try:
+            cached = False
             if day != target and path.is_file():
                 rows = normalize(load(path), date)
+                cached = True
             else:
                 if not endpoint:
                     raise Failure('JKX_CREDENTIAL_UNAVAILABLE')
@@ -143,10 +181,33 @@ def acquire(project, publication, credential_path=None, cache=None, budget=120):
                 # Store only the contracted data fields, never provider error bodies.
                 clean = {'errcode': '0', 'data': [{key: item[key] for key in ('code_name', 'item', 'value_date', 'unit', 'close')} for item in payload['data']]}
                 save(path, clean)
+            if cached and unresolved_freight:
+                known = {r['code'] for r in rows if valid_quote(r)}
+                if unresolved_freight - known:
+                    try:
+                        if not endpoint:
+                            raise Failure('JKX_CREDENTIAL_UNAVAILABLE')
+                        raw = client.get(endpoint, params={'p': password, 'pdate': date})
+                        payload = json.loads(raw)
+                        refreshed = normalize(payload, date)
+                        # Keep the valid original cache if a recheck fails.
+                        clean = {'errcode': '0', 'data': [{key: item[key] for key in ('code_name', 'item', 'value_date', 'unit', 'close')} for item in payload['data']]}
+                        save(path, clean)
+                        rows = refreshed
+                    except (Failure, ValueError, KeyError, OSError) as exc:
+                        if isinstance(exc, Failure) and exc.details.get('http_status') in (401, 403):
+                            endpoint = None  # Do not repeat rejected credentials on older dates.
+                        recheck_failures[date] = exc.code if isinstance(exc, Failure) else 'PROVIDER_RESPONSE_INVALID'
             records.extend(rows)
+            unresolved_freight.difference_update(r['code'] for r in rows if valid_quote(r))
         except (Failure, ValueError, KeyError, OSError) as exc:
+            if isinstance(exc, Failure) and exc.details.get('http_status') in (401, 403):
+                endpoint = None
             failures.setdefault(date, exc.code if isinstance(exc, Failure) else 'PROVIDER_RESPONSE_INVALID')
     snapshot = build(start.isoformat(), target.isoformat(), records, failures)
+    snapshot['freight_cache_recheck_failures'] = recheck_failures
+    snapshot['freight_reference_search_complete'] = freight_search_complete(
+        snapshot['freight'], start.isoformat(), target.isoformat(), failures, recheck_failures)
     snapshot['provider_requests'] = client.requests
     save(Path(project) / 'market.json', snapshot)
     return snapshot

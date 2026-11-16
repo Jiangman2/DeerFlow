@@ -1,0 +1,12 @@
+{
+  "after_tree_sha256": "a7b41e944717a2fa567455a3b98e1e36e09920c1c0d6afc4fe786d9452b01a5d",
+  "operation": "af7750a214e54d2ca4e951667e514e02",
+  "ordinary_sandbox_visibility_pending": true,
+  "production_business_acceptance_pending": true,
+  "schema": "energy-programmatic-operator-install-receipt.v1",
+  "server_receipt_bytes": 9093,
+  "server_receipt_sha256": "3d16bea239ecde303aa32399e3a9d1c839bbb49a3f98ce4327ef5cc143b46d42",
+  "source_attachment": "C:\\Users\\15285\\.codex\\attachments\\9347264b-c744-469b-89f8-ef524f655b08\\Pasted text.txt",
+  "source_attachment_sha256": "cf26bfa622224904f3736c0d1ebc0e1c3d9cbdea2c1961925fb025a37aafe85b",
+  "status": "ENERGY_DELIVERY_SKILL_INSTALLED_VISIBILITY_PENDING"
+}

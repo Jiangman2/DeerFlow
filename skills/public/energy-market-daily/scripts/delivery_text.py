@@ -1,20 +1,22 @@
-"""Compose a single final reply; never send messages or infer a platform URL."""
+"""Build one linked report text from host context; never send or infer a URL."""
 from __future__ import annotations
 
+import datetime as dt
 import ipaddress
 import json
 import os
 from pathlib import Path, PurePosixPath
 import re
 import tempfile
-from urllib.parse import urlsplit
-import uuid
+from urllib.parse import urlsplit, urlunsplit
 
 from common import Failure, digest, load, now
+from market import freight_reference_note
 
 MAX_PROJECTION_BYTES = 65536
 MAX_TEXT_BYTES = 262144
 EXTENSIONS = {'.png', '.html', '.json', '.txt'}
+CONVERSATION_ENV = 'DEERFLOW_CONVERSATION_URL'
 
 
 def require(ok, code):
@@ -23,7 +25,7 @@ def require(ok, code):
 
 
 def public_conversation_url(value, thread_id=None):
-    """Validate only a caller-supplied host receipt URL; no origin is invented."""
+    """Validate the platform chat route; no origin or task id is invented."""
     if not isinstance(value, str) or len(value) > 2048 or any(char.isspace() for char in value):
         return None
     try:
@@ -40,8 +42,10 @@ def public_conversation_url(value, thread_id=None):
             return None  # Public conversation URLs use the host's DNS origin.
         except ValueError:
             pass
-        match = re.fullmatch(r'/workspace/chats/([0-9a-f-]{36})', parsed.path)
-        if not match or str(uuid.UUID(match.group(1))) != match.group(1):
+        # Match DeerFlow's validate_thread_id, including API-created task ids.
+        # Percent escapes, slash separators, dots, query and fragment stay out.
+        match = re.fullmatch(r'/workspace/chats/([A-Za-z0-9_-]{1,64})', parsed.path)
+        if not match:
             return None
         if thread_id is not None and thread_id != match.group(1):
             return None
@@ -50,12 +54,137 @@ def public_conversation_url(value, thread_id=None):
         return None
 
 
-def publication_summary(projection, files):
-    """Check the projection's consistency, not the caller's platform identity."""
-    result = {'confirmed': False, 'conversation_url': None,
+def host_conversation_context():
+    """Read the current command's host-injected value, never shell history."""
+    raw = os.environ.get(CONVERSATION_ENV)
+    url = public_conversation_url(raw)
+    return {'conversation_url': url, 'conversation_thread_id': urlsplit(url).path.rsplit('/', 1)[1] if url else None,
+            'conversation_link_available': bool(url), 'conversation_context_source': 'HOST_INJECTED_ENVIRONMENT' if url else None,
+            'conversation_context_error': None if url else 'HOST_CONVERSATION_URL_INVALID' if raw else 'HOST_CONVERSATION_CONTEXT_UNAVAILABLE'}
+
+
+def require_same_conversation(receipt, context, exact_url=False):
+    """A previously linked project must not silently become another task."""
+    previous = receipt.get('conversation_url')
+    if previous is None:
+        return
+    require(public_conversation_url(previous) is not None, 'RESULT_CONVERSATION_INVALID')
+    current = context.get('conversation_url')
+    require(current is not None, 'HOST_CONVERSATION_CONTEXT_REQUIRED')
+    require(urlsplit(previous).path == urlsplit(current).path, 'PROJECT_CONVERSATION_MISMATCH')
+    if exact_url:
+        require(previous == current, 'REPORT_CONVERSATION_CONTEXT_CHANGED')
+
+
+def html_report_url(context, publication_date):
+    """Use the deployed reader contract and the current host-owned chat identity."""
+    url = public_conversation_url(context.get('conversation_url'))
+    if not url:
+        return None
+    require(isinstance(publication_date, str) and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', publication_date),
+            'DELIVERY_PUBLICATION_DATE_INVALID')
+    try:
+        require(dt.date.fromisoformat(publication_date).isoformat() == publication_date, 'DELIVERY_PUBLICATION_DATE_INVALID')
+    except ValueError:
+        raise Failure('DELIVERY_PUBLICATION_DATE_INVALID') from None
+    parsed = urlsplit(url)
+    thread = parsed.path.rsplit('/', 1)[1]
+    return urlunsplit((parsed.scheme, parsed.netloc, '/reports/energy-daily/' + thread + '/' + publication_date + '.html', '', ''))
+
+
+def report_text(data, reply_text, context, include_html_link=False, link_first=False):
+    """Prepare both links in the same TXT; delivery still requires present_files."""
+    require(isinstance(reply_text, str), 'DELIVERY_TEXT_INVALID')
+    require(len(reply_text.encode()) <= MAX_TEXT_BYTES, 'DELIVERY_TEXT_SIZE_LIMIT')
+    url = context.get('conversation_url')
+    if url:
+        require(public_conversation_url(url) is not None, 'HOST_CONVERSATION_URL_INVALID')
+    reader = html_report_url(context, data['publication_date']) if url and include_html_link else None
+    reader_line = '[点击查看日报网页](' + reader + ')' if reader else None
+    body = reply_text.replace('\r\n', '\n').rstrip()
+    # Only a header for this exact host-owned task and edition can be removed.
+    # This makes compatibility finalization idempotent without adopting old URLs.
+    if reader_line and body.startswith(reader_line + '\n\n'):
+        body = body[len(reader_line) + 2:]
+    require(body.startswith('油气与金融市场日报'), 'DELIVERY_TEXT_INVALID')
+    require('发布日期：' + data['publication_date'] + '；行情日期：' + data['data_date'] in body
+            and '报告状态：' + data['quality'] in body, 'DELIVERY_TEXT_REPORT_MISMATCH')
+    if not url:
+        return reply_text
+    footer = '[点击查看完整日报](' + url + ')'
+    links = (reader_line + '\n\n' if reader_line else '') + footer
+    if body.endswith(links):
+        body = body[:-len(links)].rstrip()
+    # Compatibility finalization may start with the previously linked TXT.
+    elif body.endswith(footer):
+        body = body[:-len(footer)].rstrip()
+    require(not re.search(r'^\[点击查看(?:完整日报|日报网页)\]\(', body, re.M), 'DELIVERY_TEXT_LINK_CONFLICT')
+    if link_first and reader_line:
+        # RunJournal and runs.last_ai_message retain only the first 2000
+        # characters. Keep the reader inside that preview without trimming body.
+        result = reader_line + '\n\n' + body + '\n\n' + footer + '\n'
+    else:
+        result = body + '\n\n' + links + '\n'
+    return reply_text if reply_text.replace('\r\n', '\n') == result else result
+
+
+def conversation_summary(projection):
+    """Keep a host-returned conversation link independent of file publication.
+
+    This checks a transcription of the current present_files ToolMessage. It
+    cannot authenticate the host or establish current-thread identity itself.
+    Never construct an origin or a thread URL from local paths or report data.
+    """
+    result = {'conversation_url': None, 'conversation_link_available': False,
               'projection_basis': 'CALLER_SUPPLIED_TOOLMESSAGE_NOT_INDEPENDENT_HOST_ATTESTATION',
               'current_thread_identity_independently_verified': False,
-              'reason': 'HOST_PUBLICATION_NOT_CONFIRMED'}
+              'conversation_reason': 'HOST_CONVERSATION_URL_UNAVAILABLE'}
+    if not isinstance(projection, dict):
+        return result
+    artifact = projection.get('artifact')
+    content = projection.get('content')
+    if (artifact is not None and not isinstance(artifact, dict)) or not isinstance(content, str) or len(content.encode()) > MAX_PROJECTION_BYTES:
+        return result
+    if projection.get('name') != 'present_files' or projection.get('status') not in (None, 'success', 'error'):
+        return result
+    call_id = projection.get('tool_call_id')
+    if not isinstance(call_id, str) or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,256}', call_id):
+        result['conversation_reason'] = 'HOST_CONVERSATION_IDENTITY_INCOMPLETE'
+        return result
+    # These are the host's success and failure result formats. Error status,
+    # partial file sets and a missing publication run id do not remove a link.
+    if not content.startswith(('Successfully presented files', 'Error:', 'File delivery incomplete')):
+        return result
+    prefixes = ('conversation_url: ', 'File delivery incomplete. conversation_url: ')
+    receipt_urls = []
+    for line in content.splitlines():
+        for prefix in prefixes:
+            if line.startswith(prefix):
+                receipt_urls.append(line[len(prefix):])
+                break
+    if len(receipt_urls) > 1:
+        result['conversation_reason'] = 'HOST_CONVERSATION_URL_CONFLICT'
+        return result
+    supplied = list(receipt_urls)
+    if isinstance(artifact, dict) and 'conversation_url' in artifact:
+        supplied.append(artifact['conversation_url'])
+    if not supplied:
+        return result
+    valid = [public_conversation_url(value, projection.get('thread_id')) for value in supplied]
+    if any(value is None for value in valid):
+        result['conversation_reason'] = 'HOST_CONVERSATION_URL_INVALID'
+        return result
+    if len(set(valid)) != 1:
+        result['conversation_reason'] = 'HOST_CONVERSATION_URL_CONFLICT'
+        return result
+    result.update(conversation_url=valid[0], conversation_link_available=True,
+                  conversation_reason=None, tool_call_id_sha256=digest(call_id.encode()))
+    return result
+
+
+def publication_summary(projection, files):
+    """Check publication separately; its status must not discard a host URL."""
+    result = dict(conversation_summary(projection), confirmed=False, reason='HOST_PUBLICATION_NOT_CONFIRMED')
     if not isinstance(projection, dict):
         return result
     artifact = projection.get('artifact')
@@ -99,16 +228,10 @@ def publication_summary(projection, files):
     if len(set(published)) != 4 or len(set(names)) != 4 or set(names) != expected:
         result['reason'] = 'HOST_PUBLICATION_FILE_SET_INCOMPLETE'
         return result
-    receipt_urls = [line[len('conversation_url: '):] for line in content.splitlines() if line.startswith('conversation_url: ')]
     if not has_artifact and {str(Path(path).resolve()) for path in published} != {str(Path(item['path']).resolve()) for item in files}:
         result['reason'] = 'HOST_PUBLICATION_REQUESTED_FILES_MISMATCH'
         return result
-    supplied_url = artifact.get('conversation_url') if has_artifact else receipt_urls[0] if len(receipt_urls) == 1 else None
-    url = public_conversation_url(supplied_url, projection.get('thread_id'))
-    if url is None or receipt_urls != [url]:
-        result['reason'] = 'HOST_CONVERSATION_URL_UNAVAILABLE'
-        return result
-    result.update(confirmed=True, conversation_url=url, reason=None, tool_call_id_sha256=digest(call_id.encode()),
+    result.update(confirmed=True, reason=None, tool_call_id_sha256=digest(call_id.encode()),
                   published_files_sha256=digest(json.dumps(published, ensure_ascii=False, separators=(',', ':')).encode()))
     return result
 
@@ -129,27 +252,19 @@ def quality_note(data):
     if missing:
         parts.append('数据说明：%s数据未取得，相关字段保留缺值标注；未用旧价冒充目标日行情。' % '、'.join(missing))
     if holidays:
-        parts.append('休市说明：%s按已核实来源标注休市，未补入旧价。' % '、'.join(holidays))
+        parts.append('休市说明：%s按已核实来源标注休市，相关目标日报价留空。' % '、'.join(holidays))
+    references = [quote for quote in data['freight'] if isinstance(quote, dict) and quote.get('status') == 'latest_available']
+    if references:
+        parts.append('航运参考报价说明（均非目标日报价）：' + '；'.join(
+            quote['name'] + '：' + freight_reference_note(quote) for quote in references) + '。')
+        if data.get('freight_reference_search_complete') is False:
+            parts.append('运费回溯仍有日期未完成核验；以上为本次已取得的最近有效报价，不保证未核验日期没有更新报价。')
     return '\n'.join(parts)
 
 
-def compose(data, reply_text, publication):
-    """Preserve accepted report text byte-for-byte before appending delivery text."""
-    require(isinstance(reply_text, str) and reply_text.startswith('油气与金融市场日报'), 'DELIVERY_TEXT_INVALID')
-    require(len(reply_text.encode()) <= MAX_TEXT_BYTES, 'DELIVERY_TEXT_SIZE_LIMIT')
-    require('发布日期：' + data['publication_date'] + '；行情日期：' + data['data_date'] in reply_text
-            and '报告状态：' + data['quality'] in reply_text, 'DELIVERY_TEXT_REPORT_MISMATCH')
-    # Only new suffix content is authored here. The accepted TXT is untouched.
-    body = reply_text + ('' if reply_text.endswith('\n') else '\n') + '\n'
-    note = quality_note(data)
-    if note:
-        body += note + '\n\n'
-    if publication['confirmed']:
-        body += 'PNG长图、HTML、JSON和完整文字已在本次对话发布。\n\n'
-        body += '[点击查看完整日报](' + publication['conversation_url'] + ')\n'
-    else:
-        body += '日报文件已生成，平台发布尚未确认；当前没有已确认的完整日报链接。\n'
-    return body
+def compose(data, reply_text, publication, include_html_link=False, link_first=False):
+    """Compatibility composition; file publication is never predicted in prose."""
+    return report_text(data, reply_text, publication, include_html_link=include_html_link, link_first=link_first)
 
 
 def atomic_bytes(path, raw):
@@ -165,7 +280,10 @@ def atomic_bytes(path, raw):
 
 def finalize(project, receipt, validate_result, projection_path=None):
     project = Path(project).resolve()
-    require(receipt.get('status') == 'REPORT_ACCEPTED' and receipt.get('visual_reviewed') is True
+    require(receipt.get('status') == 'REPORT_ACCEPTED'
+            and (receipt.get('visual_reviewed') is True or receipt.get('version') in ('2.1.3-portable', '2.1.4-portable', '2.1.5-portable', '2.1.6-portable', '2.1.7-portable', '2.1.8-portable')
+                 and receipt.get('acceptance_basis') == 'PROGRAMMATIC_FIXED_TEMPLATE_CHECKS'
+                 and receipt.get('programmatic_checks_passed') is True)
             and receipt.get('publication_allowed') is True, 'DELIVERY_REPORT_NOT_ACCEPTED')
     validate_result(receipt, project)
     outputs = {Path(item['path']).suffix: Path(item['path']) for item in receipt['files']}
@@ -192,13 +310,32 @@ def finalize(project, receipt, validate_result, projection_path=None):
         require(len(raw_projection) <= MAX_PROJECTION_BYTES, 'DELIVERY_PROJECTION_SIZE_LIMIT')
         projection = json.loads(raw_projection.decode('utf-8-sig')); projection_sha = digest(raw_projection)
     publication = publication_summary(projection, receipt['files'])
-    final = compose(data, text, publication).encode()
+    current = host_conversation_context()
+    projected_url = publication.get('conversation_url')
+    if current['conversation_url'] and projected_url:
+        require(current['conversation_url'] == projected_url, 'HOST_CONVERSATION_LINK_CONFLICT')
+    if current['conversation_url']:
+        publication.update(conversation_url=current['conversation_url'], conversation_link_available=True,
+                           conversation_reason=None, conversation_context_source='HOST_INJECTED_ENVIRONMENT')
+    else:
+        # A missing-context compatibility call must not overwrite an existing
+        # linked result or create a successful, externally sendable draft.
+        return {'status': 'WAITING_FOR_CONVERSATION_LINK', 'reply_text_ready': False,
+                'external_delivery_ready': False, 'ready_after_successful_publication': False,
+                'conversation_link_available': False, 'final_text_file': None,
+                'conversation_reason': current['conversation_context_error'],
+                'caller_projection_cannot_supply_current_identity': True,
+                'accepted_files_preserved': True, 'existing_final_text_preserved': True,
+                'next_action': 'stop_and_report_host_context_unavailable', 'messages_sent': 0}
+    require_same_conversation(receipt, publication, exact_url=True)
+    final = compose(data, text, publication, include_html_link=receipt['version'] in ('2.1.5-portable', '2.1.6-portable', '2.1.7-portable', '2.1.8-portable'),
+                    link_first=receipt['version'] in ('2.1.6-portable', '2.1.7-portable', '2.1.8-portable')).encode()
     directory = project / 'delivery'
     require(not directory.is_symlink() and directory.resolve().parent == project, 'DELIVERY_DIRECTORY_INVALID')
     directory.mkdir(exist_ok=True)
     final_path, manifest_path = directory / 'final.md', directory / 'MANIFEST.json'
     require(not final_path.is_symlink() and not manifest_path.is_symlink(), 'DELIVERY_PATH_INVALID')
-    identity = {'schema': 'energy-daily-final-text.v1', 'formatter_version': '2.1.0-portable', 'accepted_result_sha256': digest((project / 'RESULT.json').read_bytes()),
+    identity = {'schema': 'energy-daily-final-text.v1', 'formatter_version': '2.1.2-portable', 'accepted_result_sha256': digest((project / 'RESULT.json').read_bytes()),
                 'accepted_files': [{'name': Path(item['path']).name, 'bytes': item['bytes'], 'sha256': item['sha256']} for item in receipt['files']],
                 'outputs_generation': receipt.get('outputs_generation'), 'publication_date': data['publication_date'], 'data_date': data['data_date'],
                 'quality': data['quality'], 'publication_projection_sha256': projection_sha, 'publication': publication,
@@ -219,6 +356,10 @@ def finalize(project, receipt, validate_result, projection_path=None):
     require(digest((project / 'RESULT.json').read_bytes()) == identity['accepted_result_sha256'], 'DELIVERY_ACCEPTANCE_CHANGED')
     return {'status': 'FINAL_TEXT_READY', 'final_text_file': str(final_path), 'manifest_file': str(manifest_path),
             'final_text_sha256': identity['final_text_sha256'], 'final_text_bytes': len(final), 'reused': reused,
+            'reply_text_ready': True, 'ready_after_successful_publication': True,
+            'external_delivery_ready_by_caller_projection': publication['confirmed'],
+            'delivery_requires_successful_publication': True,
             'publication_confirmed_by_caller_projection': publication['confirmed'], 'conversation_url': publication['conversation_url'],
+            'conversation_link_available': publication['conversation_link_available'], 'conversation_reason': publication['conversation_reason'],
             'caller_supplied_projection_is_not_independent_host_attestation': True,
             'same_file_for_web_and_explicitly_authorized_external_delivery': True, 'messages_sent': 0}

@@ -1,0 +1,25 @@
+{
+  "schema": "energy-core-preservation.v1",
+  "files": {
+    "common.py": {
+      "prior_sha256": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0",
+      "candidate_sha256": "3ba16e41756c188d8c67ae97ad03b1b5878e3c48ecd7221aeabcd9e366ac8cb0"
+    },
+    "market.py": {
+      "prior_sha256": "0ade49587ad07af0da852e384090525466b79bd936cd9edaf21789493c8a115c",
+      "candidate_sha256": "0ade49587ad07af0da852e384090525466b79bd936cd9edaf21789493c8a115c"
+    },
+    "research.py": {
+      "prior_sha256": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee",
+      "candidate_sha256": "0652d2f28854e570ef5b22e8d079f7b1d68d12d217475fee5e28d379cc18a0ee"
+    },
+    "report_renderer.py": {
+      "prior_sha256": "2d82ef0d5a81ff5fd21f5695fe94f8cfca7de3df2ea47911127d7c9346b64c8f",
+      "candidate_sha256": "2d82ef0d5a81ff5fd21f5695fe94f8cfca7de3df2ea47911127d7c9346b64c8f"
+    },
+    "browser_runtime.py": {
+      "prior_sha256": "9844b8e4c5e6a6de99a6f7d9cf42f2aafeda1dea5e2b9966f709da7cebf71ae8",
+      "candidate_sha256": "9844b8e4c5e6a6de99a6f7d9cf42f2aafeda1dea5e2b9966f709da7cebf71ae8"
+    }
+  }
+}

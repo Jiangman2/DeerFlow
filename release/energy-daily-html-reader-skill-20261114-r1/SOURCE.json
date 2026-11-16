@@ -1,0 +1,124 @@
+{
+  "accepted_gateway_runtime_receipt": {
+    "bytes": 4064,
+    "context_injection_runtime_accepted": true,
+    "gateway": {
+      "generation": 417,
+      "spec_sha256": "7faa311dc54be05137ec9c756aa278927e78d47f28118f6779415729c9029aa1",
+      "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+    },
+    "local_input_basis": "EXACT_SAVED_RECEIPT_FILE",
+    "operation": "86bbcfd1fb7f40819284fa431ecce9f1",
+    "path": "/var/lib/portal-task-conversation-context-postcheck-20261114-r2/RUNTIME-ACCEPTANCE.json",
+    "qualification_synthetic_env_is_not_runtime_injection_evidence": true,
+    "sha256": "e139a6a2d05b797f699aa094a3f92886473731a6c323a5267e7e39cff3e994b7"
+  },
+  "accepted_old_tree_sha256": "2a09015d31cee41cd2a329fff96062848255d3d49fb7cec8c52d47c939345259",
+  "assets": {
+    "package": {
+      "bytes": 122336,
+      "sha256": "37423629d9d5f334258168828efed44f890c34493995834054ee5a1425ab9d9d"
+    },
+    "publisher": {
+      "bytes": 22941,
+      "sha256": "8fd17ea29c9dbc8722582e9cb4e5477445bba29b69e990af193a01ef3e52da2c"
+    },
+    "test_files": {
+      "bytes": 1379176,
+      "sha256": "08d9ba9cfaab0402583d0e9687e628a31cccafd6d41a5ad662e7f31cfa7592e4"
+    },
+    "verifier": {
+      "bytes": 31756,
+      "sha256": "a808adfddeec73b64cce16effe6ba888a75b8aed20a59b99866ea8d314f9de13"
+    }
+  },
+  "candidate_manifest_sha256": "356a0d839e2afbdf6986f30d8faab9102c835028a77f50b1e6435650afba1049",
+  "code_files": 107,
+  "code_tree_sha256": "9a4f0d20dc8c93ef38a5099911de4345005f177f43512e86c40b37bb0855f523",
+  "compose_probe_sha256": "90e0a45f2c65655767e976993599c84865cd1e4eeedf837dc5952ac3ea2ca517",
+  "credentials_included": false,
+  "deployment_guard": "ACCEPTED_GATEWAY_CONTEXT_RECEIPT_AND_UNCHANGED_CURRENT_PROTECTED_SPECS",
+  "enterprise_binding_in_public_code": false,
+  "files": {
+    "CODE-MANIFEST.json": {
+      "bytes": 16707,
+      "sha256": "356a0d839e2afbdf6986f30d8faab9102c835028a77f50b1e6435650afba1049"
+    },
+    "energy-market-daily-2.1.5-public-code.zip": {
+      "bytes": 122336,
+      "sha256": "37423629d9d5f334258168828efed44f890c34493995834054ee5a1425ab9d9d"
+    },
+    "install-energy-html-reader-skill-20261114-r1.py": {
+      "bytes": 2118785,
+      "sha256": "16355e886e6023bfd61bcadda8a8ab44bbc492533441a1f035e0cd21209c373e"
+    },
+    "publisher.sealed.py": {
+      "bytes": 22941,
+      "sha256": "8fd17ea29c9dbc8722582e9cb4e5477445bba29b69e990af193a01ef3e52da2c"
+    },
+    "verify_child.sealed.py": {
+      "bytes": 31756,
+      "sha256": "a808adfddeec73b64cce16effe6ba888a75b8aed20a59b99866ea8d314f9de13"
+    }
+  },
+  "gateway_modified": false,
+  "gateway_receipt_contract": {
+    "bytes": 4064,
+    "operation": "86bbcfd1fb7f40819284fa431ecce9f1",
+    "path": "/var/lib/portal-task-conversation-context-postcheck-20261114-r2/RUNTIME-ACCEPTANCE.json",
+    "schema": "task-conversation-context-activation.v1",
+    "sha256": "e139a6a2d05b797f699aa094a3f92886473731a6c323a5267e7e39cff3e994b7",
+    "status": "TASK_CONVERSATION_CONTEXT_DEPLOYED_RUNTIME_ACCEPTED"
+  },
+  "installed_files_including_binding": 108,
+  "messages_sent": 0,
+  "offline_suites": {
+    "test_energy_reader_delivery_20261114.py": [
+      "ProgrammaticBuildTests",
+      "BrowserPipelineTests",
+      "HtmlLinkTests"
+    ],
+    "test_energy_reader_news_stage_20261114.py": [
+      "NewsStageReceiptTests"
+    ]
+  },
+  "offline_test_count": 34,
+  "production_executed": false,
+  "provider_requests": 0,
+  "provisioner_modified": false,
+  "real_arm64_uid1000_render_and_synthetic_final_text_qualification_required_before_publication": true,
+  "runtime_binaries_included": false,
+  "runtime_replacement_requested": false,
+  "schema": "energy-programmatic-install-package.v1",
+  "source_inputs": {
+    "CORE-SOURCE-PRESERVATION.json": {
+      "bytes": 1153,
+      "sha256": "0d5a28ec579eb8aceb5faab5817cc170e673b7330c7358d03f75c6ea8b8ca3c3"
+    },
+    "REVIEWED-SOURCE.json": {
+      "bytes": 19660,
+      "sha256": "b76deb2cbdbad0897b6e5858099e671ec389af30c0d20736818f4bd93b84f72f"
+    },
+    "compose_probe.py": {
+      "bytes": 11966,
+      "sha256": "90e0a45f2c65655767e976993599c84865cd1e4eeedf837dc5952ac3ea2ca517"
+    },
+    "operator.py": {
+      "bytes": 43364,
+      "sha256": "b1c91e37085b86df1b031148f0a1819d8caed193b501932efe43ed16ada9fb96"
+    },
+    "publisher.py": {
+      "bytes": 22904,
+      "sha256": "d226a1e1ba94fbeff96b1ea0b5795cb6e0f3699086119c63e123a2d33dba9137"
+    },
+    "seal.py": {
+      "bytes": 15789,
+      "sha256": "1ef5e9dd72712f0e6230b8bc16741cd04377310f269635ceb158c61b8b1ae20f"
+    },
+    "verify_child.py": {
+      "bytes": 17529,
+      "sha256": "dc8dc1cdfcec78d5007cbf969f3155004c03755d459befd86f51080e84c5590c"
+    }
+  },
+  "version": "2.1.5-portable"
+}

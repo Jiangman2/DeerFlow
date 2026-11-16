@@ -1,0 +1,15 @@
+{
+  "bytes": 27722,
+  "child_sha256": "964e1d8ff15c59b1e8c926ec417a440fea00f3349228401332c01a4b19fe8509",
+  "database_readonly": true,
+  "filename": "inspect-energy-work-return-20261115-r1.py",
+  "mutations_supported": false,
+  "notification_ciphertext_read": false,
+  "production_executed": false,
+  "provider_requests": 0,
+  "raw_messages_exported": false,
+  "schema": "energy-work-return-inspection-package.v1",
+  "sha256": "a0935471efa45dd228f05fa42419f58661b4f36c93b4f8f6ef9104a85c207d3e",
+  "thread_id": "aa98356f-e332-4019-9d68-0d1e79c30ed7",
+  "work_messages_sent": 0
+}

@@ -1,0 +1,10 @@
+{
+  "actual_python37_sealed_receipt_read_and_zero_query_host_guard": true,
+  "expected_file_count": 110,
+  "linux_python310_uid1000_checks": 9,
+  "messages_sent": 0,
+  "production_observation_pending": true,
+  "schema": "energy-webhook-visibility-local-validation.v1",
+  "windows_checks": 9,
+  "workload_modified": false
+}

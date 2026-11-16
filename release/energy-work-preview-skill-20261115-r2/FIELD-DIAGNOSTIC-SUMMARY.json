@@ -1,0 +1,34 @@
+{
+  "schema": "energy-work-preview-field-diagnostic-subset.v1",
+  "source": "OPERATOR_POSTED_INSPECT_ENERGY_WORK_RETURN_20261115_R1_JSON",
+  "subset_is_not_original_receipt_bytes": true,
+  "thread_id": "aa98356f-e332-4019-9d68-0d1e79c30ed7",
+  "gateway_generation": 418,
+  "gateway_spec_sha256": "ebdfb3f85c151a67b12c6aed4f145b60330e19925996194f201f31d839ee0c0e",
+  "run_status": "success",
+  "native_notification_configured": true,
+  "connection_status": "connected",
+  "notification_target_present": true,
+  "outbox_status": "failed",
+  "outbox_revision": 1,
+  "outbox_updated_at_utc": "2026-11-15T10:26:11.422877+00:00",
+  "stored_last_ai_message": {
+    "bytes": 4720,
+    "sha256": "5869af69bf518baf61c81313995238c664e8cdcf0f0c74d4e5350a18f8c83ec4",
+    "reader_label_present": false,
+    "reader_url_count": 0,
+    "isolated_replay_message_bytes": 0
+  },
+  "complete_final_ai_event": {
+    "seq": 44,
+    "bytes": 9125,
+    "sha256": "acfe33958f6b0b6a6575f424477d04eef221e8e8dd5e40f5f7d59d05b9a53bb1",
+    "reader_label_present": true,
+    "standalone_reader_lines": 1,
+    "isolated_replay_message_bytes": 132,
+    "isolated_replay_message_is_link_only": true
+  },
+  "raw_messages_exported": false,
+  "diagnostic_sent_messages": 0,
+  "provider_delivery_health_proven": false
+}

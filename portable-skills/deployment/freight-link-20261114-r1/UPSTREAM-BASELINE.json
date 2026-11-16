@@ -1,0 +1,52 @@
+{
+  "historical_sources_modified": false,
+  "copied_sources": {
+    "test_api.py": {
+      "bytes": 11435,
+      "source": "portable-skills/deployment/delivery-skill-install-20261112-r1/test_api.py",
+      "sha256": "a8b83d73b7cdc4687c071077ec5221a33f7a98da665108bf87e8fff9c7a5d052"
+    },
+    "test_sealed_package.py": {
+      "bytes": 2245,
+      "source": "portable-skills/deployment/delivery-skill-install-20261112-r1/test_sealed_package.py",
+      "sha256": "1402060307b8eb9f32d5f1e545e1ff9b9856b8a4d59606161fb0bcd0aafe2064"
+    },
+    "README.md": {
+      "bytes": 3194,
+      "source": "portable-skills/deployment/delivery-skill-install-20261112-r1/README.md",
+      "sha256": "f7327df1ba08ba46f58c1b0d1af2aeea187d0f1b8e285bee634bcd8d085dcc02"
+    },
+    "operator.py": {
+      "bytes": 33959,
+      "source": "portable-skills/deployment/delivery-skill-install-20261112-r1/operator.py",
+      "sha256": "bdc125d247521df63d6f77f75ce4b347d2f0dd47a185b212e3da6f527fc72cd1"
+    },
+    "test_compose_api.py": {
+      "bytes": 2681,
+      "source": "portable-skills/deployment/delivery-skill-install-20261112-r1/test_compose_api.py",
+      "sha256": "a8a5008e676a75db256122210f5d97a03d1244e3b3b6fa39fbf9a673bacba66c"
+    },
+    "compose_probe.py": {
+      "bytes": 4951,
+      "source": "portable-skills/deployment/delivery-skill-install-20261112-r1/compose_probe.py",
+      "sha256": "9929a01d4a296ab888c02661d5b71ad3599a5aa84d2fb8e468159b5c4d1c4a5f"
+    },
+    "verify_child.py": {
+      "bytes": 11441,
+      "source": "portable-skills/deployment/delivery-skill-install-20261112-r1/verify_child.py",
+      "sha256": "08d51f32d71a09d5893858252de0e9ca7943d8aac8c0468677abacd2756e93fb"
+    },
+    "publisher.py": {
+      "bytes": 21025,
+      "source": "portable-skills/deployment/delivery-skill-install-20261112-r1/publisher.py",
+      "sha256": "b5d20e58c925f9c45d308e2dff78b2a9dfdb4274ca9c20910eeb218b87883726"
+    },
+    "seal.py": {
+      "bytes": 7956,
+      "source": "portable-skills/deployment/delivery-skill-install-20261112-r1/seal.py",
+      "sha256": "4752e0cdf7193a044c3680c78901c3dd76e52df868eeb451bba144773731b439"
+    }
+  },
+  "schema": "freight-links-installer-upstream.v1",
+  "production_modified": false
+}

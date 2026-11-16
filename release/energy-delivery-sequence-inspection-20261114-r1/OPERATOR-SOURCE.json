@@ -1,0 +1,11 @@
+{
+  "credentials_exported": false,
+  "operator_observed_at": "2026-11-14T02:21:04.125598+00:00",
+  "report_bytes": 163209,
+  "report_exact_source_line_preserved": true,
+  "report_sha256": "3e061872b7af3d44227407b19cf5ec2af777e4bab36d1db493ba304198cc1fe4",
+  "schema": "energy-delivery-sequence-operator-source.v1",
+  "source_bytes": 163457,
+  "source_file": "log(25).txt",
+  "source_sha256": "93ccb40d001b477966b2de5a0a62cfba5d7a1cb3431feac0e73abeccce6b2bcc"
+}

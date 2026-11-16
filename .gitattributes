@@ -106,3 +106,12 @@ portable-skills/deployment/gateway-link-r3/tests/test_result_link_activation.py 
 portable-skills/deployment/gateway-link-r3/tests/test_result_link_activation_r4.py -whitespace
 portable-skills/deployment/publish_portable_daily_child.py -whitespace
 release/research-fund-adjusted-budget-20261110-r1/adjusted_budget_release_builder.py -whitespace
+
+# November 16 append-only evidence preserves the bytes used by production tools.
+release/post51-energy-production-sync-20261116/** -text -whitespace
+release/energy-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/task-context-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/task-conversation-*/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# Unified-diff context and a sealed qualification fixture retain their original blanks.
+portable-skills/deployment/task-conversation-context-20261114-r1/tools.patch -whitespace
+portable-skills/tests/test_energy_work_preview_20261115.py -whitespace
