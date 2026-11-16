@@ -452,10 +452,6 @@
       "bytes": 140420,
       "sha256": "16416f53a0d46c4201fd7cfb35498b9b182e824918154baf5d3a75cc83feb3cc"
     },
-    "backend/AGENTS.md": {
-      "bytes": 325236,
-      "sha256": "e6ea96bf29ace81eb52871795885856370feb4505c8642c1fb1884c5d46d6509"
-    },
     "backend/app/channels/manager.py": {
       "bytes": 94358,
       "sha256": "1a782faf4e4cdbd491871972cca3e501d7a3011da3869fac398f994bedef56f1"
@@ -539,6 +535,14 @@
     "deploy/enterprise/production-energy-source-lock-20261116.json": {
       "bytes": 4611,
       "sha256": "249c9437fe4ed63a58d22a6d49d7bc7a883b47234ca5b1a7f458bf5785cf72cc"
+    },
+    "deploy/enterprise/test_lease_work_source_20261110.py": {
+      "bytes": 5421,
+      "sha256": "19f62c34887b1b780569f180fed5d5be9db02139903cc9f6cdb38d56d68e388c"
+    },
+    "deploy/enterprise/verify-nov01-released-source-20261102.py": {
+      "bytes": 8044,
+      "sha256": "be0c8edcaa303f87b9b76f52870ba78edcd35cbed22fa5c9d0c998e23ced538a"
     },
     "deploy/enterprise/verify-nov02-released-source-20261103.py": {
       "bytes": 5489,
@@ -7047,11 +7051,6 @@
       "sha256": "1c491b8bbb88081c1c0ac08166ce9108810edbe4a84cbc1d86debd4ae31450e0",
       "snapshot": "release/post51-energy-production-sync-20261116/parent/README.md"
     },
-    "backend/AGENTS.md": {
-      "bytes": 324559,
-      "sha256": "8a02d9065e72017389fee1a6aa79cf8ed3e25a82d95063fac27ff40e4536d82b",
-      "snapshot": "release/post51-energy-production-sync-20261116/parent/backend/AGENTS.md"
-    },
     "backend/app/gateway/routers/uploads.py": {
       "bytes": 37872,
       "sha256": "7a796a13e2da2a6306fd14cd0a402a88868a29cd1278e81d7ba58f1853f5c369",
@@ -7092,6 +7091,16 @@
       "bytes": 7712,
       "sha256": "88ee6a0f092e6390165fd694556c6a0b5d28acb2396967a2045f320fb223f29a",
       "snapshot": "release/post51-energy-production-sync-20261116/parent/deploy/enterprise/post44_source_20261113.py"
+    },
+    "deploy/enterprise/test_lease_work_source_20261110.py": {
+      "bytes": 5129,
+      "sha256": "fb7968f5935f070ae0fb55dbe96f1654d1c70dfc24238d5e23cc44a43b97a0bf",
+      "snapshot": "release/post51-energy-production-sync-20261116/parent/deploy/enterprise/test_lease_work_source_20261110.py"
+    },
+    "deploy/enterprise/verify-nov01-released-source-20261102.py": {
+      "bytes": 7850,
+      "sha256": "8d1c3f122e7b9e36d6e190a3a20a3ec422237f539950851986e0c6901060a54a",
+      "snapshot": "release/post51-energy-production-sync-20261116/parent/deploy/enterprise/verify-nov01-released-source-20261102.py"
     },
     "deploy/enterprise/verify-nov02-released-source-20261103.py": {
       "bytes": 5295,

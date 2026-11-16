@@ -39,6 +39,10 @@ assert verifier.lease_work.SOURCE_TREE == sys.argv[2]
         expected_added = set(lease.MARKERS)
         if result.get("post44_source"):
             expected_added.add("backend/packages/harness/deerflow/utils/conversation_url.py")
+            if (ROOT / lease.post44.successor.MANIFEST).is_file():
+                expected_added.add("backend/app/gateway/upload_document_memory_guard.py")
+                with self.assertRaises(KeyError):
+                    projected("backend/app/gateway/upload_document_memory_guard.py")
             self.assertFalse(result["post44_source"]["scheduler_budget_deployed"])
             with self.assertRaises(KeyError):
                 projected("backend/packages/harness/deerflow/utils/conversation_url.py")
