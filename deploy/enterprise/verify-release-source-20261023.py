@@ -420,6 +420,8 @@ def verify(ref=None, lock_path=LOCK):
             extra.append(lease_work.post44.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.post44.successor.MANIFEST], cwd=ROOT).strip():
             extra.append(lease_work.post44.successor.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.post44.successor.current420.MANIFEST], cwd=ROOT).strip():
+            extra.append(lease_work.post44.successor.current420.ARCHIVE)
         raw = subprocess.check_output(['git', 'archive', '--format=tar', ref,
             'backend/app', 'backend/packages/harness', 'frontend', RUNNER, FORMAT_BASELINE, lock_path, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:

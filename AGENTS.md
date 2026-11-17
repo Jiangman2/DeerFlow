@@ -1,5 +1,20 @@
 # AGENTS.md
 
+## Personal Work daily link accepted (November 17)
+
+Gateway 420 supersedes Gateway 419 for the personal scheduled-daily notification
+sender. The operator's read-only acceptance verifies 70/70 Pods, 17 files per
+Pod and the Service backends. The operator then confirmed that personal Work
+receives only the HTML reader link. See
+`docs/personal-daily-notification-release-20261117.md` and run
+`python deploy/enterprise/verify-personal-notification-source-20261117.py --ref HEAD`
+with Python 3.12+. Keep the 419/OOM and older receipts unchanged; this release
+does not establish a cause or resolution for that historical OOM or benchmark
+32-slot throughput. Concurrency stays 32 and both recursion budgets stay 10000.
+The previously undeployed candidate is now represented by this separate
+420 release and acceptance; old preparation manifests retain their original
+pre-deployment flags. Do not replay archived activators or old notifications.
+
 ## Energy daily production reconciliation (November 16)
 
 PR #51 is the parent of the scoped source lock in

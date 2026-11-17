@@ -21,7 +21,8 @@ def verify(ref=None):
         names = list(filter(None, subprocess.check_output(['git', 'ls-tree', '-rz', '--name-only', ref], cwd=ROOT).decode().split('\0')))
         raw = subprocess.check_output(['git', 'show', ref + ':' + source.MANIFEST], cwd=ROOT)
         seal = json.loads(raw)
-        required = sorted(set(seal['files']) | {r['snapshot'] for r in seal['parent_files'].values() if r})
+        required = sorted(set(seal['files']) | {r['snapshot'] for r in seal['parent_files'].values() if r}
+                          | {p for p in names if p.startswith(source.current420.ARCHIVE)})
         source.require(set(required) <= set(names), 'POST51_COMMITTED_FILE_MISSING')
         data = {source.MANIFEST: raw}
         batch = subprocess.check_output(['git', 'cat-file', '--batch'], cwd=ROOT,

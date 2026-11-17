@@ -1,0 +1,17 @@
+{
+  "bytes": 102698,
+  "candidate_source": {
+    "bytes": 8848,
+    "sha256": "7eb938e2a77dcbb708e8177237be282687f2f202ff41caee015194e6560a1b5c"
+  },
+  "child_sha256": "cf27add205e88bc37d3e5586c555cc1d114f8084d02f52f4152e5bbd77879ab6",
+  "filename": "activate-energy-personal-notification-20261116-r1.py",
+  "gateway_after": 420,
+  "gateway_before": 419,
+  "production_executed": false,
+  "scheduler_budget_preserved": 10000,
+  "scheduler_max_concurrent_runs_preserved": 32,
+  "schema": "personal-notification-release.v1",
+  "sha256": "484f07904a35799e74b401b72507b63e3f70d441686566289211da13c2c01a55",
+  "work_messages_sent": 0
+}

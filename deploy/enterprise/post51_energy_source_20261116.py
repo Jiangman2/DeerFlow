@@ -1,8 +1,13 @@
 """Offline November 16 source qualification and immutable parent projection."""
 import ast
 import hashlib
+import importlib.util
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+
+_current_spec = importlib.util.spec_from_file_location('personal_notification_source_20261117', Path(__file__).with_name('personal_notification_source_20261117.py'))
+current420 = importlib.util.module_from_spec(_current_spec)
+_current_spec.loader.exec_module(current420)
 
 ARCHIVE = 'release/post51-energy-production-sync-20261116/'
 MANIFEST = ARCHIVE + 'SOURCE.json'
@@ -33,6 +38,7 @@ def check(read, path, row):
 
 
 def qualify(read, energy_paths=None, full=False):
+    read, _ = current420.historical_view(read)
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):
@@ -142,6 +148,7 @@ def normalized_ast(raw, path):
 
 
 def historical_view(read, energy_paths=None):
+    read, _ = current420.historical_view(read)
     seal = qualify(read, energy_paths)
     if seal is None:
         return read, energy_paths, None

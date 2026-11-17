@@ -1,0 +1,36 @@
+{
+  "basis": "Operator supplied r2 readonly JSON for a5f059b0; bounded projection, not a replacement of a raw receipt",
+  "database_modified": false,
+  "formatter_matches_prior_418_parent": true,
+  "gateway": {
+    "available": 70,
+    "generation": 419,
+    "ready": 70,
+    "spec_sha256": "08a8afffb65eaca6259fe8b01111a5c68a2523fba639f17a4b25611e9ccb98c8",
+    "terminating": 0,
+    "total": 70,
+    "uid": "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1",
+    "updated": 70
+  },
+  "native_notification_configured": true,
+  "notification_ciphertext_read": false,
+  "original_input_explicit_daily": true,
+  "outbox": {
+    "payload_retained": false,
+    "revision": 1,
+    "status": "sent",
+    "updated_at_utc": "2026-11-16T08:13:17.257258+00:00"
+  },
+  "production_library_versions_observed_in_this_inspection": false,
+  "run": {
+    "status": "success",
+    "stored_message_bytes": 4456,
+    "stored_result_has_current_html_reader": true,
+    "updated_at_utc": "2026-11-16T08:13:17.952533+00:00"
+  },
+  "run_metadata_matches_occurrence": true,
+  "schema": "personal-notification-operator-observation-projection.v1",
+  "task_status": "paused",
+  "thread_id": "a5f059b0-1858-4687-8d16-2de8f853c418",
+  "work_messages_sent_by_inspection": 0
+}

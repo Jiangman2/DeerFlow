@@ -1,0 +1,10 @@
+{
+  "browser_binaries_included": false,
+  "credential_pattern_matches": 0,
+  "files_checked": 63,
+  "private_configs_included": false,
+  "production_access": false,
+  "python_compilation": "passed",
+  "schema": "personal-notification-public-audit.v1",
+  "sealed_assets_checked": 3
+}
