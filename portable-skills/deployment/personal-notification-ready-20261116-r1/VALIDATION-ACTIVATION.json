@@ -1,0 +1,38 @@
+{
+  "actual_database_connections": 0,
+  "actual_python37": {
+    "commands": 0,
+    "sealed_resources": 2,
+    "wrong_host_guards": 2
+  },
+  "arm64_audited_postflight_cases": 10,
+  "arm64_audited_preflight_cases": 10,
+  "network": "none",
+  "offline_library_inventory": {
+    "langchain": "1.3.14",
+    "langchain-core": "1.4.9",
+    "langgraph": "1.2.9"
+  },
+  "operator_linux_python310_uid1000": {
+    "errors": 0,
+    "failures": 0,
+    "run": 41,
+    "yaml_fixture": "read-only local PyYAML pure module"
+  },
+  "operator_windows_python312": {
+    "errors": 0,
+    "failures": 0,
+    "run": 41
+  },
+  "postgres_query_compiled": true,
+  "production_executed": false,
+  "real_sqlite_repository_tests_arm64": 13,
+  "real_sqlite_repository_tests_windows": 13,
+  "schema": "personal-notification-local-validation.v1",
+  "sealed_production_library_pins_preserved": {
+    "langchain": "1.2.15",
+    "langchain-core": "1.3.3",
+    "langgraph": "1.1.9"
+  },
+  "work_messages_sent": 0
+}

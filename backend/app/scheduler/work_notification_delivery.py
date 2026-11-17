@@ -1,18 +1,25 @@
 """Wire the scheduler's private outbox to the current Work application."""
 
+import asyncio
 import os
 import re
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import and_, func, select
+
 from app.integrations.work.config import PRODUCTION_CALLBACK, WorkSettings
 from app.integrations.work.notifications import WorkNotificationError, send_work_notification, work_notifications_enabled
 from deerflow.persistence.engine import get_session_factory
+from deerflow.persistence.run.model import RunRow
+from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
+from deerflow.persistence.scheduled_tasks.model import ScheduledTaskRow
 from deerflow.utils.conversation_url import validated_web_origin
 from deerflow.utils.thread_id import validate_thread_id
 
-from .work_notifications import DeliveryResult, WorkNotification, WorkNotificationDispatcher
+from .work_notifications import DeliveryResult, WorkNotification, WorkNotificationDispatcher, _notification_summary
 
 
 def _platform_origin(profile: str) -> str:
@@ -72,6 +79,66 @@ def _message(notification: WorkNotification, origin: str) -> str:
     return "\n\n".join(parts)
 
 
+def _is_reader_message(text: str) -> bool:
+    return bool(re.fullmatch(r"\[点击查看日报网页\]\(https://[^\s()<>]+\)", text))
+
+
+async def _ready_daily_message(notification: WorkNotification, origin: str, sessions) -> tuple[str, str | None]:
+    """Refresh an early completion snapshot without exposing another run's text.
+
+    A peer scheduler can observe success before journal completion fields have
+    been written. The queued notification then has no result, even though the
+    final answer is available by send time. Resolve this exact occurrence and
+    owner; a missing daily-reader link waits in the existing bounded outbox
+    before any external send, instead of becoming a generic chat-link notice.
+    """
+    run_identity = and_(
+        RunRow.run_id == ScheduledTaskRunRow.run_id,
+        RunRow.thread_id == notification.thread_id,
+        RunRow.user_id == notification.owner_user_id,
+        RunRow.status == "success",
+        RunRow.metadata_json["scheduled_task_id"].as_string() == notification.task_id,
+        RunRow.metadata_json["scheduled_task_run_id"].as_string() == notification.task_run_id,
+    )
+    statement = (
+        select(
+            func.substr(ScheduledTaskRow.prompt, 1, 2048),
+            RunRow.run_id,
+            func.substr(RunRow.last_ai_message, 1, 2000),
+            func.substr(RunRow.kwargs_json["input"]["messages"][0]["content"].as_string(), 1, 2048),
+        )
+        .select_from(ScheduledTaskRunRow)
+        .join(ScheduledTaskRow, ScheduledTaskRow.id == ScheduledTaskRunRow.task_id)
+        .outerjoin(RunRow, run_identity)
+        .where(
+            ScheduledTaskRunRow.id == notification.task_run_id,
+            ScheduledTaskRunRow.task_id == notification.task_id,
+            ScheduledTaskRunRow.thread_id == notification.thread_id,
+            ScheduledTaskRunRow.status == "success",
+            ScheduledTaskRow.user_id == notification.owner_user_id,
+        )
+        .limit(1)
+    )
+    async with sessions() as session:
+        row = (await session.execute(statement)).first()
+    if row is None:
+        return "failed", None
+    prompt, run_id, latest, original_input = row
+    task_input = original_input if isinstance(original_input, str) else prompt
+    explicit_daily = isinstance(task_input, str) and re.match(r"^\s*/energy-market-daily(?:\s|$)", task_input) is not None
+    if not run_id:
+        return ("failed", None) if explicit_daily else ("unchanged", None)
+    summary = _notification_summary(latest)
+    refreshed = _message(replace(notification, result_text=summary), origin)
+    if _is_reader_message(refreshed):
+        return "ready", refreshed
+    if explicit_daily:
+        # "retry" is a local pre-send wait. The existing dispatcher caps it;
+        # unknown outcomes after contacting Work retain its no-resend policy.
+        return "retry", None
+    return "unchanged", None
+
+
 def build_work_notification_dispatcher() -> WorkNotificationDispatcher | None:
     if not work_notifications_enabled():
         return None
@@ -83,6 +150,16 @@ def build_work_notification_dispatcher() -> WorkNotificationDispatcher | None:
 
     async def deliver(notification: WorkNotification) -> DeliveryResult:
         message = _message(notification, origin)
+        if not _is_reader_message(message):
+            try:
+                state, ready = await asyncio.wait_for(_ready_daily_message(notification, origin, sessions), timeout=3)
+            except Exception:
+                # No Work request has been made at this point.
+                return "retry"
+            if state in {"failed", "retry"}:
+                return state
+            if state == "ready":
+                message = ready
         if not message:
             return "failed"
         try:

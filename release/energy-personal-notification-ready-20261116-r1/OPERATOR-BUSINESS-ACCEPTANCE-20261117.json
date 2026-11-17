@@ -1,0 +1,15 @@
+{
+  "accepted_on": "2026-11-17",
+  "basis": "Direct operator confirmation in this chat after Gateway 420 runtime acceptance",
+  "business_run_id_supplied": false,
+  "gateway_generation": 420,
+  "gateway_spec_sha256": "d4b61d0bc09cda8550f3d1564a899cb8d44e17033ae9bf58afb1147268c238a9",
+  "messages_sent_by_archival_work": 0,
+  "notification_ciphertext_read": false,
+  "operation": "55f53add31c741b5b859ba0dba3c61ec",
+  "schema": "personal-work-reader-link-operator-acceptance.v1",
+  "scope": "Personal Work scheduled energy-market-daily notification is a single authenticated HTML reader link",
+  "statement": "已确认个人 Work 只收到“点击查看日报网页”的 HTML 链接",
+  "status": "PERSONAL_WORK_HTML_LINK_ONLY_OPERATOR_ACCEPTED",
+  "timezone": "Asia/Shanghai"
+}

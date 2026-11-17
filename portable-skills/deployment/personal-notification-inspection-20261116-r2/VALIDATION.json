@@ -1,0 +1,19 @@
+{
+  "schema": "personal-notification-inspection-local-validation.v1",
+  "windows_python312": {
+    "run": 35,
+    "skipped": 1,
+    "failures": 0,
+    "errors": 0
+  },
+  "linux_python310_uid1000": {
+    "run": 35,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "actual_python37_sealed_child_wrong_host_zero_queries": true,
+  "network": "none",
+  "production_executed": false,
+  "work_messages_sent": 0
+}

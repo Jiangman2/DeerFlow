@@ -1,0 +1,29 @@
+{
+  "actual_python37_entry_and_resources": "passed",
+  "business_acceptance_basis": "separate direct operator confirmation",
+  "deployment_guard_tests": 41,
+  "historical_backend_source_tests": {
+    "passed": 159,
+    "subtests_passed": 39
+  },
+  "production_actions_by_git_sync": 0,
+  "readonly_inspection_tests": {
+    "failures": 0,
+    "run": 35,
+    "skipped": 1
+  },
+  "real_sqlite_repository_tests_passed": 13,
+  "schema": "personal-notification-github-validation.v1",
+  "source_rejection_tests_passed": 49,
+  "work_messages_sent_by_git_sync": 0,
+  "work_sender_and_scheduler_tests": {
+    "optional_postgres_or_platform_skips": true,
+    "passed": 52,
+    "skipped": 18
+  },
+  "working_source_verifiers": [
+    "verify-personal-notification-source-20261117.py",
+    "verify-post51-energy-source-20261116.py",
+    "verify-release-source-20261023.py"
+  ]
+}

@@ -1,0 +1,330 @@
+{
+  "added_files": [
+    "backend/tests/test_personal_daily_notification_ready.py",
+    "deploy/enterprise/production-personal-notification-source-lock-20261117.json",
+    "deploy/enterprise/verify-personal-notification-source-20261117.py",
+    "docs/personal-daily-notification-release-20261117.md",
+    "portable-skills/deployment/personal-notification-inspection-20261116-r2/README.md",
+    "portable-skills/deployment/personal-notification-inspection-20261116-r2/VALIDATION.json",
+    "portable-skills/deployment/personal-notification-inspection-20261116-r2/check_python37.py",
+    "portable-skills/deployment/personal-notification-inspection-20261116-r2/extra.py",
+    "portable-skills/deployment/personal-notification-inspection-20261116-r2/seal.py",
+    "portable-skills/deployment/personal-notification-inspection-20261116-r2/test_inspection.py",
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/FIELD-OBSERVATION-PROJECTION.json",
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/VALIDATION-ACTIVATION.json",
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/build_activation.py",
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/check_audited_child.py",
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/check_python37.py",
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/operator_fragments.py",
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/qualification_config.py",
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/qualification_functions.py",
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/qualification_observe.py",
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/run_runtime_checks.py",
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/test_activation.py",
+    "release/energy-personal-notification-inspection-20261116-r2/SOURCE.json",
+    "release/energy-personal-notification-inspection-20261116-r2/inspect-energy-personal-notification-20261116-r2.py",
+    "release/energy-personal-notification-ready-20261116-r1/OPERATOR-ACTIVATION-REPORT.json",
+    "release/energy-personal-notification-ready-20261116-r1/OPERATOR-BUSINESS-ACCEPTANCE-20261117.json",
+    "release/energy-personal-notification-ready-20261116-r1/OPERATOR-RUNTIME-ACCEPTANCE-20261117.json",
+    "release/energy-personal-notification-ready-20261116-r1/SOURCE.json",
+    "release/energy-personal-notification-ready-20261116-r1/activate-energy-personal-notification-20261116-r1.py",
+    "release/energy-personal-notification-ready-20261116-r1/qualification_child.sealed.py",
+    "release/personal-notification-source-20261117/OPERATOR-ACTIVATION-REPORT.json",
+    "release/personal-notification-source-20261117/OPERATOR-BUSINESS-ACCEPTANCE-20261117.json",
+    "release/personal-notification-source-20261117/OPERATOR-RUNTIME-ACCEPTANCE-20261117.json",
+    "release/personal-notification-source-20261117/PRODUCTION-LOCK.json",
+    "release/personal-notification-source-20261117/RELEASE-SOURCE.json",
+    "release/personal-notification-source-20261117/deployed-overlay/backend/app/scheduler/work_notification_delivery.py",
+    "release/personal-notification-source-20261117/parent/.github/workflows/released-sync-ci.yml",
+    "release/personal-notification-source-20261117/parent/AGENTS.md",
+    "release/personal-notification-source-20261117/parent/backend/app/scheduler/work_notification_delivery.py",
+    "release/personal-notification-source-20261117/parent/deploy/enterprise/post51_energy_source_20261116.py",
+    "release/personal-notification-source-20261117/parent/deploy/enterprise/verify-dashboard-navigation-source-20261103.py",
+    "release/personal-notification-source-20261117/parent/deploy/enterprise/verify-nov01-released-source-20261102.py",
+    "release/personal-notification-source-20261117/parent/deploy/enterprise/verify-nov02-released-source-20261103.py",
+    "release/personal-notification-source-20261117/parent/deploy/enterprise/verify-post51-energy-source-20261116.py",
+    "release/personal-notification-source-20261117/parent/deploy/enterprise/verify-release-source-20261023.py",
+    "release/personal-notification-source-20261117/parent/portable-skills/deployment/personal-notification-ready-20261116-r1/README.md",
+    "release/personal-notification-source-20261117/parent/tests/test_post51_energy_source_20261116.py",
+    "scripts/seal_personal_notification_source_20261117.py",
+    "tests/test_personal_notification_source_20261117.py"
+  ],
+  "core_files": [
+    "release/personal-notification-source-20261117/OPERATOR-ACTIVATION-REPORT.json",
+    "release/personal-notification-source-20261117/OPERATOR-BUSINESS-ACCEPTANCE-20261117.json",
+    "release/personal-notification-source-20261117/OPERATOR-RUNTIME-ACCEPTANCE-20261117.json",
+    "release/personal-notification-source-20261117/PRODUCTION-LOCK.json",
+    "release/personal-notification-source-20261117/RELEASE-SOURCE.json",
+    "release/personal-notification-source-20261117/deployed-overlay/backend/app/scheduler/work_notification_delivery.py"
+  ],
+  "credentials_included": false,
+  "files": {
+    ".gitattributes": {
+      "bytes": 7430,
+      "sha256": "313b89a165bdabef1212686015d702b4261a9b047f5be0412d2fef8a0727ea4c"
+    },
+    ".github/workflows/released-sync-ci.yml": {
+      "bytes": 3704,
+      "sha256": "7124cc596af1bf87f8ac2d78507c8fe13c61829a38a0cb7f7a04f41c0fd4424f"
+    },
+    "AGENTS.md": {
+      "bytes": 93728,
+      "sha256": "093dc609afe82cd634c3b39719b00f218baf5226056f412f6e1f912ee5a4c34e"
+    },
+    "backend/app/scheduler/work_notification_delivery.py": {
+      "bytes": 8775,
+      "sha256": "ffb6afcaa85cf38c690f9291abad8aa57a8ac35acad6941cd730902fe07ca778"
+    },
+    "backend/tests/test_personal_daily_notification_ready.py": {
+      "bytes": 12670,
+      "sha256": "7444660108eb9d0b900dbfb6008ad4f1d28460584a0451d087aced68cd854372"
+    },
+    "deploy/enterprise/post51_energy_source_20261116.py": {
+      "bytes": 7745,
+      "sha256": "e9f8ccc8a9561874208dc1352e07295583e70d3699d88c51a397ad959ed164b8"
+    },
+    "deploy/enterprise/production-personal-notification-source-lock-20261117.json": {
+      "bytes": 5098,
+      "sha256": "3b2593f0b1e76735fb3af2dc51f9b6cf444de7ebaaecf65b04452b33a9088f51"
+    },
+    "deploy/enterprise/verify-dashboard-navigation-source-20261103.py": {
+      "bytes": 2924,
+      "sha256": "4659f587eedac2981bbb6b8a5a3db52503a8bc655b5abe31e9047a89ad5eb78a"
+    },
+    "deploy/enterprise/verify-nov01-released-source-20261102.py": {
+      "bytes": 8260,
+      "sha256": "c1b4e5b3566f4ce9ccdc5354eb0b7fb9da245bb25ded3da809894af873c8080a"
+    },
+    "deploy/enterprise/verify-nov02-released-source-20261103.py": {
+      "bytes": 5705,
+      "sha256": "f4ca0dde0d4117f1831051bf1c8c9fb766bd20c4483c943639d9d5ec5054f7a5"
+    },
+    "deploy/enterprise/verify-personal-notification-source-20261117.py": {
+      "bytes": 1944,
+      "sha256": "a344d11089ce13cfc9b1f99f6a75af7d708c9cb3ae69b4ac3e28713539e200a9"
+    },
+    "deploy/enterprise/verify-post51-energy-source-20261116.py": {
+      "bytes": 2593,
+      "sha256": "5276538a33c1702d9432adc357cae6eea7e7221d4d80efa292908b3955f7c346"
+    },
+    "deploy/enterprise/verify-release-source-20261023.py": {
+      "bytes": 47678,
+      "sha256": "8484f805135133a220edb496428f3a12d5f5cd836f4c68e6ac5ef7d602ef7e99"
+    },
+    "docs/personal-daily-notification-release-20261117.md": {
+      "bytes": 4872,
+      "sha256": "c1b62a017037809379069ca2ffec18b2bb75a4b1f3f49267970e4c040923411f"
+    },
+    "portable-skills/deployment/personal-notification-inspection-20261116-r2/README.md": {
+      "bytes": 1402,
+      "sha256": "9dc5d92ad3d2a3c8dc743866c82ae4af094e01824aa8d18738b7529175357797"
+    },
+    "portable-skills/deployment/personal-notification-inspection-20261116-r2/VALIDATION.json": {
+      "bytes": 436,
+      "sha256": "9092080d77b5261944a0c06910e454a64e980870ad45cd180848f222f84431a1"
+    },
+    "portable-skills/deployment/personal-notification-inspection-20261116-r2/check_python37.py": {
+      "bytes": 1109,
+      "sha256": "7aff84c8e2d5c245f83b18a37cc057e09bc3a503d0aa72c79891d13b1894d325"
+    },
+    "portable-skills/deployment/personal-notification-inspection-20261116-r2/extra.py": {
+      "bytes": 7579,
+      "sha256": "f322a0f1ebcdc26a4e255613290cfbf8d27faa4568a5c683bfbc1b76fa822922"
+    },
+    "portable-skills/deployment/personal-notification-inspection-20261116-r2/seal.py": {
+      "bytes": 3226,
+      "sha256": "22092dbacb878f810d7a1431da73a9c2bc663da4f187aef1a0bf2d2f5d181648"
+    },
+    "portable-skills/deployment/personal-notification-inspection-20261116-r2/test_inspection.py": {
+      "bytes": 6314,
+      "sha256": "2d3f31938f3e2fe6043144955357f33cae343c2c7e4550d2f17dd0cafd5b0664"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/FIELD-OBSERVATION-PROJECTION.json": {
+      "bytes": 1270,
+      "sha256": "d975b50f86227347b28910e706aee27c8ff7028019db5259fac7ac94033bd82c"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/README.md": {
+      "bytes": 7962,
+      "sha256": "abdcb96e4524f7b5ae64d2e7ebb17d2d7cf7a70c55a70975ca0d89417ca1b41d"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/VALIDATION-ACTIVATION.json": {
+      "bytes": 1018,
+      "sha256": "13d955ae3a0eb2a53d6bd347d05e5fe9202e5d542d87ff6280e5d090978a8bd9"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/build_activation.py": {
+      "bytes": 9102,
+      "sha256": "d39d9aea85d2872f89c4bd5b7011cbce945e07037aeb7462b32ca82f73215121"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/check_audited_child.py": {
+      "bytes": 2961,
+      "sha256": "06d7e11bd2c3beba5efac37a1d73d9288cfd1658f4424fc5651d6440872ab45c"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/check_python37.py": {
+      "bytes": 1284,
+      "sha256": "31ec92f20c09728b7f15dadd1ea5016255d43689e854840575a30662f2fee4ad"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/operator_fragments.py": {
+      "bytes": 9273,
+      "sha256": "eb63677c58e8f909d0efe4b03c455826c5135d1841d70b979aca7f0bc2968503"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/qualification_config.py": {
+      "bytes": 1015,
+      "sha256": "446cdcb6fa9589e41f0d9d77bec0bd443fa2fb1a9987a482b2b2edd6119cc48a"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/qualification_functions.py": {
+      "bytes": 7584,
+      "sha256": "3509b5278febba1323ca5bd651c48721618bec344f096551861b5b4712aed80a"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/qualification_observe.py": {
+      "bytes": 2592,
+      "sha256": "4dcc1b6d53556f05b5f056a383871aa90dab13f5adddab2607b840606d45f357"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/run_runtime_checks.py": {
+      "bytes": 3141,
+      "sha256": "5992d4fc6278098d75b8db62885ebedc7abc38f331d67ee6d7819ce99943a5ae"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/test_activation.py": {
+      "bytes": 10737,
+      "sha256": "7c94b97fb3eec8789936ed0563b68dd4a04d67a0799e7d1dc9837bee535a51df"
+    },
+    "release/energy-personal-notification-inspection-20261116-r2/SOURCE.json": {
+      "bytes": 555,
+      "sha256": "5700b2ad084e003e117c9f03a689d47f97eea45f14fee790445442128d3b6cfd"
+    },
+    "release/energy-personal-notification-inspection-20261116-r2/inspect-energy-personal-notification-20261116-r2.py": {
+      "bytes": 109112,
+      "sha256": "33c3e73466c589cf3749590b7ef0f23c6975181f7c9f1c1598a20077005da4e0"
+    },
+    "release/energy-personal-notification-ready-20261116-r1/OPERATOR-ACTIVATION-REPORT.json": {
+      "bytes": 3517,
+      "sha256": "3f213d29113448de68fde26944a5e4fb7ff0e9ac9ed7682e8d2f8236460c2e0b"
+    },
+    "release/energy-personal-notification-ready-20261116-r1/OPERATOR-BUSINESS-ACCEPTANCE-20261117.json": {
+      "bytes": 782,
+      "sha256": "817b5ff2a5d87279f3bd8d82f89234001e6895eaa1dbb448f1b21690004bec1f"
+    },
+    "release/energy-personal-notification-ready-20261116-r1/OPERATOR-RUNTIME-ACCEPTANCE-20261117.json": {
+      "bytes": 2780,
+      "sha256": "a2293b9394b08884e36d1dfa47af251469f2767d7cf6efa9e803aeca2391e5f2"
+    },
+    "release/energy-personal-notification-ready-20261116-r1/SOURCE.json": {
+      "bytes": 631,
+      "sha256": "d5a2a599f0ec1d37d8d9de444a09dd4355f1726560155c838394b9cb4201f377"
+    },
+    "release/energy-personal-notification-ready-20261116-r1/activate-energy-personal-notification-20261116-r1.py": {
+      "bytes": 102698,
+      "sha256": "484f07904a35799e74b401b72507b63e3f70d441686566289211da13c2c01a55"
+    },
+    "release/energy-personal-notification-ready-20261116-r1/qualification_child.sealed.py": {
+      "bytes": 16558,
+      "sha256": "cf27add205e88bc37d3e5586c555cc1d114f8084d02f52f4152e5bbd77879ab6"
+    },
+    "release/personal-notification-source-20261117/OPERATOR-ACTIVATION-REPORT.json": {
+      "bytes": 3517,
+      "sha256": "3f213d29113448de68fde26944a5e4fb7ff0e9ac9ed7682e8d2f8236460c2e0b"
+    },
+    "release/personal-notification-source-20261117/OPERATOR-BUSINESS-ACCEPTANCE-20261117.json": {
+      "bytes": 782,
+      "sha256": "817b5ff2a5d87279f3bd8d82f89234001e6895eaa1dbb448f1b21690004bec1f"
+    },
+    "release/personal-notification-source-20261117/OPERATOR-RUNTIME-ACCEPTANCE-20261117.json": {
+      "bytes": 2780,
+      "sha256": "a2293b9394b08884e36d1dfa47af251469f2767d7cf6efa9e803aeca2391e5f2"
+    },
+    "release/personal-notification-source-20261117/PRODUCTION-LOCK.json": {
+      "bytes": 5098,
+      "sha256": "3b2593f0b1e76735fb3af2dc51f9b6cf444de7ebaaecf65b04452b33a9088f51"
+    },
+    "release/personal-notification-source-20261117/RELEASE-SOURCE.json": {
+      "bytes": 631,
+      "sha256": "d5a2a599f0ec1d37d8d9de444a09dd4355f1726560155c838394b9cb4201f377"
+    },
+    "release/personal-notification-source-20261117/deployed-overlay/backend/app/scheduler/work_notification_delivery.py": {
+      "bytes": 8848,
+      "sha256": "7eb938e2a77dcbb708e8177237be282687f2f202ff41caee015194e6560a1b5c"
+    },
+    "scripts/seal_personal_notification_source_20261117.py": {
+      "bytes": 3780,
+      "sha256": "1531e4d8e541d8513a983ef78a390a628e4af10d0e99468f5748b036242cd16e"
+    },
+    "tests/test_personal_notification_source_20261117.py": {
+      "bytes": 5140,
+      "sha256": "2074437ff08554ef90fcf9e11790c4034213edde84978156ef8ddeccdc15844b"
+    },
+    "tests/test_post51_energy_source_20261116.py": {
+      "bytes": 6798,
+      "sha256": "743a69a1d34e144a4db4927757b2a1dc9168a8344e7763d69ed804104dac25a4"
+    }
+  },
+  "gateway_generation": 420,
+  "gateway_spec_sha256": "d4b61d0bc09cda8550f3d1564a899cb8d44e17033ae9bf58afb1147268c238a9",
+  "operation": "55f53add31c741b5b859ba0dba3c61ec",
+  "parent_commit": "a2148ed200b211a4e57832990390d9d4bc48b406",
+  "parent_files": {
+    ".gitattributes": {
+      "bytes": 7283,
+      "sha256": "bba1c417ed1fc0849fc99dafca5f6d46b67b666aacd23fc26996727cf5f9f427",
+      "snapshot": "release/personal-notification-source-20261117/parent/.gitattributes"
+    },
+    ".github/workflows/released-sync-ci.yml": {
+      "bytes": 2726,
+      "sha256": "768765e9c1ed4e52659a806f5f4d50935bc856f15515a8fb9f20b7ebff25764d",
+      "snapshot": "release/personal-notification-source-20261117/parent/.github/workflows/released-sync-ci.yml"
+    },
+    "AGENTS.md": {
+      "bytes": 92787,
+      "sha256": "30448832087260c15e2a5cf973a9cc94d43d84edd987c984b44e6adcdd6ba7b7",
+      "snapshot": "release/personal-notification-source-20261117/parent/AGENTS.md"
+    },
+    "backend/app/scheduler/work_notification_delivery.py": {
+      "bytes": 5136,
+      "sha256": "aad5728637bb84cb7b33133d78580c05e2c151adbe96c1353c6df6205dfa8e65",
+      "snapshot": "release/personal-notification-source-20261117/parent/backend/app/scheduler/work_notification_delivery.py"
+    },
+    "deploy/enterprise/post51_energy_source_20261116.py": {
+      "bytes": 7351,
+      "sha256": "1a2763279a15748918b370e12eb5f3782209962cc00f1d1abe76fcb382272dc9",
+      "snapshot": "release/personal-notification-source-20261117/parent/deploy/enterprise/post51_energy_source_20261116.py"
+    },
+    "deploy/enterprise/verify-dashboard-navigation-source-20261103.py": {
+      "bytes": 2708,
+      "sha256": "cc15ab9328ae89575c1fbf70187ed48485fba6cd347a940220c1104966384c9f",
+      "snapshot": "release/personal-notification-source-20261117/parent/deploy/enterprise/verify-dashboard-navigation-source-20261103.py"
+    },
+    "deploy/enterprise/verify-nov01-released-source-20261102.py": {
+      "bytes": 8044,
+      "sha256": "be0c8edcaa303f87b9b76f52870ba78edcd35cbed22fa5c9d0c998e23ced538a",
+      "snapshot": "release/personal-notification-source-20261117/parent/deploy/enterprise/verify-nov01-released-source-20261102.py"
+    },
+    "deploy/enterprise/verify-nov02-released-source-20261103.py": {
+      "bytes": 5489,
+      "sha256": "8b502ec91928cd013b665e47586c636aca108eeb57cbaea65b33821d34b64d83",
+      "snapshot": "release/personal-notification-source-20261117/parent/deploy/enterprise/verify-nov02-released-source-20261103.py"
+    },
+    "deploy/enterprise/verify-post51-energy-source-20261116.py": {
+      "bytes": 2503,
+      "sha256": "53956cf29442af3bed1b422dee02721a3cd779340452baf708f864469675c37d",
+      "snapshot": "release/personal-notification-source-20261117/parent/deploy/enterprise/verify-post51-energy-source-20261116.py"
+    },
+    "deploy/enterprise/verify-release-source-20261023.py": {
+      "bytes": 47462,
+      "sha256": "c91aac71203f171e57574e8bc72d82b8e57475fde0a812648d61da812552ed00",
+      "snapshot": "release/personal-notification-source-20261117/parent/deploy/enterprise/verify-release-source-20261023.py"
+    },
+    "portable-skills/deployment/personal-notification-ready-20261116-r1/README.md": {
+      "bytes": 3689,
+      "sha256": "519b4ee429b6699ec9dbb8f09fa5f6a9702b67782f7a4b88fb991a12085e8f02",
+      "snapshot": "release/personal-notification-source-20261117/parent/portable-skills/deployment/personal-notification-ready-20261116-r1/README.md"
+    },
+    "tests/test_post51_energy_source_20261116.py": {
+      "bytes": 6545,
+      "sha256": "e4e4f1e673612dc920e31bf8d4cafbe9850fafab6c57f3eda3aab5fb45702055",
+      "snapshot": "release/personal-notification-source-20261117/parent/tests/test_post51_energy_source_20261116.py"
+    }
+  },
+  "personal_work_business_accepted": true,
+  "production_actions_by_pr": 0,
+  "scheduler_budget": 10000,
+  "scheduler_concurrency": 32,
+  "schema": "personal-notification-source.v1"
+}

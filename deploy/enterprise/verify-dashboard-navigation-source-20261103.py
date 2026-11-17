@@ -31,6 +31,8 @@ def verify(ref=None):
             extra.append(lease_work.post44.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.post44.successor.MANIFEST], cwd=ROOT).strip():
             extra.append(lease_work.post44.successor.ARCHIVE)
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.post44.successor.current420.MANIFEST], cwd=ROOT).strip():
+            extra.append(lease_work.post44.successor.current420.ARCHIVE)
         raw = subprocess.check_output(["git", "archive", ref, "frontend/src", "frontend/tests", navigation.ARCHIVE, *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             files = {m.name: archive.extractfile(m).read() for m in archive if m.isfile()}

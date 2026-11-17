@@ -4,6 +4,11 @@ on:
     paths:
       - 'skills/public/energy-market-daily/**'
       - 'deploy/enterprise/*energy*'
+      - 'deploy/enterprise/*personal*'
+      - 'release/personal-notification-source-20261117/**'
+      - 'release/energy-personal-notification-*/**'
+      - 'portable-skills/deployment/personal-notification-*/**'
+      - 'tests/test_personal_notification_source_20261117.py'
       - 'deploy/enterprise/*skillhub*'
       - 'deploy/enterprise/*released*sync*'
       - 'release/energy-market-released-20261110/**'
@@ -43,6 +48,13 @@ jobs:
         run: uv sync --group dev
       - name: Verify committed source and evidence
         run: backend/.venv/bin/python -B deploy/enterprise/verify-released-sync-20261110.py --ref HEAD
+      - name: Verify accepted personal daily notification source
+        run: backend/.venv/bin/python -B deploy/enterprise/verify-personal-notification-source-20261117.py --ref HEAD
+      - name: Personal notification source and deployment guards
+        run: |
+          backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=tests -q tests/test_personal_notification_source_20261117.py tests/test_post51_energy_source_20261116.py
+          backend/.venv/bin/python -B portable-skills/deployment/personal-notification-ready-20261116-r1/test_activation.py
+          backend/.venv/bin/python -B portable-skills/deployment/personal-notification-inspection-20261116-r2/test_inspection.py
       - name: Offline release and transport tests
         run: |
           backend/.venv/bin/python -B -m pytest -p no:cacheprovider --confcutdir=tests -q \

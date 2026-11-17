@@ -115,3 +115,6 @@ release/task-conversation-*/** -text whitespace=blank-at-eol,blank-at-eof,space-
 # Unified-diff context and a sealed qualification fixture retain their original blanks.
 portable-skills/deployment/task-conversation-context-20261114-r1/tools.patch -whitespace
 portable-skills/tests/test_energy_work_preview_20261115.py -whitespace
+
+# November 17 sender release retains exact deployed bytes and parent evidence.
+release/personal-notification-source-20261117/** -text -whitespace

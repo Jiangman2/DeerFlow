@@ -1,0 +1,14 @@
+{
+  "bytes": 109112,
+  "child_sha256": "74319d27a4d735d610cdf2b71695d1a09f3054ec350d07e88bab7a7c7b8c3a00",
+  "database_readonly": true,
+  "filename": "inspect-energy-personal-notification-20261116-r2.py",
+  "project_files_read": false,
+  "provider_requests": 0,
+  "schema": "personal-notification-inspection-package.v2",
+  "sha256": "33c3e73466c589cf3749590b7ef0f23c6975181f7c9f1c1598a20077005da4e0",
+  "tasks_replayed": false,
+  "thread_id": "a5f059b0-1858-4687-8d16-2de8f853c418",
+  "unknown_formatter_code_executed": false,
+  "work_messages_sent": 0
+}
