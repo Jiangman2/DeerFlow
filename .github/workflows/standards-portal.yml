@@ -1,0 +1,73 @@
+name: Standards Portal
+
+on:
+  pull_request:
+    paths:
+      - "frontend/src/app/(standards-portal)/**"
+      - "frontend/src/core/standards-portal/**"
+      - "frontend/src/core/i18n/standards-portal.ts"
+      - "frontend/tests/e2e/standards-portal.spec.ts"
+      - "frontend/tests/unit/core/standards-portal/**"
+      - "frontend/playwright.standards.config.ts"
+      - "deploy/enterprise/*standards*portal*source*"
+      - "release/standards-portal-source-20261117/**"
+      - "tests/test_standards_portal_source_20261117.py"
+      - ".github/workflows/standards-portal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: standards-portal-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pytest
+      - run: python -m pytest -q tests/test_standards_portal_source_20261117.py
+      - run: python deploy/enterprise/verify-standards-portal-source-20261117.py --ref HEAD
+
+  runtime-mappings:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      SKIP_ENV_VALIDATION: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.26.2 --activate
+          pnpm install --frozen-lockfile
+      - name: Check mapping parser
+        run: pnpm exec rstest run tests/unit/core/standards-portal/config.test.ts
+      - name: Install test browser
+        run: pnpm exec playwright install chromium --with-deps
+      - name: Build once
+        run: pnpm build
+      - name: Check empty, configured and partial mappings
+        run: pnpm exec playwright test --config playwright.standards.config.ts
+      - name: Save browser evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: standards-portal-browser-results
+          path: frontend/test-results/standards-portal/
+          retention-days: 7
