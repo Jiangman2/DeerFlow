@@ -355,9 +355,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from app.gateway.model_monitor import model_monitor as monitor_service
 
         await monitor_service.start()
+        procurement_service = None
         try:
+            if not isolated_ppt_runner:
+                from app.gateway.procurement_review.service import start_review_service
+
+                procurement_service = await start_review_service(app)
+                app.state.procurement_review_service = procurement_service
             yield
         finally:
+            if procurement_service is not None:
+                await procurement_service.stop()
             await monitor_service.close()
 
         try:
@@ -689,6 +697,10 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Machine-authenticated Group OA policy document integration.
     app.include_router(oa_policy_flow.router)
+
+    from app.gateway.procurement_review.router import router as procurement_review_router
+
+    app.include_router(procurement_review_router)
 
     # Cluster-internal OpenAI Responses compatibility endpoint used only by
     # the sandboxed ppt-master Codex Agent in enterprise deployments.
