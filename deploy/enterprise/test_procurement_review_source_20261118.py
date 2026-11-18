@@ -19,6 +19,10 @@ class ProcurementSourceTests(unittest.TestCase):
         projected, result = monitor.historical_view(self.read)
         self.assertEqual(result["changed_paths_verified"], len(monitor.PATHS))
         self.assertFalse(result["production_acceptance_claimed"])
+        self.assertEqual(len(result["added_gateway_runtime"]), 10)
+        self.assertTrue(
+            all(path.endswith(".py") for path in result["added_gateway_runtime"])
+        )
         for path, row in json.loads(self.read(monitor.MANIFEST))["changes"].items():
             if row["base_sha256"] is None:
                 with self.assertRaises(KeyError):

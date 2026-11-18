@@ -91,5 +91,12 @@ def historical_view(read):
 
     return projected, {
         "changed_paths_verified": len(parents),
+        "added_gateway_runtime": sorted(
+            path
+            for path, parent in parents.items()
+            if parent is None
+            and path.endswith(".py")
+            and path.startswith(("backend/app/", "backend/packages/harness/"))
+        ),
         "production_acceptance_claimed": False,
     }
