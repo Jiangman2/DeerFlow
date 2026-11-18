@@ -110,6 +110,46 @@
     "docker/ppt-master-runner/Dockerfile.production-work-overlay": {
       "current_sha256": "5f54c280eea9b63bbd790f1c41dba715f9116406ff3354c7cacb0a5e3af8ba8c",
       "base_sha256": "2a8514713ea15c9c04a403962ff4d6e431db1eaf99413a25dc936f74518e7164"
+    },
+    "deploy/enterprise/test_lease_work_source_20261110.py": {
+      "current_sha256": "a9864015a73ff6092289ca1d8fec6d1f824553ad6b68b6d5715af08f553fbfd1",
+      "base_sha256": "19f62c34887b1b780569f180fed5d5be9db02139903cc9f6cdb38d56d68e388c"
+    },
+    "deploy/enterprise/verify-dashboard-navigation-source-20261103.py": {
+      "current_sha256": "913325545598f5afb1209ce57101ffac26d470affea376ad5d25678ebcc1b02f",
+      "base_sha256": "4659f587eedac2981bbb6b8a5a3db52503a8bc655b5abe31e9047a89ad5eb78a"
+    },
+    "deploy/enterprise/verify-nov01-released-source-20261102.py": {
+      "current_sha256": "193440f3950a304ee109716f0202cc91a8e2df8b8cdc115a8453149918646a06",
+      "base_sha256": "c1b4e5b3566f4ce9ccdc5354eb0b7fb9da245bb25ded3da809894af873c8080a"
+    },
+    "deploy/enterprise/verify-nov02-released-source-20261103.py": {
+      "current_sha256": "c662f44999c44ac3d55e832bf07b2f0293362ac0523d7af7a44a3c18674b5f27",
+      "base_sha256": "f4ca0dde0d4117f1831051bf1c8c9fb766bd20c4483c943639d9d5ec5054f7a5"
+    },
+    "deploy/enterprise/verify-release-source-20261023.py": {
+      "current_sha256": "f474f05becf8e9cfb13ef3bc9934e3ac9b142c7cf32e330757eeac5d91829855",
+      "base_sha256": "8484f805135133a220edb496428f3a12d5f5cd836f4c68e6ac5ef7d602ef7e99"
+    },
+    "deploy/enterprise/post51_energy_source_20261116.py": {
+      "current_sha256": "2e8b9441c8e3e3fb138a8db23d2271107eba981e53c4841b0f245bdc4bebeca4",
+      "base_sha256": "e9f8ccc8a9561874208dc1352e07295583e70d3699d88c51a397ad959ed164b8"
+    },
+    "deploy/enterprise/verify-post51-energy-source-20261116.py": {
+      "current_sha256": "9ea5d5e84dd8525b694b7414152a2f881d23d29f4db3c95770e5525af26be0e3",
+      "base_sha256": "5276538a33c1702d9432adc357cae6eea7e7221d4d80efa292908b3955f7c346"
+    },
+    "tests/test_post51_energy_source_20261116.py": {
+      "current_sha256": "fe0a8eec8d5582fe58a61ccf76a21535348e866f6e69200fa2013da0f3891ed7",
+      "base_sha256": "743a69a1d34e144a4db4927757b2a1dc9168a8344e7763d69ed804104dac25a4"
+    },
+    "deploy/enterprise/verify-personal-notification-source-20261117.py": {
+      "current_sha256": "1c1dca2d66c238fbbceaced5909eaed349d84f6fe5ea39902ab8bd80ad8bb5dc",
+      "base_sha256": "a344d11089ce13cfc9b1f99f6a75af7d708c9cb3ae69b4ac3e28713539e200a9"
+    },
+    "tests/test_personal_notification_source_20261117.py": {
+      "current_sha256": "fba5dee718461c920be8f12ae26668a7dfc0373b811e269f781351fee5d5aca5",
+      "base_sha256": "2074437ff08554ef90fcf9e11790c4034213edde84978156ef8ddeccdc15844b"
     }
   }
 }

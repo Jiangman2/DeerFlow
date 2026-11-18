@@ -9,7 +9,7 @@ import json
 
 ARCHIVE = "release/procurement-review-source-20261118/"
 MANIFEST = ARCHIVE + "SOURCE.json"
-MANIFEST_SHA256 = "f03e20b8b650ff25e73342954144491c155ca22a1b26e3e645477a1a6294f012"
+MANIFEST_SHA256 = "80d66d9349a43a86a3294123f7eb59a20228bb0869e1bc3a858f54e1db1381a1"
 BASE_COMMIT = "c0c6dfa547a1963677db974a98f3dbc47b9c130e"
 PATHS = (
     "backend/AGENTS.md",
@@ -39,6 +39,16 @@ PATHS = (
     "backend/tests/test_work_release_0716.py",
     "backend/tests/test_work_runner_release.py",
     "docker/ppt-master-runner/Dockerfile.production-work-overlay",
+    "deploy/enterprise/test_lease_work_source_20261110.py",
+    "deploy/enterprise/verify-dashboard-navigation-source-20261103.py",
+    "deploy/enterprise/verify-nov01-released-source-20261102.py",
+    "deploy/enterprise/verify-nov02-released-source-20261103.py",
+    "deploy/enterprise/verify-release-source-20261023.py",
+    "deploy/enterprise/post51_energy_source_20261116.py",
+    "deploy/enterprise/verify-post51-energy-source-20261116.py",
+    "tests/test_post51_energy_source_20261116.py",
+    "deploy/enterprise/verify-personal-notification-source-20261117.py",
+    "tests/test_personal_notification_source_20261117.py",
 )
 MARKER = "backend/app/gateway/procurement_review/router.py"
 
