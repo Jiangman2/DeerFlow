@@ -7,7 +7,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from deerflow.persistence.bootstrap import _get_alembic_config, _upgrade, bootstrap_schema
+from deerflow.persistence.bootstrap import _get_alembic_config, _upgrade
 
 
 @pytest.mark.asyncio
@@ -30,8 +30,10 @@ async def test_work_migration_from_previous_release_and_idempotent_startup(tmp_p
                     'user',CURRENT_TIMESTAMP,'cnooc','WORK-SYNTHETIC',false,false,0)
             """)
             )
-        await bootstrap_schema(engine, backend=backend)
-        await bootstrap_schema(engine, backend=backend)
+        # This test owns the 0022 schema contract; later migrations are tested
+        # separately and must not change its expected historical table set.
+        await asyncio.to_thread(_upgrade, config, "0022_work_integration_state")
+        await asyncio.to_thread(_upgrade, config, "0022_work_integration_state")
         async with engine.connect() as conn:
             names = await conn.run_sync(lambda c: sa.inspect(c).get_table_names())
             assert set(names) == set(before) | {"work_integration_records"}

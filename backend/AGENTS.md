@@ -1,5 +1,41 @@
 # AGENTS.md
 
+## Procurement review integration
+
+`app/gateway/procurement_review/` owns the optional scenario-two machine
+submit API, rule version, reference snapshots, report validation and callback
+delivery. Keep its public multipart fields limited to `request_id` and `files`.
+Authentication must precede body consumption; exact-path session/CSRF exemptions
+never bypass the route's dedicated Bearer credential. Owner, custom Agent,
+reference root and HTTPS callback are server-owned configuration.
+
+Reuse `launch_scheduled_thread_run`, the file-backed parser and validated upload
+writer. SQL queue leases and launch intent prevent duplicate submissions after
+ambiguous dispatcher responses; never rerun the model merely because callback
+delivery failed. PostgreSQL/SQLite admission serializes the four-task review
+budget across workers. Result acceptance requires the original successful Run
+and its checkpoint's single presented DOCX artifact. The Agent checks completeness
+before authoring Word and uses present_files including normal Office preview gates.
+The API validates bounded DOCX structure and snapshots the exact artifact bytes
+outside sandbox-visible mounts for callback delivery; it does not generate Word.
+
+The task prompt defines eight checks, numbered consecutively 1 through 8,
+without a matrix dependency. Signature checks inspect four occupied positions, not job titles/authenticity; approval date comes
+from the project approval page; contract entity comes from the budget notice's
+organization header. Missing/unreadable required material or missing visual
+coverage cannot yield a conclusive pass. Read full, hash-pinned reference files
+from the read-only operator mount and snapshot them into each thread's normal
+data volume; never treat reference templates as submitted project material.
+Fixed risk baselines are high for placeholders, IP attribution, backdating and
+contract entity, and medium for content clarity, signature positions, internal
+data consistency and template conformance. The Agent applies actual risk after material
+review: unknown is pending verification, never a confirmed high-risk hit.
+Require the eight-row Chinese results table and four report sections; validate
+status/risk/conclusion consistency in DOCX without claiming fact verification.
+See `docs/procurement-review-integration.md` at repository root and
+`tests/test_procurement_review.py`. Feature stays off until operator configuration
+and real-material/callback acceptance; source tests do not establish audit accuracy.
+
 ## Combined Data Lake and monitoring qualification (2026-11-12)
 
 Keep `current_datalake_access` in the user-input and remote-tool tag denylist.

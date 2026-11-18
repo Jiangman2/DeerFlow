@@ -17,7 +17,9 @@ def data():
     raw = (ROOT / source.MANIFEST).read_bytes()
     seal = json.loads(raw)
     names = set(seal['files']) | {r['snapshot'] for r in seal['parent_files'].values() if r}
-    values = {n: (ROOT / n).read_bytes() for n in names}
+    # Qualify the current procurement delta before testing this historical seal.
+    read, _ = source.procurement.historical_view(lambda name: (ROOT / name).read_bytes())
+    values = {n: read(n) for n in names}
     values[source.MANIFEST] = raw
     for path in (ROOT / source.current420.ARCHIVE).rglob('*'):
         if path.is_file():

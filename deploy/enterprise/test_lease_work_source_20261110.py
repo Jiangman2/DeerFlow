@@ -13,9 +13,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class LeaseWorkSourceTests(unittest.TestCase):
-    @staticmethod
-    def read(path):
-        return (ROOT / path).read_bytes()
+    def setUp(self):
+        self.read, _ = lease.datalake_combined.procurement.historical_view(
+            lambda name: (ROOT / name).read_bytes())
 
     def test_backend_can_load_verifier_without_sibling_on_sys_path(self):
         script = """

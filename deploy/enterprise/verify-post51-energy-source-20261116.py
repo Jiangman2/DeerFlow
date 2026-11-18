@@ -23,6 +23,9 @@ def verify(ref=None):
         seal = json.loads(raw)
         required = sorted(set(seal['files']) | {r['snapshot'] for r in seal['parent_files'].values() if r}
                           | {p for p in names if p.startswith(source.current420.ARCHIVE)})
+        if source.procurement.MANIFEST in names:
+            required = sorted(set(required) | set(source.procurement.PATHS)
+                              | {p for p in names if p.startswith(source.procurement.ARCHIVE)})
         source.require(set(required) <= set(names), 'POST51_COMMITTED_FILE_MISSING')
         data = {source.MANIFEST: raw}
         batch = subprocess.check_output(['git', 'cat-file', '--batch'], cwd=ROOT,
