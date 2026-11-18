@@ -88,7 +88,7 @@
       "base_sha256": null
     },
     "backend/tests/test_persistence_bootstrap.py": {
-      "current_sha256": "933f7e910040f5096cb1e4050da29438a4593f2653e78d921c767dc690d3d485",
+      "current_sha256": "39b809f8646e17219465413b260805bdb99bea4bac6efdae8d082e5a46695aad",
       "base_sha256": "57f9013ff5291715a0638111f5cb19aa7e46a603b264eeeb18b650370971da11"
     },
     "backend/tests/test_persistence_bootstrap_concurrency.py": {
