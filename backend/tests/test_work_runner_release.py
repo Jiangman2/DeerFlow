@@ -18,7 +18,15 @@ def test_work_runner_overlay_copies_canonical_migration_and_orm_registration():
     recipe = RECIPE.read_text()
     base = "backend/packages/harness/deerflow/persistence/"
     target = "/app/" + base
-    for relative in ("work/", "models/__init__.py", "oa_policy_flow_jobs/model.py", "migrations/versions/0021_oa_result_sets.py", "migrations/versions/0022_work_integration_state.py"):
+    for relative in (
+        "work/",
+        "procurement_review/",
+        "migrations/versions/0023_procurement_review_jobs.py",
+        "models/__init__.py",
+        "oa_policy_flow_jobs/model.py",
+        "migrations/versions/0021_oa_result_sets.py",
+        "migrations/versions/0022_work_integration_state.py",
+    ):
         assert f"COPY {base}{relative} {target}{relative}" in recipe
         assert (ROOT / base / relative).exists()
 
@@ -37,12 +45,13 @@ def test_work_runner_overlay_preserves_locked_dedicated_agent():
 
 def test_work_runner_overlay_checks_revision_and_empty_database_metadata():
     recipe = RECIPE.read_text()
-    assert "get_current_head() == '0022_work_integration_state'" in recipe
+    assert "get_current_head() == '0023_procurement_review_jobs'" in recipe
     assert "'work_integration_records' in Base.metadata.tables" in recipe
     assert "0021_oa_result_sets" in recipe
+    assert "'procurement_review_jobs' in Base.metadata.tables" in recipe
 
 
-@pytest.mark.parametrize("previous", ["empty", "0021_oa_result_sets"])
+@pytest.mark.parametrize("previous", ["empty", "0021_oa_result_sets", "0022_work_integration_state", "0023_procurement_review_jobs"])
 def test_accepted_runner_source_with_work_overlay_bootstraps_without_replacing_agent(tmp_path, previous):
     snapshot = ROOT / "release/production-source-20261022/ppt-master-runner"
     runner = tmp_path / "runner"
@@ -74,9 +83,9 @@ async def main():
         await bootstrap_schema(engine, backend='sqlite')
         await bootstrap_schema(engine, backend='sqlite')
         async with engine.connect() as conn:
-            assert (await conn.execute(sa.text('SELECT version_num FROM alembic_version'))).scalar_one() == '0022_work_integration_state'
+            assert (await conn.execute(sa.text('SELECT version_num FROM alembic_version'))).scalar_one() == '0023_procurement_review_jobs'
             tables = await conn.run_sync(lambda c: sa.inspect(c).get_table_names())
-            assert {'work_integration_records', 'ppt_confirmation_tasks', 'ppt_confirmation_gates'} <= set(tables)
+            assert {'work_integration_records', 'ppt_confirmation_tasks', 'ppt_confirmation_gates', 'procurement_review_jobs'} <= set(tables)
             columns = await conn.run_sync(lambda c: {x['name'] for x in sa.inspect(c).get_columns('oa_policy_flow_jobs')})
             assert {'result_protocol', 'result_files'} <= columns
     finally:

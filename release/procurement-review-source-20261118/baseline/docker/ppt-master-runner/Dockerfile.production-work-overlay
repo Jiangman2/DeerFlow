@@ -1,0 +1,21 @@
+# Work schema overlay for the accepted 2026-10-23 dedicated Runner (generation 55).
+# Verify the base against production-source-lock-20261023.json, NOT historical R3.
+# Publish a NEW immutable tag/digest; this recipe is an undeployed candidate.
+ARG RUNNER_BASE_IMAGE=deerflow.local/deer-flow-ppt-master-runner@sha256:0b0cdbbbf95794ab0ce6f96e09f6a449152d05761c23b47dcda3d5c9cf2a3140
+FROM ${RUNNER_BASE_IMAGE}
+
+RUN printf '%s  %s\n' \
+    '41a35d4d6b15100cd76a0a9917e89c6132dd28649dfff5f55c84bf8cfa44731c' \
+    /app/backend/packages/harness/deerflow/agents/ppt_master_runner/agent.py \
+    | sha256sum -c -
+
+# Versioned databases need the revision; empty databases also need the ORM table
+# registered before bootstrap create_all + stamp head. Do not replace the Runner
+# application or agent with the ordinary Gateway implementation.
+COPY backend/packages/harness/deerflow/persistence/work/ /app/backend/packages/harness/deerflow/persistence/work/
+COPY backend/packages/harness/deerflow/persistence/models/__init__.py /app/backend/packages/harness/deerflow/persistence/models/__init__.py
+COPY backend/packages/harness/deerflow/persistence/oa_policy_flow_jobs/model.py /app/backend/packages/harness/deerflow/persistence/oa_policy_flow_jobs/model.py
+COPY backend/packages/harness/deerflow/persistence/migrations/versions/0021_oa_result_sets.py /app/backend/packages/harness/deerflow/persistence/migrations/versions/0021_oa_result_sets.py
+COPY backend/packages/harness/deerflow/persistence/migrations/versions/0022_work_integration_state.py /app/backend/packages/harness/deerflow/persistence/migrations/versions/0022_work_integration_state.py
+
+RUN cd /app/backend && .venv/bin/python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; from deerflow.persistence import models; from deerflow.persistence.base import Base; c=Config(); c.set_main_option('script_location','packages/harness/deerflow/persistence/migrations'); s=ScriptDirectory.from_config(c); assert s.get_current_head() == '0022_work_integration_state'; assert s.get_revision('0022_work_integration_state').down_revision == '0021_oa_result_sets'; assert 'work_integration_records' in Base.metadata.tables; assert 'result_files' in Base.metadata.tables['oa_policy_flow_jobs'].c"

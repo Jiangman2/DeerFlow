@@ -48,7 +48,7 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0022_work_integration_state"
+HEAD = "0023_procurement_review_jobs"
 BASELINE = "0001_baseline"
 PRE_CONFIRMATION_HEAD = "0019_digital_employee_agents"
 CONFIRMATION_TABLES = frozenset({"ppt_confirmation_tasks", "ppt_confirmation_gates"})
@@ -894,7 +894,7 @@ class TestDecideState:
 # ---------------------------------------------------------------------------
 
 
-def test_head_revision_is_oa_result_sets_revision() -> None:
+def test_head_revision_is_procurement_review_revision() -> None:
     assert _get_head_revision() == HEAD
 
 

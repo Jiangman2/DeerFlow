@@ -246,17 +246,30 @@ def test_config_is_disabled_and_keys_are_not_printed(config, monkeypatch):
         ReviewConfig.from_env()
 
 
-@pytest.mark.parametrize("assistant_id,accepted", [
-    ("技术委托要求审查助手", True), ("review-agent", True),
-    ("../other", False), ("other/agent", False), ("other\\agent", False),
-    ("review\u200b", False), ("review_agent", False), ("审" * 65, False),
-    ("lead-agent", False), ("LEAD-AGENT", False),
-])
+@pytest.mark.parametrize(
+    "assistant_id,accepted",
+    [
+        ("技术委托要求审查助手", True),
+        ("review-agent", True),
+        ("../other", False),
+        ("other/agent", False),
+        ("other\\agent", False),
+        ("review\u200b", False),
+        ("review_agent", False),
+        ("审" * 65, False),
+        ("lead-agent", False),
+        ("LEAD-AGENT", False),
+    ],
+)
 def test_config_uses_platform_agent_identifier(assistant_id, accepted, tmp_path, monkeypatch):
     for key, value in {
-        "ENABLED": "true", "OWNER_USER_ID": "owner-1", "ASSISTANT_ID": assistant_id,
-        "REFERENCE_ROOT": str(tmp_path), "SUBMIT_KEY": "submit-secret",
-        "CALLBACK_URL": "https://partner.example/callback", "CALLBACK_KEY": "callback-secret",
+        "ENABLED": "true",
+        "OWNER_USER_ID": "owner-1",
+        "ASSISTANT_ID": assistant_id,
+        "REFERENCE_ROOT": str(tmp_path),
+        "SUBMIT_KEY": "submit-secret",
+        "CALLBACK_URL": "https://partner.example/callback",
+        "CALLBACK_KEY": "callback-secret",
     }.items():
         monkeypatch.setenv("PROCUREMENT_REVIEW_" + key, value)
     if accepted:
