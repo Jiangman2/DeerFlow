@@ -5,7 +5,7 @@
   "changes": {
     ".github/workflows/nov02-released-fixes.yml": {
       "base_sha256": "bc68968cf772520b573a9aa2bb6961593372b52dc136cf75c023e5c0a4b651d2",
-      "current_sha256": "250274334cb78688643bd408bbdacd2772476c643fe4f50904b526999e0fc80c"
+      "current_sha256": "e29600ef333de6379b68c1c24b8e596ed3c1bc87e9f18923d40a869acbb5f0ea"
     },
     "backend/AGENTS.md": {
       "base_sha256": "73d1a9cef152e7291d2ea2e0e7ffc326a5c2bc213ad026cee033afce0e5f6bad",
