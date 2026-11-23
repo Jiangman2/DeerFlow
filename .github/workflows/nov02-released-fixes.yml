@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - 'backend/**'
+      - 'deploy/enterprise/procurement-dataqa-20261123/**'
+      - 'deploy/enterprise/*procurement_stream_source_20261123.py'
+      - 'release/procurement-stream-source-20261123/**'
+      - 'release/procurement-review-source-20261118/**'
+      - 'deploy/enterprise/*procurement_review_source_20261118.py'
       - 'frontend/**'
       - 'release/nov02-released-fixes-source-20261103/**'
       - 'release/pr26-ci-qualification-20261103/**'
@@ -49,6 +54,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - run: python -B deploy/enterprise/test_procurement_review_source_20261118.py
+      - run: python -B deploy/enterprise/test_procurement_stream_source_20261123.py
+      - run: python -m pip install PyYAML==6.0.3
+      - run: python -B -m unittest discover -s deploy/enterprise/procurement-dataqa-20261123 -p 'test_*.py'
       - run: python -B deploy/enterprise/test_model_monitor_source_20261111.py
       - run: python -B deploy/enterprise/test_datalake_combined_source_20261112.py
       - run: python -B deploy/enterprise/test_lease_work_source_20261110.py

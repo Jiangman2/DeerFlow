@@ -1,5 +1,33 @@
 # AGENTS.md
 
+## Procurement review integration
+
+`app/gateway/procurement_review/` owns the optional machine endpoint. Accept only
+request_id and repeated files; authenticate before body consumption. Exact-path
+session/CSRF exemptions never bypass its dedicated Bearer key. Owner, Agent and
+read-only reference root are operator-owned. Snapshot full references into each
+API task; ordinary UI chats do not automatically receive them.
+
+New tasks use durable SQL jobs and a single SSE connection (accepted, heartbeat,
+result). Disconnect/reconnect never cancels or reruns the model. Reuse upload
+security and ordinary document/spreadsheet conversion; JSON/TXT/CSV remain original
+text. The eight-check prompt asks the Agent to author and present one Markdown
+report directly. No intermediate result JSON, Word layout or PDF preview is needed.
+
+Do not grade Markdown sections, rows, names, punctuation, risk or conclusions in
+the backend. Keep original-run/checkpoint identity, artifact ownership/path,
+input snapshot hashes, nonempty UTF-8 eligibility (2MiB limit) and delivered byte
+length/SHA-256. A succeeded API result means report delivery, not compliance.
+Legacy Word/callback tasks retain their existing acceptance and retry behavior.
+
+Signature checks inspect four occupied positions, not job titles/authenticity;
+approval date comes from the project approval page; contract entity comes from
+the budget notice organization header. Evidence and eight-item completeness are
+Agent responsibilities. Missing material must not become a claim of full compliance.
+See docs/procurement-review-integration.md and procurement tests. Existing config
+values such as the production 3600-second deadline are preserved by deployment
+tools; changing Git source alone does not update running Pods.
+
 ## Combined Data Lake and monitoring qualification (2026-11-12)
 
 Keep `current_datalake_access` in the user-input and remote-tool tag denylist.

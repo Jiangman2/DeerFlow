@@ -19,6 +19,13 @@ def verify(ref=None):
         raw = subprocess.check_output(['git', 'show', ref + ':' + source.MANIFEST], cwd=ROOT)
         seal = json.loads(raw)
         names = sorted(set(seal['files']) | {r['snapshot'] for r in seal['parent_files'].values()} | {source.MANIFEST})
+        if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, source.procurement.MANIFEST], cwd=ROOT).strip():
+            procurement_files = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, source.procurement.ARCHIVE], cwd=ROOT).decode().splitlines()
+            names = sorted(set(names) | set(source.procurement.PATHS) | set(procurement_files))
+            successor = source.procurement.successor
+            if subprocess.check_output(['git', 'ls-tree', '--name-only', ref, successor.MANIFEST], cwd=ROOT).strip():
+                current_files = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, successor.ARCHIVE], cwd=ROOT).decode().splitlines()
+                names = sorted(set(names) | set(successor.PATHS) | set(current_files))
         batch = subprocess.check_output(['git', 'cat-file', '--batch'], cwd=ROOT,
                                         input=''.join(ref + ':' + p + '\n' for p in names).encode())
         stream = io.BytesIO(batch)

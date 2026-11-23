@@ -72,6 +72,8 @@ _PUBLIC_EXACT_PATHS: frozenset[str] = frozenset(
         # Machine-to-machine click collector. The route itself requires the
         # dedicated external click Bearer key.
         "/api/agent_click",
+        # Exact machine endpoint; its handler requires a dedicated Bearer key.
+        "/api/v1/integrations/procurement-review",
         # Read-only competition feed validates its dedicated Bearer key itself.
         "/api/competition/agent-usage",
         # Explicit administrator-published aggregate competition board.

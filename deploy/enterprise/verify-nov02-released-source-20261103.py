@@ -45,6 +45,11 @@ def verify(ref=None):
             extra.extend(lease_work.ARCHIVE_INPUTS)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.datalake_combined.MANIFEST], cwd=ROOT).strip():
             extra.extend((lease_work.datalake_combined.ARCHIVE, *lease_work.datalake_combined.PATHS))
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.datalake_combined.procurement.MANIFEST], cwd=ROOT).strip():
+            extra.extend((lease_work.datalake_combined.procurement.ARCHIVE, *lease_work.datalake_combined.procurement.PATHS))
+            successor = lease_work.datalake_combined.procurement.successor
+            if subprocess.check_output(["git", "ls-tree", "--name-only", ref, successor.MANIFEST], cwd=ROOT).strip():
+                extra.extend((successor.ARCHIVE, *successor.PATHS))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.post44.MANIFEST], cwd=ROOT).strip():
             extra.append(lease_work.post44.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.post44.successor.MANIFEST], cwd=ROOT).strip():

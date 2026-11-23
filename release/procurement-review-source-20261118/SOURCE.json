@@ -1,0 +1,155 @@
+{
+  "schema": "procurement-review-source.v1",
+  "base_commit": "c0c6dfa547a1963677db974a98f3dbc47b9c130e",
+  "production_acceptance_claimed": false,
+  "changes": {
+    "backend/AGENTS.md": {
+      "current_sha256": "73d1a9cef152e7291d2ea2e0e7ffc326a5c2bc213ad026cee033afce0e5f6bad",
+      "base_sha256": "8a02d9065e72017389fee1a6aa79cf8ed3e25a82d95063fac27ff40e4536d82b"
+    },
+    "backend/README.md": {
+      "current_sha256": "c94d0cd3ec09c4315221cd66d49ea0fc453ad7fe1afb26f8215e11ef99411080",
+      "base_sha256": "d97bf45882bd62f1288a7afe49e1c3afd7bdc879815aa6cebceb1ccff50c7987"
+    },
+    "backend/app/gateway/app.py": {
+      "current_sha256": "28748b1d8ea83302ff791908aefd2f6d7cfd92f270f6703580624161ae9c2278",
+      "base_sha256": "f130bad760b6fb895795a0b4622503ad013a13716e2eb4c3c1dcf78aa85d98f0"
+    },
+    "backend/app/gateway/auth_middleware.py": {
+      "current_sha256": "054f0f887444058b8141137440c779a9221bbec235ffdb63f98ebd6df422903f",
+      "base_sha256": "10b055e04bb0ab4b53889ef2b1ff8535339c14f3cd495878854a443af5c2061f"
+    },
+    "backend/app/gateway/csrf_middleware.py": {
+      "current_sha256": "9e031a79450221f116e79afd12cb95c2f48ba540de1d7d63e69e970e6759d075",
+      "base_sha256": "5dafb9d85c9b95e4b0fdca9f9fb8c3bd354fe139ef41ca5d52c644cfd1adef8c"
+    },
+    "backend/app/gateway/procurement_review/__init__.py": {
+      "current_sha256": "652565d99ea134630c3d2613ab656fe412f0228aaee67accab84f5da07d5d977",
+      "base_sha256": null
+    },
+    "backend/app/gateway/procurement_review/config.py": {
+      "current_sha256": "5b32563dac9a14b902d0b5cf0e2d4fd017f6b7e0ce67bb47cce536821d34149c",
+      "base_sha256": null
+    },
+    "backend/app/gateway/procurement_review/files.py": {
+      "current_sha256": "7dce16ef27306a7ac68219c9c7ab44c1e5575f52a610f77fc68aac12cff2efc6",
+      "base_sha256": null
+    },
+    "backend/app/gateway/procurement_review/router.py": {
+      "current_sha256": "af2fe5e04efe4b33e7e0433aa1d29d0dac7eddaf1fcf068f34a651c8bd09a372",
+      "base_sha256": null
+    },
+    "backend/app/gateway/procurement_review/rules.py": {
+      "current_sha256": "2fe9caf6fa4a4ed1234610756c5b09cfd662202a6db3b84cb978c07d45307ba5",
+      "base_sha256": null
+    },
+    "backend/app/gateway/procurement_review/service.py": {
+      "current_sha256": "679c72a1ac5b056c81e4397bb3689b71865af833659ea1a0a45880cb10c04035",
+      "base_sha256": null
+    },
+    "backend/packages/harness/deerflow/persistence/migrations/versions/0023_procurement_review_jobs.py": {
+      "current_sha256": "baac2093327c6e68df6d1db783d2f62f6dbf18f2f38f411cbae031e885d1579d",
+      "base_sha256": null
+    },
+    "backend/packages/harness/deerflow/persistence/models/__init__.py": {
+      "current_sha256": "2a42c5fa19a24cd4be6e16de22ff638ec8d57b5cf953fee1b272bf2d6e27f934",
+      "base_sha256": "0d1ea7e1ba39cd26c91b164c6bbbe246047597e3bfc977f2b5cd2c2ac805e534"
+    },
+    "backend/packages/harness/deerflow/persistence/procurement_review/__init__.py": {
+      "current_sha256": "44b123c682e8709a584a5727f7efbe4f57524d8c7c9f60ac2e8b56a7745dea46",
+      "base_sha256": null
+    },
+    "backend/packages/harness/deerflow/persistence/procurement_review/model.py": {
+      "current_sha256": "76355794428baff9497152b7d055db75bf5f6efcab7cf17bc90be77ae9e6c62f",
+      "base_sha256": null
+    },
+    "backend/packages/harness/deerflow/persistence/procurement_review/sql.py": {
+      "current_sha256": "798c444ac49a57b6e54983a274427f06d438cc2b01f98d1836d92f023695135c",
+      "base_sha256": null
+    },
+    "backend/tests/test_migration_0022_work.py": {
+      "current_sha256": "29a375225d22b9a52339509f99b063276765342f5779af97c51c0472e448333c",
+      "base_sha256": "48e41c1780fca209568fc8409c2706b1fe86ec77e55a1170bc8d3ca132337b0b"
+    },
+    "backend/tests/test_migration_0023_procurement.py": {
+      "current_sha256": "2f6763b035bb445f74c57564a7f0d0402cf24b8284fcd408f0310d2728a91e8c",
+      "base_sha256": null
+    },
+    "backend/tests/test_procurement_review.py": {
+      "current_sha256": "5abf92fb388cfebde5f89339fe951f23aad02413e75033242201b97f39d5a6da",
+      "base_sha256": null
+    },
+    "docs/procurement-review-agent-prompt.md": {
+      "current_sha256": "ee633acf9c5ec78a19f4f074ccc3ff1438a7add93812b6076fa68b8058f7cf89",
+      "base_sha256": null
+    },
+    "docs/procurement-review-integration.md": {
+      "current_sha256": "ffba4feccd04591e61a864c89d634292fe4a923f0aa4bc5fe156929c06d23d61",
+      "base_sha256": null
+    },
+    "backend/tests/test_persistence_bootstrap.py": {
+      "current_sha256": "39b809f8646e17219465413b260805bdb99bea4bac6efdae8d082e5a46695aad",
+      "base_sha256": "57f9013ff5291715a0638111f5cb19aa7e46a603b264eeeb18b650370971da11"
+    },
+    "backend/tests/test_persistence_bootstrap_concurrency.py": {
+      "current_sha256": "a46330392ddb2ad715760d9cd521a28ae294711a66491327e9829c4645b44023",
+      "base_sha256": "6a3da4a6cf1abc3f81f93191b9b0e65046a643b95071ef48491c3aa43d80f465"
+    },
+    "backend/tests/test_persistence_bootstrap_regression.py": {
+      "current_sha256": "c39c14505072383b6ece00db8aafa6c597b1d8f4e01895feb46d22170f657640",
+      "base_sha256": "adf61e60cb60598b6f4fa5626ca97b44fe76ed04945f1960c424d3345e080771"
+    },
+    "backend/tests/test_work_release_0716.py": {
+      "current_sha256": "610342b2aa89d0041496c85c1be7122c02038f04f825d72f0493c55932ab1dc9",
+      "base_sha256": "58af28bd82becfbd3937859dc68e524ff3408aaaa730e4e6fb707182c1478bb6"
+    },
+    "backend/tests/test_work_runner_release.py": {
+      "current_sha256": "70909c2080e1b60f69a8f7ba9817459058e0d9001e752bfe5c44a9ee3d68cbc7",
+      "base_sha256": "0f60811ca42e699d0a11c0781c3364a39f9f98072a78fd948be6f7146f459136"
+    },
+    "docker/ppt-master-runner/Dockerfile.production-work-overlay": {
+      "current_sha256": "5f54c280eea9b63bbd790f1c41dba715f9116406ff3354c7cacb0a5e3af8ba8c",
+      "base_sha256": "2a8514713ea15c9c04a403962ff4d6e431db1eaf99413a25dc936f74518e7164"
+    },
+    "deploy/enterprise/test_lease_work_source_20261110.py": {
+      "current_sha256": "a9864015a73ff6092289ca1d8fec6d1f824553ad6b68b6d5715af08f553fbfd1",
+      "base_sha256": "19f62c34887b1b780569f180fed5d5be9db02139903cc9f6cdb38d56d68e388c"
+    },
+    "deploy/enterprise/verify-dashboard-navigation-source-20261103.py": {
+      "current_sha256": "913325545598f5afb1209ce57101ffac26d470affea376ad5d25678ebcc1b02f",
+      "base_sha256": "4659f587eedac2981bbb6b8a5a3db52503a8bc655b5abe31e9047a89ad5eb78a"
+    },
+    "deploy/enterprise/verify-nov01-released-source-20261102.py": {
+      "current_sha256": "193440f3950a304ee109716f0202cc91a8e2df8b8cdc115a8453149918646a06",
+      "base_sha256": "c1b4e5b3566f4ce9ccdc5354eb0b7fb9da245bb25ded3da809894af873c8080a"
+    },
+    "deploy/enterprise/verify-nov02-released-source-20261103.py": {
+      "current_sha256": "c662f44999c44ac3d55e832bf07b2f0293362ac0523d7af7a44a3c18674b5f27",
+      "base_sha256": "f4ca0dde0d4117f1831051bf1c8c9fb766bd20c4483c943639d9d5ec5054f7a5"
+    },
+    "deploy/enterprise/verify-release-source-20261023.py": {
+      "current_sha256": "f474f05becf8e9cfb13ef3bc9934e3ac9b142c7cf32e330757eeac5d91829855",
+      "base_sha256": "8484f805135133a220edb496428f3a12d5f5cd836f4c68e6ac5ef7d602ef7e99"
+    },
+    "deploy/enterprise/post51_energy_source_20261116.py": {
+      "current_sha256": "2e8b9441c8e3e3fb138a8db23d2271107eba981e53c4841b0f245bdc4bebeca4",
+      "base_sha256": "e9f8ccc8a9561874208dc1352e07295583e70d3699d88c51a397ad959ed164b8"
+    },
+    "deploy/enterprise/verify-post51-energy-source-20261116.py": {
+      "current_sha256": "9ea5d5e84dd8525b694b7414152a2f881d23d29f4db3c95770e5525af26be0e3",
+      "base_sha256": "5276538a33c1702d9432adc357cae6eea7e7221d4d80efa292908b3955f7c346"
+    },
+    "tests/test_post51_energy_source_20261116.py": {
+      "current_sha256": "fe0a8eec8d5582fe58a61ccf76a21535348e866f6e69200fa2013da0f3891ed7",
+      "base_sha256": "743a69a1d34e144a4db4927757b2a1dc9168a8344e7763d69ed804104dac25a4"
+    },
+    "deploy/enterprise/verify-personal-notification-source-20261117.py": {
+      "current_sha256": "1c1dca2d66c238fbbceaced5909eaed349d84f6fe5ea39902ab8bd80ad8bb5dc",
+      "base_sha256": "a344d11089ce13cfc9b1f99f6a75af7d708c9cb3ae69b4ac3e28713539e200a9"
+    },
+    "tests/test_personal_notification_source_20261117.py": {
+      "current_sha256": "fba5dee718461c920be8f12ae26668a7dfc0373b811e269f781351fee5d5aca5",
+      "base_sha256": "2074437ff08554ef90fcf9e11790c4034213edde84978156ef8ddeccdc15844b"
+    }
+  }
+}

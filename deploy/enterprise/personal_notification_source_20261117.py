@@ -1,8 +1,13 @@
 """Qualify the accepted 420 sender and retain finite immutable 419 parents."""
 import ast
 import hashlib
+import importlib.util
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+
+_procurement_spec = importlib.util.spec_from_file_location('procurement_review_source_20261118', Path(__file__).with_name('procurement_review_source_20261118.py'))
+procurement = importlib.util.module_from_spec(_procurement_spec)
+_procurement_spec.loader.exec_module(procurement)
 
 ARCHIVE = 'release/personal-notification-source-20261117/'
 MANIFEST = ARCHIVE + 'SOURCE.json'
@@ -50,6 +55,7 @@ def normalized_ast(raw):
 
 
 def qualify(read, full=False):
+    read, _ = procurement.historical_view(read)
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):
@@ -122,6 +128,7 @@ def verify_receipts(read):
 
 
 def historical_view(read):
+    read, _ = procurement.historical_view(read)
     seal = qualify(read)
     if seal is None:
         return read, None

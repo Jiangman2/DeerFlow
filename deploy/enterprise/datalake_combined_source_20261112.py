@@ -3,6 +3,12 @@
 import ast
 import hashlib
 import json
+import importlib.util
+from pathlib import Path
+
+_spec = importlib.util.spec_from_file_location("procurement_review_source_20261118", Path(__file__).with_name("procurement_review_source_20261118.py"))
+procurement = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(procurement)
 
 ARCHIVE = 'release/datalake-combined-20261112/'
 MANIFEST = ARCHIVE + "SOURCE.json"
@@ -17,6 +23,7 @@ def digest(raw):
 
 
 def historical_view(read):
+    read, _ = procurement.historical_view(read)
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):

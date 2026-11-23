@@ -1,5 +1,12 @@
 # DeerFlow Backend
 
+Optional procurement review integration: a machine-authenticated
+`POST /api/v1/integrations/procurement-review` accepts request_id and files,
+launches the configured employee, and returns Markdown over the same SSE
+connection. The Agent owns content checks; the API preserves authorization and
+byte integrity. Legacy callback jobs remain supported. Disabled by default; see
+[configuration and the single-interface contract](../docs/procurement-review-integration.md).
+
 Data Lake authorization is checked for each request. Current server-validated
 access takes precedence over historical refusals; enabling access remains
 available while a clarification card waits, without unlocking file attachment

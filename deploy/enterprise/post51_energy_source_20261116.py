@@ -9,6 +9,10 @@ _current_spec = importlib.util.spec_from_file_location('personal_notification_so
 current420 = importlib.util.module_from_spec(_current_spec)
 _current_spec.loader.exec_module(current420)
 
+_procurement_spec = importlib.util.spec_from_file_location('procurement_review_source_20261118', Path(__file__).with_name('procurement_review_source_20261118.py'))
+procurement = importlib.util.module_from_spec(_procurement_spec)
+_procurement_spec.loader.exec_module(procurement)
+
 ARCHIVE = 'release/post51-energy-production-sync-20261116/'
 MANIFEST = ARCHIVE + 'SOURCE.json'
 MANIFEST_SHA256 = 'd7fac072fb71fdf76c533f5f07ce4e42f074f5eec788527e10bca13a68316623'
@@ -38,6 +42,7 @@ def check(read, path, row):
 
 
 def qualify(read, energy_paths=None, full=False):
+    read, _ = procurement.historical_view(read)
     read, _ = current420.historical_view(read)
     try:
         raw = read(MANIFEST)
@@ -148,6 +153,7 @@ def normalized_ast(raw, path):
 
 
 def historical_view(read, energy_paths=None):
+    read, _ = procurement.historical_view(read)
     read, _ = current420.historical_view(read)
     seal = qualify(read, energy_paths)
     if seal is None:

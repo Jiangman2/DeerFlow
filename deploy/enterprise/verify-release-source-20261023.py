@@ -416,6 +416,11 @@ def verify(ref=None, lock_path=LOCK):
             extra.extend(lease_work.ARCHIVE_INPUTS)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.datalake_combined.MANIFEST], cwd=ROOT).strip():
             extra.extend((lease_work.datalake_combined.ARCHIVE, *lease_work.datalake_combined.PATHS))
+        if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.datalake_combined.procurement.MANIFEST], cwd=ROOT).strip():
+            extra.extend((lease_work.datalake_combined.procurement.ARCHIVE, *lease_work.datalake_combined.procurement.PATHS))
+            successor = lease_work.datalake_combined.procurement.successor
+            if subprocess.check_output(["git", "ls-tree", "--name-only", ref, successor.MANIFEST], cwd=ROOT).strip():
+                extra.extend((successor.ARCHIVE, *successor.PATHS))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.post44.MANIFEST], cwd=ROOT).strip():
             extra.append(lease_work.post44.ARCHIVE)
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, lease_work.post44.successor.MANIFEST], cwd=ROOT).strip():
@@ -427,6 +432,7 @@ def verify(ref=None, lock_path=LOCK):
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             archived = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
     current_read = (lambda name: archived[name]) if archived is not None else (lambda name: (ROOT / name).read_bytes())
+    current_read, procurement_result = lease_work.datalake_combined.procurement.historical_view(current_read)
     current_read = pagination.historical_read(current_read)
     current_read, work_followup_manifest = work_followup.historical_view(current_read)
     composer_manifest = _nov02.composer.qualify(current_read)
@@ -524,6 +530,8 @@ def verify(ref=None, lock_path=LOCK):
                            and path.startswith(('backend/app/', 'backend/packages/harness/'))}
             if component == 'gateway' and work_followup_manifest:
                 actual -= set(work_followup_manifest['added_gateway_runtime'])
+            if component == 'gateway' and procurement_result:
+                actual -= set(procurement_result["added_gateway_runtime"])
             if actual != set(expected):
                 raise AssertionError((component, 'SOURCE_SET_MISMATCH', sorted(actual ^ set(expected))))
         for name, digest in expected.items():
@@ -574,6 +582,7 @@ def verify(ref=None, lock_path=LOCK):
             'terminal_stream_candidate': {'status': 'NOT_DEPLOYED', 'frontend_runtime_paths': [terminal_stream.CLIENT, terminal_stream.HELPER]} if terminal_stream_candidate else None,
             'enterprise_source_followup': _nov02.followup.summary(followup),
             'work_integration_followup': work_followup_manifest,
+            'procurement_source': procurement_result,
             'sidechat_frontend_source': _nov02.followup.sidechat.summary(sidechat_manifest),
             'new_chat_model_source': _nov02.followup.new_chat.summary(new_chat_manifest),
             'dashboard_navigation_candidate': _nov02.followup.navigation.summary(navigation),

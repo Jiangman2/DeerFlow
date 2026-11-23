@@ -1,0 +1,26 @@
+{
+  "revision": "procurement-dataqa-combined-20261123-r4",
+  "tests_passed": 25,
+  "report_content_validation": false,
+  "production_deployed": false,
+  "files": {
+    "AGENTS.md": "d107aff7abd60bfbc1a08ceb827baf9324832158ea83bfad15d38aea7799a6c3",
+    "config_reconcile.py": "c985ff480eeb4326571e9fe2dde67afc9d612426cf144c54ed9cc8427507d38c",
+    "dataqa_config.py": "047c13db2ac000ba927544de1b0a951af191a7d58503cda53974fe1df78dd034",
+    "fixtures/files.py": "0dca46f2e19590e03c51fbf1db1438bb8f4a697998a0f52e722869f534700207",
+    "fixtures/service.py": "18818984de7c60790447070a4f16dc9ad790b5a2fa2ff38f2d2cadfba2ac9c28",
+    "fixtures/stream.py": "707e5d8d158a8c8a16a3d240bd24e3669f2338219f3ae2382fed90b8ceee5922",
+    "payload/markdown_report.py": "511be424f4966ceaca2bb1217aa0549e5edbf69d5dd21361d1247c7bb276a0e5",
+    "probe.py": "ad5acdf0e5fd6f4b614a92645dbdc504510445e79919b71c8931d8f6bb8ad9a7",
+    "readiness_wait.py": "72d0f30b569fa6d8178afa0a94c7bfa530b5fec08e1592e913ce85c57ac81582",
+    "README.md": "054276e85eb31f9c917bfac9508e2237c8f4ce78a985e9acaf3608954c7ba9f3",
+    "reconcile_runtime.py": "ffcfdbd1229bb1be637a06489d122a8ae467466f642d91ce642288bcff31ca0c",
+    "source.patch": "ee1666723859862a2942a15a6cc6b733961507f75eafb0cf26302e79ada8352b",
+    "test_config_reconcile.py": "2f0d0acd52d39970e835d2f774d8db7f9f94905201bba9006b55ae7bad95fd50",
+    "test_dataqa.py": "121f6a0c4312bcc88fcd0ca711c14011486837326ba4bd2e3696332a42d4484d",
+    "test_delivery.py": "c7cdf8053a3ce77f01ee2e61345eb3b6403398049c09f9ea64f6dbdce39085e8",
+    "test_readiness.py": "74812ae2bc033c3179958d556e072eb0c6b6c917ff11d60f319483e6490bff26",
+    "test_secret_names.py": "31faf63f7c53fd95be04ad95d60d81501c3f67ae113934732ec0cec31a9dfb9d",
+    "update.py": "c1391cf3dd6fb13177162eb9ece3f8682cee934d72b4b9f3ffcf69ab4423d7f0"
+  }
+}
