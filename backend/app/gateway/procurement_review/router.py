@@ -13,6 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from starlette.datastructures import UploadFile
 from starlette.formparsers import MultiPartException
+from starlette.responses import StreamingResponse
 
 from deerflow.uploads.manager import ensure_uploads_dir, normalize_filename
 from deerflow.utils.file_io import run_file_io
@@ -20,14 +21,16 @@ from deerflow.utils.file_io import run_file_io
 from .config import ENDPOINT
 from .files import digest
 from .rules import RULE_VERSION
+from .stream import stream_result
 
 router = APIRouter(tags=["procurement-review"])
-ALLOWED = {".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg"}
+ALLOWED = {".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".json", ".txt", ".xlsx", ".xls", ".csv"}
 
 
 @router.post(
     ENDPOINT,
-    status_code=202,
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {}}, "description": "accepted, heartbeat, then result events"}},
     openapi_extra={
         "requestBody": {
             "required": True,
@@ -96,7 +99,7 @@ async def submit(request: Request):
                         raise HTTPException(422, "Invalid filename") from exc
                     suffix = Path(name).suffix.lower()
                     if suffix not in ALLOWED or any(ord(c) < 32 for c in name):
-                        raise HTTPException(415, "Only PDF, DOC, DOCX, PNG and JPEG materials are supported")
+                        raise HTTPException(415, "Supported materials: PDF, DOC, DOCX, PNG, JPEG, JSON, TXT, XLSX, XLS, CSV")
                     if name.casefold() in seen:
                         raise HTTPException(422, "Duplicate filenames are not accepted")
                     seen.add(name.casefold())
@@ -133,7 +136,7 @@ async def submit(request: Request):
                     "files": files,
                     "reference_sha": service.references["manifest_sha256"],
                     "reference_version": service.references["version"],
-                    "callback_url": config.callback_url,
+                    "delivery_mode": "stream",
                     "deadline": time.time() + config.job_timeout,
                     "rule_version": RULE_VERSION,
                 }
@@ -145,8 +148,16 @@ async def submit(request: Request):
                     retain = False
                     if job["fingerprint"] != fingerprint:
                         raise HTTPException(409, "request_id already used with different materials; use a new request_id")
-                status = job["payload"].get("result_status") or {"queued": "queued", "launching": "queued", "running": "running"}.get(job["state"], "failed")
-                return {"request_id": job["request_id"], "job_id": job["id"], "status": status}
+                saved = job["payload"]
+                if (saved.get("owner_user_id"), saved.get("assistant_id")) != (config.owner_user_id, config.assistant_id):
+                    raise HTTPException(409, "request_id belongs to a different integration binding")
+                if saved.get("delivery_mode") != "stream" or saved.get("rule_version") != RULE_VERSION:
+                    raise HTTPException(409, "Historical callback task; use a new request_id for stream delivery")
+                return StreamingResponse(
+                    stream_result(service, job),
+                    media_type="text/event-stream",
+                    headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
+                )
     except TimeoutError as exc:
         raise HTTPException(408, "Submission deadline exceeded") from exc
     finally:

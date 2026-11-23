@@ -26,6 +26,10 @@ def verify(ref=None):
         if source.procurement.MANIFEST in names:
             required = sorted(set(required) | set(source.procurement.PATHS)
                               | {p for p in names if p.startswith(source.procurement.ARCHIVE)})
+        successor = source.procurement.successor
+        if successor.MANIFEST in names:
+            required = sorted(set(required) | set(successor.PATHS)
+                              | {p for p in names if p.startswith(successor.ARCHIVE)})
         source.require(set(required) <= set(names), 'POST51_COMMITTED_FILE_MISSING')
         data = {source.MANIFEST: raw}
         batch = subprocess.check_output(['git', 'cat-file', '--batch'], cwd=ROOT,

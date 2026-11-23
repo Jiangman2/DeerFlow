@@ -19,6 +19,9 @@ def verify(ref=None):
             extra.extend((datalake.ARCHIVE, *datalake.PATHS))
         if subprocess.check_output(["git", "ls-tree", "--name-only", ref, datalake.procurement.MANIFEST], cwd=ROOT).strip():
             extra.extend((datalake.procurement.ARCHIVE, *datalake.procurement.PATHS))
+            successor = datalake.procurement.successor
+            if subprocess.check_output(["git", "ls-tree", "--name-only", ref, successor.MANIFEST], cwd=ROOT).strip():
+                extra.extend((successor.ARCHIVE, *successor.PATHS))
         raw = subprocess.check_output(["git", "archive", ref, source.ARCHIVE, *sorted(source.PATHS), *extra], cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             files = {m.name: archive.extractfile(m).read() for m in archive if m.isfile()}

@@ -133,7 +133,7 @@ def validate_report(raw, submitted_names):
         high |= status == "不符合" and risk == "高风险"
         statuses.append(status)
     expected = "不通过" if high else "无法判断" if "无法判断" in statuses or set(statuses) == {"不适用"} else "有条件通过" if "不符合" in statuses else "通过"
-    conclusions = [p for p in paragraphs if p.startswith("合规评价：")]
+    conclusions = [p.removesuffix("。") for p in paragraphs if p.startswith("合规评价：")]
     if conclusions != ["合规评价：" + expected]:
         raise ValueError("Report conclusion does not match review rows")
     return {"checks": 8, "conclusion": expected, "scope": "DOCX_STRUCTURE_ONLY_NOT_FACT_VERIFICATION"}

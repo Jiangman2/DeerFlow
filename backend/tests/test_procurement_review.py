@@ -24,7 +24,7 @@ from app.gateway.procurement_review.config import ENDPOINT, ReviewConfig
 from app.gateway.procurement_review.files import REFERENCE_ROLES, digest, reference_inventory, snapshot_references, validate_report
 from app.gateway.procurement_review.router import router
 from app.gateway.procurement_review.rules import MATERIAL_ROLES, RISK_BASELINES, RULE_VERSION, RULES, build_prompt
-from app.gateway.procurement_review.service import LeaseLost, ReviewService
+from app.gateway.procurement_review.service import LEGACY_RULE_VERSION, LeaseLost, ReviewService
 from deerflow.persistence.procurement_review.model import ProcurementReviewRow
 from deerflow.persistence.procurement_review.sql import ReviewRepository
 
@@ -70,7 +70,7 @@ def payload(config):
         "files": [material()],
         "reference_version": "v1",
         "reference_sha": "a" * 64,
-        "rule_version": RULE_VERSION,
+        "rule_version": LEGACY_RULE_VERSION,
     }
 
 
@@ -105,6 +105,11 @@ async def test_submit_auth_duplicates_changed_content_and_cleanup(repo, config, 
 
     monkeypatch.setattr(router_module, "ensure_uploads_dir", lambda thread_id, user_id: uploads_module.ensure_uploads_dir(thread_id, user_id=user_id))
     monkeypatch.setattr(uploads_module, "get_uploads_dir", lambda thread_id, user_id: tmp_path / thread_id)
+
+    async def accepted(service, job):
+        yield (json.dumps({"job_id": job["id"]}) + "\n").encode()
+
+    monkeypatch.setattr(router_module, "stream_result", accepted)
     service = SimpleNamespace(config=config, repo=repo, references={"manifest_sha256": "a" * 64, "version": "v1"}, is_running=True)
     app = FastAPI()
     app.include_router(router)
@@ -117,7 +122,7 @@ async def test_submit_auth_duplicates_changed_content_and_cleanup(repo, config, 
             return await client.post(ENDPOINT, headers=headers, data={"request_id": "business-1", **(extra or {})}, files=[("files", ("技术要求.png", data, "image/png"))])
 
         first = await send()
-        assert first.status_code == 202, first.text
+        assert first.status_code == 200, first.text
         duplicate = await send()
         assert duplicate.json() == first.json()
         assert len(list(tmp_path.glob("procurement-*"))) == 1
@@ -129,7 +134,8 @@ async def test_submit_auth_duplicates_changed_content_and_cleanup(repo, config, 
         saved = await repo.get(first.json()["job_id"])
         assert saved["payload"]["owner_user_id"] == config.owner_user_id
         assert saved["payload"]["files"][0]["name"] == "技术要求.png"
-        assert saved["payload"]["callback_url"] == config.callback_url
+        assert saved["payload"]["delivery_mode"] == "stream"
+        assert "callback_url" not in saved["payload"]
 
 
 def make_references(root):
@@ -178,7 +184,7 @@ def test_prompt_names_materials_for_all_eight_checks(config):
     assert "5.5.2" in prompt and "不核人员职务" in prompt
     assert "立项审批页" in prompt and "预算下达通知" in prompt
     assert "原编号" not in prompt and "原第" not in prompt and "已取消" not in prompt
-    assert "一行表头加八项检查" in prompt
+    assert "一行表头、一行分隔符、八项检查" in prompt
 
 
 @pytest.mark.asyncio
@@ -290,13 +296,11 @@ async def test_cluster_capacity_counts_leased_preparation(repo, config):
 
 
 @pytest.mark.asyncio
-async def test_end_to_end_dispatch_report_and_multipart_callback(repo, config, tmp_path, monkeypatch):
-    from email import policy
-    from email.parser import BytesParser
-    from io import BytesIO
-
+async def test_end_to_end_dispatch_markdown_and_stream(repo, config, tmp_path, monkeypatch):
     import app.gateway.procurement_review.service as service_module
+    import app.gateway.procurement_review.stream as stream_module
     import app.gateway.services as gateway_services
+    from app.gateway.procurement_review.stream import stream_result
     from deerflow.config.paths import Paths
     from deerflow.runtime.user_context import get_effective_user_id
 
@@ -305,6 +309,7 @@ async def test_end_to_end_dispatch_report_and_multipart_callback(repo, config, t
     make_references(config.reference_root)
     references = reference_inventory(config.reference_root)
     job = await make_job(repo, config)
+    job["payload"].update(rule_version=RULE_VERSION, delivery_mode="stream")
     job["payload"]["reference_sha"] = references["manifest_sha256"]
     uploads = paths.sandbox_uploads_dir("test-thread", user_id=config.owner_user_id)
     uploads.mkdir(parents=True)
@@ -317,7 +322,7 @@ async def test_end_to_end_dispatch_report_and_multipart_callback(repo, config, t
     output = paths.sandbox_outputs_dir("test-thread", user_id=config.owner_user_id)
     output.mkdir(parents=True)
     run = {"run_id": "original-run", "thread_id": "test-thread", "status": "success", "metadata": {"procurement_review_job_id": job["id"]}}
-    saved = SimpleNamespace(metadata={"deerflow_timing_run_id": "original-run"}, checkpoint={"channel_values": {"artifacts": ["/mnt/user-data/outputs/procurement-review.docx"]}})
+    saved = SimpleNamespace(metadata={"deerflow_timing_run_id": "original-run"}, checkpoint={"channel_values": {"artifacts": ["/mnt/user-data/outputs/procurement-review.md"]}})
     app = SimpleNamespace(
         state=SimpleNamespace(
             run_store=SimpleNamespace(get=AsyncMock(return_value=run), list_by_thread=AsyncMock(return_value=[run])),
@@ -332,7 +337,7 @@ async def test_end_to_end_dispatch_report_and_multipart_callback(repo, config, t
         assert kwargs["assistant_id"] == config.assistant_id
         assert kwargs["stream_mode"] == ["values", "messages"]
         launches.append(kwargs)
-        write_report(output / "procurement-review.docx", report_fixture(), job)
+        (output / "procurement-review.md").write_text("# 审查报告\n服务/供货内容明确性：待补充材料。", encoding="utf-8")
         return {"run_id": "original-run"}
 
     monkeypatch.setattr(gateway_services, "launch_scheduled_thread_run", launch)
@@ -351,33 +356,14 @@ async def test_end_to_end_dispatch_report_and_multipart_callback(repo, config, t
 
     await next_step()
     accepted = await repo.get(job["id"])
-    assert accepted["state"] == "callback"
+    assert accepted["state"] == "result_ready"
     assert accepted["payload"]["result_status"] == "succeeded"
-    received = []
-
-    async def partner(request):
-        assert str(request.url) == config.callback_url
-        assert request.headers["authorization"] == "Bearer outbound-secret"
-        content = await request.aread()
-        message = BytesParser(policy=policy.default).parsebytes(("Content-Type: " + request.headers["content-type"] + "\r\nMIME-Version: 1.0\r\n\r\n").encode() + content)
-        fields = {part.get_param("name", header="content-disposition"): part.get_payload(decode=True) for part in message.iter_parts()}
-        assert fields["request_id"] == b"review-1" and fields["status"] == b"succeeded"
-        assert fields["report"] == (output / "procurement-review.docx").read_bytes()
-        with zipfile.ZipFile(BytesIO(fields["report"])) as report:
-            assert "核心审查结果" in report.read("word/document.xml").decode()
-        received.append(fields)
-        return httpx.Response(204)
-
-    real_client = httpx.AsyncClient
-
-    def client(**kwargs):
-        assert kwargs["trust_env"] is False and kwargs["follow_redirects"] is False
-        return real_client(transport=httpx.MockTransport(partner), **kwargs)
-
-    monkeypatch.setattr(service_module.httpx, "AsyncClient", client)
-    await next_step()
-    assert (await repo.get(job["id"]))["state"] == "delivered"
-    assert len(received) == len(launches) == 1
+    monkeypatch.setattr(stream_module, "get_paths", lambda: paths)
+    frames = [frame async for frame in stream_result(service, accepted)]
+    delivered = json.loads(frames[-1].decode().split("data: ", 1)[1])
+    assert delivered["report_markdown"] == (output / "procurement-review.md").read_bytes().decode("utf-8")
+    assert delivered["status"] == "succeeded"
+    assert len(launches) == 1
 
 
 @pytest.mark.asyncio
@@ -554,11 +540,11 @@ def report_fixture():
     return data
 
 
-def test_direct_word_prompt():
+def test_direct_markdown_prompt():
     prompt = build_prompt({"request_id": "request-1"}, [material()])
-    assert "生成Word前先自查" in prompt and "无需生成或交付结果JSON" in prompt
+    assert "生成Markdown前先自查" in prompt and "不生成结果JSON" in prompt
     assert "审批完成日期只来自立项审批页" in prompt and "不核人员职务" in prompt
-    assert "技术委托要求审查报告.docx" in prompt
+    assert "技术委托要求审查报告.md" in prompt
 
 
 def test_accept_agent_word(config, tmp_path):

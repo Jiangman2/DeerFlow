@@ -11,9 +11,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class ProcurementSourceTests(unittest.TestCase):
-    @staticmethod
-    def read(path):
-        return (ROOT / path).read_bytes()
+    def setUp(self):
+        self.read, _ = monitor.successor.historical_view(lambda name: (ROOT / name).read_bytes())
 
     def test_projection_matches_git_parent_and_is_idempotent(self):
         projected, result = monitor.historical_view(self.read)

@@ -2,39 +2,31 @@
 
 ## Procurement review integration
 
-`app/gateway/procurement_review/` owns the optional scenario-two machine
-submit API, rule version, reference snapshots, report validation and callback
-delivery. Keep its public multipart fields limited to `request_id` and `files`.
-Authentication must precede body consumption; exact-path session/CSRF exemptions
-never bypass the route's dedicated Bearer credential. Owner, custom Agent,
-reference root and HTTPS callback are server-owned configuration.
+`app/gateway/procurement_review/` owns the optional machine endpoint. Accept only
+request_id and repeated files; authenticate before body consumption. Exact-path
+session/CSRF exemptions never bypass its dedicated Bearer key. Owner, Agent and
+read-only reference root are operator-owned. Snapshot full references into each
+API task; ordinary UI chats do not automatically receive them.
 
-Reuse `launch_scheduled_thread_run`, the file-backed parser and validated upload
-writer. SQL queue leases and launch intent prevent duplicate submissions after
-ambiguous dispatcher responses; never rerun the model merely because callback
-delivery failed. PostgreSQL/SQLite admission serializes the four-task review
-budget across workers. Result acceptance requires the original successful Run
-and its checkpoint's single presented DOCX artifact. The Agent checks completeness
-before authoring Word and uses present_files including normal Office preview gates.
-The API validates bounded DOCX structure and snapshots the exact artifact bytes
-outside sandbox-visible mounts for callback delivery; it does not generate Word.
+New tasks use durable SQL jobs and a single SSE connection (accepted, heartbeat,
+result). Disconnect/reconnect never cancels or reruns the model. Reuse upload
+security and ordinary document/spreadsheet conversion; JSON/TXT/CSV remain original
+text. The eight-check prompt asks the Agent to author and present one Markdown
+report directly. No intermediate result JSON, Word layout or PDF preview is needed.
 
-The task prompt defines eight checks, numbered consecutively 1 through 8,
-without a matrix dependency. Signature checks inspect four occupied positions, not job titles/authenticity; approval date comes
-from the project approval page; contract entity comes from the budget notice's
-organization header. Missing/unreadable required material or missing visual
-coverage cannot yield a conclusive pass. Read full, hash-pinned reference files
-from the read-only operator mount and snapshot them into each thread's normal
-data volume; never treat reference templates as submitted project material.
-Fixed risk baselines are high for placeholders, IP attribution, backdating and
-contract entity, and medium for content clarity, signature positions, internal
-data consistency and template conformance. The Agent applies actual risk after material
-review: unknown is pending verification, never a confirmed high-risk hit.
-Require the eight-row Chinese results table and four report sections; validate
-status/risk/conclusion consistency in DOCX without claiming fact verification.
-See `docs/procurement-review-integration.md` at repository root and
-`tests/test_procurement_review.py`. Feature stays off until operator configuration
-and real-material/callback acceptance; source tests do not establish audit accuracy.
+Do not grade Markdown sections, rows, names, punctuation, risk or conclusions in
+the backend. Keep original-run/checkpoint identity, artifact ownership/path,
+input snapshot hashes, nonempty UTF-8 eligibility (2MiB limit) and delivered byte
+length/SHA-256. A succeeded API result means report delivery, not compliance.
+Legacy Word/callback tasks retain their existing acceptance and retry behavior.
+
+Signature checks inspect four occupied positions, not job titles/authenticity;
+approval date comes from the project approval page; contract entity comes from
+the budget notice organization header. Evidence and eight-item completeness are
+Agent responsibilities. Missing material must not become a claim of full compliance.
+See docs/procurement-review-integration.md and procurement tests. Existing config
+values such as the production 3600-second deadline are preserved by deployment
+tools; changing Git source alone does not update running Pods.
 
 ## Combined Data Lake and monitoring qualification (2026-11-12)
 

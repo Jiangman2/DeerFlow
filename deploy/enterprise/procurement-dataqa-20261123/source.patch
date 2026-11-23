@@ -1,0 +1,91 @@
+--- a/backend/app/gateway/procurement_review/markdown_report.py
++++ b/backend/app/gateway/procurement_review/markdown_report.py
+@@ -1,79 +1,16 @@
+-"""Bounded Markdown report acceptance; never generates or rewrites the report."""
+-
+-import re
+-
+-from .rules import RISK_BASELINES, RULES, STATUSES
+-
+-HEADERS = ["序号", "检查项", "判定状态", "风险等级", "命中内容及材料位置", "基准依据", "修正建议", "提示"]
+-
+-
+-def plain(value):
+-    return value.strip().removeprefix("**").removesuffix("**").strip()
+-
+-
+-def cells(line):
+-    return [plain(re.sub(r"\\([|\\])", r"\1", v)) for v in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
++"""Markdown transport eligibility only; report content is owned by the agent."""
+ 
+ 
+ def validate_markdown_report(raw, submitted_names):
++    """Keep the existing caller signature without grading the review content.
++
++    The service owns run identity, artifact ownership and snapshot integrity.
++    This function only ensures the bytes can be carried by the Markdown SSE
++    transport. It must not infer a compliance conclusion or rewrite the report.
++    """
+     if not raw or len(raw) > 2 * 1024 * 1024:
+         raise ValueError("Invalid Markdown report size")
+     content = raw.decode("utf-8-sig", errors="strict")
+-    if "\x00" in content:
++    if "\x00" in content or not content.strip():
+         raise ValueError("Invalid Markdown text")
+-    # Fenced examples cannot satisfy actual report coverage or conclusions.
+-    lines = []
+-    fence = None
+-    for line in content.splitlines():
+-        opening = re.match(r"^\s*(`{3,}|~{3,})", line)
+-        if opening:
+-            marker = opening.group(1)
+-            if fence is None:
+-                fence = marker
+-            elif marker[0] == fence[0] and len(marker) >= len(fence):
+-                fence = None
+-            continue
+-        if fence is None:
+-            lines.append(line)
+-    if fence is not None:
+-        raise ValueError("Unclosed Markdown fence")
+-    full = "\n".join(lines)
+-    sections = ["基本信息", "核心审查结果", "补充审查意见与材料覆盖", "审查结论"]
+-    if any(s not in full for s in sections) or any(name not in full for name in submitted_names):
+-        raise ValueError("Missing report sections or input coverage")
+-    tables = []
+-    for index, line in enumerate(lines):
+-        if cells(line) != HEADERS:
+-            continue
+-        if index + 1 >= len(lines) or not all(re.fullmatch(r":?-{3,}:?", v.strip()) for v in cells(lines[index + 1])) or len(cells(lines[index + 1])) != 8:
+-            raise ValueError("Invalid Markdown table separator")
+-        rows = []
+-        for following in lines[index + 2 :]:
+-            if not following.strip() or "|" not in following:
+-                break
+-            rows.append(cells(following))
+-        tables.append(rows)
+-    if len(tables) != 1 or len(tables[0]) != 8:
+-        raise ValueError("Exactly eight review rows required")
+-    statuses = []
+-    high = False
+-    for index, row in enumerate(tables[0], 1):
+-        key = str(index)
+-        if len(row) != 8 or not all(row) or row[:2] != [key, RULES[key][0]] or row[2] not in STATUSES:
+-            raise ValueError("Incomplete review row")
+-        status = row[2]
+-        risk = RISK_BASELINES[key] if status == "不符合" else {"符合": "未命中", "无法判断": "待核实", "不适用": "不适用"}[status]
+-        if re.sub(r"[；;\s]", "", row[3]) != "基准：" + RISK_BASELINES[key] + "本次：" + risk:
+-            raise ValueError("Review risk does not match status")
+-        high |= status == "不符合" and risk == "高风险"
+-        statuses.append(status)
+-    expected = "不通过" if high else "无法判断" if "无法判断" in statuses or set(statuses) == {"不适用"} else "有条件通过" if "不符合" in statuses else "通过"
+-    conclusions = []
+-    for line in lines:
+-        line = line.strip().replace("**", "")
+-        match = re.match(r"^合规评价\s*[:：]\s*(.*?)\s*[。.]?$", line)
+-        if match:
+-            conclusions.append(match.group(1))
+-    if conclusions != [expected]:
+-        raise ValueError("Report conclusion does not match review rows")
+-    return {"checks": 8, "conclusion": expected, "scope": "MARKDOWN_STRUCTURE_ONLY_NOT_FACT_VERIFICATION"}
++    return {"scope": "MARKDOWN_TRANSPORT_ONLY", "content_validation": False}

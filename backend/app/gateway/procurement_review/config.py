@@ -18,8 +18,8 @@ class ReviewConfig:
     assistant_id: str
     reference_root: Path
     submit_key: str = field(repr=False)
-    callback_url: str = field(repr=False)
-    callback_key: str = field(repr=False)
+    callback_url: str = field(default="", repr=False)
+    callback_key: str = field(default="", repr=False)
     max_files: int = 12
     max_file_bytes: int = 30 * 1024 * 1024
     max_total_bytes: int = 100 * 1024 * 1024
@@ -41,9 +41,11 @@ class ReviewConfig:
                 raise ValueError(f"Missing {prefix}{name}")
             return value
 
-        url = required("CALLBACK_URL")
+        # New submissions return over their own HTTP stream. Optional callback
+        # settings are retained only to finish jobs created by the old release.
+        url = os.getenv(prefix + "CALLBACK_URL", "").strip()
         parsed = urlsplit(url)
-        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.fragment or parsed.query:
+        if url and (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.fragment or parsed.query):
             raise ValueError("Callback must be a fixed HTTPS URL without credentials, query or fragment")
         root = Path(required("REFERENCE_ROOT"))
         if not root.is_absolute():
@@ -52,11 +54,19 @@ class ReviewConfig:
         validate_agent_name(assistant_id)
         if assistant_id.casefold() == "lead-agent":
             raise ValueError("Use a dedicated custom-agent identifier")
+        timeout_value = os.getenv(prefix + "JOB_TIMEOUT_SECONDS", "1800").strip()
+        try:
+            job_timeout = int(timeout_value)
+        except ValueError as exc:
+            raise ValueError("PROCUREMENT_REVIEW_JOB_TIMEOUT_SECONDS must be an integer") from exc
+        if not 60 <= job_timeout <= 14400:
+            raise ValueError("PROCUREMENT_REVIEW_JOB_TIMEOUT_SECONDS must be between 60 and 14400")
         return cls(
+            job_timeout=job_timeout,
             owner_user_id=required("OWNER_USER_ID"),
             assistant_id=assistant_id,
             reference_root=root,
             submit_key=required("SUBMIT_KEY"),
             callback_url=url,
-            callback_key=required("CALLBACK_KEY"),
+            callback_key=required("CALLBACK_KEY") if url else "",
         )

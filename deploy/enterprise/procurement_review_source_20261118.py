@@ -6,6 +6,12 @@ Source qualification only; never deployment or business acceptance.
 import ast
 import hashlib
 import json
+import importlib.util
+from pathlib import Path
+
+_spec = importlib.util.spec_from_file_location('procurement_stream_source_20261123', Path(__file__).with_name('procurement_stream_source_20261123.py'))
+successor = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(successor)
 
 ARCHIVE = "release/procurement-review-source-20261118/"
 MANIFEST = ARCHIVE + "SOURCE.json"
@@ -58,6 +64,7 @@ def digest(raw):
 
 
 def historical_view(read):
+    read, latest = successor.historical_view(read)
     try:
         raw = read(MANIFEST)
     except (KeyError, FileNotFoundError):
@@ -102,11 +109,8 @@ def historical_view(read):
     return projected, {
         "changed_paths_verified": len(parents),
         "added_gateway_runtime": sorted(
-            path
-            for path, parent in parents.items()
-            if parent is None
-            and path.endswith(".py")
-            and path.startswith(("backend/app/", "backend/packages/harness/"))
+            {path for path, parent in parents.items() if parent is None and path.endswith(".py") and path.startswith(("backend/app/", "backend/packages/harness/"))}
+            | set(latest["added_gateway_runtime"] if latest else [])
         ),
         "production_acceptance_claimed": False,
     }

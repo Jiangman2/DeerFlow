@@ -1,4 +1,4 @@
-"""Durable review dispatch, agent-authored Word report and callback delivery."""
+"""Durable review dispatch and validated reports for HTTP stream delivery."""
 
 from __future__ import annotations
 
@@ -17,7 +17,21 @@ from deerflow.runtime.user_context import reset_current_user, set_current_user
 from deerflow.utils.file_io import run_file_io
 
 from .files import digest, reference_inventory, snapshot_references, snapshot_report, validate_report
+from .markdown_report import validate_markdown_report
 from .rules import RULE_VERSION, build_prompt
+
+LEGACY_RULE_VERSION = "technical-requirements-20261117-v5"
+LEGACY_MARKDOWN_VERSION = "technical-requirements-20261119-v6-md"
+
+
+def report_format(payload):
+    version = payload.get("rule_version")
+    if version in {RULE_VERSION, LEGACY_MARKDOWN_VERSION}:
+        return ".md", "text/markdown; charset=utf-8", validate_markdown_report
+    if version == LEGACY_RULE_VERSION:
+        return ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", validate_report
+    raise ValueError("Unsupported review report version")
+
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +131,7 @@ class ReviewService:
             reset_current_user(token)
 
     def fail(self, job, message):
-        job["state"] = "callback"
+        job["state"] = "result_ready" if job["payload"].get("delivery_mode") == "stream" else "callback"
         job["payload"].update(result_status="failed", message=message)
         job["due_at"] = time.time()
 
@@ -125,11 +139,20 @@ class ReviewService:
         p = job["payload"]
         # Changing configuration must never silently send old reports to a new
         # recipient or execute somebody else's task as the new configured user.
-        if (p["owner_user_id"], p["assistant_id"], p["callback_url"], p["rule_version"]) != (self.config.owner_user_id, self.config.assistant_id, self.config.callback_url, RULE_VERSION):
+        direct = p.get("delivery_mode") == "stream"
+        binding_matches = (p["owner_user_id"], p["assistant_id"]) == (self.config.owner_user_id, self.config.assistant_id)
+        delivery_matches = (direct and p["rule_version"] == RULE_VERSION) or (
+            not direct and p.get("delivery_mode") is None and p["rule_version"] in {LEGACY_RULE_VERSION, LEGACY_MARKDOWN_VERSION} and bool(self.config.callback_url) and p.get("callback_url") == self.config.callback_url
+        )
+        if not binding_matches or not delivery_matches or (job["state"] == "queued" and p["rule_version"] != RULE_VERSION):
             job["state"] = "configuration_blocked"
             await self.save(job)
             return
         if job["state"] == "callback":
+            if direct:
+                job["state"] = "result_ready"
+                await self.save(job)
+                return
             await self.deliver(job)
             await self.save(job)
             return
@@ -173,17 +196,19 @@ class ReviewService:
                 self.fail(job, "任务执行记录不匹配，无法交付报告。")
             elif run["status"] == "success":
                 await self.accept_run(job)
-                p.update(result_status="succeeded", message="审查已完成，结论及无法判断项见Word报告。")
-                job["state"] = "callback"
+                p.update(result_status="succeeded", message="审查已完成，结论及无法判断项见审查报告。")
+                job["state"] = "result_ready" if direct else "callback"
             elif run["status"] not in {"pending", "running"}:
                 self.fail(job, "数字员工未完成审查，未交付完成报告。")
         job["due_at"] = time.time() + self.config.poll_seconds
         await self.save(job)
 
     async def prepare(self, job):
-        from app.gateway.routers.uploads import _make_uploaded_paths_sandbox_readable, _write_parsed_markdown
+        from app.gateway.routers.uploads import _auto_convert_documents_enabled, _make_uploaded_paths_sandbox_readable, _markdown_companion_has_content, _require_parsed_text_enabled, _write_parsed_markdown
         from app.gateway.upload_document_memory_guard import parse_conversation_document_file
         from app.gateway.upload_document_parser import conversation_document_parser_endpoint
+        from deerflow.config.app_config import get_app_config
+        from deerflow.utils.file_conversion import convert_file_to_markdown
 
         p = job["payload"]
         uploads = get_paths().sandbox_uploads_dir(p["thread_id"], user_id=p["owner_user_id"])
@@ -192,6 +217,18 @@ class ReviewService:
             path = uploads / file["stored"]
             if await run_file_io(digest, path) != file["sha256"]:
                 raise ValueError("Submitted material changed")
+            # Match ordinary conversation uploads: text/JSON/CSV stay as
+            # originals; spreadsheets use the existing opt-in local converter,
+            # its isolation limits and the shared require-parsed-text policy.
+            if path.suffix.lower() in {".xls", ".xlsx"} and _auto_convert_documents_enabled(get_app_config()):
+                parsed = await convert_file_to_markdown(path)
+                if parsed and await run_file_io(_markdown_companion_has_content, Path(parsed)):
+                    file["text"] = "/mnt/user-data/uploads/" + Path(parsed).name
+                    file["text_sha256"] = await run_file_io(digest, parsed)
+                elif _require_parsed_text_enabled():
+                    raise ValueError("Spreadsheet parsing failed; ordinary upload policy requires parsed text")
+                else:
+                    file["parse_note"] = "表格解析未生成有效文本，按普通问答保留原件；必须核对原件，无法读取则标明无法判断。"
             endpoint = conversation_document_parser_endpoint()
             if endpoint and path.suffix in {".pdf", ".doc", ".docx"}:
                 try:
@@ -214,8 +251,8 @@ class ReviewService:
         if (getattr(saved, "metadata", None) or {}).get("deerflow_timing_run_id") != p["run_id"]:
             raise ValueError("Result checkpoint belongs to a different run")
         artifacts = saved.checkpoint.get("channel_values", {}).get("artifacts", [])
-        if not isinstance(artifacts, list) or len(artifacts) != 1 or not isinstance(artifacts[0], str) or Path(artifacts[0]).suffix.lower() != ".docx":
-            raise ValueError("Review must present exactly one DOCX artifact")
+        if not isinstance(artifacts, list) or len(artifacts) != 1 or not isinstance(artifacts[0], str) or Path(artifacts[0]).suffix.lower() != report_format(p)[0]:
+            raise ValueError("Review must present exactly one report matching its version")
         await run_file_io(self.accept, job, artifacts[0])
         current = await self.app.state.run_store.list_by_thread(p["thread_id"], user_id=p["owner_user_id"], limit=2)
         if current != runs:
@@ -241,9 +278,9 @@ class ReviewService:
             raw = stream.read(5 * 1024 * 1024 + 1)
         if len(raw) > 5 * 1024 * 1024:
             raise ValueError("Result grew beyond limit")
-        p["report_validation"] = validate_report(raw, [f["name"] for f in p["files"] if f["kind"] == "submitted"])
+        p["report_validation"] = report_format(p)[2](raw, [f["name"] for f in p["files"] if f["kind"] == "submitted"])
         # Store the delivery snapshot outside sandbox-visible user-data.
-        report = paths.thread_dir(p["thread_id"], user_id=p["owner_user_id"]) / "procurement-delivery" / "report.docx"
+        report = paths.thread_dir(p["thread_id"], user_id=p["owner_user_id"]) / "procurement-delivery" / ("report" + report_format(p)[0])
         if report.parent.is_symlink() or report.is_symlink():
             raise ValueError("Invalid delivery snapshot path")
         p["report_sha256"] = snapshot_report(report, raw)
@@ -256,6 +293,8 @@ class ReviewService:
 
     async def deliver(self, job):
         p = job["payload"]
+        if p.get("delivery_mode") == "stream":
+            raise ValueError("Stream jobs must never use callback delivery")
         parts = [
             (key, (None, str(value)))
             for key, value in {
@@ -266,7 +305,7 @@ class ReviewService:
             }.items()
         ]
         if p["result_status"] == "succeeded":
-            report = get_paths().thread_dir(p["thread_id"], user_id=p["owner_user_id"]) / "procurement-delivery" / "report.docx"
+            report = get_paths().thread_dir(p["thread_id"], user_id=p["owner_user_id"]) / "procurement-delivery" / ("report" + report_format(p)[0])
 
             def read_report():
                 if report.parent.is_symlink() or report.is_symlink() or report.stat().st_size > 5 * 1024 * 1024 or digest(report) != p["report_sha256"]:
@@ -277,7 +316,7 @@ class ReviewService:
                     raise ValueError("Delivery report failed integrity check")
                 return data
 
-            parts.append(("report", ("review-report.docx", await run_file_io(read_report), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")))
+            parts.append(("report", ("review-report" + report_format(p)[0], await run_file_io(read_report), report_format(p)[1])))
         async with asyncio.timeout(45):
             async with httpx.AsyncClient(trust_env=False, follow_redirects=False, timeout=30) as client:
                 async with client.stream("POST", self.config.callback_url, headers={"Authorization": "Bearer " + self.config.callback_key}, files=parts) as response:
