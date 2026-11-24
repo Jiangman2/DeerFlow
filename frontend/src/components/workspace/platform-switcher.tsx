@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 
 import { useI18n } from "@/core/i18n/hooks";
 
-const HAINENG_URL = "https://heq.cnooc.com.cn/#/home";
+import { HainengChat } from "./haineng-chat";
 
 /** Keep both platforms mounted: switching must not reset a running chat. */
 export function PlatformSwitcher({ children }: { children: ReactNode }) {
@@ -55,13 +55,7 @@ export function PlatformSwitcher({ children }: { children: ReactNode }) {
           className="min-h-0 min-w-0 flex-1 overflow-hidden"
           style={{ display: active === "b" ? "flex" : "none" }}
         >
-          <iframe
-            data-testid="haineng-frame"
-            title={chinese ? "海能 AI" : "Haineng AI"}
-            src={HAINENG_URL}
-            className="h-full min-h-0 w-full flex-1 border-0 bg-white"
-            referrerPolicy="strict-origin-when-cross-origin"
-          />
+          <HainengChat />
         </div>
       )}
     </div>

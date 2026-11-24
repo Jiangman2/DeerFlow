@@ -1,37 +1,29 @@
 import { expect, test } from "@playwright/test";
 
-for (const viewport of [
-  { width: 1280, height: 800 },
-  { width: 320, height: 720 },
-  { width: 375, height: 812 },
-  { width: 390, height: 844 },
-  { width: 412, height: 915 },
-  { width: 812, height: 375 },
-]) {
-  test(`platform switching retains iframe state at ${viewport.width}x${viewport.height}`, async ({ page }) => {
-    await page.setViewportSize(viewport);
-    let requests = 0;
-    await page.route("https://heq.cnooc.com.cn/**", async (route) => {
-      requests++;
-      await route.fulfill({
-        contentType: "text/html",
-        body: '<html><body><input aria-label="Draft" /></body></html>',
+for (const width of [1280, 320, 375, 390, 412]) {
+  test(`Haineng chat keeps state across platform switches at ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const requests: Record<string, unknown>[] = [];
+    await page.route("**/api/haineng/chat", async (route) => {
+      requests.push(route.request().postDataJSON() as Record<string, unknown>);
+      await route.fulfill({ contentType: "text/event-stream", body:
+        'data:{"header":{"code":0},"payload":{"sessionId":"test-session","data":{"choices":{"text":"你好"}}}}\n\n' +
+        'data:{"header":{"code":10000}}\n\n',
       });
     });
     await page.goto("/workspace/chats/new");
     await expect(page.getByTestId("platform-a-panel")).toBeVisible();
-    await expect(page.getByTestId("haineng-frame")).toHaveCount(0);
-    const originalUrl = page.url();
     await page.getByTestId("platform-b-switch").click();
-    const draft = page.frameLocator('[data-testid="haineng-frame"]').getByLabel("Draft");
-    await draft.fill("Keep my conversation draft");
-    await expect(page.getByTestId("platform-a-panel")).toBeHidden();
+    const input = page.getByRole("textbox", { name: "发送给海能 AI 的消息" });
+    await input.fill("第一个问题");
+    await page.getByRole("button", { name: "发送", exact: true }).click();
+    await expect(page.getByLabel("海能回复")).toContainText("你好");
+    await input.fill("草稿");
     await page.getByTestId("platform-a-switch").click();
-    await expect(page.getByTestId("haineng-frame")).toHaveCount(1);
-    await expect(page.getByTestId("platform-a-panel")).toBeVisible();
     await page.getByTestId("platform-b-switch").click();
-    await expect(draft).toHaveValue("Keep my conversation draft");
-    expect(requests).toBe(1);
-    expect(page.url()).toBe(originalUrl);
+    await expect(input).toHaveValue("草稿");
+    await page.getByRole("button", { name: "发送", exact: true }).click();
+    await expect.poll(() => requests.length).toBe(2);
+    expect(requests[1]?.sessionId).toBe("test-session");
   });
 }

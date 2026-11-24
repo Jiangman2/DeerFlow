@@ -643,3 +643,11 @@ continue to navigate DeerFlow routes. B authentication remains owned by the
 remote site; no tokens are passed through JavaScript or URLs. Validate remote
 frame-ancestors/X-Frame-Options, parent frame-src, and SSO cookies in deployment.
 An iframe load event is not proof of authentication or successful embedding.
+
+### Haineng direct chat
+
+B now lazy-mounts HainengChat instead of the remote iframe. POST /api/haineng/chat
+is a Next.js server route requiring platform authentication, same-origin POST,
+and HAINENG_TEST_USER_IDS membership. HAINENG_SESSION stays server-only. This is
+restricted single-user integration testing, not production SSO. See
+HAINENG-INTEGRATION.md. Keep Nginx /api/haineng/ routed to the frontend.
