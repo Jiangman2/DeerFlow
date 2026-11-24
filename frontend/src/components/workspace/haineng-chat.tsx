@@ -1,13 +1,42 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import type { Message as SDKMessage } from "@langchain/langgraph-sdk";
+import Image from "next/image";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 
+import {
+  PromptInputProvider,
+  usePromptInputController,
+} from "@/components/ai-elements/prompt-input";
+import { Button } from "@/components/ui/button";
+import { ArtifactsProvider } from "@/components/workspace/artifacts";
+import { InputBox } from "@/components/workspace/input-box";
+import { MessageListItem } from "@/components/workspace/messages/message-list-item";
+import { Welcome } from "@/components/workspace/welcome";
 import { consumeHainengStream } from "@/core/haineng/stream";
+import { cn } from "@/lib/utils";
 
-type Message = { id: string; role: "user" | "assistant"; text: string; think: string };
+type Message = {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  think: string;
+};
 
-export function HainengChat() {
-  const [draft, setDraft] = useState("");
+export function HainengChat({ preview = false }: { preview?: boolean }) {
+  return (
+    <ArtifactsProvider scopeKey="haineng">
+      <PromptInputProvider>
+        <HainengChatContent preview={preview} />
+      </PromptInputProvider>
+    </ArtifactsProvider>
+  );
+}
+function HainengChatContent({ preview }: { preview: boolean }) {
+  const { textInput } = usePromptInputController();
+  const [context, setContext] = useState<
+    ComponentProps<typeof InputBox>["context"]
+  >({ mode: "flash", model_name: undefined });
   const [messages, setMessages] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -15,87 +44,226 @@ export function HainengChat() {
   const controller = useRef<AbortController | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   useEffect(() => () => controller.current?.abort(), []);
-  useEffect(() => { bottom.current?.scrollIntoView({ block: "nearest" }); }, [messages]);
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ block: "nearest" });
+  }, [messages]);
 
-  async function send() {
-    if (controller.current || !draft.trim()) return;
-    const content = draft.trim();
+  async function send(content: string) {
+    if (controller.current || !content.trim()) return;
+    content = content.trim();
     const id = crypto.randomUUID();
     const abort = new AbortController();
     controller.current = abort;
-    setBusy(true); setError(""); setDraft("");
-    setMessages((old) => [...old,
+    setBusy(true);
+    setError("");
+    setMessages((old) => [
+      ...old,
       { id: crypto.randomUUID(), role: "user", text: content, think: "" },
       { id, role: "assistant", text: "", think: "" },
     ]);
     try {
-      const response = await fetch("/api/haineng/chat", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "same-origin", signal: abort.signal,
-        body: JSON.stringify({ content, sessionId: session.current }),
-      });
+      const response = preview
+        ? new Response(
+            new ReadableStream<Uint8Array>({
+              async start(stream) {
+                const encoder = new TextEncoder();
+                for (const text of [
+                  "这是项目内的前端预览。",
+                  "\n\n输入框、消息气泡和 Markdown 渲染复用 DeerFlow 原组件。",
+                  "\n\n**没有调用任何海能服务。**",
+                ]) {
+                  if (abort.signal.aborted) {
+                    stream.error(new Error("已停止"));
+                    return;
+                  }
+                  stream.enqueue(
+                    encoder.encode(
+                      `data:${JSON.stringify({ header: { code: 0 }, payload: { sessionId: "preview-session", data: { choices: { text } } } })}\n\n`,
+                    ),
+                  );
+                  await new Promise((resolve) => setTimeout(resolve, 400));
+                }
+                stream.enqueue(
+                  encoder.encode('data:{"header":{"code":10000}}\n\n'),
+                );
+                stream.close();
+              },
+            }),
+          )
+        : await fetch("/api/haineng/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            signal: abort.signal,
+            body: JSON.stringify({ content, sessionId: session.current }),
+          });
       if (!response.ok) {
-        const problem = await response.json() as { error?: string };
+        const problem = (await response.json()) as { error?: string };
         throw new Error(problem.error ?? `请求失败（${response.status}）`);
       }
       if (!response.body) throw new Error("回答流为空");
       await consumeHainengStream(response.body, (event) => {
         const data = event.payload?.data;
         const choices = data?.choices;
-        session.current = choices?.sessionId ?? event.payload?.sessionId ?? data?.sessionId ?? session.current;
+        session.current =
+          choices?.sessionId ??
+          event.payload?.sessionId ??
+          data?.sessionId ??
+          session.current;
         if (event.header?.code === 5003) {
-          setMessages((old) => old.map((m) => m.id === id ? { ...m, text: event.header?.message ?? "内容被拦截", think: "" } : m));
+          setMessages((old) =>
+            old.map((m) =>
+              m.id === id
+                ? {
+                    ...m,
+                    text: event.header?.message ?? "内容被拦截",
+                    think: "",
+                  }
+                : m,
+            ),
+          );
         } else if (event.header?.code === 0 || event.header?.code === 2) {
-          setMessages((old) => old.map((m) => m.id === id ? {
-            ...m, text: m.text + (choices?.text ?? ""), think: m.think + (choices?.think ?? ""),
-          } : m));
+          setMessages((old) =>
+            old.map((m) =>
+              m.id === id
+                ? {
+                    ...m,
+                    text: m.text + (choices?.text ?? ""),
+                    think: m.think + (choices?.think ?? ""),
+                  }
+                : m,
+            ),
+          );
         }
       });
     } catch (cause) {
-      setError(abort.signal.aborted ? "已停止接收，已保留收到的内容。" : cause instanceof Error ? cause.message : "请求失败");
+      setError(
+        abort.signal.aborted
+          ? "已停止接收，已保留收到的内容。"
+          : cause instanceof Error
+            ? cause.message
+            : "请求失败",
+      );
     } finally {
       controller.current = null;
       setBusy(false);
     }
   }
 
+  const welcome = messages.length === 0;
+  const sdkMessages = messages.map(
+    (m): SDKMessage => ({
+      id: m.id,
+      type: m.role === "user" ? "human" : "ai",
+      content: m.text,
+      ...(m.think ? { additional_kwargs: { reasoning_content: m.think } } : {}),
+    }),
+  );
   return (
-    <section aria-label="海能 AI 对话" className="flex h-full min-h-0 w-full flex-col">
-      <header className="flex shrink-0 items-center justify-between border-b px-4 py-3">
-        <h2 className="font-semibold">海能 AI</h2>
-        <button type="button" disabled={busy} className="rounded border px-3 py-2 disabled:opacity-50"
-          onClick={() => { session.current = undefined; setMessages([]); setError(""); setDraft(""); }}>新建对话</button>
+    <div
+      className="relative flex size-full min-h-0 justify-between"
+      data-testid="haineng-chat"
+    >
+      <header
+        className={cn(
+          "cnooc-chat-header absolute top-0 right-0 left-0 z-40 flex h-12 items-center gap-2 px-4",
+          welcome && "cnooc-chat-header-welcome",
+        )}
+      >
+        {welcome && (
+          <div className="cnooc-desktop-brandline">
+            <Image
+              alt=""
+              aria-hidden="true"
+              className="cnooc-brandline-mark"
+              height={128}
+              width={128}
+              src="/images/cnooc-haineng-mark.png"
+              unoptimized
+            />
+            <strong>智启海油&nbsp; 赋能未来</strong>
+            <span aria-hidden="true">|</span>
+            <span>海能 AI</span>
+          </div>
+        )}
+        <div className="flex-1" />
+        <Button
+          variant="ghost"
+          disabled={busy}
+          onClick={() => {
+            session.current = undefined;
+            textInput.clear();
+            setMessages([]);
+            setError("");
+          }}
+        >
+          新建对话
+        </Button>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <div className="mx-auto flex max-w-3xl flex-col gap-4">
-          {messages.length === 0 && <p className="text-muted-foreground py-12 text-center">你好，有什么可以帮你？</p>}
-          {messages.map((message) => (
-            <article key={message.id} aria-label={message.role === "user" ? "我的消息" : "海能回复"}
-              className="rounded-xl border p-4 [overflow-wrap:anywhere]">
-              <p className="text-muted-foreground mb-2 text-xs">{message.role === "user" ? "你" : "海能 AI"}</p>
-              {message.think && <details><summary>思考过程</summary><p className="whitespace-pre-wrap text-sm">{message.think}</p></details>}
-              <p className="whitespace-pre-wrap">{message.text || (busy && message.role === "assistant" ? "正在回答…" : "")}</p>
-            </article>
-          ))}
-          <div ref={bottom} />
+      <main
+        className={cn(
+          "cnooc-chat-main flex min-h-0 max-w-full grow flex-col",
+          !welcome && "cnooc-chat-main-task",
+        )}
+      >
+        {welcome && (
+          <div className="cnooc-welcome-stage">
+            <Welcome mode="flash" />
+          </div>
+        )}
+        <div className="flex min-h-0 flex-1 justify-center overflow-y-auto">
+          <div className="w-full max-w-(--container-width-md) space-y-8 px-4 pt-14 pb-8">
+            {sdkMessages.map((message, index) => (
+              <MessageListItem
+                key={message.id}
+                message={message}
+                threadId="haineng"
+                isLoading={busy && index === sdkMessages.length - 1}
+                showCopyButton={!busy}
+              />
+            ))}
+            <div ref={bottom} />
+          </div>
         </div>
-      </div>
-      <form className="mx-auto w-full max-w-3xl shrink-0 space-y-2 p-4" onSubmit={(event) => { event.preventDefault(); void send(); }}>
-        {error && <p role="alert" className="text-destructive text-sm">{error}</p>}
-        <textarea aria-label="发送给海能 AI 的消息" placeholder="输入消息，Enter 发送，Shift+Enter 换行"
-          value={draft} maxLength={20000} disabled={busy}
-          className="min-h-24 w-full resize-none rounded-xl border p-3 text-base"
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-              event.preventDefault(); void send();
-            }
-          }} />
-        <div className="flex justify-end gap-2">
-          {busy ? <button type="button" className="rounded border px-4 py-2" onClick={() => controller.current?.abort()}>停止接收</button>
-            : <button type="submit" disabled={!draft.trim()} className="bg-primary text-primary-foreground rounded px-4 py-2 disabled:opacity-50">发送</button>}
+        <div
+          className={cn(
+            "cnooc-composer-dock right-0 bottom-0 left-0 z-30 flex min-w-0 justify-center px-2 sm:px-4",
+            welcome
+              ? "cnooc-composer-dock-welcome app-safe-area-bottom absolute pb-3 sm:pb-0"
+              : "relative shrink-0 pb-4",
+          )}
+        >
+          <div
+            className={cn(
+              "cnooc-composer-frame relative w-full",
+              welcome
+                ? "max-w-(--container-width-sm)"
+                : "max-w-(--container-width-md)",
+            )}
+          >
+            {error && (
+              <p role="alert" className="text-destructive mb-2 text-sm">
+                {error}
+              </p>
+            )}
+            <InputBox
+              className={cn(
+                "bg-background/5 w-full",
+                welcome && "cnooc-welcome-composer",
+              )}
+              isWelcomeMode={welcome}
+              threadId="haineng"
+              externalMessages={sdkMessages}
+              textOnly
+              context={context}
+              onContextChange={setContext}
+              status={busy ? "streaming" : "ready"}
+              onSubmit={(message) => send(message.text)}
+              onStop={() => controller.current?.abort()}
+            />
+          </div>
         </div>
-      </form>
-    </section>
+      </main>
+    </div>
   );
 }

@@ -19,3 +19,13 @@ Node 请求不使用 curl --resolve。需给前端容器配置正确的 DNS；�
 ## 验收
 
 登录白名单平台用户，切到 B，输入问题，确认正文逐段出现且正常结束。继续追问确认复用 sessionId。切回 A 再切 B，确认消息和草稿保留。测试会话过期、非白名单用户、提前断流和停止接收；停止接收不保证海能取消模型计算。
+
+## 工作 / 对话模式
+
+默认“工作”运行 DeerFlow；居中滑动开关切换到“对话”后使用相同的输入、欢迎和消息组件，聊天经 Next.js POST /api/haineng/chat 调用海能，Accept 为 */*，与已成功 curl 一致。海能 HTTP 200 + ret:302 会作为认证过期处理。
+
+反向代理 HTTPS 环境请设置 HAINENG_APP_ORIGIN 为实际完整访问源，例如 https://cnoocclawtest.com，用于请求来源校验。
+
+提供 docker/docker-compose.haineng.yaml 作为可选部署叠加文件。与已有部署的 compose 文件一起使用，给部署终端注入 HAINENG_SESSION、HAINENG_TEST_USER_IDS、HAINENG_APP_ORIGIN。可通过 HAINENG_HOST_IP 覆盖临时的 10.74.5.6。叠加文件只修改 frontend，实际 Nginx 仍需采用仓库中 /api/haineng/ 的路由。
+
+开发预览 /preview/chat 仅使用模拟回复，生产工作区的“对话”才请求海能。预览路由在生产不可访问。

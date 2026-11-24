@@ -1,0 +1,10 @@
+# Combine with your normal production compose files, after the base compose file.
+# Supply secrets via the deployment environment; never commit real values.
+services:
+  frontend:
+    extra_hosts:
+      - "heq.cnooc.com.cn:${HAINENG_HOST_IP:-10.74.5.6}"
+    environment:
+      HAINENG_SESSION: ${HAINENG_SESSION:?Set the tested Haineng SESSION}
+      HAINENG_TEST_USER_IDS: ${HAINENG_TEST_USER_IDS:?Set the matching platform test user ID}
+      HAINENG_APP_ORIGIN: ${HAINENG_APP_ORIGIN:?Set the public origin including https://}

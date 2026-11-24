@@ -20,6 +20,7 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -136,7 +137,7 @@ import {
   KnowledgeScopeChips,
   KnowledgeScopeSelector,
 } from "./knowledge-scope-selector";
-import { useThread } from "./messages/context";
+import { ThreadContext } from "./messages/context";
 import type { AgentMode } from "./mode-hover-guide";
 import {
   ModeSelector,
@@ -289,8 +290,12 @@ export function InputBox({
   onGoalChange,
   onSubmit,
   onStop,
+  externalMessages,
+  textOnly = false,
   ...props
 }: Omit<ComponentProps<typeof PromptInput>, "onSubmit"> & {
+  externalMessages?: Message[];
+  textOnly?: boolean;
   assistantId?: string | null;
   status?: ChatStatus;
   disabled?: boolean;
@@ -317,8 +322,12 @@ export function InputBox({
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
-  const { models } = useModels();
-  const { thread, isMock } = useThread();
+  const { models } = useModels({ enabled: !textOnly });
+  const threadContext = useContext(ThreadContext);
+  const thread = externalMessages
+    ? { messages: externalMessages }
+    : (threadContext?.thread ?? { messages: [] });
+  const isMock = externalMessages ? false : threadContext?.isMock;
   const { attachments, textInput } = usePromptInputController();
   const addAttachmentFiles = attachments.add;
   const sidecar = useMaybeSidecar();
@@ -334,8 +343,8 @@ export function InputBox({
   const [desktopMaterialRows, setDesktopMaterialRows] = useState(1);
   const desktopMaterialOffset = Math.max(0, desktopMaterialRows - 1) * 40;
   const removeAttachment = attachments.remove;
-  const { skills } = useSkills();
-  const { data: uploadLimits } = useUploadLimits(threadId);
+  const { skills } = useSkills({ enabled: !textOnly });
+  const { data: uploadLimits } = useUploadLimits(textOnly ? "" : threadId);
   const promptRootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -987,6 +996,10 @@ export function InputBox({
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
+      if (textOnly) {
+        if (status !== "streaming") await onSubmit?.({ ...message, files: [] });
+        return;
+      }
       if (status === "streaming") {
         toast.info(t.inputBox.pleaseWaitStreaming);
         return Promise.reject(new Error("streaming"));
@@ -1039,6 +1052,8 @@ export function InputBox({
       }
     },
     [
+      textOnly,
+      onSubmit,
       abortVoiceInput,
       handleCompactCommand,
       handleGoalCommand,
@@ -1119,6 +1134,7 @@ export function InputBox({
   );
   const showSkillSuggestions =
     !disabled &&
+    !textOnly &&
     textareaFocused &&
     !selectedSlashSkill &&
     slashSkillQuery !== null &&
@@ -1667,7 +1683,7 @@ export function InputBox({
       return;
     }
 
-    if (disabled || isMock) {
+    if (disabled || isMock || textOnly) {
       return;
     }
 
@@ -1746,6 +1762,7 @@ export function InputBox({
     status,
     suggestionsConfigLoaded,
     suggestionsEnabled,
+    textOnly,
     threadId,
   ]);
 
@@ -1764,7 +1781,7 @@ export function InputBox({
   const voiceInputControl = (
     <VoiceInputButton
       className="cnooc-tool-voice"
-      disabled={composerLocked}
+      disabled={composerLocked || textOnly}
       listening={voiceListening}
       supported={voiceInputSupported}
       onToggle={toggleVoiceInput}
@@ -1790,7 +1807,7 @@ export function InputBox({
         className="cnooc-tool-polish px-2!"
         data-active={polishingInput || inputPolishUndoAvailable}
         data-testid="polish-input-button"
-        disabled={inputPolishDisabled}
+        disabled={inputPolishDisabled || textOnly}
         onClick={
           inputPolishUndoAvailable ? handleUndoInputPolish : handlePolishInput
         }
@@ -1909,7 +1926,7 @@ export function InputBox({
           className,
         )}
         disabled={composerLocked}
-        globalDrop
+        globalDrop={!textOnly}
         multiple
         onSubmit={handleSubmit}
         {...props}
@@ -1941,7 +1958,7 @@ export function InputBox({
           <KnowledgeScopeChips
             className="contents"
             context={context}
-            disabled={composerLocked}
+            disabled={composerLocked || textOnly}
             onContextChange={onContextChange}
           />
           {polishingInput && (
@@ -2053,21 +2070,21 @@ export function InputBox({
           </PromptInputActionMenu> */}
             <AddAttachmentsButton
               className="cnooc-tool-attachments px-2!"
-              disabled={composerLocked}
+              disabled={composerLocked || textOnly}
               showLabel
               uploadLimits={uploadLimits}
             />
             <ShopCartAttachmentButton
               className="cnooc-tool-datalake"
               context={context}
-              disabled={composerLocked}
+              disabled={composerLocked || textOnly}
               onAddFiles={addValidatedAttachments}
               onContextChange={onContextChange}
             />
             <KnowledgeScopeSelector
               className="cnooc-tool-knowledge"
               context={context}
-              disabled={composerLocked}
+              disabled={composerLocked || textOnly}
               onContextChange={onContextChange}
             />
             {!isWelcomeMode && voiceInputControl}
@@ -2077,7 +2094,7 @@ export function InputBox({
                 "cnooc-tool-mode",
                 isWelcomeMode ? "hidden sm:inline-flex" : undefined,
               )}
-              disabled={composerLocked}
+              disabled={composerLocked || textOnly}
               mode={context.mode}
               supportsThinking={supportThinking}
               onSelect={handleModeSelect}
@@ -2086,7 +2103,7 @@ export function InputBox({
               <PromptInputActionMenu>
                 <PromptInputActionMenuTrigger
                   className="hidden gap-1! px-2! sm:inline-flex"
-                  disabled={composerLocked}
+                  disabled={composerLocked || textOnly}
                 >
                   <div className="text-xs font-normal">
                     {t.inputBox.reasoningEffort}:
@@ -2212,7 +2229,7 @@ export function InputBox({
               <ModelSelectorTrigger asChild>
                 <PromptInputButton
                   className="cnooc-model-selector min-w-0 px-2!"
-                  disabled={composerLocked}
+                  disabled={composerLocked || textOnly}
                 >
                   <div className="cnooc-model-label flex min-w-0 flex-col items-start text-left">
                     <ModelSelectorName className="cnooc-model-name font-normal">
