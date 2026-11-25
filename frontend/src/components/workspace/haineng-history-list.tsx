@@ -19,7 +19,7 @@ export function HainengHistoryList() {
   const records = history.records.filter((r) => r.messages.length > 0);
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>对话记录 · 本机保存</SidebarGroupLabel>
+      <SidebarGroupLabel>最近对话</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -39,14 +39,14 @@ export function HainengHistoryList() {
               <SidebarMenuButton
                 disabled={history.busy}
                 isActive={history.activeId === record.id}
-                tooltip={record.title}
+                tooltip={`对话·${record.title}`}
                 onClick={() => {
                   history.open(record.id);
                   if (isMobile) setOpenMobile(false);
                 }}
               >
                 <MessageCircle />
-                <span className="truncate">{record.title}</span>
+                <span className="truncate">对话·{record.title}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

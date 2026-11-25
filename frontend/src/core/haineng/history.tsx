@@ -34,6 +34,8 @@ type History = {
   ready: boolean;
   busy: boolean;
   openVersion: number;
+  workVersion: number;
+  openWork: () => void;
   save: (record: HainengRecord) => void;
   open: (id: string) => void;
   create: () => void;
@@ -75,6 +77,7 @@ function ScopedHistory({
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [openVersion, setOpenVersion] = useState(0);
+  const [workVersion, setWorkVersion] = useState(0);
   const [storageError, setStorageError] = useState("");
   useEffect(() => {
     try {
@@ -113,6 +116,8 @@ function ScopedHistory({
         ready,
         busy,
         openVersion,
+        workVersion,
+        openWork: () => setWorkVersion((v) => v + 1),
         save,
         storageError,
         setBusy,

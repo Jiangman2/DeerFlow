@@ -644,12 +644,17 @@ remote site; no tokens are passed through JavaScript or URLs. Validate remote
 frame-ancestors/X-Frame-Options, parent frame-src, and SSO cookies in deployment.
 An iframe load event is not proof of authentication or successful embedding.
 
-### Haineng direct chat
+### Haineng multi-user integration
 
-B now lazy-mounts HainengChat instead of the remote iframe. POST /api/haineng/chat
-is a Next.js server route requiring platform authentication, same-origin POST,
-and HAINENG_TEST_USER_IDS membership. HAINENG_SESSION stays server-only. This is
-restricted single-user integration testing, not production SSO. See
-HAINENG-INTEGRATION.md. Keep Nginx /api/haineng/ routed to the frontend.
+B reuses InputBox and message rendering. POST /api/haineng/chat requires platform
+login and same-origin POST, with no test-user whitelist or shared personal SESSION.
+The per-user upstream authentication extension point lives in core/haineng/server/auth.ts;
+stage one returns no credentials and propagates upstream authentication errors.
+Platform-signed continuation IDs bind upstream sessions to the authenticated user.
+Use a stable HAINENG_CONVERSATION_SECRET or BETTER_AUTH_SECRET (32+ characters).
+Nginx /api/haineng/ stays routed to the frontend. See HAINENG-INTEGRATION.md.
 
-HainengHistoryProvider wraps workspace content and sidebar. Haineng histories are browser-local, keyed by platform user ID and preview/live namespace. They are not Gateway threads or server-backed ownership enforcement. Sidebar selection opens chat mode; active generation locks history navigation. Do not store SESSION in localStorage.
+HainengHistoryProvider keeps browser-local user-scoped histories. RecentChatList
+merges these with work threads using a 对话· title prefix, preserving work titles
+and existing work thread operations. This is not server-backed history storage.
+Never store authentication credentials in localStorage.

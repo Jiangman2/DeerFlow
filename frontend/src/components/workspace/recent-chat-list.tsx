@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getAPIClient } from "@/core/api";
 import { writeTextToClipboard } from "@/core/clipboard";
+import { useHainengHistory, type HainengRecord } from "@/core/haineng/history";
 import { useI18n } from "@/core/i18n/hooks";
 import {
   exportThreadAsJSON,
@@ -82,6 +83,7 @@ import { useThreadDeleteDialog } from "./thread-delete-dialog";
 import { useThreadArchiveAction } from "./use-thread-archive-action";
 
 export function RecentChatList() {
+  const history = useHainengHistory();
   const { t } = useI18n();
   const pathname = usePathname();
   const archiveAction = useThreadArchiveAction();
@@ -123,6 +125,33 @@ export function RecentChatList() {
     );
     return [...demoThreads, ...sortPinnedThreads(liveThreads)];
   }, [threads]);
+
+  const mergedEntries = useMemo(() => {
+    const items: (
+      | { kind: "work"; thread: AgentThread; date: number }
+      | { kind: "chat"; record: HainengRecord; date: number }
+    )[] = [
+      ...displayedThreads.map((thread) => ({
+        kind: "work" as const,
+        thread,
+        date: Date.parse(thread.updated_at ?? thread.created_at) || 0,
+      })),
+      ...history.records
+        .filter((record) => record.messages.length > 0)
+        .map((record) => ({
+          kind: "chat" as const,
+          record,
+          date: record.updatedAt,
+        })),
+    ];
+    const rank = (item: (typeof items)[number]) =>
+      item.kind === "work" && item.thread.metadata?.demo === true
+        ? 2
+        : item.kind === "work" && isThreadPinned(item.thread)
+          ? 1
+          : 0;
+    return items.sort((a, b) => rank(b) - rank(a) || b.date - a.date);
+  }, [displayedThreads, history.records]);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -233,33 +262,50 @@ export function RecentChatList() {
     [t],
   );
 
-  if (threads.length === 0) {
+  if (mergedEntries.length === 0) {
     return null;
   }
   return (
     <>
       <SidebarGroup>
-        <SidebarGroupLabel>对话</SidebarGroupLabel>
+        <SidebarGroupLabel>最近对话</SidebarGroupLabel>
         <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
           <SidebarMenu>
             <div className="flex w-full flex-col gap-1">
-              {displayedThreads.map((thread, index) => {
-                const previousThread = displayedThreads[index - 1];
+              {mergedEntries.map((entry, index) => {
+                if (entry.kind === "chat")
+                  return (
+                    <SidebarMenuItem key={`chat:${entry.record.id}`}>
+                      <SidebarMenuButton
+                        disabled={history.busy}
+                        isActive={history.activeId === entry.record.id}
+                        tooltip={`对话·${entry.record.title}`}
+                        onClick={() => history.open(entry.record.id)}
+                      >
+                        <span className="min-w-0 truncate">
+                          对话·{entry.record.title}
+                        </span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                const thread = entry.thread;
+                const previousEntry = mergedEntries[index - 1];
+                const previousThread =
+                  previousEntry?.kind === "work"
+                    ? previousEntry.thread
+                    : undefined;
                 const isDemoThread = thread.metadata?.demo === true;
                 const showDemoLabel =
                   isDemoThread &&
                   (index === 0 || previousThread?.metadata?.demo !== true);
-                const showRecentLabel =
-                  !isDemoThread &&
-                  (index === 0 || previousThread?.metadata?.demo === true);
                 const isActive = pathOfThread(thread) === pathname;
                 const channelSource = channelSourceOfThread(thread);
                 const pinned = isThreadPinned(thread);
                 return (
                   <Fragment key={thread.thread_id}>
-                    {(showDemoLabel || showRecentLabel) && (
+                    {showDemoLabel && (
                       <div className="text-muted-foreground/70 mt-3 mb-1 px-2 text-[11px] font-medium tracking-wide first:mt-0">
-                        {showDemoLabel ? "演示对话" : "最近对话"}
+                        演示对话
                       </div>
                     )}
                     <SidebarMenuItem className="group/side-menu-item">
@@ -271,6 +317,7 @@ export function RecentChatList() {
                         <Link
                           className="text-muted-foreground min-w-0 whitespace-nowrap group-hover/side-menu-item:overflow-hidden"
                           href={pathOfThread(thread)}
+                          onClick={() => history.openWork()}
                         >
                           <ThreadChannelIcon source={channelSource} />
                           {pinned ? (
@@ -424,6 +471,11 @@ export function RecentChatList() {
               )}
             </div>
           </SidebarMenu>
+          {history.storageError && (
+            <p role="alert" className="text-destructive px-2 text-xs">
+              {history.storageError}
+            </p>
+          )}
         </SidebarGroupContent>
       </SidebarGroup>
 

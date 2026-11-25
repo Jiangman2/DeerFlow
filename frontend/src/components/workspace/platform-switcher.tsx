@@ -15,7 +15,10 @@ export function PlatformSwitcher({
   children: ReactNode;
   preview?: boolean;
 }) {
-  const { openVersion } = useHainengHistory();
+  const { openVersion, workVersion } = useHainengHistory();
+  useEffect(() => {
+    if (workVersion > 0) setActive("a");
+  }, [workVersion]);
   useEffect(() => {
     if (openVersion > 0) {
       setHasOpenedB(true);

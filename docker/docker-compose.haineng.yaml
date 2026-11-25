@@ -1,10 +1,10 @@
-# Combine with your normal production compose files, after the base compose file.
-# Supply secrets via the deployment environment; never commit real values.
+# Optional Haineng network overlay. No shared personal SESSION is accepted.
 services:
   frontend:
     extra_hosts:
       - "heq.cnooc.com.cn:${HAINENG_HOST_IP:-10.74.5.6}"
     environment:
-      HAINENG_SESSION: ${HAINENG_SESSION:?Set the tested Haineng SESSION}
-      HAINENG_TEST_USER_IDS: ${HAINENG_TEST_USER_IDS:?Set the matching platform test user ID}
       HAINENG_APP_ORIGIN: ${HAINENG_APP_ORIGIN:?Set the public origin including https://}
+      # Reuse stable BETTER_AUTH_SECRET from the main compose environment.
+      # Or set a dedicated application signing key, never a Haineng SESSION.
+      HAINENG_CONVERSATION_SECRET: ${HAINENG_CONVERSATION_SECRET:-${BETTER_AUTH_SECRET}}
