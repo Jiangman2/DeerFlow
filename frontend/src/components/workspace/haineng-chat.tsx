@@ -13,6 +13,7 @@ import { ArtifactsProvider } from "@/components/workspace/artifacts";
 import { InputBox } from "@/components/workspace/input-box";
 import { MessageListItem } from "@/components/workspace/messages/message-list-item";
 import { Welcome } from "@/components/workspace/welcome";
+import { useHainengHistory } from "@/core/haineng/history";
 import { consumeHainengStream } from "@/core/haineng/stream";
 import { cn } from "@/lib/utils";
 
@@ -24,23 +25,35 @@ type Message = {
 };
 
 export function HainengChat({ preview = false }: { preview?: boolean }) {
+  const history = useHainengHistory();
+  if (!history.ready) return null;
+  const record = history.records.find((r) => r.id === history.activeId);
   return (
     <ArtifactsProvider scopeKey="haineng">
-      <PromptInputProvider>
-        <HainengChatContent preview={preview} />
+      <PromptInputProvider
+        key={history.activeId}
+        initialInput={record?.draft ?? ""}
+      >
+        <HainengChatContent key={history.activeId} preview={preview} />
       </PromptInputProvider>
     </ArtifactsProvider>
   );
 }
 function HainengChatContent({ preview }: { preview: boolean }) {
   const { textInput } = usePromptInputController();
+  const history = useHainengHistory();
+  const initialRecord = useRef(
+    history.records.find((r) => r.id === history.activeId),
+  );
   const [context, setContext] = useState<
     ComponentProps<typeof InputBox>["context"]
   >({ mode: "flash", model_name: undefined });
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(
+    initialRecord.current?.messages ?? [],
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const session = useRef<string | undefined>(undefined);
+  const session = useRef<string | undefined>(initialRecord.current?.sessionId);
   const controller = useRef<AbortController | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   useEffect(() => () => controller.current?.abort(), []);
@@ -48,9 +61,32 @@ function HainengChatContent({ preview }: { preview: boolean }) {
     bottom.current?.scrollIntoView({ block: "nearest" });
   }, [messages]);
 
+  const saveHistory = history.save;
+  const setHistoryBusy = history.setBusy;
+  const recordId = history.activeId;
+  const recordTime = useRef(initialRecord.current?.updatedAt ?? Date.now());
+  useEffect(() => {
+    setHistoryBusy(busy);
+    return () => setHistoryBusy(false);
+  }, [busy, setHistoryBusy]);
+  useEffect(() => {
+    if (busy || (messages.length === 0 && !textInput.value)) return;
+    saveHistory({
+      id: recordId,
+      title:
+        messages.find((m) => m.role === "user")?.text.slice(0, 40) ??
+        "新建对话",
+      messages,
+      sessionId: session.current,
+      draft: textInput.value,
+      updatedAt: recordTime.current,
+    });
+  }, [messages, busy, textInput.value, saveHistory, recordId]);
+
   async function send(content: string) {
     if (controller.current || !content.trim()) return;
     content = content.trim();
+    recordTime.current = Date.now();
     const id = crypto.randomUUID();
     const abort = new AbortController();
     controller.current = abort;
@@ -191,10 +227,7 @@ function HainengChatContent({ preview }: { preview: boolean }) {
           variant="ghost"
           disabled={busy}
           onClick={() => {
-            session.current = undefined;
-            textInput.clear();
-            setMessages([]);
-            setError("");
+            history.create();
           }}
         >
           新建对话

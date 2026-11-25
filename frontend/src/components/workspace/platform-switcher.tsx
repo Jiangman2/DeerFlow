@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
+import { useHainengHistory } from "@/core/haineng/history";
 import { useI18n } from "@/core/i18n/hooks";
 
 import { HainengChat } from "./haineng-chat";
@@ -14,6 +15,13 @@ export function PlatformSwitcher({
   children: ReactNode;
   preview?: boolean;
 }) {
+  const { openVersion } = useHainengHistory();
+  useEffect(() => {
+    if (openVersion > 0) {
+      setHasOpenedB(true);
+      setActive("b");
+    }
+  }, [openVersion]);
   const { locale } = useI18n();
   const chinese = locale === "zh-CN";
   const [active, setActive] = useState<"a" | "b">("a");
