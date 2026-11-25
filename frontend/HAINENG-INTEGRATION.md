@@ -30,3 +30,7 @@
 可叠加 docker/docker-compose.haineng.yaml。前端容器需能够解析和访问海能域名；该文件保留经联调可用的 extra_hosts，HAINENG_HOST_IP 可覆盖 10.74.5.6。海能 URL 保持域名，保留证书校验。Nginx /api/haineng/ 必须转发到 frontend:3000，并关闭响应缓冲，读取超时应覆盖长回答。
 
 仅在开发环境可用的 /preview/chat 仍使用本地模拟回复，不代表上游认证已完成。
+
+## 独立临时联调分支
+
+仅 feat/haineng-session-test 增加按平台用户绑定的可选个人 SESSION 注入。默认关闭，不改变其他用户的流程。参见 HAINENG-SESSION-TEST.md；不要将该临时机制合并回正式集成分支。
