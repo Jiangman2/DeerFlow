@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 
 import { WorkspaceChannelsList } from "./channels/workspace-channels-list";
+import { HainengHistoryList } from "./haineng-history-list";
 import { RecentChatList } from "./recent-chat-list";
 import { ThreadDeleteDialogProvider } from "./thread-delete-dialog";
 import { WorkspaceHeader } from "./workspace-header";
@@ -52,7 +53,12 @@ export function WorkspaceSidebar({
         <SidebarContent className="mx-1 rounded-md border border-transparent bg-transparent group-data-[collapsible=icon]:mx-0">
           <WorkspaceNavChatList />
           <WorkspaceChannelsList />
-          {isSidebarOpen && <RecentChatList />}
+          {isSidebarOpen && (
+            <>
+              <HainengHistoryList />
+              <RecentChatList />
+            </>
+          )}
         </SidebarContent>
         <SidebarFooter className="mx-1 rounded-md border border-transparent bg-transparent group-data-[collapsible=icon]:mx-0">
           <WorkspaceNavMenu />

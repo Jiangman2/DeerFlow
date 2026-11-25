@@ -651,3 +651,5 @@ is a Next.js server route requiring platform authentication, same-origin POST,
 and HAINENG_TEST_USER_IDS membership. HAINENG_SESSION stays server-only. This is
 restricted single-user integration testing, not production SSO. See
 HAINENG-INTEGRATION.md. Keep Nginx /api/haineng/ routed to the frontend.
+
+HainengHistoryProvider wraps workspace content and sidebar. Haineng histories are browser-local, keyed by platform user ID and preview/live namespace. They are not Gateway threads or server-backed ownership enforcement. Sidebar selection opens chat mode; active generation locks history navigation. Do not store SESSION in localStorage.
