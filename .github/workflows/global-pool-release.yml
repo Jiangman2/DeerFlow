@@ -1,0 +1,45 @@
+name: Global pool release
+on:
+  pull_request:
+    branches: [codex/enterprise-consolidation-20260716]
+    paths:
+      - release/global-pool-20261128/**
+      - k8s/local-pvc/nginx.conf
+      - .github/workflows/global-pool-release.yml
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify released sources and migration
+        run: |
+          python -B release/global-pool-20261128/build.py
+          echo 'baac2093327c6e68df6d1db783d2f62f6dbf18f2f38f411cbae031e885d1579d  backend/packages/harness/deerflow/persistence/migrations/versions/0023_procurement_review_jobs.py' | sha256sum -c -
+      - name: Exercise the public invite redirect
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nginx
+          mkdir -p "$RUNNER_TEMP/nginx/logs"
+          cat > "$RUNNER_TEMP/nginx/test.conf" <<EOF
+          error_log stderr;
+          events {}
+          http {
+            access_log off;
+            server {
+              listen 127.0.0.1:18080;
+              server_name cnoocclaw.cnooc.com.cn heai.cnooc.com.cn;
+              include $GITHUB_WORKSPACE/release/global-pool-20261128/cnoocclaw-invite.inc;
+              location / { return 204; }
+            }
+          }
+          EOF
+          nginx -p "$RUNNER_TEMP/nginx" -g "pid $RUNNER_TEMP/nginx/test.pid;" -c "$RUNNER_TEMP/nginx/test.conf"
+          trap 'kill -QUIT "$(cat "$RUNNER_TEMP/nginx/test.pid")"' EXIT
+          path='http://127.0.0.1:18080/join?code=route-test'
+          test "$(curl -sS -H 'Host: cnoocclaw.cnooc.com.cn' -o /dev/null -w '%{http_code} %header{location}' "$path")" = '302 /platform/organizations?invite_code=route-test'
+          test "$(curl -sS -H 'Host: heai.cnooc.com.cn' -o /dev/null -w '%{http_code}' "$path")" = '204'
