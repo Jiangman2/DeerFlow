@@ -19,6 +19,7 @@ jobs:
       - name: Verify released sources and migration
         run: |
           python -B release/global-pool-20261128/build.py
+          echo 'c8a3793cc1aeebb9ca497c6c703516716fcdcfeeca24ebff0899430531687943  k8s/local-pvc/nginx.conf' | sha256sum -c -
           echo 'baac2093327c6e68df6d1db783d2f62f6dbf18f2f38f411cbae031e885d1579d  backend/packages/harness/deerflow/persistence/migrations/versions/0023_procurement_review_jobs.py' | sha256sum -c -
       - name: Exercise the public invite redirect
         run: |
