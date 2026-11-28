@@ -1,0 +1,37 @@
+{
+  "schema": "standards-portal-source.v1",
+  "status": "NOT_DEPLOYED",
+  "base_commit": "c0c6dfa547a1963677db974a98f3dbc47b9c130e",
+  "production_acceptance_claimed": false,
+  "runtime_modified_by_registration": false,
+  "source_files": {
+    "frontend/src/app/(standards-portal)/AGENTS.md": {
+      "kind": "development-guide",
+      "sha256": "d6259cf3f3052aa644db719d6ce067dfcb19f4debb7069432024d5b644c4741a"
+    },
+    "frontend/src/app/(standards-portal)/workspace/standards/layout.tsx": {
+      "kind": "runtime-source",
+      "sha256": "e537e1c99b4312e7a016b96df0874282b36fdbf12045c72af26b1051a54a5603"
+    },
+    "frontend/src/app/(standards-portal)/workspace/standards/page.tsx": {
+      "kind": "runtime-source",
+      "sha256": "b5b04ed87fc9b36177571d47acd3dc9c8a5d9ceaa19d19311a5ba17e7d2b9685"
+    },
+    "frontend/src/app/(standards-portal)/workspace/standards/portal-entry.tsx": {
+      "kind": "runtime-source",
+      "sha256": "db6b3f563e2ed61e1eb80a3333d07b2d3081586874cdfd119ce4ac35dfa43c4b"
+    },
+    "frontend/src/app/(standards-portal)/workspace/standards/standards.module.css": {
+      "kind": "runtime-source",
+      "sha256": "469a595bd51c140a6f5bd9b3c263ae20705ba3df28fba6db7947f399d9e3028b"
+    },
+    "frontend/src/core/i18n/standards-portal.ts": {
+      "kind": "runtime-source",
+      "sha256": "82741879a023e685b3661d6c091fc4eb34c0d0a92a5eeed7ca90d271faff3d58"
+    },
+    "frontend/src/core/standards-portal/config.ts": {
+      "kind": "runtime-source",
+      "sha256": "c14e97957634b06e0e273c0d1ea60bd2ba40483412874d7b6712ce426d26bd63"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+# 部署到现有前端所在命名空间；空字符串表示尚未配置。
+# 值填写真实员工内部名称（支持原始中文），不填写 URL 或编码串。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: standards-portal-links
+data:
+  STANDARDS_PORTAL_AGENTS_JSON: |-
+    {
+      "qa": "",
+      "search": "",
+      "policy": "",
+      "comparison": "",
+      "applicability": "",
+      "compliance": "",
+      "authoring": ""
+    }

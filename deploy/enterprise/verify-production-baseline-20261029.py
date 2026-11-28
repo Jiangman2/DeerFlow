@@ -15,6 +15,11 @@ import tarfile
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = 'deploy/enterprise/production-source-lock-20261029.json'
 
+_standards_spec = importlib.util.spec_from_file_location(
+    'standards_portal_source_20261117', Path(__file__).with_name('standards_portal_source_20261117.py'))
+standards_portal = importlib.util.module_from_spec(_standards_spec)
+_standards_spec.loader.exec_module(standards_portal)
+
 
 def sha(raw):
     return hashlib.sha256(raw).hexdigest()
@@ -44,6 +49,20 @@ def verify(ref=None):
             return cache[path]
         return (ROOT / path).read_bytes()
 
+    # Older refs have no portal candidate. Check presence before read(): the Git
+    # batch reader deliberately rejects missing blobs instead of returning None.
+    candidate_read = read
+    if ref:
+        candidate_names = set(subprocess.check_output([
+            'git', 'ls-tree', '-r', '--name-only', ref,
+            standards_portal.MANIFEST, *sorted(standards_portal.FILES)], cwd=ROOT).decode().splitlines())
+
+        def candidate_read(path):
+            if path not in candidate_names:
+                raise KeyError(path)
+            return read(path)
+
+    standards_manifest = standards_portal.qualify(candidate_read)
     lock = json.loads(read(LOCK))
     spec = importlib.util.spec_from_file_location('historical_source_verifier', ROOT / 'deploy/enterprise/verify-release-source-20261023.py')
     old = importlib.util.module_from_spec(spec)
@@ -105,6 +124,8 @@ def verify(ref=None):
         expected.update(result['history_composer_candidate']['frontend_runtime_paths'])
     if result.get('work_integration_followup'):
         expected.update(result['work_integration_followup']['added_frontend_runtime'])
+    if standards_manifest is not None:
+        expected.update(standards_portal.FILES)
     if ref:
         names = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', ref, 'frontend/src', 'frontend/public'], cwd=ROOT).decode().splitlines()
         actual = set(names)
@@ -147,6 +168,11 @@ def verify(ref=None):
         result.update(status='WORK_INTEGRATION_FOLLOWUP_ON_HISTORICAL_BASELINE_VERIFIED',
                       runtime_accepted=False, candidate_deployed=False,
                       scope='Scoped Work candidate; historical sources and production acceptance preserved')
+    if standards_manifest is not None:
+        result.update(status='STANDARDS_PORTAL_CANDIDATE_ON_HISTORICAL_BASELINE_VERIFIED',
+                      standards_portal_candidate=standards_portal.summary(standards_manifest),
+                      runtime_accepted=False, candidate_deployed=False,
+                      scope='Scoped standards portal frontend candidate; no new production acceptance')
     return result
 
 
