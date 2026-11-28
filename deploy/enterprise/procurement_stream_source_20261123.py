@@ -9,6 +9,13 @@ MANIFEST_SHA256 = '2c02b39923ec28034745b2dd0daf93378d645204db44b1ad8be7f260305c5
 BASE_COMMIT = 'd2a7ea4dbb0f98c70321ddc65958d41aa4d28825'
 PATHS = ('.github/workflows/nov02-released-fixes.yml', 'backend/AGENTS.md', 'backend/README.md', 'backend/app/gateway/procurement_review/config.py', 'backend/app/gateway/procurement_review/files.py', 'backend/app/gateway/procurement_review/markdown_report.py', 'backend/app/gateway/procurement_review/router.py', 'backend/app/gateway/procurement_review/rules.py', 'backend/app/gateway/procurement_review/service.py', 'backend/app/gateway/procurement_review/stream.py', 'backend/tests/fixtures/procurement_callback.py', 'backend/tests/test_procurement_input_formats.py', 'backend/tests/test_procurement_markdown.py', 'backend/tests/test_procurement_review.py', 'backend/tests/test_procurement_stream.py', 'deploy/enterprise/procurement-dataqa-20261123/AGENTS.md', 'deploy/enterprise/procurement-dataqa-20261123/README.md', 'deploy/enterprise/procurement-dataqa-20261123/config_reconcile.py', 'deploy/enterprise/procurement-dataqa-20261123/dataqa_config.py', 'deploy/enterprise/procurement-dataqa-20261123/fixtures/files.py', 'deploy/enterprise/procurement-dataqa-20261123/fixtures/service.py', 'deploy/enterprise/procurement-dataqa-20261123/fixtures/stream.py', 'deploy/enterprise/procurement-dataqa-20261123/manifest.json', 'deploy/enterprise/procurement-dataqa-20261123/payload/markdown_report.py', 'deploy/enterprise/procurement-dataqa-20261123/probe.py', 'deploy/enterprise/procurement-dataqa-20261123/readiness_wait.py', 'deploy/enterprise/procurement-dataqa-20261123/reconcile_runtime.py', 'deploy/enterprise/procurement-dataqa-20261123/source.patch', 'deploy/enterprise/procurement-dataqa-20261123/test_config_reconcile.py', 'deploy/enterprise/procurement-dataqa-20261123/test_dataqa.py', 'deploy/enterprise/procurement-dataqa-20261123/test_delivery.py', 'deploy/enterprise/procurement-dataqa-20261123/test_readiness.py', 'deploy/enterprise/procurement-dataqa-20261123/test_secret_names.py', 'deploy/enterprise/procurement-dataqa-20261123/update.py', 'deploy/enterprise/test_procurement_review_source_20261118.py', 'deploy/enterprise/test_procurement_stream_source_20261123.py', 'deploy/enterprise/verify-dashboard-navigation-source-20261103.py', 'deploy/enterprise/verify-history-composer-source-20261106.py', 'deploy/enterprise/verify-nov01-released-source-20261102.py', 'deploy/enterprise/verify-nov02-released-source-20261103.py', 'deploy/enterprise/verify-personal-notification-source-20261117.py', 'deploy/enterprise/verify-post51-energy-source-20261116.py', 'deploy/enterprise/verify-release-source-20261023.py', 'docs/procurement-review-agent-prompt.md', 'docs/procurement-review-integration.md', 'k8s/local-pvc/nginx.conf', 'tests/test_procurement_nginx_route.py')
 MARKER = "backend/app/gateway/procurement_review/stream.py"
+INVITE_NGINX_SHA256 = "c8a3793cc1aeebb9ca497c6c703516716fcdcfeeca24ebff0899430531687943"
+INVITE_ROUTE = b"""        location = /join {
+            absolute_redirect off;
+            return 302 /platform/organizations?invite_code=$arg_code;
+        }
+
+"""
 
 def digest(raw):
     return hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
@@ -30,6 +37,9 @@ def historical_view(read):
     parents = {}
     for path, row in manifest["changes"].items():
         current = read(path)
+        if path == "k8s/local-pvc/nginx.conf" and digest(current) == INVITE_NGINX_SHA256:
+            # Recover the exact November 23 file from the known November 27 successor.
+            current = current.replace(b"\r\n", b"\n").replace(INVITE_ROUTE, b"", 1)
         assert digest(current) == row["current_sha256"], (path, "PROCUREMENT_STREAM_CURRENT_CHANGED")
         parent = None if row["base_sha256"] is None else read(ARCHIVE + "baseline/" + path)
         assert (digest(parent) if parent is not None else None) == row["base_sha256"], (path, "PROCUREMENT_STREAM_PARENT_CHANGED")
